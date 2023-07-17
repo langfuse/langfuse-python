@@ -1,19 +1,18 @@
 import asyncio
 import base64
 from typing import Coroutine, Optional
-from wrapper.api.trace import trace_create
-from wrapper.client import Client
 
-from wrapper.models.create_trace_request import CreateTraceRequest
+from langfuse.openapi.client import Client
+from langfuse.openapi.models.create_trace_request import CreateTraceRequest
+from langfuse.openapi.api.trace import trace_create
 
-
-class ApiClient:
+class Langfuse:
     """A Client which has been authenticated for use on secured endpoints"""
 
     
     def __init__(self, public_key: str, secret_key: str, base_url: Optional[str]):
         
-        self.promises: list[Coroutine] = []#attr.ib(factory=list)
+        self.promises: list[Coroutine] = []
 
         self.base_url = base_url if base_url else 'https://cloud.langfuse.com'
 
@@ -40,6 +39,11 @@ class ApiClient:
         print("trace_promise", self.promises)
         self.promises.append(trace_promise)
 
-    async def flush(self):
-        return await asyncio.gather(*self.promises)
+    def flush(self):
+        async def async_run():
+            return await asyncio.gather(*self.promises)
+        
+        asyncio.run(async_run())
+
+  
         
