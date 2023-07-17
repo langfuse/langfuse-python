@@ -1,11 +1,13 @@
 import asyncio
-from langfuse.models.create_trace_request import CreateTraceRequest
 from langfuse.wrapper import ApiClient
+
+
+from wrapper.models.create_trace_request import CreateTraceRequest
 
 
 def test_create_trace():
     req = CreateTraceRequest(
-        name="test",
+        name="this is great",
         user_id="test",
         external_id="test",
         metadata="test",

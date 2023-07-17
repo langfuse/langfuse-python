@@ -1,12 +1,10 @@
-from asyncio import coroutines
 import asyncio
 import base64
 from typing import Coroutine, Optional
-import attr
+from wrapper.api.trace import trace_create
+from wrapper.client import Client
 
-from langfuse.client import Client
-from langfuse.models.create_trace_request import CreateTraceRequest
-from langfuse.api.trace import trace_create
+from wrapper.models.create_trace_request import CreateTraceRequest
 
 
 class ApiClient:
@@ -45,4 +43,3 @@ class ApiClient:
     async def flush(self):
         return await asyncio.gather(*self.promises)
         
-
