@@ -17,6 +17,8 @@ def test_create_trace():
 
     generation = trace.generation(CreateLog(name="his-is-so-great-new", metadata="test"))
 
+    generation.generation(CreateLog(name="yet another child", metadata="test"))
+
     client.flush()
 
 
