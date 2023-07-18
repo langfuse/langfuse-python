@@ -8,6 +8,7 @@ import pydantic
 
 from ...core.api_error import ApiError
 from ...core.jsonable_encoder import jsonable_encoder
+from ...core.remove_none_from_headers import remove_none_from_headers
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
@@ -18,8 +19,12 @@ from .types.update_generation_request import UpdateGenerationRequest
 
 
 class GenerationsClient:
-    def __init__(self, *, environment: str, username: str, password: str):
+    def __init__(
+        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: int, username: str, password: str
+    ):
         self._environment = environment
+        self.x_langfuse_sdk_name = x_langfuse_sdk_name
+        self.x_langfuse_sdk_version = x_langfuse_sdk_version
         self._username = username
         self._password = password
 
@@ -28,6 +33,9 @@ class GenerationsClient:
             "POST",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
             json=jsonable_encoder(request),
+            headers=remove_none_from_headers(
+                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
+            ),
             auth=(self._username, self._password)
             if self._username is not None and self._password is not None
             else None,
@@ -54,6 +62,9 @@ class GenerationsClient:
             "PATCH",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
             json=jsonable_encoder(request),
+            headers=remove_none_from_headers(
+                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
+            ),
             auth=(self._username, self._password)
             if self._username is not None and self._password is not None
             else None,
@@ -77,8 +88,12 @@ class GenerationsClient:
 
 
 class AsyncGenerationsClient:
-    def __init__(self, *, environment: str, username: str, password: str):
+    def __init__(
+        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: int, username: str, password: str
+    ):
         self._environment = environment
+        self.x_langfuse_sdk_name = x_langfuse_sdk_name
+        self.x_langfuse_sdk_version = x_langfuse_sdk_version
         self._username = username
         self._password = password
 
@@ -88,6 +103,12 @@ class AsyncGenerationsClient:
                 "POST",
                 urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
                 json=jsonable_encoder(request),
+                headers=remove_none_from_headers(
+                    {
+                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
+                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                    }
+                ),
                 auth=(self._username, self._password)
                 if self._username is not None and self._password is not None
                 else None,
@@ -115,6 +136,12 @@ class AsyncGenerationsClient:
                 "PATCH",
                 urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
                 json=jsonable_encoder(request),
+                headers=remove_none_from_headers(
+                    {
+                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
+                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                    }
+                ),
                 auth=(self._username, self._password)
                 if self._username is not None and self._password is not None
                 else None,

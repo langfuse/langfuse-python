@@ -14,25 +14,12 @@ class Langfuse:
 
         self.base_url = base_url if base_url else 'https://cloud.langfuse.com'
 
-        # auth = base64.b64encode(f"{public_key}:{secret_key}".encode()).decode()
-        # headers = {
-        #     'Authorization': 'Basic ' + auth,
-        #     'X-Langfuse-Sdk-Name': 'langfuse-python',
-        #     'X-Langfuse-Sdk-Version': 'version',
-        #     'X-Langfuse-Sdk-Variant': 'Server',
-        # }
-        # self.client = Client(
-        #     base_url=self.base_url,
-        #     headers=headers,
-        #     verify_ssl=True,
-        #     raise_on_unexpected_status=False,
-        #     follow_redirects=False,
-        # )
-
         self.client = AsyncFintoLangfuse(
             environment=self.base_url,
             username = public_key,
             password = secret_key,
+            x_langfuse_sdk_name = 'python',
+            x_langfuse_sdk_version = Langfuse.__version__,
         )
         
     
