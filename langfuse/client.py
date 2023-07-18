@@ -1,10 +1,11 @@
 from typing import Optional
 import uuid
+from langfuse import version
 from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.concurrency import FuturesStore
 from langfuse.api.client import AsyncFintoLangfuse
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
-from langfuse.version import __version__
+#from langfuse.version import __version__
 
 class Langfuse:
     
@@ -19,7 +20,7 @@ class Langfuse:
             username = public_key,
             password = secret_key,
             x_langfuse_sdk_name = 'python',
-            x_langfuse_sdk_version = __version__,
+            x_langfuse_sdk_version = version.__version__,
         )
         
     
