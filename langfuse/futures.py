@@ -21,20 +21,32 @@ class FuturesStore:
 
     def flush(self):
         results = {}
-        executed_futures = {}  # A dictionary to store executed futures
+        resolved_dependencies = set()
+        waiting_for_resolution = set(self.futures.keys())
 
-        for future_id, future_details in self.futures.items():
-            if len(future_details) == 3:  # If there are no dependencies
+        # While there are futures that have not been resolved
+        while waiting_for_resolution:
+            for future_id in list(waiting_for_resolution):  # Iterate over a copy of the set
+                future_details = self.futures[future_id]
                 
-                func, args, kwargs = future_details
-                executed_future = self.executor.submit(asyncio.run, func(*args, **kwargs))
-            else:  # If there is a dependency
-                func, args, kwargs, dependent_id = future_details
-                dependent_result = executed_futures[dependent_id].result()  # get the result from the parent future
+                if len(future_details) == 3:  # If there are no dependencies
+                    func, args, kwargs = future_details
+                    future_result = asyncio.run(func(*args, **kwargs))
+                    results[future_id] = future_result
+                    resolved_dependencies.add(future_id)
+                    waiting_for_resolution.remove(future_id)
+                else:  # If there is a dependency
+                    func, args, kwargs, dependent_id = future_details
+                    if dependent_id in resolved_dependencies:  # If dependency is resolved
+                        dependent_result = results[dependent_id]  # get the result from the parent future
+                        future_result = asyncio.run(func(dependent_result, *args, **kwargs))
+                        results[future_id] = future_result
+                        resolved_dependencies.add(future_id)
+                        waiting_for_resolution.remove(future_id)
+        
+        self.futures.clear()  # Clearing the futures for the next batch of executions
+        return results
 
-                executed_future = self.executor.submit(asyncio.run, func(dependent_result, *args, **kwargs))
-
-            executed_futures[future_id] = executed_future
 
         # Waiting for all futures to complete
         for future_id, future in executed_futures.items():
@@ -42,3 +54,4 @@ class FuturesStore:
 
         self.futures.clear()  # Clearing the futures for the next batch of executions
         return results
+
