@@ -1,8 +1,6 @@
-# Langfuse Javascript SDK
+# Langfuse Python SDK
 
-[![PyPI Version](https://img.shields.io/pypi/v/hy.svg)](https://pypi.python.org/pypi/langfuse)
-
-[![MIT License](https://img.shields.io/badge/License-MIT-red.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![PyPI Version](https://img.shields.io/pypi/v/hy.svg)](https://pypi.python.org/pypi/langfuse) [![MIT License](https://img.shields.io/badge/License-MIT-red.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ```
 pip install langfuse
