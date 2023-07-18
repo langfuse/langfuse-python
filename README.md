@@ -1,6 +1,10 @@
 # Langfuse Javascript SDK
 
-[![npm package](https://img.shields.io/npm/v/langfuse?style=flat-square)](https://www.npmjs.com/package/langfuse)
+[![PyPI Version](https://img.shields.io/pypi/v/hy.svg)](https://pypi.python.org/pypi/langfuse)
+
+
+
+
 [![MIT License](https://img.shields.io/badge/License-MIT-red.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ```
