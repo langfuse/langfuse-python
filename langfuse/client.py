@@ -1,6 +1,5 @@
 from enum import Enum
-import json
-from typing import Optional, TypedDict
+from typing import Optional
 import uuid
 from langfuse import version
 from langfuse.api.resources.event.types.create_event_request import CreateEventRequest
@@ -31,23 +30,22 @@ class Langfuse:
     
     def trace(self, body: CreateTraceRequest):
 
-        id = str(uuid.uuid4()) if body.id is None else body.id
-        body = body.copy(update={'id': id})
+        new_id = str(uuid.uuid4()) if body.id is None else body.id
+        body = body.copy(update={'id': new_id})
         trace_promise = lambda: self.client.trace.create(request=body)
-        self.future_store.append(id, trace_promise)
+        self.future_store.append(new_id, trace_promise)
 
-        return StatefulClient(self.client, id,StateType.TRACE, future_store=self.future_store)
+        return StatefulClient(self.client, new_id,StateType.TRACE, future_store=self.future_store)
 
     def generation(self, body: CreateLog):
 
-        id = str(uuid.uuid4()) if body.id is None else body.id
-        body = body.copy(update={'id': id})    
+        new_id = str(uuid.uuid4()) if body.id is None else body.id
+        body = body.copy(update={'id': new_id})    
         generation_promise = lambda: self.client.generations.log(request=body)
         self.future_store.append(id, generation_promise)
 
         return StatefulClient(self.client,id, StateType.OBSERVATION, future_store=self.future_store)
         
-
     def flush(self):
         # Flush the future store instead of executing promises directly
         self.future_store.flush()

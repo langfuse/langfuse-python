@@ -48,10 +48,3 @@ class FuturesStore:
         return results
 
 
-        # Waiting for all futures to complete
-        for future_id, future in executed_futures.items():
-            results[future_id] = future.result()
-
-        self.futures.clear()  # Clearing the futures for the next batch of executions
-        return results
-
