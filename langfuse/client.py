@@ -47,7 +47,7 @@ class Langfuse:
         
     def flush(self):
         # Flush the future store instead of executing promises directly
-        self.future_store.flush()
+        return self.future_store.flush()
 
 
 class StateType(Enum):

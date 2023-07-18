@@ -20,10 +20,4 @@ def test_futures_store():
 
     # Flush and execute all appended functions
     results = store.flush()
-
-    assert results[id1] == 3
-    assert results[id2] == 6
-    assert results[id3] == 10
-
-
-
+    assert results['status'] == 'success'

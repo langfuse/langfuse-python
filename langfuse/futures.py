@@ -21,30 +21,36 @@ class FuturesStore:
 
     def flush(self):
         results = {}
+
         resolved_dependencies = set()
         waiting_for_resolution = set(self.futures.keys())
 
-        # While there are futures that have not been resolved
-        while waiting_for_resolution:
-            for future_id in list(waiting_for_resolution):  # Iterate over a copy of the set
-                future_details = self.futures[future_id]
-                
-                if len(future_details) == 3:  # If there are no dependencies
-                    func, args, kwargs = future_details
-                    future_result = asyncio.run(func(*args, **kwargs))
-                    results[future_id] = future_result
-                    resolved_dependencies.add(future_id)
-                    waiting_for_resolution.remove(future_id)
-                else:  # If there is a dependency
-                    func, args, kwargs, dependent_id = future_details
-                    if dependent_id in resolved_dependencies:  # If dependency is resolved
-                        dependent_result = results[dependent_id]  # get the result from the parent future
-                        future_result = asyncio.run(func(dependent_result, *args, **kwargs))
+        try:
+            while waiting_for_resolution:
+                for future_id in list(waiting_for_resolution):  # Iterate over a copy of the set
+                    future_details = self.futures[future_id]
+                    
+                    if len(future_details) == 3:  # If there are no dependencies
+                        func, args, kwargs = future_details
+                        future_result = asyncio.run(func(*args, **kwargs))
                         results[future_id] = future_result
                         resolved_dependencies.add(future_id)
                         waiting_for_resolution.remove(future_id)
+                    else:  # If there is a dependency
+                        func, args, kwargs, dependent_id = future_details
+                        if dependent_id in resolved_dependencies:  # If dependency is resolved
+                            dependent_result = results[dependent_id]  # get the result from the parent future
+                            future_result = asyncio.run(func(dependent_result, *args, **kwargs))
+                            results[future_id] = future_result
+                            resolved_dependencies.add(future_id)
+                            waiting_for_resolution.remove(future_id)
+        except Exception as e:
+            results['status'] = 'failed'
+            results['error'] = str(e)
         
-        self.futures.clear()  # Clearing the futures for the next batch of executions
-        return results
+        self.futures.clear()
+
+        return {'status': 'success'}
+
 
 

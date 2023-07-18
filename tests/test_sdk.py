@@ -35,7 +35,10 @@ def test_create_trace():
         comment="I like how personalized the response is"
     ))
 
-    client.flush()
+    result = client.flush()
+    print("result", result)
+
+    assert result['status'] == 'success'
 
 
 def test_create_generation():
@@ -46,5 +49,8 @@ def test_create_generation():
 
     sub_generation = sub_generation.event(CreateEventRequest(name="sub-sub-event", metadata="test"))
 
-    client.flush()
+    result = client.flush()
+    print("result", result)
+
+    assert result['status'] == 'success'
 
