@@ -20,7 +20,7 @@ from .types.update_span_request import UpdateSpanRequest
 
 class SpanClient:
     def __init__(
-        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: int, username: str, password: str
+        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: str, username: str, password: str
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -89,7 +89,7 @@ class SpanClient:
 
 class AsyncSpanClient:
     def __init__(
-        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: int, username: str, password: str
+        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: str, username: str, password: str
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name

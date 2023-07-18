@@ -19,7 +19,7 @@ from .types.event import Event
 
 class EventClient:
     def __init__(
-        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: int, username: str, password: str
+        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: str, username: str, password: str
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -59,7 +59,7 @@ class EventClient:
 
 class AsyncEventClient:
     def __init__(
-        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: int, username: str, password: str
+        self, *, environment: str, x_langfuse_sdk_name: str, x_langfuse_sdk_version: str, username: str, password: str
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name

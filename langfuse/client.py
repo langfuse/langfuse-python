@@ -5,7 +5,7 @@ from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.concurrency import FuturesStore
 from langfuse.api.client import AsyncFintoLangfuse
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
-#from langfuse.version import __version__
+from .version import __version__ as version
 
 class Langfuse:
     
@@ -17,10 +17,10 @@ class Langfuse:
 
         self.client = AsyncFintoLangfuse(
             environment=self.base_url,
-            username = public_key,
-            password = secret_key,
-            x_langfuse_sdk_name = 'python',
-            x_langfuse_sdk_version = version.__version__,
+            username=public_key,
+            password=secret_key,
+            x_langfuse_sdk_name='python',
+            x_langfuse_sdk_version=version,
         )
         
     
