@@ -48,6 +48,3 @@ def test_create_generation():
 
     client.flush()
 
-
-
-

@@ -13,7 +13,7 @@ from .version import __version__ as version
 
 class Langfuse:
     
-    def __init__(self, public_key: str, secret_key: str, base_url: Optional[str]):
+    def __init__(self, public_key: str, secret_key: str, base_url: Optional[str] = None):
         
         self.future_store = FuturesStore()
 
