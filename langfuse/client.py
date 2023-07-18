@@ -26,7 +26,6 @@ class Langfuse:
             x_langfuse_sdk_name='python',
             x_langfuse_sdk_version=version,
         )
-        
     
     def trace(self, body: CreateTraceRequest):
 
