@@ -20,37 +20,41 @@ class FuturesStore:
         return id
 
     def flush(self):
-        results = {}
+        return asyncio.run(self.async_flush())
 
-        resolved_dependencies = set()
-        waiting_for_resolution = set(self.futures.keys())
+    async def async_flush(self):
+        async def run_task(future_id, future_details):
+            if len(future_details) == 3:  # If there are no dependencies
+                func, args, kwargs = future_details
+                result = await func(*args, **kwargs)
+            else:  # If there is a dependency
+                func, args, kwargs, dependent_id = future_details
+                # Wait for the dependency to resolve before running this task
+                await tasks[dependent_id]
+                dependent_result = results[dependent_id]  # get the result from the parent future
+                result = await func(dependent_result, *args, **kwargs)
+            results[future_id] = result
+
+        results = {}
+        tasks = {}
+        final_result = {'status': 'success'}
 
         try:
-            while waiting_for_resolution:
-                for future_id in list(waiting_for_resolution):  # Iterate over a copy of the set
-                    future_details = self.futures[future_id]
-                    
-                    if len(future_details) == 3:  # If there are no dependencies
-                        func, args, kwargs = future_details
-                        future_result = asyncio.run(func(*args, **kwargs))
-                        results[future_id] = future_result
-                        resolved_dependencies.add(future_id)
-                        waiting_for_resolution.remove(future_id)
-                    else:  # If there is a dependency
-                        func, args, kwargs, dependent_id = future_details
-                        if dependent_id in resolved_dependencies:  # If dependency is resolved
-                            dependent_result = results[dependent_id]  # get the result from the parent future
-                            future_result = asyncio.run(func(dependent_result, *args, **kwargs))
-                            results[future_id] = future_result
-                            resolved_dependencies.add(future_id)
-                            waiting_for_resolution.remove(future_id)
+            # First, create all the tasks but don't run them yet
+            for future_id, future_details in self.futures.items():
+                tasks[future_id] = asyncio.create_task(run_task(future_id, future_details))
+
+            # Then, run all the tasks concurrently
+            for task in tasks.values():
+                await task
         except Exception as e:
-            results['status'] = 'failed'
-            results['error'] = str(e)
-        
+            print(e)
+            final_result['status'] = 'failed'
+            final_result['error'] = str(e)
+
         self.futures.clear()
 
-        return {'status': 'success'}
+        return final_result
 
 
 
