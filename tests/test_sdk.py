@@ -1,11 +1,11 @@
 from langfuse import Langfuse
+from langfuse.api.resources.event.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 
 def test_create_trace():
-    print("hello world")
     
     client = Langfuse("pk-lf-1234567890","sk-lf-1234567890", 'http://localhost:3000')
 
@@ -14,8 +14,6 @@ def test_create_trace():
         user_id="test",
         metadata="test",
     ))
-    
-    print('add score', trace.id)
     
     trace = trace.score(CreateScoreRequest(
         traceId=trace.id,                  # trace the score is related to
@@ -45,6 +43,8 @@ def test_create_generation():
 
     generation = client.generation(CreateLog(name="top-level-generation", metadata="test"))
     sub_generation = generation.generation(CreateLog(name="su-child", metadata="test"))
+
+    sub_generation = sub_generation.event(CreateEventRequest(name="sub-sub-event", metadata="test"))
 
     client.flush()
 

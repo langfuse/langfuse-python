@@ -3,6 +3,7 @@ import json
 from typing import Optional, TypedDict
 import uuid
 from langfuse import version
+from langfuse.api.resources.event.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
@@ -32,7 +33,6 @@ class Langfuse:
 
         id = str(uuid.uuid4()) if body.id is None else body.id
         body = body.copy(update={'id': id})
-        print('trace body', body)
         trace_promise = lambda: self.client.trace.create(request=body)
         self.future_store.append(id, trace_promise)
 
@@ -112,8 +112,6 @@ class StatefulClient:
         return StatefulClient(self.client,self.id,StateType.OBSERVATION, future_store=self.future_store)
     
     def score(self, body: CreateScoreRequest):
-        
-        print("body", body)
 
         async def task(future_result):
 
@@ -122,10 +120,31 @@ class StatefulClient:
             new_body = body
             if self.state_type == StateType.OBSERVATION:
                 new_body = new_body.copy(update={'observation_id': body.observation_id if body.observation_id is not None else parent.id})
-            print(new_body)
+
             return await self.client.score.create(request=new_body)
 
         # Add the task to the future store with trace_future_id as a dependency
+        self.future_store.append(body.id, task, future_id=self.id)
+
+        return StatefulClient(self.client, self.id, self.state_type, future_store=self.future_store)
+
+    def event(self, body: CreateEventRequest):
+            
+        id = str(uuid.uuid4()) if body.id is None else body.id
+
+        async def task(future_result):
+            new_body = body.copy(update={'id': id})
+
+            parent = future_result
+            
+            if self.state_type == StateType.OBSERVATION:
+                new_body = new_body.copy(update={'parent_observation_id': body.parent_observation_id if body.parent_observation_id is not None else parent.id})
+                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.trace_id})
+            else:   
+                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
+    
+            return await self.client.event.create(request=new_body)
+    
         self.future_store.append(body.id, task, future_id=self.id)
 
         return StatefulClient(self.client, self.id, self.state_type, future_store=self.future_store)
