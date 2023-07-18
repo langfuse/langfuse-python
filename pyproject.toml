@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "0.0.13"
+version = "0.0.14"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -35,3 +35,6 @@ exclude = '''
 [tool.isort]
 line_length = 120
 profile = "black"
+
+
+[tool.poetry_bumpversion.file."langfuse/version.py"]
