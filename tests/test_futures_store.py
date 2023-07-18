@@ -1,4 +1,4 @@
-from langfuse.concurrency import FuturesStore
+from langfuse.futures import FuturesStore
 
 def test_futures_store():
 

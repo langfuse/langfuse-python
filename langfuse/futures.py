@@ -6,7 +6,7 @@ class FuturesStore:
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         self.futures = {}
 
-    def append(self, id, func, *args, future_id=None, **kwargs):
+    def append(self, id:  str, func, *args, future_id=None, **kwargs):
 
 
         if future_id is None:
@@ -27,7 +27,6 @@ class FuturesStore:
             if len(future_details) == 3:  # If there are no dependencies
                 
                 func, args, kwargs = future_details
-                print('no dependencies', func, args, kwargs)
                 executed_future = self.executor.submit(asyncio.run, func(*args, **kwargs))
             else:  # If there is a dependency
                 func, args, kwargs, dependent_id = future_details
