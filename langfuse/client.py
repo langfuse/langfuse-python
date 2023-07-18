@@ -1,18 +1,8 @@
-import asyncio
-import base64
-from typing import Any, Coroutine, Generic, Optional, TypeVar
+from typing import Optional
 import uuid
-from langfuse import api
+from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.concurrency import FuturesStore
-from langfuse.openapi.api.generations import generations_log
-from langfuse.openapi.api.span import span_create
-
-from langfuse.openapi.client import Client
-from langfuse.openapi.models.create_log import CreateLog
-from langfuse.openapi.models.create_span_request import CreateSpanRequest
-from langfuse.openapi.api.trace import trace_create
-from langfuse.openapi.models.trace import Trace
-from langfuse.api.client import AsyncFintoLangfuse, FintoLangfuse
+from langfuse.api.client import AsyncFintoLangfuse
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 
 
