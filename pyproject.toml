@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "0.0.12"
+version = "0.0.13"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -14,10 +14,6 @@ attrs = ">=21.3.0"
 python-dateutil = "^2.8.0"
 pytest-timeout = "^2.1.0"
 pydantic = "1.10.7"
-
-[tool.poetry.scripts]
-bump-version = "python bump_version.py"
-
 
 [build-system]
 requires = ["poetry-core"]
