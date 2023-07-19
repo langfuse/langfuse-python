@@ -2,7 +2,8 @@ import datetime
 
 import pytest
 from langfuse import Langfuse
-from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace
+from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
+from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
 
 def test_create_trace():
     
@@ -33,6 +34,39 @@ def test_create_trace():
     ))
 
     result = client.flush()
+    print("result", result)
+
+    assert result['status'] == 'success'
+
+
+@pytest.mark.asyncio
+async def test_update_generation():
+    client = Langfuse("pk-lf-1234567890","sk-lf-1234567890", 'http://localhost:3000')
+
+    generation = client.generation(CreateGeneration(
+        name="to-be-renames", 
+        metadata="test", 
+        prompt={
+            "key": "value"
+        }, 
+        completion='very long completion'
+    ))
+    updated_generation = generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
+    span = updated_generation.span(CreateSpan(
+        name="sub-span", 
+        metadata="test", 
+        input={
+            "key": "value"
+        }, 
+        output={
+            "key": "value"
+        }
+    ))
+
+    span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
+
+    result = await client.async_flush()    
+
     print("result", result)
 
     assert result['status'] == 'success'

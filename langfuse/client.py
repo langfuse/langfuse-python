@@ -3,11 +3,13 @@ from enum import Enum
 from typing import Optional
 import uuid
 from langfuse import version
-from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace
+from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 from langfuse.api.resources.event.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.generations.types.create_log import CreateLog
+from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
+from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.futures import FuturesStore
 from langfuse.api.client import AsyncFintoLangfuse
 from .version import __version__ as version
@@ -40,12 +42,14 @@ class Langfuse:
     def generation(self, body: CreateLog):
 
         new_id = str(uuid.uuid4()) if body.id is None else body.id
-        body = body.copy(update={'id': new_id})    
+        body = body.copy(update={'id': new_id})
+        print('generation: ', body.dict())  
         request = CreateLog(**body.dict())
+        print('request: ', body.dict())  
         generation_promise = lambda: self.client.generations.log(request=request)
         self.future_store.append(new_id, generation_promise)
 
-        return StatefulClient(self.client, new_id, StateType.OBSERVATION, new_id, future_store=self.future_store)
+        return StatefulGenerationClient(self.client, new_id, StateType.OBSERVATION, new_id, future_store=self.future_store)
         
     async def async_flush(self):
         return await self.future_store.flush()
@@ -92,10 +96,10 @@ class StatefulClient:
         # Add the task to the future store with trace_future_id as a dependency
         self.future_store.append(generation_id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client, generation_id, StateType.OBSERVATION, generation_id, future_store=self.future_store)
+        return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, generation_id, future_store=self.future_store)
 
     def span(self, body: CreateSpan):
-        
+        print("span body", body, type(body), body.input, body.output)
         span_id = str(uuid.uuid4()) if body.id is None else body.id
 
         async def task(future_result):
@@ -116,7 +120,7 @@ class StatefulClient:
         # Add the task to the future store with trace_future_id as a dependency
         self.future_store.append(span_id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client, span_id, StateType.OBSERVATION, span_id, future_store=self.future_store)
+        return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, span_id, future_store=self.future_store)
     
     def score(self, body: CreateScore):
 
@@ -166,3 +170,56 @@ class StatefulClient:
         self.future_store.append(body.id, task, future_id=self.future_id)
 
         return StatefulClient(self.client, event_id, self.state_type, event_id, future_store=self.future_store)
+
+
+class StatefulGenerationClient(StatefulClient):
+    
+    def __init__(self, client: Langfuse, id:  Optional[str], state_type: StateType, future_id: str, future_store: FuturesStore):
+        super().__init__(client, id, state_type, future_id, future_store)
+
+    def update(self, body: UpdateGeneration):
+        
+        future_id = str(uuid.uuid4())
+        generation_id = self.future_id
+
+        async def task(future_result):
+
+            parent = future_result
+            
+            new_body = body.copy(update={'generation_id': parent.id})
+
+            request = UpdateGenerationRequest(**new_body.dict())
+            print('updating generation: ', request)
+            return await self.client.generations.update(request=request)
+
+        # Add the task to the future store with trace_future_id as a dependency
+        self.future_store.append(future_id, task, future_id=self.future_id)
+
+        return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+
+
+class StatefulSpanClient(StatefulClient):
+    
+    def __init__(self, client: Langfuse, id:  Optional[str], state_type: StateType, future_id: str, future_store: FuturesStore):
+        super().__init__(client, id, state_type, future_id, future_store)
+
+    def update(self, body: UpdateSpan):
+        print('span: ', body, self.future_id)
+        
+        future_id = str(uuid.uuid4())
+        span_id = self.future_id
+
+        async def task(future_result):
+
+            parent = future_result
+            
+            new_body = body.copy(update={'span_id': parent.id})
+
+            request = UpdateSpanRequest(**new_body.dict())
+            print('updating span: ', request)
+            return await self.client.span.update(request=request)
+
+        # Add the task to the future store with trace_future_id as a dependency
+        self.future_store.append(future_id, task, future_id=self.future_id)
+
+        return StatefulGenerationClient(self.client, span_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
