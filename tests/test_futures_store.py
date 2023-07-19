@@ -20,5 +20,5 @@ def test_futures_store():
     id3 = store.append('4', second_dependent_function, 4, future_id=id2)  # Returns 6 + 4 = 10
 
     # Flush and execute all appended functions
-    result = asyncio.run(store.async_flush())
+    result = asyncio.run(store.flush())
     assert result['status'] == 'success'

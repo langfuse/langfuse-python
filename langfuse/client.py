@@ -1,14 +1,15 @@
+import asyncio
 from enum import Enum
 from typing import Optional
 import uuid
 from langfuse import version
+from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace
 from langfuse.api.resources.event.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
 from langfuse.futures import FuturesStore
 from langfuse.api.client import AsyncFintoLangfuse
-from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from .version import __version__ as version
 
 class Langfuse:
@@ -27,27 +28,30 @@ class Langfuse:
             x_langfuse_sdk_version=version,
         )
     
-    def trace(self, body: CreateTraceRequest):
+    def trace(self, body: CreateTrace):
 
-        new_id = str(uuid.uuid4()) if body.id is None else body.id
-        body = body.copy(update={'id': new_id})
+        new_id = str(uuid.uuid4())
+
         trace_promise = lambda: self.client.trace.create(request=body)
         self.future_store.append(new_id, trace_promise)
 
-        return StatefulClient(self.client, new_id,StateType.TRACE, future_store=self.future_store)
+        return StatefulClient(self.client, None, StateType.TRACE, new_id, future_store=self.future_store)
 
     def generation(self, body: CreateLog):
 
         new_id = str(uuid.uuid4()) if body.id is None else body.id
         body = body.copy(update={'id': new_id})    
-        generation_promise = lambda: self.client.generations.log(request=body)
-        self.future_store.append(id, generation_promise)
+        request = CreateLog(**body.dict())
+        generation_promise = lambda: self.client.generations.log(request=request)
+        self.future_store.append(new_id, generation_promise)
 
-        return StatefulClient(self.client,id, StateType.OBSERVATION, future_store=self.future_store)
+        return StatefulClient(self.client, new_id, StateType.OBSERVATION, new_id, future_store=self.future_store)
         
+    async def async_flush(self):
+        return await self.future_store.flush()
+    
     def flush(self):
-        # Flush the future store instead of executing promises directly
-        return self.future_store.flush()
+        return asyncio.run(self.future_store.flush())  # Make sure to call self.async_flush() here
 
 
 class StateType(Enum):
@@ -57,19 +61,21 @@ class StateType(Enum):
 
 class StatefulClient:
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, future_store: FuturesStore):
+    def __init__(self, client: Langfuse, id:  Optional[str], state_type: StateType, future_id: str, future_store: FuturesStore):
         self.client = client
         self.id =id
+        self.future_id = future_id
         self.state_type=state_type
         self.future_store = future_store
 
 
-    def generation(self, body: CreateLog):
+    def generation(self, body: CreateGeneration):
+        print('generation: ', body, self.future_id)
         
-        id = str(uuid.uuid4()) if body.id is None else body.id
+        generation_id = str(uuid.uuid4()) if body.id is None else body.id
 
         async def task(future_result):
-            new_body = body.copy(update={'id': id})
+            new_body = body.copy(update={'id': generation_id})
 
             parent = future_result
             
@@ -79,19 +85,21 @@ class StatefulClient:
             else:   
                 new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
             
-            return await self.client.generations.log(request=new_body)
+            request = CreateLog(**new_body.dict())
+            print('submitting generation: ', request)
+            return await self.client.generations.log(request=request)
 
         # Add the task to the future store with trace_future_id as a dependency
-        self.future_store.append(id, task, future_id=self.id)
+        self.future_store.append(generation_id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client, id, StateType.OBSERVATION, future_store=self.future_store)
+        return StatefulClient(self.client, generation_id, StateType.OBSERVATION, generation_id, future_store=self.future_store)
 
-    def span(self, body: CreateSpanRequest):
+    def span(self, body: CreateSpan):
         
-        id = str(uuid.uuid4()) if body.id is None else body.id
+        span_id = str(uuid.uuid4()) if body.id is None else body.id
 
         async def task(future_result):
-            new_body = body.copy(update={'id': id})
+            new_body = body.copy(update={'id': span_id})
 
             parent = future_result
             
@@ -101,36 +109,46 @@ class StatefulClient:
             else:   
                 new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
             
-            return await self.client.span.create(request=new_body)
+            request = CreateSpanRequest(**new_body.dict())
+            print('submitting span: ', request)
+            return await self.client.span.create(request=request)
 
         # Add the task to the future store with trace_future_id as a dependency
-        self.future_store.append(id, task, future_id=self.id)
+        self.future_store.append(span_id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client,self.id,StateType.OBSERVATION, future_store=self.future_store)
+        return StatefulClient(self.client, span_id, StateType.OBSERVATION, span_id, future_store=self.future_store)
     
-    def score(self, body: CreateScoreRequest):
+    def score(self, body: CreateScore):
+
+        score_id = str(uuid.uuid4()) if body.id is None else body.id
 
         async def task(future_result):
+
+            new_body = body.copy(update={'id': score_id})
 
             parent = future_result
             
             new_body = body
             if self.state_type == StateType.OBSERVATION:
                 new_body = new_body.copy(update={'observation_id': body.observation_id if body.observation_id is not None else parent.id})
-
-            return await self.client.score.create(request=new_body)
-
-        # Add the task to the future store with trace_future_id as a dependency
-        self.future_store.append(body.id, task, future_id=self.id)
-
-        return StatefulClient(self.client, self.id, self.state_type, future_store=self.future_store)
-
-    def event(self, body: CreateEventRequest):
+                new_body = new_body.copy(update={'trace_id': parent.trace_id})
+            else:
+                new_body = new_body.copy(update={'trace_id': parent.id})
             
-        id = str(uuid.uuid4()) if body.id is None else body.id
+            request = CreateScoreRequest(**new_body.dict())
+            print('submitting score: ', request)
+            return await self.client.score.create(request=request)
+
+        self.future_store.append(score_id, task, future_id=self.future_id)
+
+        return StatefulClient(self.client, self.id, self.state_type, self.future_id, future_store=self.future_store)
+
+    def event(self, body: CreateEvent):
+            
+        event_id = str(uuid.uuid4()) if body.id is None else body.id
 
         async def task(future_result):
-            new_body = body.copy(update={'id': id})
+            new_body = body.copy(update={'id': event_id})
 
             parent = future_result
             
@@ -138,10 +156,13 @@ class StatefulClient:
                 new_body = new_body.copy(update={'parent_observation_id': body.parent_observation_id if body.parent_observation_id is not None else parent.id})
                 new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.trace_id})
             else:   
+                print('parent', parent)
                 new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
     
-            return await self.client.event.create(request=new_body)
+            request = CreateEventRequest(**new_body.dict())
+            print('submitting event: ', request)
+            return await self.client.event.create(request=request)
     
-        self.future_store.append(body.id, task, future_id=self.id)
+        self.future_store.append(body.id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client, self.id, self.state_type, future_store=self.future_store)
+        return StatefulClient(self.client, event_id, self.state_type, event_id, future_store=self.future_store)

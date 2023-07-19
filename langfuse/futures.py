@@ -1,5 +1,6 @@
 import concurrent.futures
 import asyncio
+import traceback
 
 class FuturesStore:
     def __init__(self):
@@ -19,13 +20,11 @@ class FuturesStore:
 
         return id
 
-    def flush(self):
-        return asyncio.run(self.async_flush())
-
-    async def async_flush(self):
+    async def flush(self):
         async def run_task(future_id, future_details):
             if len(future_details) == 3:  # If there are no dependencies
                 func, args, kwargs = future_details
+                print("running task: ", func, args, kwargs)
                 result = await func(*args, **kwargs)
             else:  # If there is a dependency
                 func, args, kwargs, dependent_id = future_details
@@ -48,9 +47,11 @@ class FuturesStore:
             for task in tasks.values():
                 await task
         except Exception as e:
-            print(e)
+            print("tasks: ", tasks.keys(), "results: ", results)
+            traceback.print_exception(e)
             final_result['status'] = 'failed'
             final_result['error'] = str(e)
+            # final_result['trace'] = traceback.format_exc()
 
         self.futures.clear()
 

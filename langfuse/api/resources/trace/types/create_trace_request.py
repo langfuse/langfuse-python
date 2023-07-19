@@ -9,7 +9,6 @@ from ....core.datetime_utils import serialize_datetime
 
 
 class CreateTraceRequest(pydantic.BaseModel):
-    id: typing.Optional[str]
     name: typing.Optional[str]
     user_id: typing.Optional[str] = pydantic.Field(alias="userId")
     external_id: typing.Optional[str] = pydantic.Field(alias="externalId")
