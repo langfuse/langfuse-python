@@ -80,10 +80,10 @@ class StatefulClient:
             parent = future_result
             
             if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={'parent_observation_id': body.parent_observation_id if body.parent_observation_id is not None else parent.id})
-                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.trace_id})
+                new_body = new_body.copy(update={'parent_observation_id': parent.id})
+                new_body = new_body.copy(update={'trace_id': parent.trace_id})
             else:   
-                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
+                new_body = new_body.copy(update={'trace_id': parent.id})
             
             request = CreateLog(**new_body.dict())
             print('submitting generation: ', request)
@@ -102,13 +102,13 @@ class StatefulClient:
             new_body = body.copy(update={'id': span_id})
 
             parent = future_result
-            
+            print("parent", parent)
             if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={'parent_observation_id': body.parent_observation_id if body.parent_observation_id is not None else parent.id})
-                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.trace_id})
+                new_body = new_body.copy(update={'parent_observation_id': parent.id})
+                new_body = new_body.copy(update={'trace_id': parent.trace_id})
             else:   
-                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
-            
+                new_body = new_body.copy(update={'trace_id': parent.id})
+            print("new_body", new_body)
             request = CreateSpanRequest(**new_body.dict())
             print('submitting span: ', request)
             return await self.client.span.create(request=request)
@@ -130,7 +130,7 @@ class StatefulClient:
             
             new_body = body
             if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={'observation_id': body.observation_id if body.observation_id is not None else parent.id})
+                new_body = new_body.copy(update={'observation_id': parent.id})
                 new_body = new_body.copy(update={'trace_id': parent.trace_id})
             else:
                 new_body = new_body.copy(update={'trace_id': parent.id})
@@ -153,11 +153,11 @@ class StatefulClient:
             parent = future_result
             
             if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={'parent_observation_id': body.parent_observation_id if body.parent_observation_id is not None else parent.id})
-                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.trace_id})
+                new_body = new_body.copy(update={'parent_observation_id': parent.id})
+                new_body = new_body.copy(update={'trace_id': parent.trace_id})
             else:   
                 print('parent', parent)
-                new_body = new_body.copy(update={'trace_id': body.trace_id if body.trace_id is not None else parent.id})
+                new_body = new_body.copy(update={'trace_id': parent.id})
     
             request = CreateEventRequest(**new_body.dict())
             print('submitting event: ', request)

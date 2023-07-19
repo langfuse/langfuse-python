@@ -10,7 +10,7 @@ class CreateScore(CreateScoreRequest):
         pass
 
     __fields__ = {
-        name: field for name, field in CreateScoreRequest.__fields__.items() if name != 'trace_id'
+        name: field for name, field in CreateScoreRequest.__fields__.items() if name not in [ 'trace_id', 'observation_id']
     }
 
 
@@ -27,7 +27,7 @@ class CreateGeneration(CreateLog):
         pass
 
     __fields__ = {
-        name: field for name, field in CreateLog.__fields__.items()
+        name: field for name, field in CreateLog.__fields__.items() if name not in [ 'trace_id', 'parent_observation_id', 'traceIdType']
     }
 
 class CreateSpan(CreateSpanRequest):
@@ -35,7 +35,7 @@ class CreateSpan(CreateSpanRequest):
         pass
 
     __fields__ = {
-        name: field for name, field in CreateLog.__fields__.items()
+        name: field for name, field in CreateLog.__fields__.items() if name not in [ 'trace_id', 'parent_observation_id', 'traceIdType']
     }
 
 class CreateEvent(CreateEventRequest):
@@ -43,5 +43,5 @@ class CreateEvent(CreateEventRequest):
         pass
 
     __fields__ = {
-        name: field for name, field in CreateLog.__fields__.items()
+        name: field for name, field in CreateLog.__fields__.items() if name not in [ 'trace_id', 'parent_observation_id', 'traceIdType']
     }
