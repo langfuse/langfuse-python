@@ -1,8 +1,9 @@
+import asyncio
 import datetime
 
 import pytest
 from langfuse import Langfuse
-from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
+from langfuse.api.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan, Usage
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
 
 def test_create_trace():
@@ -142,5 +143,90 @@ async def test_notebook():
 
     assert result['status'] == 'success'
 
-    assert result['status'] == 'success'
+@pytest.mark.asyncio
+async def test_full_nested_example():
+    langfuse = Langfuse("pk-lf-1234567890","sk-lf-1234567890", 'http://localhost:3000')
 
+    trace = langfuse.trace(CreateTrace(
+        name = "docs-retrieval",
+        userId = "user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+        metadata = {
+            "env": "production",
+            "email": "user@langfuse.com",
+        }
+    ))
+
+    start = datetime.datetime.now()
+
+    await asyncio.sleep(1)
+
+    trace.generation(CreateGeneration(
+        name="query-generation",
+        startTime=start,
+        endTime=datetime.datetime.now(),
+        model="gpt-3.5-turbo",
+        modelParameters={"maxTokens": "1000", "temperature": "0.9"},
+        prompt=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals"}],
+        completion="This document entails the OKR goals for ACME",
+        usage=Usage(promptTokens=50, completionTokens = 49),
+        metadata={"interface": "whatsapp"}
+    ))
+
+    retrievalStartTime = datetime.datetime.now()
+
+    await asyncio.sleep(1)
+
+    dbSearchStart = datetime.datetime.now()
+    await asyncio.sleep(1)
+    # retrieveDocs = retrieveDoc()
+    # ...
+    dbSearchEnd = datetime.datetime.now()
+
+    span = trace.span(CreateSpan(
+            name="embedding-search",
+            startTime=retrievalStartTime,
+            endTime=datetime.datetime.now(),
+            metadata={"database": "pinecone"},
+            input = {'query': 'This document entails the OKR goals for ACME'},
+            output = {"response": "[{'name': 'OKR Engineering', 'content': 'The engineering department defined the following OKR goals...'},{'name': 'OKR Marketing', 'content': 'The marketing department defined the following OKR goals...'}]"}
+        )
+    )
+
+    span = span.span(CreateSpan(
+        name="chat-completion",
+        startTime=dbSearchStart,
+        endTime=dbSearchEnd,
+        metadata={
+            'database': 'postgres'
+        },
+        input = {'email': 'user@langfuse.com'},
+        output = {'firstName': 'User', 'lastName': 'Langfuse', 'email': 'user@langfuse.com'}
+    ))
+    
+    finalStart=datetime.datetime.now()
+    
+    await asyncio.sleep(1)
+    
+    trace.generation(CreateGeneration(
+        name="summary-generation",
+        startTime=finalStart,
+        endTime=datetime.datetime.now(),
+        model="gpt-3.5-turbo",
+        modelParameters={"maxTokens": "1000", "temperature": "0.9"},
+        prompt=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Please generate a summary of the following documents \nThe engineering department defined the following OKR goals...\nThe marketing department defined the following OKR goals..."}],
+        completion="The Q3 OKRs contain goals for multiple teams...",
+        usage=Usage(promptTokens=50, completionTokens = 49),
+        metadata={"interface": "whatsapp"}
+    ))
+
+    trace.score(CreateScore(
+        name="user-explicit-feedback",
+        value=1,
+        comment="I like how personalized the response is"
+    ))
+
+    result = await langfuse.async_flush()    
+
+    print("result", result)
+
+    assert result['status'] == 'success'
