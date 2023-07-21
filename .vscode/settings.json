@@ -1,3 +1,10 @@
 {
-    "python.linting.pylintArgs": ["--disable=C0111,C0115"]
+  "python.linting.flake8Args": ["--max-line-length=250"],
+  "python.formatting.blackArgs": ["--line-length", "250"],
+  "python.linting.flake8Enabled": true,
+  "python.linting.enabled": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "python.formatting.provider": "none"
 }

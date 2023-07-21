@@ -1,20 +1,27 @@
 [tool.poetry]
 name = "langfuse"
-version = "0.0.39"
+version = "0.0.40"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-pytest = "^7.4.0"
-python = "^3.8"
+python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<0.25.0"
 attrs = ">=21.3.0"
 python-dateutil = "^2.8.0"
 pytest-timeout = "^2.1.0"
 pydantic = "1.10.7"
 pytest-asyncio = "^0.21.1"
+langchain = "^0.0.237"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.0.0"
+mypy = "^1.4.1"
+pytest = "^7.4.0"
+black = "^23.7.0"
+openai = "^0.27.8"
 
 [build-system]
 requires = ["poetry-core"]

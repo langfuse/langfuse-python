@@ -9,43 +9,32 @@ from langfuse.api.resources.trace.types.create_trace_request import CreateTraceR
 
 
 class CreateScore(CreateScoreRequest):
-    __fields__ = {
-        name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ['trace_id', 'observation_id']
-    }
+    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
 
 
 class CreateTrace(CreateTraceRequest):
-    __fields__ = {
-        name: field for name, field in CreateTraceRequest.__fields__.items()
-    }
+    __fields__ = {name: field for name, field in CreateTraceRequest.__fields__.items()}
+
 
 class CreateGeneration(CreateLog):
-    __fields__ = {
-        name: field for name, field in CreateLog.__fields__.items() if name not in ['trace_id', 'parent_observation_id', 'traceIdType']
-    }
+    __fields__ = {name: field for name, field in CreateLog.__fields__.items() if name not in ["trace_id", "parent_observation_id", "traceIdType"]}
+
 
 class CreateSpan(CreateSpanRequest):
-    __fields__ = {
-        name: field for name, field in CreateSpanRequest.__fields__.items() if name not in ['trace_id', 'parent_observation_id', 'traceIdType']
-    }
+    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items() if name not in ["trace_id", "parent_observation_id", "traceIdType"]}
+
 
 class CreateEvent(CreateEventRequest):
-    __fields__ = {
-        name: field for name, field in CreateEventRequest.__fields__.items() if name not in ['trace_id', 'parent_observation_id', 'traceIdType']
-    }
+    __fields__ = {name: field for name, field in CreateEventRequest.__fields__.items() if name not in ["trace_id", "parent_observation_id", "traceIdType"]}
+
 
 class UpdateGeneration(UpdateGenerationRequest):
-    __fields__ = {
-        name: field for name, field in UpdateGenerationRequest.__fields__.items() if name not in ['generation_id']
-    }
+    __fields__ = {name: field for name, field in UpdateGenerationRequest.__fields__.items() if name not in ["generation_id"]}
+
 
 class UpdateSpan(UpdateSpanRequest):
-    __fields__ = {
-        name: field for name, field in UpdateSpanRequest.__fields__.items() if name not in ['spanId', 'span_id']
-    }
+    __fields__ = {name: field for name, field in UpdateSpanRequest.__fields__.items() if name not in ["spanId", "span_id"]}
+
 
 class Usage(LlmUsage):
-
-    __fields__ = {
-        name: field for name, field in LlmUsage.__fields__.items()
-    }
+    __fields__ = {name: field for name, field in LlmUsage.__fields__.items()}

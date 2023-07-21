@@ -1,8 +1,8 @@
 import asyncio
 from langfuse.futures import FuturesStore
 
-def test_futures_store():
 
+def test_futures_store():
     async def sample_function(x, y):
         return x + y
 
@@ -15,10 +15,10 @@ def test_futures_store():
     store = FuturesStore()
 
     # Appending multiple functions for execution
-    id1 = store.append('2', sample_function, 1, 2)  # Returns 3
-    id2 = store.append('3', dependent_function, 2, future_id=id1)  # Returns 3 * 2 = 6
-    id3 = store.append('4', second_dependent_function, 4, future_id=id2)  # Returns 6 + 4 = 10
+    id1 = store.append("2", sample_function, 1, 2)  # Returns 3
+    id2 = store.append("3", dependent_function, 2, future_id=id1)  # Returns 3 * 2 = 6
+    store.append("4", second_dependent_function, 4, future_id=id2)  # Returns 6 + 4 = 10
 
     # Flush and execute all appended functions
     result = asyncio.run(store.flush())
-    assert result['status'] == 'success'
+    assert result["status"] == "success"
