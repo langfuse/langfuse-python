@@ -1,5 +1,6 @@
 import asyncio
 from enum import Enum
+import traceback
 from typing import Optional
 import uuid
 from langfuse.api.model import (
@@ -94,24 +95,31 @@ class StatefulClient:
         return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, generation_id, future_store=self.future_store)
 
     def span(self, body: CreateSpan):
-        span_id = str(uuid.uuid4()) if body.id is None else body.id
+        try:
+            span_id = str(uuid.uuid4()) if body.id is None else body.id
 
-        async def task(future_result):
-            new_body = body.copy(update={"id": span_id})
+            async def task(future_result):
+                try:
+                    new_body = body.copy(update={"id": span_id})
 
-            parent = future_result
-            if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={"parent_observation_id": parent.id})
-                new_body = new_body.copy(update={"trace_id": parent.trace_id})
-            else:
-                new_body = new_body.copy(update={"trace_id": parent.id})
-            request = CreateSpanRequest(**new_body.dict())
-            return await self.client.span.create(request=request)
+                    parent = future_result
+                    if self.state_type == StateType.OBSERVATION:
+                        new_body = new_body.copy(update={"parent_observation_id": parent.id})
+                        new_body = new_body.copy(update={"trace_id": parent.trace_id})
+                    else:
+                        new_body = new_body.copy(update={"trace_id": parent.id})
 
-        # Add the task to the future store with trace_future_id as a dependency
-        self.future_store.append(span_id, task, future_id=self.future_id)
+                    request = CreateSpanRequest(**new_body.dict())
+                    return await self.client.span.create(request=request)
+                except Exception as e:
+                    traceback.print_exception(e)
 
-        return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, span_id, future_store=self.future_store)
+            # Add the task to the future store with trace_future_id as a dependency
+            self.future_store.append(span_id, task, future_id=self.future_id)
+
+            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, span_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
 
     def score(self, body: CreateScore):
         score_id = str(uuid.uuid4()) if body.id is None else body.id
@@ -188,14 +196,16 @@ class StatefulSpanClient(StatefulClient):
         span_id = self.future_id
 
         async def task(future_result):
-            parent = future_result
+            try:
+                parent = future_result
 
-            new_body = body.copy(update={"span_id": parent.id})
+                new_body = body.copy(update={"span_id": parent.id})
 
-            request = UpdateSpanRequest(**new_body.dict())
-            return await self.client.span.update(request=request)
+                request = UpdateSpanRequest(**new_body.dict())
+                return await self.client.span.update(request=request)
+            except Exception as e:
+                traceback.print_exception(e)
 
-        # Add the task to the future store with trace_future_id as a dependency
         self.future_store.append(future_id, task, future_id=self.future_id)
 
-        return StatefulGenerationClient(self.client, span_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+        return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, future_id, future_store=self.future_store)

@@ -21,22 +21,25 @@ class FuturesStore:
 
     async def flush(self):
         async def run_task(future_id, future_details):
-            if len(future_details) == 3:  # If there are no dependencies
-                func, args, kwargs = future_details
-                result = await func(*args, **kwargs)
-            else:  # If there is a dependency
-                func, args, kwargs, dependent_id = future_details
-                # Wait for the dependency to resolve before running this task
-                await tasks[dependent_id]
-                # get the result from the parent future
-                dependent_result = results[dependent_id]
-                result = await func(dependent_result, *args, **kwargs)
-            results[future_id] = result
+            try:
+                if len(future_details) == 3:  # If there are no dependencies
+                    func, args, kwargs = future_details
+                    result = await func(*args, **kwargs)
+                else:  # If there is a dependency
+                    func, args, kwargs, dependent_id = future_details
+                    # Wait for the dependency to resolve before running this task
+                    await tasks[dependent_id]
+                    # get the result from the parent future
+                    dependent_result = results[dependent_id]
+                    result = await func(dependent_result, *args, **kwargs)
+                results[future_id] = result
+            except Exception as e:
+                traceback.print_exception(e)
+                raise e
 
         results = {}
         tasks = {}
         final_result = {"status": "success"}
-
         try:
             # First, create all the tasks but don't run them yet
             for future_id, future_details in self.futures.items():
