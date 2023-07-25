@@ -61,8 +61,8 @@ class CallbackHandler(BaseCallbackHandler):
                 trace = Run(
                     self.langfuse.trace(
                         CreateTrace(
-                            name=f"{class_name}-{run_id}",
-                            metadata=metadata,
+                            name=class_name,
+                            metadata=self.__join_tags_and_metadata(tags, metadata),
                         )
                     ),
                     None,
@@ -73,8 +73,8 @@ class CallbackHandler(BaseCallbackHandler):
                 self.runs[run_id] = Run(
                     self.runs[parent_run_id].state.span(
                         CreateSpan(
-                            name=f"{class_name}-{run_id}",
-                            metadata=metadata,
+                            name=class_name,
+                            metadata=self.__join_tags_and_metadata(tags, metadata),
                             input=inputs,
                             startTime=datetime.now(),
                         )
@@ -85,8 +85,8 @@ class CallbackHandler(BaseCallbackHandler):
                 self.runs[run_id] = Run(
                     self.trace.state.span(
                         CreateSpan(
-                            name=f"{class_name}-{run_id}",
-                            metadata=metadata,
+                            name=class_name,
+                            metadata=self.__join_tags_and_metadata(tags, metadata),
                             input=inputs,
                             startTime=datetime.now(),
                         )
@@ -211,6 +211,10 @@ class CallbackHandler(BaseCallbackHandler):
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
+            meta = self.__join_tags_and_metadata(tags, metadata)
+
+            meta.update({key: value for key, value in kwargs.items() if value is not None})
+            print("meta:", meta)
 
             self.runs[run_id] = Run(
                 self.runs[parent_run_id].state.span(
@@ -218,7 +222,7 @@ class CallbackHandler(BaseCallbackHandler):
                         name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                         input=input_str,
                         startTime=datetime.now(),
-                        metadata=metadata,
+                        metadata=meta,
                     )
                 ),
                 parent_run_id,
@@ -249,7 +253,7 @@ class CallbackHandler(BaseCallbackHandler):
                         name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                         input=query,
                         startTime=datetime.now(),
-                        metadata=metadata,
+                        metadata=self.__join_tags_and_metadata(tags, metadata),
                     )
                 ),
                 parent_run_id,
@@ -332,7 +336,7 @@ class CallbackHandler(BaseCallbackHandler):
                         name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                         prompt=prompts,
                         startTime=datetime.now(),
-                        metadata=metadata,
+                        metadata=self.__join_tags_and_metadata(tags, metadata),
                         model=kwargs["invocation_params"]["model_name"],
                         modelParameters={
                             key: value
@@ -354,7 +358,7 @@ class CallbackHandler(BaseCallbackHandler):
                         name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                         prompt=prompts,
                         startTime=datetime.now(),
-                        metadata=metadata,
+                        metadata=self.__join_tags_and_metadata(tags, metadata),
                         model=kwargs["invocation_params"]["model_name"],
                         modelParameters={
                             key: value
@@ -406,3 +410,17 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevelSpan.ERROR))
         except Exception:
             traceback.print_exc()
+
+    def __join_tags_and_metadata(
+        self,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if tags is None and metadata is None:
+            return None
+        elif tags is None:
+            return metadata
+        elif metadata is None:
+            return {"tags": tags}
+        else:
+            return {"tags": tags, "metadata": metadata}

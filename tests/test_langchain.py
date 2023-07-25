@@ -9,10 +9,14 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.agents import AgentType, initialize_agent, load_tools
 
+# http://localhost:3000 "https://cloud.langfuse.com"
+
+host = "http://localhost:3000"
+
 
 # @pytest.mark.asyncio
 def test_callback_simple_chain():
-    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -30,7 +34,7 @@ def test_callback_simple_chain():
 
 # @pytest.mark.asyncio
 def test_callback_sequential_chain():
-    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -60,7 +64,7 @@ def test_callback_sequential_chain():
 
 
 def test_callback_retriever():
-    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
     llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
@@ -87,7 +91,7 @@ def test_callback_retriever():
 
 
 def test_callback_simple_llm():
-    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
 
@@ -101,7 +105,7 @@ def test_callback_simple_llm():
 
 
 def test_callback_simple_llm_chat():
-    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
 
