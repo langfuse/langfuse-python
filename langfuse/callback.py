@@ -3,7 +3,7 @@ import traceback
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
-from langfuse.logger import logger
+from langfuse.log import logger
 from langfuse.api.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 from langfuse.api.resources.generations.types.llm_usage import LlmUsage
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan

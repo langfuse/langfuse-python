@@ -2,7 +2,7 @@ import concurrent.futures
 import asyncio
 import traceback
 
-from langfuse.logger import logger
+from langfuse.log import logger
 
 
 class FuturesStore:
