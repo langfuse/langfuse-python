@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "0.0.41"
+version = "0.0.42"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -11,9 +11,7 @@ python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<0.25.0"
 attrs = ">=21.3.0"
 python-dateutil = "^2.8.0"
-pytest-timeout = "^2.1.0"
 pydantic = "1.10.7"
-pytest-asyncio = "^0.21.1"
 langchain = "^0.0.237"
 
 [tool.poetry.group.dev.dependencies]
@@ -25,6 +23,8 @@ openai = "^0.27.8"
 chromadb = "^0.4.2"
 tiktoken = "^0.4.0"
 google-search-results = "^2.4.2"
+pytest-asyncio = "^0.21.1"
+pytest-timeout = "^2.1.0"
 
 [build-system]
 requires = ["poetry-core"]
