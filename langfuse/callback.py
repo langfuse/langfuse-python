@@ -11,6 +11,7 @@ from langchain.schema.messages import BaseMessage
 from langchain.schema.document import Document
 from langfuse.client import Langfuse, StatefulClient
 from langchain.schema.agent import AgentAction, AgentFinish
+import logging
 
 
 class Run:
@@ -37,7 +38,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            print("on chain start: ", serialized, inputs, run_id, parent_run_id, tags, metadata, kwargs)
+            logging.info("on chain start: ", serialized, inputs, run_id, parent_run_id, tags, metadata, kwargs)
             self.__generate_trace_and_parent(serialized=serialized, inputs=inputs, run_id=run_id, parent_run_id=parent_run_id, tags=tags, metadata=metadata, kwargs=kwargs)
         except Exception:
             traceback.print_exc()
@@ -106,7 +107,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run on agent action."""
         try:
-            print("on agent action: ", action, run_id, parent_run_id, kwargs)
+            logging.info("on agent action: ", action, run_id, parent_run_id, kwargs)
 
             if run_id not in self.runs:
                 raise Exception("run not found")
@@ -124,7 +125,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on agent finish: ", finish, run_id, parent_run_id, kwargs)
+            logging.info("on agent finish: ", finish, run_id, parent_run_id, kwargs)
             if run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -141,7 +142,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on chain end: ", outputs, run_id, parent_run_id, kwargs)
+            logging.info("on chain end: ", outputs, run_id, parent_run_id, kwargs)
 
             if run_id not in self.runs:
                 raise Exception("run not found")
@@ -160,7 +161,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         try:
-            print("on chain error: ", error, run_id, parent_run_id, tags, kwargs)
+            logging.info("on chain error: ", error, run_id, parent_run_id, tags, kwargs)
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(level=ObservationLevelSpan.ERROR, statusMessage=str(error), endTime=datetime.now()))
         except Exception:
             traceback.print_exc()
@@ -177,7 +178,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on chat model start: ", serialized, messages, run_id, parent_run_id, tags, metadata, kwargs)
+            logging.info("on chat model start: ", serialized, messages, run_id, parent_run_id, tags, metadata, kwargs)
             self.__on_llm_action(serialized, run_id, messages, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception:
             traceback.print_exc()
@@ -194,7 +195,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on llm start: ", serialized, prompts, run_id, parent_run_id, tags, metadata, kwargs)
+            logging.info("on llm start: ", serialized, prompts, run_id, parent_run_id, tags, metadata, kwargs)
             self.__on_llm_action(serialized, run_id, prompts, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception:
             traceback.print_exc()
@@ -211,7 +212,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on tool start: ", serialized, input_str, run_id, parent_run_id, tags, metadata, kwargs)
+            logging.info("on tool start: ", serialized, input_str, run_id, parent_run_id, tags, metadata, kwargs)
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
@@ -245,7 +246,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on retriever start: ", serialized, query, run_id, parent_run_id, tags, metadata, kwargs)
+            logging.info("on retriever start: ", serialized, query, run_id, parent_run_id, tags, metadata, kwargs)
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
@@ -273,7 +274,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on retriever end: ", documents, run_id, parent_run_id, kwargs)
+            logging.info("on retriever end: ", documents, run_id, parent_run_id, kwargs)
 
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
@@ -291,7 +292,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on tool end: ", output, run_id, parent_run_id, kwargs)
+            logging.info("on tool end: ", output, run_id, parent_run_id, kwargs)
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -308,7 +309,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on tool error: ", error, run_id, parent_run_id, kwargs)
+            logging.info("on tool error: ", error, run_id, parent_run_id, kwargs)
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -389,7 +390,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on llm end: ", response, run_id, parent_run_id, kwargs)
+            logging.info("on llm end: ", response, run_id, parent_run_id, kwargs)
             if run_id not in self.runs:
                 raise Exception("run not found")
             else:
@@ -407,7 +408,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            print("on llm error: ", error, run_id, parent_run_id, kwargs)
+            logging.info("on llm error: ", error, run_id, parent_run_id, kwargs)
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevelSpan.ERROR))
         except Exception:
             traceback.print_exc()
