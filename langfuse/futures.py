@@ -2,7 +2,7 @@ import concurrent.futures
 import asyncio
 import traceback
 
-from langfuse import logger
+from langfuse.logger import logger
 
 
 class FuturesStore:
@@ -62,5 +62,7 @@ class FuturesStore:
             raise e
 
         self.futures.clear()
+        self.results = {}
+        self.taks = {}
 
         return final_result
