@@ -1,5 +1,6 @@
 import concurrent.futures
 import asyncio
+import logging
 import traceback
 
 
@@ -9,7 +10,7 @@ class FuturesStore:
         self.futures = {}
 
     def append(self, id: str, func, *args, future_id=None, **kwargs):
-        print(f"Appending task with ID: {id}")
+        logging.info(f"Appending task with ID: {id}")
 
         if future_id is None:
             print(f"Task {id} depends on task with ID: {future_id}")
@@ -25,7 +26,7 @@ class FuturesStore:
     async def flush(self):
         async def run_task(future_id, future_details):
             try:
-                print(f"Running task with ID: {future_id} and details: {future_details}")
+                logging.info(f"Running task with ID: {future_id} and details: {future_details}")
 
                 if len(future_details) == 3:  # If there are no dependencies
                     func, args, kwargs = future_details
