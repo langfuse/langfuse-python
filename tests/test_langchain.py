@@ -18,7 +18,7 @@ host = "http://localhost:3000"
 def test_callback_simple_chain():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -36,7 +36,7 @@ def test_callback_simple_chain():
 def test_callback_sequential_chain():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -67,13 +67,13 @@ def test_callback_retriever():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_documents(documents)
 
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAPI_KEY"))
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     docsearch = Chroma.from_documents(texts, embeddings)
 
     query = "What did the president say about Ketanji Brown Jackson"
@@ -93,7 +93,7 @@ def test_callback_retriever():
 def test_callback_simple_llm():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     text = "What would be a good company name for a company that makes colorful socks?"
 
@@ -107,7 +107,7 @@ def test_callback_simple_llm():
 def test_callback_simple_llm_chat():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAPI_KEY"))
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 

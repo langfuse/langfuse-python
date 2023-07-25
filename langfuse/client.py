@@ -38,25 +38,37 @@ class Langfuse:
         )
 
     def trace(self, body: CreateTrace):
-        new_id = str(uuid.uuid4())
+        try:
+            new_id = str(uuid.uuid4())
 
-        self.future_store.append(new_id, lambda: self.client.trace.create(request=body))
+            self.future_store.append(new_id, lambda: self.client.trace.create(request=body))
 
-        return StatefulClient(self.client, None, StateType.TRACE, new_id, future_store=self.future_store)
+            return StatefulClient(self.client, None, StateType.TRACE, new_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
 
     def generation(self, body: CreateLog):
-        new_id = str(uuid.uuid4()) if body.id is None else body.id
-        body = body.copy(update={"id": new_id})
-        request = CreateLog(**body.dict())
-        self.future_store.append(new_id, lambda: self.client.generations.log(request=request))
+        try:
+            new_id = str(uuid.uuid4()) if body.id is None else body.id
+            body = body.copy(update={"id": new_id})
+            request = CreateLog(**body.dict())
+            self.future_store.append(new_id, lambda: self.client.generations.log(request=request))
 
-        return StatefulGenerationClient(self.client, new_id, StateType.OBSERVATION, new_id, future_store=self.future_store)
+            return StatefulGenerationClient(self.client, new_id, StateType.OBSERVATION, new_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
 
     async def async_flush(self):
-        return await self.future_store.flush()
+        try:
+            return await self.future_store.flush()
+        except Exception as e:
+            traceback.print_exception(e)
 
     def flush(self):
-        return asyncio.run(self.future_store.flush())  # Make sure to call self.async_flush() here
+        try:
+            return asyncio.run(self.future_store.flush())  # Make sure to call self.async_flush() here
+        except Exception as e:
+            traceback.print_exception(e)
 
 
 class StateType(Enum):
@@ -73,24 +85,30 @@ class StatefulClient:
         self.future_store = future_store
 
     def generation(self, body: CreateGeneration):
-        generation_id = str(uuid.uuid4()) if body.id is None else body.id
+        try:
+            generation_id = str(uuid.uuid4()) if body.id is None else body.id
 
-        async def task(future_result):
-            new_body = body.copy(update={"id": generation_id})
+            async def task(future_result):
+                try:
+                    new_body = body.copy(update={"id": generation_id})
 
-            parent = future_result
+                    parent = future_result
 
-            if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={"parent_observation_id": parent.id})
-                new_body = new_body.copy(update={"trace_id": parent.trace_id})
-            else:
-                new_body = new_body.copy(update={"trace_id": parent.id})
+                    if self.state_type == StateType.OBSERVATION:
+                        new_body = new_body.copy(update={"parent_observation_id": parent.id})
+                        new_body = new_body.copy(update={"trace_id": parent.trace_id})
+                    else:
+                        new_body = new_body.copy(update={"trace_id": parent.id})
 
-            request = CreateLog(**new_body.dict())
-            return await self.client.generations.log(request=request)
+                    request = CreateLog(**new_body.dict())
+                    return await self.client.generations.log(request=request)
+                except Exception as e:
+                    traceback.print_exception(e)
 
-        # Add the task to the future store with trace_future_id as a dependency
-        self.future_store.append(generation_id, task, future_id=self.future_id)
+            # Add the task to the future store with trace_future_id as a dependency
+            self.future_store.append(generation_id, task, future_id=self.future_id)
+        except Exception as e:
+            traceback.print_exception(e)
 
         return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, generation_id, future_store=self.future_store)
 
@@ -122,47 +140,59 @@ class StatefulClient:
             traceback.print_exception(e)
 
     def score(self, body: CreateScore):
-        score_id = str(uuid.uuid4()) if body.id is None else body.id
+        try:
+            score_id = str(uuid.uuid4()) if body.id is None else body.id
 
-        async def task(future_result):
-            new_body = body.copy(update={"id": score_id})
+            async def task(future_result):
+                try:
+                    new_body = body.copy(update={"id": score_id})
 
-            parent = future_result
+                    parent = future_result
 
-            new_body = body
-            if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={"observation_id": parent.id})
-                new_body = new_body.copy(update={"trace_id": parent.trace_id})
-            else:
-                new_body = new_body.copy(update={"trace_id": parent.id})
+                    new_body = body
+                    if self.state_type == StateType.OBSERVATION:
+                        new_body = new_body.copy(update={"observation_id": parent.id})
+                        new_body = new_body.copy(update={"trace_id": parent.trace_id})
+                    else:
+                        new_body = new_body.copy(update={"trace_id": parent.id})
 
-            request = CreateScoreRequest(**new_body.dict())
-            return await self.client.score.create(request=request)
+                    request = CreateScoreRequest(**new_body.dict())
+                    return await self.client.score.create(request=request)
+                except Exception as e:
+                    traceback.print_exception(e)
 
-        self.future_store.append(score_id, task, future_id=self.future_id)
+            self.future_store.append(score_id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client, self.id, self.state_type, self.future_id, future_store=self.future_store)
+            return StatefulClient(self.client, self.id, self.state_type, self.future_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
 
     def event(self, body: CreateEvent):
-        event_id = str(uuid.uuid4()) if body.id is None else body.id
+        try:
+            event_id = str(uuid.uuid4()) if body.id is None else body.id
 
-        async def task(future_result):
-            new_body = body.copy(update={"id": event_id})
+            async def task(future_result):
+                try:
+                    new_body = body.copy(update={"id": event_id})
 
-            parent = future_result
+                    parent = future_result
 
-            if self.state_type == StateType.OBSERVATION:
-                new_body = new_body.copy(update={"parent_observation_id": parent.id})
-                new_body = new_body.copy(update={"trace_id": parent.trace_id})
-            else:
-                new_body = new_body.copy(update={"trace_id": parent.id})
+                    if self.state_type == StateType.OBSERVATION:
+                        new_body = new_body.copy(update={"parent_observation_id": parent.id})
+                        new_body = new_body.copy(update={"trace_id": parent.trace_id})
+                    else:
+                        new_body = new_body.copy(update={"trace_id": parent.id})
 
-            request = CreateEventRequest(**new_body.dict())
-            return await self.client.event.create(request=request)
+                    request = CreateEventRequest(**new_body.dict())
+                    return await self.client.event.create(request=request)
+                except Exception as e:
+                    traceback.print_exception(e)
 
-        self.future_store.append(body.id, task, future_id=self.future_id)
+            self.future_store.append(body.id, task, future_id=self.future_id)
 
-        return StatefulClient(self.client, event_id, self.state_type, event_id, future_store=self.future_store)
+            return StatefulClient(self.client, event_id, self.state_type, event_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
 
 
 class StatefulGenerationClient(StatefulClient):
@@ -170,21 +200,27 @@ class StatefulGenerationClient(StatefulClient):
         super().__init__(client, id, state_type, future_id, future_store)
 
     def update(self, body: UpdateGeneration):
-        future_id = str(uuid.uuid4())
-        generation_id = self.future_id
+        try:
+            future_id = str(uuid.uuid4())
+            generation_id = self.future_id
 
-        async def task(future_result):
-            parent = future_result
+            async def task(future_result):
+                try:
+                    parent = future_result
 
-            new_body = body.copy(update={"generation_id": parent.id})
+                    new_body = body.copy(update={"generation_id": parent.id})
 
-            request = UpdateGenerationRequest(**new_body.dict())
-            return await self.client.generations.update(request=request)
+                    request = UpdateGenerationRequest(**new_body.dict())
+                    return await self.client.generations.update(request=request)
+                except Exception as e:
+                    traceback.print_exception(e)
 
-        # Add the task to the future store with trace_future_id as a dependency
-        self.future_store.append(future_id, task, future_id=self.future_id)
+            # Add the task to the future store with trace_future_id as a dependency
+            self.future_store.append(future_id, task, future_id=self.future_id)
 
-        return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
 
 
 class StatefulSpanClient(StatefulClient):
@@ -192,20 +228,23 @@ class StatefulSpanClient(StatefulClient):
         super().__init__(client, id, state_type, future_id, future_store)
 
     def update(self, body: UpdateSpan):
-        future_id = str(uuid.uuid4())
-        span_id = self.future_id
+        try:
+            future_id = str(uuid.uuid4())
+            span_id = self.future_id
 
-        async def task(future_result):
-            try:
-                parent = future_result
+            async def task(future_result):
+                try:
+                    parent = future_result
 
-                new_body = body.copy(update={"span_id": parent.id})
+                    new_body = body.copy(update={"span_id": parent.id})
 
-                request = UpdateSpanRequest(**new_body.dict())
-                return await self.client.span.update(request=request)
-            except Exception as e:
-                traceback.print_exception(e)
+                    request = UpdateSpanRequest(**new_body.dict())
+                    return await self.client.span.update(request=request)
+                except Exception as e:
+                    traceback.print_exception(e)
 
-        self.future_store.append(future_id, task, future_id=self.future_id)
+            self.future_store.append(future_id, task, future_id=self.future_id)
 
-        return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+        except Exception as e:
+            traceback.print_exception(e)
