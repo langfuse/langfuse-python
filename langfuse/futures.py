@@ -28,7 +28,7 @@ class FuturesStore:
         async def run_task(future_id, future_details):
             try:
                 logger.debug(f"Running task with ID: {future_id} and details: {future_details}")
-
+                print(f"Running task with ID: {future_id} and details: {future_details}")
                 if len(future_details) == 3:  # If there are no dependencies
                     func, args, kwargs = future_details
                     result = await func(*args, **kwargs)

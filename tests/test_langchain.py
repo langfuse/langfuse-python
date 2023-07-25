@@ -27,7 +27,9 @@ def test_callback_simple_chain():
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
     review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-    handler.langfuse.flush()
+    result = handler.langfuse.flush()
+
+    assert result["status"] == "success"
 
     print("output variable: ", review)
 
@@ -56,11 +58,10 @@ def test_callback_sequential_chain():
         chains=[synopsis_chain, review_chain],
     )
     review = overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
     print(review)
-    print(handler.langfuse.future_store.futures)
-    handler.langfuse.flush()
-    print("output variable: ", review)
+
+    result = handler.langfuse.flush()
+    assert result["status"] == "success"
 
 
 def test_callback_retriever():
@@ -83,11 +84,11 @@ def test_callback_retriever():
         retriever=docsearch.as_retriever(),
     )
 
-    result = chain.run(query, callbacks=[handler])
+    llm_result = chain.run(query, callbacks=[handler])
+    print(llm_result)
 
-    handler.langfuse.flush()
-
-    print("output variable: ", result)
+    result = handler.langfuse.flush()
+    assert result["status"] == "success"
 
 
 def test_callback_simple_llm():
@@ -97,11 +98,11 @@ def test_callback_simple_llm():
 
     text = "What would be a good company name for a company that makes colorful socks?"
 
-    result = llm.predict(text, callbacks=[handler])
+    llm_result = llm.predict(text, callbacks=[handler])
+    print(llm_result)
 
-    handler.langfuse.flush()
-
-    print("output variable: ", result)
+    result = handler.langfuse.flush()
+    assert result["status"] == "success"
 
 
 def test_callback_simple_llm_chat():
@@ -113,8 +114,8 @@ def test_callback_simple_llm_chat():
 
     agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
-    result = agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
+    llm_result = agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
+    print(llm_result)
 
-    handler.langfuse.flush()
-
-    print("output variable: ", result)
+    result = handler.langfuse.flush()
+    assert result["status"] == "success"

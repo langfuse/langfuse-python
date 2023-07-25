@@ -9,10 +9,14 @@ from langfuse.api.model import (
     CreateScore,
     CreateSpan,
     CreateTrace,
+    Generation,
+    Span,
     UpdateGeneration,
     UpdateSpan,
     Usage,
 )
+from langfuse.api.resources.generations.types.create_log import CreateLog
+from langfuse.api.resources.generations.types.trace_id_type_generations import TraceIdTypeGenerations
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
 
 
@@ -61,10 +65,7 @@ async def test_update_generation():
 async def test_create_generation():
     client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
 
-    generation = client.generation(CreateGeneration(name="top-level-generation", metadata="test"))
-    sub_generation = generation.generation(CreateGeneration(name="su-child", metadata="test"))
-
-    sub_generation = sub_generation.event(CreateEvent(name="sub-sub-event", metadata="test"))
+    client.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
 
     result = await client.async_flush()
 
@@ -215,5 +216,97 @@ async def test_full_nested_example():
     trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     result = await langfuse.async_flush()
+
+    assert result["status"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_customer_nested():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+
+    span = langfuse.span(
+        Span(
+            name="chat-completion-top",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    langfuse.span(
+        Span(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            parentObservationId=span.id,
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    langfuse.generation(
+        Generation(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            prompt={"role": "client", "message": "some message"},
+            completion="completion string",
+            parentObservationId=span.id,
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    result = await langfuse.async_flush()
+    print(result)
+
+    assert result["status"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_customer_root():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+
+    langfuse.span(
+        Span(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    langfuse.generation(
+        Generation(
+            name="compeletion",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            prompt={"role": "client", "message": "some message"},
+            completion="completion string",
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    result = await langfuse.async_flush()
+    print(result)
 
     assert result["status"] == "success"

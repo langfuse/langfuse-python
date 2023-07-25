@@ -8,6 +8,14 @@ from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequ
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 
 
+class Generation(CreateLog):
+    __fields__ = {name: field for name, field in CreateLog.__fields__.items()}
+
+
+class Span(CreateLog):
+    __fields__ = {name: field for name, field in CreateLog.__fields__.items()}
+
+
 class CreateScore(CreateScoreRequest):
     __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
 
