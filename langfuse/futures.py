@@ -11,10 +11,10 @@ class FuturesStore:
         self.futures = {}
 
     def append(self, id: str, func, *args, future_id=None, **kwargs):
-        logger.info(f"Appending task with ID: {id}")
+        logger.debug(f"Appending task with ID: {id}")
 
         if future_id is None:
-            print(f"Task {id} depends on task with ID: {future_id}")
+            logger.debug(f"Task {id} depends on task with ID: {future_id}")
             # If no future_id is provided, store the function and arguments for later execution
             self.futures[id] = (func, args, kwargs)
         else:
@@ -27,7 +27,7 @@ class FuturesStore:
     async def flush(self):
         async def run_task(future_id, future_details):
             try:
-                logger.info(f"Running task with ID: {future_id} and details: {future_details}")
+                logger.debug(f"Running task with ID: {future_id} and details: {future_details}")
 
                 if len(future_details) == 3:  # If there are no dependencies
                     func, args, kwargs = future_details
