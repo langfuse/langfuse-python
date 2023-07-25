@@ -21,8 +21,8 @@ class Run:
 
 
 class CallbackHandler(BaseCallbackHandler):
-    def __init__(self, pk: str, sk: str, host: Optional[str]) -> None:
-        self.langfuse = Langfuse(pk, sk, host)
+    def __init__(self, public_key: str, secret_key: str, host: Optional[str]) -> None:
+        self.langfuse = Langfuse(public_key, secret_key, host)
         self.trace = None
         self.runs = {}
 

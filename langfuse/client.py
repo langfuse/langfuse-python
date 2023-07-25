@@ -24,10 +24,10 @@ from .version import __version__ as version
 
 
 class Langfuse:
-    def __init__(self, public_key: str, secret_key: str, base_url: Optional[str] = None):
+    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None):
         self.future_store = FuturesStore()
 
-        self.base_url = base_url if base_url else "https://cloud.langfuse.com"
+        self.base_url = host if host else "https://cloud.langfuse.com"
 
         self.client = AsyncFintoLangfuse(
             environment=self.base_url,
