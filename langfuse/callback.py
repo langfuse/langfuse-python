@@ -414,9 +414,10 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Optional[Dict[str, Any]]:
         if tags is None and metadata is None:
             return None
-        elif tags is None:
-            return metadata
-        elif metadata is None:
-            return {"tags": tags}
+        elif tags is not None and len(tags) > 0:
+            final_dict = {"tags": tags}
+            if metadata is not None:
+                final_dict.update(metadata)  # Merge metadata into final_dict
+            return final_dict
         else:
-            return {"tags": tags, "metadata": metadata}
+            return metadata
