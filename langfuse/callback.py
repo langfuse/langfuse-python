@@ -390,7 +390,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logging.info("on llm end: ", response, run_id)
+            logging.info(f"on llm end: {run_id}")
             if run_id not in self.runs:
                 raise Exception("run not found")
             else:
