@@ -20,9 +20,12 @@ from langfuse.api.resources.generations.types.trace_id_type_generations import T
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
 
 
-def test_create_trace():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+host = "https://cloud.langfuse.com/"
 
+
+def test_create_trace():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse.task_manager.start()
     trace = langfuse.trace(
         CreateTrace(
             name="this-is-so-great-new",
@@ -43,12 +46,16 @@ def test_create_trace():
 
     result = langfuse.flush()
 
+    print("result", result)
+
     assert result["status"] == "success"
+
+    print("post-assert")
 
 
 @pytest.mark.asyncio
 async def test_update_generation():
-    client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     generation = client.generation(CreateGeneration(name="to-be-renames", metadata="test", prompt={"key": "value"}, completion="very long completion"))
     updated_generation = generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
@@ -63,7 +70,7 @@ async def test_update_generation():
 
 @pytest.mark.asyncio
 async def test_create_generation():
-    client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     client.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
 
@@ -74,7 +81,7 @@ async def test_create_generation():
 
 @pytest.mark.asyncio
 async def test_notebook():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     trace = langfuse.trace(
         CreateTrace(
@@ -115,12 +122,14 @@ async def test_notebook():
 
     result = await langfuse.async_flush()
 
+    print("result", result)
+
     assert result["status"] == "success"
 
 
 @pytest.mark.asyncio
 async def test_full_nested_example():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     trace = langfuse.trace(
         CreateTrace(
@@ -222,7 +231,7 @@ async def test_full_nested_example():
 
 @pytest.mark.asyncio
 async def test_customer_nested():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     span = langfuse.span(
         Span(
@@ -276,7 +285,7 @@ async def test_customer_nested():
 
 @pytest.mark.asyncio
 async def test_customer_root():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     langfuse.span(
         Span(
@@ -293,6 +302,46 @@ async def test_customer_root():
     )
 
     langfuse.generation(
+        Generation(
+            name="compeletion",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            prompt={"role": "client", "message": "some message"},
+            completion="completion string",
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    result = await langfuse.async_flush()
+    print(result)
+
+    assert result["status"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_customer_blub():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    span = langfuse.span(
+        Span(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    result = await langfuse.async_flush()
+
+    span.generation(
         Generation(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",

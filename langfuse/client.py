@@ -20,14 +20,15 @@ from langfuse.api.resources.generations.types.update_generation_request import U
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
-from langfuse.futures import FuturesStore
 from langfuse.api.client import AsyncFintoLangfuse
+from langfuse.task_manager import Task, TaskManager
 from .version import __version__ as version
 
 
 class Langfuse:
     def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None):
-        self.future_store = FuturesStore()
+        self.task_manager = TaskManager()
+        self.task_manager.start()
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 
@@ -52,10 +53,10 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.future_store.append(new_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(new_id, task, self.future_id))
             self.future_id = new_id
 
-            return StatefulClient(self.client, None, StateType.TRACE, new_id, future_store=self.future_store)
+            return StatefulClient(self.client, None, StateType.TRACE, new_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -72,10 +73,10 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.future_store.append(new_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(new_id, task, self.future_id))
             self.future_id = new_id
 
-            return StatefulSpanClient(self.client, new_id, StateType.TRACE, new_id, future_store=self.future_store)
+            return StatefulSpanClient(self.client, new_id, StateType.TRACE, new_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -92,22 +93,22 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.future_store.append(new_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(new_id, task, self.future_id))
             self.future_id = new_id
 
-            return StatefulGenerationClient(self.client, new_id, StateType.OBSERVATION, new_id, future_store=self.future_store)
+            return StatefulGenerationClient(self.client, new_id, StateType.OBSERVATION, new_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
     async def async_flush(self):
         try:
-            return await self.future_store.flush()
+            return await self.task_manager.await_all_tasks_done()
         except Exception as e:
             traceback.print_exception(e)
 
     def flush(self):
         try:
-            return asyncio.run(self.future_store.flush())  # Make sure to call self.async_flush() here
+            return asyncio.run(self.task_manager.await_all_tasks_done())  # Make sure to call self.async_flush() here
         except Exception as e:
             traceback.print_exception(e)
 
@@ -118,12 +119,12 @@ class StateType(Enum):
 
 
 class StatefulClient:
-    def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, future_store: FuturesStore):
+    def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, task_manager: TaskManager):
         self.client = client
         self.id = id
         self.future_id = future_id
         self.state_type = state_type
-        self.future_store = future_store
+        self.task_manager = task_manager
 
     def generation(self, body: CreateGeneration):
         try:
@@ -147,12 +148,11 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            # Add the task to the future store with trace_future_id as a dependency
-            self.future_store.append(generation_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(generation_id, task, self.future_id))
         except Exception as e:
             traceback.print_exception(e)
 
-        return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, generation_id, future_store=self.future_store)
+        return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, generation_id, task_manager=self.task_manager)
 
     def span(self, body: CreateSpan):
         try:
@@ -176,10 +176,9 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            # Add the task to the future store with trace_future_id as a dependency
-            self.future_store.append(span_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(span_id, task, self.future_id))
 
-            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, span_id, future_store=self.future_store)
+            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, span_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -206,9 +205,9 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            self.future_store.append(score_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(score_id, task, self.future_id))
 
-            return StatefulClient(self.client, self.id, self.state_type, self.future_id, future_store=self.future_store)
+            return StatefulClient(self.client, self.id, self.state_type, self.future_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -234,16 +233,16 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            self.future_store.append(body.id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(body.id, task, self.future_id))
 
-            return StatefulClient(self.client, event_id, self.state_type, event_id, future_store=self.future_store)
+            return StatefulClient(self.client, event_id, self.state_type, event_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
 
 class StatefulGenerationClient(StatefulClient):
-    def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, future_store: FuturesStore):
-        super().__init__(client, id, state_type, future_id, future_store)
+    def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, task_manager: TaskManager):
+        super().__init__(client, id, state_type, future_id, task_manager)
 
     def update(self, body: UpdateGeneration):
         try:
@@ -262,17 +261,16 @@ class StatefulGenerationClient(StatefulClient):
                     traceback.print_exception(e)
                     raise e
 
-            # Add the task to the future store with trace_future_id as a dependency
-            self.future_store.append(future_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(future_id, task, self.future_id))
 
-            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, future_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
 
 class StatefulSpanClient(StatefulClient):
-    def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, future_store: FuturesStore):
-        super().__init__(client, id, state_type, future_id, future_store)
+    def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, task_manager: TaskManager):
+        super().__init__(client, id, state_type, future_id, task_manager)
 
     def update(self, body: UpdateSpan):
         try:
@@ -291,8 +289,8 @@ class StatefulSpanClient(StatefulClient):
                     traceback.print_exception(e)
                     raise e
 
-            self.future_store.append(future_id, task, future_id=self.future_id)
+            self.task_manager.add_task(Task(future_id, task, self.future_id))
 
-            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, future_id, future_store=self.future_store)
+            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, future_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
