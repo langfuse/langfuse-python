@@ -16,10 +16,10 @@ class FuturesStore:
         if future_id is None:
             logger.debug(f"Task {id} depends on task with ID: {future_id}")
             # If no future_id is provided, store the function and arguments for later execution
-            self.futures[id] = (func, args, kwargs)
+            self.futures[id] = func(args, kwargs)
         else:
             # If a future_id is provided, create a dependent future and store it for later execution
-            dependent_future = (func, args, kwargs, future_id)
+            dependent_future = func(args, kwargs, future_id)
             self.futures[id] = dependent_future
 
         return id

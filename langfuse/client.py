@@ -20,7 +20,7 @@ from langfuse.api.resources.generations.types.update_generation_request import U
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
-from langfuse.api.client import AsyncFintoLangfuse
+from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import Task, TaskManager
 from .version import __version__ as version
 
@@ -32,7 +32,7 @@ class Langfuse:
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 
-        self.client = AsyncFintoLangfuse(
+        self.client = FintoLangfuse(
             environment=self.base_url,
             username=public_key,
             password=secret_key,
@@ -46,9 +46,9 @@ class Langfuse:
         try:
             new_id = str(uuid.uuid4())
 
-            async def task(*args):
+            def task(*args):
                 try:
-                    return await self.client.trace.create(request=body)
+                    return self.client.trace.create(request=body)
                 except Exception as e:
                     traceback.print_exception(e)
                     raise e
