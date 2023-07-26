@@ -9,6 +9,7 @@ class FuturesStore:
     def __init__(self):
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         self.futures = {}
+        self.results = {}
 
     def append(self, id: str, func, *args, future_id=None, **kwargs):
         logger.debug(f"Appending task with ID: {id}")
@@ -35,22 +36,23 @@ class FuturesStore:
                 else:  # If there is a dependency
                     func, args, kwargs, dependent_id = future_details
                     # Wait for the dependency to resolve before running this task
-                    await tasks[dependent_id]
+                    if dependent_id not in self.results:
+                        await tasks[dependent_id]
                     # get the result from the parent future
-                    dependent_result = results[dependent_id]
+                    dependent_result = self.results[dependent_id]
                     result = await func(dependent_result, *args, **kwargs)
-                results[future_id] = result
+                self.results[future_id] = result
             except Exception as e:
                 traceback.print_exception(e)
                 raise e
 
-        results = {}
         tasks = {}
         final_result = {"status": "success"}
         try:
             # First, create all the tasks but don't run them yet
             for future_id, future_details in self.futures.items():
-                tasks[future_id] = asyncio.create_task(run_task(future_id, future_details))
+                if future_id not in self.results:
+                    tasks[future_id] = asyncio.create_task(run_task(future_id, future_details))
 
             # Then, run all the tasks concurrently
             for task in tasks.values():
@@ -60,9 +62,5 @@ class FuturesStore:
             final_result["status"] = "failed"
             final_result["error"] = str(e)
             raise e
-
-        self.futures.clear()
-        self.results = {}
-        self.taks = {}
 
         return final_result

@@ -30,13 +30,12 @@ def test_create_trace():
             metadata="test",
         )
     )
-
     trace = trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
 
     sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-
+    result = langfuse.flush()
     sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
 
     sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
