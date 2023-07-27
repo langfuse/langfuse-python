@@ -1,4 +1,5 @@
 import datetime
+import logging
 import time
 
 import pytest
@@ -65,7 +66,6 @@ def test_create_trace():
             metadata="test",
         )
     )
-
     trace = trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))

@@ -8,6 +8,8 @@ pip install langfuse
 
 Full documentation: https://docs.langfuse.com/sdk/python
 
+Langchain documentation: https://docs.langfuse.com/langchain
+
 
 ## Development
 
