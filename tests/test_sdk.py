@@ -1,7 +1,8 @@
-import asyncio
 import datetime
+import time
 
 import pytest
+
 from langfuse import Langfuse
 from langfuse.api.model import (
     CreateEvent,
@@ -18,17 +19,14 @@ from langfuse.api.model import (
 from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.api.resources.generations.types.trace_id_type_generations import TraceIdTypeGenerations
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
+from langfuse.client import LangfuseAsync
 
 host = "http://localhost:3000/"
-# @pytest.fixture(scope="session")
-# async def langfuse():
-#     host = "http://localhost:3000/"
-#     return Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
 
 @pytest.mark.asyncio
-async def test_create_trace():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+async def test_create_trace_async():
+    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     trace = await langfuse.trace(
         CreateTrace(
@@ -43,12 +41,12 @@ async def test_create_trace():
     generation = await trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
 
     sub_generation = await generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-    # result = await asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
+    # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
     sub_sub_span = await sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
 
     sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = await langfuse.async_flush()
+    result = await langfuse.flush()
 
     print("result", result)
 
@@ -57,37 +55,64 @@ async def test_create_trace():
     print("post-assert")
 
 
-@pytest.mark.asyncio
-async def test_update_generation():
+def test_create_trace():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    generation = await langfuse.generation(CreateGeneration(name="to-be-renames", metadata="test", prompt={"key": "value"}, completion="very long completion"))
-    updated_generation = await generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
-    span = await updated_generation.span(CreateSpan(name="sub-span", metadata="test", input={"key": "value"}, output={"key": "value"}))
+    trace = langfuse.trace(
+        CreateTrace(
+            name="this-is-so-great-new",
+            user_id="test",
+            metadata="test",
+        )
+    )
 
-    await span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
+    trace = trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = await langfuse.async_flush()
+    generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
+
+    sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
+    # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
+    sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
+
+    sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+
+    result = langfuse.flush()
+
+    print("result", result)
+
+    assert result["status"] == "success"
+
+    print("post-assert")
+
+
+def test_update_generation():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    generation = langfuse.generation(CreateGeneration(name="to-be-renames", metadata="test", prompt={"key": "value"}, completion="very long completion"))
+    updated_generation = generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
+    span = updated_generation.span(CreateSpan(name="sub-span", metadata="test", input={"key": "value"}, output={"key": "value"}))
+
+    span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
+
+    result = langfuse.flush()
 
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
-async def test_create_generation():
+def test_create_generation():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    await langfuse.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
+    langfuse.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
 
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
-async def test_notebook():
+def test_notebook():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    trace = await langfuse.trace(
+    trace = langfuse.trace(
         CreateTrace(
             name="chat-completion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -103,7 +128,7 @@ async def test_notebook():
     # retrieveDocs = retrieveDoc()
     # ...
 
-    span = await trace.span(
+    span = trace.span(
         CreateSpan(
             name="chat-completion",
             startTime=retrievalStartTime,
@@ -114,7 +139,7 @@ async def test_notebook():
         )
     )
 
-    await span.event(
+    span.event(
         CreateEvent(
             name="chat-docs-retrieval",
             startTime=datetime.datetime.now(),
@@ -124,18 +149,17 @@ async def test_notebook():
         )
     )
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
 
     print("result", result)
 
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
-async def test_full_nested_example():
+def test_full_nested_example():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    trace = await langfuse.trace(
+    trace = langfuse.trace(
         CreateTrace(
             name="docs-retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -148,9 +172,9 @@ async def test_full_nested_example():
 
     start = datetime.datetime.now()
 
-    await asyncio.sleep(1)
+    time.sleep(1)
 
-    await trace.generation(
+    trace.generation(
         CreateGeneration(
             name="query-generation",
             startTime=start,
@@ -172,15 +196,15 @@ async def test_full_nested_example():
 
     retrievalStartTime = datetime.datetime.now()
 
-    await asyncio.sleep(1)
+    time.sleep(1)
 
     dbSearchStart = datetime.datetime.now()
-    await asyncio.sleep(1)
+    time.sleep(1)
     # retrieveDocs = retrieveDoc()
     # ...
     dbSearchEnd = datetime.datetime.now()
 
-    span = await trace.span(
+    span = trace.span(
         CreateSpan(
             name="embedding-search",
             startTime=retrievalStartTime,
@@ -191,7 +215,7 @@ async def test_full_nested_example():
         )
     )
 
-    span = await span.span(
+    span = span.span(
         CreateSpan(
             name="chat-completion",
             startTime=dbSearchStart,
@@ -204,9 +228,9 @@ async def test_full_nested_example():
 
     finalStart = datetime.datetime.now()
 
-    await asyncio.sleep(1)
+    time.sleep(1)
 
-    await trace.generation(
+    trace.generation(
         CreateGeneration(
             name="summary-generation",
             startTime=finalStart,
@@ -226,19 +250,18 @@ async def test_full_nested_example():
         )
     )
 
-    await trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+    trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
 
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
 # @pytest.mark.parametrize("execution_number", range(5))
-async def test_customer_nested():
+def test_customer_nested():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    span = await langfuse.span(
+    span = langfuse.span(
         Span(
             name="chat-completion-top",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -252,7 +275,7 @@ async def test_customer_nested():
         )
     )
 
-    await langfuse.span(
+    langfuse.span(
         Span(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -267,7 +290,7 @@ async def test_customer_nested():
         )
     )
 
-    await langfuse.generation(
+    langfuse.generation(
         Generation(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -282,17 +305,16 @@ async def test_customer_nested():
         )
     )
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
     print(result)
 
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
-async def test_customer_root():
+def test_customer_root():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    await langfuse.span(
+    langfuse.span(
         Span(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -306,7 +328,7 @@ async def test_customer_root():
         )
     )
 
-    await langfuse.generation(
+    langfuse.generation(
         Generation(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -320,17 +342,16 @@ async def test_customer_root():
         )
     )
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
     print(result)
 
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
-async def test_customer_blub():
+def test_customer_blub():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    span = await langfuse.span(
+    span = langfuse.span(
         Span(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -344,9 +365,9 @@ async def test_customer_blub():
         )
     )
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
 
-    await span.generation(
+    span.generation(
         Generation(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -360,7 +381,7 @@ async def test_customer_blub():
         )
     )
 
-    result = await langfuse.async_flush()
+    result = langfuse.flush()
     print(result)
 
     assert result["status"] == "success"

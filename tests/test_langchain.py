@@ -2,7 +2,6 @@ import os
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
-import pytest
 from langfuse.callback import CallbackHandler
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -15,8 +14,7 @@ from langchain.agents import AgentType, initialize_agent, load_tools
 host = "http://localhost:3000"
 
 
-@pytest.mark.asyncio
-async def test_callback_simple_chain():
+def test_callback_simple_chain():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -28,15 +26,14 @@ async def test_callback_simple_chain():
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
     review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-    result = await handler.langfuse.async_flush()
+    result = handler.langfuse.flush()
 
     assert result["status"] == "success"
 
     print("output variable: ", review)
 
 
-@pytest.mark.asyncio
-async def test_callback_sequential_chain():
+def test_callback_sequential_chain():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -61,11 +58,10 @@ async def test_callback_sequential_chain():
     review = overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
     print(review)
 
-    result = await handler.langfuse.async_flush()
+    result = handler.langfuse.flush()
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
 async def test_callback_retriever():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
@@ -89,11 +85,10 @@ async def test_callback_retriever():
     llm_result = chain.run(query, callbacks=[handler])
     print(llm_result)
 
-    result = await handler.langfuse.async_flush()
+    result = handler.langfuse.flush()
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
 async def test_callback_simple_llm():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
@@ -104,12 +99,11 @@ async def test_callback_simple_llm():
     llm_result = llm.predict(text, callbacks=[handler])
     print(llm_result)
 
-    result = await handler.langfuse.async_flush()
+    result = handler.langfuse.flush()
     assert result["status"] == "success"
 
 
-@pytest.mark.asyncio
-async def test_callback_simple_llm_chat():
+def test_callback_simple_llm_chat():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -121,5 +115,5 @@ async def test_callback_simple_llm_chat():
     llm_result = agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
     print(llm_result)
 
-    result = await handler.langfuse.async_flush()
+    result = handler.langfuse.flush()
     assert result["status"] == "success"
