@@ -1,8 +1,9 @@
 import concurrent.futures
 import asyncio
+import threading
 import traceback
 
-from langfuse.log import logger
+import logging
 
 
 class FuturesStore:
@@ -12,10 +13,10 @@ class FuturesStore:
         self.results = {}
 
     def append(self, id: str, func, *args, future_id=None, **kwargs):
-        logger.debug(f"Appending task with ID: {id}")
+        logging.info(f"Appending task with ID: {id}")
 
         if future_id is None:
-            logger.debug(f"Task {id} depends on task with ID: {future_id}")
+            logging.info(f"Task {id} depends on task with ID: {future_id}")
             # If no future_id is provided, store the function and arguments for later execution
             self.futures[id] = (func, args, kwargs)
         else:
@@ -28,8 +29,7 @@ class FuturesStore:
     async def flush(self):
         async def run_task(future_id, future_details):
             try:
-                logger.debug(f"Running task with ID: {future_id} and details: {future_details}")
-                print(f"Running task with ID: {future_id} and details: {future_details}")
+                logging.info(f"Running task with ID: {future_id} and details: {future_details}")
                 if len(future_details) == 3:  # If there are no dependencies
                     func, args, kwargs = future_details
                     result = await func(*args, **kwargs)
@@ -46,21 +46,22 @@ class FuturesStore:
                 traceback.print_exception(e)
                 raise e
 
-        tasks = {}
-        final_result = {"status": "success"}
         try:
+            tasks = {}
+            final_result = {"status": "success"}
             # First, create all the tasks but don't run them yet
             for future_id, future_details in self.futures.items():
                 if future_id not in self.results:
+                    logging.info(f"Creating task with ID: {future_id} and details: {future_details}")
                     tasks[future_id] = asyncio.create_task(run_task(future_id, future_details))
 
             # Then, run all the tasks concurrently
-            for task in tasks.values():
+            for task_id, task in tasks.items():
                 await task
+                self.futures.pop(task_id)
         except Exception as e:
             traceback.print_exception(e)
             final_result["status"] = "failed"
             final_result["error"] = str(e)
-            raise e
-
-        return final_result
+        finally:
+            return final_result

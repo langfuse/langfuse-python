@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 
 import pytest
 from langfuse import Langfuse
@@ -20,7 +21,8 @@ from langfuse.api.resources.generations.types.trace_id_type_generations import T
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
 
 
-def test_create_trace():
+@pytest.mark.asyncio
+async def test_create_trace():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", "http://localhost:3000")
 
     trace = langfuse.trace(
@@ -35,12 +37,14 @@ def test_create_trace():
     generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
 
     sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-    result = langfuse.flush()
+    # await asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
     sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
 
     sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = langfuse.flush()
+    result = await langfuse.async_flush()
+    logging.info("done")
+    result = await langfuse.async_flush()
 
     assert result["status"] == "success"
 
