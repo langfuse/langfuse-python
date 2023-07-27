@@ -19,14 +19,18 @@ from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.api.resources.generations.types.trace_id_type_generations import TraceIdTypeGenerations
 from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
 
+host = "http://localhost:3000/"
+# @pytest.fixture(scope="session")
+# async def langfuse():
+#     host = "http://localhost:3000/"
+#     return Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-host = "https://cloud.langfuse.com/"
 
-
-def test_create_trace():
+@pytest.mark.asyncio
+async def test_create_trace():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
-    langfuse.task_manager.start()
-    trace = langfuse.trace(
+
+    trace = await langfuse.trace(
         CreateTrace(
             name="this-is-so-great-new",
             user_id="test",
@@ -34,17 +38,17 @@ def test_create_trace():
         )
     )
 
-    trace = trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+    trace = await trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
+    generation = await trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
 
-    sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
+    sub_generation = await generation.generation(CreateGeneration(name="yet another child", metadata="test"))
+    # result = await asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
+    sub_sub_span = await sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
 
-    sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
+    sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
-
-    result = langfuse.flush()
+    result = await langfuse.async_flush()
 
     print("result", result)
 
@@ -55,26 +59,26 @@ def test_create_trace():
 
 @pytest.mark.asyncio
 async def test_update_generation():
-    client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    generation = client.generation(CreateGeneration(name="to-be-renames", metadata="test", prompt={"key": "value"}, completion="very long completion"))
-    updated_generation = generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
-    span = updated_generation.span(CreateSpan(name="sub-span", metadata="test", input={"key": "value"}, output={"key": "value"}))
+    generation = await langfuse.generation(CreateGeneration(name="to-be-renames", metadata="test", prompt={"key": "value"}, completion="very long completion"))
+    updated_generation = await generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
+    span = await updated_generation.span(CreateSpan(name="sub-span", metadata="test", input={"key": "value"}, output={"key": "value"}))
 
-    span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
+    await span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
 
-    result = await client.async_flush()
+    result = await langfuse.async_flush()
 
     assert result["status"] == "success"
 
 
 @pytest.mark.asyncio
 async def test_create_generation():
-    client = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    client.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
+    await langfuse.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
 
-    result = await client.async_flush()
+    result = await langfuse.async_flush()
 
     assert result["status"] == "success"
 
@@ -83,7 +87,7 @@ async def test_create_generation():
 async def test_notebook():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    trace = langfuse.trace(
+    trace = await langfuse.trace(
         CreateTrace(
             name="chat-completion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -99,7 +103,7 @@ async def test_notebook():
     # retrieveDocs = retrieveDoc()
     # ...
 
-    span = trace.span(
+    span = await trace.span(
         CreateSpan(
             name="chat-completion",
             startTime=retrievalStartTime,
@@ -110,7 +114,7 @@ async def test_notebook():
         )
     )
 
-    span.event(
+    await span.event(
         CreateEvent(
             name="chat-docs-retrieval",
             startTime=datetime.datetime.now(),
@@ -131,7 +135,7 @@ async def test_notebook():
 async def test_full_nested_example():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    trace = langfuse.trace(
+    trace = await langfuse.trace(
         CreateTrace(
             name="docs-retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -146,7 +150,7 @@ async def test_full_nested_example():
 
     await asyncio.sleep(1)
 
-    trace.generation(
+    await trace.generation(
         CreateGeneration(
             name="query-generation",
             startTime=start,
@@ -176,7 +180,7 @@ async def test_full_nested_example():
     # ...
     dbSearchEnd = datetime.datetime.now()
 
-    span = trace.span(
+    span = await trace.span(
         CreateSpan(
             name="embedding-search",
             startTime=retrievalStartTime,
@@ -187,7 +191,7 @@ async def test_full_nested_example():
         )
     )
 
-    span = span.span(
+    span = await span.span(
         CreateSpan(
             name="chat-completion",
             startTime=dbSearchStart,
@@ -202,7 +206,7 @@ async def test_full_nested_example():
 
     await asyncio.sleep(1)
 
-    trace.generation(
+    await trace.generation(
         CreateGeneration(
             name="summary-generation",
             startTime=finalStart,
@@ -222,7 +226,7 @@ async def test_full_nested_example():
         )
     )
 
-    trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+    await trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     result = await langfuse.async_flush()
 
@@ -230,10 +234,11 @@ async def test_full_nested_example():
 
 
 @pytest.mark.asyncio
+# @pytest.mark.parametrize("execution_number", range(5))
 async def test_customer_nested():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    span = langfuse.span(
+    span = await langfuse.span(
         Span(
             name="chat-completion-top",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -242,12 +247,12 @@ async def test_customer_nested():
             },
             input={"key": "value"},
             output={"key": "value"},
-            traceId="this-is-an-external-id",
+            traceId="this-is-an-external-id-1",
             traceIdType=TraceIdTypeGenerations.EXTERNAL,
         )
     )
 
-    langfuse.span(
+    await langfuse.span(
         Span(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -257,12 +262,12 @@ async def test_customer_nested():
             input={"key": "value"},
             output={"key": "value"},
             parentObservationId=span.id,
-            traceId="this-is-an-external-id",
+            traceId="this-is-an-external-id-1",
             traceIdType=TraceIdTypeGenerations.EXTERNAL,
         )
     )
 
-    langfuse.generation(
+    await langfuse.generation(
         Generation(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -272,7 +277,7 @@ async def test_customer_nested():
             prompt={"role": "client", "message": "some message"},
             completion="completion string",
             parentObservationId=span.id,
-            traceId="this-is-an-external-id",
+            traceId="this-is-an-external-id-1",
             traceIdType=TraceIdTypeGenerations.EXTERNAL,
         )
     )
@@ -287,7 +292,7 @@ async def test_customer_nested():
 async def test_customer_root():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    langfuse.span(
+    await langfuse.span(
         Span(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -301,7 +306,7 @@ async def test_customer_root():
         )
     )
 
-    langfuse.generation(
+    await langfuse.generation(
         Generation(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -325,7 +330,7 @@ async def test_customer_root():
 async def test_customer_blub():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    span = langfuse.span(
+    span = await langfuse.span(
         Span(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
@@ -341,7 +346,7 @@ async def test_customer_blub():
 
     result = await langfuse.async_flush()
 
-    span.generation(
+    await span.generation(
         Generation(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
