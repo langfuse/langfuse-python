@@ -4,6 +4,19 @@ import time
 from langfuse.task_manager import TaskManager, TaskStatus
 
 
+# def test_task_manager_loop():
+#     def my_task(prev_result):
+#         logging.info(f"my_task {prev_result}, returning {(prev_result or 1) * 2}")
+#         return (prev_result or 1) * 2
+
+#     tm = TaskManager(5)
+
+#     for i in range(100):
+#         tm.add_task(i, my_task, predecessor_id=i - 1) if i > 0 else tm.add_task(i, my_task)
+
+#     tm.join()
+
+
 def test_task_manager():
     def my_task(prev_result):
         logging.info(f"my_task {prev_result}, returning {(prev_result or 1) * 2}")
@@ -34,6 +47,8 @@ def test_task_manager():
     assert tm.get_task_result(10)["result"] == 5
     assert tm.get_task_result(11)["result"] == 25
     assert tm.get_task_result(12)["result"] == 125
+
+    tm._prune_old_tasks(0)
 
 
 def test_task_manager_fail():

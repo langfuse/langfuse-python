@@ -37,9 +37,9 @@ class TaskManager:
         # cleans up when the python interpreter closes
         atexit.register(self.join)
 
-    def _prune_loop(self):
+    def _prune_loop(self, delta: int = 60):
         while True:
-            self.prune_old_tasks()
+            self._prune_old_tasks(delta)
             time.sleep(60)
 
     def _scheduler_loop(self):
@@ -117,7 +117,6 @@ class TaskManager:
             if self.prune_thread.is_alive():
                 self.prune_thread.join()  # Join the pruning thread
             self.executor.shutdown(wait=True)
-            self.executor.shutdown(wait=True)
         except Exception as e:
             logging.error(f"Exception in joining TaskManager {e}")
 
@@ -129,10 +128,10 @@ class TaskManager:
 
         return {"result": task_result.result, "status": task_result.type}
 
-    def prune_old_tasks(self):
+    def _prune_old_tasks(self, delta: int):
         try:
             now = datetime.now()
-            to_remove = [task_id for task_id, task in self.result_mapping.items() if task.type in {TaskStatus.SUCCESS, TaskStatus.FAIL} and task.timestamp and now - task.timestamp > timedelta(minutes=5)]
+            to_remove = [task_id for task_id, task in self.result_mapping.items() if task.type in [TaskStatus.SUCCESS, TaskStatus.FAIL] and task.timestamp and now - task.timestamp > timedelta(seconds=delta)]
             for task_id in to_remove:
                 self.result_mapping.pop(task_id, None)
                 logging.info(f"Task {task_id} pruned due to age")
