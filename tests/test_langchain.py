@@ -26,9 +26,7 @@ def test_callback_simple_chain():
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
     review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-    result = handler.langfuse.flush()
-
-    assert result["status"] == "success"
+    handler.langfuse.flush()
 
     print("output variable: ", review)
 
@@ -58,11 +56,10 @@ def test_callback_sequential_chain():
     review = overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
     print(review)
 
-    result = handler.langfuse.flush()
-    assert result["status"] == "success"
+    handler.langfuse.flush()
 
 
-async def test_callback_retriever():
+def test_callback_retriever():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
@@ -84,12 +81,10 @@ async def test_callback_retriever():
 
     llm_result = chain.run(query, callbacks=[handler])
     print(llm_result)
-
-    result = handler.langfuse.flush()
-    assert result["status"] == "success"
+    handler.langfuse.flush()
 
 
-async def test_callback_simple_llm():
+def test_callback_simple_llm():
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -99,8 +94,7 @@ async def test_callback_simple_llm():
     llm_result = llm.predict(text, callbacks=[handler])
     print(llm_result)
 
-    result = handler.langfuse.flush()
-    assert result["status"] == "success"
+    handler.langfuse.flush()
 
 
 def test_callback_simple_llm_chat():
@@ -115,5 +109,4 @@ def test_callback_simple_llm_chat():
     llm_result = agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
     print(llm_result)
 
-    result = handler.langfuse.flush()
-    assert result["status"] == "success"
+    handler.langfuse.flush()

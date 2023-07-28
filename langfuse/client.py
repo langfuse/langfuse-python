@@ -22,13 +22,13 @@ from langfuse.api.resources.score.types.create_score_request import CreateScoreR
 from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.api.client import FintoLangfuse
-from langfuse.task_manager import Task, TaskManager
+from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
 
 class Langfuse:
     def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None):
-        self.task_manager = TaskManager()
+        self.task_manager = TaskManager(10)
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 
@@ -54,7 +54,7 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(new_id, task, self.future_id))
+            self.task_manager.add_task(new_id, task, self.future_id)
             self.future_id = new_id
 
             return StatefulClient(self.client, None, StateType.TRACE, new_id, task_manager=self.task_manager)
@@ -75,7 +75,7 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(new_id, task, self.future_id))
+            self.task_manager.add_task(new_id, task, self.future_id)
             self.future_id = new_id
 
             return StatefulSpanClient(self.client, new_id, StateType.TRACE, new_id, task_manager=self.task_manager)
@@ -96,7 +96,7 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(new_id, task, self.future_id))
+            self.task_manager.add_task(new_id, task, self.future_id)
             self.future_id = new_id
 
             return StatefulGenerationClient(self.client, new_id, StateType.OBSERVATION, new_id, task_manager=self.task_manager)
@@ -105,7 +105,7 @@ class Langfuse:
 
     def flush(self):
         try:
-            return self.task_manager.wait_for_completion()
+            return self.task_manager.join()
         except Exception as e:
             traceback.print_exception(e)
 
@@ -149,8 +149,7 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            logging.info(f"HUHU task {generation_id} with dependency {self.future_id}...")
-            self.task_manager.add_task(Task(generation_id, task, self.future_id))
+            self.task_manager.add_task(generation_id, task, self.future_id)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -181,7 +180,7 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(span_id, task, self.future_id))
+            self.task_manager.add_task(span_id, task, self.future_id)
 
             return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, span_id, task_manager=self.task_manager)
         except Exception as e:
@@ -213,7 +212,7 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(score_id, task, self.future_id))
+            self.task_manager.add_task(score_id, task, self.future_id)
 
             return StatefulClient(self.client, self.id, StateType.SCORE, score_id, task_manager=self.task_manager)
         except Exception as e:
@@ -244,7 +243,7 @@ class StatefulClient:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(body.id, task, self.future_id))
+            self.task_manager.add_task(body.id, task, self.future_id)
 
             return StatefulClient(self.client, event_id, self.state_type, event_id, task_manager=self.task_manager)
         except Exception as e:
@@ -272,7 +271,7 @@ class StatefulGenerationClient(StatefulClient):
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(future_id, task, self.future_id))
+            self.task_manager.add_task(future_id, task, self.future_id)
 
             return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, future_id, task_manager=self.task_manager)
         except Exception as e:
@@ -300,7 +299,7 @@ class StatefulSpanClient(StatefulClient):
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(Task(future_id, task, self.future_id))
+            self.task_manager.add_task(future_id, task, self.future_id)
 
             return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, future_id, task_manager=self.task_manager)
         except Exception as e:
@@ -330,7 +329,7 @@ class LangfuseAsync:
     async def flush(self):
         try:
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, self.langfuse.task_manager.wait_for_completion)
+            return await loop.run_in_executor(None, self.langfuse.task_manager.join)
         except Exception as e:
             traceback.print_exception(e)
 

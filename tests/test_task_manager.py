@@ -1,12 +1,12 @@
 import logging
 import time
 
-from langfuse.task_manager import TaskManager
+from langfuse.task_manager import TaskManager, TaskStatus
 
 
 def test_task_manager():
     def my_task(prev_result):
-        logging.info(f"my_task {prev_result}")
+        logging.info(f"my_task {prev_result}, returning {(prev_result or 1) * 2}")
         return (prev_result or 1) * 2
 
     def my_other_task(prev_result):
@@ -25,13 +25,15 @@ def test_task_manager():
 
     print("tm.result_mapping", tm.result_mapping)
     # Check the results of the tasks
-    # tm.flush()
 
-    time.sleep(2)
+    tm.join()
 
-    assert tm.get_task_result(1) == 2
-    assert tm.get_task_result(2) == 4
-    assert tm.get_task_result(3) == 8
+    assert tm.get_task_result(1)["result"] == 2
+    assert tm.get_task_result(2)["result"] == 4
+    assert tm.get_task_result(3)["result"] == 8
+    assert tm.get_task_result(10)["result"] == 5
+    assert tm.get_task_result(11)["result"] == 25
+    assert tm.get_task_result(12)["result"] == 125
 
 
 def test_task_manager_fail():
@@ -54,9 +56,10 @@ def test_task_manager_fail():
     tm.add_task(3, my_failing_task, predecessor_id=2)
     tm.add_task(4, my_task, predecessor_id=3)
 
-    tm.flush()
+    tm.join()
+    # time.sleep(5)
 
-    assert tm.get_task_result(1) == 2
-    assert tm.get_task_result(2) == 4
-    assert tm.get_task_result(3) == 8
-    assert tm.get_task_result(4) == 16
+    assert tm.get_task_result(1)["result"] == 2
+    assert tm.get_task_result(2)["result"] == 4
+    assert tm.get_task_result(3)["status"] == TaskStatus.FAIL
+    assert tm.get_task_result(4)["status"] == TaskStatus.FAIL

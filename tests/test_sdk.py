@@ -46,13 +46,7 @@ async def test_create_trace_async():
 
     sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = await langfuse.flush()
-
-    print("result", result)
-
-    assert result["status"] == "success"
-
-    print("post-assert")
+    await langfuse.flush()
 
 
 def test_create_trace():
@@ -75,13 +69,7 @@ def test_create_trace():
 
     sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = langfuse.flush()
-
-    print("result", result)
-
-    assert result["status"] == "success"
-
-    print("post-assert")
+    langfuse.flush()
 
 
 def test_update_generation():
@@ -93,9 +81,7 @@ def test_update_generation():
 
     span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
 
-    result = langfuse.flush()
-
-    assert result["status"] == "success"
+    langfuse.flush()
 
 
 def test_create_generation():
@@ -103,9 +89,7 @@ def test_create_generation():
 
     langfuse.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
 
-    result = langfuse.flush()
-
-    assert result["status"] == "success"
+    langfuse.flush()
 
 
 def test_notebook():
@@ -148,11 +132,7 @@ def test_notebook():
         )
     )
 
-    result = langfuse.flush()
-
-    print("result", result)
-
-    assert result["status"] == "success"
+    langfuse.flush()
 
 
 def test_full_nested_example():
@@ -251,12 +231,9 @@ def test_full_nested_example():
 
     trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    result = langfuse.flush()
-
-    assert result["status"] == "success"
+    langfuse.flush()
 
 
-# @pytest.mark.parametrize("execution_number", range(5))
 def test_customer_nested():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
@@ -303,11 +280,7 @@ def test_customer_nested():
             traceIdType=TraceIdTypeGenerations.EXTERNAL,
         )
     )
-
-    result = langfuse.flush()
-    print(result)
-
-    assert result["status"] == "success"
+    langfuse.flush()
 
 
 def test_customer_root():
@@ -341,10 +314,7 @@ def test_customer_root():
         )
     )
 
-    result = langfuse.flush()
-    print(result)
-
-    assert result["status"] == "success"
+    langfuse.flush()
 
 
 def test_customer_blub():
@@ -364,8 +334,6 @@ def test_customer_blub():
         )
     )
 
-    result = langfuse.flush()
-
     span.generation(
         Generation(
             name="compeletion",
@@ -380,7 +348,4 @@ def test_customer_blub():
         )
     )
 
-    result = langfuse.flush()
-    print(result)
-
-    assert result["status"] == "success"
+    langfuse.flush()
