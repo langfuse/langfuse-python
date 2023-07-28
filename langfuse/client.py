@@ -166,7 +166,6 @@ class StatefulClient:
                     logging.info(f"Creating span {new_body}...")
 
                     parent = future_result
-                    print("future_result", future_result)
                     if self.state_type == StateType.OBSERVATION:
                         new_body = new_body.copy(update={"parent_observation_id": parent.id})
                         new_body = new_body.copy(update={"trace_id": parent.trace_id})

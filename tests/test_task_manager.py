@@ -1,43 +1,62 @@
+import logging
 import time
 
-from langfuse.task_manager import Task, TaskManager
+from langfuse.task_manager import TaskManager
 
 
 def test_task_manager():
-    def my_task(input, multiplier):
-        time.sleep(1)
-        return (input or 1) * multiplier
+    def my_task(prev_result):
+        logging.info(f"my_task {prev_result}")
+        return (prev_result or 1) * 2
 
-    tm = TaskManager()
+    def my_other_task(prev_result):
+        logging.info(f"my_other_task {prev_result}")
+        return (prev_result or 1) * 5
+
+    tm = TaskManager(5)
 
     # Add tasks
-    tm.add_task(Task(1, lambda x: my_task(x, 2)))
-    tm.add_task(Task(2, lambda x: my_task(x, 3), prev_id=1))
-    tm.add_task(Task(3, lambda x: my_task(x, 4), prev_id=2))
+    tm.add_task(1, my_task)
+    tm.add_task(10, my_other_task)
+    tm.add_task(2, my_task, predecessor_id=1)
+    tm.add_task(11, my_other_task, predecessor_id=10)
+    tm.add_task(3, my_task, predecessor_id=2)
+    tm.add_task(12, my_other_task, predecessor_id=11)
 
-    tm.add_task(Task(4, lambda x: my_task(x, 4), prev_id=3))
+    print("tm.result_mapping", tm.result_mapping)
+    # Check the results of the tasks
+    # tm.flush()
 
-    tm.wait_for_completion()
+    time.sleep(2)
+
+    assert tm.get_task_result(1) == 2
+    assert tm.get_task_result(2) == 4
+    assert tm.get_task_result(3) == 8
 
 
 def test_task_manager_fail():
-    def my_task(input, multiplier):
-        time.sleep(1)
-        return (input or 1) * multiplier
+    def first(prev_result):
+        return 2
 
-    def my_failing_task(input, multiplier):
+    def my_task(input):
+        time.sleep(1)
+        return (input or 1) * 2
+
+    def my_failing_task(input):
         time.sleep(1)
         raise Exception("This task failed")
 
-    tm = TaskManager()
+    tm = TaskManager(1)
 
     # Add tasks
-    tm.add_task(Task(1, lambda x: my_task(x, 2)))
-    tm.add_task(Task(2, lambda x: my_task(x, 3), prev_id=1))
-    tm.add_task(Task(3, lambda x: my_failing_task(x, 4), prev_id=2))
+    tm.add_task(1, first)
+    tm.add_task(2, my_task, predecessor_id=1)
+    tm.add_task(3, my_failing_task, predecessor_id=2)
+    tm.add_task(4, my_task, predecessor_id=3)
 
-    tm.add_task(Task(4, lambda x: my_task(x, 4), prev_id=3))
+    tm.flush()
 
-    result = tm.wait_for_completion()
-    print(result)
-    assert result["status"] == "fail"
+    assert tm.get_task_result(1) == 2
+    assert tm.get_task_result(2) == 4
+    assert tm.get_task_result(3) == 8
+    assert tm.get_task_result(4) == 16

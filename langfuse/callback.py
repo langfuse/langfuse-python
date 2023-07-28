@@ -1,6 +1,5 @@
 from datetime import datetime
 import logging
-import traceback
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
@@ -40,8 +39,8 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             logging.debug(f"on chain start: {run_id}")
             self.__generate_trace_and_parent(serialized=serialized, inputs=inputs, run_id=run_id, parent_run_id=parent_run_id, tags=tags, metadata=metadata, kwargs=kwargs)
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def __generate_trace_and_parent(
         self,
@@ -94,8 +93,8 @@ class CallbackHandler(BaseCallbackHandler):
                     parent_run_id,
                 )
 
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_agent_action(
         self,
@@ -113,8 +112,8 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(endTime=datetime.now(), output=action))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_agent_finish(
         self,
@@ -130,8 +129,8 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(endTime=datetime.now(), output=finish))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_chain_end(
         self,
@@ -148,8 +147,8 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=outputs, endTime=datetime.now()))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_chain_error(
         self,
@@ -163,8 +162,8 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             logging.debug(f"on chain error: {run_id}")
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(level=ObservationLevelSpan.ERROR, statusMessage=str(error), endTime=datetime.now()))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_chat_model_start(
         self,
@@ -180,8 +179,8 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             logging.debug(f"on chat model start: {run_id}")
             self.__on_llm_action(serialized, run_id, messages, parent_run_id, tags=tags, metadata=metadata, **kwargs)
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_llm_start(
         self,
@@ -197,8 +196,8 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             logging.debug(f"on llm start: {run_id}")
             self.__on_llm_action(serialized, run_id, prompts, parent_run_id, tags=tags, metadata=metadata, **kwargs)
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_tool_start(
         self,
@@ -231,8 +230,8 @@ class CallbackHandler(BaseCallbackHandler):
                 ),
                 parent_run_id,
             )
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_retriever_start(
         self,
@@ -262,8 +261,8 @@ class CallbackHandler(BaseCallbackHandler):
                 ),
                 parent_run_id,
             )
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_retriever_end(
         self,
@@ -280,8 +279,8 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=documents, endTime=datetime.now()))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_tool_end(
         self,
@@ -297,8 +296,8 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=output, endTime=datetime.now()))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_tool_error(
         self,
@@ -314,8 +313,8 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(statusMessage=error, level=ObservationLevelSpan.ERROR, endTime=datetime.now()))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def __on_llm_action(
         self,
@@ -378,8 +377,8 @@ class CallbackHandler(BaseCallbackHandler):
                 ),
                 datetime.now(),
             )
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_llm_end(
         self,
@@ -396,8 +395,8 @@ class CallbackHandler(BaseCallbackHandler):
             else:
                 last_response = response.generations[-1][-1].text
                 self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(completion=last_response, endTime=datetime.now(), usage=LlmUsage(**response.llm_output["token_usage"])))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def on_llm_error(
         self,
@@ -410,8 +409,8 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             logging.debug(f"on llm error: {run_id}")
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevelSpan.ERROR))
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logging.error(e)
 
     def __join_tags_and_metadata(
         self,
