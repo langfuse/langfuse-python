@@ -28,8 +28,6 @@ class TaskManager:
         self.tasks = queue.Queue(max_task_queue_size)
         self.result_mapping = {}
         self.executor = ThreadPoolExecutor(num_workers)
-        self.lock = threading.Lock()
-        self.condition = threading.Condition(self.lock)
         self.scheduler_thread = threading.Thread(target=self._scheduler_loop)
         self.scheduler_thread.start()
 
@@ -45,20 +43,19 @@ class TaskManager:
                     break
 
                 logging.info(f"Task {task.task_id} received from the queue")
-                with self.lock:
-                    if task.predecessor_id is not None:
-                        predecessor_result = self.result_mapping.get(task.predecessor_id)
-                        if predecessor_result.type == TaskStatus.UNSCHEDULED:
-                            self.tasks.put(task)
-                            time.sleep(0.1)
-                            logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
-                            continue
-                        elif predecessor_result.type == TaskStatus.FAIL:
-                            logging.info(f"Task {task.task_id} skipped due to the failure of the predecessor task.")
-                            with task.lock:
-                                task.result = None
-                                task.type = TaskStatus.FAIL
-                            continue
+                if task.predecessor_id is not None:
+                    predecessor_result = self.result_mapping.get(task.predecessor_id)
+                    if predecessor_result.type == TaskStatus.UNSCHEDULED:
+                        self.tasks.put(task)
+                        time.sleep(0.1)
+                        logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
+                        continue
+                    elif predecessor_result.type == TaskStatus.FAIL:
+                        logging.info(f"Task {task.task_id} skipped due to the failure of the predecessor task.")
+                        with task.lock:
+                            task.result = None
+                            task.type = TaskStatus.FAIL
+                        continue
 
                 predecessor_result = self.result_mapping.get(task.predecessor_id).result if task.predecessor_id else None
                 logging.info(f"Task {task.task_id} started with predecessor result {predecessor_result} from {task.predecessor_id}")
@@ -75,15 +72,13 @@ class TaskManager:
             with task.lock:
                 try:
                     result = task.function(predecessor_result)
-                    with self.lock:
-                        self.result_mapping[task.task_id].result = result
-                        self.result_mapping[task.task_id].type = TaskStatus.SUCCESS
-                        logging.info(f"Task {task.task_id} done with result {result}")
+                    self.result_mapping[task.task_id].result = result
+                    self.result_mapping[task.task_id].type = TaskStatus.SUCCESS
+                    logging.info(f"Task {task.task_id} done with result {result}")
                 except Exception as e:
-                    with self.lock:
-                        self.result_mapping[task.task_id].result = e
-                        self.result_mapping[task.task_id].type = TaskStatus.FAIL
-                        logging.info(f"Task {task.task_id} failed with exception {e}")
+                    self.result_mapping[task.task_id].result = e
+                    self.result_mapping[task.task_id].type = TaskStatus.FAIL
+                    logging.info(f"Task {task.task_id} failed with exception {e}")
         except Exception as e:
             logging.error(f"Exception in the task {task.task_id} {e}")
 
@@ -92,8 +87,7 @@ class TaskManager:
             logging.info(f"Adding task {task_id} with predecessor {predecessor_id}")
             task = Task(task_id, function, predecessor_id)
             self.tasks.put(task)
-            with self.lock:
-                self.result_mapping[task_id] = task
+            self.result_mapping[task_id] = task
             logging.info(f"Task {task_id} added {self.result_mapping}")
         except Exception as e:
             logging.error(f"Exception in adding task {task_id} {e}")
@@ -114,10 +108,9 @@ class TaskManager:
             logging.error(f"Exception in joining TaskManager {e}")
 
     def get_task_result(self, task_id):
-        with self.lock:
-            if task_id not in self.result_mapping:
-                raise ValueError(f"Task {task_id} does not exist")
+        if task_id not in self.result_mapping:
+            raise ValueError(f"Task {task_id} does not exist")
 
-            task_result = self.result_mapping[task_id]
+        task_result = self.result_mapping[task_id]
 
         return {"result": task_result.result, "status": task_result.type}
