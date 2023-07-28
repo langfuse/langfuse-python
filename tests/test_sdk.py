@@ -87,7 +87,7 @@ def test_update_generation():
 def test_create_generation():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    langfuse.generation(CreateLog(name="top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
+    langfuse.generation(CreateLog(name="max-top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
 
     langfuse.flush()
 
@@ -283,6 +283,91 @@ def test_customer_nested():
     langfuse.flush()
 
 
+@pytest.mark.asyncio
+async def test_customer_nested_async():
+    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    span = await langfuse.span(
+        Span(
+            name="chat-completion-top",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            traceId="this-is-an-external-id-1",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    await langfuse.span(
+        Span(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            parentObservationId=span.id,
+            traceId="this-is-an-external-id-1",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    await langfuse.generation(
+        Generation(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            prompt={"role": "client", "message": "some message"},
+            completion="completion string",
+            parentObservationId=span.id,
+            traceId="this-is-an-external-id-1",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+    await langfuse.flush()
+
+
+@pytest.mark.asyncio
+async def test_customer_root_async():
+    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    await langfuse.span(
+        Span(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    await langfuse.generation(
+        Generation(
+            name="compeletion",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            prompt={"role": "client", "message": "some message"},
+            completion="completion string",
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    await langfuse.flush()
+
+
 def test_customer_root():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
@@ -349,3 +434,38 @@ def test_customer_blub():
     )
 
     langfuse.flush()
+
+
+@pytest.mark.asyncio
+async def test_customer_blub_async():
+    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    span = await langfuse.span(
+        Span(
+            name="retrieval",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            input={"key": "value"},
+            output={"key": "value"},
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    await span.generation(
+        Generation(
+            name="compeletion",
+            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+            metadata={
+                "env": "production",
+            },
+            prompt={"role": "client", "message": "some message"},
+            completion="completion string",
+            traceId="this-is-an-external-id",
+            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+        )
+    )
+
+    await langfuse.flush()

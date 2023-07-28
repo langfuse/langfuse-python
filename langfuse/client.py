@@ -337,6 +337,7 @@ class LangfuseAsync:
 class StatefulClientAsync(StatefulClient):
     def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, task_manager: TaskManager):
         self.stateful_client = StatefulClient(client, id, state_type, future_id, task_manager)
+        self.id = id
 
     async def _run_in_executor(self, func, *args, **kwargs) -> Awaitable[StatefulClient]:
         loop = asyncio.get_event_loop()
@@ -362,6 +363,7 @@ class StatefulClientAsync(StatefulClient):
 class StatefulGenerationClientAsync(StatefulClientAsync):
     def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, task_manager: TaskManager):
         self.stateful_client = StatefulGenerationClient(client, id, state_type, future_id, task_manager)
+        self.id = id
 
     async def update(self, body: UpdateGeneration):
         client = await self._run_in_executor(self.stateful_client.update, body)
@@ -371,6 +373,7 @@ class StatefulGenerationClientAsync(StatefulClientAsync):
 class StatefulSpanClientAsync(StatefulClientAsync):
     def __init__(self, client: Langfuse, id: Optional[str], state_type: StateType, future_id: str, task_manager: TaskManager):
         self.stateful_client = StatefulSpanClient(client, id, state_type, future_id, task_manager)
+        self.id = id
 
     async def _run_in_executor(self, func, *args, **kwargs) -> Awaitable[StatefulClient]:
         loop = asyncio.get_event_loop()

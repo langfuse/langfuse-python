@@ -1,4 +1,5 @@
 import atexit
+from datetime import datetime, timedelta
 from enum import Enum
 import logging
 import queue
@@ -13,6 +14,7 @@ class Task:
         self.predecessor_id = predecessor_id
         self.function = function
         self.result = None
+        self.timestamp = None
         self.lock = threading.Lock()
         self.type = TaskStatus.UNSCHEDULED
 
@@ -29,10 +31,16 @@ class TaskManager:
         self.result_mapping = {}
         self.executor = ThreadPoolExecutor(num_workers)
         self.scheduler_thread = threading.Thread(target=self._scheduler_loop)
+        self.prune_thread = threading.Thread(target=self._prune_loop)
         self.scheduler_thread.start()
 
         # cleans up when the python interpreter closes
         atexit.register(self.join)
+
+    def _prune_loop(self):
+        while True:
+            self.prune_old_tasks()
+            time.sleep(60)
 
     def _scheduler_loop(self):
         try:
@@ -74,10 +82,12 @@ class TaskManager:
                     result = task.function(predecessor_result)
                     self.result_mapping[task.task_id].result = result
                     self.result_mapping[task.task_id].type = TaskStatus.SUCCESS
+                    self.result_mapping[task.task_id].timestamp = datetime.now()
                     logging.info(f"Task {task.task_id} done with result {result}")
                 except Exception as e:
                     self.result_mapping[task.task_id].result = e
                     self.result_mapping[task.task_id].type = TaskStatus.FAIL
+                    self.result_mapping[task.task_id].timestamp = datetime.now()
                     logging.info(f"Task {task.task_id} failed with exception {e}")
         except Exception as e:
             logging.error(f"Exception in the task {task.task_id} {e}")
@@ -102,7 +112,11 @@ class TaskManager:
                 pass
 
             self.tasks.put(None)
-            self.scheduler_thread.join()
+            if self.scheduler_thread.is_alive():
+                self.scheduler_thread.join()
+            if self.prune_thread.is_alive():
+                self.prune_thread.join()  # Join the pruning thread
+            self.executor.shutdown(wait=True)
             self.executor.shutdown(wait=True)
         except Exception as e:
             logging.error(f"Exception in joining TaskManager {e}")
@@ -114,3 +128,13 @@ class TaskManager:
         task_result = self.result_mapping[task_id]
 
         return {"result": task_result.result, "status": task_result.type}
+
+    def prune_old_tasks(self):
+        try:
+            now = datetime.now()
+            to_remove = [task_id for task_id, task in self.result_mapping.items() if task.type in {TaskStatus.SUCCESS, TaskStatus.FAIL} and task.timestamp and now - task.timestamp > timedelta(minutes=5)]
+            for task_id in to_remove:
+                self.result_mapping.pop(task_id, None)
+                logging.info(f"Task {task_id} pruned due to age")
+        except Exception as e:
+            logging.error(f"Exception in pruning old tasks {e}")
