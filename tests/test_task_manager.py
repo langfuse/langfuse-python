@@ -1,5 +1,8 @@
 import logging
+import subprocess
 import time
+
+import pytest
 
 from langfuse.task_manager import TaskManager, TaskStatus
 
@@ -66,3 +69,41 @@ def test_task_manager_fail():
     assert tm.get_task_result(2)["result"] == 4
     assert tm.get_task_result(3)["status"] == TaskStatus.FAIL
     assert tm.get_task_result(4)["status"] == TaskStatus.FAIL
+
+
+@pytest.mark.timeout(10)  # sets a timeout of 60 seconds for this test
+def test_atexit():
+    python_code = """
+import time
+import logging
+from langfuse.task_manager import TaskManager  # assuming task_manager is the module name
+
+def dummy_function(result):
+    logging.info(f"dummy_function {result}")
+    time.sleep(0.5)
+    return 42
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+print("Adding task manager", TaskManager)
+manager = TaskManager(1)
+#manager.add_task(1, dummy_function)
+print("Adding task")
+# No need to call manager.join() as it should be automatically called at exit
+#manager.join()
+"""
+
+    try:
+        process = subprocess.run(["python", "-c", python_code], capture_output=True, text=True)
+    except subprocess.TimeoutExpired:
+        pytest.fail("The process took too long to execute")
+    # Check that the output includes "Joining TaskManager", which would be printed by TaskManager.join
+
+    print(process)
+    print(process.stdout)
+    # assert "Joining TaskManager" in process.stdout

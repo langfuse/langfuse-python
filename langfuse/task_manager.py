@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from enum import Enum
 import logging
 import queue
-import signal
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -28,6 +27,7 @@ class TaskStatus(Enum):
 
 class TaskManager:
     def __init__(self, num_workers, max_task_queue_size=10000):
+        print("init")
         self.num_workers = num_workers
         self.max_task_queue_size = max_task_queue_size
         self.tasks = queue.Queue(max_task_queue_size)
@@ -36,14 +36,14 @@ class TaskManager:
 
         # cleans up when the python interpreter closes
         atexit.register(self.join)
-        signal.signal(signal.SIGTERM, self.join)
-        signal.signal(signal.SIGINT, self.join)
 
     def init_resources(self):
+        print("init_resources")
         self.executor = ThreadPoolExecutor(self.num_workers)
-        self.scheduler_thread = threading.Thread(target=self._scheduler_loop)
-        self.prune_thread = threading.Thread(target=self._prune_loop)
+        self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True)
+        self.prune_thread = threading.Thread(target=self._prune_loop, daemon=True)
         self.stop_pruner = threading.Event()
+        self.stop_scheduler = threading.Event()
         self.scheduler_thread.start()
         self.prune_thread.start()
 
@@ -53,6 +53,7 @@ class TaskManager:
 
     def _prune_loop(self, delta: int = 600):
         while not self.stop_pruner.is_set():
+            print("prune loop")
             logging.info("Pruning old tasks")
             self._prune_old_tasks(delta)
             for _ in range(60):
@@ -62,7 +63,8 @@ class TaskManager:
 
     def _scheduler_loop(self):
         try:
-            while True:
+            while not self.stop_scheduler.is_set():
+                print("scheduler loop")
                 task = self.tasks.get()
                 if task is None:
                     logging.info("Received None, exiting scheduler loop")
@@ -73,7 +75,7 @@ class TaskManager:
                     predecessor_result = self.result_mapping.get(task.predecessor_id)
                     if predecessor_result.type == TaskStatus.UNSCHEDULED:
                         self.tasks.put(task)
-                        time.sleep(0.1)
+                        time.sleep(0.2)
                         logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
                         continue
                     elif predecessor_result.type == TaskStatus.FAIL:
@@ -135,6 +137,7 @@ class TaskManager:
 
             self.tasks.put(None)
             if self.scheduler_thread and self.scheduler_thread.is_alive():
+                self.stop_scheduler.set()
                 self.scheduler_thread.join()
 
             if self.prune_thread and self.prune_thread.is_alive():
