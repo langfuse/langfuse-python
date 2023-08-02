@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 import logging
 import queue
+import signal
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -35,6 +36,8 @@ class TaskManager:
 
         # cleans up when the python interpreter closes
         atexit.register(self.join)
+        signal.signal(signal.SIGTERM, self.join)
+        signal.signal(signal.SIGINT, self.join)
 
     def init_resources(self):
         self.executor = ThreadPoolExecutor(self.num_workers)
