@@ -48,7 +48,7 @@ class TaskManager:
         self.tasks = queue.Queue(self.max_task_queue_size)
         self.init_resources()
 
-    def _prune_loop(self, delta: int = 60):
+    def _prune_loop(self, delta: int = 600):
         while not self.stop_pruner.is_set():
             logging.info("Pruning old tasks")
             self._prune_old_tasks(delta)
@@ -130,18 +130,16 @@ class TaskManager:
                 time.sleep(0.1)
                 pass
 
-            logging.info("All tasks have been scheduled")
             self.tasks.put(None)
-            if self.scheduler_thread.is_alive():
-                logging.info("Joining scheduler thread")
+            if self.scheduler_thread and self.scheduler_thread.is_alive():
                 self.scheduler_thread.join()
-            if self.prune_thread.is_alive():
-                logging.info("Joining prune thread")
+
+            if self.prune_thread and self.prune_thread.is_alive():
                 self.stop_pruner.set()
                 self.prune_thread.join()
-            logging.info("Joining executor")
-            self.executor.shutdown(wait=True)
-            logging.info("Set ressources")
+
+            if self.executor:
+                self.executor.shutdown(wait=True)
 
             # Set resources to None so we know to recreate them in restart
             self.executor = None

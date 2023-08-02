@@ -5,6 +5,7 @@ import traceback
 from typing import Awaitable, Optional
 import uuid
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
+from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.model import (
     CreateEvent,
@@ -51,7 +52,7 @@ class Langfuse:
             def task(*args):
                 try:
                     new_body = body.copy(update={"id": new_id})
-                    logging.info(f"Creating span {body}...")
+                    logging.info(f"Creating trace {new_body}...")
                     return self.client.trace.create(request=new_body)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -85,14 +86,14 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def generation(self, body: Generation):
+    def generation(self, body: CreateGeneration):
         try:
             new_id = str(uuid.uuid4()) if body.id is None else body.id
             new_body = body.copy(update={"id": new_id})
 
             def task(*args):
                 try:
-                    logging.info(f"Creating generation {new_body}...")
+                    logging.info(f"Creating top-level generation {new_body}...")
                     request = CreateGeneration(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
@@ -146,7 +147,7 @@ class StatefulClient:
                         new_body = new_body.copy(update={"trace_id": parent.id})
                     logging.info(f"Creating generation {new_body}...")
 
-                    request = CreateGeneration(**new_body.dict())
+                    request = CreateGenerationRequest(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
                     traceback.print_exception(e)

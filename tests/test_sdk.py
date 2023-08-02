@@ -4,6 +4,8 @@ import time
 import pytest
 
 from langfuse import Langfuse
+from langfuse.api.resources.commons.types.observation_level import ObservationLevel
+from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
@@ -16,9 +18,7 @@ from langfuse.model import (
     UpdateSpan,
     Usage,
 )
-from langfuse.api.resources.generations.types.create_log import CreateLog
-from langfuse.api.resources.generations.types.trace_id_type_generations import TraceIdTypeGenerations
-from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
+
 from langfuse.client import LangfuseAsync
 
 host = "http://localhost:3000/"
@@ -79,7 +79,7 @@ def test_update_generation():
     updated_generation = generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
     span = updated_generation.span(CreateSpan(name="sub-span", metadata="test", input={"key": "value"}, output={"key": "value"}))
 
-    span.update(UpdateSpan(level=ObservationLevelSpan.WARNING, metadata="something-else"))
+    span.update(UpdateSpan(level=ObservationLevel.WARNING, metadata="something-else"))
 
     langfuse.flush()
 
@@ -87,7 +87,7 @@ def test_update_generation():
 def test_create_generation():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
-    langfuse.generation(CreateLog(name="max-top-level-generation", traceId="some-id", traceIdType=TraceIdTypeGenerations.EXTERNAL, metadata="test"))
+    langfuse.generation(CreateGeneration(name="max-top-level-generation", traceId="some-id", traceIdType=TraceIdTypeEnum.EXTERNAL, metadata="test"))
 
     langfuse.flush()
 
@@ -247,7 +247,7 @@ def test_customer_nested():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -262,7 +262,7 @@ def test_customer_nested():
             output={"key": "value"},
             parentObservationId=span.id,
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -277,7 +277,7 @@ def test_customer_nested():
             completion="completion string",
             parentObservationId=span.id,
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
     langfuse.flush()
@@ -297,7 +297,7 @@ async def test_customer_nested_async():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -312,7 +312,7 @@ async def test_customer_nested_async():
             output={"key": "value"},
             parentObservationId=span.id,
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -327,7 +327,7 @@ async def test_customer_nested_async():
             completion="completion string",
             parentObservationId=span.id,
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
     await langfuse.flush()
@@ -347,7 +347,7 @@ async def test_customer_root_async():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -361,7 +361,7 @@ async def test_customer_root_async():
             prompt={"role": "client", "message": "some message"},
             completion="completion string",
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -381,7 +381,7 @@ def test_customer_root():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -395,7 +395,7 @@ def test_customer_root():
             prompt={"role": "client", "message": "some message"},
             completion="completion string",
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -415,7 +415,7 @@ def test_customer_blub():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -429,7 +429,7 @@ def test_customer_blub():
             prompt={"role": "client", "message": "some message"},
             completion="completion string",
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -450,7 +450,7 @@ async def test_customer_blub_async():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -464,7 +464,7 @@ async def test_customer_blub_async():
             prompt={"role": "client", "message": "some message"},
             completion="completion string",
             traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeGenerations.EXTERNAL,
+            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
