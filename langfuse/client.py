@@ -4,7 +4,9 @@ import logging
 import traceback
 from typing import Awaitable, Optional
 import uuid
-from langfuse.api.model import (
+from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
+from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
+from langfuse.model import (
     CreateEvent,
     CreateGeneration,
     CreateScore,
@@ -15,11 +17,8 @@ from langfuse.api.model import (
     UpdateGeneration,
     UpdateSpan,
 )
-from langfuse.api.resources.event.types.create_event_request import CreateEventRequest
-from langfuse.api.resources.generations.types.create_log import CreateLog
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
-from langfuse.api.resources.span.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
@@ -28,7 +27,7 @@ from .version import __version__ as version
 
 class Langfuse:
     def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None):
-        self.task_manager = TaskManager(10)
+        self.task_manager = TaskManager(1)
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 
@@ -42,14 +41,18 @@ class Langfuse:
 
         self.future_id = None
 
+    def get_trace_id(self):
+        return self.trace.state.id
+
     def trace(self, body: CreateTrace):
         try:
             new_id = str(uuid.uuid4())
 
             def task(*args):
                 try:
+                    new_body = body.copy(update={"id": new_id})
                     logging.info(f"Creating span {body}...")
-                    return self.client.trace.create(request=body)
+                    return self.client.trace.create(request=new_body)
                 except Exception as e:
                     traceback.print_exception(e)
                     raise e
@@ -57,7 +60,7 @@ class Langfuse:
             self.task_manager.add_task(new_id, task, self.future_id)
             self.future_id = new_id
 
-            return StatefulClient(self.client, None, StateType.TRACE, new_id, task_manager=self.task_manager)
+            return StatefulClient(self.client, new_id, StateType.TRACE, new_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -90,7 +93,7 @@ class Langfuse:
             def task(*args):
                 try:
                     logging.info(f"Creating generation {new_body}...")
-                    request = CreateLog(**new_body.dict())
+                    request = CreateGeneration(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -143,7 +146,7 @@ class StatefulClient:
                         new_body = new_body.copy(update={"trace_id": parent.id})
                     logging.info(f"Creating generation {new_body}...")
 
-                    request = CreateLog(**new_body.dict())
+                    request = CreateGeneration(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
                     traceback.print_exception(e)

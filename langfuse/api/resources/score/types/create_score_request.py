@@ -6,13 +6,13 @@ import typing
 import pydantic
 
 from ....core.datetime_utils import serialize_datetime
-from .trace_id_type import TraceIdType
+from ...commons.types.trace_id_type_enum import TraceIdTypeEnum
 
 
 class CreateScoreRequest(pydantic.BaseModel):
     id: typing.Optional[str]
     trace_id: str = pydantic.Field(alias="traceId")
-    trace_id_type: typing.Optional[TraceIdType] = pydantic.Field(alias="traceIdType")
+    trace_id_type: typing.Optional[TraceIdTypeEnum] = pydantic.Field(alias="traceIdType")
     name: str
     value: int
     observation_id: typing.Optional[str] = pydantic.Field(alias="observationId")

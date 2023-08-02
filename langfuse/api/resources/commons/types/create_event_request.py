@@ -6,20 +6,20 @@ import typing
 import pydantic
 
 from ....core.datetime_utils import serialize_datetime
-from .observation_level_span import ObservationLevelSpan
+from .observation_level import ObservationLevel
+from .trace_id_type_enum import TraceIdTypeEnum
 
 
-class Span(pydantic.BaseModel):
-    id: str
-    trace_id: str = pydantic.Field(alias="traceId")
-    type: str
+class CreateEventRequest(pydantic.BaseModel):
+    id: typing.Optional[str]
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
+    trace_id_type: typing.Optional[TraceIdTypeEnum] = pydantic.Field(alias="traceIdType")
     name: typing.Optional[str]
-    start_time: dt.datetime = pydantic.Field(alias="startTime")
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
+    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime")
     metadata: typing.Optional[typing.Any]
     input: typing.Optional[typing.Any]
     output: typing.Optional[typing.Any]
-    level: ObservationLevelSpan
+    level: typing.Optional[ObservationLevel]
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
     parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId")
 

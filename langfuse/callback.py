@@ -3,9 +3,9 @@ import logging
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
-from langfuse.api.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
-from langfuse.api.resources.generations.types.llm_usage import LlmUsage
-from langfuse.api.resources.span.types.observation_level_span import ObservationLevelSpan
+from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+from langfuse.api.resources.commons.types.observation_level import ObservationLevel
+from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 from langchain.schema.output import LLMResult
 from langchain.schema.messages import BaseMessage
 from langchain.schema.document import Document
@@ -41,6 +41,9 @@ class CallbackHandler(BaseCallbackHandler):
             self.__generate_trace_and_parent(serialized=serialized, inputs=inputs, run_id=run_id, parent_run_id=parent_run_id, tags=tags, metadata=metadata, kwargs=kwargs)
         except Exception as e:
             logging.error(e)
+
+    def get_trace_id(self) -> str:
+        return self.trace.state.id
 
     def __generate_trace_and_parent(
         self,
@@ -161,7 +164,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> None:
         try:
             logging.debug(f"on chain error: {run_id}")
-            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(level=ObservationLevelSpan.ERROR, statusMessage=str(error), endTime=datetime.now()))
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now()))
         except Exception as e:
             logging.error(e)
 
@@ -312,7 +315,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(statusMessage=error, level=ObservationLevelSpan.ERROR, endTime=datetime.now()))
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now()))
         except Exception as e:
             logging.error(e)
 
@@ -408,7 +411,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         try:
             logging.debug(f"on llm error: {run_id}")
-            self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevelSpan.ERROR))
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR))
         except Exception as e:
             logging.error(e)
 

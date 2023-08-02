@@ -6,12 +6,12 @@ import typing
 T_Result = typing.TypeVar("T_Result")
 
 
-class TraceIdType(str, enum.Enum):
+class TraceIdTypeEnum(str, enum.Enum):
     LANGFUSE = "LANGFUSE"
     EXTERNAL = "EXTERNAL"
 
     def visit(self, langfuse: typing.Callable[[], T_Result], external: typing.Callable[[], T_Result]) -> T_Result:
-        if self is TraceIdType.LANGFUSE:
+        if self is TraceIdTypeEnum.LANGFUSE:
             return langfuse()
-        if self is TraceIdType.EXTERNAL:
+        if self is TraceIdTypeEnum.EXTERNAL:
             return external()

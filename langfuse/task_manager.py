@@ -27,20 +27,35 @@ class TaskStatus(Enum):
 
 class TaskManager:
     def __init__(self, num_workers, max_task_queue_size=10000):
+        self.num_workers = num_workers
+        self.max_task_queue_size = max_task_queue_size
         self.tasks = queue.Queue(max_task_queue_size)
         self.result_mapping = {}
-        self.executor = ThreadPoolExecutor(num_workers)
-        self.scheduler_thread = threading.Thread(target=self._scheduler_loop)
-        self.prune_thread = threading.Thread(target=self._prune_loop)
-        self.scheduler_thread.start()
+        self.init_resources()
 
         # cleans up when the python interpreter closes
         atexit.register(self.join)
 
+    def init_resources(self):
+        self.executor = ThreadPoolExecutor(self.num_workers)
+        self.scheduler_thread = threading.Thread(target=self._scheduler_loop)
+        self.prune_thread = threading.Thread(target=self._prune_loop)
+        self.stop_pruner = threading.Event()
+        self.scheduler_thread.start()
+        self.prune_thread.start()
+
+    def restart(self):
+        self.tasks = queue.Queue(self.max_task_queue_size)
+        self.init_resources()
+
     def _prune_loop(self, delta: int = 60):
-        while True:
+        while not self.stop_pruner.is_set():
+            logging.info("Pruning old tasks")
             self._prune_old_tasks(delta)
-            time.sleep(60)
+            for _ in range(60):
+                time.sleep(1)
+                if self.stop_pruner.is_set():
+                    break
 
     def _scheduler_loop(self):
         try:
@@ -95,6 +110,10 @@ class TaskManager:
     def add_task(self, task_id, function, predecessor_id=None):
         try:
             logging.info(f"Adding task {task_id} with predecessor {predecessor_id}")
+
+            if self.executor is None or self.scheduler_thread is None or self.prune_thread is None:
+                logging.info("TaskManager has been joined, restarting")
+                self.restart()
             task = Task(task_id, function, predecessor_id)
             self.tasks.put(task)
             self.result_mapping[task_id] = task
@@ -111,12 +130,24 @@ class TaskManager:
                 time.sleep(0.1)
                 pass
 
+            logging.info("All tasks have been scheduled")
             self.tasks.put(None)
             if self.scheduler_thread.is_alive():
+                logging.info("Joining scheduler thread")
                 self.scheduler_thread.join()
             if self.prune_thread.is_alive():
-                self.prune_thread.join()  # Join the pruning thread
+                logging.info("Joining prune thread")
+                self.stop_pruner.set()
+                self.prune_thread.join()
+            logging.info("Joining executor")
             self.executor.shutdown(wait=True)
+            logging.info("Set ressources")
+
+            # Set resources to None so we know to recreate them in restart
+            self.executor = None
+            self.scheduler_thread = None
+            self.prune_thread = None
+            logging.info("TaskManager joined")
         except Exception as e:
             logging.error(f"Exception in joining TaskManager {e}")
 

@@ -13,9 +13,10 @@ from ...core.remove_none_from_headers import remove_none_from_headers
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
+from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from .types.create_span_request import CreateSpanRequest
-from .types.span import Span
+from ..commons.types.create_span_request import CreateSpanRequest
+from ..commons.types.observation import Observation
 from .types.update_span_request import UpdateSpanRequest
 
 
@@ -35,7 +36,7 @@ class SpanClient:
         self._username = username
         self._password = password
 
-    def create(self, *, request: CreateSpanRequest) -> Span:
+    def create(self, *, request: CreateSpanRequest) -> Observation:
         _response = httpx.request(
             "POST",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
@@ -49,7 +50,7 @@ class SpanClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Span, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -58,13 +59,15 @@ class SpanClient:
             raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def update(self, *, request: UpdateSpanRequest) -> Span:
+    def update(self, *, request: UpdateSpanRequest) -> Observation:
         _response = httpx.request(
             "PATCH",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
@@ -78,7 +81,7 @@ class SpanClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Span, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -87,6 +90,8 @@ class SpanClient:
             raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
@@ -110,7 +115,7 @@ class AsyncSpanClient:
         self._username = username
         self._password = password
 
-    async def create(self, *, request: CreateSpanRequest) -> Span:
+    async def create(self, *, request: CreateSpanRequest) -> Observation:
         async with httpx.AsyncClient() as _client:
             _response = await _client.request(
                 "POST",
@@ -128,7 +133,7 @@ class AsyncSpanClient:
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Span, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -137,13 +142,15 @@ class AsyncSpanClient:
             raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def update(self, *, request: UpdateSpanRequest) -> Span:
+    async def update(self, *, request: UpdateSpanRequest) -> Observation:
         async with httpx.AsyncClient() as _client:
             _response = await _client.request(
                 "PATCH",
@@ -161,7 +168,7 @@ class AsyncSpanClient:
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Span, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -170,6 +177,8 @@ class AsyncSpanClient:
             raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:

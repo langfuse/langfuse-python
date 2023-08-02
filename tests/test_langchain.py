@@ -26,7 +26,28 @@ def test_callback_simple_chain():
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
     review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    print("pre-flush")
     handler.langfuse.flush()
+    print("post-flush")
+    print("traceId: ", handler.get_trace_id())
+
+    print("output variable: ", review)
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    print("pre-flush")
+    handler.langfuse.flush()
+    print("post-flush")
+    print("traceId: ", handler.get_trace_id())
 
     print("output variable: ", review)
 

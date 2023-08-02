@@ -6,28 +6,18 @@ import typing
 import pydantic
 
 from ....core.datetime_utils import serialize_datetime
+from .create_span_request import CreateSpanRequest
 from .llm_usage import LlmUsage
 from .map_value import MapValue
-from .observation_level_generation import ObservationLevelGeneration
 
 
-class Log(pydantic.BaseModel):
-    id: str
-    trace_id: str = pydantic.Field(alias="traceId")
-    type: str
-    name: typing.Optional[str]
-    start_time: dt.datetime = pydantic.Field(alias="startTime")
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
+class CreateGenerationRequest(CreateSpanRequest):
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime")
     model: typing.Optional[str]
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters")
     prompt: typing.Optional[typing.Any]
-    metadata: typing.Optional[typing.Any]
     completion: typing.Optional[str]
     usage: typing.Optional[LlmUsage]
-    level: ObservationLevelGeneration
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
-    parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

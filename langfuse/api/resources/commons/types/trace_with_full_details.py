@@ -3,18 +3,15 @@
 import datetime as dt
 import typing
 
-import pydantic
-
 from ....core.datetime_utils import serialize_datetime
+from .observation import Observation
+from .score import Score
+from .trace import Trace
 
 
-class Trace(pydantic.BaseModel):
-    id: str
-    timestamp: dt.datetime
-    external_id: typing.Optional[str] = pydantic.Field(alias="externalId")
-    name: typing.Optional[str]
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId")
-    metadata: typing.Optional[typing.Any]
+class TraceWithFullDetails(Trace):
+    observations: typing.List[Observation]
+    scores: typing.List[Score]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

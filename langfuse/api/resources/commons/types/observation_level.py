@@ -6,7 +6,7 @@ import typing
 T_Result = typing.TypeVar("T_Result")
 
 
-class ObservationLevelEvent(str, enum.Enum):
+class ObservationLevel(str, enum.Enum):
     DEBUG = "DEBUG"
     DEFAULT = "DEFAULT"
     WARNING = "WARNING"
@@ -19,11 +19,11 @@ class ObservationLevelEvent(str, enum.Enum):
         warning: typing.Callable[[], T_Result],
         error: typing.Callable[[], T_Result],
     ) -> T_Result:
-        if self is ObservationLevelEvent.DEBUG:
+        if self is ObservationLevel.DEBUG:
             return debug()
-        if self is ObservationLevelEvent.DEFAULT:
+        if self is ObservationLevel.DEFAULT:
             return default()
-        if self is ObservationLevelEvent.WARNING:
+        if self is ObservationLevel.WARNING:
             return warning()
-        if self is ObservationLevelEvent.ERROR:
+        if self is ObservationLevel.ERROR:
             return error()

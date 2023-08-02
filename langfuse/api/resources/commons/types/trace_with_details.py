@@ -6,17 +6,12 @@ import typing
 import pydantic
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.observation_level import ObservationLevel
+from .trace import Trace
 
 
-class UpdateSpanRequest(pydantic.BaseModel):
-    span_id: str = pydantic.Field(alias="spanId")
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
-    metadata: typing.Optional[typing.Any]
-    input: typing.Optional[typing.Any]
-    output: typing.Optional[typing.Any]
-    level: typing.Optional[ObservationLevel]
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
+class TraceWithDetails(Trace):
+    observations: typing.List[str] = pydantic.Field(description=("List of observation ids\n"))
+    scores: typing.List[str] = pydantic.Field(description=("List of score ids\n"))
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

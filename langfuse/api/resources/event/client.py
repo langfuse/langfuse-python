@@ -13,9 +13,10 @@ from ...core.remove_none_from_headers import remove_none_from_headers
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
+from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from .types.create_event_request import CreateEventRequest
-from .types.event import Event
+from ..commons.types.create_event_request import CreateEventRequest
+from ..commons.types.observation import Observation
 
 
 class EventClient:
@@ -34,7 +35,7 @@ class EventClient:
         self._username = username
         self._password = password
 
-    def create(self, *, request: CreateEventRequest) -> Event:
+    def create(self, *, request: CreateEventRequest) -> Observation:
         _response = httpx.request(
             "POST",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/events"),
@@ -48,7 +49,7 @@ class EventClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Event, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -57,6 +58,8 @@ class EventClient:
             raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
@@ -80,7 +83,7 @@ class AsyncEventClient:
         self._username = username
         self._password = password
 
-    async def create(self, *, request: CreateEventRequest) -> Event:
+    async def create(self, *, request: CreateEventRequest) -> Observation:
         async with httpx.AsyncClient() as _client:
             _response = await _client.request(
                 "POST",
@@ -98,7 +101,7 @@ class AsyncEventClient:
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Event, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -107,6 +110,8 @@ class AsyncEventClient:
             raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:

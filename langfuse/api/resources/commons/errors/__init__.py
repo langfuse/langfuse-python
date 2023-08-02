@@ -3,6 +3,7 @@
 from .access_denied_error import AccessDeniedError
 from .error import Error
 from .method_not_allowed_error import MethodNotAllowedError
+from .not_found_error import NotFoundError
 from .unauthorized_error import UnauthorizedError
 
-__all__ = ["AccessDeniedError", "Error", "MethodNotAllowedError", "UnauthorizedError"]
+__all__ = ["AccessDeniedError", "Error", "MethodNotAllowedError", "NotFoundError", "UnauthorizedError"]

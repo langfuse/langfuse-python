@@ -6,23 +6,15 @@ import typing
 import pydantic
 
 from ....core.datetime_utils import serialize_datetime
-from .observation_level_span import ObservationLevelSpan
-from .trace_id_type_span import TraceIdTypeSpan
 
 
-class CreateSpanRequest(pydantic.BaseModel):
-    id: typing.Optional[str]
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
-    trace_id_type: typing.Optional[TraceIdTypeSpan] = pydantic.Field(alias="traceIdType")
+class Trace(pydantic.BaseModel):
+    id: str = pydantic.Field(description=("The unique identifier of a trace\n"))
+    timestamp: dt.datetime
+    external_id: typing.Optional[str] = pydantic.Field(alias="externalId")
     name: typing.Optional[str]
-    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime")
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
+    user_id: typing.Optional[str] = pydantic.Field(alias="userId")
     metadata: typing.Optional[typing.Any]
-    input: typing.Optional[typing.Any]
-    output: typing.Optional[typing.Any]
-    level: typing.Optional[ObservationLevelSpan]
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
-    parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

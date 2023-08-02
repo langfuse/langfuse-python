@@ -5,18 +5,18 @@ import typing
 
 import pydantic
 
-from ....core.datetime_utils import serialize_datetime
-from ...commons.types.observation_level import ObservationLevel
+from ......core.datetime_utils import serialize_datetime
 
 
-class UpdateSpanRequest(pydantic.BaseModel):
-    span_id: str = pydantic.Field(alias="spanId")
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
-    metadata: typing.Optional[typing.Any]
-    input: typing.Optional[typing.Any]
-    output: typing.Optional[typing.Any]
-    level: typing.Optional[ObservationLevel]
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
+class MetaResponse(pydantic.BaseModel):
+    page: int = pydantic.Field(description=("current page number\n"))
+    limit: int = pydantic.Field(description=("number of items per page\n"))
+    total_items: int = pydantic.Field(
+        alias="totalItems", description=("number of total items given the current filters/selection (if any)\n")
+    )
+    total_pages: int = pydantic.Field(
+        alias="totalPages", description=("number of total pages given the current limit\n")
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

@@ -4,7 +4,7 @@ import time
 import pytest
 
 from langfuse import Langfuse
-from langfuse.api.model import (
+from langfuse.model import (
     CreateEvent,
     CreateGeneration,
     CreateScore,
