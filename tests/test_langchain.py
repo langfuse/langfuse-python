@@ -27,7 +27,7 @@ def test_callback_simple_chain():
 
     review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
-    print("pre-flush")
+    print("pre-flush", review)
     handler.langfuse.flush()
     print("post-flush")
     print("traceId: ", handler.get_trace_id())

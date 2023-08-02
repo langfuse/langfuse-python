@@ -6,6 +6,7 @@ import pytest
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
+from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
@@ -47,6 +48,33 @@ async def test_create_trace_async():
     sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     await langfuse.flush()
+
+
+def test_create_score():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    trace = langfuse.trace(
+        CreateTrace(
+            name="this-is-so-great-new",
+            user_id="test",
+            metadata="test",
+        )
+    )
+    langfuse.flush()
+
+    print("trace.id", trace.id)
+    trace = langfuse.score(
+        CreateScoreRequest(
+            traceId=trace.id,
+            name="this-is-so-great-new",
+            value=1,
+            user_id="test",
+            metadata="test",
+        )
+    )
+
+    trace.generation(CreateGeneration(name="yet another child", metadata="test"))
+
+    langfuse.flush()
 
 
 def test_create_trace():

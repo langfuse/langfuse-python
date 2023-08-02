@@ -41,12 +41,8 @@ class ScoreClient:
             "POST",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/scores"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -79,12 +75,8 @@ class ScoreClient:
             "GET",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/scores"),
             params={"page": page, "limit": limit, "userId": user_id, "name": name},
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -134,9 +126,7 @@ class AsyncScoreClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
@@ -176,9 +166,7 @@ class AsyncScoreClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:

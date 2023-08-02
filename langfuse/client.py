@@ -65,6 +65,26 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
+    def score(self, body: CreateScoreRequest):
+        try:
+            new_id = str(uuid.uuid4())
+
+            def task(*args):
+                try:
+                    new_body = body.copy(update={"id": new_id})
+                    logging.info(f"Creating score {new_body}...")
+                    return self.client.score.create(request=new_body)
+                except Exception as e:
+                    traceback.print_exception(e)
+                    raise e
+
+            self.task_manager.add_task(new_id, task, self.future_id)
+            self.future_id = new_id
+
+            return StatefulClient(self.client, new_id, StateType.TRACE, body.trace_id, task_manager=self.task_manager)
+        except Exception as e:
+            traceback.print_exception(e)
+
     def span(self, body: Span):
         try:
             new_id = str(uuid.uuid4())
@@ -320,6 +340,10 @@ class LangfuseAsync:
 
     async def trace(self, body: CreateTrace):
         client = await self._run_in_executor(self.langfuse.trace, body)
+        return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
+
+    async def score(self, body: CreateScoreRequest):
+        client = await self._run_in_executor(self.langfuse.score, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
     async def span(self, body: Span):
