@@ -1,23 +1,31 @@
+from enum import Enum
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
+
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
+from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
+from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 
 
-class Generation(CreateGenerationRequest):
+class InitialGeneration(CreateGenerationRequest):
     pass
+
+
+class InitialScoreRequest(CreateScoreRequest):
+    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items()}
 
 
 class Span(CreateGenerationRequest):
     __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items()}
 
 
-class CreateScore(CreateScoreRequest):
-    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
+class CreateScore(InitialScoreRequest):
+    __fields__ = {name: field for name, field in InitialScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
 
 
 class CreateTrace(CreateTraceRequest):

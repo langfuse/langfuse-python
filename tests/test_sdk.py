@@ -4,21 +4,7 @@ import time
 import pytest
 
 from langfuse import Langfuse
-from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
-from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
-from langfuse.model import (
-    CreateEvent,
-    CreateGeneration,
-    CreateScore,
-    CreateSpan,
-    CreateTrace,
-    Generation,
-    Span,
-    UpdateGeneration,
-    UpdateSpan,
-    Usage,
-)
+from langfuse.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, InitialGeneration, Span, UpdateGeneration, UpdateSpan, Usage, InitialScoreRequest, TraceIdTypeEnum, ObservationLevel
 
 from langfuse.client import LangfuseAsync
 
@@ -63,7 +49,7 @@ def test_create_score():
 
     print("trace.id", trace.id)
     trace = langfuse.score(
-        CreateScoreRequest(
+        InitialScoreRequest(
             traceId=trace.id,
             name="this-is-so-great-new",
             value=1,
@@ -295,7 +281,7 @@ def test_customer_nested():
     )
 
     langfuse.generation(
-        Generation(
+        InitialGeneration(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -345,7 +331,7 @@ async def test_customer_nested_async():
     )
 
     await langfuse.generation(
-        Generation(
+        InitialGeneration(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -380,7 +366,7 @@ async def test_customer_root_async():
     )
 
     await langfuse.generation(
-        Generation(
+        InitialGeneration(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -414,7 +400,7 @@ def test_customer_root():
     )
 
     langfuse.generation(
-        Generation(
+        InitialGeneration(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -448,7 +434,7 @@ def test_customer_blub():
     )
 
     span.generation(
-        Generation(
+        InitialGeneration(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -483,7 +469,7 @@ async def test_customer_blub_async():
     )
 
     await span.generation(
-        Generation(
+        InitialGeneration(
             name="compeletion",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={

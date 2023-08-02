@@ -13,13 +13,13 @@ from langfuse.model import (
     CreateScore,
     CreateSpan,
     CreateTrace,
-    Generation,
+    InitialGeneration,
+    InitialScoreRequest,
     Span,
     UpdateGeneration,
     UpdateSpan,
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
-from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
@@ -65,7 +65,7 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def score(self, body: CreateScoreRequest):
+    def score(self, body: InitialScoreRequest):
         try:
             new_id = str(uuid.uuid4())
 
@@ -230,7 +230,7 @@ class StatefulClient:
                     else:
                         new_body = new_body.copy(update={"trace_id": parent.id})
 
-                    request = CreateScoreRequest(**new_body.dict())
+                    request = InitialScoreRequest(**new_body.dict())
                     return self.client.score.create(request=request)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -342,7 +342,7 @@ class LangfuseAsync:
         client = await self._run_in_executor(self.langfuse.trace, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
-    async def score(self, body: CreateScoreRequest):
+    async def score(self, body: InitialScoreRequest):
         client = await self._run_in_executor(self.langfuse.score, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
@@ -350,7 +350,7 @@ class LangfuseAsync:
         client = await self._run_in_executor(self.langfuse.span, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
-    async def generation(self, body: Generation):
+    async def generation(self, body: InitialGeneration):
         client = await self._run_in_executor(self.langfuse.generation, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
