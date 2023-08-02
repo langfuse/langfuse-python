@@ -27,7 +27,6 @@ class TaskStatus(Enum):
 
 class TaskManager:
     def __init__(self, num_workers, max_task_queue_size=10000):
-        print("init")
         self.num_workers = num_workers
         self.max_task_queue_size = max_task_queue_size
         self.tasks = queue.Queue(max_task_queue_size)
@@ -38,7 +37,6 @@ class TaskManager:
         atexit.register(self.join)
 
     def init_resources(self):
-        print("init_resources")
         self.executor = ThreadPoolExecutor(self.num_workers)
         self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True)
         self.prune_thread = threading.Thread(target=self._prune_loop, daemon=True)
@@ -53,7 +51,6 @@ class TaskManager:
 
     def _prune_loop(self, delta: int = 600):
         while not self.stop_pruner.is_set():
-            print("prune loop")
             logging.info("Pruning old tasks")
             self._prune_old_tasks(delta)
             for _ in range(60):
@@ -64,7 +61,6 @@ class TaskManager:
     def _scheduler_loop(self):
         try:
             while not self.stop_scheduler.is_set():
-                print("scheduler loop")
                 task = self.tasks.get()
                 if task is None:
                     logging.info("Received None, exiting scheduler loop")
