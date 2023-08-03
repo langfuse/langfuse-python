@@ -22,6 +22,7 @@ class CreateEventRequest(pydantic.BaseModel):
     level: typing.Optional[ObservationLevel]
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
     parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId")
+    version: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

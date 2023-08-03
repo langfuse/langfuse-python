@@ -1,6 +1,7 @@
 import asyncio
 from enum import Enum
 import logging
+import os
 import traceback
 from typing import Awaitable, Optional
 import uuid
@@ -27,7 +28,7 @@ from .version import __version__ as version
 
 
 class Langfuse:
-    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None):
+    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None, release: Optional[str] = None):
         self.task_manager = TaskManager(1)
 
         self.base_url = host if host else "https://cloud.langfuse.com"
@@ -42,6 +43,8 @@ class Langfuse:
 
         self.future_id = None
 
+        self.release = os.environ.get("LANGFUSE_RELEASE", release)
+
     def get_trace_id(self):
         return self.trace.state.id
 
@@ -51,7 +54,11 @@ class Langfuse:
 
             def task(*args):
                 try:
-                    new_body = body.copy(update={"id": new_id})
+                    new_body = body
+                    if body.release is None and self.release is not None:
+                        new_body = body.copy(update={"release": self.release})
+
+                    new_body = new_body.copy(update={"id": new_id})
                     logging.info(f"Creating trace {new_body}...")
                     return self.client.trace.create(request=new_body)
                 except Exception as e:
@@ -331,8 +338,8 @@ class StatefulSpanClient(StatefulClient):
 
 
 class LangfuseAsync:
-    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None):
-        self.langfuse = Langfuse(public_key, secret_key, host)
+    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None, release: Optional[str] = None):
+        self.langfuse = Langfuse(public_key, secret_key, host, release)
 
     async def _run_in_executor(self, func, *args, **kwargs) -> Awaitable[StatefulClient]:
         loop = asyncio.get_event_loop()

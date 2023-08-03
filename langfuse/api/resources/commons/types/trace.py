@@ -13,6 +13,8 @@ class Trace(pydantic.BaseModel):
     timestamp: dt.datetime
     external_id: typing.Optional[str] = pydantic.Field(alias="externalId")
     name: typing.Optional[str]
+    release: typing.Optional[str]
+    version: typing.Optional[str]
     user_id: typing.Optional[str] = pydantic.Field(alias="userId")
     metadata: typing.Optional[typing.Any]
 

@@ -13,6 +13,8 @@ class CreateTraceRequest(pydantic.BaseModel):
     name: typing.Optional[str]
     user_id: typing.Optional[str] = pydantic.Field(alias="userId")
     external_id: typing.Optional[str] = pydantic.Field(alias="externalId")
+    release: typing.Optional[str]
+    version: typing.Optional[str]
     metadata: typing.Optional[typing.Any]
 
     def json(self, **kwargs: typing.Any) -> str:

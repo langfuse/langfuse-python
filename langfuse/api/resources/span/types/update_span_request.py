@@ -16,6 +16,7 @@ class UpdateSpanRequest(pydantic.BaseModel):
     input: typing.Optional[typing.Any]
     output: typing.Optional[typing.Any]
     level: typing.Optional[ObservationLevel]
+    version: typing.Optional[str]
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
 
     def json(self, **kwargs: typing.Any) -> str:

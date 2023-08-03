@@ -19,6 +19,7 @@ class UpdateGenerationRequest(pydantic.BaseModel):
     model: typing.Optional[str]
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters")
     prompt: typing.Optional[typing.Any]
+    version: typing.Optional[str]
     metadata: typing.Optional[typing.Any]
     completion: typing.Optional[str]
     usage: typing.Optional[LlmUsage]

@@ -1,4 +1,3 @@
-from enum import Enum
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
@@ -8,6 +7,8 @@ from langfuse.api.resources.score.types.create_score_request import CreateScoreR
 
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
+
+# these imports need to stay here, otherwise imports from our clients wont work
 from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 
