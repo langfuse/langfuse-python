@@ -55,7 +55,7 @@ class Langfuse:
             def task(*args):
                 try:
                     new_body = body
-                    if body.release is None and self.release is not None:
+                    if self.release is not None:
                         new_body = body.copy(update={"release": self.release})
 
                     new_body = new_body.copy(update={"id": new_id})
