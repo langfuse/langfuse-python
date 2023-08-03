@@ -30,7 +30,7 @@ class CreateScore(InitialScoreRequest):
 
 
 class CreateTrace(CreateTraceRequest):
-    __fields__ = {name: field for name, field in CreateTraceRequest.__fields__.items()}
+    __fields__ = {name: field for name, field in CreateTraceRequest.__fields__.items() if name not in ["release"]}
 
 
 class CreateGeneration(CreateGenerationRequest):
