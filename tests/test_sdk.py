@@ -7,6 +7,7 @@ from langfuse import Langfuse
 from langfuse.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, InitialGeneration, InitialScore, InitialSpan, UpdateGeneration, UpdateSpan, Usage, TraceIdTypeEnum, ObservationLevel
 
 from langfuse.client import LangfuseAsync
+from langfuse.task_manager import TaskStatus
 
 host = "http://localhost:3000/"
 
@@ -29,6 +30,8 @@ async def test_create_trace_async():
     sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     await langfuse.flush()
+    assert langfuse.langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_create_score():
@@ -41,6 +44,8 @@ def test_create_score():
         )
     )
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
     trace = langfuse.score(
         InitialScore(
@@ -55,6 +60,8 @@ def test_create_score():
     trace.generation(CreateGeneration(name="yet another child", metadata="test"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_create_trace():
@@ -78,6 +85,8 @@ def test_create_trace():
     sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_update_generation():
@@ -90,6 +99,8 @@ def test_update_generation():
     span.update(UpdateSpan(level=ObservationLevel.WARNING, metadata="something-else"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_create_generation():
@@ -98,6 +109,8 @@ def test_create_generation():
     langfuse.generation(CreateGeneration(name="max-top-level-generation", metadata="test"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_create_span():
@@ -106,6 +119,8 @@ def test_create_span():
     langfuse.span(InitialSpan(name="max-top-level-generation", metadata="test"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_notebook():
@@ -149,6 +164,8 @@ def test_notebook():
     )
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_full_nested_example():
@@ -248,6 +265,8 @@ def test_full_nested_example():
     trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_customer_nested():
@@ -297,6 +316,8 @@ def test_customer_nested():
         )
     )
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 @pytest.mark.asyncio
@@ -347,6 +368,8 @@ async def test_customer_nested_async():
         )
     )
     await langfuse.flush()
+    assert langfuse.langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 @pytest.mark.asyncio
@@ -382,6 +405,8 @@ async def test_customer_root_async():
     )
 
     await langfuse.flush()
+    assert langfuse.langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_customer_root():
@@ -416,6 +441,8 @@ def test_customer_root():
     )
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_customer_blub():
@@ -450,6 +477,9 @@ def test_customer_blub():
     )
 
     langfuse.flush()
+    print("assert")
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 @pytest.mark.asyncio
@@ -485,3 +515,5 @@ async def test_customer_blub_async():
     )
 
     await langfuse.flush()
+    assert langfuse.langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"

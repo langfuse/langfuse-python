@@ -30,7 +30,7 @@ from .version import __version__ as version
 
 class Langfuse:
     def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None, release: Optional[str] = None):
-        self.task_manager = TaskManager(1)
+        self.task_manager = TaskManager()
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 

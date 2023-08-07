@@ -7,6 +7,7 @@ import pytest
 from langfuse.task_manager import TaskManager, TaskStatus
 
 
+@pytest.mark.timeout(10)
 def test_task_manager():
     def my_task(prev_result):
         logging.info(f"my_task {prev_result}, returning {(prev_result or 1) * 2}")
@@ -16,7 +17,7 @@ def test_task_manager():
         logging.info(f"my_other_task {prev_result}")
         return (prev_result or 1) * 5
 
-    tm = TaskManager(5)
+    tm = TaskManager()
 
     # Add tasks
     tm.add_task(1, my_task)
@@ -26,21 +27,19 @@ def test_task_manager():
     tm.add_task(3, my_task, predecessor_id=2)
     tm.add_task(12, my_other_task, predecessor_id=11)
 
-    print("tm.result_mapping", tm.result_mapping)
     # Check the results of the tasks
 
     tm.join()
 
-    assert tm.get_task_result(1)["result"] == 2
-    assert tm.get_task_result(2)["result"] == 4
-    assert tm.get_task_result(3)["result"] == 8
-    assert tm.get_task_result(10)["result"] == 5
-    assert tm.get_task_result(11)["result"] == 25
-    assert tm.get_task_result(12)["result"] == 125
-
-    tm._prune_old_tasks(0)
+    assert tm.get_result(1).result == 2
+    assert tm.get_result(2).result == 4
+    assert tm.get_result(3).result == 8
+    assert tm.get_result(10).result == 5
+    assert tm.get_result(11).result == 25
+    assert tm.get_result(12).result == 125
 
 
+@pytest.mark.timeout(10)
 def test_task_manager_fail():
     def first(prev_result):
         return 2
@@ -53,7 +52,7 @@ def test_task_manager_fail():
         time.sleep(1)
         raise Exception("This task failed")
 
-    tm = TaskManager(1)
+    tm = TaskManager()
 
     # Add tasks
     tm.add_task(1, first)
@@ -63,15 +62,14 @@ def test_task_manager_fail():
     tm.add_task(4, my_task, predecessor_id=3)
 
     tm.join()
-    # time.sleep(5)
 
-    assert tm.get_task_result(1)["result"] == 2
-    assert tm.get_task_result(2)["result"] == 4
-    assert tm.get_task_result(3)["status"] == TaskStatus.FAIL
-    assert tm.get_task_result(4)["status"] == TaskStatus.FAIL
+    assert tm.get_result(1).result == 2
+    assert tm.get_result(2).result == 4
+    assert tm.get_result(3).status == TaskStatus.FAIL
+    assert tm.get_result(4).status == TaskStatus.FAIL
 
 
-@pytest.mark.timeout(10)  # sets a timeout of 60 seconds for this test
+@pytest.mark.timeout(10)
 def test_atexit():
     python_code = """
 import time
@@ -91,19 +89,29 @@ logging.basicConfig(
     ]
 )
 print("Adding task manager", TaskManager)
-manager = TaskManager(1)
-#manager.add_task(1, dummy_function)
-print("Adding task")
-# No need to call manager.join() as it should be automatically called at exit
-#manager.join()
+manager = TaskManager()
+a = manager.add_task(1, dummy_function)
+print(a)
+manager.add_task(2, dummy_function, predecessor_id=1)
+
 """
 
+    process = subprocess.Popen(["python", "-c", python_code], stderr=subprocess.PIPE, text=True)
+
+    logs = ""
+
     try:
-        process = subprocess.run(["python", "-c", python_code], capture_output=True, text=True)
+        for line in process.stderr:
+            logs += line.strip()
+            print(line.strip())
     except subprocess.TimeoutExpired:
         pytest.fail("The process took too long to execute")
-    # Check that the output includes "Joining TaskManager", which would be printed by TaskManager.join
+    process.communicate()
 
-    print(process)
-    print(process.stdout)
-    # assert "Joining TaskManager" in process.stdout
+    returncode = process.returncode
+    if returncode != 0:
+        pytest.fail("Process returned with error code")
+
+    print(process.stderr)
+
+    assert "TaskManager joined" in logs
