@@ -70,6 +70,30 @@ def test_task_manager_fail():
 
 
 @pytest.mark.timeout(10)
+def test_task_manager_prune():
+    def first(prev_result):
+        return 2
+
+    def my_task(input):
+        return (input or 1) * 2
+
+    tm = TaskManager(max_task_age=0)
+
+    # Add tasks
+    tm.add_task(1, first)
+    tm.add_task(2, my_task, predecessor_id=1)
+    tm.join()
+
+    tm.join()
+
+    time.sleep(3)
+    logging.info(tm.result_mapping)
+
+    assert True if tm.get_result(1) is None else False
+    assert True if tm.get_result(2) is None else False
+
+
+@pytest.mark.timeout(10)
 def test_atexit():
     python_code = """
 import time
