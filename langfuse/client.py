@@ -8,6 +8,7 @@ import uuid
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
+from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
@@ -15,8 +16,8 @@ from langfuse.model import (
     CreateSpan,
     CreateTrace,
     InitialGeneration,
-    InitialScoreRequest,
-    Span,
+    InitialScore,
+    InitialSpan,
     UpdateGeneration,
     UpdateSpan,
 )
@@ -72,7 +73,7 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def score(self, body: InitialScoreRequest):
+    def score(self, body: InitialScore):
         try:
             new_id = str(uuid.uuid4())
 
@@ -92,13 +93,15 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def span(self, body: Span):
+    def span(self, body: InitialSpan):
         try:
             new_id = str(uuid.uuid4())
 
             def task(*args):
                 try:
                     new_body = body.copy(update={"id": new_id})
+                    if self.release is not None:
+                        new_body = body.copy(update={"trace": {"release": self.release}})
                     logging.info(f"Creating span {new_body}...")
                     request = CreateSpanRequest(**new_body.dict())
                     return self.client.span.create(request=request)
@@ -113,15 +116,17 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def generation(self, body: CreateGeneration):
+    def generation(self, body: InitialGeneration):
         try:
             new_id = str(uuid.uuid4()) if body.id is None else body.id
-            new_body = body.copy(update={"id": new_id})
 
             def task(*args):
                 try:
+                    new_body = body.copy(update={"id": new_id})
+                    if self.release is not None:
+                        new_body = body.copy(update={"trace": {"release": self.release}})
                     logging.info(f"Creating top-level generation {new_body}...")
-                    request = CreateGeneration(**new_body.dict())
+                    request = CreateGenerationRequest(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -237,7 +242,7 @@ class StatefulClient:
                     else:
                         new_body = new_body.copy(update={"trace_id": parent.id})
 
-                    request = InitialScoreRequest(**new_body.dict())
+                    request = CreateScoreRequest(**new_body.dict())
                     return self.client.score.create(request=request)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -349,11 +354,11 @@ class LangfuseAsync:
         client = await self._run_in_executor(self.langfuse.trace, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
-    async def score(self, body: InitialScoreRequest):
+    async def score(self, body: InitialScore):
         client = await self._run_in_executor(self.langfuse.score, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 
-    async def span(self, body: Span):
+    async def span(self, body: InitialSpan):
         client = await self._run_in_executor(self.langfuse.span, body)
         return StatefulClientAsync(client.client, client.id, client.state_type, client.future_id, self.langfuse.task_manager)
 

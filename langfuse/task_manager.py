@@ -118,7 +118,7 @@ class TaskManager:
             task = Task(task_id, function, predecessor_id)
             self.tasks.put(task)
             self.result_mapping[task_id] = task
-            logging.info(f"Task {task_id} added {self.result_mapping}")
+            logging.info(f"Task {task_id} added {self.result_mapping.keys()}")
         except Exception as e:
             logging.error(f"Exception in adding task {task_id} {e}")
 

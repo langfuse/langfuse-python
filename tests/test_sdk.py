@@ -4,7 +4,7 @@ import time
 import pytest
 
 from langfuse import Langfuse
-from langfuse.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, InitialGeneration, Span, UpdateGeneration, UpdateSpan, Usage, InitialScoreRequest, TraceIdTypeEnum, ObservationLevel
+from langfuse.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, InitialGeneration, InitialScore, InitialSpan, UpdateGeneration, UpdateSpan, Usage, TraceIdTypeEnum, ObservationLevel
 
 from langfuse.client import LangfuseAsync
 
@@ -42,9 +42,8 @@ def test_create_score():
     )
     langfuse.flush()
 
-    print("trace.id", trace.id)
     trace = langfuse.score(
-        InitialScoreRequest(
+        InitialScore(
             traceId=trace.id,
             name="this-is-so-great-new",
             value=1,
@@ -94,9 +93,17 @@ def test_update_generation():
 
 
 def test_create_generation():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host, release="1.0.0")
 
-    langfuse.generation(CreateGeneration(name="max-top-level-generation", traceId="some-id", traceIdType=TraceIdTypeEnum.EXTERNAL, metadata="test"))
+    langfuse.generation(CreateGeneration(name="max-top-level-generation", metadata="test"))
+
+    langfuse.flush()
+
+
+def test_create_span():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host, release="1.0.0")
+
+    langfuse.span(InitialSpan(name="max-top-level-generation", metadata="test"))
 
     langfuse.flush()
 
@@ -247,7 +254,7 @@ def test_customer_nested():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     span = langfuse.span(
-        Span(
+        InitialSpan(
             name="chat-completion-top",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -261,7 +268,7 @@ def test_customer_nested():
     )
 
     langfuse.span(
-        Span(
+        InitialSpan(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -297,7 +304,7 @@ async def test_customer_nested_async():
     langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     span = await langfuse.span(
-        Span(
+        InitialSpan(
             name="chat-completion-top",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -311,7 +318,7 @@ async def test_customer_nested_async():
     )
 
     await langfuse.span(
-        Span(
+        InitialSpan(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -347,7 +354,7 @@ async def test_customer_root_async():
     langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     await langfuse.span(
-        Span(
+        InitialSpan(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -381,7 +388,7 @@ def test_customer_root():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     langfuse.span(
-        Span(
+        InitialSpan(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -415,7 +422,7 @@ def test_customer_blub():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     span = langfuse.span(
-        Span(
+        InitialSpan(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={
@@ -450,7 +457,7 @@ async def test_customer_blub_async():
     langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     span = await langfuse.span(
-        Span(
+        InitialSpan(
             name="retrieval",
             userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
             metadata={

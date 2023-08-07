@@ -17,16 +17,16 @@ class InitialGeneration(CreateGenerationRequest):
     pass
 
 
-class InitialScoreRequest(CreateScoreRequest):
+class InitialScore(CreateScoreRequest):
     __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items()}
 
 
-class Span(CreateGenerationRequest):
+class InitialSpan(CreateGenerationRequest):
     __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items()}
 
 
-class CreateScore(InitialScoreRequest):
-    __fields__ = {name: field for name, field in InitialScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
+class CreateScore(CreateScoreRequest):
+    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
 
 
 class CreateTrace(CreateTraceRequest):
