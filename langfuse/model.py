@@ -14,15 +14,15 @@ from langfuse.api.resources.commons.types.observation_level import ObservationLe
 
 
 class InitialGeneration(CreateGenerationRequest):
-    pass
+    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items()}
 
 
 class InitialScore(CreateScoreRequest):
     __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items()}
 
 
-class InitialSpan(CreateGenerationRequest):
-    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items()}
+class InitialSpan(CreateSpanRequest):
+    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items()}
 
 
 class CreateScore(CreateScoreRequest):

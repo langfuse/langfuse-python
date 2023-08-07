@@ -477,7 +477,6 @@ def test_customer_blub():
     )
 
     langfuse.flush()
-    print("assert")
     assert langfuse.task_manager.queue.qsize() == 0
     assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
