@@ -51,15 +51,15 @@ class Langfuse:
 
     def trace(self, body: CreateTrace):
         try:
-            new_id = str(uuid.uuid4())
+            new_id = str(uuid.uuid4()) if body.id is None else body.id
 
             def task(*args):
                 try:
-                    new_body = body
-                    if self.release is not None:
-                        new_body = body.copy(update={"release": self.release})
+                    new_body = body.copy(update={"id": new_id})
 
-                    new_body = new_body.copy(update={"id": new_id})
+                    if self.release is not None:
+                        new_body = new_body.copy(update={"release": self.release})
+
                     logging.info(f"Creating trace {new_body}...")
                     return self.client.trace.create(request=new_body)
                 except Exception as e:

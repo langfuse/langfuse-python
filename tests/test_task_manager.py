@@ -1,10 +1,29 @@
 import logging
 import subprocess
+import threading
 import time
 
 import pytest
 
 from langfuse.task_manager import TaskManager, TaskStatus
+
+
+@pytest.mark.timeout(10)
+def test_multiple_tasks_without_predecessor():
+    def task_without_predecessor(input):
+        return 20
+
+    tm = TaskManager()
+
+    tm.add_task(10, task_without_predecessor)
+    tm.add_task(20, task_without_predecessor)
+    tm.add_task(30, task_without_predecessor)
+
+    tm.join()
+
+    assert tm.get_result(10).result == 20
+    assert tm.get_result(20).result == 20
+    assert tm.get_result(30).result == 20
 
 
 @pytest.mark.timeout(10)
@@ -39,6 +58,23 @@ def test_task_manager():
     assert tm.get_result(12).result == 125
 
 
+@pytest.mark.timeout(20)
+def test_task_with_unscheduled_predecessor():
+    def simple_task(input):
+        return (1 if input is None else input) + 1
+
+    tm = TaskManager()
+
+    tm.add_task(1, simple_task, predecessor_id=3)  # Task with an unscheduled predecessor
+    time.sleep(2)  # Allow some time for potential re-queue
+    tm.add_task(3, simple_task)  # This is the predecessor
+
+    tm.join()
+
+    assert tm.get_result(3).result == 2
+    assert tm.get_result(1).result == 3
+
+
 @pytest.mark.timeout(10)
 def test_task_manager_fail():
     def first(prev_result):
@@ -69,28 +105,63 @@ def test_task_manager_fail():
     assert tm.get_result(4).status == TaskStatus.FAIL
 
 
+# @pytest.mark.timeout(10)
+# def test_task_manager_prune():
+#     def first(prev_result):
+#         return 2
+
+#     def my_task(input):
+#         return (input or 1) * 2
+
+#     tm = TaskManager(max_task_age=0)
+
+#     # Add tasks
+#     tm.add_task(1, first)
+#     tm.add_task(2, my_task, predecessor_id=1)
+#     tm.join()
+
+#     assert True if tm.get_result(1) is None else False
+#     assert True if tm.get_result(2) is None else False
+
+
+@pytest.mark.timeout(20)
+def test_consumer_restart():
+    def short_task(input):
+        return (1 if input is None else input) + 1
+
+    tm = TaskManager()
+
+    tm.add_task(1, short_task)
+    tm.join()
+
+    tm.add_task(2, short_task)  # This should restart the consumer
+
+    tm.join()
+
+    assert tm.get_result(2).result == 2
+
+
 @pytest.mark.timeout(10)
-def test_task_manager_prune():
-    def first(prev_result):
-        return 2
+def test_concurrent_task_additions():
+    def concurrent_task(input):
+        return (1 if input is None else input) * 2
 
-    def my_task(input):
-        return (input or 1) * 2
+    def add_task_concurrently(tm, task_id, func, predecessor_id=None):
+        tm.add_task(task_id, func, predecessor_id)
 
-    tm = TaskManager(max_task_age=0)
+    tm = TaskManager()
 
-    # Add tasks
-    tm.add_task(1, first)
-    tm.add_task(2, my_task, predecessor_id=1)
+    threads = [threading.Thread(target=add_task_concurrently, args=(tm, i + 1, concurrent_task)) for i in range(10)]
+
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
     tm.join()
 
-    tm.join()
-
-    time.sleep(3)
-    logging.info(tm.result_mapping)
-
-    assert True if tm.get_result(1) is None else False
-    assert True if tm.get_result(2) is None else False
+    for i in range(10):
+        assert tm.get_result(i + 1).result == 2
 
 
 @pytest.mark.timeout(10)

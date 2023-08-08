@@ -116,7 +116,7 @@ def test_create_generation():
 def test_create_span():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host, release="1.0.0")
 
-    langfuse.span(InitialSpan(name="max-top-level-generation", metadata="test"))
+    langfuse.span(InitialSpan(name="max-top-level-span", metadata="test"))
 
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0

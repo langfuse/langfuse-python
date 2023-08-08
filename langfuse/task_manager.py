@@ -46,6 +46,7 @@ class TaskManager:
             if self.consumer_thread is None or not self.consumer_thread.is_alive():
                 self.init_resources()
             task = Task(task_id, function, predecessor_id)
+
             self.queue.put(task)
             logging.info(f"Task {task_id} added to queue")
         except Exception as e:
@@ -105,18 +106,20 @@ class Consumer(threading.Thread):
                 if task.predecessor_id is not None:
                     predecessor_result = self.result_mapping.get(task.predecessor_id)
 
-                    if predecessor_result is None or predecessor_result.status == TaskStatus.FAIL:
+                    if predecessor_result is None or predecessor_result.status == TaskStatus.UNSCHEDULED:
+                        self.queue.put(task)
+                        time.sleep(0.2)
+                        logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
+                        self.queue.task_done()
+                        continue
+
+                    elif predecessor_result.status == TaskStatus.FAIL:
                         logging.info(f"Task {task.task_id} skipped due to the failure or non-existence of the predecessor task.")
                         with task.lock:
                             task.result = None
                             task.status = TaskStatus.FAIL
                             task.timestamp = datetime.now()
                             self.queue.task_done()
-                        continue
-                    elif predecessor_result.status == TaskStatus.UNSCHEDULED:
-                        self.queue.put(task)
-                        time.sleep(0.2)
-                        logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
                         continue
 
                 predecessor_result = self.result_mapping.get(task.predecessor_id).result if task.predecessor_id else None
