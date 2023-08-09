@@ -32,4 +32,4 @@ jobs:
         run: poetry install
 
       - name: Run the automated tests (for example)
-        run: poetry run pytest -v
+        run: poetry run pytest -s -v --log-cli-level=INFO tests/test_task_manager.py
