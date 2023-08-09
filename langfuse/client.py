@@ -194,9 +194,9 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def shodown(self):
+    def shutdown(self):
         try:
-            return self.task_manager.shodown()
+            return self.task_manager.shutdown()
         except Exception as e:
             traceback.print_exception(e)
 

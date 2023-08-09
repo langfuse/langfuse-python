@@ -10,6 +10,40 @@ from langfuse.task_manager import TaskStatus
 host = "http://localhost:3000/"
 
 
+def test_flush():
+    # set up the consumer with more requests than a single batch will allow
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    for i in range(2):
+        langfuse.trace(
+            CreateTrace(
+                name=str(i),
+            )
+        )
+
+    langfuse.flush()
+    # Make sure that the client queue is empty after flushing
+    assert langfuse.task_manager.queue.empty()
+
+
+def test_shutdown():
+    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+
+    for i in range(2):
+        langfuse.trace(
+            CreateTrace(
+                name=str(i),
+            )
+        )
+
+    langfuse.shutdown()
+    # we expect two things after shutdown:
+    # 1. client queue is empty
+    # 2. consumer thread has stopped
+    assert langfuse.task_manager.queue.empty()
+    assert not langfuse.task_manager.consumer_thread.is_alive()
+
+
 def test_create_score():
     langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
     trace = langfuse.trace(
