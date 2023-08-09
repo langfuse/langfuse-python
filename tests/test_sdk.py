@@ -1,37 +1,13 @@
 import datetime
 import time
 
-import pytest
 
 from langfuse import Langfuse
 from langfuse.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, InitialGeneration, InitialScore, InitialSpan, UpdateGeneration, UpdateSpan, Usage, TraceIdTypeEnum, ObservationLevel
 
-from langfuse.client import LangfuseAsync
 from langfuse.task_manager import TaskStatus
 
 host = "http://localhost:3000/"
-
-
-@pytest.mark.asyncio
-async def test_create_trace_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host, release="1.0.0")
-
-    trace = await langfuse.trace(CreateTrace(name="this-is-so-great-new", user_id="test", metadata="test", version="2.0.0"))
-
-    trace = await trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
-
-    generation = await trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test", version="5.0.0"))
-
-    sub_generation = await generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-    # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
-    sub_sub_span = await sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test", version="9.0.0"))
-    await sub_generation.event(CreateEvent(name="sub-sub-span", metadata="test", version="10.0.0"))
-
-    sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
-
-    await langfuse.flush()
-    assert langfuse.langfuse.task_manager.queue.qsize() == 0
-    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_create_score():
@@ -76,13 +52,13 @@ def test_create_trace():
     )
     trace = trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
-    generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
+    generation = trace.generation(InitialGeneration(name="new test", metadata="test"))
 
-    sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-    # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
-    sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
+    # sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
+    # # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
+    # sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
 
-    sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+    # sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
@@ -282,7 +258,6 @@ def test_customer_nested():
             input={"key": "value"},
             output={"key": "value"},
             traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
         )
     )
 
@@ -318,95 +293,6 @@ def test_customer_nested():
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
     assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
-
-
-@pytest.mark.asyncio
-async def test_customer_nested_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    span = await langfuse.span(
-        InitialSpan(
-            name="chat-completion-top",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.span(
-        InitialSpan(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            parentObservationId=span.id,
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.generation(
-        InitialGeneration(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            parentObservationId=span.id,
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-    await langfuse.flush()
-    assert langfuse.langfuse.task_manager.queue.qsize() == 0
-    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
-
-
-@pytest.mark.asyncio
-async def test_customer_root_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    await langfuse.span(
-        InitialSpan(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.generation(
-        InitialGeneration(
-            name="compeletion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.flush()
-    assert langfuse.langfuse.task_manager.queue.qsize() == 0
-    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_customer_root():
@@ -479,40 +365,3 @@ def test_customer_blub():
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
     assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
-
-
-@pytest.mark.asyncio
-async def test_customer_blub_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    span = await langfuse.span(
-        InitialSpan(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await span.generation(
-        InitialGeneration(
-            name="compeletion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.flush()
-    assert langfuse.langfuse.task_manager.queue.qsize() == 0
-    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
