@@ -10,7 +10,7 @@ from langfuse.task_manager import TaskManager, TaskStatus
 
 @pytest.mark.timeout(10)
 def test_multiple_tasks_without_predecessor():
-    def task_without_predecessor(input):
+    def task_without_predecessor():
         return 20
 
     tm = TaskManager()
@@ -28,81 +28,58 @@ def test_multiple_tasks_without_predecessor():
 
 @pytest.mark.timeout(10)
 def test_task_manager():
-    def my_task(prev_result):
-        logging.info(f"my_task {prev_result}, returning {(prev_result or 1) * 2}")
-        return (prev_result or 1) * 2
+    def my_task():
+        return 2
 
-    def my_other_task(prev_result):
-        logging.info(f"my_other_task {prev_result}")
-        return (prev_result or 1) * 5
+    def my_other_task():
+        return 5
 
     tm = TaskManager()
 
     # Add tasks
     tm.add_task(1, my_task)
+    tm.add_task(2, my_task)
+    tm.add_task(3, my_task)
     tm.add_task(10, my_other_task)
-    tm.add_task(2, my_task, predecessor_id=1)
-    tm.add_task(11, my_other_task, predecessor_id=10)
-    tm.add_task(3, my_task, predecessor_id=2)
-    tm.add_task(12, my_other_task, predecessor_id=11)
+    tm.add_task(11, my_other_task)
+    tm.add_task(12, my_other_task)
 
     # Check the results of the tasks
-
     tm.join()
 
     assert tm.get_result(1).result == 2
-    assert tm.get_result(2).result == 4
-    assert tm.get_result(3).result == 8
-    assert tm.get_result(10).result == 5
-    assert tm.get_result(11).result == 25
-    assert tm.get_result(12).result == 125
-
-
-@pytest.mark.timeout(20)
-def test_task_with_unscheduled_predecessor():
-    def simple_task(input):
-        return (1 if input is None else input) + 1
-
-    tm = TaskManager()
-
-    tm.add_task(1, simple_task, predecessor_id=3)  # Task with an unscheduled predecessor
-    time.sleep(2)  # Allow some time for potential re-queue
-    tm.add_task(3, simple_task)  # This is the predecessor
-
-    tm.join()
-
+    assert tm.get_result(2).result == 2
     assert tm.get_result(3).result == 2
-    assert tm.get_result(1).result == 3
+    assert tm.get_result(10).result == 5
+    assert tm.get_result(11).result == 5
+    assert tm.get_result(12).result == 5
 
 
 @pytest.mark.timeout(10)
 def test_task_manager_fail():
-    def first(prev_result):
+    def my_task():
+        time.sleep(1)
         return 2
 
-    def my_task(input):
-        time.sleep(1)
-        return (input or 1) * 2
-
-    def my_failing_task(input):
+    def my_failing_task():
         time.sleep(1)
         raise Exception("This task failed")
 
     tm = TaskManager()
 
-    # Add tasks
-    tm.add_task(1, first)
-    tm.add_task(2, my_task, predecessor_id=1)
+    tm.add_task(1, my_task)
+    tm.add_task(2, my_task)
     tm.join()
-    tm.add_task(3, my_failing_task, predecessor_id=2)
-    tm.add_task(4, my_task, predecessor_id=3)
+    tm.add_task(3, my_failing_task)
+    tm.add_task(4, my_task)
 
     tm.join()
 
     assert tm.get_result(1).result == 2
-    assert tm.get_result(2).result == 4
+    assert tm.get_result(2).result == 2
     assert tm.get_result(3).status == TaskStatus.FAIL
-    assert tm.get_result(4).status == TaskStatus.FAIL
+    assert tm.get_result(4).status == TaskStatus.SUCCESS
+    assert tm.get_result(4).result == 2
 
 
 # @pytest.mark.timeout(10)
@@ -126,16 +103,14 @@ def test_task_manager_fail():
 
 @pytest.mark.timeout(20)
 def test_consumer_restart():
-    def short_task(input):
-        return (1 if input is None else input) + 1
+    def short_task():
+        return 2
 
     tm = TaskManager()
-
     tm.add_task(1, short_task)
     tm.join()
 
-    tm.add_task(2, short_task)  # This should restart the consumer
-
+    tm.add_task(2, short_task)
     tm.join()
 
     assert tm.get_result(2).result == 2
@@ -143,16 +118,14 @@ def test_consumer_restart():
 
 @pytest.mark.timeout(10)
 def test_concurrent_task_additions():
-    def concurrent_task(input):
-        return (1 if input is None else input) * 2
+    def concurrent_task():
+        return 2
 
-    def add_task_concurrently(tm, task_id, func, predecessor_id=None):
-        tm.add_task(task_id, func, predecessor_id)
+    def add_task_concurrently(tm, task_id, func):
+        tm.add_task(task_id, func)
 
     tm = TaskManager()
-
     threads = [threading.Thread(target=add_task_concurrently, args=(tm, i + 1, concurrent_task)) for i in range(10)]
-
     for t in threads:
         t.start()
     for t in threads:
