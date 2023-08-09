@@ -55,19 +55,34 @@ class TaskManager:
             logging.error(f"Exception in adding task {task_id} {e}")
             return False
 
-    def join(self):
-        try:
-            logging.info(f"Joining TaskManager qsize: {self.queue.qsize()}")
-            self.queue.join()
-            logging.info("TaskManager queue joined")
-            if self.consumer_thread is not None:
-                self.consumer_thread.pause()
-                self.consumer_thread.join()
-                self.consumer_thread = None
+    def flush(self):
+        """Forces a flush from the internal queue to the server"""
+        logging.info("flushing queue")
+        queue = self.queue
+        size = queue.qsize()
+        queue.join()
+        # Note that this message may not be precise, because of threading.
+        logging.info("successfully flushed about %s items.", size)
 
-            logging.info("TaskManager joined")
-        except Exception as e:
-            logging.error(f"Exception in joining TaskManager {e}")
+    def join(self):
+        """Ends the consumer thread once the queue is empty.
+        Blocks execution until finished
+        """
+        logging.info("joining consumer thread")
+        self.consumer_thread.pause()
+        try:
+            self.consumer_thread.join()
+        except RuntimeError:
+            # consumer thread has not started
+            pass
+        logging.info("consumer thread joined")
+
+    def shutdown(self):
+        """Flush all messages and cleanly shutdown the client"""
+        logging.info("shutdown initiated")
+        self.flush()
+        self.join()
+        logging.info("shutdown completed")
 
     def get_result(self, task_id):
         try:

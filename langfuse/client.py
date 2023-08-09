@@ -176,9 +176,27 @@ class Langfuse:
         except Exception as e:
             traceback.print_exception(e)
 
-    def flush(self):
+    # On program exit, allow the consumer thread to exit cleanly.
+    # This prevents exceptions and a messy shutdown when the
+    # interpreter is destroyed before the daemon thread finishes
+    # execution. However, it is *not* the same as flushing the queue!
+    # To guarantee all messages have been delivered, you'll still need
+    # to call flush().
+    def join(self):
         try:
             return self.task_manager.join()
+        except Exception as e:
+            traceback.print_exception(e)
+
+    def flush(self):
+        try:
+            return self.task_manager.flush()
+        except Exception as e:
+            traceback.print_exception(e)
+
+    def shodown(self):
+        try:
+            return self.task_manager.shodown()
         except Exception as e:
             traceback.print_exception(e)
 

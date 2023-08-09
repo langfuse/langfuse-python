@@ -18,7 +18,7 @@ def test_multiple_tasks_without_predecessor():
     tm.add_task(20, task_without_predecessor)
     tm.add_task(30, task_without_predecessor)
 
-    tm.join()
+    tm.shutdown()
 
     assert tm.get_result(10).result == 20
     assert tm.get_result(20).result == 20
@@ -44,7 +44,7 @@ def test_task_manager():
     tm.add_task(12, my_other_task)
 
     # Check the results of the tasks
-    tm.join()
+    tm.shutdown()
 
     assert tm.get_result(1).result == 2
     assert tm.get_result(2).result == 2
@@ -72,7 +72,7 @@ def test_task_manager_fail():
     tm.add_task(3, my_failing_task)
     tm.add_task(4, my_task)
 
-    tm.join()
+    tm.shutdown()
 
     assert tm.get_result(1).result == 2
     assert tm.get_result(2).result == 2
@@ -110,7 +110,7 @@ def test_consumer_restart():
     tm.join()
 
     tm.add_task(2, short_task)
-    tm.join()
+    tm.shutdown()
 
     assert tm.get_result(2).result == 2
 
@@ -130,7 +130,7 @@ def test_concurrent_task_additions():
     for t in threads:
         t.join()
 
-    tm.join()
+    tm.shutdown()
 
     for i in range(10):
         assert tm.get_result(i + 1).result == 2
@@ -143,8 +143,8 @@ import time
 import logging
 from langfuse.task_manager import TaskManager  # assuming task_manager is the module name
 
-def dummy_function(result):
-    logging.info(f"dummy_function {result}")
+def dummy_function():
+    logging.info("dummy_function")
     time.sleep(0.5)
     return 42
 
@@ -158,8 +158,7 @@ logging.basicConfig(
 print("Adding task manager", TaskManager)
 manager = TaskManager()
 a = manager.add_task(1, dummy_function)
-print(a)
-manager.add_task(2, dummy_function, predecessor_id=1)
+manager.add_task(2, dummy_function)
 
 """
 
@@ -181,4 +180,38 @@ manager.add_task(2, dummy_function, predecessor_id=1)
 
     print(process.stderr)
 
-    assert "TaskManager joined" in logs
+    assert "consumer thread joined" in logs
+
+
+def test_flush():
+    # set up the consumer with more requests than a single batch will allow
+    def short_task():
+        return 2
+
+    tm = TaskManager()
+
+    for i in range(1000):
+        tm.add_task(i, short_task)
+    # We can't reliably assert that the queue is non-empty here; that's
+    # a race condition. We do our best to load it up though.
+    tm.flush()
+    # Make sure that the client queue is empty after flushing
+    assert tm.queue.empty()
+
+
+def test_shutdown():
+    # set up the consumer with more requests than a single batch will allow
+    def short_task():
+        return 2
+
+    tm = TaskManager()
+
+    for i in range(1000):
+        tm.add_task(i, short_task)
+
+    tm.shutdown()
+    # we expect two things after shutdown:
+    # 1. client queue is empty
+    # 2. consumer thread has stopped
+    assert tm.queue.empty()
+    assert not tm.consumer_thread.is_alive()
