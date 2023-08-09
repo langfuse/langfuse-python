@@ -14,23 +14,23 @@ from langfuse.api.resources.commons.types.observation_level import ObservationLe
 
 
 class InitialGeneration(CreateGenerationRequest):
-    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items()}
+    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items() if name not in ["traceIdType"]}
 
 
 class InitialScore(CreateScoreRequest):
-    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items()}
+    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["traceIdType"]}
 
 
 class InitialSpan(CreateSpanRequest):
-    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items()}
+    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items() if name not in ["traceIdType"]}
 
 
 class CreateScore(CreateScoreRequest):
-    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id"]}
+    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id", "traceIdType"]}
 
 
 class CreateTrace(CreateTraceRequest):
-    __fields__ = {name: field for name, field in CreateTraceRequest.__fields__.items() if name not in ["release"]}
+    __fields__ = {name: field for name, field in CreateTraceRequest.__fields__.items() if name not in ["release", "external_id"]}
 
 
 class CreateGeneration(CreateGenerationRequest):

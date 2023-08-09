@@ -4,7 +4,6 @@ from enum import Enum
 import logging
 import queue
 import threading
-import time
 
 
 class Task:
@@ -25,7 +24,7 @@ class TaskStatus(Enum):
 
 
 class TaskManager:
-    def __init__(self, max_task_queue_size=10000, max_task_age=600):
+    def __init__(self, max_task_queue_size=10_000, max_task_age=600):
         self.max_task_queue_size = max_task_queue_size
         self.queue = queue.Queue(max_task_queue_size)
         self.consumer_thread = None
@@ -47,10 +46,14 @@ class TaskManager:
                 self.init_resources()
             task = Task(task_id, function, predecessor_id)
 
-            self.queue.put(task)
+            self.queue.put(task, block=False)
             logging.info(f"Task {task_id} added to queue")
+        except queue.Full:
+            logging.warning("analytics-python queue is full")
+            return False
         except Exception as e:
             logging.error(f"Exception in adding task {task_id} {e}")
+            return False
 
     def join(self):
         try:
@@ -103,28 +106,8 @@ class Consumer(threading.Thread):
                 self.result_mapping[task.task_id] = task
 
                 logging.info(f"Task {task.task_id} received from the queue")
-                if task.predecessor_id is not None:
-                    predecessor_result = self.result_mapping.get(task.predecessor_id)
 
-                    if predecessor_result is None or predecessor_result.status == TaskStatus.UNSCHEDULED:
-                        self.queue.put(task)
-                        time.sleep(0.2)
-                        logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
-                        self.queue.task_done()
-                        continue
-
-                    elif predecessor_result.status == TaskStatus.FAIL:
-                        logging.info(f"Task {task.task_id} skipped due to the failure or non-existence of the predecessor task.")
-                        with task.lock:
-                            task.result = None
-                            task.status = TaskStatus.FAIL
-                            task.timestamp = datetime.now()
-                            self.queue.task_done()
-                        continue
-
-                predecessor_result = self.result_mapping.get(task.predecessor_id).result if task.predecessor_id else None
-                logging.info(f"Task {task.task_id} started with predecessor result {predecessor_result} from {task.predecessor_id}")
-                self._execute_task(task, predecessor_result if predecessor_result else None)
+                self._execute_task(task)
                 logging.info(f"Task {task.task_id} done")
                 self.queue.task_done()
 
@@ -137,14 +120,14 @@ class Consumer(threading.Thread):
         """Pause the consumer."""
         self.running = False
 
-    def _execute_task(self, task: Task, predecessor_result: Task):
+    def _execute_task(self, task: Task):
         try:
             logging.info(f"Task {task.task_id} executing")
 
             result = None
             with task.lock:
                 try:
-                    result = task.function(predecessor_result)
+                    result = task.function()
                     self.result_mapping[task.task_id].result = result
                     self.result_mapping[task.task_id].status = TaskStatus.SUCCESS
                     self.result_mapping[task.task_id].timestamp = datetime.now()

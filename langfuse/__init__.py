@@ -1,1 +1,1 @@
-from .client import Langfuse, LangfuseAsync
+from .client import Langfuse
