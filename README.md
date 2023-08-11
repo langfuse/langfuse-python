@@ -34,7 +34,7 @@ poetry install
 
 #### Setup
 
-- Add .env based on .env.example, include
+- Add .env based on .env.example
 
 #### Run
 
