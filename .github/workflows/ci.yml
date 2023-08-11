@@ -59,8 +59,9 @@ jobs:
       - name: Install the project dependencies
         run: poetry install
 
-      - name: Run the automated tests (for example)
+      - name: Run the automated tests
         run: poetry run pytest -s -v --log-cli-level=INFO
+
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
     runs-on: ubuntu-latest
