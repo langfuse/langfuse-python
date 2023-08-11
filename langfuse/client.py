@@ -42,16 +42,17 @@ class Langfuse:
             x_langfuse_sdk_version=version,
         )
 
-        self.future_id = None
+        self.trace_id = None
 
         self.release = os.environ.get("LANGFUSE_RELEASE", release)
 
     def get_trace_id(self):
-        return self.trace.state.id
+        return self.trace_id
 
     def trace(self, body: CreateTrace):
         try:
             new_id = str(uuid.uuid4()) if body.id is None else body.id
+            self.trace_id = new_id
 
             def task():
                 try:
@@ -66,8 +67,7 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            self.task_manager.add_task(new_id, task, self.future_id)
-            self.future_id = new_id
+            self.task_manager.add_task(new_id, task)
 
             return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
         except Exception as e:
@@ -99,6 +99,7 @@ class Langfuse:
     def span(self, body: InitialSpan):
         try:
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
+            self.trace_id = new_trace_id
             new_span_id = str(uuid.uuid4())
 
             def create_trace():
@@ -116,7 +117,7 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            def create_span(*args):
+            def create_span():
                 try:
                     new_body = body.copy(update={"id": new_span_id})
                     new_body = body.copy(update={"trace_id": new_trace_id})
@@ -132,14 +133,16 @@ class Langfuse:
             self.task_manager.add_task(new_trace_id, create_trace)
             self.task_manager.add_task(new_span_id, create_span)
 
-            return StatefulSpanClient(self.client, new_span_id, StateType.SPAN, new_trace_id, self.task_manager)
+            return StatefulSpanClient(self.client, new_span_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
     def generation(self, body: InitialGeneration):
         try:
+            print(body)
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
             new_generation_id = str(uuid.uuid4())
+            self.trace_id = new_trace_id
 
             def create_trace():
                 try:
@@ -156,7 +159,7 @@ class Langfuse:
                     traceback.print_exception(e)
                     raise e
 
-            def create_generation(*args):
+            def create_generation():
                 try:
                     new_body = body.copy(update={"id": new_generation_id})
                     new_body = body.copy(update={"trace_id": new_trace_id})
@@ -207,19 +210,19 @@ class StateType(Enum):
 
 
 class StatefulClient:
-    def __init__(self, client: Langfuse, state_id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
-        self.state_id = state_id
+        self.id = id
         self.state_type = state_type
         self.task_manager = task_manager
 
     def _add_state_to_observation(self, body: dict):
         if self.state_type == StateType.OBSERVATION:
-            body["parent_observation_id"] = self.state_id
+            body["parent_observation_id"] = self.id
             body["trace_id"] = self.trace_id
         else:
-            body["trace_id"] = self.state_id
+            body["trace_id"] = self.id
         return body
 
     def generation(self, body: CreateGeneration):
@@ -244,7 +247,7 @@ class StatefulClient:
         except Exception as e:
             traceback.print_exception(e)
 
-        return StatefulGenerationClient(self.client, self.trace_id, StateType.OBSERVATION, generation_id, task_manager=self.task_manager)
+        return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
 
     def span(self, body: CreateSpan):
         try:
@@ -280,6 +283,9 @@ class StatefulClient:
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
+                    if self.state_type == StateType.OBSERVATION:
+                        new_dict["observationId"] = self.id
+
                     request = CreateScoreRequest(**new_dict)
                     return self.client.score.create(request=request)
                 except Exception as e:
@@ -288,7 +294,7 @@ class StatefulClient:
 
             self.task_manager.add_task(score_id, task)
 
-            return StatefulClient(self.client, self.state_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
@@ -317,8 +323,8 @@ class StatefulClient:
 
 
 class StatefulGenerationClient(StatefulClient):
-    def __init__(self, client: Langfuse, state_id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
-        super().__init__(client, state_id, state_type, trace_id, task_manager)
+    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+        super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateGeneration):
         try:
@@ -326,7 +332,7 @@ class StatefulGenerationClient(StatefulClient):
 
             def task():
                 try:
-                    new_body = body.copy(update={"generation_id": self.state_id})
+                    new_body = body.copy(update={"generation_id": self.id})
                     logging.info(f"Update generation {new_body}...")
                     request = UpdateGenerationRequest(**new_body.dict())
                     return self.client.generations.update(request=request)
@@ -336,14 +342,14 @@ class StatefulGenerationClient(StatefulClient):
 
             self.task_manager.add_task(update_id, task)
 
-            return StatefulGenerationClient(self.client, self.state_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)
 
 
 class StatefulSpanClient(StatefulClient):
-    def __init__(self, client: Langfuse, state_id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
-        super().__init__(client, state_id, state_type, trace_id, task_manager)
+    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+        super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateSpan):
         try:
@@ -351,7 +357,7 @@ class StatefulSpanClient(StatefulClient):
 
             def task():
                 try:
-                    new_body = body.copy(update={"span_id": self.state_id})
+                    new_body = body.copy(update={"span_id": self.id})
                     logging.info(f"Update span {new_body}...")
                     request = UpdateSpanRequest(**new_body.dict())
                     return self.client.span.update(request=request)
@@ -361,6 +367,6 @@ class StatefulSpanClient(StatefulClient):
 
             self.task_manager.add_task(update_id, task)
 
-            return StatefulSpanClient(self.client, self.state_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             traceback.print_exception(e)

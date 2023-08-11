@@ -9,12 +9,14 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.agents import AgentType, initialize_agent, load_tools
 
-# http://localhost:3000 "https://cloud.langfuse.com"
+from tests.api_wrapper import LangfuseAPI
+
 
 host = "http://localhost:3000"
 
 
 def test_callback_simple_chain():
+    api_wrapper = LangfuseAPI("pk-lf-1234567890", "sk-lf-1234567890", host)
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -25,17 +27,19 @@ def test_callback_simple_chain():
     prompt_template = PromptTemplate(input_variables=["title"], template=template)
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
-    review = synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
-    print("pre-flush", review)
     handler.langfuse.flush()
-    print("post-flush")
-    print("traceId: ", handler.get_trace_id())
 
-    print("output variable: ", review)
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
 
 
 def test_callback_sequential_chain():
+    api_wrapper = LangfuseAPI("pk-lf-1234567890", "sk-lf-1234567890", host)
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -57,13 +61,19 @@ def test_callback_sequential_chain():
     overall_chain = SimpleSequentialChain(
         chains=[synopsis_chain, review_chain],
     )
-    review = overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-    print(review)
+    overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
     handler.langfuse.flush()
 
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 5
+
 
 def test_callback_retriever():
+    api_wrapper = LangfuseAPI("pk-lf-1234567890", "sk-lf-1234567890", host)
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
@@ -83,12 +93,18 @@ def test_callback_retriever():
         retriever=docsearch.as_retriever(),
     )
 
-    llm_result = chain.run(query, callbacks=[handler])
-    print(llm_result)
+    chain.run(query, callbacks=[handler])
     handler.langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 5
 
 
 def test_callback_simple_llm():
+    api_wrapper = LangfuseAPI("pk-lf-1234567890", "sk-lf-1234567890", host)
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -100,8 +116,15 @@ def test_callback_simple_llm():
 
     handler.langfuse.flush()
 
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+
 
 def test_callback_simple_llm_chat():
+    api_wrapper = LangfuseAPI("pk-lf-1234567890", "sk-lf-1234567890", host)
     handler = CallbackHandler("pk-lf-1234567890", "sk-lf-1234567890", host)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -110,7 +133,12 @@ def test_callback_simple_llm_chat():
 
     agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
-    llm_result = agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
-    print(llm_result)
+    agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
 
     handler.langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) > 1

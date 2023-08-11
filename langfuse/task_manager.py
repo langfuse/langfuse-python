@@ -151,7 +151,7 @@ class Consumer(threading.Thread):
                     self.result_mapping[task.task_id].result = e
                     self.result_mapping[task.task_id].status = TaskStatus.FAIL
                     self.result_mapping[task.task_id].timestamp = datetime.now()
-                    logging.info(f"Task {task.task_id} failed with exception {e}")
+                    logging.info(f"Task {task.task_id} failed with exception {e} ")
         except Exception as e:
             logging.error(f"Exception in the task {task.task_id} {e}")
 
