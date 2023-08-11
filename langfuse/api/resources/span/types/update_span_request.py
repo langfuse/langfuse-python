@@ -11,6 +11,7 @@ from ...commons.types.observation_level import ObservationLevel
 
 class UpdateSpanRequest(pydantic.BaseModel):
     span_id: str = pydantic.Field(alias="spanId")
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
     metadata: typing.Optional[typing.Any]
     input: typing.Optional[typing.Any]

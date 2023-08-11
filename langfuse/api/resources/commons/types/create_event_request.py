@@ -7,7 +7,6 @@ import pydantic
 
 from ....core.datetime_utils import serialize_datetime
 from .observation_level import ObservationLevel
-from .trace_detail import TraceDetail
 from .trace_id_type_enum import TraceIdTypeEnum
 
 
@@ -24,7 +23,6 @@ class CreateEventRequest(pydantic.BaseModel):
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
     parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId")
     version: typing.Optional[str]
-    trace: typing.Optional[TraceDetail]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
