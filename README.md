@@ -17,6 +17,13 @@ Langchain documentation: https://docs.langfuse.com/langchain
 
 ## Development
 
+### Add Poetry plugins
+
+```
+poetry self add poetry-dotenv-plugin
+poetry self add poetry-bumpversion
+```
+
 ### Install dependencies
 
 ```
@@ -28,7 +35,6 @@ poetry install
 #### Setup
 
 - Add .env based on .env.example, include
-- Add poetry-dotenv-plugin to poetry: `poetry self add poetry-dotenv-plugin`
 
 #### Run
 
@@ -49,6 +55,9 @@ poetry install
 
 ### Deployment
 
-1. poetry version patch
-2. poetry build
-3. poetry publish
+1. `poetry version patch`
+   - `poetry version prepatch` for pre-release versions
+2. `poetry build`
+3. `poetry publish`
+   - Create PyPi API token: https://pypi.org/manage/account/token/
+   - Setup: `poetry config pypi-token.pypi your-api-token`
