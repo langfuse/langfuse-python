@@ -328,6 +328,29 @@ def test_create_trace_and_generation():
     assert span["traceId"] == trace["id"]
 
 
+def test_create_generation_and_trace():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    trace_name = create_uuid()
+    trace_id = create_uuid()
+    print("trace_id", trace_id)
+    langfuse.generation(CreateGeneration(traceId=trace_id, name="generation"))
+    langfuse.trace(CreateTrace(id=trace_id, name=trace_name))
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+    print(trace)
+
+    assert trace["name"] == trace_name
+    assert len(trace["observations"]) == 1
+
+    span = trace["observations"][0]
+    assert span["name"] == "generation"
+    assert span["traceId"] == trace["id"]
+
+
 def test_create_trace_and_event():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))

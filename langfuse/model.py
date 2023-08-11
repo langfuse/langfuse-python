@@ -34,15 +34,15 @@ class CreateTrace(CreateTraceRequest):
 
 
 class CreateGeneration(CreateGenerationRequest):
-    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items() if name not in ["trace_id", "parent_observation_id", "traceIdType"]}
+    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items() if name not in ["parent_observation_id", "traceIdType"]}
 
 
 class CreateSpan(CreateSpanRequest):
-    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items() if name not in ["trace_id", "parent_observation_id", "traceIdType"]}
+    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items() if name not in ["parent_observation_id", "traceIdType"]}
 
 
 class CreateEvent(CreateEventRequest):
-    __fields__ = {name: field for name, field in CreateEventRequest.__fields__.items() if name not in ["trace_id", "parent_observation_id", "traceIdType"]}
+    __fields__ = {name: field for name, field in CreateEventRequest.__fields__.items() if name not in ["parent_observation_id", "traceIdType"]}
 
 
 class UpdateGeneration(UpdateGenerationRequest):
