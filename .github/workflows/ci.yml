@@ -39,6 +39,8 @@ jobs:
         uses: actions/setup-python@v4
         # see details (matrix, python-version, python-version-file, etc.)
         # https://github.com/actions/setup-python
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
