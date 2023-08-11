@@ -23,6 +23,25 @@ Langchain documentation: https://docs.langfuse.com/langchain
 poetry install
 ```
 
+### Tests
+
+#### Setup
+
+- Add .env based on .env.example, include
+- Add poetry-dotenv-plugin to poetry: `poetry self add poetry-dotenv-plugin`
+
+#### Run
+
+- Run all
+  ```
+  poetry run pytest -s -v --log-cli-level=INFO
+  ```
+- Run a specific test
+  ```
+  poetry run pytest -s -v --log-cli-level=INFO tests/test_sdk.py::test_flush
+  ```
+- E2E tests involving OpenAI and Serp API are usually skipped, remove skip decorators in [tests/test_langchain.py](tests/test_langchain.py) to run them.
+
 ### Update openapi spec
 
 1. Generate Fern Python SDK in [langfuse](https://github.com/langfuse/langfuse) and copy the files generated in `generated/python` into the `langfuse/api` folder in this repo.
