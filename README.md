@@ -17,11 +17,36 @@ Langchain documentation: https://docs.langfuse.com/langchain
 
 ## Development
 
+### Add Poetry plugins
+
+```
+poetry self add poetry-dotenv-plugin
+poetry self add poetry-bumpversion
+```
+
 ### Install dependencies
 
 ```
 poetry install
 ```
+
+### Tests
+
+#### Setup
+
+- Add .env based on .env.example, include
+
+#### Run
+
+- Run all
+  ```
+  poetry run pytest -s -v --log-cli-level=INFO
+  ```
+- Run a specific test
+  ```
+  poetry run pytest -s -v --log-cli-level=INFO tests/test_sdk.py::test_flush
+  ```
+- E2E tests involving OpenAI and Serp API are usually skipped, remove skip decorators in [tests/test_langchain.py](tests/test_langchain.py) to run them.
 
 ### Update openapi spec
 
@@ -30,6 +55,9 @@ poetry install
 
 ### Deployment
 
-1. poetry version patch
-2. poetry build
-3. poetry publish
+1. `poetry version patch`
+   - `poetry version prepatch` for pre-release versions
+2. `poetry build`
+3. `poetry publish`
+   - Create PyPi API token: https://pypi.org/manage/account/token/
+   - Setup: `poetry config pypi-token.pypi your-api-token`
