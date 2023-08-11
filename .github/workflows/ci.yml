@@ -10,6 +10,8 @@ jobs:
       HOST: ${{ secrets.HOST }}
       LF_PK: ${{ secrets.LF_PK }}
       LF_SK: ${{ secrets.LF_SK }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
     strategy:
       matrix:
         python-version:
