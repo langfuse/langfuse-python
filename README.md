@@ -10,14 +10,20 @@ Full documentation: https://docs.langfuse.com/sdk/python
 
 Langchain documentation: https://docs.langfuse.com/langchain
 
-
 ## Development
 
+### Development setup
+
+1. Install [PyEnv](https://github.com/pyenv/pyenv#installation) and [Poetry](https://python-poetry.org/docs/#installation).
+2. `poetry install` to install all the dependencies. Poetry creates a virtual environment for you.
+
 ### Update openapi spec
+
 1. Generate Fern Python SDK in [langfuse](https://github.com/langfuse/langfuse) and copy the files generated in `generated/python` into the `langfuse/api` folder in this repo.
 2. Rebuild and deploy the package to PyPi.
 
 ### Deployment
+
 1. poetry version patch
 2. poetry build
 3. poetry publish
