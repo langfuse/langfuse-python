@@ -10,6 +10,16 @@ jobs:
       HOST: ${{ secrets.HOST }}
       LF_PK: ${{ secrets.LF_PK }}
       LF_SK: ${{ secrets.LF_SK }}
+    strategy:
+      matrix:
+        python-version:
+          - 3.5
+          - 3.6
+          - 3.7
+          - 3.8
+          - "pypy2"
+          - "pypy3"
+    name: Python version ${{ matrix.python-version }} CI
     steps:
       - uses: actions/checkout@v3
 
