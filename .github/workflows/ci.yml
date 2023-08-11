@@ -6,6 +6,10 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env: # Or as an environment variable
+      HOST: ${{ secrets.HOST }}
+      LF_PK: ${{ secrets.LF_PK }}
+      LF_SK: ${{ secrets.LF_SK }}
     steps:
       - uses: actions/checkout@v3
 
