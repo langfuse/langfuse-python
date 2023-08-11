@@ -108,8 +108,7 @@ def test_callback_simple_llm():
 
     text = "What would be a good company name for a company that makes colorful socks?"
 
-    llm_result = llm.predict(text, callbacks=[handler])
-    print(llm_result)
+    llm.predict(text, callbacks=[handler])
 
     handler.langfuse.flush()
 

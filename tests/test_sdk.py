@@ -94,7 +94,7 @@ def test_create_trace():
     langfuse.flush()
 
     trace = api_wrapper.get_trace(trace.id)
-    print(trace)
+
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
     assert trace["metadata"] == {"key": "value"}
@@ -133,7 +133,6 @@ def test_create_generation():
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
-    print(trace)
 
     assert trace["name"] == "query-generation"
     assert trace["userId"] is None

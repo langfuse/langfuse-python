@@ -139,7 +139,6 @@ class Langfuse:
 
     def generation(self, body: InitialGeneration):
         try:
-            print(body)
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
             new_generation_id = str(uuid.uuid4())
             self.trace_id = new_trace_id
