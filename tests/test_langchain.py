@@ -2,6 +2,7 @@ import os
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
+import pytest
 from langfuse.callback import CallbackHandler
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -12,6 +13,7 @@ from langchain.agents import AgentType, initialize_agent, load_tools
 from tests.api_wrapper import LangfuseAPI
 
 
+@pytest.mark.skip(reason="openai cost")
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -35,6 +37,7 @@ def test_callback_simple_chain():
     assert len(trace["observations"]) == 2
 
 
+@pytest.mark.skip(reason="openai cost")
 def test_callback_sequential_chain():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -69,6 +72,7 @@ def test_callback_sequential_chain():
     assert len(trace["observations"]) == 5
 
 
+@pytest.mark.skip(reason="openai cost")
 def test_callback_retriever():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -100,6 +104,7 @@ def test_callback_retriever():
     assert len(trace["observations"]) == 5
 
 
+@pytest.mark.skip(reason="openai cost")
 def test_callback_simple_llm():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -119,6 +124,7 @@ def test_callback_simple_llm():
     assert len(trace["observations"]) == 2
 
 
+@pytest.mark.skip(reason="openai cost")
 def test_callback_simple_llm_chat():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
