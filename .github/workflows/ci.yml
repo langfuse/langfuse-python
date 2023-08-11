@@ -28,11 +28,6 @@ jobs:
           - "3.9"
           - "3.10"
           - "3.11"
-          - "pypy3.7"
-          - "pypy3.8"
-          - "pypy3.9"
-          - "pypy3.11"
-          - "pypy3.10"
     name: Test on Python version ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
