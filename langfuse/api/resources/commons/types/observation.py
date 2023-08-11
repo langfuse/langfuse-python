@@ -12,7 +12,7 @@ from .observation_level import ObservationLevel
 
 class Observation(pydantic.BaseModel):
     id: str
-    trace_id: str = pydantic.Field(alias="traceId")
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
     type: str
     name: typing.Optional[str]
     start_time: dt.datetime = pydantic.Field(alias="startTime")

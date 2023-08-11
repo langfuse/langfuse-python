@@ -4,8 +4,6 @@ from enum import Enum
 import logging
 import queue
 import threading
-from concurrent.futures import ThreadPoolExecutor
-import time
 
 
 class Task:
@@ -16,7 +14,7 @@ class Task:
         self.result = None
         self.timestamp = None
         self.lock = threading.Lock()
-        self.type = TaskStatus.UNSCHEDULED
+        self.status = TaskStatus.UNSCHEDULED
 
 
 class TaskStatus(Enum):
@@ -26,143 +24,143 @@ class TaskStatus(Enum):
 
 
 class TaskManager:
-    def __init__(self, num_workers, max_task_queue_size=10000):
-        self.num_workers = num_workers
+    def __init__(self, max_task_queue_size=10_000, max_task_age=600):
         self.max_task_queue_size = max_task_queue_size
-        self.tasks = queue.Queue(max_task_queue_size)
+        self.queue = queue.Queue(max_task_queue_size)
+        self.consumer_thread = None
         self.result_mapping = {}
+        self.max_task_age = max_task_age
         self.init_resources()
 
         # cleans up when the python interpreter closes
         atexit.register(self.join)
 
     def init_resources(self):
-        self.executor = ThreadPoolExecutor(self.num_workers)
-        self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True)
-        self.prune_thread = threading.Thread(target=self._prune_loop, daemon=True)
-        self.stop_pruner = threading.Event()
-        self.stop_scheduler = threading.Event()
-        self.scheduler_thread.start()
-        self.prune_thread.start()
+        self.consumer_thread = Consumer(self.queue, self.result_mapping, self.max_task_age)
+        self.consumer_thread.start()
 
-    def restart(self):
-        self.tasks = queue.Queue(self.max_task_queue_size)
-        self.init_resources()
-
-    def _prune_loop(self, delta: int = 600):
-        while not self.stop_pruner.is_set():
-            logging.info("Pruning old tasks")
-            self._prune_old_tasks(delta)
-            for _ in range(60):
-                time.sleep(1)
-                if self.stop_pruner.is_set():
-                    break
-
-    def _scheduler_loop(self):
+    def add_task(self, task_id, function, predecessor_id=None):
         try:
-            while not self.stop_scheduler.is_set():
-                task = self.tasks.get()
-                if task is None:
-                    logging.info("Received None, exiting scheduler loop")
-                    break
+            logging.info(f"Adding task {task_id} with predecessor {predecessor_id}")
+            if self.consumer_thread is None or not self.consumer_thread.is_alive():
+                self.init_resources()
+            task = Task(task_id, function, predecessor_id)
+
+            self.queue.put(task, block=False)
+            logging.info(f"Task {task_id} added to queue")
+        except queue.Full:
+            logging.warning("analytics-python queue is full")
+            return False
+        except Exception as e:
+            logging.error(f"Exception in adding task {task_id} {e}")
+            return False
+
+    def flush(self):
+        """Forces a flush from the internal queue to the server"""
+        logging.info("flushing queue")
+        queue = self.queue
+        size = queue.qsize()
+        queue.join()
+        # Note that this message may not be precise, because of threading.
+        logging.info("successfully flushed about %s items.", size)
+
+    def join(self):
+        """Ends the consumer thread once the queue is empty.
+        Blocks execution until finished
+        """
+        logging.info("joining consumer thread")
+        self.consumer_thread.pause()
+        try:
+            self.consumer_thread.join()
+        except RuntimeError:
+            # consumer thread has not started
+            pass
+        logging.info("consumer thread joined")
+
+    def shutdown(self):
+        """Flush all messages and cleanly shutdown the client"""
+        logging.info("shutdown initiated")
+        self.flush()
+        self.join()
+        logging.info("shutdown completed")
+
+    def get_result(self, task_id):
+        try:
+            return self.result_mapping.get(task_id)
+        except Exception as e:
+            logging.error(f"Exception in getting result for task {task_id} {e}")
+
+
+class Consumer(threading.Thread):
+    def __init__(self, queue, result_mapping, max_task_age):
+        """Create a consumer thread."""
+
+        threading.Thread.__init__(self)
+        # Make consumer a daemon thread so that it doesn't block program exit
+        self.daemon = True
+        self.queue = queue
+        # It's important to set running in the constructor: if we are asked to
+        # pause immediately after construction, we might set running to True in
+        # run() *after* we set it to False in pause... and keep running
+        # forever.
+        self.running = True
+        self.result_mapping = result_mapping
+        self.max_task_age = max_task_age
+
+    def run(self):
+        """Runs the consumer."""
+        logging.info("consumer is running...")
+        while self.running:
+            try:
+                logging.info("consumer looping")
+                self._prune_old_tasks(self.max_task_age)
+
+                # elapsed = time.monotonic.monotonic() - start_time
+                task = self.queue.get(block=True, timeout=1)
+
+                self.result_mapping[task.task_id] = task
 
                 logging.info(f"Task {task.task_id} received from the queue")
-                if task.predecessor_id is not None:
-                    predecessor_result = self.result_mapping.get(task.predecessor_id)
-                    if predecessor_result.type == TaskStatus.UNSCHEDULED:
-                        self.tasks.put(task)
-                        time.sleep(0.2)
-                        logging.info(f"Task {task.task_id} put back to the queue due to the unscheduled predecessor task.")
-                        continue
-                    elif predecessor_result.type == TaskStatus.FAIL:
-                        logging.info(f"Task {task.task_id} skipped due to the failure of the predecessor task.")
-                        with task.lock:
-                            task.result = None
-                            task.type = TaskStatus.FAIL
-                        continue
 
-                predecessor_result = self.result_mapping.get(task.predecessor_id).result if task.predecessor_id else None
-                logging.info(f"Task {task.task_id} started with predecessor result {predecessor_result} from {task.predecessor_id}")
-                self.executor.submit(self._execute_task, task, predecessor_result if predecessor_result else None)
-                self.tasks.task_done()  # Mark the current task as done and remove it from the queue
-        except Exception as e:
-            logging.error(f"Exception in the scheduler loop {e}")
+                self._execute_task(task)
+                logging.info(f"Task {task.task_id} done")
+                self.queue.task_done()
 
-    def _execute_task(self, task: Task, predecessor_result: Task):
+            except queue.Empty:
+                break
+
+        logging.debug("consumer exited.")
+
+    def pause(self):
+        """Pause the consumer."""
+        self.running = False
+
+    def _execute_task(self, task: Task):
         try:
             logging.info(f"Task {task.task_id} executing")
 
             result = None
             with task.lock:
                 try:
-                    result = task.function(predecessor_result)
+                    result = task.function()
                     self.result_mapping[task.task_id].result = result
-                    self.result_mapping[task.task_id].type = TaskStatus.SUCCESS
+                    self.result_mapping[task.task_id].status = TaskStatus.SUCCESS
                     self.result_mapping[task.task_id].timestamp = datetime.now()
                     logging.info(f"Task {task.task_id} done with result {result}")
                 except Exception as e:
                     self.result_mapping[task.task_id].result = e
-                    self.result_mapping[task.task_id].type = TaskStatus.FAIL
+                    self.result_mapping[task.task_id].status = TaskStatus.FAIL
                     self.result_mapping[task.task_id].timestamp = datetime.now()
-                    logging.info(f"Task {task.task_id} failed with exception {e}")
+                    logging.info(f"Task {task.task_id} failed with exception {e} ")
         except Exception as e:
             logging.error(f"Exception in the task {task.task_id} {e}")
 
-    def add_task(self, task_id, function, predecessor_id=None):
-        try:
-            logging.info(f"Adding task {task_id} with predecessor {predecessor_id}")
-
-            if self.executor is None or self.scheduler_thread is None or self.prune_thread is None:
-                logging.info("TaskManager has been joined, restarting")
-                self.restart()
-            task = Task(task_id, function, predecessor_id)
-            self.tasks.put(task)
-            self.result_mapping[task_id] = task
-            logging.info(f"Task {task_id} added {self.result_mapping}")
-        except Exception as e:
-            logging.error(f"Exception in adding task {task_id} {e}")
-
-    def join(self):
-        try:
-            logging.info("Joining TaskManager")
-
-            while any(task_result.type == TaskStatus.UNSCHEDULED for task_result in self.result_mapping.values()) and not self.tasks.empty():
-                logging.info(f"Waiting for all tasks to be scheduled {self.tasks.qsize()}")
-                time.sleep(0.1)
-                pass
-
-            self.tasks.put(None)
-            if self.scheduler_thread and self.scheduler_thread.is_alive():
-                self.stop_scheduler.set()
-                self.scheduler_thread.join()
-
-            if self.prune_thread and self.prune_thread.is_alive():
-                self.stop_pruner.set()
-                self.prune_thread.join()
-
-            if self.executor:
-                self.executor.shutdown(wait=True)
-
-            # Set resources to None so we know to recreate them in restart
-            self.executor = None
-            self.scheduler_thread = None
-            self.prune_thread = None
-            logging.info("TaskManager joined")
-        except Exception as e:
-            logging.error(f"Exception in joining TaskManager {e}")
-
-    def get_task_result(self, task_id):
-        if task_id not in self.result_mapping:
-            raise ValueError(f"Task {task_id} does not exist")
-
-        task_result = self.result_mapping[task_id]
-
-        return {"result": task_result.result, "status": task_result.type}
-
     def _prune_old_tasks(self, delta: int):
         try:
+            logging.info("Pruning old tasks")
             now = datetime.now()
-            to_remove = [task_id for task_id, task in self.result_mapping.items() if task.type in [TaskStatus.SUCCESS, TaskStatus.FAIL] and task.timestamp and now - task.timestamp > timedelta(seconds=delta)]
+
+            to_remove = [task_id for task_id, task in self.result_mapping.items() if task.status in [TaskStatus.SUCCESS, TaskStatus.FAIL] and task.timestamp and now - task.timestamp > timedelta(seconds=delta)]
             for task_id in to_remove:
                 self.result_mapping.pop(task_id, None)
                 logging.info(f"Task {task_id} pruned due to age")

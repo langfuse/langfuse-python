@@ -13,6 +13,7 @@ from ...commons.types.observation_level import ObservationLevel
 
 class UpdateGenerationRequest(pydantic.BaseModel):
     generation_id: str = pydantic.Field(alias="generationId")
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
     name: typing.Optional[str]
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime")

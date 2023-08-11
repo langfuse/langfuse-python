@@ -1,38 +1,55 @@
-import datetime
-import time
+from datetime import datetime
+import os
+from uuid import uuid4
 
-import pytest
 
 from langfuse import Langfuse
-from langfuse.model import CreateEvent, CreateGeneration, CreateScore, CreateSpan, CreateTrace, InitialGeneration, Span, UpdateGeneration, UpdateSpan, Usage, InitialScoreRequest, TraceIdTypeEnum, ObservationLevel
+from langfuse.model import CreateEvent, CreateGeneration, CreateSpan, CreateTrace, InitialGeneration, InitialScore, InitialSpan, Usage
 
-from langfuse.client import LangfuseAsync
+from langfuse.task_manager import TaskStatus
+from tests.api_wrapper import LangfuseAPI
 
-host = "http://localhost:3000/"
+
+def create_uuid():
+    return str(uuid4())
 
 
-@pytest.mark.asyncio
-async def test_create_trace_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host, release="1.0.0")
+def test_flush():
+    # set up the consumer with more requests than a single batch will allow
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
-    trace = await langfuse.trace(CreateTrace(name="this-is-so-great-new", user_id="test", metadata="test", version="2.0.0"))
+    for i in range(2):
+        langfuse.trace(
+            CreateTrace(
+                name=str(i),
+            )
+        )
 
-    trace = await trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+    langfuse.flush()
+    # Make sure that the client queue is empty after flushing
+    assert langfuse.task_manager.queue.empty()
 
-    generation = await trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test", version="5.0.0"))
 
-    sub_generation = await generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-    # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
-    sub_sub_span = await sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test", version="9.0.0"))
-    await sub_generation.event(CreateEvent(name="sub-sub-span", metadata="test", version="10.0.0"))
+def test_shutdown():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
-    sub_sub_span = await sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
+    for i in range(2):
+        langfuse.trace(
+            CreateTrace(
+                name=str(i),
+            )
+        )
 
-    await langfuse.flush()
+    langfuse.shutdown()
+    # we expect two things after shutdown:
+    # 1. client queue is empty
+    # 2. consumer thread has stopped
+    assert langfuse.task_manager.queue.empty()
+    assert not langfuse.task_manager.consumer_thread.is_alive()
 
 
 def test_create_score():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     trace = langfuse.trace(
         CreateTrace(
             name="this-is-so-great-new",
@@ -41,10 +58,11 @@ def test_create_score():
         )
     )
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
-    print("trace.id", trace.id)
     trace = langfuse.score(
-        InitialScoreRequest(
+        InitialScore(
             traceId=trace.id,
             name="this-is-so-great-new",
             value=1,
@@ -56,117 +74,43 @@ def test_create_score():
     trace.generation(CreateGeneration(name="yet another child", metadata="test"))
 
     langfuse.flush()
+    assert langfuse.task_manager.queue.qsize() == 0
+    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
 
 
 def test_create_trace():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    trace_name = create_uuid()
 
     trace = langfuse.trace(
         CreateTrace(
-            name="this-is-so-great-new",
+            name=trace_name,
             user_id="test",
-            metadata="test",
+            metadata={"key": "value"},
         )
     )
-    trace = trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
-
-    generation = trace.generation(CreateGeneration(name="his-is-so-great-new", metadata="test"))
-
-    sub_generation = generation.generation(CreateGeneration(name="yet another child", metadata="test"))
-    # result = asyncio.gather(langfuse.async_flush(), langfuse.async_flush())
-    sub_sub_span = sub_generation.span(CreateSpan(name="sub-sub-span", metadata="test"))
-
-    sub_sub_span = sub_sub_span.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
 
     langfuse.flush()
 
+    trace = api_wrapper.get_trace(trace.id)
 
-def test_update_generation():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    generation = langfuse.generation(CreateGeneration(name="to-be-renames", metadata="test", prompt={"key": "value"}, completion="very long completion"))
-    updated_generation = generation.update(UpdateGeneration(name="new-name", metadata="something-else"))
-    span = updated_generation.span(CreateSpan(name="sub-span", metadata="test", input={"key": "value"}, output={"key": "value"}))
-
-    span.update(UpdateSpan(level=ObservationLevel.WARNING, metadata="something-else"))
-
-    langfuse.flush()
+    assert trace["name"] == trace_name
+    assert trace["userId"] == "test"
+    assert trace["metadata"] == {"key": "value"}
+    assert True if not trace["externalId"] else False
 
 
 def test_create_generation():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
-    langfuse.generation(CreateGeneration(name="max-top-level-generation", traceId="some-id", traceIdType=TraceIdTypeEnum.EXTERNAL, metadata="test"))
-
-    langfuse.flush()
-
-
-def test_notebook():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    trace = langfuse.trace(
-        CreateTrace(
-            name="chat-completion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-                "email": "user@langfuse.com",
-            },
-        )
-    )
-
-    retrievalStartTime = datetime.datetime.now()
-
-    # retrieveDocs = retrieveDoc()
-    # ...
-
-    span = trace.span(
-        CreateSpan(
-            name="chat-completion",
-            startTime=retrievalStartTime,
-            endTime=datetime.datetime.now(),
-            metadata={"key": "value"},
-            input={"key": "value"},
-            output={"key": "value"},
-        )
-    )
-
-    span.event(
-        CreateEvent(
-            name="chat-docs-retrieval",
-            startTime=datetime.datetime.now(),
-            metadata={"key": "value"},
-            input={"key": "value"},
-            output={"key": "value"},
-        )
-    )
-
-    langfuse.flush()
-
-
-def test_full_nested_example():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    trace = langfuse.trace(
-        CreateTrace(
-            name="docs-retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-                "email": "user@langfuse.com",
-            },
-        )
-    )
-
-    start = datetime.datetime.now()
-
-    time.sleep(1)
-
-    trace.generation(
-        CreateGeneration(
+    timestamp = datetime.now()
+    langfuse.generation(
+        InitialGeneration(
             name="query-generation",
-            startTime=start,
-            endTime=datetime.datetime.now(),
+            startTime=timestamp,
+            endTime=timestamp,
             model="gpt-3.5-turbo",
             modelParameters={"maxTokens": "1000", "temperature": "0.9"},
             prompt=[
@@ -182,299 +126,271 @@ def test_full_nested_example():
         )
     )
 
-    retrievalStartTime = datetime.datetime.now()
+    langfuse.flush()
 
-    time.sleep(1)
+    assert len(langfuse.task_manager.result_mapping) == 2
 
-    dbSearchStart = datetime.datetime.now()
-    time.sleep(1)
-    # retrieveDocs = retrieveDoc()
-    # ...
-    dbSearchEnd = datetime.datetime.now()
+    trace_id = langfuse.get_trace_id()
 
-    span = trace.span(
-        CreateSpan(
-            name="embedding-search",
-            startTime=retrievalStartTime,
-            endTime=datetime.datetime.now(),
-            metadata={"database": "pinecone"},
-            input={"query": "This document entails the OKR goals for ACME"},
-            output={"response": "[{'name': 'OKR Engineering', 'content': 'The engineering department defined the following OKR goals...'},{'name': 'OKR Marketing', 'content': 'The marketing department defined the following OKR goals...'}]"},
-        )
-    )
+    trace = api_wrapper.get_trace(trace_id)
 
-    span = span.span(
-        CreateSpan(
-            name="chat-completion",
-            startTime=dbSearchStart,
-            endTime=dbSearchEnd,
-            metadata={"database": "postgres"},
-            input={"email": "user@langfuse.com"},
-            output={"firstName": "User", "lastName": "Langfuse", "email": "user@langfuse.com"},
-        )
-    )
+    assert trace["name"] == "query-generation"
+    assert trace["userId"] is None
+    assert trace["metadata"] is None
+    assert trace["externalId"] is None
 
-    finalStart = datetime.datetime.now()
+    assert len(trace["observations"]) == 1
 
-    time.sleep(1)
+    generation = trace["observations"][0]
 
-    trace.generation(
-        CreateGeneration(
-            name="summary-generation",
-            startTime=finalStart,
-            endTime=datetime.datetime.now(),
-            model="gpt-3.5-turbo",
-            modelParameters={"maxTokens": "1000", "temperature": "0.9"},
-            prompt=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "Please generate a summary of the following documents \nThe engineering department defined the following OKR goals...\nThe marketing department defined the following OKR goals...",
-                },
-            ],
-            completion="The Q3 OKRs contain goals for multiple teams...",
-            usage=Usage(promptTokens=50, completionTokens=49),
+    assert generation["name"] == "query-generation"
+    assert generation["startTime"] is not None
+    assert generation["startTime"] is not None
+    assert generation["endTime"] is not None
+    assert generation["model"] == "gpt-3.5-turbo"
+    assert generation["modelParameters"] == {"maxTokens": "1000", "temperature": "0.9"}
+    assert generation["input"] == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+        },
+    ]
+    assert generation["output"] == {"completion": "This document entails the OKR goals for ACME"}
+
+
+def test_create_span():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    timestamp = datetime.now()
+    langfuse.span(
+        InitialSpan(
+            name="span",
+            startTime=timestamp,
+            endTime=timestamp,
+            input={"key": "value"},
+            output={"key": "value"},
             metadata={"interface": "whatsapp"},
         )
     )
 
-    trace.score(CreateScore(name="user-explicit-feedback", value=1, comment="I like how personalized the response is"))
-
     langfuse.flush()
 
+    assert len(langfuse.task_manager.result_mapping) == 2
 
-def test_customer_nested():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    trace_id = langfuse.get_trace_id()
 
-    span = langfuse.span(
-        Span(
-            name="chat-completion-top",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert trace["name"] == "span"
+    assert trace["userId"] is None
+    assert trace["metadata"] is None
+    assert trace["externalId"] is None
+
+    assert len(trace["observations"]) == 1
+
+    generation = trace["observations"][0]
+
+    assert generation["name"] == "span"
+    assert generation["startTime"] is not None
+    assert generation["startTime"] is not None
+    assert generation["endTime"] is not None
+    assert generation["input"] == {"key": "value"}
+    assert generation["output"] == {"key": "value"}
+
+
+def test_score_trace():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(CreateTrace(name=trace_name))
+
+    langfuse.score(
+        InitialScore(
+            traceId=langfuse.get_trace_id(),
+            name="valuation",
+            value=1,
+            comment="This is a comment",
         )
     )
 
+    langfuse.flush()
+
+    assert len(langfuse.task_manager.result_mapping) == 2
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert trace["name"] == trace_name
+
+    assert len(trace["scores"]) == 1
+
+    score = trace["scores"][0]
+
+    assert score["name"] == "valuation"
+    assert score["value"] == 1
+    assert score["comment"] == "This is a comment"
+    assert score["observationId"] is None
+
+
+def test_score_span():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    spanId = create_uuid()
+    timestamp = datetime.now()
     langfuse.span(
-        Span(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
+        InitialSpan(
+            id=spanId,
+            name="span",
+            startTime=timestamp,
+            endTime=timestamp,
             input={"key": "value"},
             output={"key": "value"},
-            parentObservationId=span.id,
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
+            metadata={"interface": "whatsapp"},
         )
     )
 
-    langfuse.generation(
-        InitialGeneration(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            parentObservationId=span.id,
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-    langfuse.flush()
-
-
-@pytest.mark.asyncio
-async def test_customer_nested_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    span = await langfuse.span(
-        Span(
-            name="chat-completion-top",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.span(
-        Span(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            parentObservationId=span.id,
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.generation(
-        InitialGeneration(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            parentObservationId=span.id,
-            traceId="this-is-an-external-id-1",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-    await langfuse.flush()
-
-
-@pytest.mark.asyncio
-async def test_customer_root_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    await langfuse.span(
-        Span(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.generation(
-        InitialGeneration(
-            name="compeletion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    await langfuse.flush()
-
-
-def test_customer_root():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
-
-    langfuse.span(
-        Span(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
-
-    langfuse.generation(
-        InitialGeneration(
-            name="compeletion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
+    langfuse.score(
+        InitialScore(
+            traceId=langfuse.get_trace_id(),
+            observationId=spanId,
+            name="valuation",
+            value=1,
+            comment="This is a comment",
         )
     )
 
     langfuse.flush()
 
+    assert len(langfuse.task_manager.result_mapping) == 3
 
-def test_customer_blub():
-    langfuse = Langfuse("pk-lf-1234567890", "sk-lf-1234567890", host)
+    trace_id = langfuse.get_trace_id()
 
-    span = langfuse.span(
-        Span(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
+    trace = api_wrapper.get_trace(trace_id)
 
-    span.generation(
-        InitialGeneration(
-            name="compeletion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
+    assert len(trace["scores"]) == 1
+    assert len(trace["observations"]) == 1
+
+    score = trace["scores"][0]
+
+    assert score["name"] == "valuation"
+    assert score["value"] == 1
+    assert score["comment"] == "This is a comment"
+    assert score["observationId"] == spanId
+
+
+def test_create_trace_and_span():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    trace_name = create_uuid()
+    spanId = create_uuid()
+
+    trace = langfuse.trace(CreateTrace(name=trace_name))
+    trace.span(CreateSpan(id=spanId, name="span"))
 
     langfuse.flush()
 
+    trace = api_wrapper.get_trace(trace.id)
 
-@pytest.mark.asyncio
-async def test_customer_blub_async():
-    langfuse = LangfuseAsync("pk-lf-1234567890", "sk-lf-1234567890", host)
+    assert trace["name"] == trace_name
+    assert len(trace["observations"]) == 1
 
-    span = await langfuse.span(
-        Span(
-            name="retrieval",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            input={"key": "value"},
-            output={"key": "value"},
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
+    span = trace["observations"][0]
+    assert span["name"] == "span"
+    assert span["traceId"] == trace["id"]
 
-    await span.generation(
-        InitialGeneration(
-            name="compeletion",
-            userId="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
-            metadata={
-                "env": "production",
-            },
-            prompt={"role": "client", "message": "some message"},
-            completion="completion string",
-            traceId="this-is-an-external-id",
-            traceIdType=TraceIdTypeEnum.EXTERNAL,
-        )
-    )
 
-    await langfuse.flush()
+def test_create_trace_and_generation():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    trace_name = create_uuid()
+    generationId = create_uuid()
+
+    trace = langfuse.trace(CreateTrace(name=trace_name))
+    trace.generation(CreateGeneration(id=generationId, name="generation"))
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["name"] == trace_name
+    assert len(trace["observations"]) == 1
+
+    span = trace["observations"][0]
+    assert span["name"] == "generation"
+    assert span["traceId"] == trace["id"]
+
+
+def test_create_generation_and_trace():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    trace_name = create_uuid()
+    trace_id = create_uuid()
+    print("trace_id", trace_id)
+    langfuse.generation(CreateGeneration(traceId=trace_id, name="generation"))
+    langfuse.trace(CreateTrace(id=trace_id, name=trace_name))
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+    print(trace)
+
+    assert trace["name"] == trace_name
+    assert len(trace["observations"]) == 1
+
+    span = trace["observations"][0]
+    assert span["name"] == "generation"
+    assert span["traceId"] == trace["id"]
+
+
+def test_create_trace_and_event():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    trace_name = create_uuid()
+    eventId = create_uuid()
+
+    trace = langfuse.trace(CreateTrace(name=trace_name))
+    trace.event(CreateEvent(id=eventId, name="event"))
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["name"] == trace_name
+    assert len(trace["observations"]) == 1
+
+    span = trace["observations"][0]
+    assert span["name"] == "event"
+    assert span["traceId"] == trace["id"]
+
+
+def test_create_span_and_generation():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    your_trace_id = create_uuid()
+
+    langfuse.span(InitialSpan(traceId=your_trace_id, name="span"))
+    langfuse.generation(InitialGeneration(traceId=your_trace_id, name="generation"))
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(your_trace_id)
+    print(trace)
+    assert trace["name"] == "generation"
+    assert len(trace["observations"]) == 2
+
+    span = trace["observations"][0]
+    assert span["traceId"] == trace["id"]
+
+    span = trace["observations"][1]
+    assert span["traceId"] == trace["id"]
