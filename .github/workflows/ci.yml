@@ -20,6 +20,7 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
     strategy:
+      fail-fast: false
       matrix:
         python-version:
           # - "3.5"
