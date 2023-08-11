@@ -13,8 +13,8 @@ from tests.api_wrapper import LangfuseAPI
 
 
 def test_callback_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -36,8 +36,8 @@ def test_callback_simple_chain():
 
 
 def test_callback_sequential_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -70,8 +70,8 @@ def test_callback_sequential_chain():
 
 
 def test_callback_retriever():
-    api_wrapper = LangfuseAPI(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -101,8 +101,8 @@ def test_callback_retriever():
 
 
 def test_callback_simple_llm():
-    api_wrapper = LangfuseAPI(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -121,8 +121,8 @@ def test_callback_simple_llm():
 
 
 def test_callback_simple_llm_chat():
-    api_wrapper = LangfuseAPI(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF-PK"), os.environ.get("LF-SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
