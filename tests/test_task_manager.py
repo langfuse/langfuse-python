@@ -156,7 +156,7 @@ logging.basicConfig(
     ]
 )
 print("Adding task manager", TaskManager)
-manager = TaskManager()
+manager = TaskManager(debug=True)
 a = manager.add_task(1, dummy_function)
 manager.add_task(2, dummy_function)
 

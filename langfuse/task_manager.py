@@ -26,12 +26,20 @@ class TaskStatus(Enum):
 class TaskManager(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, max_task_queue_size=10_000, max_task_age=600):
+    def __init__(self, debug=False, max_task_queue_size=10_000, max_task_age=600):
         self.max_task_queue_size = max_task_queue_size
         self.queue = queue.Queue(max_task_queue_size)
         self.consumer_thread = None
         self.result_mapping = {}
         self.max_task_age = max_task_age
+        if debug:
+            # Ensures that debug level messages are logged when debug mode is on.
+            # Otherwise, defaults to WARNING level. See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
+            logging.basicConfig()
+            self.log.setLevel(logging.DEBUG)
+        else:
+            self.log.setLevel(logging.WARNING)
+
         self.init_resources()
 
         # cleans up when the python interpreter closes
