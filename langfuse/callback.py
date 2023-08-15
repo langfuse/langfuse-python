@@ -31,9 +31,9 @@ class CallbackHandler(BaseCallbackHandler):
         inputs: Dict[str, Any],
         *,
         run_id: UUID,
-        parent_run_id: UUID | None = None,
-        tags: List[str] | None = None,
-        metadata: Dict[str, Any] | None = None,
+        parent_run_id: Optional[UUID] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
         try:
@@ -51,9 +51,9 @@ class CallbackHandler(BaseCallbackHandler):
         inputs: Dict[str, Any],
         *,
         run_id: UUID,
-        parent_run_id: UUID | None = None,
-        tags: List[str] | None = None,
-        metadata: Dict[str, Any] | None = None,
+        parent_run_id: Optional[UUID] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
         try:
