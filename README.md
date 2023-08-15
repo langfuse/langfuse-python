@@ -53,7 +53,7 @@ poetry install
 1. Generate Fern Python SDK in [langfuse](https://github.com/langfuse/langfuse) and copy the files generated in `generated/python` into the `langfuse/api` folder in this repo.
 2. Rebuild and deploy the package to PyPi.
 
-### Deployment
+### Publish release
 
 1. `poetry version patch`
    - `poetry version prepatch` for pre-release versions
