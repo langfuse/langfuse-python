@@ -45,10 +45,12 @@ jobs:
         run: |
           cd ./langfuse-server
           docker-compose up -d
-      - name: Apply migrations and seed db
+      - name: Install dependencies (necessary to run seeder)
         run: |
           cd ./langfuse-server
           npm install
+      - name: Apply migrations and seed db
+        run: |
           cp .env.dev.example .env
           npx --yes prisma migrate reset --force --skip-generate
 
