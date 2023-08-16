@@ -33,7 +33,7 @@ poetry install
 ### Add Pre-commit
 
 ```
-pre-commit install
+poetry run pre-commit install
 ```
 
 ### Tests
