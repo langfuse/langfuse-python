@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - master
+      - development
   workflow_dispatch:
 
 concurrency:
@@ -19,6 +20,7 @@ jobs:
       LF_SK: ${{ secrets.LF_SK }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
