@@ -51,6 +51,7 @@ jobs:
           npm install
       - name: Apply migrations and seed db
         run: |
+          cd ./langfuse-server
           cp .env.dev.example .env
           npx --yes prisma migrate reset --force --skip-generate
 
