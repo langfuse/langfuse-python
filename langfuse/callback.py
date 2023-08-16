@@ -360,8 +360,7 @@ class CallbackHandler(BaseCallbackHandler):
                     metadata=metadata,
                     kwargs=kwargs,
                 )
-
-            if kwargs["_type"] == "huggingface_hub":
+            if kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             else:
                 model_name = kwargs["invocation_params"]["model_name"]
@@ -428,6 +427,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
             else:
                 last_response = response.generations[-1][-1].text
+                logger.warning(response)
                 llm_usage = None if response.llm_output == None else LlmUsage(**response.llm_output["token_usage"])
                 self.runs[run_id].state = self.runs[run_id].state.update(
                     UpdateGeneration(completion=last_response, end_time=datetime.now(), usage=llm_usage)
