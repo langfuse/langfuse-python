@@ -34,6 +34,23 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Pull the public repository
+        run: |
+          git clone https://github.com/langfuse/langfuse.git ./langfuse-server
+      - name: Run langfuse server
+        run: |
+          cd ./langfuse-server
+          docker-compose up -d
+      - name: Apply migrations and seed db
+        run: |
+          npm install
+          cp .env.dev.example .env
+          npx --yes prisma migrate reset --force --skip-generate
+
       - name: Install Python
         uses: actions/setup-python@v4
         # see details (matrix, python-version, python-version-file, etc.)
