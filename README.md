@@ -30,6 +30,12 @@ poetry self add poetry-bumpversion
 poetry install
 ```
 
+### Add Pre-commit
+
+```
+pre-commit install
+```
+
 ### Tests
 
 #### Setup
