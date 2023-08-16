@@ -136,7 +136,9 @@ def test_callback_simple_llm_chat():
 
     agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
-    agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
+    agent.run(
+        "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler]
+    )
 
     handler.langfuse.flush()
 
@@ -146,6 +148,7 @@ def test_callback_simple_llm_chat():
 
     assert len(trace["observations"]) > 1
 
+
 @pytest.mark.skip(reason="inference cost")
 def test_callback_huggingface_hub():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -154,16 +157,17 @@ def test_callback_huggingface_hub():
     def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
         repo_id = "google/flan-t5-small"
         # Experiment with the max_length parameter and temperature
-        llm = HuggingFaceHub(
-            repo_id=repo_id, model_kwargs={"temperature": 0.1, "max_length": 500}
-        )
+        llm = HuggingFaceHub(repo_id=repo_id, model_kwargs={"temperature": 0.1, "max_length": 500})
         return LLMChain(prompt=prompt, llm=llm)
-    
+
     hugging_chain = initialize_huggingface_llm(
-        prompt= PromptTemplate(input_variables=["title"], template="""
+        prompt=PromptTemplate(
+            input_variables=["title"],
+            template="""
 You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
 Title: {title}
-        """)
+        """,
+        )
     )
 
     hugging_chain.run(title="Mission to Mars", callbacks=[handler])

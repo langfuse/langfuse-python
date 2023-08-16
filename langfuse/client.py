@@ -30,7 +30,14 @@ from .version import __version__ as version
 class Langfuse(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None, release: Optional[str] = None, debug: bool = False):
+    def __init__(
+        self,
+        public_key: str,
+        secret_key: str,
+        host: Optional[str] = None,
+        release: Optional[str] = None,
+        debug: bool = False,
+    ):
         self.task_manager = TaskManager()
 
         self.base_url = host if host else "https://cloud.langfuse.com"
@@ -260,11 +267,10 @@ class StatefulClient(object):
 
             self.task_manager.add_task(generation_id, task)
             return StatefulGenerationClient(
-              self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+                self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
             self.log.warning(e)
-        
 
     def span(self, body: CreateSpan):
         try:
@@ -339,6 +345,7 @@ class StatefulClient(object):
         except Exception as e:
             self.log.warning(e)
 
+
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
@@ -365,6 +372,7 @@ class StatefulGenerationClient(StatefulClient):
             )
         except Exception as e:
             self.log.warning(e)
+
 
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")

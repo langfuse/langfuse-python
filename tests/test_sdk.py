@@ -4,7 +4,16 @@ from uuid import uuid4
 
 
 from langfuse import Langfuse
-from langfuse.model import CreateEvent, CreateGeneration, CreateSpan, CreateTrace, InitialGeneration, InitialScore, InitialSpan, Usage
+from langfuse.model import (
+    CreateEvent,
+    CreateGeneration,
+    CreateSpan,
+    CreateTrace,
+    InitialGeneration,
+    InitialScore,
+    InitialSpan,
+    Usage,
+)
 
 from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
@@ -59,7 +68,9 @@ def test_create_score():
     )
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
-    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
+    assert all(
+        v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
+    ), "Not all tasks succeeded"
 
     trace = langfuse.score(
         InitialScore(
@@ -75,7 +86,9 @@ def test_create_score():
 
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
-    assert all(v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()), "Not all tasks succeeded"
+    assert all(
+        v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
+    ), "Not all tasks succeeded"
 
 
 def test_create_trace():
