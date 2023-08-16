@@ -25,20 +25,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          # - "3.7"
-          # - "3.8"
-          # - "3.9"
-          # - "3.10"
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
           - "3.11"
     name: Test on Python version ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Pull the public repository
+      - name: Clone langfuse server
         run: |
           git clone https://github.com/langfuse/langfuse.git ./langfuse-server
 
-      - name: Setup node
+      - name: Setup node (for langfuse server)
         uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -48,16 +48,19 @@ jobs:
       - name: Run langfuse server
         run: |
           cd ./langfuse-server
+
+          echo "::group::Run langfuse server"
           docker-compose up -d
-      - name: Install dependencies (necessary to run seeder)
-        run: |
-          cd ./langfuse-server
+          echo "::endgroup::"
+
+          echo "::group::Install dependencies (necessary to run seeder)"
           npm install
-      - name: Apply migrations and seed db
-        run: |
-          cd ./langfuse-server
+          echo "::endgroup::"
+
+          echo "::group::Apply migrations and seed db"
           cp .env.dev.example .env
           npx --yes prisma migrate reset --force --skip-generate
+          echo "::endgroup::"
 
       - name: Install Python
         uses: actions/setup-python@v4
