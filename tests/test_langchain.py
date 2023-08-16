@@ -1,4 +1,5 @@
 import os
+from langchain import HuggingFaceHub
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -144,3 +145,33 @@ def test_callback_simple_llm_chat():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) > 1
+
+@pytest.mark.skip(reason="openai cost")
+def test_callback_huggingface_hub():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
+        repo_id = "google/flan-t5-small"
+        # Experiment with the max_length parameter and temperature
+        llm = HuggingFaceHub(
+            repo_id=repo_id, model_kwargs={"temperature": 0.1, "max_length": 500}
+        )
+        return LLMChain(prompt=prompt, llm=llm)
+    
+    hugging_chain = initialize_huggingface_llm(
+        prompt= PromptTemplate(input_variables=["title"], template="""
+You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+Title: {title}
+        """)
+    )
+
+    hugging_chain.run(title="Mission to Mars", callbacks=[handler])
+
+    handler.langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
