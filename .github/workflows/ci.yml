@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - master
+      - development
   workflow_dispatch:
 
 concurrency:
@@ -13,12 +14,13 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    env: # Or as an environment variable
-      HOST: ${{ secrets.HOST }}
-      LF_PK: ${{ secrets.LF_PK }}
-      LF_SK: ${{ secrets.LF_SK }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+    env:
+      HOST: "http://localhost:3000"
+      LF_PK: "pk-lf-1234567890"
+      LF_SK: "sk-lf-1234567890"
+      # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      # HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +33,40 @@ jobs:
     name: Test on Python version ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Clone langfuse server
+        run: |
+          git clone https://github.com/langfuse/langfuse.git ./langfuse-server
+
+      - name: Setup node (for langfuse server)
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Cache langfuse server dependencies
+        uses: actions/cache@v3
+        with:
+          path: ./langfuse-server/node_modules
+          key: |
+            langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
+            langfuse-server-
+
+      - name: Run langfuse server
+        run: |
+          cd ./langfuse-server
+
+          echo "::group::Run langfuse server"
+          docker-compose up -d
+          echo "::endgroup::"
+
+          echo "::group::Install dependencies (necessary to run seeder)"
+          npm install
+          echo "::endgroup::"
+
+          echo "::group::Apply migrations and seed db"
+          cp .env.dev.example .env
+          npx --yes prisma migrate reset --force --skip-generate
+          echo "::endgroup::"
 
       - name: Install Python
         uses: actions/setup-python@v4
