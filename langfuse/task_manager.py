@@ -6,6 +6,10 @@ import queue
 import threading
 
 
+logger = logging.getLogger("TaskManager")
+logger.setLevel(logging.INFO)
+
+
 class Task:
     def __init__(self, task_id, function, predecessor_id: str = None):
         self.task_id = task_id
@@ -41,54 +45,54 @@ class TaskManager:
 
     def add_task(self, task_id, function, predecessor_id=None):
         try:
-            logging.info(f"Adding task {task_id} with predecessor {predecessor_id}")
+            logger.info(f"Adding task {task_id} with predecessor {predecessor_id}")
             if self.consumer_thread is None or not self.consumer_thread.is_alive():
                 self.init_resources()
             task = Task(task_id, function, predecessor_id)
 
             self.queue.put(task, block=False)
-            logging.info(f"Task {task_id} added to queue")
+            logger.info(f"Task {task_id} added to queue")
         except queue.Full:
-            logging.warning("analytics-python queue is full")
+            logger.warning("analytics-python queue is full")
             return False
         except Exception as e:
-            logging.error(f"Exception in adding task {task_id} {e}")
+            logger.error(f"Exception in adding task {task_id} {e}")
             return False
 
     def flush(self):
         """Forces a flush from the internal queue to the server"""
-        logging.info("flushing queue")
+        logger.info("flushing queue")
         queue = self.queue
         size = queue.qsize()
         queue.join()
         # Note that this message may not be precise, because of threading.
-        logging.info("successfully flushed about %s items.", size)
+        logger.info("successfully flushed about %s items.", size)
 
     def join(self):
         """Ends the consumer thread once the queue is empty.
         Blocks execution until finished
         """
-        logging.info("joining consumer thread")
+        logger.info("joining consumer thread")
         self.consumer_thread.pause()
         try:
             self.consumer_thread.join()
         except RuntimeError:
             # consumer thread has not started
             pass
-        logging.info("consumer thread joined")
+        logger.info("consumer thread joined")
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
-        logging.info("shutdown initiated")
+        logger.info("shutdown initiated")
         self.flush()
         self.join()
-        logging.info("shutdown completed")
+        logger.info("shutdown completed")
 
     def get_result(self, task_id):
         try:
             return self.result_mapping.get(task_id)
         except Exception as e:
-            logging.error(f"Exception in getting result for task {task_id} {e}")
+            logger.error(f"Exception in getting result for task {task_id} {e}")
 
 
 class Consumer(threading.Thread):
@@ -109,10 +113,10 @@ class Consumer(threading.Thread):
 
     def run(self):
         """Runs the consumer."""
-        logging.info("consumer is running...")
+        logger.info("consumer is running...")
         while self.running:
             try:
-                logging.info("consumer looping")
+                logger.info("consumer looping")
                 self._prune_old_tasks(self.max_task_age)
 
                 # elapsed = time.monotonic.monotonic() - start_time
@@ -120,16 +124,16 @@ class Consumer(threading.Thread):
 
                 self.result_mapping[task.task_id] = task
 
-                logging.info(f"Task {task.task_id} received from the queue")
+                logger.info(f"Task {task.task_id} received from the queue")
 
                 self._execute_task(task)
-                logging.info(f"Task {task.task_id} done")
+                logger.info(f"Task {task.task_id} done")
                 self.queue.task_done()
 
             except queue.Empty:
                 break
 
-        logging.debug("consumer exited.")
+        logger.debug("consumer exited.")
 
     def pause(self):
         """Pause the consumer."""
@@ -137,7 +141,7 @@ class Consumer(threading.Thread):
 
     def _execute_task(self, task: Task):
         try:
-            logging.info(f"Task {task.task_id} executing")
+            logger.info(f"Task {task.task_id} executing")
 
             result = None
             with task.lock:
@@ -146,18 +150,18 @@ class Consumer(threading.Thread):
                     self.result_mapping[task.task_id].result = result
                     self.result_mapping[task.task_id].status = TaskStatus.SUCCESS
                     self.result_mapping[task.task_id].timestamp = datetime.now()
-                    logging.info(f"Task {task.task_id} done with result {result}")
+                    logger.info(f"Task {task.task_id} done with result {result}")
                 except Exception as e:
                     self.result_mapping[task.task_id].result = e
                     self.result_mapping[task.task_id].status = TaskStatus.FAIL
                     self.result_mapping[task.task_id].timestamp = datetime.now()
-                    logging.info(f"Task {task.task_id} failed with exception {e} ")
+                    logger.info(f"Task {task.task_id} failed with exception {e} ")
         except Exception as e:
-            logging.error(f"Exception in the task {task.task_id} {e}")
+            logger.error(f"Exception in the task {task.task_id} {e}")
 
     def _prune_old_tasks(self, delta: int):
         try:
-            logging.info("Pruning old tasks")
+            logger.info("Pruning old tasks")
             now = datetime.now()
 
             to_remove = [
@@ -169,6 +173,6 @@ class Consumer(threading.Thread):
             ]
             for task_id in to_remove:
                 self.result_mapping.pop(task_id, None)
-                logging.info(f"Task {task_id} pruned due to age")
+                logger.info(f"Task {task_id} pruned due to age")
         except Exception as e:
-            logging.error(f"Exception in pruning old tasks {e}")
+            logger.error(f"Exception in pruning old tasks {e}")

@@ -27,6 +27,9 @@ from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
+logger = logging.getLogger("Client")
+logger.setLevel(logging.INFO)
+
 
 class Langfuse:
     def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None, release: Optional[str] = None):
@@ -61,7 +64,7 @@ class Langfuse:
                     if self.release is not None:
                         new_body = new_body.copy(update={"release": self.release})
 
-                    logging.info(f"Creating trace {new_body}...")
+                    logger.info(f"Creating trace {new_body}...")
                     return self.client.trace.create(request=new_body)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -80,7 +83,7 @@ class Langfuse:
             def task():
                 try:
                     new_body = body.copy(update={"id": new_id})
-                    logging.info(f"Creating score {new_body}...")
+                    logger.info(f"Creating score {new_body}...")
                     return self.client.score.create(request=new_body)
                 except Exception as e:
                     traceback.print_exception(e)
@@ -112,7 +115,7 @@ class Langfuse:
                         "name": body.name,
                     }
 
-                    logging.info(f"Creating trace {new_body}...")
+                    logger.info(f"Creating trace {new_body}...")
                     request = CreateTraceRequest(**new_body)
                     return self.client.trace.create(request=request)
                 except Exception as e:
@@ -125,7 +128,7 @@ class Langfuse:
                     new_body = body.copy(update={"trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = body.copy(update={"trace": {"release": self.release}})
-                    logging.info(f"Creating span {new_body}...")
+                    logger.info(f"Creating span {new_body}...")
                     request = CreateSpanRequest(**new_body.dict())
                     return self.client.span.create(request=request)
                 except Exception as e:
@@ -154,7 +157,7 @@ class Langfuse:
                         "name": body.name,
                     }
 
-                    logging.info(f"Creating trace {new_body}...")
+                    logger.info(f"Creating trace {new_body}...")
                     request = CreateTraceRequest(**new_body)
                     return self.client.trace.create(request=request)
                 except Exception as e:
@@ -167,7 +170,7 @@ class Langfuse:
                     new_body = body.copy(update={"trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = body.copy(update={"trace": {"release": self.release}})
-                    logging.info(f"Creating top-level generation {new_body}...")
+                    logger.info(f"Creating top-level generation {new_body}...")
                     request = CreateGenerationRequest(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
@@ -239,7 +242,7 @@ class StatefulClient:
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
-                    logging.info(f"Creating generation {new_dict}...")
+                    logger.info(f"Creating generation {new_dict}...")
 
                     request = CreateGenerationRequest(**new_dict)
                     return self.client.generations.log(request=request)
@@ -262,7 +265,7 @@ class StatefulClient:
             def task():
                 try:
                     new_body = body.copy(update={"id": span_id})
-                    logging.info(f"Creating span {new_body}...")
+                    logger.info(f"Creating span {new_body}...")
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
@@ -287,7 +290,7 @@ class StatefulClient:
             def task():
                 try:
                     new_body = body.copy(update={"id": score_id})
-                    logging.info(f"Creating score {new_body}...")
+                    logger.info(f"Creating score {new_body}...")
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
@@ -315,7 +318,7 @@ class StatefulClient:
             def task():
                 try:
                     new_body = body.copy(update={"id": event_id})
-                    logging.info(f"Creating event {new_body}...")
+                    logger.info(f"Creating event {new_body}...")
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
@@ -343,7 +346,7 @@ class StatefulGenerationClient(StatefulClient):
             def task():
                 try:
                     new_body = body.copy(update={"generation_id": self.id})
-                    logging.info(f"Update generation {new_body}...")
+                    logger.info(f"Update generation {new_body}...")
                     request = UpdateGenerationRequest(**new_body.dict())
                     return self.client.generations.update(request=request)
                 except Exception as e:
@@ -370,7 +373,7 @@ class StatefulSpanClient(StatefulClient):
             def task():
                 try:
                     new_body = body.copy(update={"span_id": self.id})
-                    logging.info(f"Update span {new_body}...")
+                    logger.info(f"Update span {new_body}...")
                     request = UpdateSpanRequest(**new_body.dict())
                     return self.client.span.update(request=request)
                 except Exception as e:
