@@ -13,7 +13,7 @@ from langfuse.client import Langfuse, StatefulClient
 from langchain.schema.agent import AgentAction, AgentFinish
 
 
-logger = logging.getLogger("CallbackHandler")
+logger = logging.getLogger("Langfuse")
 logger.setLevel(logging.INFO)
 
 

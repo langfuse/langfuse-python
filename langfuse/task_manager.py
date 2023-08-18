@@ -6,7 +6,7 @@ import queue
 import threading
 
 
-logger = logging.getLogger("TaskManager")
+logger = logging.getLogger("Langfuse")
 logger.setLevel(logging.INFO)
 
 

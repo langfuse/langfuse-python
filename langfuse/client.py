@@ -27,7 +27,7 @@ from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
-logger = logging.getLogger("Client")
+logger = logging.getLogger("Langfuse")
 logger.setLevel(logging.INFO)
 
 
