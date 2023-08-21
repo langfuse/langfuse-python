@@ -13,7 +13,7 @@ from langfuse.client import Langfuse, StatefulClient
 from langchain.schema.agent import AgentAction, AgentFinish
 
 
-logger = logging.getLogger("CallbackHandler")
+logger = logging.getLogger("Langfuse")
 logger.setLevel(logging.INFO)
 
 
@@ -24,7 +24,7 @@ class Run:
 
 
 class CallbackHandler(BaseCallbackHandler):
-    def __init__(self, public_key: str, secret_key: str, host: Optional[str]) -> None:
+    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None) -> None:
         self.langfuse = Langfuse(public_key, secret_key, host)
         self.trace = None
         self.runs = {}
