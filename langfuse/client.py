@@ -105,7 +105,9 @@ class Langfuse(object):
             self.task_manager.add_task(new_id, task)
 
             if body.observation_id is not None:
-                return StatefulClient(self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager)
+                return StatefulClient(
+                    self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager
+                )
             else:
                 return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
 
@@ -191,7 +193,9 @@ class Langfuse(object):
             self.task_manager.add_task(new_generation_id, create_generation)
             self.task_manager.add_task(new_trace_id, create_trace)
 
-            return StatefulGenerationClient(self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
+            return StatefulGenerationClient(
+                self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager
+            )
         except Exception as e:
             self.log.warning(e)
 
@@ -262,7 +266,9 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(generation_id, task)
-            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulGenerationClient(
+                self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+            )
         except Exception as e:
             self.log.warning(e)
 
@@ -284,7 +290,9 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(span_id, task)
-            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulSpanClient(
+                self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+            )
         except Exception as e:
             self.log.warning(e)
 
@@ -309,7 +317,9 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(score_id, task)
-            return StatefulClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulClient(
+                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+            )
         except Exception as e:
             self.log.warning(e)
 
@@ -357,7 +367,9 @@ class StatefulGenerationClient(StatefulClient):
                     raise e
 
             self.task_manager.add_task(update_id, task)
-            return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulGenerationClient(
+                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+            )
         except Exception as e:
             self.log.warning(e)
 
@@ -383,6 +395,8 @@ class StatefulSpanClient(StatefulClient):
                     raise e
 
             self.task_manager.add_task(update_id, task)
-            return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulSpanClient(
+                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+            )
         except Exception as e:
             self.log.warning(e)
