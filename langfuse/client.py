@@ -1,7 +1,6 @@
 from enum import Enum
 import logging
 import os
-import traceback
 from typing import Optional
 import uuid
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
@@ -27,12 +26,18 @@ from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
-logger = logging.getLogger("Langfuse")
-logger.setLevel(logging.INFO)
 
+class Langfuse(object):
+    log = logging.getLogger("langfuse")
 
-class Langfuse:
-    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None, release: Optional[str] = None):
+    def __init__(
+        self,
+        public_key: str,
+        secret_key: str,
+        host: Optional[str] = None,
+        release: Optional[str] = None,
+        debug: bool = False,
+    ):
         self.task_manager = TaskManager()
 
         self.base_url = host if host else "https://cloud.langfuse.com"
@@ -49,6 +54,14 @@ class Langfuse:
 
         self.release = os.environ.get("LANGFUSE_RELEASE", release)
 
+        if debug:
+            # Ensures that debug level messages are logged when debug mode is on.
+            # Otherwise, defaults to WARNING level. See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
+            logging.basicConfig()
+            self.log.setLevel(logging.DEBUG)
+        else:
+            self.log.setLevel(logging.WARNING)
+
     def get_trace_id(self):
         return self.trace_id
 
@@ -64,17 +77,17 @@ class Langfuse:
                     if self.release is not None:
                         new_body = new_body.copy(update={"release": self.release})
 
-                    logger.info(f"Creating trace {new_body}...")
+                    self.log.debug(f"Creating trace {new_body}")
                     return self.client.trace.create(request=new_body)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(new_id, task)
 
             return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def score(self, body: InitialScore):
         try:
@@ -83,10 +96,10 @@ class Langfuse:
             def task():
                 try:
                     new_body = body.copy(update={"id": new_id})
-                    logger.info(f"Creating score {new_body}...")
+                    self.log.debug(f"Creating score {new_body}...")
                     return self.client.score.create(request=new_body)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(new_id, task)
@@ -99,7 +112,7 @@ class Langfuse:
                 return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
 
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def span(self, body: InitialSpan):
         try:
@@ -115,11 +128,11 @@ class Langfuse:
                         "name": body.name,
                     }
 
-                    logger.info(f"Creating trace {new_body}...")
+                    self.log.debug(f"Creating trace {new_body}...")
                     request = CreateTraceRequest(**new_body)
                     return self.client.trace.create(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             def create_span():
@@ -128,11 +141,11 @@ class Langfuse:
                     new_body = body.copy(update={"trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = body.copy(update={"trace": {"release": self.release}})
-                    logger.info(f"Creating span {new_body}...")
+                    self.log.debug(f"Creating span {new_body}...")
                     request = CreateSpanRequest(**new_body.dict())
                     return self.client.span.create(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(new_trace_id, create_trace)
@@ -140,7 +153,7 @@ class Langfuse:
 
             return StatefulSpanClient(self.client, new_span_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def generation(self, body: InitialGeneration):
         try:
@@ -157,11 +170,11 @@ class Langfuse:
                         "name": body.name,
                     }
 
-                    logger.info(f"Creating trace {new_body}...")
+                    self.log.debug(f"Creating trace {new_body}...")
                     request = CreateTraceRequest(**new_body)
                     return self.client.trace.create(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             def create_generation():
@@ -170,11 +183,11 @@ class Langfuse:
                     new_body = body.copy(update={"trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = body.copy(update={"trace": {"release": self.release}})
-                    logger.info(f"Creating top-level generation {new_body}...")
+                    self.log.debug(f"Creating top-level generation {new_body}...")
                     request = CreateGenerationRequest(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(new_generation_id, create_generation)
@@ -184,7 +197,7 @@ class Langfuse:
                 self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager
             )
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     # On program exit, allow the consumer thread to exit cleanly.
     # This prevents exceptions and a messy shutdown when the
@@ -196,19 +209,19 @@ class Langfuse:
         try:
             return self.task_manager.join()
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def flush(self):
         try:
             return self.task_manager.flush()
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def shutdown(self):
         try:
             return self.task_manager.shutdown()
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
 
 class StateType(Enum):
@@ -216,7 +229,9 @@ class StateType(Enum):
     TRACE = 0
 
 
-class StatefulClient:
+class StatefulClient(object):
+    log = logging.getLogger("langfuse")
+
     def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
@@ -242,21 +257,20 @@ class StatefulClient:
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
-                    logger.info(f"Creating generation {new_dict}...")
+                    self.log.debug(f"Creating generation {new_dict}...")
 
                     request = CreateGenerationRequest(**new_dict)
                     return self.client.generations.log(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(generation_id, task)
+            return StatefulGenerationClient(
+                self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
+            )
         except Exception as e:
-            traceback.print_exception(e)
-
-        return StatefulGenerationClient(
-            self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-        )
+            self.log.warning(e)
 
     def span(self, body: CreateSpan):
         try:
@@ -265,23 +279,22 @@ class StatefulClient:
             def task():
                 try:
                     new_body = body.copy(update={"id": span_id})
-                    logger.info(f"Creating span {new_body}...")
+                    self.log.debug(f"Creating span {new_body}...")
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
                     request = CreateSpanRequest(**new_dict)
                     return self.client.span.create(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(span_id, task)
-
             return StatefulSpanClient(
                 self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def score(self, body: CreateScore):
         try:
@@ -290,7 +303,7 @@ class StatefulClient:
             def task():
                 try:
                     new_body = body.copy(update={"id": score_id})
-                    logger.info(f"Creating score {new_body}...")
+                    self.log.debug(f"Creating score {new_body}...")
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
@@ -300,16 +313,15 @@ class StatefulClient:
                     request = CreateScoreRequest(**new_dict)
                     return self.client.score.create(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(score_id, task)
-
             return StatefulClient(
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
     def event(self, body: CreateEvent):
         try:
@@ -318,24 +330,25 @@ class StatefulClient:
             def task():
                 try:
                     new_body = body.copy(update={"id": event_id})
-                    logger.info(f"Creating event {new_body}...")
+                    self.log.debug(f"Creating event {new_body}...")
 
                     new_dict = self._add_state_to_observation(new_body.dict())
 
                     request = CreateEventRequest(**new_dict)
                     return self.client.event.create(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(body.id, task)
-
-            return StatefulClient(self.client, event_id, self.state_type, self.trace_id, task_manager=self.task_manager)
+            return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
 
 class StatefulGenerationClient(StatefulClient):
+    log = logging.getLogger("langfuse")
+
     def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
@@ -346,23 +359,24 @@ class StatefulGenerationClient(StatefulClient):
             def task():
                 try:
                     new_body = body.copy(update={"generation_id": self.id})
-                    logger.info(f"Update generation {new_body}...")
+                    self.log.debug(f"Update generation {new_body}...")
                     request = UpdateGenerationRequest(**new_body.dict())
                     return self.client.generations.update(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(update_id, task)
-
             return StatefulGenerationClient(
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)
 
 
 class StatefulSpanClient(StatefulClient):
+    log = logging.getLogger("langfuse")
+
     def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
@@ -373,17 +387,16 @@ class StatefulSpanClient(StatefulClient):
             def task():
                 try:
                     new_body = body.copy(update={"span_id": self.id})
-                    logger.info(f"Update span {new_body}...")
+                    self.log.debug(f"Update span {new_body}...")
                     request = UpdateSpanRequest(**new_body.dict())
                     return self.client.span.update(request=request)
                 except Exception as e:
-                    traceback.print_exception(e)
+                    self.log.warning(e)
                     raise e
 
             self.task_manager.add_task(update_id, task)
-
             return StatefulSpanClient(
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            traceback.print_exception(e)
+            self.log.warning(e)

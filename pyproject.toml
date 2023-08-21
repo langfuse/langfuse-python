@@ -52,5 +52,7 @@ exclude = '''
 line_length = 120
 profile = "black"
 
+[tool.pytest.ini_options]
+log_cli = true
 
 [tool.poetry_bumpversion.file."langfuse/version.py"]
