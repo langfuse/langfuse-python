@@ -164,7 +164,13 @@ class Consumer(threading.Thread):
             logger.info("Pruning old tasks")
             now = datetime.now()
 
-            to_remove = [task_id for task_id, task in self.result_mapping.items() if task.status in [TaskStatus.SUCCESS, TaskStatus.FAIL] and task.timestamp and now - task.timestamp > timedelta(seconds=delta)]
+            to_remove = [
+                task_id
+                for task_id, task in self.result_mapping.items()
+                if task.status in [TaskStatus.SUCCESS, TaskStatus.FAIL]
+                and task.timestamp
+                and now - task.timestamp > timedelta(seconds=delta)
+            ]
             for task_id in to_remove:
                 self.result_mapping.pop(task_id, None)
                 logger.info(f"Task {task_id} pruned due to age")
