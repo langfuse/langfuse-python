@@ -42,12 +42,8 @@ class TraceClient:
             "POST",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/traces"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -72,12 +68,8 @@ class TraceClient:
         _response = httpx.request(
             "GET",
             urllib.parse.urljoin(f"{self._environment}/", f"api/public/traces/{trace_id}"),
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -110,12 +102,8 @@ class TraceClient:
             "GET",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/traces"),
             params={"page": page, "limit": limit, "userId": user_id, "name": name},
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -165,9 +153,7 @@ class AsyncTraceClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
@@ -199,9 +185,7 @@ class AsyncTraceClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
@@ -241,9 +225,7 @@ class AsyncTraceClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:

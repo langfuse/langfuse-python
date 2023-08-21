@@ -176,9 +176,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> None:
         try:
             logger.info(f"on chain error: {run_id}")
-            self.runs[run_id].state = self.runs[run_id].state.update(
-                UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now())
-            )
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now()))
         except Exception as e:
             logger.error(e)
 
@@ -295,9 +293,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id].state = self.runs[run_id].state.update(
-                UpdateSpan(output=documents, endTime=datetime.now())
-            )
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=documents, endTime=datetime.now()))
         except Exception as e:
             logger.error(e)
 
@@ -331,9 +327,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id].state = self.runs[run_id].state.update(
-                UpdateSpan(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now())
-            )
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now()))
         except Exception as e:
             logger.error(e)
 
@@ -428,9 +422,7 @@ class CallbackHandler(BaseCallbackHandler):
             else:
                 last_response = response.generations[-1][-1].text
                 llm_usage = None if response.llm_output == None else LlmUsage(**response.llm_output["token_usage"])
-                self.runs[run_id].state = self.runs[run_id].state.update(
-                    UpdateGeneration(completion=last_response, end_time=datetime.now(), usage=llm_usage)
-                )
+                self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(completion=last_response, end_time=datetime.now(), usage=llm_usage))
         except Exception as e:
             logger.error(e)
 
@@ -444,9 +436,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         try:
             logger.info(f"on llm error: {run_id}")
-            self.runs[run_id].state = self.runs[run_id].state.update(
-                UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR)
-            )
+            self.runs[run_id].state = self.runs[run_id].state.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR))
         except Exception as e:
             logger.error(e)
 

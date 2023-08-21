@@ -136,9 +136,7 @@ def test_callback_simple_llm_chat():
 
     agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
-    agent.run(
-        "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler]
-    )
+    agent.run("Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler])
 
     handler.langfuse.flush()
 
