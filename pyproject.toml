@@ -49,7 +49,7 @@ exclude = '''
 '''
 
 [tool.isort]
-line_length = 250
+line_length = 120
 profile = "black"
 
 
