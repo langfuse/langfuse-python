@@ -11,12 +11,8 @@ from ......core.datetime_utils import serialize_datetime
 class MetaResponse(pydantic.BaseModel):
     page: int = pydantic.Field(description=("current page number\n"))
     limit: int = pydantic.Field(description=("number of items per page\n"))
-    total_items: int = pydantic.Field(
-        alias="totalItems", description=("number of total items given the current filters/selection (if any)\n")
-    )
-    total_pages: int = pydantic.Field(
-        alias="totalPages", description=("number of total pages given the current limit\n")
-    )
+    total_items: int = pydantic.Field(alias="totalItems", description=("number of total items given the current filters/selection (if any)\n"))
+    total_pages: int = pydantic.Field(alias="totalPages", description=("number of total pages given the current limit\n"))
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

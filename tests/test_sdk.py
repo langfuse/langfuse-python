@@ -4,7 +4,16 @@ from uuid import uuid4
 
 
 from langfuse import Langfuse
-from langfuse.model import CreateEvent, CreateGeneration, CreateSpan, CreateTrace, InitialGeneration, InitialScore, InitialSpan, Usage
+from langfuse.model import (
+    CreateEvent,
+    CreateGeneration,
+    CreateSpan,
+    CreateTrace,
+    InitialGeneration,
+    InitialScore,
+    InitialSpan,
+    Usage,
+)
 
 from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI

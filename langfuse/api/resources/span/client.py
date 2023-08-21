@@ -41,12 +41,8 @@ class SpanClient:
             "POST",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -72,12 +68,8 @@ class SpanClient:
             "PATCH",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=remove_none_from_headers({"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}),
+            auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -127,9 +119,7 @@ class AsyncSpanClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
@@ -162,9 +152,7 @@ class AsyncSpanClient:
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     }
                 ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
+                auth=(self._username, self._password) if self._username is not None and self._password is not None else None,
                 timeout=60,
             )
         if 200 <= _response.status_code < 300:
