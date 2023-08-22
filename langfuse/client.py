@@ -56,7 +56,8 @@ class Langfuse(object):
 
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level. See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
+            # Otherwise, defaults to WARNING level.
+            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
         else:
@@ -160,7 +161,6 @@ class Langfuse(object):
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
             new_generation_id = str(uuid.uuid4())
             self.trace_id = new_trace_id
-            print("new_trace_id", new_trace_id)
 
             def create_trace():
                 try:

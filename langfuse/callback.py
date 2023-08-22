@@ -24,10 +24,60 @@ class Run:
 
 
 class CallbackHandler(BaseCallbackHandler):
-    def __init__(self, public_key: str, secret_key: str, host: Optional[str] = None) -> None:
-        self.langfuse = Langfuse(public_key, secret_key, host)
+    log = logging.getLogger("langfuse")
+
+    def __init__(
+        self,
+        public_key: str,
+        secret_key: str,
+        host: Optional[str] = None,
+        debug: bool = False,
+    ) -> None:
+        self.langfuse = Langfuse(public_key, secret_key, host, debug=debug)
         self.trace = None
         self.runs = {}
+
+        if debug:
+            # Ensures that debug level messages are logged when debug mode is on.
+            # Otherwise, defaults to WARNING level.
+            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
+            logging.basicConfig()
+            self.log.setLevel(logging.DEBUG)
+        else:
+            self.log.setLevel(logging.WARNING)
+
+    def on_llm_new_token(
+        self,
+        token: str,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run on new LLM token. Only available when streaming is enabled."""
+        # Nothing needs to happen here for langfuse. Once the streaming is done,
+        self.log.debug(f"on llm new token: {run_id} {token}")
+
+    def on_retriever_error(
+        self,
+        error: Union[Exception, KeyboardInterrupt],
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run when Retriever errors."""
+        try:
+            self.log.debug(f"on retriever error: {run_id}")
+
+            if run_id is None or run_id not in self.runs:
+                raise Exception("run not found")
+
+            self.runs[run_id].state = self.runs[run_id].state.update(
+                UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now())
+            )
+        except Exception as e:
+            self.log.warning(e)
 
     def on_chain_start(
         self,
@@ -41,7 +91,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            logger.info(f"on chain start: {run_id}")
+            self.log.debug(f"on chain start: {run_id}")
             self.__generate_trace_and_parent(
                 serialized=serialized,
                 inputs=inputs,
@@ -52,7 +102,7 @@ class CallbackHandler(BaseCallbackHandler):
                 kwargs=kwargs,
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def get_trace_id(self) -> str:
         return self.trace.state.id
@@ -109,7 +159,7 @@ class CallbackHandler(BaseCallbackHandler):
                 )
 
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_agent_action(
         self,
@@ -121,14 +171,14 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run on agent action."""
         try:
-            logger.info(f"on agent action: {run_id}")
+            self.log.debug(f"on agent action: {run_id}")
 
             if run_id not in self.runs:
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(endTime=datetime.now(), output=action))
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_agent_finish(
         self,
@@ -139,13 +189,13 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on agent finish: {run_id}")
+            self.log.debug(f"on agent finish: {run_id}")
             if run_id not in self.runs:
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(endTime=datetime.now(), output=finish))
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_chain_end(
         self,
@@ -156,14 +206,14 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on chain end: {run_id}")
+            self.log.debug(f"on chain end: {run_id}")
 
             if run_id not in self.runs:
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=outputs, endTime=datetime.now()))
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_chain_error(
         self,
@@ -175,12 +225,12 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         try:
-            logger.info(f"on chain error: {run_id}")
+            self.log.debug(f"on chain error: {run_id}")
             self.runs[run_id].state = self.runs[run_id].state.update(
                 UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now())
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_chat_model_start(
         self,
@@ -194,10 +244,10 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on chat model start: {run_id}")
+            self.log.debug(f"on chat model start: {run_id}")
             self.__on_llm_action(serialized, run_id, messages, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_llm_start(
         self,
@@ -211,10 +261,10 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on llm start: {run_id}")
+            self.log.debug(f"on llm start: {run_id}")
             self.__on_llm_action(serialized, run_id, prompts, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_tool_start(
         self,
@@ -228,7 +278,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on tool start: {run_id}")
+            self.log.debug(f"on tool start: {run_id}")
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
@@ -248,7 +298,7 @@ class CallbackHandler(BaseCallbackHandler):
                 parent_run_id,
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_retriever_start(
         self,
@@ -262,7 +312,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on retriever start: {run_id}")
+            self.log.debug(f"on retriever start: {run_id}")
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
@@ -279,7 +329,7 @@ class CallbackHandler(BaseCallbackHandler):
                 parent_run_id,
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_retriever_end(
         self,
@@ -290,7 +340,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on retriever end: {run_id}")
+            self.log.debug(f"on retriever end: {run_id}")
 
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
@@ -299,7 +349,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateSpan(output=documents, endTime=datetime.now())
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_tool_end(
         self,
@@ -310,13 +360,13 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on tool end: {run_id}")
+            self.log.debug(f"on tool end: {run_id}")
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=output, endTime=datetime.now()))
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_tool_error(
         self,
@@ -327,7 +377,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on tool error: {run_id}")
+            self.log.debug(f"on tool error: {run_id}")
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -335,7 +385,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateSpan(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now())
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def __on_llm_action(
         self,
@@ -348,7 +398,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            logger.info(kwargs)
+            self.log.debug(kwargs)
             if self.trace is None:
                 # simple LLM call that has no trace and parent
                 self.__generate_trace_and_parent(
@@ -411,7 +461,7 @@ class CallbackHandler(BaseCallbackHandler):
                 datetime.now(),
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_llm_end(
         self,
@@ -422,17 +472,17 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on llm end: {run_id}")
+            self.log.debug(f"on llm end: {run_id} {response}")
             if run_id not in self.runs:
                 raise Exception("run not found")
             else:
                 last_response = response.generations[-1][-1].text
-                llm_usage = None if response.llm_output == None else LlmUsage(**response.llm_output["token_usage"])
+                llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
                 self.runs[run_id].state = self.runs[run_id].state.update(
                     UpdateGeneration(completion=last_response, end_time=datetime.now(), usage=llm_usage)
                 )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def on_llm_error(
         self,
@@ -443,12 +493,12 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            logger.info(f"on llm error: {run_id}")
+            self.log.debug(f"on llm error: {run_id}")
             self.runs[run_id].state = self.runs[run_id].state.update(
                 UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR)
             )
         except Exception as e:
-            logger.error(e)
+            self.log.warning(e)
 
     def __join_tags_and_metadata(
         self,

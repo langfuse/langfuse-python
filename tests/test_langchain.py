@@ -106,7 +106,7 @@ def test_callback_retriever():
 
 
 @pytest.mark.skip(reason="inference cost")
-def test_callback_simple_llm():
+def test_callback_simple_openai():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
@@ -121,6 +121,33 @@ def test_callback_simple_llm():
     trace_id = handler.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+
+
+# @pytest.mark.skip(reason="inference cost")
+def test_callback_simple_openai_streaming():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=True)
+
+    text = "What would be a good company name for a company that makes laptops?"
+
+    llm.predict(text, callbacks=[handler])
+
+    handler.langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    generation = trace["observations"][1]
+    print(generation)
+
+    assert generation["promptTokens"] is not None
+    assert generation["completionTokens"] is not None
+    assert generation["totalTokens"] is not None
 
     assert len(trace["observations"]) == 2
 
