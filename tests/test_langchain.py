@@ -143,7 +143,6 @@ def test_callback_simple_openai_streaming():
     trace = api_wrapper.get_trace(trace_id)
 
     generation = trace["observations"][1]
-    print(generation)
 
     assert generation["promptTokens"] is not None
     assert generation["completionTokens"] is not None
