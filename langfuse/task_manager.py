@@ -34,7 +34,8 @@ class TaskManager(object):
         self.max_task_age = max_task_age
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level. See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
+            # Otherwise, defaults to WARNING level.
+            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
         else:
@@ -163,7 +164,7 @@ class Consumer(threading.Thread):
                     self.result_mapping[task.task_id].result = e
                     self.result_mapping[task.task_id].status = TaskStatus.FAIL
                     self.result_mapping[task.task_id].timestamp = datetime.now()
-                    self.log.debug(f"Task {task.task_id} failed with exception {e} ")
+                    self.log.warning(f"Task {task.task_id} failed with exception {e} ")
         except Exception as e:
             self.log.warning(f"Exception in the task {task.task_id} {e}")
 

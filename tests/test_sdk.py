@@ -347,14 +347,13 @@ def test_create_generation_and_trace():
 
     trace_name = create_uuid()
     trace_id = create_uuid()
-    print("trace_id", trace_id)
+
     langfuse.generation(CreateGeneration(traceId=trace_id, name="generation"))
     langfuse.trace(CreateTrace(id=trace_id, name=trace_name))
 
     langfuse.flush()
 
     trace = api_wrapper.get_trace(trace_id)
-    print(trace)
 
     assert trace["name"] == trace_name
     assert len(trace["observations"]) == 1
@@ -398,7 +397,7 @@ def test_create_span_and_generation():
     langfuse.flush()
 
     trace = api_wrapper.get_trace(your_trace_id)
-    print(trace)
+
     assert trace["name"] == "generation"
     assert len(trace["observations"]) == 2
 
