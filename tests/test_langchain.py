@@ -22,6 +22,12 @@ def test_callback_default_host():
     assert handler.langfuse.base_url == "https://cloud.langfuse.com"
 
 
+def test_langfuse_init():
+    callback = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    assert callback.trace is None
+    assert not callback.runs
+
+
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generate_from_trace():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
