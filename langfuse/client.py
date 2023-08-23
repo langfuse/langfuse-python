@@ -120,7 +120,7 @@ class Langfuse(object):
         try:
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
             self.trace_id = new_trace_id
-            new_span_id = str(uuid.uuid4())
+            new_span_id = str(uuid.uuid4()) if body.id is None else body.id
 
             def create_trace():
                 try:
@@ -139,8 +139,7 @@ class Langfuse(object):
 
             def create_span():
                 try:
-                    new_body = body.copy(update={"id": new_span_id})
-                    new_body = body.copy(update={"trace_id": new_trace_id})
+                    new_body = body.copy(update={"id": new_span_id, "trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = body.copy(update={"trace": {"release": self.release}})
                     self.log.debug(f"Creating span {new_body}...")
@@ -394,7 +393,7 @@ class StatefulSpanClient(StatefulClient):
 
             def task():
                 try:
-                    new_body = body.copy(update={"span_id": self.id})
+                    new_body = body.copy(update={"span_id": self.id, "trace_id": self.trace_id})
                     self.log.debug(f"Update span {new_body}...")
                     request = UpdateSpanRequest(**new_body.dict())
                     return self.client.span.update(request=request)
