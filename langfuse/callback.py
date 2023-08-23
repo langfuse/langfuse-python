@@ -6,7 +6,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.client import Langfuse, StatefulClient
+from langfuse.client import Langfuse, StatefulClient, StatefulTraceClient
 from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 from langchain.schema.output import LLMResult
 from langchain.schema.messages import BaseMessage
@@ -26,11 +26,11 @@ class CallbackHandler(BaseCallbackHandler):
 
     def __init__(
         self,
-        public_key: str = None,
-        secret_key: str = None,
+        public_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
         host: str = "https://cloud.langfuse.com",
         debug: bool = False,
-        statefulTraceClient: Langfuse = None,
+        statefulTraceClient: Optional[StatefulTraceClient] = None,
     ) -> None:
         # If we're provided a stateful trace client directly
         if statefulTraceClient:
@@ -51,7 +51,13 @@ class CallbackHandler(BaseCallbackHandler):
             else:
                 self.log.setLevel(logging.WARNING)
         else:
-            raise ValueError("Either provide a langfuse object or both public_key and secret_key.")
+            raise ValueError("Either provide a stateful langfuse object or both public_key and secret_key.")
+
+    def flush(self):
+        if self.trace is None:
+            self.log.debug("There was no trace yet, hence no flushing possible.")
+
+        self.trace.state.task_manager.flush()
 
     def on_llm_new_token(
         self,

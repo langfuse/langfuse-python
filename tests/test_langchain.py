@@ -87,7 +87,7 @@ def test_callback_from_trace_simple_chain():
     assert trace["id"] == trace_id
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -102,7 +102,7 @@ def test_callback_simple_chain():
 
     synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -111,7 +111,7 @@ def test_callback_simple_chain():
     assert len(trace["observations"]) == 2
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_sequential_chain():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -137,7 +137,7 @@ def test_callback_sequential_chain():
     )
     overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -146,7 +146,7 @@ def test_callback_sequential_chain():
     assert len(trace["observations"]) == 5
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -169,7 +169,7 @@ def test_callback_retriever():
     )
 
     chain.run(query, callbacks=[handler])
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -178,7 +178,6 @@ def test_callback_retriever():
     assert len(trace["observations"]) == 5
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_with_sources():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -198,7 +197,7 @@ def test_callback_retriever_with_sources():
     chain = RetrievalQA.from_chain_type(llm, retriever=docsearch.as_retriever(), return_source_documents=True)
 
     chain(query, callbacks=[handler])
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -207,7 +206,7 @@ def test_callback_retriever_with_sources():
     assert len(trace["observations"]) == 5
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -218,7 +217,7 @@ def test_callback_simple_openai():
 
     llm.predict(text, callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -227,7 +226,7 @@ def test_callback_simple_openai():
     assert len(trace["observations"]) == 2
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai_streaming():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -238,7 +237,7 @@ def test_callback_simple_openai_streaming():
 
     llm.predict(text, callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -253,7 +252,7 @@ def test_callback_simple_openai_streaming():
     assert len(trace["observations"]) == 2
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_llm_chat():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -268,7 +267,7 @@ def test_callback_simple_llm_chat():
         "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler]
     )
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 

@@ -407,6 +407,7 @@ class StatefulTraceClient(StatefulClient):
 
     def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
+        self.task_manager = task_manager
 
     def getNewHandler(self):
         from langfuse.callback import CallbackHandler
