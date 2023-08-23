@@ -14,6 +14,11 @@ from langchain.agents import AgentType, initialize_agent, load_tools
 from tests.api_wrapper import LangfuseAPI
 
 
+def test_callback_default_host():
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), debug=True)
+    assert handler.langfuse.base_url == "https://cloud.langfuse.com"
+
+
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -96,6 +101,35 @@ def test_callback_retriever():
     )
 
     chain.run(query, callbacks=[handler])
+    handler.langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 5
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_retriever_with_sources():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    query = "What did the president say about Ketanji Brown Jackson"
+
+    chain = RetrievalQA.from_chain_type(llm, retriever=docsearch.as_retriever(), return_source_documents=True)
+
+    chain(query, callbacks=[handler])
     handler.langfuse.flush()
 
     trace_id = handler.get_trace_id()
