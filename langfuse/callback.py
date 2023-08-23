@@ -90,7 +90,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now())
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_chain_start(
         self,
@@ -115,7 +115,7 @@ class CallbackHandler(BaseCallbackHandler):
                 kwargs=kwargs,
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def get_trace_id(self) -> str:
         return self.trace.state.id
@@ -172,7 +172,7 @@ class CallbackHandler(BaseCallbackHandler):
                 )
 
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_agent_action(
         self,
@@ -191,7 +191,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(endTime=datetime.now(), output=action))
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_agent_finish(
         self,
@@ -208,7 +208,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(endTime=datetime.now(), output=finish))
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_chain_end(
         self,
@@ -226,7 +226,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=outputs, endTime=datetime.now()))
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_chain_error(
         self,
@@ -243,7 +243,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now())
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_chat_model_start(
         self,
@@ -260,7 +260,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.log.debug(f"on chat model start: {run_id}")
             self.__on_llm_action(serialized, run_id, messages, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_llm_start(
         self,
@@ -277,7 +277,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.log.debug(f"on llm start: {run_id}")
             self.__on_llm_action(serialized, run_id, prompts, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_tool_start(
         self,
@@ -311,7 +311,7 @@ class CallbackHandler(BaseCallbackHandler):
                 parent_run_id,
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_retriever_start(
         self,
@@ -342,7 +342,7 @@ class CallbackHandler(BaseCallbackHandler):
                 parent_run_id,
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_retriever_end(
         self,
@@ -362,7 +362,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateSpan(output=documents, endTime=datetime.now())
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_tool_end(
         self,
@@ -379,7 +379,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id].state = self.runs[run_id].state.update(UpdateSpan(output=output, endTime=datetime.now()))
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_tool_error(
         self,
@@ -398,7 +398,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateSpan(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now())
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def __on_llm_action(
         self,
@@ -495,7 +495,7 @@ class CallbackHandler(BaseCallbackHandler):
                     UpdateGeneration(completion=last_response, end_time=datetime.now(), usage=llm_usage)
                 )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def on_llm_error(
         self,
@@ -511,7 +511,7 @@ class CallbackHandler(BaseCallbackHandler):
                 UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR)
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def __join_tags_and_metadata(
         self,
