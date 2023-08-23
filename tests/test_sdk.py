@@ -1,6 +1,5 @@
 from datetime import datetime
 import os
-from uuid import uuid4
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -16,10 +15,7 @@ from langfuse.model import (
 
 from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
-
-
-def create_uuid():
-    return str(uuid4())
+from tests.utils import create_uuid
 
 
 def test_flush():
