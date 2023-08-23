@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Optional
 import uuid
+from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
@@ -179,8 +180,7 @@ class Langfuse(object):
 
             def create_generation():
                 try:
-                    new_body = body.copy(update={"id": new_generation_id})
-                    new_body = body.copy(update={"trace_id": new_trace_id})
+                    new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = body.copy(update={"trace": {"release": self.release}})
                     self.log.debug(f"Creating top-level generation {new_body}...")
@@ -190,8 +190,8 @@ class Langfuse(object):
                     self.log.warning(e)
                     raise e
 
-            self.task_manager.add_task(new_generation_id, create_generation)
             self.task_manager.add_task(new_trace_id, create_trace)
+            self.task_manager.add_task(new_generation_id, create_generation)
 
             return StatefulGenerationClient(
                 self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager
@@ -358,7 +358,7 @@ class StatefulGenerationClient(StatefulClient):
 
             def task():
                 try:
-                    new_body = body.copy(update={"generation_id": self.id})
+                    new_body = body.copy(update={"generation_id": self.id, "trace_id": self.trace_id})
                     self.log.debug(f"Update generation {new_body}...")
                     request = UpdateGenerationRequest(**new_body.dict())
                     return self.client.generations.update(request=request)
@@ -370,6 +370,14 @@ class StatefulGenerationClient(StatefulClient):
             return StatefulGenerationClient(
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
+        except Exception as e:
+            self.log.warning(e)
+
+    def end(self):
+        try:
+            end_time = datetime.now()
+            self.update(UpdateGeneration(endTime=end_time))
+            self.log.debug(f"Generation ended at {end_time}")
         except Exception as e:
             self.log.warning(e)
 
@@ -398,5 +406,13 @@ class StatefulSpanClient(StatefulClient):
             return StatefulSpanClient(
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
+        except Exception as e:
+            self.log.warning(e)
+
+    def end(self):
+        try:
+            end_time = datetime.now()
+            self.update(UpdateGeneration(endTime=end_time))
+            self.log.debug(f"Span ended at {end_time}")
         except Exception as e:
             self.log.warning(e)
