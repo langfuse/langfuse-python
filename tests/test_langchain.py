@@ -28,8 +28,8 @@ def test_langfuse_init():
     assert not callback.runs
 
 
-@pytest.mark.skip(reason="inference cost")
-def test_callback_generate_from_trace():
+# @pytest.mark.skip(reason="inference cost")
+def test_callback_generated_from_trace():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
 
@@ -52,7 +52,38 @@ def test_callback_generate_from_trace():
 
     trace = api_wrapper.get_trace(trace_id)
 
+    assert handler.get_trace_id() == trace_id
     assert len(trace["observations"]) == 2
+    assert trace["id"] == trace_id
+
+
+# @pytest.mark.skip(reason="inference cost")
+def test_callback_from_trace_simple_chain():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+    assert handler.get_trace_id() == trace_id
     assert trace["id"] == trace_id
 
 

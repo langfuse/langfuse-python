@@ -32,12 +32,12 @@ class CallbackHandler(BaseCallbackHandler):
         debug: bool = False,
         statefulTraceClient: Langfuse = None,
     ) -> None:
-        # If we're provided a langfuse object directly
+        # If we're provided a stateful trace client directly
         if statefulTraceClient:
             self.trace = Run(statefulTraceClient, None)
             self.runs = {}
 
-        # Otherwise, initialize using the provided keys
+        # Otherwise, initialize stateless using the provided keys
         elif public_key and secret_key:
             self.langfuse = Langfuse(public_key, secret_key, host, debug=debug)
             self.trace = None
