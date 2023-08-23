@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Optional
 import uuid
+from langfuse.api.client import FintoLangfuse
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
@@ -22,7 +23,6 @@ from langfuse.model import (
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
-from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
@@ -86,7 +86,7 @@ class Langfuse(object):
 
             self.task_manager.add_task(new_id, task)
 
-            return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
+            return StatefulTraceClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
         except Exception as e:
             self.log.warning(e)
 
@@ -232,7 +232,7 @@ class StateType(Enum):
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -349,7 +349,7 @@ class StatefulClient(object):
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateGeneration):
@@ -377,7 +377,7 @@ class StatefulGenerationClient(StatefulClient):
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateSpan):
@@ -400,3 +400,15 @@ class StatefulSpanClient(StatefulClient):
             )
         except Exception as e:
             self.log.warning(e)
+
+
+class StatefulTraceClient(StatefulClient):
+    log = logging.getLogger("langfuse")
+
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+        super().__init__(client, id, state_type, trace_id, task_manager)
+
+    def getNewHandler(self):
+        from langfuse.callback import CallbackHandler
+
+        return CallbackHandler(statefulTraceClient=self)
