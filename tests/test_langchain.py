@@ -272,6 +272,11 @@ def test_callback_retriever_conversational():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 5
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
 
 
 @pytest.mark.skip(reason="inference cost")
