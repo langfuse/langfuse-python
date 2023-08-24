@@ -12,6 +12,9 @@ from langchain.vectorstores import Chroma
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
+from langchain.docstore.document import Document
+from langchain.chat_models import ChatOpenAI
+from langchain.chains.summarize import load_summarize_chain
 
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
@@ -144,6 +147,36 @@ def test_callback_sequential_chain():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 5
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_stuffed_chain():
+    with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
+        api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+        handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+        text = f.read()
+        docs = [Document(page_content=text)]
+        llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
+
+        template = """
+        Compose a concise and a brief summary of the following text:
+        TEXT: `{text}`
+        """
+
+        prompt = PromptTemplate(input_variables=["text"], template=template)
+
+        chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt, verbose=False)
+
+        chain.run(docs, callbacks=[handler])
+
+        handler.flush()
+
+        trace_id = handler.get_trace_id()
+
+        trace = api_wrapper.get_trace(trace_id)
+
+        assert len(trace["observations"]) == 3
 
 
 @pytest.mark.skip(reason="inference cost")
