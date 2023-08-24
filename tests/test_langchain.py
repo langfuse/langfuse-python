@@ -10,8 +10,81 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.agents import AgentType, initialize_agent, load_tools
+from langfuse.client import Langfuse
+from langfuse.model import CreateTrace
 
 from tests.api_wrapper import LangfuseAPI
+from tests.utils import create_uuid
+
+
+def test_callback_default_host():
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), debug=True)
+    assert handler.langfuse.base_url == "https://cloud.langfuse.com"
+
+
+def test_langfuse_init():
+    callback = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    assert callback.trace is None
+    assert not callback.runs
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_generated_from_trace():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert handler.get_trace_id() == trace_id
+    assert len(trace["observations"]) == 2
+    assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_from_trace_simple_chain():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+    assert handler.get_trace_id() == trace_id
+    assert trace["id"] == trace_id
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -29,7 +102,7 @@ def test_callback_simple_chain():
 
     synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -64,7 +137,7 @@ def test_callback_sequential_chain():
     )
     overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -96,7 +169,36 @@ def test_callback_retriever():
     )
 
     chain.run(query, callbacks=[handler])
-    handler.langfuse.flush()
+    handler.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 5
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_retriever_with_sources():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    query = "What did the president say about Ketanji Brown Jackson"
+
+    chain = RetrievalQA.from_chain_type(llm, retriever=docsearch.as_retriever(), return_source_documents=True)
+
+    chain(query, callbacks=[handler])
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -116,7 +218,7 @@ def test_callback_simple_openai():
 
     llm.predict(text, callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -136,7 +238,7 @@ def test_callback_simple_openai_streaming():
 
     llm.predict(text, callbacks=[handler])
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
@@ -166,7 +268,7 @@ def test_callback_simple_llm_chat():
         "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler]
     )
 
-    handler.langfuse.flush()
+    handler.flush()
 
     trace_id = handler.get_trace_id()
 
