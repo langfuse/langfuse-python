@@ -149,6 +149,7 @@ def test_callback_sequential_chain():
     assert len(trace["observations"]) == 5
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_stuffed_chain():
     with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
         api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
@@ -178,7 +179,7 @@ def test_stuffed_chain():
         assert len(trace["observations"]) == 3
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
