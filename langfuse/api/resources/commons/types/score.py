@@ -12,7 +12,7 @@ class Score(pydantic.BaseModel):
     id: str
     trace_id: str = pydantic.Field(alias="traceId")
     name: str
-    value: int
+    value: float
     observation_id: typing.Optional[str] = pydantic.Field(alias="observationId")
     timestamp: dt.datetime
     comment: typing.Optional[str]
