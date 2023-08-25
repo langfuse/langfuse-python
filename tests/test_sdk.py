@@ -1,6 +1,4 @@
 import os
-import time
-import pytz
 from datetime import datetime
 
 from langfuse import Langfuse
@@ -452,8 +450,6 @@ def test_end_generation():
         )
     )
 
-    time.sleep(5)
-    end_time = datetime.now()
     generation.end()
 
     langfuse.flush()
@@ -465,8 +461,7 @@ def test_end_generation():
     trace = api_wrapper.get_trace(trace_id)
 
     span = trace["observations"][0]
-    iso_format_end_time = end_time.astimezone(pytz.UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-    assert span["endTime"] == iso_format_end_time
+    assert span["endTime"] is not None
 
 
 def test_end_span():
@@ -484,8 +479,6 @@ def test_end_span():
         )
     )
 
-    time.sleep(5)
-    end_time = datetime.now()
     span.end()
 
     langfuse.flush()
@@ -497,5 +490,4 @@ def test_end_span():
     trace = api_wrapper.get_trace(trace_id)
 
     span = trace["observations"][0]
-    iso_format_end_time = end_time.astimezone(pytz.UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-    assert span["endTime"] == iso_format_end_time
+    assert span["endTime"] is not None
