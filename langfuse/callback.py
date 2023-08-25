@@ -423,7 +423,9 @@ class CallbackHandler(BaseCallbackHandler):
                     metadata=metadata,
                     kwargs=kwargs,
                 )
-            if kwargs["invocation_params"]["_type"] == "huggingface_hub":
+            if kwargs["invocation_params"]["_type"] == "anthropic-llm":
+                model_name = "anthropic"  # unfortunately no model info by anthropic provided.
+            elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             else:
                 model_name = kwargs["invocation_params"]["model_name"]

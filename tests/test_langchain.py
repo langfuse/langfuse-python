@@ -1,5 +1,5 @@
 import os
-from langchain import HuggingFaceHub
+from langchain import Anthropic, HuggingFaceHub
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -15,6 +15,7 @@ from langfuse.model import CreateTrace
 from langchain.docstore.document import Document
 from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
+from langchain.chains import ConversationalRetrievalChain
 
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
@@ -42,6 +43,35 @@ def test_callback_generated_from_trace():
     handler = trace.getNewHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert handler.get_trace_id() == trace_id
+    assert len(trace["observations"]) == 2
+    assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_generated_from_trace_anthropic():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+
+    llm = Anthropic(anthropic_api_key=os.environ.get("OPENAI_API_KEY"), model="Claude-v1")
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -238,6 +268,44 @@ def test_callback_retriever_with_sources():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 5
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_retriever_conversational():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    query = "What did the president say about Ketanji Brown Jackson"
+
+    chain = ConversationalRetrievalChain.from_llm(
+        ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), temperature=0.5, model="gpt-3.5-turbo-16k"),
+        docsearch.as_retriever(search_kwargs={"k": 6}),
+        return_source_documents=True,
+        callbacks=[handler],
+    )
+
+    chain({"question": query, "chat_history": []}, callbacks=[handler])
+    handler.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 5
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
 
 
 @pytest.mark.skip(reason="inference cost")
