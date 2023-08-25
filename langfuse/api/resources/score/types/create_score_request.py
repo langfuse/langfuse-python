@@ -14,7 +14,7 @@ class CreateScoreRequest(pydantic.BaseModel):
     trace_id: str = pydantic.Field(alias="traceId")
     trace_id_type: typing.Optional[TraceIdTypeEnum] = pydantic.Field(alias="traceIdType")
     name: str
-    value: int
+    value: float
     observation_id: typing.Optional[str] = pydantic.Field(alias="observationId")
     comment: typing.Optional[str]
 
