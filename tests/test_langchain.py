@@ -9,11 +9,42 @@ from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.agents import AgentType, initialize_agent, load_tools, Tool, ZeroShotAgent, AgentExecutor
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.document_loaders import WebBaseLoader, CSVLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain.schema import Document
+from langchain.chains.query_constructor.base import AttributeInfo
+from pydantic import BaseModel, Field
+from langchain.chains.openai_functions import create_openai_fn_chain
+from langchain.prompts import ChatPromptTemplate
+import asyncio
+from langchain.chains.router import MultiPromptChain
+from langchain.chains.router.llm_router import LLMRouterChain, RouterOutputParser
+from langchain.chains.router.multi_prompt_prompt import MULTI_PROMPT_ROUTER_TEMPLATE
+from langchain.chains import TransformChain
+from langchain import SerpAPIWrapper
+from langchain import LLMMathChain
+
+from typing import Any, Dict, List, Optional
+
+from pydantic import Extra
+
+from langchain.schema.language_model import BaseLanguageModel
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForChainRun,
+    CallbackManagerForChainRun,
+)
+from langchain.chains.base import Chain
+from langchain.prompts.base import BasePromptTemplate
+from langchain.chains import ConversationChain
+from langchain.memory import ConversationBufferMemory
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langchain.docstore.document import Document
-from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chains import ConversationalRetrievalChain
 
@@ -157,7 +188,8 @@ def test_callback_sequential_chain():
     prompt_template = PromptTemplate(input_variables=["title"], template=template)
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
-    template = """You are a play critic from the New York Times. Given the synopsis of play, it is your job to write a review for that play.
+    template = """You are a play critic from the New York Times.
+    Given the synopsis of play, it is your job to write a review for that play.
 
         Play Synopsis:
         {synopsis}
@@ -405,5 +437,61 @@ Title: {title}
     trace_id = handler.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_openai_functions_python():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a world class algorithm for extracting information in structured formats."),
+            ("human", "Use the given format to extract information from the following input: {input}"),
+            ("human", "Tip: Make sure to answer in the correct format"),
+        ]
+    )
+
+    class OptionalFavFood(BaseModel):
+        """Either a food or null."""
+
+        food: Optional[str] = Field(
+            None,
+            description="Either the name of a food or null. Should be null if the food isn't known.",
+        )
+
+    def record_person(name: str, age: int, fav_food: OptionalFavFood) -> str:
+        """Record some basic identifying information about a person.
+
+        Args:
+            name: The person's name.
+            age: The person's age in years.
+            fav_food: An OptionalFavFood object that either contains the person's favorite food or a null value.
+            Food should be null if it's not known.
+        """
+        return f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
+
+    def record_dog(name: str, color: str, fav_food: OptionalFavFood) -> str:
+        """Record some basic identifying information about a dog.
+
+        Args:
+            name: The dog's name.
+            color: The dog's color.
+            fav_food: An OptionalFavFood object that either contains the dog's favorite food or a null value.
+            Food should be null if it's not known.
+        """
+        return f"Recording dog {name} of color {color} with favorite food {fav_food}!"
+
+    chain = create_openai_fn_chain([record_person, record_dog], llm, prompt, callbacks=[handler])
+    chain.run(
+        "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+        callbacks=[handler],
+    )
+    handler.langfuse.flush()
+
+    trace = api_wrapper.get_trace(handler.get_trace_id())
 
     assert len(trace["observations"]) == 2
