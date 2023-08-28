@@ -290,7 +290,6 @@ def test_callback_retriever_conversational():
         ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), temperature=0.5, model="gpt-3.5-turbo-16k"),
         docsearch.as_retriever(search_kwargs={"k": 6}),
         return_source_documents=True,
-        callbacks=[handler],
     )
 
     chain({"question": query, "chat_history": []}, callbacks=[handler])
