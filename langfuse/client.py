@@ -380,14 +380,6 @@ class StatefulGenerationClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self):
-        try:
-            end_time = datetime.now()
-            self.update(UpdateGeneration(endTime=end_time))
-            self.log.debug(f"Generation ended at {end_time}")
-        except Exception as e:
-            self.log.warning(e)
-
 
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
