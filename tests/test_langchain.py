@@ -443,6 +443,7 @@ Title: {title}
 
 # @pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
 
     llm = ChatOpenAI(model="gpt-4", temperature=0)
@@ -491,4 +492,6 @@ def test_callback_openai_functions_python():
     )
     handler.langfuse.flush()
 
-    assert len(handler.langfuse.get_trace(handler.get_trace_id())["observations"]) == 3
+    trace = api_wrapper.get_trace(handler.get_trace_id())
+
+    assert len(trace["observations"]) == 2
