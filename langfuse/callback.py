@@ -69,7 +69,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
         # Nothing needs to happen here for langfuse. Once the streaming is done,
-        self.log.debug(f"on llm new token: {run_id} {token}")
+        self.log.debug(f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}")
 
     def on_retriever_error(
         self,
@@ -81,7 +81,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when Retriever errors."""
         try:
-            self.log.debug(f"on retriever error: {run_id}")
+            self.log.debug(f"on retriever error: run_id: {run_id} parent_run_id: {parent_run_id}")
 
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
@@ -102,9 +102,9 @@ class CallbackHandler(BaseCallbackHandler):
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
-    ):
+    ) -> Any:
         try:
-            self.log.debug(f"on chain start: {run_id}")
+            self.log.debug(f"on chain start: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.__generate_trace_and_parent(
                 serialized=serialized,
                 inputs=inputs,
@@ -184,7 +184,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run on agent action."""
         try:
-            self.log.debug(f"on agent action: {run_id}")
+            self.log.debug(f"on agent action: run_id: {run_id} parent_run_id: {parent_run_id}")
 
             if run_id not in self.runs:
                 raise Exception("run not found")
@@ -202,7 +202,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on agent finish: {run_id}")
+            self.log.debug(f"on agent finish: run_id: {run_id} parent_run_id: {parent_run_id}")
             if run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -219,7 +219,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on chain end: {run_id}")
+            self.log.debug(f"on chain end: run_id: {run_id} parent_run_id: {parent_run_id}")
 
             if run_id not in self.runs:
                 raise Exception("run not found")
@@ -238,7 +238,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         try:
-            self.log.debug(f"on chain error: {run_id}")
+            self.log.debug(f"on chain error: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.runs[run_id].state = self.runs[run_id].state.update(
                 UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now())
             )
@@ -257,7 +257,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on chat model start: {run_id}")
+            self.log.debug(f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.__on_llm_action(serialized, run_id, messages, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception as e:
             self.log.exception(e)
@@ -274,7 +274,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm start: {run_id}")
+            self.log.debug(f"on llm start: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.__on_llm_action(serialized, run_id, prompts, parent_run_id, tags=tags, metadata=metadata, **kwargs)
         except Exception as e:
             self.log.exception(e)
@@ -291,7 +291,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on tool start: {run_id}")
+            self.log.debug(f"on tool start: run_id: {run_id} parent_run_id: {parent_run_id}")
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
@@ -325,7 +325,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on retriever start: {run_id}")
+            self.log.debug(f"on retriever start: run_id: {run_id} parent_run_id: {parent_run_id}")
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
@@ -353,7 +353,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on retriever end: {run_id}")
+            self.log.debug(f"on retriever end: run_id: {run_id} parent_run_id: {parent_run_id}")
 
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
@@ -373,7 +373,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on tool end: {run_id}")
+            self.log.debug(f"on tool end: run_id: {run_id} parent_run_id: {parent_run_id}")
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -390,7 +390,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on tool error: {run_id}")
+            self.log.debug(f"on tool error: run_id: {run_id} parent_run_id: {parent_run_id}")
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -411,7 +411,6 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            self.log.debug(kwargs)
             if self.trace is None:
                 # simple LLM call that has no trace and parent
                 self.__generate_trace_and_parent(
@@ -487,7 +486,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm end: {run_id} {response}")
+            self.log.debug(f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id}")
             if run_id not in self.runs:
                 raise Exception("run not found")
             else:
@@ -508,7 +507,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm error: {run_id}")
+            self.log.debug(f"on llm error: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.runs[run_id].state = self.runs[run_id].state.update(
                 UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR)
             )
