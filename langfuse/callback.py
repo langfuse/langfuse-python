@@ -494,7 +494,7 @@ class CallbackHandler(BaseCallbackHandler):
             else:
                 last_response = response.generations[-1][-1]
                 llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
-                self.log.debug(f"llm usage: {last_response.message.additional_kwargs}")
+
                 extracted_response = (
                     last_response.text
                     if last_response.generation_info["finish_reason"] != "function_call"
