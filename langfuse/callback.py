@@ -486,14 +486,23 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id} response: {response} kwargs: {kwargs}"
+            )
             if run_id not in self.runs:
                 raise Exception("run not found")
             else:
-                last_response = response.generations[-1][-1].text
+                last_response = response.generations[-1][-1]
                 llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
+                self.log.debug(f"llm usage: {last_response.message.additional_kwargs}")
+                extracted_response = (
+                    last_response.text
+                    if last_response.generation_info["finish_reason"] != "function_call"
+                    else str(last_response.message.additional_kwargs)
+                )
+
                 self.runs[run_id].state = self.runs[run_id].state.update(
-                    UpdateGeneration(completion=last_response, end_time=datetime.now(), usage=llm_usage)
+                    UpdateGeneration(completion=extracted_response, end_time=datetime.now(), usage=llm_usage)
                 )
         except Exception as e:
             self.log.exception(e)
