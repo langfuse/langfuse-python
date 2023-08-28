@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Optional
 import uuid
+from langfuse.api.client import FintoLangfuse
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
@@ -22,7 +23,6 @@ from langfuse.model import (
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
-from langfuse.api.client import FintoLangfuse
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
@@ -81,14 +81,14 @@ class Langfuse(object):
                     self.log.debug(f"Creating trace {new_body}")
                     return self.client.trace.create(request=new_body)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(new_id, task)
 
-            return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
+            return StatefulTraceClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def score(self, body: InitialScore):
         try:
@@ -100,7 +100,7 @@ class Langfuse(object):
                     self.log.debug(f"Creating score {new_body}...")
                     return self.client.score.create(request=new_body)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(new_id, task)
@@ -113,7 +113,7 @@ class Langfuse(object):
                 return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
 
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def span(self, body: InitialSpan):
         try:
@@ -133,7 +133,7 @@ class Langfuse(object):
                     request = CreateTraceRequest(**new_body)
                     return self.client.trace.create(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             def create_span():
@@ -146,7 +146,7 @@ class Langfuse(object):
                     request = CreateSpanRequest(**new_body.dict())
                     return self.client.span.create(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(new_trace_id, create_trace)
@@ -154,7 +154,7 @@ class Langfuse(object):
 
             return StatefulSpanClient(self.client, new_span_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def generation(self, body: InitialGeneration):
         try:
@@ -174,7 +174,7 @@ class Langfuse(object):
                     request = CreateTraceRequest(**new_body)
                     return self.client.trace.create(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             def create_generation():
@@ -187,7 +187,7 @@ class Langfuse(object):
                     request = CreateGenerationRequest(**new_body.dict())
                     return self.client.generations.log(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(new_generation_id, create_generation)
@@ -197,7 +197,7 @@ class Langfuse(object):
                 self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     # On program exit, allow the consumer thread to exit cleanly.
     # This prevents exceptions and a messy shutdown when the
@@ -209,19 +209,19 @@ class Langfuse(object):
         try:
             return self.task_manager.join()
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def flush(self):
         try:
             return self.task_manager.flush()
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def shutdown(self):
         try:
             return self.task_manager.shutdown()
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
 
 class StateType(Enum):
@@ -232,7 +232,7 @@ class StateType(Enum):
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -262,7 +262,7 @@ class StatefulClient(object):
                     request = CreateGenerationRequest(**new_dict)
                     return self.client.generations.log(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(generation_id, task)
@@ -270,7 +270,7 @@ class StatefulClient(object):
                 self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def span(self, body: CreateSpan):
         try:
@@ -286,7 +286,7 @@ class StatefulClient(object):
                     request = CreateSpanRequest(**new_dict)
                     return self.client.span.create(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(span_id, task)
@@ -294,7 +294,7 @@ class StatefulClient(object):
                 self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def score(self, body: CreateScore):
         try:
@@ -313,7 +313,7 @@ class StatefulClient(object):
                     request = CreateScoreRequest(**new_dict)
                     return self.client.score.create(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(score_id, task)
@@ -321,7 +321,7 @@ class StatefulClient(object):
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
     def event(self, body: CreateEvent):
         try:
@@ -337,19 +337,19 @@ class StatefulClient(object):
                     request = CreateEventRequest(**new_dict)
                     return self.client.event.create(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(body.id, task)
             return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
 
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateGeneration):
@@ -363,7 +363,7 @@ class StatefulGenerationClient(StatefulClient):
                     request = UpdateGenerationRequest(**new_body.dict())
                     return self.client.generations.update(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(update_id, task)
@@ -371,13 +371,13 @@ class StatefulGenerationClient(StatefulClient):
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
 
 
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: Langfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateSpan):
@@ -391,7 +391,7 @@ class StatefulSpanClient(StatefulClient):
                     request = UpdateSpanRequest(**new_body.dict())
                     return self.client.span.update(request=request)
                 except Exception as e:
-                    self.log.warning(e)
+                    self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(update_id, task)
@@ -399,4 +399,17 @@ class StatefulSpanClient(StatefulClient):
                 self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
             )
         except Exception as e:
-            self.log.warning(e)
+            self.log.exception(e)
+
+
+class StatefulTraceClient(StatefulClient):
+    log = logging.getLogger("langfuse")
+
+    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+        super().__init__(client, id, state_type, trace_id, task_manager)
+        self.task_manager = task_manager
+
+    def getNewHandler(self):
+        from langfuse.callback import CallbackHandler
+
+        return CallbackHandler(statefulTraceClient=self)
