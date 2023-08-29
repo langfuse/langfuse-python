@@ -54,6 +54,8 @@ def test_shutdown():
 
 def test_create_score():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
     trace = langfuse.trace(
         CreateTrace(
             name="this-is-so-great-new",
@@ -67,10 +69,12 @@ def test_create_score():
         v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
     ), "Not all tasks succeeded"
 
-    trace = langfuse.score(
+    score_id = create_uuid()
+    langfuse.score(
         InitialScore(
+            id=score_id,
             traceId=trace.id,
-            name="this-is-so-great-new",
+            name="this-is-a-score",
             value=1,
             user_id="test",
             metadata="test",
@@ -80,10 +84,15 @@ def test_create_score():
     trace.generation(CreateGeneration(name="yet another child", metadata="test"))
 
     langfuse.flush()
+
     assert langfuse.task_manager.queue.qsize() == 0
     assert all(
         v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
     ), "Not all tasks succeeded"
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
 
 
 def test_create_trace():
@@ -114,8 +123,10 @@ def test_create_generation():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     timestamp = datetime.now()
+    generation_id = create_uuid()
     langfuse.generation(
         InitialGeneration(
+            id=generation_id,
             name="query-generation",
             startTime=timestamp,
             endTime=timestamp,
@@ -151,6 +162,7 @@ def test_create_generation():
 
     generation = trace["observations"][0]
 
+    assert generation["id"] == generation_id
     assert generation["name"] == "query-generation"
     assert generation["startTime"] is not None
     assert generation["startTime"] is not None
@@ -172,8 +184,10 @@ def test_create_span():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
 
     timestamp = datetime.now()
+    span_id = create_uuid()
     langfuse.span(
         InitialSpan(
+            id=span_id,
             name="span",
             startTime=timestamp,
             endTime=timestamp,
@@ -198,14 +212,15 @@ def test_create_span():
 
     assert len(trace["observations"]) == 1
 
-    generation = trace["observations"][0]
+    span = trace["observations"][0]
 
-    assert generation["name"] == "span"
-    assert generation["startTime"] is not None
-    assert generation["startTime"] is not None
-    assert generation["endTime"] is not None
-    assert generation["input"] == {"key": "value"}
-    assert generation["output"] == {"key": "value"}
+    assert span["id"] == span_id
+    assert span["name"] == "span"
+    assert span["startTime"] is not None
+    assert span["startTime"] is not None
+    assert span["endTime"] is not None
+    assert span["input"] == {"key": "value"}
+    assert span["output"] == {"key": "value"}
 
 
 def test_score_trace():
