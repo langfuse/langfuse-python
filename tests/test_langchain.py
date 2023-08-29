@@ -29,6 +29,9 @@ from langchain.chains.router.multi_prompt_prompt import MULTI_PROMPT_ROUTER_TEMP
 from langchain.chains import TransformChain
 from langchain import SerpAPIWrapper
 from langchain import LLMMathChain
+from langchain.llms import AzureOpenAI
+from langchain.chat_models import AzureChatOpenAI
+
 
 from typing import Any, Dict, List, Optional
 
@@ -74,6 +77,43 @@ def test_callback_generated_from_trace():
     handler = trace.getNewHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert handler.get_trace_id() == trace_id
+    assert len(trace["observations"]) == 2
+    assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_generated_from_trace_azure_chat():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+
+    llm = AzureChatOpenAI(
+        openai_api_base="AZURE_OPENAI_ENDPOINT",
+        openai_api_version="2023-05-15",
+        deployment_name="OPENAI_DEPLOYMENT_NAME",
+        openai_api_key="AZURE_OPENAI_API_KEY",
+        openai_api_type="azure",
+        model_name="text-davinci-002",
+        temperature=0,
+    )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""

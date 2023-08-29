@@ -426,6 +426,8 @@ class CallbackHandler(BaseCallbackHandler):
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
+            elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
+                model_name = kwargs["invocation_params"]["model"]
             else:
                 model_name = kwargs["invocation_params"]["model_name"]
             self.runs[run_id] = Run(
