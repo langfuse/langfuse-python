@@ -511,7 +511,11 @@ class CallbackHandler(BaseCallbackHandler):
 
                 extracted_response = (
                     last_response.text
-                    if last_response.generation_info["finish_reason"] != "function_call"
+                    if last_response.generation_info is None
+                    or (
+                        "finish_reason" not in last_response.generation_info
+                        or last_response.generation_info["finish_reason"] != "function_call"
+                    )
                     else str(last_response.message.additional_kwargs)
                 )
 
