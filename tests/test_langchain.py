@@ -9,43 +9,14 @@ from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.agents import AgentType, initialize_agent, load_tools, Tool, ZeroShotAgent, AgentExecutor
+from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.document_loaders import WebBaseLoader, CSVLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.schema import Document
-from langchain.chains.query_constructor.base import AttributeInfo
 from pydantic import BaseModel, Field
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.prompts import ChatPromptTemplate
-import asyncio
-from langchain.chains.router import MultiPromptChain
-from langchain.chains.router.llm_router import LLMRouterChain, RouterOutputParser
-from langchain.chains.router.multi_prompt_prompt import MULTI_PROMPT_ROUTER_TEMPLATE
-from langchain.chains import TransformChain
-from langchain import SerpAPIWrapper
-from langchain import LLMMathChain
-from langchain.llms import AzureOpenAI
 from langchain.chat_models import AzureChatOpenAI
-
-
-from typing import Any, Dict, List, Optional
-
-from pydantic import Extra
-
-from langchain.schema.language_model import BaseLanguageModel
-from langchain.callbacks.manager import (
-    AsyncCallbackManagerForChainRun,
-    CallbackManagerForChainRun,
-)
-from langchain.chains.base import Chain
-from langchain.prompts.base import BasePromptTemplate
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
+from typing import Optional
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
 from langchain.chains.summarize import load_summarize_chain
@@ -189,6 +160,43 @@ def test_callback_from_trace_simple_chain():
     assert len(trace["observations"]) == 2
     assert handler.get_trace_id() == trace_id
     assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_next_span_id_from_trace_simple_chain():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    next_span_id = create_uuid()
+    handler.setNextSpan(next_span_id)
+
+    synopsis_chain.run("Comedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 4
+    assert handler.get_trace_id() == trace_id
+    assert trace["id"] == trace_id
+
+    assert trace["observations"][2]["id"] == next_span_id
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -530,6 +538,7 @@ def test_callback_openai_functions_python():
         "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
         callbacks=[handler],
     )
+
     handler.langfuse.flush()
 
     trace = api_wrapper.get_trace(handler.get_trace_id())

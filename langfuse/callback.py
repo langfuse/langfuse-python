@@ -23,6 +23,7 @@ class Run:
 
 class CallbackHandler(BaseCallbackHandler):
     log = logging.getLogger("langfuse")
+    nextSpanId: Optional[str] = None
 
     def __init__(
         self,
@@ -58,6 +59,9 @@ class CallbackHandler(BaseCallbackHandler):
             self.log.debug("There was no trace yet, hence no flushing possible.")
 
         self.trace.state.task_manager.flush()
+
+    def setNextSpan(self, id: str):
+        self.nextSpanId = id
 
     def on_llm_new_token(
         self,
@@ -150,6 +154,7 @@ class CallbackHandler(BaseCallbackHandler):
                 self.runs[run_id] = Run(
                     self.runs[parent_run_id].state.span(
                         CreateSpan(
+                            id=self.nextSpanId,
                             name=class_name,
                             metadata=self.__join_tags_and_metadata(tags, metadata),
                             input=inputs,
@@ -158,10 +163,12 @@ class CallbackHandler(BaseCallbackHandler):
                     ),
                     parent_run_id,
                 )
+                self.nextSpanId = None
             else:
                 self.runs[run_id] = Run(
                     self.trace.state.span(
                         CreateSpan(
+                            id=self.nextSpanId,
                             name=class_name,
                             metadata=self.__join_tags_and_metadata(tags, metadata),
                             input=inputs,
@@ -170,6 +177,7 @@ class CallbackHandler(BaseCallbackHandler):
                     ),
                     parent_run_id,
                 )
+                self.nextSpanId = None
 
         except Exception as e:
             self.log.exception(e)
@@ -302,6 +310,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[run_id] = Run(
                 self.runs[parent_run_id].state.span(
                     CreateSpan(
+                        id=self.nextSpanId,
                         name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                         input=input_str,
                         startTime=datetime.now(),
@@ -310,6 +319,7 @@ class CallbackHandler(BaseCallbackHandler):
                 ),
                 parent_run_id,
             )
+            self.nextSpanId = None
         except Exception as e:
             self.log.exception(e)
 
@@ -333,6 +343,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[run_id] = Run(
                 self.runs[parent_run_id].state.span(
                     CreateSpan(
+                        id=self.nextSpanId,
                         name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                         input=query,
                         startTime=datetime.now(),
@@ -341,6 +352,7 @@ class CallbackHandler(BaseCallbackHandler):
                 ),
                 parent_run_id,
             )
+            self.nextSpanId = None
         except Exception as e:
             self.log.exception(e)
 

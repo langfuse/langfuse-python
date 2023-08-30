@@ -235,7 +235,7 @@ def test_score_trace():
         InitialScore(
             traceId=langfuse.get_trace_id(),
             name="valuation",
-            value=1,
+            value=0.5,
             comment="This is a comment",
         )
     )
@@ -255,7 +255,7 @@ def test_score_trace():
     score = trace["scores"][0]
 
     assert score["name"] == "valuation"
-    assert score["value"] == 1
+    assert score["value"] == 0.5
     assert score["comment"] == "This is a comment"
     assert score["observationId"] is None
 
