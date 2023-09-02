@@ -10,10 +10,15 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import Document
+from pydantic import BaseModel, Field
+from langchain.chains.openai_functions import create_openai_fn_chain
+from langchain.prompts import ChatPromptTemplate
+from langchain.chat_models import AzureChatOpenAI
+from typing import Optional
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langchain.docstore.document import Document
-from langchain.chat_models import ChatOpenAI
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chains import ConversationalRetrievalChain
 
@@ -43,6 +48,43 @@ def test_callback_generated_from_trace():
     handler = trace.getNewHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert handler.get_trace_id() == trace_id
+    assert len(trace["observations"]) == 2
+    assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_generated_from_trace_azure_chat():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+
+    llm = AzureChatOpenAI(
+        openai_api_base="AZURE_OPENAI_ENDPOINT",
+        openai_api_version="2023-05-15",
+        deployment_name="OPENAI_DEPLOYMENT_NAME",
+        openai_api_key="AZURE_OPENAI_API_KEY",
+        openai_api_type="azure",
+        model_name="text-davinci-002",
+        temperature=0,
+    )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -121,6 +163,43 @@ def test_callback_from_trace_simple_chain():
 
 
 @pytest.mark.skip(reason="inference cost")
+def test_next_span_id_from_trace_simple_chain():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+
+    handler = trace.getNewHandler()
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    next_span_id = create_uuid()
+    handler.setNextSpan(next_span_id)
+
+    synopsis_chain.run("Comedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 4
+    assert handler.get_trace_id() == trace_id
+    assert trace["id"] == trace_id
+
+    assert trace["observations"][2]["id"] == next_span_id
+
+
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
     handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
@@ -157,7 +236,8 @@ def test_callback_sequential_chain():
     prompt_template = PromptTemplate(input_variables=["title"], template=template)
     synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
-    template = """You are a play critic from the New York Times. Given the synopsis of play, it is your job to write a review for that play.
+    template = """You are a play critic from the New York Times.
+    Given the synopsis of play, it is your job to write a review for that play.
 
         Play Synopsis:
         {synopsis}
@@ -290,7 +370,6 @@ def test_callback_retriever_conversational():
         ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), temperature=0.5, model="gpt-3.5-turbo-16k"),
         docsearch.as_retriever(search_kwargs={"k": 6}),
         return_source_documents=True,
-        callbacks=[handler],
     )
 
     chain({"question": query, "chat_history": []}, callbacks=[handler])
@@ -406,5 +485,62 @@ Title: {title}
     trace_id = handler.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_openai_functions_python():
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a world class algorithm for extracting information in structured formats."),
+            ("human", "Use the given format to extract information from the following input: {input}"),
+            ("human", "Tip: Make sure to answer in the correct format"),
+        ]
+    )
+
+    class OptionalFavFood(BaseModel):
+        """Either a food or null."""
+
+        food: Optional[str] = Field(
+            None,
+            description="Either the name of a food or null. Should be null if the food isn't known.",
+        )
+
+    def record_person(name: str, age: int, fav_food: OptionalFavFood) -> str:
+        """Record some basic identifying information about a person.
+
+        Args:
+            name: The person's name.
+            age: The person's age in years.
+            fav_food: An OptionalFavFood object that either contains the person's favorite food or a null value.
+            Food should be null if it's not known.
+        """
+        return f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
+
+    def record_dog(name: str, color: str, fav_food: OptionalFavFood) -> str:
+        """Record some basic identifying information about a dog.
+
+        Args:
+            name: The dog's name.
+            color: The dog's color.
+            fav_food: An OptionalFavFood object that either contains the dog's favorite food or a null value.
+            Food should be null if it's not known.
+        """
+        return f"Recording dog {name} of color {color} with favorite food {fav_food}!"
+
+    chain = create_openai_fn_chain([record_person, record_dog], llm, prompt, callbacks=[handler])
+    chain.run(
+        "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+        callbacks=[handler],
+    )
+
+    handler.langfuse.flush()
+
+    trace = api_wrapper.get_trace(handler.get_trace_id())
 
     assert len(trace["observations"]) == 2

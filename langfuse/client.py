@@ -93,7 +93,7 @@ class Langfuse(object):
 
     def score(self, body: InitialScore):
         try:
-            new_id = str(uuid.uuid4())
+            new_id = str(uuid.uuid4()) if body.id is None else body.id
 
             def task():
                 try:
@@ -141,7 +141,7 @@ class Langfuse(object):
                 try:
                     new_body = body.copy(update={"id": new_span_id, "trace_id": new_trace_id})
                     if self.release is not None:
-                        new_body = body.copy(update={"trace": {"release": self.release}})
+                        new_body = new_body.copy(update={"trace": {"release": self.release}})
                     self.log.debug(f"Creating span {new_body}...")
                     request = CreateSpanRequest(**new_body.dict())
                     return self.client.span.create(request=request)
@@ -159,7 +159,7 @@ class Langfuse(object):
     def generation(self, body: InitialGeneration):
         try:
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
-            new_generation_id = str(uuid.uuid4())
+            new_generation_id = str(uuid.uuid4()) if body.id is None else body.id
             self.trace_id = new_trace_id
 
             def create_trace():
@@ -181,7 +181,7 @@ class Langfuse(object):
                 try:
                     new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
                     if self.release is not None:
-                        new_body = body.copy(update={"trace": {"release": self.release}})
+                        new_body = new_body.copy(update={"trace": {"release": self.release}})
                     self.log.debug(f"Creating top-level generation {new_body}...")
                     request = CreateGenerationRequest(**new_body.dict())
                     return self.client.generations.log(request=request)
