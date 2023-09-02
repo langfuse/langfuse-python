@@ -375,8 +375,8 @@ class StatefulGenerationClient(StatefulClient):
     def end(self):
         try:
             end_time = datetime.now()
-            self.update(UpdateGeneration(endTime=end_time))
             self.log.debug(f"Generation ended at {end_time}")
+            return self.update(UpdateGeneration(endTime=end_time))
         except Exception as e:
             self.log.exception(e)
 
@@ -411,8 +411,8 @@ class StatefulSpanClient(StatefulClient):
     def end(self):
         try:
             end_time = datetime.now()
-            self.update(UpdateGeneration(endTime=end_time))
             self.log.debug(f"Span ended at {end_time}")
+            return self.update(UpdateGeneration(endTime=end_time))
         except Exception as e:
             self.log.warning(e)
 
