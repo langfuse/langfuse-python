@@ -1,5 +1,5 @@
-from datetime import datetime
 import os
+from datetime import datetime
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -439,3 +439,70 @@ def test_create_trace_with_id_and_generation():
     span = trace["observations"][0]
     assert span["name"] == "generation"
     assert span["traceId"] == trace["id"]
+
+
+def test_end_generation():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    timestamp = datetime.now()
+    generation = langfuse.generation(
+        InitialGeneration(
+            name="query-generation",
+            startTime=timestamp,
+            model="gpt-3.5-turbo",
+            modelParameters={"maxTokens": "1000", "temperature": "0.9"},
+            prompt=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+                },
+            ],
+            completion="This document entails the OKR goals for ACME",
+            usage=Usage(promptTokens=50, completionTokens=49),
+            metadata={"interface": "whatsapp"},
+        )
+    )
+
+    generation.end()
+
+    langfuse.flush()
+
+    assert len(langfuse.task_manager.result_mapping) == 3
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    span = trace["observations"][0]
+    assert span["endTime"] is not None
+
+
+def test_end_span():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+
+    timestamp = datetime.now()
+    span = langfuse.span(
+        InitialSpan(
+            name="span",
+            startTime=timestamp,
+            input={"key": "value"},
+            output={"key": "value"},
+            metadata={"interface": "whatsapp"},
+        )
+    )
+
+    span.end()
+
+    langfuse.flush()
+
+    assert len(langfuse.task_manager.result_mapping) == 3
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    span = trace["observations"][0]
+    assert span["endTime"] is not None
