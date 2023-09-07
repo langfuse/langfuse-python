@@ -37,6 +37,13 @@ def test_langfuse_init():
     assert not callback.runs
 
 
+def test_langfuse_release_init():
+    callback = CallbackHandler(
+        os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), release="something"
+    )
+    assert callback.langfuse.release == "something"
+
+
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace():
     api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
