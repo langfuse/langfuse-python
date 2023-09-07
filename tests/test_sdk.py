@@ -18,6 +18,35 @@ from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
 
 
+def test_langfuse_release():
+    # Backup environment variables to restore them later
+    backup_environ = os.environ.copy()
+
+    # Clearing the environment variables
+    os.environ.clear()
+
+    client = Langfuse(public_key="test", secret_key="test")
+    assert client.release is None
+
+    # If neither the LANGFUSE_RELEASE env var nor the release parameter is given,
+    # it should fall back to get_common_release_envs
+    os.environ["CIRCLE_SHA1"] = "mock-sha1"
+    client = Langfuse(public_key="test", secret_key="test")
+    assert client.release == "mock-sha1"
+
+    # If LANGFUSE_RELEASE env var is set, it should take precedence
+    os.environ["LANGFUSE_RELEASE"] = "mock-langfuse-release"
+    client = Langfuse(public_key="test", secret_key="test")
+    assert client.release == "mock-langfuse-release"
+
+    # If the release parameter is given during initialization, it should take the highest precedence
+    client = Langfuse(public_key="test", secret_key="test", release="parameter-release")
+    assert client.release == "parameter-release"
+
+    # Restoring the environment variables
+    os.environ.update(backup_environ)
+
+
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)

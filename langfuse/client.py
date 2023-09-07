@@ -10,6 +10,7 @@ from langfuse.api.resources.commons.types.create_generation_request import Creat
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
+from langfuse.environment import get_common_release_envs
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
@@ -53,7 +54,7 @@ class Langfuse(object):
 
         self.trace_id = None
 
-        self.release = os.environ.get("LANGFUSE_RELEASE", release)
+        self.release = self.get_release_value(release)
 
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
@@ -63,6 +64,14 @@ class Langfuse(object):
             self.log.setLevel(logging.DEBUG)
         else:
             self.log.setLevel(logging.WARNING)
+
+    def get_release_value(self, release: Optional[str] = None) -> Optional[str]:
+        if release:
+            return release
+        elif "LANGFUSE_RELEASE" in os.environ:
+            return os.environ["LANGFUSE_RELEASE"]
+        else:
+            return get_common_release_envs()
 
     def get_trace_id(self):
         return self.trace_id
