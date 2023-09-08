@@ -441,6 +441,8 @@ class CallbackHandler(BaseCallbackHandler):
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
                 model_name = kwargs["invocation_params"]["model"]
+            elif kwargs["invocation_params"]["_type"] == "llamacpp":
+                model_name = kwargs["invocation_params"]["model_path"]
             else:
                 model_name = kwargs["invocation_params"]["model_name"]
             self.runs[run_id] = Run(
