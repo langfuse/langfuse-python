@@ -56,13 +56,17 @@ def test_task_manager():
 
 @pytest.mark.timeout(10)
 def test_task_manager_fail():
+    retry_count = 0
+
     def my_task():
         time.sleep(1)
         return 2
 
     def my_failing_task():
+        nonlocal retry_count
         time.sleep(1)
-        raise Exception("This task failed")
+        retry_count += 1
+        raise Exception(f"This task failed {retry_count}")
 
     tm = TaskManager(debug=True)
 
@@ -79,6 +83,7 @@ def test_task_manager_fail():
     assert tm.get_result(3).status == TaskStatus.FAIL
     assert tm.get_result(4).status == TaskStatus.SUCCESS
     assert tm.get_result(4).result == 2
+    assert retry_count == 3
 
 
 # @pytest.mark.timeout(10)
