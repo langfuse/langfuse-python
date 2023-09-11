@@ -60,7 +60,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Install dependencies (necessary to run seeder)"
-          npm install
+          npm ci
           echo "::endgroup::"
 
           echo "::group::Apply migrations and seed db"
