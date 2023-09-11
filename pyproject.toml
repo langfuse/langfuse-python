@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.0.17"
+version = "1.0.18"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
