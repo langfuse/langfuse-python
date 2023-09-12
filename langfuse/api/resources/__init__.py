@@ -21,6 +21,7 @@ from .commons import (
     UnauthorizedError,
 )
 from .generations import UpdateGenerationRequest
+from .observations import Observations
 from .score import CreateScoreRequest, Scores
 from .span import UpdateSpanRequest
 from .trace import CreateTraceRequest, Traces
@@ -39,6 +40,7 @@ __all__ = [
     "NotFoundError",
     "Observation",
     "ObservationLevel",
+    "Observations",
     "Score",
     "Scores",
     "Trace",

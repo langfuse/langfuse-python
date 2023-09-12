@@ -2,6 +2,7 @@ from enum import Enum
 import logging
 import os
 from typing import Optional
+import typing
 import uuid
 from langfuse.api.client import FintoLangfuse
 from datetime import datetime
@@ -75,6 +76,19 @@ class Langfuse(object):
 
     def get_trace_id(self):
         return self.trace_id
+
+    def get_observations(
+        self,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+    ):
+        try:
+            a = self.client.observations.get_observations(page=page, limit=limit, name=name)
+            self.log.debug(f"Getting observations {a}")
+            return a
+        except Exception as e:
+            self.log.exception(e)
 
     def trace(self, body: CreateTrace):
         try:
