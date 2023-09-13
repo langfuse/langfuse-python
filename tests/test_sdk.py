@@ -560,7 +560,6 @@ def test_get_generations():
     langfuse.flush()
 
     observations = langfuse.get_generations(name="query-generation", limit=10, page=1)
-    print(observations)
 
     assert len(observations.data) == 1
     assert observations.data[0].name == "query-generation"
