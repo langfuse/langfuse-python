@@ -556,6 +556,8 @@ def test_get_generations():
             name=generation_name,
             startTime=timestamp,
             endTime=timestamp,
+            prompt="great-prompt",
+            completion="great-completion",
         )
     )
 
@@ -565,3 +567,5 @@ def test_get_generations():
 
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
+    assert generations.data[0].prompt == "great-prompt"
+    assert generations.data[0].completion == "great-completion"
