@@ -535,3 +535,33 @@ def test_end_span():
 
     span = trace["observations"][0]
     assert span["endTime"] is not None
+
+
+def test_get_generations():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    timestamp = datetime.now()
+
+    langfuse.generation(
+        InitialGeneration(
+            name=create_uuid(),
+            startTime=timestamp,
+            endTime=timestamp,
+        )
+    )
+
+    generation_name = create_uuid()
+    langfuse.generation(
+        InitialGeneration(
+            name=generation_name,
+            startTime=timestamp,
+            endTime=timestamp,
+        )
+    )
+
+    langfuse.flush()
+
+    observations = langfuse.get_generations(name=generation_name, limit=10, page=1)
+
+    assert len(observations.data) == 1
+    assert observations.data[0].name == generation_name
