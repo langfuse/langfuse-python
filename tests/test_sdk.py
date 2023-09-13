@@ -561,7 +561,7 @@ def test_get_generations():
 
     langfuse.flush()
 
-    observations = langfuse.get_generations(name=generation_name, limit=10, page=1)
+    generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
 
-    assert len(observations.data) == 1
-    assert observations.data[0].name == generation_name
+    assert len(generations.data) == 1
+    assert generations.data[0].name == generation_name
