@@ -551,17 +551,21 @@ def test_get_generations():
     )
 
     generation_name = create_uuid()
+
     langfuse.generation(
         InitialGeneration(
             name=generation_name,
             startTime=timestamp,
             endTime=timestamp,
+            prompt="great-prompt",
+            completion="great-completion",
         )
     )
 
     langfuse.flush()
-
     generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
 
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
+    assert generations.data[0].prompt == "great-prompt"
+    assert generations.data[0].completion == "great-completion"
