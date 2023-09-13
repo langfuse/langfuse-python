@@ -551,6 +551,7 @@ def test_get_generations():
     )
 
     generation_name = create_uuid()
+
     langfuse.generation(
         InitialGeneration(
             name=generation_name,
@@ -562,7 +563,6 @@ def test_get_generations():
     )
 
     langfuse.flush()
-
     generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
 
     assert len(generations.data) == 1
