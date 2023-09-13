@@ -15,7 +15,6 @@ from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.observation import Observation
-from .types.observations import Observations
 
 
 class ObservationsClient:
@@ -49,44 +48,6 @@ class ObservationsClient:
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def get_observations(
-        self,
-        *,
-        page: typing.Optional[int] = None,
-        limit: typing.Optional[int] = None,
-        name: typing.Optional[str] = None,
-    ) -> Observations:
-        _response = httpx.request(
-            "GET",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
-            params={"page": page, "limit": limit, "name": name},
-            headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
-            timeout=60,
-        )
-        if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Observations, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            print(_response.json())
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
             raise UnauthorizedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
@@ -137,47 +98,6 @@ class AsyncObservationsClient:
             )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def get_observations(
-        self,
-        *,
-        page: typing.Optional[int] = None,
-        limit: typing.Optional[int] = None,
-        name: typing.Optional[str] = None,
-    ) -> Observations:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "GET",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
-                params={"page": page, "limit": limit, "name": name},
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
-        if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Observations, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:

@@ -10,7 +10,7 @@ from ...commons.types.observation import Observation
 from ...utils.resources.pagination.types.meta_response import MetaResponse
 
 
-class Observations(pydantic.BaseModel):
+class Generations(pydantic.BaseModel):
     data: typing.List[Observation]
     meta: MetaResponse
 

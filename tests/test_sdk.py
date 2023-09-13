@@ -537,14 +537,12 @@ def test_end_span():
     assert span["endTime"] is not None
 
 
-def test_get_observations():
+def test_get_generations():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
 
     timestamp = datetime.now()
-    generation_id = create_uuid()
     langfuse.generation(
         InitialGeneration(
-            id=generation_id,
             name="query-generation",
             startTime=timestamp,
             endTime=timestamp,
@@ -553,7 +551,6 @@ def test_get_observations():
 
     langfuse.generation(
         InitialGeneration(
-            id=generation_id,
             name="another-query-generation",
             startTime=timestamp,
             endTime=timestamp,
@@ -562,7 +559,7 @@ def test_get_observations():
 
     langfuse.flush()
 
-    observations = langfuse.get_observations(name="query-generation", limit=10, page=1)
+    observations = langfuse.get_generations(name="query-generation", limit=10, page=1)
     print(observations)
 
     assert len(observations.data) == 1

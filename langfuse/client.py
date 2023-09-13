@@ -77,14 +77,15 @@ class Langfuse(object):
     def get_trace_id(self):
         return self.trace_id
 
-    def get_observations(
+    def get_generations(
         self,
+        *,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
     ):
         try:
-            a = self.client.observations.get_observations(page=page, limit=limit, name=name)
+            a = self.client.generations.get(page=page, limit=limit, name=name)
             self.log.debug(f"Getting observations {a}")
             return a
         except Exception as e:
