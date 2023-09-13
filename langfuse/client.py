@@ -85,11 +85,10 @@ class Langfuse(object):
         name: typing.Optional[str] = None,
     ):
         try:
-            a = self.client.generations.get(page=page, limit=limit, name=name)
-            self.log.debug(f"Getting observations {a}")
-            return a
+            return self.client.generations.get(page=page, limit=limit, name=name)
         except Exception as e:
             self.log.exception(e)
+            raise e
 
     def trace(self, body: CreateTrace):
         try:
