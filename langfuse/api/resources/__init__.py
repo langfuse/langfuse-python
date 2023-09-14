@@ -20,7 +20,7 @@ from .commons import (
     TraceWithFullDetails,
     UnauthorizedError,
 )
-from .generations import UpdateGenerationRequest
+from .generations import Generations, UpdateGenerationRequest
 from .score import CreateScoreRequest, Scores
 from .span import UpdateSpanRequest
 from .trace import CreateTraceRequest, Traces
@@ -33,6 +33,7 @@ __all__ = [
     "CreateSpanRequest",
     "CreateTraceRequest",
     "Error",
+    "Generations",
     "LlmUsage",
     "MapValue",
     "MethodNotAllowedError",

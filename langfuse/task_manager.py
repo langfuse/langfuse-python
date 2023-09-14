@@ -5,6 +5,8 @@ import logging
 import queue
 import threading
 
+import backoff
+
 
 class Task:
     def __init__(self, task_id, function, predecessor_id: str = None):
@@ -151,22 +153,23 @@ class Consumer(threading.Thread):
     def _execute_task(self, task: Task):
         try:
             self.log.debug(f"Task {task.task_id} executing")
-
-            result = None
-            with task.lock:
-                try:
-                    result = task.function()
-                    self.result_mapping[task.task_id].result = result
-                    self.result_mapping[task.task_id].status = TaskStatus.SUCCESS
-                    self.result_mapping[task.task_id].timestamp = datetime.now()
-                    self.log.debug(f"Task {task.task_id} done with result {result}")
-                except Exception as e:
-                    self.result_mapping[task.task_id].result = e
-                    self.result_mapping[task.task_id].status = TaskStatus.FAIL
-                    self.result_mapping[task.task_id].timestamp = datetime.now()
-                    self.log.warning(f"Task {task.task_id} failed with exception {e} ")
+            self._execute_task_with_backoff(task)
         except Exception as e:
-            self.log.warning(f"Exception in the task {task.task_id} {e}")
+            self.result_mapping[task.task_id].result = e
+            self.result_mapping[task.task_id].status = TaskStatus.FAIL
+            self.result_mapping[task.task_id].timestamp = datetime.now()
+            self.log.warning(f"Task {task.task_id} failed with exception {e} ")
+
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    def _execute_task_with_backoff(self, task: Task):
+        result = None
+        self.log.debug(f"Task {task.task_id} executing with backoff")
+        with task.lock:
+            result = task.function()
+            self.result_mapping[task.task_id].result = result
+            self.result_mapping[task.task_id].status = TaskStatus.SUCCESS
+            self.result_mapping[task.task_id].timestamp = datetime.now()
+            self.log.debug(f"Task {task.task_id} done with result {result}")
 
     def _prune_old_tasks(self, delta: int):
         try:

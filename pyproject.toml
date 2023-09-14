@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.0.17"
+version = "1.0.21"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -14,6 +14,7 @@ python-dateutil = ">=2.8.0, <3.0"
 pydantic = ">=1.10.7, <2.0"
 langchain = ">=0.0.237, <1.0"
 pytz = "^2023.3"
+backoff = "^2.2.1"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
