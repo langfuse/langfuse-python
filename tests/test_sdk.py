@@ -585,6 +585,8 @@ def test_get_generations_by_user_name():
             name=generation_name,
             startTime=timestamp,
             endTime=timestamp,
+            prompt="great-prompt",
+            completion="great-completion",
         )
     )
 
@@ -592,8 +594,6 @@ def test_get_generations_by_user_name():
         InitialGeneration(
             startTime=timestamp,
             endTime=timestamp,
-            prompt="great-prompt",
-            completion="great-completion",
         )
     )
 
