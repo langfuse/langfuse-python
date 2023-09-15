@@ -1,6 +1,8 @@
 import os
 from datetime import datetime
 
+import pytest
+
 from langfuse import Langfuse
 from langfuse.model import (
     CreateEvent,
@@ -61,6 +63,18 @@ def test_flush():
     langfuse.flush()
     # Make sure that the client queue is empty after flushing
     assert langfuse.task_manager.queue.empty()
+
+
+def test_setup_wthout_pk():
+    # set up the consumer with more requests than a single batch will allow
+    with pytest.raises(ValueError):
+        Langfuse(public_key=None, secret_key=os.environ.get("LF_SK"))
+
+
+def test_setup_wthout_sk():
+    # set up the consumer with more requests than a single batch will allow
+    with pytest.raises(ValueError):
+        Langfuse(public_key=os.environ.get("LF_PK"), secret_key=None)
 
 
 def test_shutdown():

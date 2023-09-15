@@ -53,6 +53,7 @@ class CallbackHandler(BaseCallbackHandler):
             else:
                 self.log.setLevel(logging.WARNING)
         else:
+            self.log.error("Either provide a stateful langfuse object or both public_key and secret_key.")
             raise ValueError("Either provide a stateful langfuse object or both public_key and secret_key.")
 
     def flush(self):

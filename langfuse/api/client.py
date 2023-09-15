@@ -17,18 +17,21 @@ class FintoLangfuse:
         environment: str,
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
+        x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
         self.x_langfuse_sdk_version = x_langfuse_sdk_version
+        self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
         self.event = EventClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -36,6 +39,7 @@ class FintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -43,6 +47,7 @@ class FintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -50,6 +55,7 @@ class FintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -57,6 +63,7 @@ class FintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -64,6 +71,7 @@ class FintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -76,18 +84,21 @@ class AsyncFintoLangfuse:
         environment: str,
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
+        x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
         self.x_langfuse_sdk_version = x_langfuse_sdk_version
+        self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
         self.event = AsyncEventClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -95,6 +106,7 @@ class AsyncFintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -102,6 +114,7 @@ class AsyncFintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -109,6 +122,7 @@ class AsyncFintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -116,6 +130,7 @@ class AsyncFintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )
@@ -123,6 +138,7 @@ class AsyncFintoLangfuse:
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
             x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
         )

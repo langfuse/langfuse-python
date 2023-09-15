@@ -5,7 +5,6 @@ from typing import Optional
 import typing
 import uuid
 
-import pydantic
 from langfuse.api.client import FintoLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
@@ -43,22 +42,6 @@ class Langfuse(object):
         release: Optional[str] = None,
         debug: bool = False,
     ):
-        self.task_manager = TaskManager()
-
-        self.base_url = host if host else "https://cloud.langfuse.com"
-
-        self.client = FintoLangfuse(
-            environment=self.base_url,
-            username=public_key,
-            password=secret_key,
-            x_langfuse_sdk_name="python",
-            x_langfuse_sdk_version=version,
-        )
-
-        self.trace_id = None
-
-        self.release = self.get_release_value(release)
-
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
             # Otherwise, defaults to WARNING level.
@@ -67,6 +50,31 @@ class Langfuse(object):
             self.log.setLevel(logging.DEBUG)
         else:
             self.log.setLevel(logging.WARNING)
+
+        self.task_manager = TaskManager()
+
+        self.base_url = host if host else "https://cloud.langfuse.com"
+
+        if not public_key:
+            self.log.warning("public_key is not set.")
+            raise ValueError("public_key is required")
+
+        if not secret_key:
+            self.log.warning("secret_key is not set.")
+            raise ValueError("secret_key is required")
+
+        self.client = FintoLangfuse(
+            environment=self.base_url,
+            username=public_key,
+            password=secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_sdk_version=version,
+            x_langfuse_public_key=public_key,
+        )
+
+        self.trace_id = None
+
+        self.release = self.get_release_value(release)
 
     def get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:

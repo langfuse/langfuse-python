@@ -28,12 +28,14 @@ class TraceClient:
         environment: str,
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
+        x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
         self.x_langfuse_sdk_version = x_langfuse_sdk_version
+        self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
 
@@ -43,7 +45,11 @@ class TraceClient:
             urllib.parse.urljoin(f"{self._environment}/", "api/public/traces"),
             json=jsonable_encoder(request),
             headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
+                {
+                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
+                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                }
             ),
             auth=(self._username, self._password)
             if self._username is not None and self._password is not None
@@ -73,7 +79,11 @@ class TraceClient:
             "GET",
             urllib.parse.urljoin(f"{self._environment}/", f"api/public/traces/{trace_id}"),
             headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
+                {
+                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
+                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                }
             ),
             auth=(self._username, self._password)
             if self._username is not None and self._password is not None
@@ -111,7 +121,11 @@ class TraceClient:
             urllib.parse.urljoin(f"{self._environment}/", "api/public/traces"),
             params={"page": page, "limit": limit, "userId": user_id, "name": name},
             headers=remove_none_from_headers(
-                {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
+                {
+                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
+                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                }
             ),
             auth=(self._username, self._password)
             if self._username is not None and self._password is not None
@@ -144,12 +158,14 @@ class AsyncTraceClient:
         environment: str,
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
+        x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
         self.x_langfuse_sdk_version = x_langfuse_sdk_version
+        self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
 
@@ -163,6 +179,7 @@ class AsyncTraceClient:
                     {
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
                     }
                 ),
                 auth=(self._username, self._password)
@@ -197,6 +214,7 @@ class AsyncTraceClient:
                     {
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
                     }
                 ),
                 auth=(self._username, self._password)
@@ -239,6 +257,7 @@ class AsyncTraceClient:
                     {
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
+                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
                     }
                 ),
                 auth=(self._username, self._password)
