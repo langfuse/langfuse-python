@@ -48,8 +48,17 @@ class Langfuse(object):
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
+
+            httpx_logger = logging.getLogger("httpx")
+            httpx_logger.setLevel(logging.WARNING)  # Set the desired log level
+            console_handler = logging.StreamHandler()
+            httpx_logger.addHandler(console_handler)
         else:
             self.log.setLevel(logging.WARNING)
+            httpx_logger = logging.getLogger("httpx")
+            httpx_logger.setLevel(logging.WARNING)  # Set the desired log level
+            console_handler = logging.StreamHandler()
+            httpx_logger.addHandler(console_handler)
 
         self.task_manager = TaskManager()
 
