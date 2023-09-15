@@ -571,7 +571,7 @@ def test_get_generations():
     assert generations.data[0].completion == "great-completion"
 
 
-def test_get_generations_by_user_name():
+def test_get_generations_by_user():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
 
     timestamp = datetime.now()
