@@ -77,6 +77,11 @@ def test_setup_wthout_sk():
         Langfuse(public_key=os.environ.get("LF_PK"), secret_key=None)
 
 
+def test_public_key_in_header():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"))
+    assert langfuse.client.x_langfuse_public_key == os.environ.get("LF_PK")
+
+
 def test_shutdown():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
 
