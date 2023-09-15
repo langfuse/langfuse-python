@@ -569,3 +569,38 @@ def test_get_generations():
     assert generations.data[0].name == generation_name
     assert generations.data[0].prompt == "great-prompt"
     assert generations.data[0].completion == "great-completion"
+
+
+def test_get_generations_by_user():
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+
+    timestamp = datetime.now()
+
+    user_id = create_uuid()
+    generation_name = create_uuid()
+    trace = langfuse.trace(CreateTrace(name="test-user", userId=user_id))
+
+    trace.generation(
+        CreateGeneration(
+            name=generation_name,
+            startTime=timestamp,
+            endTime=timestamp,
+            prompt="great-prompt",
+            completion="great-completion",
+        )
+    )
+
+    langfuse.generation(
+        InitialGeneration(
+            startTime=timestamp,
+            endTime=timestamp,
+        )
+    )
+
+    langfuse.flush()
+    generations = langfuse.get_generations(limit=10, page=1, user_id=user_id)
+
+    assert len(generations.data) == 1
+    assert generations.data[0].name == generation_name
+    assert generations.data[0].prompt == "great-prompt"
+    assert generations.data[0].completion == "great-completion"
