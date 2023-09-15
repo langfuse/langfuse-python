@@ -4,6 +4,8 @@ import os
 from typing import Optional
 import typing
 import uuid
+
+import pydantic
 from langfuse.api.client import FintoLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
@@ -83,9 +85,11 @@ class Langfuse(object):
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
     ):
         try:
-            return self.client.generations.get(page=page, limit=limit, name=name)
+            self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
+            return self.client.generations.get(page=page, limit=limit, name=name, user_id=user_id)
         except Exception as e:
             self.log.exception(e)
             raise e

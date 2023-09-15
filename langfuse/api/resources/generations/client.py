@@ -105,11 +105,12 @@ class GenerationsClient:
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
     ) -> Generations:
         _response = httpx.request(
             "GET",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
-            params={"page": page, "limit": limit, "name": name},
+            params={"page": page, "limit": limit, "name": name, "userId": user_id},
             headers=remove_none_from_headers(
                 {"X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name, "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version}
             ),
@@ -229,12 +230,13 @@ class AsyncGenerationsClient:
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
     ) -> Generations:
         async with httpx.AsyncClient() as _client:
             _response = await _client.request(
                 "GET",
                 urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
-                params={"page": page, "limit": limit, "name": name},
+                params={"page": page, "limit": limit, "name": name, "userId": user_id},
                 headers=remove_none_from_headers(
                     {
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
