@@ -581,7 +581,7 @@ def test_get_generations_by_user():
     trace = langfuse.trace(CreateTrace(name="test-user", userId=user_id))
 
     trace.generation(
-        InitialGeneration(
+        CreateGeneration(
             name=generation_name,
             startTime=timestamp,
             endTime=timestamp,
