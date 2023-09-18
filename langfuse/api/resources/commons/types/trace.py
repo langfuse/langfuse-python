@@ -9,7 +9,7 @@ from ....core.datetime_utils import serialize_datetime
 
 
 class Trace(pydantic.BaseModel):
-    id: str = pydantic.Field(description=("The unique identifier of a trace\n"))
+    id: str = pydantic.Field(description="The unique identifier of a trace")
     timestamp: dt.datetime
     external_id: typing.Optional[str] = pydantic.Field(alias="externalId")
     name: typing.Optional[str]
@@ -28,5 +28,6 @@ class Trace(pydantic.BaseModel):
 
     class Config:
         frozen = True
+        smart_union = True
         allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

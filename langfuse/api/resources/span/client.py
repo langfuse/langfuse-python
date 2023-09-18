@@ -4,12 +4,11 @@ import typing
 import urllib.parse
 from json.decoder import JSONDecodeError
 
-import httpx
 import pydantic
 
 from ...core.api_error import ApiError
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.jsonable_encoder import jsonable_encoder
-from ...core.remove_none_from_headers import remove_none_from_headers
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
@@ -19,40 +18,26 @@ from ..commons.types.create_span_request import CreateSpanRequest
 from ..commons.types.observation import Observation
 from .types.update_span_request import UpdateSpanRequest
 
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
+
 
 class SpanClient:
-    def __init__(
-        self,
-        *,
-        environment: str,
-        x_langfuse_sdk_name: typing.Optional[str] = None,
-        x_langfuse_sdk_version: typing.Optional[str] = None,
-        x_langfuse_public_key: typing.Optional[str] = None,
-        username: str,
-        password: str,
-    ):
-        self._environment = environment
-        self.x_langfuse_sdk_name = x_langfuse_sdk_name
-        self.x_langfuse_sdk_version = x_langfuse_sdk_version
-        self.x_langfuse_public_key = x_langfuse_public_key
-        self._username = username
-        self._password = password
+    def __init__(self, *, client_wrapper: SyncClientWrapper):
+        self._client_wrapper = client_wrapper
 
     def create(self, *, request: CreateSpanRequest) -> Observation:
-        _response = httpx.request(
+        """
+        Add a span to the database
+
+        Parameters:
+            - request: CreateSpanRequest.
+        """
+        _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/spans"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                }
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -74,20 +59,17 @@ class SpanClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def update(self, *, request: UpdateSpanRequest) -> Observation:
-        _response = httpx.request(
+        """
+        Update a span to the database
+
+        Parameters:
+            - request: UpdateSpanRequest.
+        """
+        _response = self._client_wrapper.httpx_client.request(
             "PATCH",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/spans"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                }
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -110,41 +92,23 @@ class SpanClient:
 
 
 class AsyncSpanClient:
-    def __init__(
-        self,
-        *,
-        environment: str,
-        x_langfuse_sdk_name: typing.Optional[str] = None,
-        x_langfuse_sdk_version: typing.Optional[str] = None,
-        x_langfuse_public_key: typing.Optional[str] = None,
-        username: str,
-        password: str,
-    ):
-        self._environment = environment
-        self.x_langfuse_sdk_name = x_langfuse_sdk_name
-        self.x_langfuse_sdk_version = x_langfuse_sdk_version
-        self.x_langfuse_public_key = x_langfuse_public_key
-        self._username = username
-        self._password = password
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._client_wrapper = client_wrapper
 
     async def create(self, *, request: CreateSpanRequest) -> Observation:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "POST",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
-                json=jsonable_encoder(request),
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
+        """
+        Add a span to the database
+
+        Parameters:
+            - request: CreateSpanRequest.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/spans"),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
@@ -164,23 +128,19 @@ class AsyncSpanClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def update(self, *, request: UpdateSpanRequest) -> Observation:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "PATCH",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/spans"),
-                json=jsonable_encoder(request),
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
+        """
+        Update a span to the database
+
+        Parameters:
+            - request: UpdateSpanRequest.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "PATCH",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/spans"),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
