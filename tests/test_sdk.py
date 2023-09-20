@@ -89,8 +89,8 @@ def test_setup_wthout_sk():
 
 
 def test_public_key_in_header():
-    langfuse = Langfuse()
-    assert langfuse.client.x_langfuse_public_key == os.environ.get("LF_PK")
+    langfuse = Langfuse(public_key="test_LF_PK")
+    assert langfuse.client.x_langfuse_public_key == "test_LF_PK"
 
 
 def test_shutdown():

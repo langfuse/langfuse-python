@@ -36,6 +36,9 @@ class Langfuse(object):
 
     def __init__(
         self,
+        public_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
+        host: Optional[str] = None,
         release: Optional[str] = None,
         debug: bool = False,
     ):
@@ -59,9 +62,9 @@ class Langfuse(object):
 
         self.task_manager = TaskManager()
 
-        public_key = os.environ.get("LF_PK")
-        secret_key = os.environ.get("LF_SK")
-        host = os.environ.get("HOST")
+        public_key = public_key if public_key else os.environ.get("LF_PK")
+        secret_key = secret_key if secret_key else os.environ.get("LF_SK")
+        host = host if host else os.environ.get("HOST")
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 
