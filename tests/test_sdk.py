@@ -19,6 +19,8 @@ from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
 
+os.environ["LF_PK"] = "test"
+os.environ["LF_SK"] = "test"
 
 def test_langfuse_release():
     # Backup environment variables to restore them later
@@ -27,22 +29,26 @@ def test_langfuse_release():
     # Clearing the environment variables
     os.environ.clear()
 
-    client = Langfuse(public_key="test", secret_key="test")
+    # These key are required
+    os.environ["LF_PK"] = "test"
+    os.environ["LF_SK"] = "test"
+
+    client = Langfuse()
     assert client.release is None
 
     # If neither the LANGFUSE_RELEASE env var nor the release parameter is given,
     # it should fall back to get_common_release_envs
     os.environ["CIRCLE_SHA1"] = "mock-sha1"
-    client = Langfuse(public_key="test", secret_key="test")
+    client = Langfuse()
     assert client.release == "mock-sha1"
 
     # If LANGFUSE_RELEASE env var is set, it should take precedence
     os.environ["LANGFUSE_RELEASE"] = "mock-langfuse-release"
-    client = Langfuse(public_key="test", secret_key="test")
+    client = Langfuse()
     assert client.release == "mock-langfuse-release"
 
     # If the release parameter is given during initialization, it should take the highest precedence
-    client = Langfuse(public_key="test", secret_key="test", release="parameter-release")
+    client = Langfuse(release="parameter-release")
     assert client.release == "parameter-release"
 
     # Restoring the environment variables
@@ -51,7 +57,7 @@ def test_langfuse_release():
 
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    langfuse = Langfuse(debug=True)
 
     for i in range(2):
         langfuse.trace(
@@ -67,23 +73,28 @@ def test_flush():
 
 def test_setup_wthout_pk():
     # set up the consumer with more requests than a single batch will allow
+    os.environ.pop("LF_PK")
     with pytest.raises(ValueError):
-        Langfuse(public_key=None, secret_key=os.environ.get("LF_SK"))
+        Langfuse()
+    os.environ["LF_PK"] = "test"
+    
 
 
 def test_setup_wthout_sk():
     # set up the consumer with more requests than a single batch will allow
+    os.environ.pop("LF_SK")
     with pytest.raises(ValueError):
-        Langfuse(public_key=os.environ.get("LF_PK"), secret_key=None)
+        Langfuse()
+    os.environ["LF_SK"] = "test"
 
 
 def test_public_key_in_header():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"))
+    langfuse = Langfuse()
     assert langfuse.client.x_langfuse_public_key == os.environ.get("LF_PK")
 
 
 def test_shutdown():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    langfuse = Langfuse(debug=True)
 
     for i in range(2):
         langfuse.trace(
@@ -101,8 +112,8 @@ def test_shutdown():
 
 
 def test_create_score():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
         CreateTrace(
@@ -144,8 +155,8 @@ def test_create_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
     trace = langfuse.trace(
@@ -167,8 +178,8 @@ def test_create_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
     generation_id = create_uuid()
@@ -228,8 +239,8 @@ def test_create_generation():
 
 
 def test_create_span():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
     span_id = create_uuid()
@@ -272,8 +283,8 @@ def test_create_span():
 
 
 def test_score_trace():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
 
@@ -309,8 +320,8 @@ def test_score_trace():
 
 
 def test_score_span():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     spanId = create_uuid()
     timestamp = datetime.now()
@@ -356,8 +367,8 @@ def test_score_span():
 
 
 def test_create_trace_and_span():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
     spanId = create_uuid()
@@ -378,8 +389,8 @@ def test_create_trace_and_span():
 
 
 def test_create_trace_and_generation():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
     generationId = create_uuid()
@@ -400,8 +411,8 @@ def test_create_trace_and_generation():
 
 
 def test_create_generation_and_trace():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
     trace_id = create_uuid()
@@ -422,8 +433,8 @@ def test_create_generation_and_trace():
 
 
 def test_create_trace_and_event():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
     eventId = create_uuid()
@@ -444,9 +455,9 @@ def test_create_trace_and_event():
 
 
 def test_create_span_and_generation():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
 
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    langfuse = Langfuse(debug=True)
     your_trace_id = create_uuid()
 
     langfuse.span(InitialSpan(traceId=your_trace_id, name="span"))
@@ -467,8 +478,8 @@ def test_create_span_and_generation():
 
 
 def test_create_trace_with_id_and_generation():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
     trace_id = create_uuid()
@@ -490,8 +501,8 @@ def test_create_trace_with_id_and_generation():
 
 
 def test_end_generation():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse()
+    api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
     generation = langfuse.generation(
@@ -528,8 +539,8 @@ def test_end_generation():
 
 
 def test_end_span():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    langfuse = Langfuse()
+    api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
     span = langfuse.span(
@@ -557,7 +568,7 @@ def test_end_span():
 
 
 def test_get_generations():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    langfuse = Langfuse(debug=True)
 
     timestamp = datetime.now()
 
@@ -591,7 +602,7 @@ def test_get_generations():
 
 
 def test_get_generations_by_user():
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    langfuse = Langfuse(debug=True)
 
     timestamp = datetime.now()
 

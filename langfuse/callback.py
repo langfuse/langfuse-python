@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 import logging
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -27,13 +28,13 @@ class CallbackHandler(BaseCallbackHandler):
 
     def __init__(
         self,
-        public_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        host: str = "https://cloud.langfuse.com",
         debug: bool = False,
         statefulTraceClient: Optional[StatefulTraceClient] = None,
         release: Optional[str] = None,
     ) -> None:
+        public_key = os.environ.get("LF_PK")
+        secret_key = os.environ.get("LF_SK")
+
         # If we're provided a stateful trace client directly
         if statefulTraceClient:
             self.trace = Run(statefulTraceClient, None)
@@ -41,7 +42,7 @@ class CallbackHandler(BaseCallbackHandler):
 
         # Otherwise, initialize stateless using the provided keys
         elif public_key and secret_key:
-            self.langfuse = Langfuse(public_key, secret_key, host, debug=debug, release=release)
+            self.langfuse = Langfuse(debug=debug, release=release)
             self.trace = None
             self.runs = {}
             if debug:
