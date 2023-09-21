@@ -511,7 +511,21 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
             else:
                 last_response = response.generations[-1][-1]
-                llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
+                if response.llm_output:
+                    llm_usage = LlmUsage(**response.llm_output["token_usage"])
+                    token_usage = response.llm_output["token_usage"]
+                else:
+                    llm_usage = None
+                    token_usage = None
+
+                if token_usage:
+                    token_metadata = {
+                        "token_used": token_usage.get("total_tokens", 0),
+                        "prompt_tokens": token_usage.get("prompt_tokens", 0),
+                        "completion_tokens": token_usage.get("completion_tokens", 0),
+                    }
+                else:
+                    token_metadata = {}
 
                 extracted_response = (
                     last_response.text
@@ -524,7 +538,9 @@ class CallbackHandler(BaseCallbackHandler):
                 )
 
                 self.runs[run_id].state = self.runs[run_id].state.update(
-                    UpdateGeneration(completion=extracted_response, end_time=datetime.now(), usage=llm_usage)
+                    UpdateGeneration(
+                        completion=extracted_response, end_time=datetime.now(), usage=llm_usage, metadata=token_metadata
+                    )
                 )
         except Exception as e:
             self.log.exception(e)

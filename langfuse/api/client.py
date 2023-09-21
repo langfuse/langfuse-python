@@ -19,7 +19,7 @@ class FintoLangfuse:
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
-        password: str
+        password: str,
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -86,7 +86,7 @@ class AsyncFintoLangfuse:
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
-        password: str
+        password: str,
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
