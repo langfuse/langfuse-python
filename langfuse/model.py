@@ -1,7 +1,11 @@
+import typing
+import pydantic
+from langfuse.api.resources.commons.types import dataset_item
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+from langfuse.api.resources.dataset_run_items.types.create_dataset_run_item_request import CreateDatasetRunItemRequest
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 
@@ -11,6 +15,7 @@ from langfuse.api.resources.trace.types.create_trace_request import CreateTraceR
 # these imports need to stay here, otherwise imports from our clients wont work
 from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
+from langfuse.client import StatefulClient
 
 
 class InitialGeneration(CreateGenerationRequest):
@@ -79,3 +84,14 @@ class UpdateSpan(UpdateSpanRequest):
 
 class Usage(LlmUsage):
     __fields__ = {name: field for name, field in LlmUsage.__fields__.items()}
+
+
+class DatasetItemRecord(dataset_item.DatasetItem):
+    def link(self, observation: StatefulClient, run_name: str):
+        # flush the queue before creating the dataset run item
+        # to ensure that all events are persistet.
+        observation.task_manager.flush()
+
+        observation.client.dataset_run_items.create(
+            CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
+        )

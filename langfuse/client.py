@@ -96,6 +96,14 @@ class Langfuse(object):
     def get_trace_id(self):
         return self.trace_id
 
+    def get_dataset(self, name: str):
+        try:
+            self.log.debug(f"Getting datasets {name}")
+            return self.client.datasets.get()
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_generations(
         self,
         *,

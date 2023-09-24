@@ -2,6 +2,8 @@
 
 import typing
 
+from .resources.dataset_run_items.client import AsyncDatasetRunItemsClient, DatasetRunItemsClient
+from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.event.client import AsyncEventClient, EventClient
 from .resources.generations.client import AsyncGenerationsClient, GenerationsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
@@ -27,6 +29,22 @@ class FintoLangfuse:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.dataset_run_items = DatasetRunItemsClient(
+            environment=self._environment,
+            x_langfuse_sdk_name=self.x_langfuse_sdk_name,
+            x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
+            username=self._username,
+            password=self._password,
+        )
+        self.datasets = DatasetsClient(
+            environment=self._environment,
+            x_langfuse_sdk_name=self.x_langfuse_sdk_name,
+            x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
+            username=self._username,
+            password=self._password,
+        )
         self.event = EventClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
@@ -94,6 +112,22 @@ class AsyncFintoLangfuse:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.dataset_run_items = AsyncDatasetRunItemsClient(
+            environment=self._environment,
+            x_langfuse_sdk_name=self.x_langfuse_sdk_name,
+            x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
+            username=self._username,
+            password=self._password,
+        )
+        self.datasets = AsyncDatasetsClient(
+            environment=self._environment,
+            x_langfuse_sdk_name=self.x_langfuse_sdk_name,
+            x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
+            username=self._username,
+            password=self._password,
+        )
         self.event = AsyncEventClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
