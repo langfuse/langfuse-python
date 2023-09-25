@@ -14,6 +14,9 @@ from langfuse.api.resources.score.types.create_score_request import CreateScoreR
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.model import (
+    DatasetItem,
+    CreateDatasetRunItemRequest,
+    CreateDatasetRequest,
     CreateEvent,
     CreateGeneration,
     CreateScore,
@@ -24,6 +27,7 @@ from langfuse.model import (
     InitialSpan,
     UpdateGeneration,
     UpdateSpan,
+    CreateDatasetItemRequest,
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
@@ -99,7 +103,23 @@ class Langfuse(object):
     def get_dataset(self, name: str):
         try:
             self.log.debug(f"Getting datasets {name}")
-            return self.client.datasets.get()
+            return self.client.datasets.get(dataset_name=name)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_dataset(self, body: CreateDatasetRequest):
+        try:
+            self.log.debug(f"Creating datasets {body}")
+            return self.client.datasets.create(request=body)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_dataset_item(self, body: CreateDatasetItemRequest):
+        try:
+            self.log.debug(f"Creating dataset item {body}")
+            return self.client.dataset_items.create(request=body)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -480,3 +500,14 @@ class StatefulTraceClient(StatefulClient):
         from langfuse.callback import CallbackHandler
 
         return CallbackHandler(statefulTraceClient=self)
+
+
+class DatasetItemRecord(DatasetItem):
+    def link(self, observation: StatefulClient, run_name: str):
+        # flush the queue before creating the dataset run item
+        # to ensure that all events are persistet.
+        observation.task_manager.flush()
+
+        observation.client.dataset_run_items.create(
+            CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
+        )

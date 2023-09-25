@@ -2,6 +2,7 @@
 
 import typing
 
+from .resources.dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
 from .resources.dataset_run_items.client import AsyncDatasetRunItemsClient, DatasetRunItemsClient
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.event.client import AsyncEventClient, EventClient
@@ -29,6 +30,14 @@ class FintoLangfuse:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.dataset_items = DatasetItemsClient(
+            environment=self._environment,
+            x_langfuse_sdk_name=self.x_langfuse_sdk_name,
+            x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
+            username=self._username,
+            password=self._password,
+        )
         self.dataset_run_items = DatasetRunItemsClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
@@ -112,6 +121,14 @@ class AsyncFintoLangfuse:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.dataset_items = AsyncDatasetItemsClient(
+            environment=self._environment,
+            x_langfuse_sdk_name=self.x_langfuse_sdk_name,
+            x_langfuse_sdk_version=self.x_langfuse_sdk_version,
+            x_langfuse_public_key=self.x_langfuse_public_key,
+            username=self._username,
+            password=self._password,
+        )
         self.dataset_run_items = AsyncDatasetRunItemsClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,

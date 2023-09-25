@@ -2,6 +2,8 @@
 
 from .resources import (
     AccessDeniedError,
+    CreateDatasetItemRequest,
+    CreateDatasetRequest,
     CreateDatasetRunItemRequest,
     CreateEventRequest,
     CreateGenerationRequest,
@@ -31,6 +33,7 @@ from .resources import (
     UpdateGenerationRequest,
     UpdateSpanRequest,
     commons,
+    dataset_items,
     dataset_run_items,
     datasets,
     event,
@@ -44,6 +47,8 @@ from .resources import (
 
 __all__ = [
     "AccessDeniedError",
+    "CreateDatasetItemRequest",
+    "CreateDatasetRequest",
     "CreateDatasetRunItemRequest",
     "CreateEventRequest",
     "CreateGenerationRequest",
@@ -73,6 +78,7 @@ __all__ = [
     "UpdateGenerationRequest",
     "UpdateSpanRequest",
     "commons",
+    "dataset_items",
     "dataset_run_items",
     "datasets",
     "event",

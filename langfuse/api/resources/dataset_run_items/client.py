@@ -40,7 +40,7 @@ class DatasetRunItemsClient:
     def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
         _response = httpx.request(
             "POST",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/dataset-run-item"),
+            urllib.parse.urljoin(f"{self._environment}/", "api/public/dataset-run-items"),
             json=jsonable_encoder(request),
             headers=remove_none_from_headers(
                 {
@@ -95,7 +95,7 @@ class AsyncDatasetRunItemsClient:
         async with httpx.AsyncClient() as _client:
             _response = await _client.request(
                 "POST",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/dataset-run-item"),
+                urllib.parse.urljoin(f"{self._environment}/", "api/public/dataset-run-items"),
                 json=jsonable_encoder(request),
                 headers=remove_none_from_headers(
                     {
