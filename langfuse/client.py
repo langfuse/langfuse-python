@@ -10,6 +10,7 @@ from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
+from langfuse.api.resources.commons.types.dataset import Dataset
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
@@ -103,7 +104,14 @@ class Langfuse(object):
     def get_dataset(self, name: str):
         try:
             self.log.debug(f"Getting datasets {name}")
-            return self.client.datasets.get(dataset_name=name)
+            dataset = self.client.datasets.get(dataset_name=name)
+
+            items = [FunctionalDatasetItem(**i.dict()) for i in dataset.items]
+
+            body = dataset.dict()
+            del body["items"]
+
+            return Dataset(**body, items=items)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -138,6 +146,9 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+
+    def get(self):
+        self.client.dataset_run_items.ge
 
     def trace(self, body: CreateTrace):
         try:
@@ -502,12 +513,13 @@ class StatefulTraceClient(StatefulClient):
         return CallbackHandler(statefulTraceClient=self)
 
 
-class DatasetItemRecord(DatasetItem):
+class FunctionalDatasetItem(DatasetItem):
     def link(self, observation: StatefulClient, run_name: str):
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
         observation.task_manager.flush()
 
+        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation.id}")
         observation.client.dataset_run_items.create(
-            CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
+            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
         )
