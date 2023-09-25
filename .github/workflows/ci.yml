@@ -36,7 +36,7 @@ jobs:
 
       - name: Clone langfuse server
         run: |
-          git clone https://github.com/langfuse/langfuse.git --branch dataset ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
+          git clone https://github.com/langfuse/langfuse.git --branch datasets ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
 
       - name: Setup node (for langfuse server)
         uses: actions/setup-node@v3
