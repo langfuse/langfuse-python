@@ -551,7 +551,3 @@ def test_callback_openai_functions_python():
     trace = api_wrapper.get_trace(handler.get_trace_id())
 
     assert len(trace["observations"]) == 2
-
-
-def test_qoohoo():
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
