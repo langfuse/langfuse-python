@@ -107,12 +107,12 @@ class Langfuse(object):
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
 
-            items = [FunctionalDatasetItem(**i.dict()) for i in dataset.items]
+            items = [DatasetItemClient(i) for i in dataset.items]
 
             body = dataset.dict()
             del body["items"]
 
-            return FunctionalDataset(**body, items=items)
+            return DatasetClient(**body, items=items)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -523,7 +523,7 @@ class StatefulTraceClient(StatefulClient):
         return CallbackHandler(statefulTraceClient=self)
 
 
-class FunctionalDatasetItem(DatasetItem):
+class DatasetItemClient(DatasetItem):
     def link(self, observation: StatefulClient, run_name: str):
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
@@ -535,6 +535,6 @@ class FunctionalDatasetItem(DatasetItem):
         )
 
 
-class FunctionalDataset(Dataset):
-    items: typing.List[FunctionalDatasetItem]
+class DatasetClient(Dataset):
+    items: typing.List[DatasetItemClient]
     __fields__ = {name: field for name, field in Dataset.__fields__.items()}
