@@ -111,10 +111,18 @@ class Langfuse(object):
             body = dataset.dict()
             del body["items"]
 
-            return Dataset(**body, items=items)
+            return FunctionalDataset(**body, items=items)
         except Exception as e:
             self.log.exception(e)
             raise e
+
+    # def get_dataset_run(self, name: str):
+    #     try:
+    #         self.log.dbug(f"Getting dataset runs {name}")
+    #         return self.client.dataset_runs.get(dataset_run_name=name)
+    #     except Exception as e:
+    #         self.log.exception(e)
+    #         raise e
 
     def create_dataset(self, body: CreateDatasetRequest):
         try:
@@ -146,9 +154,6 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-
-    def get(self):
-        self.client.dataset_run_items.ge
 
     def trace(self, body: CreateTrace):
         try:
@@ -523,3 +528,8 @@ class FunctionalDatasetItem(DatasetItem):
         observation.client.dataset_run_items.create(
             request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
         )
+
+
+class FunctionalDataset(Dataset):
+    items: typing.List[FunctionalDatasetItem]
+    __fields__ = {name: field for name, field in Dataset.__fields__.items() if name not in ["items"]}

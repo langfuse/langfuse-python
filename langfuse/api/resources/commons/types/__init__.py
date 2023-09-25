@@ -5,6 +5,7 @@ from .create_generation_request import CreateGenerationRequest
 from .create_span_request import CreateSpanRequest
 from .dataset import Dataset
 from .dataset_item import DatasetItem
+from .dataset_run import DatasetRun
 from .dataset_run_item import DatasetRunItem
 from .dataset_status import DatasetStatus
 from .llm_usage import LlmUsage
@@ -23,6 +24,7 @@ __all__ = [
     "CreateSpanRequest",
     "Dataset",
     "DatasetItem",
+    "DatasetRun",
     "DatasetRunItem",
     "DatasetStatus",
     "LlmUsage",

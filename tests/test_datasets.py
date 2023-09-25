@@ -49,3 +49,7 @@ def test_linking_observation():
         generation = langfuse.generation(InitialGeneration(id=generation_id))
 
         item.link(generation, "run_name")
+
+    # run = langfuse.get_dataset_run("run_name")
+    # assert len(run.generations) == 1
+    # assert len(run.generations[0].items) == 1
