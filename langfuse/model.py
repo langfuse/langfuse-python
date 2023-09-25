@@ -17,6 +17,7 @@ from langfuse.api.resources.commons.types.dataset import Dataset
 from langfuse.api.resources.dataset_run_items.types.create_dataset_run_item_request import CreateDatasetRunItemRequest
 from langfuse.api.resources.datasets.types.create_dataset_request import CreateDatasetRequest
 from langfuse.api.resources.dataset_items.types.create_dataset_item_request import CreateDatasetItemRequest
+from langfuse.api.resources.commons.types.dataset_run import DatasetRun
 
 
 class InitialGeneration(CreateGenerationRequest):

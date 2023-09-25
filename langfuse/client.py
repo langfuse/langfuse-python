@@ -29,6 +29,7 @@ from langfuse.model import (
     UpdateGeneration,
     UpdateSpan,
     CreateDatasetItemRequest,
+    DatasetRun,
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
@@ -116,13 +117,17 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    # def get_dataset_run(self, name: str):
-    #     try:
-    #         self.log.dbug(f"Getting dataset runs {name}")
-    #         return self.client.dataset_runs.get(dataset_run_name=name)
-    #     except Exception as e:
-    #         self.log.exception(e)
-    #         raise e
+    def get_dataset_run(
+        self,
+        dataset_name: str,
+        dataset_run_name: str,
+    ) -> DatasetRun:
+        try:
+            self.log.debug(f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}")
+            return self.client.datasets.get_runs(dataset_name=dataset_name, run_name=dataset_run_name)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def create_dataset(self, body: CreateDatasetRequest):
         try:
@@ -532,4 +537,4 @@ class FunctionalDatasetItem(DatasetItem):
 
 class FunctionalDataset(Dataset):
     items: typing.List[FunctionalDatasetItem]
-    __fields__ = {name: field for name, field in Dataset.__fields__.items() if name not in ["items"]}
+    __fields__ = {name: field for name, field in Dataset.__fields__.items()}

@@ -1,6 +1,5 @@
 import json
 import os
-
 from langfuse import Langfuse
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
 from langfuse.model import CreateDatasetRequest
@@ -44,12 +43,16 @@ def test_linking_observation():
     assert len(dataset.items) == 1
     assert dataset.items[0].input == input
 
+    run_name = create_uuid()
+    generation_id = create_uuid()
+
     for item in dataset.items:
-        generation_id = create_uuid()
         generation = langfuse.generation(InitialGeneration(id=generation_id))
 
-        item.link(generation, "run_name")
+        item.link(generation, run_name)
 
-    # run = langfuse.get_dataset_run("run_name")
-    # assert len(run.generations) == 1
-    # assert len(run.generations[0].items) == 1
+    run = langfuse.get_dataset_run(dataset_name, run_name)
+
+    assert run.name == run_name
+    assert len(run.dataset_run_items) == 1
+    assert run.dataset_run_items[0].observation_id == generation_id
