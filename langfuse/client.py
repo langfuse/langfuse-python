@@ -107,7 +107,7 @@ class Langfuse(object):
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
 
-            items = [DatasetItemClient(i) for i in dataset.items]
+            items = [DatasetItemClient(**i.dict()) for i in dataset.items]
 
             body = dataset.dict()
             del body["items"]
