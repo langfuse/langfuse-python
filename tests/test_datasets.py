@@ -64,7 +64,7 @@ def test_linking_observation():
 
 
 @pytest.mark.skip(reason="inference cost")
-def test_langfuse_dataset():
+def test_langchain_dataset():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
