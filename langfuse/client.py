@@ -10,10 +10,14 @@ from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
+from langfuse.api.resources.commons.types.dataset import Dataset
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.model import (
+    DatasetItem,
+    CreateDatasetRunItemRequest,
+    CreateDatasetRequest,
     CreateEvent,
     CreateGeneration,
     CreateScore,
@@ -24,6 +28,8 @@ from langfuse.model import (
     InitialSpan,
     UpdateGeneration,
     UpdateSpan,
+    CreateDatasetItemRequest,
+    DatasetRun,
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
@@ -95,6 +101,49 @@ class Langfuse(object):
 
     def get_trace_id(self):
         return self.trace_id
+
+    def get_dataset(self, name: str):
+        try:
+            self.log.debug(f"Getting datasets {name}")
+            dataset = self.client.datasets.get(dataset_name=name)
+
+            items = [DatasetItemClient(**i.dict()) for i in dataset.items]
+
+            body = dataset.dict()
+            del body["items"]
+
+            return DatasetClient(**body, items=items)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def get_dataset_run(
+        self,
+        dataset_name: str,
+        dataset_run_name: str,
+    ) -> DatasetRun:
+        try:
+            self.log.debug(f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}")
+            return self.client.datasets.get_runs(dataset_name=dataset_name, run_name=dataset_run_name)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_dataset(self, body: CreateDatasetRequest):
+        try:
+            self.log.debug(f"Creating datasets {body}")
+            return self.client.datasets.create(request=body)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_dataset_item(self, body: CreateDatasetItemRequest):
+        try:
+            self.log.debug(f"Creating dataset item {body}")
+            return self.client.dataset_items.create(request=body)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def get_generations(
         self,
@@ -246,8 +295,7 @@ class Langfuse(object):
     # This prevents exceptions and a messy shutdown when the
     # interpreter is destroyed before the daemon thread finishes
     # execution. However, it is *not* the same as flushing the queue!
-    # To guarantee all messages have been delivered, you'll still need
-    # to call flush().
+    # To guarantee all messages have been delivered, you'll still need to call flush().
     def join(self):
         try:
             return self.task_manager.join()
@@ -472,3 +520,20 @@ class StatefulTraceClient(StatefulClient):
         from langfuse.callback import CallbackHandler
 
         return CallbackHandler(statefulTraceClient=self)
+
+
+class DatasetItemClient(DatasetItem):
+    def link(self, observation: StatefulClient, run_name: str):
+        # flush the queue before creating the dataset run item
+        # to ensure that all events are persistet.
+        observation.task_manager.flush()
+
+        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation.id}")
+        observation.client.dataset_run_items.create(
+            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
+        )
+
+
+class DatasetClient(Dataset):
+    items: typing.List[DatasetItemClient]
+    __fields__ = {name: field for name, field in Dataset.__fields__.items()}
