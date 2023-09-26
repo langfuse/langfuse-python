@@ -68,7 +68,7 @@ class OpenAILangfuse:
 
         return wrapper
 
-    def set_openai_funcs(self):
+    def replace_openai_funcs(self):
         api_resources_classes = [
             (ChatCompletion, "create"),
             (Completion, "create"),
@@ -80,4 +80,4 @@ class OpenAILangfuse:
 
 
 modifier = OpenAILangfuse()
-modifier.set_openai_funcs()
+modifier.replace_openai_funcs()
