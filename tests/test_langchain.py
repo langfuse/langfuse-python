@@ -51,7 +51,7 @@ def test_langfuse_span():
     trace = langfuse.trace(CreateTrace(id=trace_id))
     span = trace.span(CreateSpan(id=span_id))
 
-    handler = span.get_new_handler()
+    handler = span.get_langchain_handler()
 
     assert handler.get_trace_id() == trace_id
     assert handler.rootSpan.id == span_id
