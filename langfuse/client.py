@@ -5,12 +5,15 @@ from typing import Optional
 import typing
 import uuid
 
+
+import datetime as dt
 from langfuse.api.client import FintoLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.dataset import Dataset
+from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
@@ -107,12 +110,9 @@ class Langfuse(object):
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
 
-            items = [DatasetItemClient(**i.dict()) for i in dataset.items]
+            items = [DatasetItemClient(i, langfuse=self) for i in dataset.items]
 
-            body = dataset.dict()
-            del body["items"]
-
-            return DatasetClient(**body, items=items)
+            return DatasetClient(dataset, items=items)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -508,6 +508,11 @@ class StatefulSpanClient(StatefulClient):
         except Exception as e:
             self.log.warning(e)
 
+    def get_langchain_handler(self):
+        from langfuse.callback import CallbackHandler
+
+        return CallbackHandler(statefulClient=self)
+
 
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
@@ -519,10 +524,33 @@ class StatefulTraceClient(StatefulClient):
     def getNewHandler(self):
         from langfuse.callback import CallbackHandler
 
-        return CallbackHandler(statefulTraceClient=self)
+        return CallbackHandler(statefulClient=self)
 
 
-class DatasetItemClient(DatasetItem):
+class DatasetItemClient:
+    id: str
+    status: DatasetStatus
+    input: typing.Any
+    expected_output: typing.Optional[typing.Any]
+    source_observation_id: typing.Optional[str]
+    dataset_id: str
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+    langfuse: Langfuse
+
+    def __init__(self, dataset_item: DatasetItem, langfuse: Langfuse):
+        self.id = dataset_item.id
+        self.status = dataset_item.status
+        self.input = dataset_item.input
+        self.expected_output = dataset_item.expected_output
+        self.source_observation_id = dataset_item.source_observation_id
+        self.dataset_id = dataset_item.dataset_id
+        self.created_at = dataset_item.created_at
+        self.updated_at = dataset_item.updated_at
+
+        self.langfuse = langfuse
+
     def link(self, observation: StatefulClient, run_name: str):
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
@@ -533,7 +561,35 @@ class DatasetItemClient(DatasetItem):
             request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
         )
 
+    def get_langchain_handler(self, *, run_name: str):
+        from langfuse.callback import CallbackHandler
 
-class DatasetClient(Dataset):
+        trace = self.langfuse.trace(CreateTrace(name=run_name))
+        span = trace.span(CreateSpan(name=run_name))
+
+        self.langfuse.flush()
+
+        self.link(span, run_name)
+
+        return CallbackHandler(statefulClient=span)
+
+
+class DatasetClient:
+    id: str
+    name: str
+    status: DatasetStatus
+    project_id: str
+    created_at: dt.datetime
+    updated_at: dt.datetime
     items: typing.List[DatasetItemClient]
-    __fields__ = {name: field for name, field in Dataset.__fields__.items()}
+    runs: typing.List[str]
+
+    def __init__(self, dataset: Dataset, items: typing.List[DatasetItemClient]):
+        self.id = dataset.id
+        self.name = dataset.name
+        self.status = dataset.status
+        self.project_id = dataset.project_id
+        self.created_at = dataset.created_at
+        self.updated_at = dataset.updated_at
+        self.items = items
+        self.runs = dataset.runs
