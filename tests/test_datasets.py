@@ -7,7 +7,6 @@ from langfuse import Langfuse
 from langfuse.api.client import FintoLangfuse
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
 from langfuse.model import CreateDatasetRequest
-from tests.api_wrapper import LangfuseAPI
 
 
 from tests.utils import create_uuid
@@ -64,7 +63,7 @@ def test_linking_observation():
 
 
 @pytest.mark.skip(reason="inference cost")
-def test_langfuse_dataset():
+def test_langchain_dataset():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
