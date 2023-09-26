@@ -2,6 +2,7 @@ import json
 import os
 
 from langchain import LLMChain, OpenAI, PromptTemplate
+import pytest
 from langfuse import Langfuse
 from langfuse.api.client import FintoLangfuse
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
@@ -62,6 +63,7 @@ def test_linking_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_langfuse_dataset():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
     dataset_name = create_uuid()
@@ -96,7 +98,7 @@ def test_langfuse_dataset():
     api = FintoLangfuse(
         username=os.environ.get("LF_PK"), password=os.environ.get("LF_SK"), environment=os.environ.get("HOST")
     )
-
+    api.generations.get()
     trace = api.trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 3
