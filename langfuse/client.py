@@ -561,7 +561,7 @@ class DatasetItemClient:
             request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
         )
 
-    def get_new_handler(self, *, run_name: str):
+    def get_langchain_handler(self, *, run_name: str):
         from langfuse.callback import CallbackHandler
 
         trace = self.langfuse.trace(CreateTrace(name=run_name))

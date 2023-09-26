@@ -3,8 +3,10 @@ import os
 
 from langchain import LLMChain, OpenAI, PromptTemplate
 from langfuse import Langfuse
+from langfuse.api.client import FintoLangfuse
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
 from langfuse.model import CreateDatasetRequest
+from tests.api_wrapper import LangfuseAPI
 
 
 from tests.utils import create_uuid
@@ -73,7 +75,7 @@ def test_langfuse_dataset():
     run_name = create_uuid()
 
     for item in dataset.items:
-        handler = item.get_new_handler(run_name=run_name)
+        handler = item.get_langchain_handler(run_name=run_name)
 
         llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
         template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -89,3 +91,15 @@ def test_langfuse_dataset():
 
     assert run.name == run_name
     assert len(run.dataset_run_items) == 1
+    assert run.dataset_run_items[0].dataset_run_id == run.id
+
+    api = FintoLangfuse(
+        username=os.environ.get("LF_PK"), password=os.environ.get("LF_SK"), environment=os.environ.get("HOST")
+    )
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    assert len(trace.observations) == 3
+    assert trace.observations[1].id == trace.observations[2].parent_observation_id
+    assert trace.observations[0].id == trace.observations[1].parent_observation_id
+    assert trace.observations[0].parent_observation_id is None

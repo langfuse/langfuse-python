@@ -7,7 +7,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
-from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
+from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, InitialSpan, UpdateGeneration, UpdateSpan
 from langchain.schema.output import LLMResult
 from langchain.schema.messages import BaseMessage
 from langchain.schema.document import Document
@@ -20,6 +20,7 @@ class CallbackHandler(BaseCallbackHandler):
     nextSpanId: Optional[str] = None
     trace: Optional[StatefulTraceClient]
     rootSpan: Optional[StatefulSpanClient]
+    langfuse: Optional[Langfuse]
 
     def __init__(
         self,
@@ -152,6 +153,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
+            print("__generate_trace_and_parent")
             class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
             if self.trace is None and self.langfuse is not None:
@@ -176,16 +178,30 @@ class CallbackHandler(BaseCallbackHandler):
                 )
                 self.nextSpanId = None
             else:
-                self.runs[run_id] = self.trace.span(
-                    CreateSpan(
-                        id=self.nextSpanId,
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        input=inputs,
-                        startTime=datetime.now(),
-                        parentObservationId=self.rootSpan.id if self.rootSpan else None,
+                self.runs[run_id] = (
+                    self.trace.span(
+                        CreateSpan(
+                            id=self.nextSpanId,
+                            traceId=self.trace.id,
+                            name=class_name,
+                            metadata=self.__join_tags_and_metadata(tags, metadata),
+                            input=inputs,
+                            startTime=datetime.now(),
+                        )
+                    )
+                    if self.rootSpan is None
+                    else self.rootSpan.span(
+                        CreateSpan(
+                            id=self.nextSpanId,
+                            traceId=self.trace.id,
+                            name=class_name,
+                            metadata=self.__join_tags_and_metadata(tags, metadata),
+                            input=inputs,
+                            startTime=datetime.now(),
+                        )
                     )
                 )
+
                 self.nextSpanId = None
 
         except Exception as e:
