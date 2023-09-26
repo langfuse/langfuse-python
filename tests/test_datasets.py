@@ -7,6 +7,7 @@ from langfuse import Langfuse
 from langfuse.api.client import FintoLangfuse
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
 from langfuse.model import CreateDatasetRequest
+from tests.api_wrapper import LangfuseAPI
 
 
 from tests.utils import create_uuid
