@@ -1,10 +1,13 @@
+import os
 import requests
 
 
 class LangfuseAPI:
-    def __init__(self, username=None, password=None, base_url="http://localhost:3000"):
-        self.auth = (username, password) if username and password else None
-        self.BASE_URL = base_url
+    def __init__(self, username=None, password=None, base_url=None):
+        username = username if username else os.environ["LF_PK"]
+        password = password if password else os.environ["LF_SK"]
+        self.auth = (username, password)
+        self.BASE_URL = base_url if base_url else os.environ["HOST"]
 
     def get_observation(self, observation_id):
         url = f"{self.BASE_URL}/api/public/observations/{observation_id}"

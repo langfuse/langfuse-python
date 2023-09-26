@@ -39,15 +39,13 @@ def test_langfuse_init():
 
 
 def test_langfuse_release_init():
-    callback = CallbackHandler(
-        release="something"
-    )
+    callback = CallbackHandler(release="something")
     assert callback.langfuse.release == "something"
 
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -76,7 +74,7 @@ def test_callback_generated_from_trace():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_azure_chat():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -113,7 +111,7 @@ def test_callback_generated_from_trace_azure_chat():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -142,7 +140,7 @@ def test_callback_generated_from_trace_anthropic():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_from_trace_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -172,7 +170,7 @@ def test_callback_from_trace_simple_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_next_span_id_from_trace_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -209,7 +207,7 @@ def test_next_span_id_from_trace_simple_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -233,7 +231,7 @@ def test_callback_simple_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_sequential_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -270,7 +268,7 @@ def test_callback_sequential_chain():
 @pytest.mark.skip(reason="inference cost")
 def test_stuffed_chain():
     with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
-        api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+        api_wrapper = LangfuseAPI()
         handler = CallbackHandler(debug=True)
 
         text = f.read()
@@ -299,7 +297,7 @@ def test_stuffed_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
@@ -331,7 +329,7 @@ def test_callback_retriever():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_with_sources():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
@@ -360,7 +358,7 @@ def test_callback_retriever_with_sources():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_conversational():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
@@ -397,7 +395,7 @@ def test_callback_retriever_conversational():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -417,7 +415,7 @@ def test_callback_simple_openai():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai_streaming():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=True)
@@ -443,7 +441,7 @@ def test_callback_simple_openai_streaming():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_llm_chat():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -467,7 +465,7 @@ def test_callback_simple_llm_chat():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_huggingface_hub():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
@@ -499,7 +497,7 @@ Title: {title}
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
-    api_wrapper = LangfuseAPI(os.environ.get("HOST"))
+    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
     llm = ChatOpenAI(model="gpt-4", temperature=0)
