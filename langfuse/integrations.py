@@ -14,11 +14,25 @@ from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 load_dotenv()
 
 
+class CreateArgsExtractor:
+    def __init__(self, name=None, **kwargs):
+        self.args = {}
+        self.args["name"] = name
+        self.kwargs = kwargs
+
+    def get_langfuse_args(self):
+        return {**self.args, **self.kwargs}
+
+    def get_openai_args(self):
+        return self.kwargs
+
+
 class OpenAILangfuse:
     def __init__(self):
         self.langfuse = Langfuse(os.environ["LF_PK"], os.environ["LF_SK"], os.environ["HOST"])
 
     def _get_call_details(self, result, **kwargs):
+        name = kwargs.get("name", "OpenAI-generation")
         if result.object == "chat.completion":
             prompt = kwargs.get("messages", [{}])[-1].get("content", "")
             completion = result.choices[-1].message.content
@@ -38,6 +52,7 @@ class OpenAILangfuse:
             "presence_penalty": kwargs.get("presence_penalty", 0),
         }
         all_details = {
+            "name": name,
             "prompt": prompt,
             "completion": completion,
             "endTime": endTime,
@@ -48,18 +63,19 @@ class OpenAILangfuse:
         return all_details
 
     def _log_result(self, result, call_details):
-        generation = InitialGeneration(name="OpenAI-generation", **call_details)
+        generation = InitialGeneration(**call_details)
         self.langfuse.generation(generation)
         self.langfuse.flush()
         return result
 
     def langfuse_modified(self, func):
         @functools.wraps(func)
-        def wrapper(**kwargs):
+        def wrapper(*args, **kwargs):
             try:
                 startTime = datetime.now()
-                result = func(**kwargs)
-                call_details = self._get_call_details(result, **kwargs)
+                arg_extractor = CreateArgsExtractor(*args, **kwargs)
+                result = func(**arg_extractor.get_openai_args())
+                call_details = self._get_call_details(result, **arg_extractor.get_langfuse_args())
                 call_details["startTime"] = startTime
             except Exception as ex:
                 raise ex
