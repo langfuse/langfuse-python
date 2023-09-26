@@ -508,6 +508,11 @@ class StatefulSpanClient(StatefulClient):
         except Exception as e:
             self.log.warning(e)
 
+    def get_new_handler(self):
+        from langfuse.callback import CallbackHandler
+
+        return CallbackHandler(statefulClient=self)
+
 
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
@@ -519,7 +524,7 @@ class StatefulTraceClient(StatefulClient):
     def getNewHandler(self):
         from langfuse.callback import CallbackHandler
 
-        return CallbackHandler(statefulTraceClient=self)
+        return CallbackHandler(statefulClient=self)
 
 
 class DatasetItemClient(DatasetItem):
