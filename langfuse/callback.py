@@ -153,7 +153,6 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            print("__generate_trace_and_parent")
             class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
             if self.trace is None and self.langfuse is not None:
