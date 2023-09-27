@@ -46,12 +46,7 @@ def test_langfuse_release_init():
 def test_langfuse_span():
     trace_id = create_uuid()
     span_id = create_uuid()
-    langfuse = Langfuse(
-        os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        os.environ.get("LANGFUSE_SECRET_KEY"),
-        os.environ.get("LANGFUSE_HOST"),
-        debug=True,
-    )
+    langfuse = Langfuse(debug=True)
     trace = langfuse.trace(CreateTrace(id=trace_id))
     span = trace.span(CreateSpan(id=span_id))
 

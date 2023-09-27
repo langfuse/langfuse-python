@@ -19,9 +19,6 @@ from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
 
-os.environ["LANGFUSE_PUBLIC_KEY"] = "test"
-os.environ["LANGFUSE_SECRET_KEY"] = "test"
-
 
 def test_langfuse_release():
     # Backup environment variables to restore them later
@@ -31,25 +28,22 @@ def test_langfuse_release():
     os.environ.clear()
 
     # These key are required
-    os.environ["LANGFUSE_PUBLIC_KEY"] = "test"
-    os.environ["LANGFUSE_SECRET_KEY"] = "test"
-
-    client = Langfuse()
+    client = Langfuse(public_key="test", secret_key="test")
     assert client.release is None
 
     # If neither the LANGFUSE_RELEASE env var nor the release parameter is given,
     # it should fall back to get_common_release_envs
     os.environ["CIRCLE_SHA1"] = "mock-sha1"
-    client = Langfuse()
+    client = Langfuse(public_key="test", secret_key="test")
     assert client.release == "mock-sha1"
 
     # If LANGFUSE_RELEASE env var is set, it should take precedence
     os.environ["LANGFUSE_RELEASE"] = "mock-langfuse-release"
-    client = Langfuse()
+    client = Langfuse(public_key="test", secret_key="test")
     assert client.release == "mock-langfuse-release"
 
     # If the release parameter is given during initialization, it should take the highest precedence
-    client = Langfuse(release="parameter-release")
+    client = Langfuse(public_key="test", secret_key="test", release="parameter-release")
     assert client.release == "parameter-release"
 
     # Restoring the environment variables
@@ -74,18 +68,20 @@ def test_flush():
 
 def test_setup_without_pk():
     # set up the consumer with more requests than a single batch will allow
+    public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
     with pytest.raises(ValueError):
         Langfuse()
-    os.environ["LANGFUSE_PUBLIC_KEY"] = "test"
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
 
 
 def test_setup_without_sk():
     # set up the consumer with more requests than a single batch will allow
+    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
     os.environ.pop("LANGFUSE_SECRET_KEY")
     with pytest.raises(ValueError):
         Langfuse()
-    os.environ["LANGFUSE_SECRET_KEY"] = "test"
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
 
 
 def test_public_key_in_header():

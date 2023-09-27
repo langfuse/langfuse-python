@@ -17,12 +17,7 @@ from tests.utils import create_uuid
 
 
 def test_create_and_get_dataset():
-    langfuse = Langfuse(
-        os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        os.environ.get("LANGFUSE_SECRET_KEY"),
-        os.environ.get("LANGFUSE_HOST"),
-        debug=True,
-    )
+    langfuse = Langfuse(debug=True)
 
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
@@ -31,12 +26,7 @@ def test_create_and_get_dataset():
 
 
 def test_create_dataset_item():
-    langfuse = Langfuse(
-        os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        os.environ.get("LANGFUSE_SECRET_KEY"),
-        os.environ.get("LANGFUSE_HOST"),
-        debug=True,
-    )
+    langfuse = Langfuse(debug=True)
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
 
@@ -49,12 +39,7 @@ def test_create_dataset_item():
 
 
 def test_linking_observation():
-    langfuse = Langfuse(
-        os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        os.environ.get("LANGFUSE_SECRET_KEY"),
-        os.environ.get("LANGFUSE_HOST"),
-        debug=True,
-    )
+    langfuse = Langfuse(debug=True)
 
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
@@ -83,12 +68,7 @@ def test_linking_observation():
 
 @pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
-    langfuse = Langfuse(
-        os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        os.environ.get("LANGFUSE_SECRET_KEY"),
-        os.environ.get("LANGFUSE_HOST"),
-        debug=True,
-    )
+    langfuse = Langfuse(debug=True)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
 
