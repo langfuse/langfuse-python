@@ -1,16 +1,40 @@
+import os
 from dotenv import load_dotenv
 from langfuse.integrations import openai
+from langfuse.api.client import FintoLangfuse
+from langfuse.version import __version__ as version
+
+from tests.utils import create_uuid
+
 
 load_dotenv()
 
+api = FintoLangfuse(
+    environment=os.environ["HOST"],
+    username=os.environ["LF_PK"],
+    password=os.environ["LF_SK"],
+)
+
 
 def test_openai_chat_completion():
+    trace_id = create_uuid()
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", messages=[{"role": "user", "content": "1 + 1 = "}], temperature=0
+        name=trace_id, model="gpt-3.5-turbo", messages=[{"role": "user", "content": "1 + 1 = "}], temperature=0
     )
+
+    generation = api.generations.get(name=trace_id)
+
+    assert len(generation.data) != 0
     assert len(completion.choices) != 0
 
 
 def test_openai_completion():
-    completion = openai.Completion.create(model="gpt-3.5-turbo-instruct", prompt="1 + 1 = ", temperature=0)
+    trace_id = create_uuid()
+    completion = openai.Completion.create(
+        name=trace_id, model="gpt-3.5-turbo-instruct", prompt="1 + 1 = ", temperature=0
+    )
+
+    generation = api.generations.get(name=trace_id)
+
+    assert len(generation.data) != 0
     assert len(completion.choices) != 0
