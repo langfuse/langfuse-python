@@ -18,7 +18,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chat_models import AzureChatOpenAI
 from typing import Optional
 from langfuse.client import Langfuse
-from langfuse.model import CreateTrace
+from langfuse.model import CreateSpan, CreateTrace
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chains import ConversationalRetrievalChain
 
@@ -41,6 +41,19 @@ def test_langfuse_init():
 def test_langfuse_release_init():
     callback = CallbackHandler(release="something")
     assert callback.langfuse.release == "something"
+
+
+def test_langfuse_span():
+    trace_id = create_uuid()
+    span_id = create_uuid()
+    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+    span = trace.span(CreateSpan(id=span_id))
+
+    handler = span.get_langchain_handler()
+
+    assert handler.get_trace_id() == trace_id
+    assert handler.rootSpan.id == span_id
 
 
 @pytest.mark.skip(reason="inference cost")
