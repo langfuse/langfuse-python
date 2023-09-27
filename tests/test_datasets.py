@@ -3,6 +3,7 @@ import os
 from typing import List
 
 from langchain import LLMChain, OpenAI, PromptTemplate
+import pytest
 
 from langfuse import Langfuse
 from langfuse.api.client import FintoLangfuse
@@ -65,7 +66,7 @@ def test_linking_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
     dataset_name = create_uuid()
