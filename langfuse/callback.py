@@ -45,7 +45,7 @@ class CallbackHandler(BaseCallbackHandler):
 
         # Otherwise, initialize stateless using the provided keys
         elif public_key and secret_key:
-            self.langfuse = Langfuse(debug=debug, release=release)
+            self.langfuse = Langfuse(public_key, secret_key, host, debug=debug, release=release)
             self.trace = None
             self.runs = {}
             if debug:
