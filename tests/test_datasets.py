@@ -1,13 +1,16 @@
 import json
 import os
+from typing import List
 
 from langchain import LLMChain, OpenAI, PromptTemplate
 import pytest
+
 from langfuse import Langfuse
 from langfuse.api.client import FintoLangfuse
+from langfuse.api.resources.commons.types.observation import Observation
+
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
 from langfuse.model import CreateDatasetRequest
-from tests.api_wrapper import LangfuseAPI
 
 
 from tests.utils import create_uuid
@@ -76,9 +79,11 @@ def test_langchain_dataset():
 
     run_name = create_uuid()
 
+    dataset_item_id = None
+
     for item in dataset.items:
         handler = item.get_langchain_handler(run_name=run_name)
-
+        dataset_item_id = item.id
         llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
         template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
             Title: {title}
@@ -102,6 +107,35 @@ def test_langchain_dataset():
     trace = api.trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 3
-    assert trace.observations[1].id == trace.observations[2].parent_observation_id
-    assert trace.observations[0].id == trace.observations[1].parent_observation_id
-    assert trace.observations[0].parent_observation_id is None
+
+    sorted_observations = sorted_dependencies(trace.observations)
+
+    assert sorted_observations[1].id == sorted_observations[2].parent_observation_id
+    assert sorted_observations[0].id == sorted_observations[1].parent_observation_id
+    assert sorted_observations[0].parent_observation_id is None
+
+    assert trace.name == "dataset-run"
+    assert sorted_observations[0].name == "dataset-run"
+    assert trace.metadata == {"dataset_item_id": dataset_item_id, "run_name": run_name, "dataset_id": dataset.id}
+    assert sorted_observations[0].metadata == {
+        "dataset_item_id": dataset_item_id,
+        "run_name": run_name,
+        "dataset_id": dataset.id,
+    }
+
+
+def sorted_dependencies(
+    observations: List[Observation],
+):
+    # observations have an id and a parent_observation_id. Return a sorted list starting with the root observation where the parent_observation_id is None
+    parent_to_observation = {obs.parent_observation_id: obs for obs in observations}
+
+    # Start with the root observation (parent_observation_id is None)
+    current_observation = parent_to_observation[None]
+    dependencies = [current_observation]
+
+    while current_observation.id in parent_to_observation:
+        current_observation = parent_to_observation[current_observation.id]
+        dependencies.append(current_observation)
+
+    return dependencies
