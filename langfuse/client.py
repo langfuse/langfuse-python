@@ -79,11 +79,11 @@ class Langfuse(object):
 
         if not public_key:
             self.log.warning("public_key is not set.")
-            raise ValueError("public_key is required. Set it as os.environ[LF_PK]='public_key'")
+            raise ValueError("public_key is required, set as parameter or environment variable 'LF_PK'")
 
         if not secret_key:
             self.log.warning("secret_key is not set.")
-            raise ValueError("public_key is required. Set it as os.environ[LF_SK]='secret_key'")
+            raise ValueError("secret_key is required, set as parameter or environment variable 'LF_SK'")
 
         self.client = FintoLangfuse(
             environment=self.base_url,

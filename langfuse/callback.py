@@ -32,9 +32,6 @@ class CallbackHandler(BaseCallbackHandler):
         statefulClient: Optional[StatefulTraceClient | StatefulSpanClient] = None,
         release: Optional[str] = None,
     ) -> None:
-        public_key = public_key if public_key else os.environ.get("LF_PK")
-        secret_key = secret_key if secret_key else os.environ.get("LF_SK")
-
         # If we're provided a stateful trace client directly
 
         if statefulClient and isinstance(statefulClient, StatefulTraceClient):

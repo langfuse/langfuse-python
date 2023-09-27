@@ -22,6 +22,7 @@ from tests.utils import create_uuid
 os.environ["LF_PK"] = "test"
 os.environ["LF_SK"] = "test"
 
+
 def test_langfuse_release():
     # Backup environment variables to restore them later
     backup_environ = os.environ.copy()
@@ -71,16 +72,15 @@ def test_flush():
     assert langfuse.task_manager.queue.empty()
 
 
-def test_setup_wthout_pk():
+def test_setup_without_pk():
     # set up the consumer with more requests than a single batch will allow
     os.environ.pop("LF_PK")
     with pytest.raises(ValueError):
         Langfuse()
     os.environ["LF_PK"] = "test"
-    
 
 
-def test_setup_wthout_sk():
+def test_setup_without_sk():
     # set up the consumer with more requests than a single batch will allow
     os.environ.pop("LF_SK")
     with pytest.raises(ValueError):
@@ -91,6 +91,16 @@ def test_setup_wthout_sk():
 def test_public_key_in_header():
     langfuse = Langfuse(public_key="test_LF_PK")
     assert langfuse.client.x_langfuse_public_key == "test_LF_PK"
+
+
+def test_secret_key_in_header():
+    langfuse = Langfuse(secret_key="test_LF_SK")
+    assert langfuse.client._password == "test_LF_SK"
+
+
+def test_host_in_header():
+    langfuse = Langfuse(host="http://localhost:8000/")
+    assert langfuse.client._environment == "http://localhost:8000/"
 
 
 def test_shutdown():
