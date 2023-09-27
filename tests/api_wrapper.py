@@ -4,10 +4,10 @@ import requests
 
 class LangfuseAPI:
     def __init__(self, username=None, password=None, base_url=None):
-        username = username if username else os.environ["LF_PK"]
-        password = password if password else os.environ["LF_SK"]
+        username = username if username else os.environ["LANGFUSE_PUBLIC_KEY"]
+        password = password if password else os.environ["LANGFUSE_SECRET_KEY"]
         self.auth = (username, password)
-        self.BASE_URL = base_url if base_url else os.environ["HOST"]
+        self.BASE_URL = base_url if base_url else os.environ["LANGFUSE_HOST"]
 
     def get_observation(self, observation_id):
         url = f"{self.BASE_URL}/api/public/observations/{observation_id}"

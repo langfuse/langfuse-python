@@ -71,19 +71,19 @@ class Langfuse(object):
 
         self.task_manager = TaskManager()
 
-        public_key = public_key if public_key else os.environ.get("LF_PK")
-        secret_key = secret_key if secret_key else os.environ.get("LF_SK")
-        host = host if host else os.environ.get("HOST")
+        public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
+        secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        host = host if host else os.environ.get("LANGFUSE_HOST")
 
         self.base_url = host if host else "https://cloud.langfuse.com"
 
         if not public_key:
             self.log.warning("public_key is not set.")
-            raise ValueError("public_key is required, set as parameter or environment variable 'LF_PK'")
+            raise ValueError("public_key is required, set as parameter or environment variable 'LANGFUSE_PUBLIC_KEY'")
 
         if not secret_key:
             self.log.warning("secret_key is not set.")
-            raise ValueError("secret_key is required, set as parameter or environment variable 'LF_SK'")
+            raise ValueError("secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'")
 
         self.client = FintoLangfuse(
             environment=self.base_url,

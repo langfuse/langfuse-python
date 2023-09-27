@@ -19,8 +19,8 @@ from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
 
-os.environ["LF_PK"] = "test"
-os.environ["LF_SK"] = "test"
+os.environ["LANGFUSE_PUBLIC_KEY"] = "test"
+os.environ["LANGFUSE_SECRET_KEY"] = "test"
 
 
 def test_langfuse_release():
@@ -31,8 +31,8 @@ def test_langfuse_release():
     os.environ.clear()
 
     # These key are required
-    os.environ["LF_PK"] = "test"
-    os.environ["LF_SK"] = "test"
+    os.environ["LANGFUSE_PUBLIC_KEY"] = "test"
+    os.environ["LANGFUSE_SECRET_KEY"] = "test"
 
     client = Langfuse()
     assert client.release is None
@@ -74,28 +74,28 @@ def test_flush():
 
 def test_setup_without_pk():
     # set up the consumer with more requests than a single batch will allow
-    os.environ.pop("LF_PK")
+    os.environ.pop("LANGFUSE_PUBLIC_KEY")
     with pytest.raises(ValueError):
         Langfuse()
-    os.environ["LF_PK"] = "test"
+    os.environ["LANGFUSE_PUBLIC_KEY"] = "test"
 
 
 def test_setup_without_sk():
     # set up the consumer with more requests than a single batch will allow
-    os.environ.pop("LF_SK")
+    os.environ.pop("LANGFUSE_SECRET_KEY")
     with pytest.raises(ValueError):
         Langfuse()
-    os.environ["LF_SK"] = "test"
+    os.environ["LANGFUSE_SECRET_KEY"] = "test"
 
 
 def test_public_key_in_header():
-    langfuse = Langfuse(public_key="test_LF_PK")
-    assert langfuse.client.x_langfuse_public_key == "test_LF_PK"
+    langfuse = Langfuse(public_key="test_LANGFUSE_PUBLIC_KEY")
+    assert langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
 
 
 def test_secret_key_in_header():
-    langfuse = Langfuse(secret_key="test_LF_SK")
-    assert langfuse.client._password == "test_LF_SK"
+    langfuse = Langfuse(secret_key="test_LANGFUSE_SECRET_KEY")
+    assert langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
 
 
 def test_host_in_header():
