@@ -568,8 +568,9 @@ class DatasetItemClient:
     def get_langchain_handler(self, *, run_name: str):
         from langfuse.callback import CallbackHandler
 
-        trace = self.langfuse.trace(CreateTrace(name=run_name))
-        span = trace.span(CreateSpan(name=run_name))
+        metadata = {"dataset_item_id": self.id, "run_name": run_name, "dataset_id": self.dataset_id}
+        trace = self.langfuse.trace(CreateTrace(name="dataset-run", metadata=metadata))
+        span = trace.span(CreateSpan(name="dataset-run", metadata=metadata))
 
         self.langfuse.flush()
 
@@ -583,6 +584,7 @@ class DatasetClient:
     name: str
     status: DatasetStatus
     project_id: str
+    dataset_name: str
     created_at: dt.datetime
     updated_at: dt.datetime
     items: typing.List[DatasetItemClient]
@@ -593,6 +595,7 @@ class DatasetClient:
         self.name = dataset.name
         self.status = dataset.status
         self.project_id = dataset.project_id
+        self.dataset_name = dataset.name
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
