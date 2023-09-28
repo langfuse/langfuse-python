@@ -85,7 +85,6 @@ def test_setup_without_keys():
 
 
 def test_setup_without_pk():
-    # set up the consumer with more requests than a single batch will allow
     public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
     with pytest.raises(ValueError):
@@ -94,7 +93,6 @@ def test_setup_without_pk():
 
 
 def test_setup_without_sk():
-    # set up the consumer with more requests than a single batch will allow
     secret_key = os.environ["LANGFUSE_SECRET_KEY"]
     os.environ.pop("LANGFUSE_SECRET_KEY")
     with pytest.raises(ValueError):
@@ -480,7 +478,9 @@ def test_create_trace_and_event():
 
 def test_create_span_and_generation():
     api = FintoLangfuse(
-        username=os.environ.get("LANGFUSE_PUBLIC_KEY"), password=os.environ.get("LANGFUSE_SECRET_KEY"), environment=os.environ.get("LANGFUSE_HOST")
+        username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
+        password=os.environ.get("LANGFUSE_SECRET_KEY"),
+        environment=os.environ.get("LANGFUSE_HOST"),
     )
 
     langfuse = Langfuse(debug=True)
