@@ -81,6 +81,9 @@ jobs:
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
 
+      - name: Set poetry python version
+        run: poetry env use system
+
       - name: Setup a local virtual environment (if no poetry.toml file)
         run: |
           poetry config virtualenvs.create true --local
