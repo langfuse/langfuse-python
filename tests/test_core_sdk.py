@@ -66,6 +66,23 @@ def test_flush():
     assert langfuse.task_manager.queue.empty()
 
 
+def test_setup_without_keys():
+    public_key, secret_key, host = (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
+    )
+    os.environ.pop("LANGFUSE_PUBLIC_KEY")
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+    os.environ.pop("LANGFUSE_HOST")
+    with pytest.raises(ValueError):
+        Langfuse()
+
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+    os.environ["LANGFUSE_HOST"] = host
+
+
 def test_setup_without_pk():
     # set up the consumer with more requests than a single batch will allow
     public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
