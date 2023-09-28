@@ -28,7 +28,7 @@ class CallbackHandler(BaseCallbackHandler):
         secret_key: Optional[str] = None,
         host: str = "https://cloud.langfuse.com",
         debug: bool = False,
-        statefulClient: Optional[StatefulTraceClient | StatefulSpanClient] = None,
+        statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
     ) -> None:
         # If we're provided a stateful trace client directly

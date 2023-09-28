@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -25,7 +25,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           - "3.10"
@@ -75,8 +74,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Check python version
+        run: python --version
+
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
+
+      - name: Set poetry python version
+        run: |
+          poetry env use ${{ matrix.python-version }}
+          poetry env info
 
       - name: Setup a local virtual environment (if no poetry.toml file)
         run: |
@@ -87,13 +94,16 @@ jobs:
         name: Define a cache for the virtual environment based on the dependencies lock file
         with:
           path: ./.venv
-          key: venv-${{ hashFiles('poetry.lock') }}
+          key: |
+            venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
       - name: Install the project dependencies
         run: poetry install
 
       - name: Run the automated tests
-        run: poetry run pytest -s -v --log-cli-level=INFO
+        run: |
+          python --version
+          poetry run pytest -s -v --log-cli-level=INFO
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
