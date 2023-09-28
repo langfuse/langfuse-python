@@ -136,6 +136,7 @@ class GenerationsClient:
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Generations, _response.json())  # type: ignore
         if _response.status_code == 400:
+            print(_response.json())
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
             raise UnauthorizedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore

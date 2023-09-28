@@ -211,24 +211,28 @@ class Langfuse(object):
 
     def span(self, body: InitialSpan):
         try:
+            new_span_id = str(uuid.uuid4()) if body.id is None else body.id
             new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
             self.trace_id = new_trace_id
-            new_span_id = str(uuid.uuid4()) if body.id is None else body.id
 
-            def create_trace():
-                try:
-                    new_body = {
-                        "id": new_trace_id,
-                        "release": self.release,
-                        "name": body.name,
-                    }
+            if body.trace_id is None:
 
-                    self.log.debug(f"Creating trace {new_body}...")
-                    request = CreateTraceRequest(**new_body)
-                    return self.client.trace.create(request=request)
-                except Exception as e:
-                    self.log.exception(e)
-                    raise e
+                def create_trace():
+                    try:
+                        new_body = {
+                            "id": new_trace_id,
+                            "release": self.release,
+                            "name": body.name,
+                        }
+
+                        self.log.debug(f"Creating trace {new_body}...")
+                        request = CreateTraceRequest(**new_body)
+                        return self.client.trace.create(request=request)
+                    except Exception as e:
+                        self.log.exception(e)
+                        raise e
+
+                self.task_manager.add_task(new_trace_id, create_trace)
 
             def create_span():
                 try:
@@ -242,7 +246,6 @@ class Langfuse(object):
                     self.log.exception(e)
                     raise e
 
-            self.task_manager.add_task(new_trace_id, create_trace)
             self.task_manager.add_task(new_span_id, create_span)
 
             return StatefulSpanClient(self.client, new_span_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
@@ -255,20 +258,24 @@ class Langfuse(object):
             new_generation_id = str(uuid.uuid4()) if body.id is None else body.id
             self.trace_id = new_trace_id
 
-            def create_trace():
-                try:
-                    new_body = {
-                        "id": new_trace_id,
-                        "release": self.release,
-                        "name": body.name,
-                    }
+            if body.trace_id is None:
 
-                    self.log.debug(f"Creating trace {new_body}...")
-                    request = CreateTraceRequest(**new_body)
-                    return self.client.trace.create(request=request)
-                except Exception as e:
-                    self.log.exception(e)
-                    raise e
+                def create_trace():
+                    try:
+                        new_body = {
+                            "id": new_trace_id,
+                            "release": self.release,
+                            "name": body.name,
+                        }
+
+                        self.log.debug(f"Creating trace {new_body}...")
+                        request = CreateTraceRequest(**new_body)
+                        return self.client.trace.create(request=request)
+                    except Exception as e:
+                        self.log.exception(e)
+                        raise e
+
+                self.task_manager.add_task(new_trace_id, create_trace)
 
             def create_generation():
                 try:
@@ -282,7 +289,6 @@ class Langfuse(object):
                     self.log.exception(e)
                     raise e
 
-            self.task_manager.add_task(new_trace_id, create_trace)
             self.task_manager.add_task(new_generation_id, create_generation)
 
             return StatefulGenerationClient(
