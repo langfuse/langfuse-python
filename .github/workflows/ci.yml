@@ -34,9 +34,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Check python version
-        run: python --version
-
       - name: Clone langfuse server
         run: |
           git clone https://github.com/langfuse/langfuse.git ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
@@ -78,6 +75,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Check python version
+        run: python --version
+
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
 
@@ -96,7 +96,9 @@ jobs:
         run: poetry install
 
       - name: Run the automated tests
-        run: poetry run pytest -s -v --log-cli-level=INFO
+        run: |
+          python --version
+          poetry run pytest -s -v --log-cli-level=INFO
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
