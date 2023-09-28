@@ -117,6 +117,7 @@ def test_langchain_dataset():
     assert trace.name == "dataset-run"
     assert sorted_observations[0].name == "dataset-run"
     assert trace.metadata == {"dataset_item_id": dataset_item_id, "run_name": run_name, "dataset_id": dataset.id}
+
     assert sorted_observations[0].metadata == {
         "dataset_item_id": dataset_item_id,
         "run_name": run_name,

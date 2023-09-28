@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 from langfuse import Langfuse
+from langfuse.api.client import FintoLangfuse
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
@@ -444,26 +445,27 @@ def test_create_trace_and_event():
 
 
 def test_create_span_and_generation():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
+    api = FintoLangfuse(
+        username=os.environ.get("LF_PK"), password=os.environ.get("LF_SK"), environment=os.environ.get("HOST")
+    )
 
     langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
-    your_trace_id = create_uuid()
 
-    langfuse.span(InitialSpan(traceId=your_trace_id, name="span"))
-    langfuse.generation(InitialGeneration(traceId=your_trace_id, name="generation"))
+    span = langfuse.span(InitialSpan(name="span"))
+    langfuse.generation(InitialGeneration(traceId=span.trace_id, name="generation"))
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(your_trace_id)
+    trace = api.trace.get(span.trace_id)
 
-    assert trace["name"] == "generation"
-    assert len(trace["observations"]) == 2
+    assert trace.name == "span"
+    assert len(trace.observations) == 2
 
-    span = trace["observations"][0]
-    assert span["traceId"] == trace["id"]
+    span = trace.observations[0]
+    assert span.trace_id == trace.id
 
-    span = trace["observations"][1]
-    assert span["traceId"] == trace["id"]
+    span = trace.observations[1]
+    assert span.trace_id == trace.id
 
 
 def test_create_trace_with_id_and_generation():
