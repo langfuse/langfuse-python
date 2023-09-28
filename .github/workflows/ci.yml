@@ -82,7 +82,9 @@ jobs:
         uses: abatilo/actions-poetry@v2
 
       - name: Set poetry python version
-        run: poetry env use ${{ matrix.python-version }}
+        run: |
+          poetry env use ${{ matrix.python-version }}
+          poetry env info
 
       - name: Setup a local virtual environment (if no poetry.toml file)
         run: |
