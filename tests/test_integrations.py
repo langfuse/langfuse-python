@@ -10,9 +10,9 @@ from tests.utils import create_uuid
 load_dotenv()
 
 api = FintoLangfuse(
-    environment=os.environ["HOST"],
-    username=os.environ["LF_PK"],
-    password=os.environ["LF_SK"],
+    environment=os.environ["LANGFUSE_HOST"],
+    username=os.environ["LANGFUSE_PUBLIC_KEY"],
+    password=os.environ["LANGFUSE_SECRET_KEY"],
 )
 
 

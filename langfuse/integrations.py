@@ -28,8 +28,16 @@ class CreateArgsExtractor:
 
 
 class OpenAILangfuse:
-    def __init__(self):
-        self.langfuse = Langfuse(os.environ["LF_PK"], os.environ["LF_SK"], os.environ["HOST"])
+    def __new__(cls):
+        if not hasattr(cls, "instance"):
+            cls.instance = super(OpenAILangfuse, cls).__new__(cls)
+            cls.instance.initialize()
+        return cls.instance
+
+    def initialize(self):
+        self.langfuse = Langfuse(
+            os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"], os.environ["LANGFUSE_HOST"]
+        )
 
     def _get_call_details(self, result, **kwargs):
         name = kwargs.get("name", "OpenAI-generation")
