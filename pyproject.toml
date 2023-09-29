@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<0.25.0"
 attrs = ">=21.3.0"
 python-dateutil = ">=2.8.0, <3.0"
@@ -35,6 +35,8 @@ anthropic = "^0.3.10"
 bs4 = "^0.0.1"
 lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
+lint = "^1.2.1"
+isort = "^5.12.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -58,5 +60,30 @@ profile = "black"
 
 [tool.pytest.ini_options]
 log_cli = true
+
+[tool.mypy]
+# 3rd party import
+ignore_missing_imports = true
+# dynamic typing
+disallow_any_unimported = true
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = true
+disallow_any_generics = false
+disallow_subclassing_any = true
+# platform
+python_version = "3.10"
+# untyped
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+# None and Optional
+no_implicit_optional = true
+# Warnings
+warn_return_any = false
+warn_unreachable = true
+# Misc
+pretty = true
 
 [tool.poetry_bumpversion.file."langfuse/version.py"]
