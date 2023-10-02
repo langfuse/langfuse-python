@@ -50,6 +50,7 @@ class Langfuse(object):
         host: Optional[str] = None,
         release: Optional[str] = None,
         debug: bool = False,
+        additional_headers: typing.Optional[typing.Dict] = {},
     ):
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
@@ -88,6 +89,7 @@ class Langfuse(object):
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=version,
             x_langfuse_public_key=public_key,
+            additional_headers=additional_headers
         )
 
         self.trace_id = None
