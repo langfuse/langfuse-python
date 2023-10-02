@@ -31,6 +31,7 @@ class GenerationsClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -38,6 +39,7 @@ class GenerationsClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
 
     def log(self, *, request: CreateGenerationRequest) -> Observation:
         _response = httpx.request(
@@ -49,6 +51,7 @@ class GenerationsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers
                 }
             ),
             auth=(self._username, self._password)
@@ -84,6 +87,7 @@ class GenerationsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers
                 }
             ),
             auth=(self._username, self._password)
@@ -126,6 +130,7 @@ class GenerationsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers,
                 }
             ),
             auth=(self._username, self._password)
@@ -162,6 +167,7 @@ class AsyncGenerationsClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -169,6 +175,7 @@ class AsyncGenerationsClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
 
     async def log(self, *, request: CreateGenerationRequest) -> Observation:
         async with httpx.AsyncClient() as _client:
@@ -181,6 +188,7 @@ class AsyncGenerationsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)
@@ -217,6 +225,7 @@ class AsyncGenerationsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)
@@ -260,6 +269,7 @@ class AsyncGenerationsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)

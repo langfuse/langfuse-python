@@ -30,6 +30,7 @@ class DatasetsClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -37,6 +38,7 @@ class DatasetsClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
 
     def get(self, dataset_name: str) -> Dataset:
         _response = httpx.request(
@@ -47,6 +49,7 @@ class DatasetsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers
                 }
             ),
             auth=(self._username, self._password)
@@ -82,6 +85,7 @@ class DatasetsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers
                 }
             ),
             auth=(self._username, self._password)
@@ -116,6 +120,7 @@ class DatasetsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers
                 }
             ),
             auth=(self._username, self._password)
@@ -152,6 +157,7 @@ class AsyncDatasetsClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -159,6 +165,7 @@ class AsyncDatasetsClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
 
     async def get(self, dataset_name: str) -> Dataset:
         async with httpx.AsyncClient() as _client:
@@ -170,6 +177,7 @@ class AsyncDatasetsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)
@@ -206,6 +214,7 @@ class AsyncDatasetsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)
@@ -241,6 +250,7 @@ class AsyncDatasetsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)
