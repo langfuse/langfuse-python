@@ -30,6 +30,7 @@ class CallbackHandler(BaseCallbackHandler):
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
+        additional_headers: Optional[Dict] = {},
     ) -> None:
         # If we're provided a stateful trace client directly
 
@@ -52,7 +53,7 @@ class CallbackHandler(BaseCallbackHandler):
 
         # Otherwise, initialize stateless using the provided keys
         elif public_key and secret_key:
-            self.langfuse = Langfuse(public_key, secret_key, host, debug=debug, release=release)
+            self.langfuse = Langfuse(public_key, secret_key, host, debug=debug, release=release, additional_headers=additional_headers)
             self.trace = None
             self.rootSpan = None
             self.runs = {}
