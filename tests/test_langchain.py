@@ -27,27 +27,73 @@ from tests.utils import create_uuid
 
 
 def test_callback_default_host():
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), debug=True)
+    handler = CallbackHandler(debug=True)
     assert handler.langfuse.base_url == "https://cloud.langfuse.com"
 
 
 def test_langfuse_init():
-    callback = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    callback = CallbackHandler(debug=True)
     assert callback.trace is None
     assert not callback.runs
 
 
-def test_langfuse_release_init():
-    callback = CallbackHandler(
-        os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), release="something"
+def test_setup_without_keys():
+    public_key, secret_key, host = (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
     )
+    os.environ.pop("LANGFUSE_PUBLIC_KEY")
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+    os.environ.pop("LANGFUSE_HOST")
+    with pytest.raises(ValueError):
+        CallbackHandler()
+
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+    os.environ["LANGFUSE_HOST"] = host
+
+
+def test_setup_without_pk():
+    public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
+    os.environ.pop("LANGFUSE_PUBLIC_KEY")
+    with pytest.raises(ValueError):
+        CallbackHandler()
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+
+
+def test_setup_without_sk():
+    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+    with pytest.raises(ValueError):
+        CallbackHandler()
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+
+
+def test_public_key_in_header():
+    handler = CallbackHandler(public_key="test_LANGFUSE_PUBLIC_KEY")
+    assert handler.langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
+
+
+def test_secret_key_in_header():
+    handler = CallbackHandler(secret_key="test_LANGFUSE_SECRET_KEY")
+    assert handler.langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
+
+
+def test_host_in_header():
+    handler = CallbackHandler(host="http://localhost:8000/")
+    assert handler.langfuse.client._environment == "http://localhost:8000/"
+
+
+def test_langfuse_release_init():
+    callback = CallbackHandler(release="something")
     assert callback.langfuse.release == "something"
 
 
 def test_langfuse_span():
     trace_id = create_uuid()
     span_id = create_uuid()
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    langfuse = Langfuse(debug=True)
     trace = langfuse.trace(CreateTrace(id=trace_id))
     span = trace.span(CreateSpan(id=span_id))
 
@@ -59,8 +105,8 @@ def test_langfuse_span():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
     trace = langfuse.trace(CreateTrace(id=trace_id))
@@ -88,8 +134,8 @@ def test_callback_generated_from_trace():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_azure_chat():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
     trace = langfuse.trace(CreateTrace(id=trace_id))
@@ -125,8 +171,8 @@ def test_callback_generated_from_trace_azure_chat():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
     trace = langfuse.trace(CreateTrace(id=trace_id))
@@ -154,8 +200,8 @@ def test_callback_generated_from_trace_anthropic():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_from_trace_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
     trace = langfuse.trace(CreateTrace(id=trace_id))
@@ -184,8 +230,8 @@ def test_callback_from_trace_simple_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_next_span_id_from_trace_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    langfuse = Langfuse(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
     trace = langfuse.trace(CreateTrace(id=trace_id))
@@ -221,8 +267,8 @@ def test_next_span_id_from_trace_simple_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -245,8 +291,8 @@ def test_callback_simple_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_sequential_chain():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -282,8 +328,8 @@ def test_callback_sequential_chain():
 @pytest.mark.skip(reason="inference cost")
 def test_stuffed_chain():
     with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
-        api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-        handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+        api_wrapper = LangfuseAPI()
+        handler = CallbackHandler(debug=True)
 
         text = f.read()
         docs = [Document(page_content=text)]
@@ -311,8 +357,8 @@ def test_stuffed_chain():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -343,8 +389,8 @@ def test_callback_retriever():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_with_sources():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -372,8 +418,8 @@ def test_callback_retriever_with_sources():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_conversational():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
 
@@ -409,8 +455,8 @@ def test_callback_retriever_conversational():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -429,8 +475,8 @@ def test_callback_simple_openai():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai_streaming():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=True)
 
@@ -455,8 +501,8 @@ def test_callback_simple_openai_streaming():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_llm_chat():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -479,8 +525,8 @@ def test_callback_simple_llm_chat():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_huggingface_hub():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
         repo_id = "google/flan-t5-small"
@@ -511,8 +557,8 @@ Title: {title}
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
-    api_wrapper = LangfuseAPI(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"))
-    handler = CallbackHandler(os.environ.get("LF_PK"), os.environ.get("LF_SK"), os.environ.get("HOST"), debug=True)
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=True)
 
     llm = ChatOpenAI(model="gpt-4", temperature=0)
     prompt = ChatPromptTemplate.from_messages(
