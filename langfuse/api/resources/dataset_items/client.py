@@ -29,6 +29,7 @@ class DatasetItemsClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -36,6 +37,7 @@ class DatasetItemsClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
 
     def create(self, *, request: CreateDatasetItemRequest) -> DatasetItem:
         _response = httpx.request(
@@ -47,6 +49,7 @@ class DatasetItemsClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers
                 }
             ),
             auth=(self._username, self._password)
@@ -83,6 +86,7 @@ class AsyncDatasetItemsClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -90,6 +94,7 @@ class AsyncDatasetItemsClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
 
     async def create(self, *, request: CreateDatasetItemRequest) -> DatasetItem:
         async with httpx.AsyncClient() as _client:
@@ -102,6 +107,7 @@ class AsyncDatasetItemsClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers
                     }
                 ),
                 auth=(self._username, self._password)

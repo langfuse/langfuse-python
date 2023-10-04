@@ -22,7 +22,8 @@ class FintoLangfuse:
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
-        password: str
+        password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -30,6 +31,7 @@ class FintoLangfuse:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_headers = additional_headers
         self.dataset_items = DatasetItemsClient(
             environment=self._environment,
             x_langfuse_sdk_name=self.x_langfuse_sdk_name,
@@ -37,6 +39,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.dataset_run_items = DatasetRunItemsClient(
             environment=self._environment,
@@ -45,6 +48,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.datasets = DatasetsClient(
             environment=self._environment,
@@ -53,6 +57,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.event = EventClient(
             environment=self._environment,
@@ -61,6 +66,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.generations = GenerationsClient(
             environment=self._environment,
@@ -69,6 +75,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.observations = ObservationsClient(
             environment=self._environment,
@@ -77,6 +84,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.score = ScoreClient(
             environment=self._environment,
@@ -85,6 +93,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.span = SpanClient(
             environment=self._environment,
@@ -93,6 +102,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
         self.trace = TraceClient(
             environment=self._environment,
@@ -101,6 +111,7 @@ class FintoLangfuse:
             x_langfuse_public_key=self.x_langfuse_public_key,
             username=self._username,
             password=self._password,
+            additional_headers=additional_headers
         )
 
 

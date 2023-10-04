@@ -30,11 +30,13 @@ class SpanClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
         self.x_langfuse_sdk_version = x_langfuse_sdk_version
         self.x_langfuse_public_key = x_langfuse_public_key
+        self.additional_headers = additional_headers
         self._username = username
         self._password = password
 
@@ -48,6 +50,7 @@ class SpanClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers,
                 }
             ),
             auth=(self._username, self._password)
@@ -83,6 +86,7 @@ class SpanClient:
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                     "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                     "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    **self.additional_headers,
                 }
             ),
             auth=(self._username, self._password)
@@ -119,6 +123,7 @@ class AsyncSpanClient:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: str,
         password: str,
+        additional_headers: typing.Optional[typing.Dict] = {}
     ):
         self._environment = environment
         self.x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -126,6 +131,7 @@ class AsyncSpanClient:
         self.x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self.additional_header = additional_headers
 
     async def create(self, *, request: CreateSpanRequest) -> Observation:
         async with httpx.AsyncClient() as _client:
@@ -138,6 +144,7 @@ class AsyncSpanClient:
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
                         "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
                         "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                        **self.additional_headers,
                     }
                 ),
                 auth=(self._username, self._password)
