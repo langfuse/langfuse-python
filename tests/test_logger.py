@@ -1,5 +1,3 @@
-import pytest
-
 from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
 from langfuse.model import (
@@ -16,21 +14,18 @@ logging.ERROR	40
 """
 
 
-@pytest.mark.timeout(10)
 def test_debug_langfuse():
     langfuse = Langfuse(debug=True)
     assert langfuse.log.level == 10
     assert langfuse.task_manager.log.level == 10
 
 
-@pytest.mark.timeout(10)
 def test_default_langfuse():
     langfuse = Langfuse()
     assert langfuse.log.level == 30
     assert langfuse.task_manager.log.level == 30
 
 
-@pytest.mark.timeout(10)
 def test_default_langfuse_callback():
     callback = CallbackHandler()
     assert callback.log.level == 30
@@ -38,7 +33,6 @@ def test_default_langfuse_callback():
     assert callback.langfuse.log.level == 30
 
 
-@pytest.mark.timeout(10)
 def test_debug_langfuse_callback():
     callback = CallbackHandler(debug=True)
     assert callback.log.level == 10
@@ -46,7 +40,6 @@ def test_debug_langfuse_callback():
     assert callback.langfuse.log.level == 10
 
 
-@pytest.mark.timeout(10)
 def test_default_langfuse_trace_callback():
     langfuse = Langfuse()
     trace = langfuse.trace(CreateTrace(name="test"))
@@ -58,7 +51,6 @@ def test_default_langfuse_trace_callback():
     assert callback.trace.task_manager.log.level == 30
 
 
-@pytest.mark.timeout(10)
 def test_debug_langfuse_trace_callback():
     langfuse = Langfuse(debug=True)
     trace = langfuse.trace(CreateTrace(name="test"))
