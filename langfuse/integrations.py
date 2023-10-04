@@ -1,4 +1,5 @@
 import os
+import threading
 import functools
 from datetime import datetime
 from dotenv import load_dotenv
@@ -28,16 +29,23 @@ class CreateArgsExtractor:
 
 
 class OpenAILangfuse:
+    _instance = None
+    _lock = threading.Lock()
+
     def __new__(cls):
-        if not hasattr(cls, "instance"):
-            cls.instance = super(OpenAILangfuse, cls).__new__(cls)
-            cls.instance.initialize()
-        return cls.instance
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super(OpenAILangfuse, cls).__new__(cls)
+                    cls._instance.initialize()
+        return cls._instance
 
     def initialize(self):
-        self.langfuse = Langfuse(
-            os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"], os.environ["LANGFUSE_HOST"]
-        )
+        self.langfuse = Langfuse()
+    
+    @classmethod
+    def flush(cls):
+        cls._instance.langfuse.flush()
 
     def _get_call_details(self, result, **kwargs):
         name = kwargs.get("name", "OpenAI-generation")
