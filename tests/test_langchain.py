@@ -26,6 +26,23 @@ from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid
 
 
+def test_setup_without_keys():
+    public_key, secret_key, host = (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
+    )
+    os.environ.pop("LANGFUSE_PUBLIC_KEY")
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+    os.environ.pop("LANGFUSE_HOST")
+    with pytest.raises(ValueError):
+        CallbackHandler()
+
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+    os.environ["LANGFUSE_HOST"] = host
+
+
 def test_callback_default_host():
     handler = CallbackHandler(debug=True)
     assert handler.langfuse.base_url == "https://cloud.langfuse.com"

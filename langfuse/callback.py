@@ -33,8 +33,9 @@ class CallbackHandler(BaseCallbackHandler):
         release: Optional[str] = None,
     ) -> None:
         # If we're provided a stateful trace client directly
-        public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        prioritized_public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
+        prioritized_secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        prioritized_host = host if host else os.environ.get("LANGFUSE_HOST")
 
         if statefulClient and isinstance(statefulClient, StatefulTraceClient):
             self.trace = statefulClient
@@ -54,8 +55,14 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[statefulClient.id] = statefulClient
 
         # Otherwise, initialize stateless using the provided keys
-        elif public_key and secret_key:
-            self.langfuse = Langfuse(public_key, secret_key, host, debug=debug, release=release)
+        elif prioritized_public_key and prioritized_secret_key:
+            self.langfuse = Langfuse(
+                public_key=prioritized_public_key,
+                secret_key=prioritized_secret_key,
+                host=prioritized_host,
+                debug=debug,
+                release=release,
+            )
             self.trace = None
             self.rootSpan = None
             self.runs = {}
