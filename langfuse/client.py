@@ -69,7 +69,7 @@ class Langfuse(object):
             console_handler = logging.StreamHandler()
             httpx_logger.addHandler(console_handler)
 
-        self.task_manager = TaskManager()
+        self.task_manager = TaskManager(debug=debug)
 
         public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
@@ -534,7 +534,9 @@ class StatefulTraceClient(StatefulClient):
     def getNewHandler(self):
         from langfuse.callback import CallbackHandler
 
-        return CallbackHandler(statefulClient=self)
+        self.log.debug(f"Creating new handler for trace {self.id}")
+
+        return CallbackHandler(statefulClient=self, debug=self.log.level == logging.DEBUG)
 
 
 class DatasetItemClient:
