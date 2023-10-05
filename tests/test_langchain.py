@@ -1,4 +1,3 @@
-import json
 import os
 from langchain import Anthropic, HuggingFaceHub
 from langchain.llms import OpenAI
@@ -146,7 +145,7 @@ def test_callback_generated_from_trace_anthropic():
     assert trace["id"] == trace_id
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_from_trace_simple_chain():
     langfuse = Langfuse(debug=True)
 
@@ -455,7 +454,7 @@ def test_callback_simple_openai_streaming():
     assert len(trace["observations"]) == 2
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_llm_chat():
     handler = CallbackHandler()
 
@@ -520,7 +519,7 @@ Title: {title}
     assert len(trace["observations"]) == 2
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
     handler = CallbackHandler(debug=True)
     assert handler.langfuse.base_url == "http://localhost:3000"
@@ -587,6 +586,7 @@ def test_callback_openai_functions_python():
         assert generation.completion_tokens is not None
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_create_extraction_chain():
     from langchain.chains import create_extraction_chain
 
