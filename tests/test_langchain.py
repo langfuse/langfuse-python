@@ -32,6 +32,12 @@ def test_langfuse_release_init():
     assert callback.langfuse.release == "something"
 
 
+def test_callback_init():
+    callback = CallbackHandler(debug=True)
+    assert callback.trace is None
+    assert not callback.runs
+
+
 def test_langfuse_span():
     trace_id = create_uuid()
     span_id = create_uuid()

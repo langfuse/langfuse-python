@@ -36,6 +36,7 @@ def test_langfuse_release():
     os.environ.update(backup_environ)
 
 
+# langfuse sdk
 def test_setup_without_any_keys():
     public_key, secret_key, host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
@@ -69,38 +70,43 @@ def test_setup_without_sk():
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
 
 
-def test_public_key_in_header_and_client():
+def test_init_precedence_pk():
     langfuse = Langfuse(public_key="test_LANGFUSE_PUBLIC_KEY")
     assert langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
     assert langfuse.client._username == "test_LANGFUSE_PUBLIC_KEY"
 
 
-def test_secret_key_in_password():
+def test_init_precedence_sk():
     langfuse = Langfuse(secret_key="test_LANGFUSE_SECRET_KEY")
     assert langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
 
 
-def test_host_in_environment():
+def test_init_precedence_env():
     langfuse = Langfuse(host="http://localhost:8000/")
     assert langfuse.client._environment == "http://localhost:8000/"
 
 
-def test_set_via_constructor():
-    langfuse = Langfuse(public_key="a", secret_key="b", host="http://host.com")
-    assert langfuse.client._username == "a"
-    assert langfuse.client._password == "b"
-    assert langfuse.client._environment == "http://host.com"
+def test_sdk_default_host():
+    _, _, host = get_env_variables()
+    os.environ.pop("LANGFUSE_HOST")
+
+    langfuse = Langfuse(debug=True)
+    assert langfuse.base_url == "https://cloud.langfuse.com"
+    os.environ["LANGFUSE_HOST"] = host
 
 
-def get_env_variables():
-    return (
-        os.environ["LANGFUSE_PUBLIC_KEY"],
-        os.environ["LANGFUSE_SECRET_KEY"],
-        os.environ["LANGFUSE_HOST"],
-    )
+def test_sdk_default():
+    public_key, secret_key, host = get_env_variables()
+
+    langfuse = Langfuse()
+
+    assert langfuse.client._username == public_key
+    assert langfuse.client._password == secret_key
+    assert langfuse.client._environment == host
 
 
-def test_setup_without_keys():
+# callback
+def test_callback_setup_without_keys():
     public_key, secret_key, host = get_env_variables()
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
     os.environ.pop("LANGFUSE_SECRET_KEY")
@@ -122,56 +128,17 @@ def test_callback_default_host():
     os.environ["LANGFUSE_HOST"] = host
 
 
-def test_langfuse_default_host():
-    _, _, host = get_env_variables()
-    os.environ.pop("LANGFUSE_HOST")
-
-    langfuse = Langfuse(debug=True)
-    assert langfuse.base_url == "https://cloud.langfuse.com"
-    os.environ["LANGFUSE_HOST"] = host
-
-
-def test_langfuse_init():
-    callback = CallbackHandler(debug=True)
-    assert callback.trace is None
-    assert not callback.runs
-
-
-def test_langchain_setup_without_keys():
+def test_callback_setup():
     public_key, secret_key, host = get_env_variables()
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    os.environ.pop("LANGFUSE_HOST")
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = "public_key"
-    os.environ["LANGFUSE_SECRET_KEY"] = "secret_key"
-    os.environ["LANGFUSE_HOST"] = "http://host.com"
 
     callback_handler = CallbackHandler()
 
-    assert callback_handler.langfuse.client._username == "public_key"
-    assert callback_handler.langfuse.client._environment == "http://host.com"
-    assert callback_handler.langfuse.client._password == "secret_key"
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-    os.environ["LANGFUSE_HOST"] = host
+    assert callback_handler.langfuse.client._username == public_key
+    assert callback_handler.langfuse.client._environment == secret_key
+    assert callback_handler.langfuse.client._password == host
 
 
-def test_setup_with_different_keys():
-    public_key, secret_key, host = get_env_variables()
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    os.environ.pop("LANGFUSE_HOST")
-    with pytest.raises(ValueError):
-        CallbackHandler()
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-    os.environ["LANGFUSE_HOST"] = host
-
-
-def test_langchain_setup_without_pk():
+def test_callback_setup_without_pk():
     public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
     with pytest.raises(ValueError):
@@ -179,7 +146,7 @@ def test_langchain_setup_without_pk():
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
 
 
-def test_langchain_setup_without_sk():
+def test_callback_setup_without_sk():
     secret_key = os.environ["LANGFUSE_SECRET_KEY"]
     os.environ.pop("LANGFUSE_SECRET_KEY")
     with pytest.raises(ValueError):
@@ -187,17 +154,25 @@ def test_langchain_setup_without_sk():
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
 
 
-def test_public_key_in_header_and_password():
+def test_callback_init_precedence_pk():
     handler = CallbackHandler(public_key="test_LANGFUSE_PUBLIC_KEY")
     assert handler.langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
     assert handler.langfuse.client._username == "test_LANGFUSE_PUBLIC_KEY"
 
 
-def test_langchain_secret_key_in_password():
+def test_callback_init_precedence_sk():
     handler = CallbackHandler(secret_key="test_LANGFUSE_SECRET_KEY")
     assert handler.langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
 
 
-def test_host_in_header():
+def test_callback_init_precedence_host():
     handler = CallbackHandler(host="http://localhost:8000/")
     assert handler.langfuse.client._environment == "http://localhost:8000/"
+
+
+def get_env_variables():
+    return (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
+    )
