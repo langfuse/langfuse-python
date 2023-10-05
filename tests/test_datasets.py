@@ -13,7 +13,7 @@ from langfuse.model import CreateDatasetItemRequest, InitialGeneration
 from langfuse.model import CreateDatasetRequest
 
 
-from tests.utils import create_uuid
+from tests.utils import create_uuid, get_api
 
 
 def test_create_and_get_dataset():
@@ -100,11 +100,7 @@ def test_langchain_dataset():
     assert len(run.dataset_run_items) == 1
     assert run.dataset_run_items[0].dataset_run_id == run.id
 
-    api = FintoLangfuse(
-        username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        password=os.environ.get("LANGFUSE_SECRET_KEY"),
-        environment=os.environ.get("LANGFUSE_HOST"),
-    )
+    api = get_api()
     api.generations.get()
     trace = api.trace.get(handler.get_trace_id())
 

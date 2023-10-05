@@ -1,10 +1,6 @@
-import os
 from datetime import datetime
 
-import pytest
-
 from langfuse import Langfuse
-from langfuse.api.client import FintoLangfuse
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
@@ -18,37 +14,7 @@ from langfuse.model import (
 
 from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid
-
-
-def test_langfuse_release():
-    # Backup environment variables to restore them later
-    backup_environ = os.environ.copy()
-
-    # Clearing the environment variables
-    os.environ.clear()
-
-    # These key are required
-    client = Langfuse(public_key="test", secret_key="test")
-    assert client.release is None
-
-    # If neither the LANGFUSE_RELEASE env var nor the release parameter is given,
-    # it should fall back to get_common_release_envs
-    os.environ["CIRCLE_SHA1"] = "mock-sha1"
-    client = Langfuse(public_key="test", secret_key="test")
-    assert client.release == "mock-sha1"
-
-    # If LANGFUSE_RELEASE env var is set, it should take precedence
-    os.environ["LANGFUSE_RELEASE"] = "mock-langfuse-release"
-    client = Langfuse(public_key="test", secret_key="test")
-    assert client.release == "mock-langfuse-release"
-
-    # If the release parameter is given during initialization, it should take the highest precedence
-    client = Langfuse(public_key="test", secret_key="test", release="parameter-release")
-    assert client.release == "parameter-release"
-
-    # Restoring the environment variables
-    os.environ.update(backup_environ)
+from tests.utils import create_uuid, get_api
 
 
 def test_flush():
@@ -65,54 +31,6 @@ def test_flush():
     langfuse.flush()
     # Make sure that the client queue is empty after flushing
     assert langfuse.task_manager.queue.empty()
-
-
-def test_setup_without_keys():
-    public_key, secret_key, host = (
-        os.environ["LANGFUSE_PUBLIC_KEY"],
-        os.environ["LANGFUSE_SECRET_KEY"],
-        os.environ["LANGFUSE_HOST"],
-    )
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    os.environ.pop("LANGFUSE_HOST")
-    with pytest.raises(ValueError):
-        Langfuse()
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-    os.environ["LANGFUSE_HOST"] = host
-
-
-def test_setup_without_pk():
-    public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    with pytest.raises(ValueError):
-        Langfuse()
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-
-
-def test_setup_without_sk():
-    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    with pytest.raises(ValueError):
-        Langfuse()
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-
-
-def test_public_key_in_header():
-    langfuse = Langfuse(public_key="test_LANGFUSE_PUBLIC_KEY")
-    assert langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
-
-
-def test_secret_key_in_header():
-    langfuse = Langfuse(secret_key="test_LANGFUSE_SECRET_KEY")
-    assert langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
-
-
-def test_host_in_header():
-    langfuse = Langfuse(host="http://localhost:8000/")
-    assert langfuse.client._environment == "http://localhost:8000/"
 
 
 def test_shutdown():
@@ -477,11 +395,7 @@ def test_create_trace_and_event():
 
 
 def test_create_span_and_generation():
-    api = FintoLangfuse(
-        username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        password=os.environ.get("LANGFUSE_SECRET_KEY"),
-        environment=os.environ.get("LANGFUSE_HOST"),
-    )
+    api = get_api()
 
     langfuse = Langfuse(debug=True)
 

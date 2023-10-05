@@ -27,7 +27,7 @@ class CallbackHandler(BaseCallbackHandler):
         self,
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
-        host: str = "https://cloud.langfuse.com",
+        host: str = None,
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
@@ -35,7 +35,7 @@ class CallbackHandler(BaseCallbackHandler):
         # If we're provided a stateful trace client directly
         prioritized_public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         prioritized_secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
-        prioritized_host = host if host else os.environ.get("LANGFUSE_HOST")
+        prioritized_host = host if host else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
@@ -542,11 +542,7 @@ class CallbackHandler(BaseCallbackHandler):
 
                 extracted_response = (
                     last_response.text
-                    if last_response.generation_info is None
-                    or (
-                        "finish_reason" not in last_response.generation_info
-                        or last_response.generation_info["finish_reason"] != "function_call"
-                    )
+                    if last_response.text is not None and last_response.text != ""
                     else str(last_response.message.additional_kwargs)
                 )
 
