@@ -23,88 +23,18 @@ from langchain.chains.summarize import load_summarize_chain
 from langchain.chains import ConversationalRetrievalChain
 
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid
-
-
-def test_setup_without_keys():
-    public_key, secret_key, host = (
-        os.environ["LANGFUSE_PUBLIC_KEY"],
-        os.environ["LANGFUSE_SECRET_KEY"],
-        os.environ["LANGFUSE_HOST"],
-    )
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    os.environ.pop("LANGFUSE_HOST")
-    with pytest.raises(ValueError):
-        CallbackHandler()
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-    os.environ["LANGFUSE_HOST"] = host
-
-
-def test_callback_default_host():
-    handler = CallbackHandler(debug=True)
-    assert handler.langfuse.base_url == "https://cloud.langfuse.com"
-
-
-def test_langfuse_init():
-    callback = CallbackHandler(debug=True)
-    assert callback.trace is None
-    assert not callback.runs
-
-
-def test_setup_without_keys():
-    public_key, secret_key, host = (
-        os.environ["LANGFUSE_PUBLIC_KEY"],
-        os.environ["LANGFUSE_SECRET_KEY"],
-        os.environ["LANGFUSE_HOST"],
-    )
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    os.environ.pop("LANGFUSE_HOST")
-    with pytest.raises(ValueError):
-        CallbackHandler()
-
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-    os.environ["LANGFUSE_HOST"] = host
-
-
-def test_setup_without_pk():
-    public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
-    os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    with pytest.raises(ValueError):
-        CallbackHandler()
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
-
-
-def test_setup_without_sk():
-    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
-    os.environ.pop("LANGFUSE_SECRET_KEY")
-    with pytest.raises(ValueError):
-        CallbackHandler()
-    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
-
-
-def test_public_key_in_header():
-    handler = CallbackHandler(public_key="test_LANGFUSE_PUBLIC_KEY")
-    assert handler.langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
-
-
-def test_secret_key_in_header():
-    handler = CallbackHandler(secret_key="test_LANGFUSE_SECRET_KEY")
-    assert handler.langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
-
-
-def test_host_in_header():
-    handler = CallbackHandler(host="http://localhost:8000/")
-    assert handler.langfuse.client._environment == "http://localhost:8000/"
+from tests.utils import create_uuid, get_api
 
 
 def test_langfuse_release_init():
     callback = CallbackHandler(release="something")
     assert callback.langfuse.release == "something"
+
+
+def test_callback_init():
+    callback = CallbackHandler(debug=True)
+    assert callback.trace is None
+    assert not callback.runs
 
 
 def test_langfuse_span():
@@ -217,7 +147,6 @@ def test_callback_generated_from_trace_anthropic():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_from_trace_simple_chain():
-    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -238,17 +167,26 @@ def test_callback_from_trace_simple_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    api = get_api()
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 2
+    assert len(trace.observations) == 2
     assert handler.get_trace_id() == trace_id
-    assert trace["id"] == trace_id
+    assert trace.id == trace_id
+
+    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
 
 
 @pytest.mark.skip(reason="inference cost")
 def test_next_span_id_from_trace_simple_chain():
     api_wrapper = LangfuseAPI()
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse()
 
     trace_id = create_uuid()
     trace = langfuse.trace(CreateTrace(id=trace_id))
@@ -518,14 +456,13 @@ def test_callback_simple_openai_streaming():
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_simple_llm_chat():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=True)
+    handler = CallbackHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 
-    agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
+    agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION)
 
     agent.run(
         "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler]
@@ -534,10 +471,20 @@ def test_callback_simple_llm_chat():
     handler.flush()
 
     trace_id = handler.get_trace_id()
+    api = get_api()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
+    assert trace.id == trace_id
+    assert len(trace.observations) > 2
 
-    assert len(trace["observations"]) > 1
+    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -574,8 +521,8 @@ Title: {title}
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
-    api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
+    assert handler.langfuse.base_url == "http://localhost:3000"
 
     llm = ChatOpenAI(model="gpt-4", temperature=0)
     prompt = ChatPromptTemplate.from_messages(
@@ -624,6 +571,74 @@ def test_callback_openai_functions_python():
 
     handler.langfuse.flush()
 
-    trace = api_wrapper.get_trace(handler.get_trace_id())
+    api = get_api()
+    trace = api.trace.get(handler.get_trace_id())
 
-    assert len(trace["observations"]) == 2
+    assert len(trace.observations) == 2
+
+    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_create_extraction_chain():
+    from langchain.chains import create_extraction_chain
+
+    langfuse = Langfuse(host="http://localhost:3000/", debug=True)
+
+    trace_id = create_uuid()
+
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+    handler = trace.getNewHandler()
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    open_search_vector = Chroma.from_documents(texts, embeddings)
+
+    llm = ChatOpenAI(
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        temperature=0,
+        max_retries=4,
+        streaming=False,
+    )
+
+    main_character = open_search_vector.similarity_search("Who is the main character")
+
+    schema = {
+        "properties": {
+            "Main character": {"type": "string"},
+        },
+        "required": [
+            "Main character",
+        ],
+    }
+    chain = create_extraction_chain(schema, llm)
+
+    result = chain.run(main_character, callbacks=[handler])
+    assert result is not None
+    handler.flush()
+
+    api = get_api()
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None

@@ -20,10 +20,10 @@ class Observation(pydantic.BaseModel):
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime")
     model: typing.Optional[str]
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters")
-    prompt: typing.Optional[typing.Any]
+    input: typing.Optional[typing.Any]
     version: typing.Optional[str]
     metadata: typing.Optional[typing.Any]
-    completion: typing.Optional[str]
+    output: typing.Optional[typing.Any]
     prompt_tokens: int = pydantic.Field(alias="promptTokens")
     completion_tokens: int = pydantic.Field(alias="completionTokens")
     total_tokens: int = pydantic.Field(alias="totalTokens")
