@@ -122,6 +122,15 @@ def test_callback_default_host():
     os.environ["LANGFUSE_HOST"] = host
 
 
+def test_langfuse_default_host():
+    _, _, host = get_env_variables()
+    os.environ.pop("LANGFUSE_HOST")
+
+    langfuse = Langfuse(debug=True)
+    assert langfuse.base_url == "https://cloud.langfuse.com"
+    os.environ["LANGFUSE_HOST"] = host
+
+
 def test_langfuse_init():
     callback = CallbackHandler(debug=True)
     assert callback.trace is None
@@ -181,7 +190,7 @@ def test_langchain_setup_without_sk():
 def test_public_key_in_header_and_password():
     handler = CallbackHandler(public_key="test_LANGFUSE_PUBLIC_KEY")
     assert handler.langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
-    assert handler.langfuse.client._password == "test_LANGFUSE_PUBLIC_KEY"
+    assert handler.langfuse.client._username == "test_LANGFUSE_PUBLIC_KEY"
 
 
 def test_langchain_secret_key_in_password():
