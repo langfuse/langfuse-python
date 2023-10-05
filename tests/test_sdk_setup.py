@@ -134,8 +134,8 @@ def test_callback_setup():
     callback_handler = CallbackHandler()
 
     assert callback_handler.langfuse.client._username == public_key
-    assert callback_handler.langfuse.client._environment == secret_key
-    assert callback_handler.langfuse.client._password == host
+    assert callback_handler.langfuse.client._environment == host
+    assert callback_handler.langfuse.client._password == secret_key
 
 
 def test_callback_setup_without_pk():
