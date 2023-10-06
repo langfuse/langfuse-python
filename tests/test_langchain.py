@@ -50,7 +50,7 @@ def test_langfuse_span():
     assert handler.rootSpan.id == span_id
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
@@ -89,7 +89,7 @@ def test_callback_generated_from_trace():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
@@ -126,7 +126,7 @@ def test_callback_generated_from_trace_azure_chat():
     assert trace["id"] == trace_id
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=True)
@@ -164,7 +164,7 @@ def test_callback_generated_from_trace_anthropic():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_from_trace_simple_chain():
     langfuse = Langfuse(debug=True)
 
@@ -203,7 +203,7 @@ def test_callback_from_trace_simple_chain():
         assert generation.completion_tokens is not None
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_next_span_id_from_trace_simple_chain():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse()
@@ -249,7 +249,7 @@ def test_next_span_id_from_trace_simple_chain():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -282,7 +282,7 @@ def test_callback_simple_chain():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_sequential_chain():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -327,7 +327,7 @@ def test_callback_sequential_chain():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_stuffed_chain():
     with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
         api_wrapper = LangfuseAPI()
@@ -366,7 +366,7 @@ def test_stuffed_chain():
                 assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -407,7 +407,7 @@ def test_callback_retriever():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_with_sources():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -445,7 +445,7 @@ def test_callback_retriever_with_sources():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_conversational():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -486,7 +486,7 @@ def test_callback_retriever_conversational():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -515,7 +515,7 @@ def test_callback_simple_openai():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai_streaming():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -550,7 +550,7 @@ def test_callback_simple_openai_streaming():
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_llm_chat():
     handler = CallbackHandler()
 
@@ -586,7 +586,7 @@ def test_callback_simple_llm_chat():
         assert generation.completion_tokens is not None
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_huggingface_hub():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
@@ -627,7 +627,7 @@ Title: {title}
             assert observation["output"] != ""
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
     handler = CallbackHandler(debug=True)
     assert handler.langfuse.base_url == "http://localhost:3000"
@@ -697,7 +697,7 @@ def test_callback_openai_functions_python():
         assert generation.completion_tokens is not None
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_create_extraction_chain():
     import os
 
