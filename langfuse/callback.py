@@ -8,7 +8,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
-from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, InitialSpan, UpdateGeneration, UpdateSpan
+from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 from langchain.schema.output import LLMResult
 from langchain.schema.messages import BaseMessage
 from langchain.schema.document import Document
@@ -27,14 +27,27 @@ class CallbackHandler(BaseCallbackHandler):
         self,
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
-        host: str = "https://cloud.langfuse.com",
+        host: str = None,
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
     ) -> None:
         # If we're provided a stateful trace client directly
-        public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        prioritized_public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
+        prioritized_secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        prioritized_host = host if host else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+
+        if debug:
+            # Ensures that debug level messages are logged when debug mode is on.
+            # Otherwise, defaults to WARNING level.
+            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
+
+            logging.basicConfig()
+            self.log.setLevel(logging.DEBUG)
+
+            self.log.debug("Debug mode is on. Logging debug level messages.")
+        else:
+            self.log.setLevel(logging.WARNING)
 
         if statefulClient and isinstance(statefulClient, StatefulTraceClient):
             self.trace = statefulClient
@@ -54,20 +67,18 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[statefulClient.id] = statefulClient
 
         # Otherwise, initialize stateless using the provided keys
-        elif public_key and secret_key:
-            self.langfuse = Langfuse(public_key, secret_key, host, debug=debug, release=release)
+        elif prioritized_public_key and prioritized_secret_key:
+            self.langfuse = Langfuse(
+                public_key=prioritized_public_key,
+                secret_key=prioritized_secret_key,
+                host=prioritized_host,
+                debug=debug,
+                release=release,
+            )
             self.trace = None
             self.rootSpan = None
             self.runs = {}
 
-            if debug:
-                # Ensures that debug level messages are logged when debug mode is on.
-                # Otherwise, defaults to WARNING level.
-                # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
-                logging.basicConfig()
-                self.log.setLevel(logging.DEBUG)
-            else:
-                self.log.setLevel(logging.WARNING)
         else:
             self.log.error("Either provide a stateful langfuse object or both public_key and secret_key.")
             raise ValueError("Either provide a stateful langfuse object or both public_key and secret_key.")
@@ -531,11 +542,7 @@ class CallbackHandler(BaseCallbackHandler):
 
                 extracted_response = (
                     last_response.text
-                    if last_response.generation_info is None
-                    or (
-                        "finish_reason" not in last_response.generation_info
-                        or last_response.generation_info["finish_reason"] != "function_call"
-                    )
+                    if last_response.text is not None and last_response.text != ""
                     else str(last_response.message.additional_kwargs)
                 )
 
