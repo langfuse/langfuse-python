@@ -1,5 +1,4 @@
 from datetime import datetime
-import logging
 
 from langfuse import Langfuse
 from langfuse.model import (
