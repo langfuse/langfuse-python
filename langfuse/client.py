@@ -157,7 +157,9 @@ class Langfuse(object):
     ):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.generations.get(page=page, limit=limit, name=name, user_id=user_id)
+            return self.client.observations.get_many(
+                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
+            )
         except Exception as e:
             self.log.exception(e)
             raise e

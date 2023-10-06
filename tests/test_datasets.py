@@ -66,7 +66,7 @@ def test_linking_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
     langfuse = Langfuse(debug=True)
     dataset_name = create_uuid()
@@ -101,7 +101,7 @@ def test_langchain_dataset():
     assert run.dataset_run_items[0].dataset_run_id == run.id
 
     api = get_api()
-    api.generations.get()
+
     trace = api.trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 3
@@ -121,6 +121,18 @@ def test_langchain_dataset():
         "run_name": run_name,
         "dataset_id": dataset.id,
     }
+
+    generations = list(filter(lambda obs: obs.type == "GENERATION", sorted_observations))
+    print(generations)
+    assert len(generations) > 0
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.input != ""
+        assert generation.output != ""
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
 
 
 def sorted_dependencies(
