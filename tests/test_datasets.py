@@ -6,7 +6,6 @@ from langchain import LLMChain, OpenAI, PromptTemplate
 import pytest
 
 from langfuse import Langfuse
-from langfuse.api.client import FintoLangfuse
 from langfuse.api.resources.commons.types.observation import Observation
 
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
@@ -66,7 +65,7 @@ def test_linking_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
     langfuse = Langfuse(debug=True)
     dataset_name = create_uuid()
