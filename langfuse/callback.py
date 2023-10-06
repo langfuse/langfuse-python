@@ -31,6 +31,7 @@ class CallbackHandler(BaseCallbackHandler):
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
+        number_of_workers: Optional[int] = None,
     ) -> None:
         # If we're provided a stateful trace client directly
         prioritized_public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
@@ -74,6 +75,7 @@ class CallbackHandler(BaseCallbackHandler):
                 host=prioritized_host,
                 debug=debug,
                 release=release,
+                number_of_workers=number_of_workers,
             )
             self.trace = None
             self.rootSpan = None

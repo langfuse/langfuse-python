@@ -192,7 +192,7 @@ def test_next_span_id_from_trace_simple_chain():
     trace = langfuse.trace(CreateTrace(id=trace_id))
 
     handler = trace.getNewHandler()
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), model="gpt-3.5-turbo-16k")
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -642,3 +642,63 @@ def test_create_extraction_chain():
         assert generation.total_tokens is not None
         assert generation.prompt_tokens is not None
         assert generation.completion_tokens is not None
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_create_extraction_chain():
+    import os
+
+    from uuid import uuid4
+    from langchain.chains import create_extraction_chain
+
+    from langfuse.client import Langfuse
+    from langfuse.model import CreateTrace
+    from langchain.text_splitter import CharacterTextSplitter
+    from langchain.embeddings.openai import OpenAIEmbeddings
+    from langchain.vectorstores import Chroma
+    from langchain.chat_models import ChatOpenAI
+    from langchain.document_loaders import TextLoader
+
+    def create_uuid():
+        return str(uuid4())
+
+    langfuse = Langfuse(debug=True, host="http://localhost:3000")
+
+    trace_id = create_uuid()
+
+    trace = langfuse.trace(CreateTrace(id=trace_id))
+    handler = trace.getNewHandler()
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    vector_search = Chroma.from_documents(texts, embeddings)
+
+    main_character = vector_search.similarity_search("Who is the main character and what is the summary of the text?")
+
+    llm = ChatOpenAI(
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        temperature=0,
+        streaming=False,
+        model="gpt-3.5-turbo-16k-0613",
+    )
+
+    schema = {
+        "properties": {
+            "Main character": {"type": "string"},
+            "Summary": {"type": "string"},
+        },
+        "required": [
+            "Main character",
+            "Cummary",
+        ],
+    }
+    chain = create_extraction_chain(schema, llm)
+
+    result = chain.run(main_character, callbacks=[handler])
+
+    handler.flush()
