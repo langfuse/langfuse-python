@@ -533,12 +533,10 @@ def test_get_generations():
 
     langfuse.flush()
     generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
-
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
-    # TODO: add back in
-    # assert generations.data[0].input == "great-prompt"
-    # assert generations.data[0].completion == "great-completion"
+    assert generations.data[0].input == "great-prompt"
+    assert generations.data[0].output == {"completion": "great-completion"}
 
 
 def test_get_generations_by_user():
@@ -573,6 +571,5 @@ def test_get_generations_by_user():
     print(generations)
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
-    # TODO: add back in
-    # assert generations.data[0].input == "great-prompt"
-    # assert generations.data[0].output == "great-completion"
+    assert generations.data[0].input == "great-prompt"
+    assert generations.data[0].output == {"completion": "great-completion"}

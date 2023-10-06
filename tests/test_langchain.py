@@ -193,7 +193,8 @@ def test_callback_from_trace_simple_chain():
     assert handler.get_trace_id() == trace_id
     assert trace.id == trace_id
 
-    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
@@ -572,7 +573,8 @@ def test_callback_simple_llm_chat():
     assert trace.id == trace_id
     assert len(trace.observations) > 2
 
-    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
 
     for generation in generations:
         assert generation.input is not None
@@ -682,7 +684,8 @@ def test_callback_openai_functions_python():
 
     assert len(trace.observations) == 2
 
-    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
 
     for generation in generations:
         assert generation.input is not None
@@ -757,7 +760,8 @@ def test_create_extraction_chain():
 
     trace = api.trace.get(handler.get_trace_id())
 
-    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
 
     for generation in generations:
         assert generation.input is not None

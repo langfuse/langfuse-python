@@ -40,7 +40,8 @@ from .commons import (
 from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest
-from .generations import Generations, UpdateGenerationRequest
+from .generations import UpdateGenerationRequest
+from .observations import Observations
 from .score import CreateScoreRequest, Scores
 from .span import UpdateSpanRequest
 from .trace import CreateTraceRequest, Traces
@@ -61,13 +62,13 @@ __all__ = [
     "DatasetRunItem",
     "DatasetStatus",
     "Error",
-    "Generations",
     "LlmUsage",
     "MapValue",
     "MethodNotAllowedError",
     "NotFoundError",
     "Observation",
     "ObservationLevel",
+    "Observations",
     "Score",
     "Scores",
     "Trace",
