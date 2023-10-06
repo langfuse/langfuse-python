@@ -122,7 +122,7 @@ def test_langchain_dataset():
     }
 
     generations = list(filter(lambda obs: obs.type == "GENERATION", sorted_observations))
-    print(generations)
+
     assert len(generations) > 0
     for generation in generations:
         assert generation.input is not None

@@ -568,7 +568,6 @@ def test_get_generations_by_user():
     langfuse.flush()
     generations = langfuse.get_generations(limit=10, page=1, user_id=user_id)
 
-    print(generations)
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
     assert generations.data[0].input == "great-prompt"
