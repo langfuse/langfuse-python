@@ -78,6 +78,16 @@ def test_callback_generated_from_trace():
     assert len(trace["observations"]) == 2
     assert trace["id"] == trace_id
 
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
+
 
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_azure_chat():
@@ -143,6 +153,15 @@ def test_callback_generated_from_trace_anthropic():
     assert handler.get_trace_id() == trace_id
     assert len(trace["observations"]) == 2
     assert trace["id"] == trace_id
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -192,7 +211,7 @@ def test_next_span_id_from_trace_simple_chain():
     trace = langfuse.trace(CreateTrace(id=trace_id))
 
     handler = trace.getNewHandler()
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), model="gpt-3.5-turbo-16k")
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -218,6 +237,15 @@ def test_next_span_id_from_trace_simple_chain():
     assert trace["id"] == trace_id
 
     assert trace["observations"][2]["id"] == next_span_id
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -225,7 +253,7 @@ def test_callback_simple_chain():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=True)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -242,6 +270,15 @@ def test_callback_simple_chain():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -278,6 +315,15 @@ def test_callback_sequential_chain():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 5
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -308,6 +354,15 @@ def test_stuffed_chain():
         trace = api_wrapper.get_trace(trace_id)
 
         assert len(trace["observations"]) == 3
+        for observation in trace["observations"]:
+            if observation["type"] == "GENERATION":
+                assert observation["promptTokens"] > 0
+                assert observation["completionTokens"] > 0
+                assert observation["totalTokens"] > 0
+                assert observation["input"] is not None
+                assert observation["input"] != ""
+                assert observation["output"] is not None
+                assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -340,6 +395,15 @@ def test_callback_retriever():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 5
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -369,6 +433,15 @@ def test_callback_retriever_with_sources():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 5
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -406,6 +479,10 @@ def test_callback_retriever_conversational():
             assert observation["promptTokens"] > 0
             assert observation["completionTokens"] > 0
             assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -426,6 +503,15 @@ def test_callback_simple_openai():
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -452,6 +538,15 @@ def test_callback_simple_openai_streaming():
     assert generation["totalTokens"] is not None
 
     assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -482,6 +577,8 @@ def test_callback_simple_llm_chat():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
+        assert generation.input != ""
+        assert generation.output != ""
         assert generation.total_tokens is not None
         assert generation.prompt_tokens is not None
         assert generation.completion_tokens is not None
@@ -517,6 +614,15 @@ Title: {title}
     trace = api_wrapper.get_trace(trace_id)
 
     assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -581,64 +687,8 @@ def test_callback_openai_functions_python():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
-
-
-@pytest.mark.skip(reason="inference cost")
-def test_create_extraction_chain():
-    from langchain.chains import create_extraction_chain
-
-    langfuse = Langfuse(host="http://localhost:3000/", debug=True)
-
-    trace_id = create_uuid()
-
-    trace = langfuse.trace(CreateTrace(id=trace_id))
-    handler = trace.getNewHandler()
-
-    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(documents)
-
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    open_search_vector = Chroma.from_documents(texts, embeddings)
-
-    llm = ChatOpenAI(
-        openai_api_key=os.getenv("OPENAI_API_KEY"),
-        temperature=0,
-        max_retries=4,
-        streaming=False,
-    )
-
-    main_character = open_search_vector.similarity_search("Who is the main character")
-
-    schema = {
-        "properties": {
-            "Main character": {"type": "string"},
-        },
-        "required": [
-            "Main character",
-        ],
-    }
-    chain = create_extraction_chain(schema, llm)
-
-    result = chain.run(main_character, callbacks=[handler])
-    assert result is not None
-    handler.flush()
-
-    api = get_api()
-
-    trace = api.trace.get(handler.get_trace_id())
-
-    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
-
-    for generation in generations:
-        assert generation.input is not None
-        assert generation.output is not None
+        assert generation.input != ""
+        assert generation.output != ""
         assert generation.total_tokens is not None
         assert generation.prompt_tokens is not None
         assert generation.completion_tokens is not None
@@ -699,6 +749,21 @@ def test_create_extraction_chain():
     }
     chain = create_extraction_chain(schema, llm)
 
-    result = chain.run(main_character, callbacks=[handler])
+    chain.run(main_character, callbacks=[handler])
 
     handler.flush()
+
+    api = get_api()
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    generations = filter(lambda x: x.type == "GENERATION", trace.observations)
+
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.input != ""
+        assert generation.output != ""
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
