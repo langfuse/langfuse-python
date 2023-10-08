@@ -9,6 +9,8 @@ from langfuse.model import (
     InitialGeneration,
     InitialScore,
     InitialSpan,
+    UpdateGeneration,
+    UpdateSpan,
     Usage,
 )
 
@@ -370,6 +372,46 @@ def test_create_generation_and_trace():
     span = trace["observations"][0]
     assert span["name"] == "generation"
     assert span["traceId"] == trace["id"]
+
+
+def test_update_generation():
+    langfuse = Langfuse(debug=True)
+    api = get_api()
+
+    generation = langfuse.generation(InitialGeneration(name="generation"))
+    generation.update(UpdateGeneration(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(generation.trace_id)
+
+    assert trace.name == "generation"
+    assert len(trace.observations) == 1
+
+    retrieved_generation = trace.observations[0]
+    assert retrieved_generation.name == "generation"
+    assert retrieved_generation.trace_id == generation.trace_id
+    assert retrieved_generation.metadata == {"dict": "value"}
+
+
+def test_update_span():
+    langfuse = Langfuse(debug=True)
+    api = get_api()
+
+    span = langfuse.span(InitialSpan(name="span"))
+    span.update(UpdateSpan(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(span.trace_id)
+
+    assert trace.name == "span"
+    assert len(trace.observations) == 1
+
+    retrieved_span = trace.observations[0]
+    assert retrieved_span.name == "span"
+    assert retrieved_span.trace_id == span.trace_id
+    assert retrieved_span.metadata == {"dict": "value"}
 
 
 def test_create_trace_and_event():
