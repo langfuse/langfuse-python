@@ -575,6 +575,7 @@ class DatasetItemClient:
             observation.task_manager.flush()
             observation_id = observation.id
         elif isinstance(observation, str):
+            self.langfuse.flush()
             observation_id = observation
         else:
             raise ValueError("observation parameter must be either a StatefulClient or a string")
