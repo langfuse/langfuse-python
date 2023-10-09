@@ -4,7 +4,7 @@ from langchain.llms import OpenAI
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
 import pytest
-from langfuse.callback import CallbackHandler
+from langfuse.callback.langchain import CallbackHandler
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter

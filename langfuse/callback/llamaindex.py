@@ -6,16 +6,19 @@ from datetime import datetime
 from collections import defaultdict
 from contextvars import ContextVar
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union, Tuple, Callable
 
 from llama_index.callbacks.base_handler import BaseCallbackHandler
+from llama_index.callbacks.token_counting import get_llm_token_counts
 from llama_index.callbacks.schema import (
     CBEvent,
     BASE_TRACE_EVENT,
     LEAF_EVENTS,
     CBEventType,
     EventPayload,
+    TIMESTAMP_FORMAT,
 )
+from llama_index.utils import globals_helper
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
@@ -30,6 +33,7 @@ global_stack_trace_ids = ContextVar("trace_ids", default=empty_trace_ids)
 class CallbackHandler(BaseCallbackHandler, ABC):
     def __init__(
         self,
+        tokenizer: Optional[Callable[[str], List]] = None,
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
         host: str = None,
@@ -88,6 +92,7 @@ class CallbackHandler(BaseCallbackHandler, ABC):
             self.log.error("Either provide a stateful langfuse object or both public_key and secret_key.")
             raise ValueError("Either provide a stateful langfuse object or both public_key and secret_key.")
 
+        self.tokenizer = tokenizer or globals_helper.tokenizer
         self._event_pairs_by_id: Dict[str, List[CBEvent]] = defaultdict(list)
         self._cur_trace_id: Optional[str] = None
         self._trace_map: Dict[str, List[str]] = defaultdict(list)
@@ -258,71 +263,162 @@ class CallbackHandler(BaseCallbackHandler, ABC):
 
     def _log_trace_tree(self) -> None:
         try:
-            if self.trace is None and self.langfuse is not None:
-                trace = self.langfuse.trace(
-                    CreateTrace(
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                    )
-                )
+            child_nodes = self._trace_map["root"]
+            root_event_pair = self._event_pairs_by_id[child_nodes[0]]
+            trace_id = self._cur_trace_id if len(child_nodes) > 1 else None
 
-                self.trace = trace
-
-            if parent_run_id is not None and parent_run_id in self.runs:
-                self.runs[run_id] = self.runs[parent_run_id].span(
-                    CreateSpan(
-                        id=self.nextSpanId,
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        input=inputs,
-                        startTime=datetime.now(),
-                    )
-                )
-                self.nextSpanId = None
+            if trace_id is None:
+                event_type = root_event_pair[0].event_type
             else:
-                self.runs[run_id] = (
-                    self.trace.span(
-                        CreateSpan(
-                            id=self.nextSpanId,
-                            traceId=self.trace.id,
-                            name=class_name,
-                            metadata=self.__join_tags_and_metadata(tags, metadata),
-                            input=inputs,
-                            startTime=datetime.now(),
-                        )
-                    )
-                    if self.rootSpan is None
-                    else self.rootSpan.span(
-                        CreateSpan(
-                            id=self.nextSpanId,
-                            traceId=self.trace.id,
-                            name=class_name,
-                            metadata=self.__join_tags_and_metadata(tags, metadata),
-                            input=inputs,
-                            startTime=datetime.now(),
-                        )
-                    )
-                )
+                event_type = trace_id  # type: ignore
 
-                self.nextSpanId = None
+            trace = self.langfuse.trace(
+                CreateTrace(
+                    name=event_type,
+                )
+            )
 
         except Exception as e:
-            self.log.exception(e)
+            print(f"Failed to log trace tree to W&B: {e}")
 
-    def __join_tags_and_metadata(
-        self,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
-        if tags is None and metadata is None:
-            return None
-        elif tags is not None and len(tags) > 0:
-            final_dict = {"tags": tags}
-            if metadata is not None:
-                final_dict.update(metadata)  # Merge metadata into final_dict
-            return final_dict
+    def _convert_event_pair_to_langfuse_trace_and_span(self, event_pair: List[CBEvent], trace_id: Optional[str] = None):
+        start_time_sec, end_time_sec = self._get_time_in_sec(event_pair)
+
+        if trace_id is None:
+            event_type = event_pair[0].event_type
+            if event_type == CBEventType.QUERY:
+                is_span = False
+            else:
+                is_span = True
         else:
-            return metadata
+            event_type = trace_id  # type: ignore
+            is_span = True
+
+        trace = self.langfuse.trace(
+            CreateTrace(
+                name=event_type,
+                metadata=self.__join_tags_and_metadata(tags, metadata),
+            )
+        )
+
+        inputs, outputs, metadata = self._get_payload_data(event_pair)
+
+        if is_span:
+            span = CreateSpan(
+                id=self.nextSpanId,
+                name=event_type,
+                metadata=metadata,
+                input=inputs,
+                output=outputs,
+                startTime=start_time_sec,
+                endTime=end_time_sec,
+            )
+
+    def _get_payload_data(self, event_pair: List[CBEvent]) -> None:
+        assert len(event_pair) == 2
+        event_type = event_pair[0].event_type
+        inputs = None
+        outputs = None
+        metadata = None
+
+        if event_type == CBEventType.NODE_PARSING:
+            # TODO: disabled full detailed inputs/outputs due to UI lag
+            inputs, outputs = self._handle_node_parsing_payload(event_pair)
+        elif event_type == CBEventType.LLM:
+            inputs, outputs, metadata = self._handle_llm_payload(event_pair)
+        elif event_type == CBEventType.QUERY:
+            inputs, outputs = self._handle_query_payload(event_pair)
+        elif event_type == CBEventType.EMBEDDING:
+            inputs, outputs = self._handle_embedding_payload(event_pair)
+
+        return inputs, outputs, metadata
+
+    def _handle_node_parsing_payload(self, event_pair: List[CBEvent]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Handle the payload of a NODE_PARSING event."""
+        inputs = event_pair[0].payload
+        outputs = event_pair[-1].payload
+
+        if inputs and EventPayload.DOCUMENTS in inputs:
+            documents = inputs.pop(EventPayload.DOCUMENTS)
+            inputs["num_documents"] = len(documents)
+
+        if outputs and EventPayload.NODES in outputs:
+            nodes = outputs.pop(EventPayload.NODES)
+            outputs["num_nodes"] = len(nodes)
+
+        return inputs or {}, outputs or {}
+
+    def _handle_embedding_payload(
+        self,
+        event_pair: List[CBEvent],
+    ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+        event_pair[0].payload
+        outputs = event_pair[-1].payload
+
+        chunks = []
+        if outputs:
+            chunks = outputs.get(EventPayload.CHUNKS, [])
+
+        return {}, {"num_chunks": len(chunks)}
+
+    def _handle_query_payload(self, event_pair: List[CBEvent]) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+        """Handle the payload of a QUERY event."""
+
+        inputs = event_pair[0].payload
+        outputs = event_pair[-1].payload
+
+        if outputs:
+            response_obj = outputs[EventPayload.RESPONSE]
+            response = str(outputs[EventPayload.RESPONSE])
+
+            if type(response).__name__ == "Response":
+                response = response_obj.response
+            elif type(response).__name__ == "StreamingResponse":
+                response = response_obj.get_response().response
+        else:
+            response = " "
+
+        outputs = {"response": response}
+
+        return inputs, outputs
+
+    def _handle_llm_payload(self, event_pair: List[CBEvent]) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        """Handle the payload of a LLM event."""
+        inputs = event_pair[0].payload
+        outputs = event_pair[-1].payload
+
+        assert isinstance(inputs, dict) and isinstance(outputs, dict)
+
+        # Get `original_template` from Prompt
+        if EventPayload.PROMPT in inputs:
+            inputs[EventPayload.PROMPT] = inputs[EventPayload.PROMPT]
+
+        # Format messages
+        if EventPayload.MESSAGES in inputs:
+            inputs[EventPayload.MESSAGES] = "\n".join([str(x) for x in inputs[EventPayload.MESSAGES]])
+
+        token_counts = get_llm_token_counts(self.tokenizer, outputs)
+        metadata = {
+            "prompt_token_count": token_counts.prompt_token_count,
+            "completion_token_count": token_counts.completion_token_count,
+            "total_tokens_used": token_counts.total_token_count,
+        }
+
+        # Make `response` part of `outputs`
+        outputs = {EventPayload.RESPONSE: str(outputs[EventPayload.RESPONSE])}
+
+        return inputs, outputs, metadata
+
+    def _get_time_in_sec(self, event_pair: List[CBEvent]) -> Tuple[int, int]:
+        """Get the start and end time of an event pair in milliseconds."""
+
+        start_time = datetime.strptime(event_pair[0].time, TIMESTAMP_FORMAT)
+        end_time = datetime.strptime(event_pair[1].time, TIMESTAMP_FORMAT)
+
+        start_time_in_sec = int((start_time - datetime(1970, 1, 1)).total_seconds())
+        end_time_in_sec = int((end_time - datetime(1970, 1, 1)).total_seconds())
+
+        return start_time_in_sec, end_time_in_sec
 
     def flush(self):
         if self.trace is not None:

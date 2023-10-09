@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from langfuse.callback import CallbackHandler
+from langfuse.callback.langchain import CallbackHandler
 
 from langfuse.client import Langfuse
 

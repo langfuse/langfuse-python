@@ -517,7 +517,7 @@ class StatefulSpanClient(StatefulClient):
             self.log.warning(e)
 
     def get_langchain_handler(self):
-        from langfuse.callback import CallbackHandler
+        from langfuse.callback.langchain import CallbackHandler
 
         return CallbackHandler(statefulClient=self)
 
@@ -530,7 +530,7 @@ class StatefulTraceClient(StatefulClient):
         self.task_manager = task_manager
 
     def getNewHandler(self):
-        from langfuse.callback import CallbackHandler
+        from langfuse.callback.langchain import CallbackHandler
 
         self.log.debug(f"Creating new handler for trace {self.id}")
 
@@ -572,7 +572,7 @@ class DatasetItemClient:
         )
 
     def get_langchain_handler(self, *, run_name: str):
-        from langfuse.callback import CallbackHandler
+        from langfuse.callback.langchain import CallbackHandler
 
         metadata = {"dataset_item_id": self.id, "run_name": run_name, "dataset_id": self.dataset_id}
         trace = self.langfuse.trace(CreateTrace(name="dataset-run", metadata=metadata))
