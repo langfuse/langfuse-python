@@ -17,7 +17,6 @@ from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.create_generation_request import CreateGenerationRequest
 from ..commons.types.observation import Observation
-from .types.generations import Generations
 from .types.update_generation_request import UpdateGenerationRequest
 
 
@@ -109,48 +108,6 @@ class GenerationsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get(
-        self,
-        *,
-        page: typing.Optional[int] = None,
-        limit: typing.Optional[int] = None,
-        name: typing.Optional[str] = None,
-        user_id: typing.Optional[str] = None,
-    ) -> Generations:
-        _response = httpx.request(
-            "GET",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
-            params={"page": page, "limit": limit, "name": name, "userId": user_id},
-            headers=remove_none_from_headers(
-                {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                }
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
-            timeout=60,
-        )
-        if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Generations, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
 
 class AsyncGenerationsClient:
     def __init__(
@@ -226,49 +183,6 @@ class AsyncGenerationsClient:
             )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def get(
-        self,
-        *,
-        page: typing.Optional[int] = None,
-        limit: typing.Optional[int] = None,
-        name: typing.Optional[str] = None,
-        user_id: typing.Optional[str] = None,
-    ) -> Generations:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "GET",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/generations"),
-                params={"page": page, "limit": limit, "name": name, "userId": user_id},
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
-        if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Generations, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore
         if _response.status_code == 401:
