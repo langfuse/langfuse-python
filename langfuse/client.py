@@ -566,9 +566,22 @@ class DatasetItemClient:
         # to ensure that all events are persistet.
         observation.task_manager.flush()
 
-        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation.id}")
-        observation.client.dataset_run_items.create(
-            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
+    def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
+        observation_id = None
+
+        if isinstance(observation, StatefulClient):
+            # flush the queue before creating the dataset run item
+            # to ensure that all events are persisted.
+            observation.task_manager.flush()
+            observation_id = observation.id
+        elif isinstance(observation, str):
+            observation_id = observation
+        else:
+            raise ValueError("observation parameter must be either a StatefulClient or a string")
+
+        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
+        self.langfuse.client.dataset_run_items.create(
+            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id)
         )
 
     def get_langchain_handler(self, *, run_name: str):
