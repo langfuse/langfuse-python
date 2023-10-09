@@ -9,6 +9,8 @@ from langfuse.model import (
     InitialGeneration,
     InitialScore,
     InitialSpan,
+    UpdateGeneration,
+    UpdateSpan,
     Usage,
 )
 
@@ -372,6 +374,46 @@ def test_create_generation_and_trace():
     assert span["traceId"] == trace["id"]
 
 
+def test_update_generation():
+    langfuse = Langfuse(debug=True)
+    api = get_api()
+
+    generation = langfuse.generation(InitialGeneration(name="generation"))
+    generation.update(UpdateGeneration(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(generation.trace_id)
+
+    assert trace.name == "generation"
+    assert len(trace.observations) == 1
+
+    retrieved_generation = trace.observations[0]
+    assert retrieved_generation.name == "generation"
+    assert retrieved_generation.trace_id == generation.trace_id
+    assert retrieved_generation.metadata == {"dict": "value"}
+
+
+def test_update_span():
+    langfuse = Langfuse(debug=True)
+    api = get_api()
+
+    span = langfuse.span(InitialSpan(name="span"))
+    span.update(UpdateSpan(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(span.trace_id)
+
+    assert trace.name == "span"
+    assert len(trace.observations) == 1
+
+    retrieved_span = trace.observations[0]
+    assert retrieved_span.name == "span"
+    assert retrieved_span.trace_id == span.trace_id
+    assert retrieved_span.metadata == {"dict": "value"}
+
+
 def test_create_trace_and_event():
     langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
@@ -533,12 +575,10 @@ def test_get_generations():
 
     langfuse.flush()
     generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
-
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
-    # TODO: add back in
-    # assert generations.data[0].input == "great-prompt"
-    # assert generations.data[0].completion == "great-completion"
+    assert generations.data[0].input == "great-prompt"
+    assert generations.data[0].output == {"completion": "great-completion"}
 
 
 def test_get_generations_by_user():
@@ -570,9 +610,7 @@ def test_get_generations_by_user():
     langfuse.flush()
     generations = langfuse.get_generations(limit=10, page=1, user_id=user_id)
 
-    print(generations)
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
-    # TODO: add back in
-    # assert generations.data[0].input == "great-prompt"
-    # assert generations.data[0].output == "great-completion"
+    assert generations.data[0].input == "great-prompt"
+    assert generations.data[0].output == {"completion": "great-completion"}
