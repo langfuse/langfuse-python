@@ -17,6 +17,7 @@ from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
+from langfuse.logging import clean_logger
 from langfuse.model import (
     DatasetItem,
     CreateDatasetRunItemRequest,
@@ -58,16 +59,10 @@ class Langfuse(object):
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
 
-            httpx_logger = logging.getLogger("httpx")
-            httpx_logger.setLevel(logging.WARNING)  # Set the desired log level
-            console_handler = logging.StreamHandler()
-            httpx_logger.addHandler(console_handler)
+            clean_logger()
         else:
             self.log.setLevel(logging.WARNING)
-            httpx_logger = logging.getLogger("httpx")
-            httpx_logger.setLevel(logging.WARNING)  # Set the desired log level
-            console_handler = logging.StreamHandler()
-            httpx_logger.addHandler(console_handler)
+            clean_logger()
 
         self.task_manager = TaskManager(debug=debug)
 

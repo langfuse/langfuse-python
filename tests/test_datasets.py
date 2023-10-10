@@ -16,7 +16,7 @@ from tests.utils import create_uuid, get_api
 
 
 def test_create_and_get_dataset():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
@@ -25,7 +25,7 @@ def test_create_and_get_dataset():
 
 
 def test_create_dataset_item():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
 
@@ -38,7 +38,7 @@ def test_create_dataset_item():
 
 
 def test_linking_observation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
@@ -66,7 +66,7 @@ def test_linking_observation():
 
 
 def test_linking_via_id_observation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
@@ -96,7 +96,7 @@ def test_linking_via_id_observation():
 
 @pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
 

@@ -21,7 +21,7 @@ from tests.utils import create_uuid, get_api
 
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     for i in range(2):
         langfuse.trace(
@@ -36,7 +36,7 @@ def test_flush():
 
 
 def test_shutdown():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     for i in range(2):
         langfuse.trace(
@@ -54,7 +54,7 @@ def test_shutdown():
 
 
 def test_create_score():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
@@ -97,7 +97,7 @@ def test_create_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -120,7 +120,7 @@ def test_create_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -181,7 +181,7 @@ def test_create_generation():
 
 
 def test_create_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -225,7 +225,7 @@ def test_create_span():
 
 
 def test_score_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -262,7 +262,7 @@ def test_score_trace():
 
 
 def test_score_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     spanId = create_uuid()
@@ -309,7 +309,7 @@ def test_score_span():
 
 
 def test_create_trace_and_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -331,7 +331,7 @@ def test_create_trace_and_span():
 
 
 def test_create_trace_and_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -353,7 +353,7 @@ def test_create_trace_and_generation():
 
 
 def test_create_generation_and_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -375,7 +375,7 @@ def test_create_generation_and_trace():
 
 
 def test_update_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     generation = langfuse.generation(InitialGeneration(name="generation"))
@@ -395,7 +395,7 @@ def test_update_generation():
 
 
 def test_update_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     span = langfuse.span(InitialSpan(name="span"))
@@ -415,7 +415,7 @@ def test_update_span():
 
 
 def test_create_trace_and_event():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -439,7 +439,7 @@ def test_create_trace_and_event():
 def test_create_span_and_generation():
     api = get_api()
 
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     span = langfuse.span(InitialSpan(name="span"))
     langfuse.generation(InitialGeneration(traceId=span.trace_id, name="generation"))
@@ -459,7 +459,7 @@ def test_create_span_and_generation():
 
 
 def test_create_trace_with_id_and_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -549,7 +549,7 @@ def test_end_span():
 
 
 def test_get_generations():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     timestamp = datetime.now()
 
@@ -582,7 +582,7 @@ def test_get_generations():
 
 
 def test_get_generations_by_user():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     timestamp = datetime.now()
 
