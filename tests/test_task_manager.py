@@ -33,7 +33,7 @@ def test_task_manager():
     def my_other_task():
         return 5
 
-    tm = TaskManager(debug=True)
+    tm = TaskManager(debug=False)
 
     # Add tasks
     tm.add_task(1, my_task)
@@ -68,7 +68,7 @@ def test_task_manager_fail():
         retry_count += 1
         raise Exception(f"This task failed {retry_count}")
 
-    tm = TaskManager(debug=True)
+    tm = TaskManager(debug=False)
 
     tm.add_task(1, my_task)
     tm.add_task(2, my_task)
@@ -110,7 +110,7 @@ def test_consumer_restart():
     def short_task():
         return 2
 
-    tm = TaskManager(debug=True)
+    tm = TaskManager(debug=False)
     tm.add_task(1, short_task)
     tm.join()
 
@@ -128,7 +128,7 @@ def test_concurrent_task_additions():
     def add_task_concurrently(tm, task_id, func):
         tm.add_task(task_id, func)
 
-    tm = TaskManager(debug=True)
+    tm = TaskManager(debug=False)
     threads = [threading.Thread(target=add_task_concurrently, args=(tm, i + 1, concurrent_task)) for i in range(10)]
     for t in threads:
         t.start()
@@ -193,7 +193,7 @@ def test_flush():
     def short_task():
         return 2
 
-    tm = TaskManager(debug=True)  # debug=False to avoid logging
+    tm = TaskManager(debug=False)  # debug=False to avoid logging
 
     for i in range(1000):
         tm.add_task(i, short_task)

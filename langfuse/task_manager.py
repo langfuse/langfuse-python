@@ -7,6 +7,8 @@ import threading
 
 import backoff
 
+from langfuse.logging import clean_logger
+
 
 class Task:
     def __init__(self, task_id, function, predecessor_id: str = None):
@@ -40,8 +42,10 @@ class TaskManager(object):
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
+            clean_logger()
         else:
             self.log.setLevel(logging.WARNING)
+            clean_logger()
 
         self.init_resources()
 
