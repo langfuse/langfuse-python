@@ -1,5 +1,5 @@
 import os
-from langchain import Anthropic, HuggingFaceHub
+from langchain import Anthropic, ConversationChain, HuggingFaceHub
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -21,6 +21,7 @@ from langfuse.client import Langfuse
 from langfuse.model import CreateSpan, CreateTrace
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
 
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
@@ -443,6 +444,31 @@ def test_callback_retriever_with_sources():
             assert observation["input"] != ""
             assert observation["output"] is not None
             assert observation["output"] != ""
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_callback_retriever_conversational_with_memory():
+    handler = CallbackHandler(debug=True)
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    conversation = ConversationChain(llm=llm, verbose=True, memory=ConversationBufferMemory(), callbacks=[handler])
+    conversation.predict(input="Hi there!", callbacks=[handler])
+    handler.flush()
+
+    api = get_api()
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) == 1
+
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.input != ""
+        assert generation.output != ""
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
 
 
 @pytest.mark.skip(reason="inference cost")
