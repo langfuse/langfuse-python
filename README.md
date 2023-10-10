@@ -63,7 +63,8 @@ poetry run pre-commit install
 
 1. `poetry version patch`
    - `poetry version prepatch` for pre-release versions
-2. `poetry build`
-3. `poetry publish`
+2. `poetry install`
+3. `poetry build`
+4. `poetry publish`
    - Create PyPi API token: https://pypi.org/manage/account/token/
    - Setup: `poetry config pypi-token.pypi your-api-token`

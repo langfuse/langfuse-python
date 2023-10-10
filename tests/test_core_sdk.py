@@ -9,6 +9,8 @@ from langfuse.model import (
     InitialGeneration,
     InitialScore,
     InitialSpan,
+    UpdateGeneration,
+    UpdateSpan,
     Usage,
 )
 
@@ -19,7 +21,7 @@ from tests.utils import create_uuid, get_api
 
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     for i in range(2):
         langfuse.trace(
@@ -34,7 +36,7 @@ def test_flush():
 
 
 def test_shutdown():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     for i in range(2):
         langfuse.trace(
@@ -52,7 +54,7 @@ def test_shutdown():
 
 
 def test_create_score():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
@@ -95,7 +97,7 @@ def test_create_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -118,7 +120,7 @@ def test_create_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -179,7 +181,7 @@ def test_create_generation():
 
 
 def test_create_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -223,7 +225,7 @@ def test_create_span():
 
 
 def test_score_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -260,7 +262,7 @@ def test_score_trace():
 
 
 def test_score_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     spanId = create_uuid()
@@ -307,7 +309,7 @@ def test_score_span():
 
 
 def test_create_trace_and_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -329,7 +331,7 @@ def test_create_trace_and_span():
 
 
 def test_create_trace_and_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -351,7 +353,7 @@ def test_create_trace_and_generation():
 
 
 def test_create_generation_and_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -372,8 +374,48 @@ def test_create_generation_and_trace():
     assert span["traceId"] == trace["id"]
 
 
+def test_update_generation():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    generation = langfuse.generation(InitialGeneration(name="generation"))
+    generation.update(UpdateGeneration(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(generation.trace_id)
+
+    assert trace.name == "generation"
+    assert len(trace.observations) == 1
+
+    retrieved_generation = trace.observations[0]
+    assert retrieved_generation.name == "generation"
+    assert retrieved_generation.trace_id == generation.trace_id
+    assert retrieved_generation.metadata == {"dict": "value"}
+
+
+def test_update_span():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    span = langfuse.span(InitialSpan(name="span"))
+    span.update(UpdateSpan(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(span.trace_id)
+
+    assert trace.name == "span"
+    assert len(trace.observations) == 1
+
+    retrieved_span = trace.observations[0]
+    assert retrieved_span.name == "span"
+    assert retrieved_span.trace_id == span.trace_id
+    assert retrieved_span.metadata == {"dict": "value"}
+
+
 def test_create_trace_and_event():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -397,7 +439,7 @@ def test_create_trace_and_event():
 def test_create_span_and_generation():
     api = get_api()
 
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     span = langfuse.span(InitialSpan(name="span"))
     langfuse.generation(InitialGeneration(traceId=span.trace_id, name="generation"))
@@ -417,7 +459,7 @@ def test_create_span_and_generation():
 
 
 def test_create_trace_with_id_and_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -507,7 +549,7 @@ def test_end_span():
 
 
 def test_get_generations():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     timestamp = datetime.now()
 
@@ -533,16 +575,14 @@ def test_get_generations():
 
     langfuse.flush()
     generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
-
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
-    # TODO: add back in
-    # assert generations.data[0].input == "great-prompt"
-    # assert generations.data[0].completion == "great-completion"
+    assert generations.data[0].input == "great-prompt"
+    assert generations.data[0].output == {"completion": "great-completion"}
 
 
 def test_get_generations_by_user():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     timestamp = datetime.now()
 
@@ -570,9 +610,7 @@ def test_get_generations_by_user():
     langfuse.flush()
     generations = langfuse.get_generations(limit=10, page=1, user_id=user_id)
 
-    print(generations)
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
-    # TODO: add back in
-    # assert generations.data[0].input == "great-prompt"
-    # assert generations.data[0].output == "great-completion"
+    assert generations.data[0].input == "great-prompt"
+    assert generations.data[0].output == {"completion": "great-completion"}

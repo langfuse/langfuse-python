@@ -90,7 +90,7 @@ def test_sdk_default_host():
     _, _, host = get_env_variables()
     os.environ.pop("LANGFUSE_HOST")
 
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse()
     assert langfuse.base_url == "https://cloud.langfuse.com"
     os.environ["LANGFUSE_HOST"] = host
 

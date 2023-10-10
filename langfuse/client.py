@@ -17,6 +17,7 @@ from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
+from langfuse.logging import clean_logger
 from langfuse.model import (
     DatasetItem,
     CreateDatasetRunItemRequest,
@@ -58,16 +59,10 @@ class Langfuse(object):
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
 
-            httpx_logger = logging.getLogger("httpx")
-            httpx_logger.setLevel(logging.WARNING)  # Set the desired log level
-            console_handler = logging.StreamHandler()
-            httpx_logger.addHandler(console_handler)
+            clean_logger()
         else:
             self.log.setLevel(logging.WARNING)
-            httpx_logger = logging.getLogger("httpx")
-            httpx_logger.setLevel(logging.WARNING)  # Set the desired log level
-            console_handler = logging.StreamHandler()
-            httpx_logger.addHandler(console_handler)
+            clean_logger()
 
         self.task_manager = TaskManager(debug=debug)
 
@@ -157,7 +152,9 @@ class Langfuse(object):
     ):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.generations.get(page=page, limit=limit, name=name, user_id=user_id)
+            return self.client.observations.get_many(
+                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
+            )
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -566,9 +563,23 @@ class DatasetItemClient:
         # to ensure that all events are persistet.
         observation.task_manager.flush()
 
-        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation.id}")
-        observation.client.dataset_run_items.create(
-            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation.id)
+    def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
+        observation_id = None
+
+        if isinstance(observation, StatefulClient):
+            # flush the queue before creating the dataset run item
+            # to ensure that all events are persisted.
+            observation.task_manager.flush()
+            observation_id = observation.id
+        elif isinstance(observation, str):
+            self.langfuse.flush()
+            observation_id = observation
+        else:
+            raise ValueError("observation parameter must be either a StatefulClient or a string")
+
+        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
+        self.langfuse.client.dataset_run_items.create(
+            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id)
         )
 
     def get_langchain_handler(self, *, run_name: str):

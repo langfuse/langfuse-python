@@ -6,7 +6,6 @@ from langchain import LLMChain, OpenAI, PromptTemplate
 import pytest
 
 from langfuse import Langfuse
-from langfuse.api.client import FintoLangfuse
 from langfuse.api.resources.commons.types.observation import Observation
 
 from langfuse.model import CreateDatasetItemRequest, InitialGeneration
@@ -17,7 +16,7 @@ from tests.utils import create_uuid, get_api
 
 
 def test_create_and_get_dataset():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
@@ -26,7 +25,7 @@ def test_create_and_get_dataset():
 
 
 def test_create_dataset_item():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
 
@@ -39,7 +38,7 @@ def test_create_dataset_item():
 
 
 def test_linking_observation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
@@ -66,9 +65,38 @@ def test_linking_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
+def test_linking_via_id_observation():
+    langfuse = Langfuse(debug=False)
+
+    dataset_name = create_uuid()
+    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+
+    input = json.dumps({"input": "Hello World"})
+    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+
+    dataset = langfuse.get_dataset(dataset_name)
+    assert len(dataset.items) == 1
+    assert dataset.items[0].input == input
+
+    run_name = create_uuid()
+    generation_id = create_uuid()
+
+    for item in dataset.items:
+        langfuse.generation(InitialGeneration(id=generation_id))
+        langfuse.flush()
+
+        item.link(generation_id, run_name)
+
+    run = langfuse.get_dataset_run(dataset_name, run_name)
+
+    assert run.name == run_name
+    assert len(run.dataset_run_items) == 1
+    assert run.dataset_run_items[0].observation_id == generation_id
+
+
 @pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
 
@@ -101,7 +129,7 @@ def test_langchain_dataset():
     assert run.dataset_run_items[0].dataset_run_id == run.id
 
     api = get_api()
-    api.generations.get()
+
     trace = api.trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 3
@@ -121,6 +149,18 @@ def test_langchain_dataset():
         "run_name": run_name,
         "dataset_id": dataset.id,
     }
+
+    generations = list(filter(lambda obs: obs.type == "GENERATION", sorted_observations))
+
+    assert len(generations) > 0
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.input != ""
+        assert generation.output != ""
+        assert generation.total_tokens is not None
+        assert generation.prompt_tokens is not None
+        assert generation.completion_tokens is not None
 
 
 def sorted_dependencies(
