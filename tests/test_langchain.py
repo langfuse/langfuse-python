@@ -102,10 +102,10 @@ def test_callback_generated_from_trace_azure_chat():
     llm = AzureChatOpenAI(
         openai_api_base="AZURE_OPENAI_ENDPOINT",
         openai_api_version="2023-05-15",
-        deployment_name="OPENAI_DEPLOYMENT_NAME",
+        deployment_name="gpt-4",
         openai_api_key="AZURE_OPENAI_API_KEY",
         openai_api_type="azure",
-        model_name="text-davinci-002",
+        model_version="0613",
         temperature=0,
     )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.

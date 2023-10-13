@@ -469,7 +469,7 @@ class CallbackHandler(BaseCallbackHandler):
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
-                model_name = kwargs["invocation_params"]["model"]
+                model_name = kwargs["invocation_params"]["engine"]
             elif kwargs["invocation_params"]["_type"] == "llamacpp":
                 model_name = kwargs["invocation_params"]["model_path"]
             else:
