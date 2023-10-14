@@ -1,5 +1,5 @@
 from langfuse import Langfuse
-from langfuse.callback import CallbackHandler
+from langfuse.callback.langchain import CallbackHandler
 from langfuse.model import (
     CreateTrace,
 )
