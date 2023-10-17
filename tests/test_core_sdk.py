@@ -177,7 +177,7 @@ def test_create_generation():
             "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
         },
     ]
-    assert generation["output"] == {"completion": "This document entails the OKR goals for ACME"}
+    assert generation["output"] == "This document entails the OKR goals for ACME"
 
 
 def test_create_span():
@@ -578,7 +578,7 @@ def test_get_generations():
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
     assert generations.data[0].input == "great-prompt"
-    assert generations.data[0].output == {"completion": "great-completion"}
+    assert generations.data[0].output == "great-completion"
 
 
 def test_get_generations_by_user():
@@ -613,4 +613,4 @@ def test_get_generations_by_user():
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
     assert generations.data[0].input == "great-prompt"
-    assert generations.data[0].output == {"completion": "great-completion"}
+    assert generations.data[0].output == "great-completion"
