@@ -78,11 +78,21 @@ class ObservationsClient:
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
     ) -> Observations:
         _response = httpx.request(
             "GET",
             urllib.parse.urljoin(f"{self._environment}/", "api/public/observations"),
-            params={"page": page, "limit": limit, "name": name, "userId": user_id, "type": type},
+            params={
+                "page": page,
+                "limit": limit,
+                "name": name,
+                "userId": user_id,
+                "type": type,
+                "traceId": trace_id,
+                "parentObservationId": parent_observation_id,
+            },
             headers=remove_none_from_headers(
                 {
                     "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
@@ -175,12 +185,22 @@ class AsyncObservationsClient:
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
     ) -> Observations:
         async with httpx.AsyncClient() as _client:
             _response = await _client.request(
                 "GET",
                 urllib.parse.urljoin(f"{self._environment}/", "api/public/observations"),
-                params={"page": page, "limit": limit, "name": name, "userId": user_id, "type": type},
+                params={
+                    "page": page,
+                    "limit": limit,
+                    "name": name,
+                    "userId": user_id,
+                    "type": type,
+                    "traceId": trace_id,
+                    "parentObservationId": parent_observation_id,
+                },
                 headers=remove_none_from_headers(
                     {
                         "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
