@@ -57,6 +57,7 @@ class TraceClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
+            print(_response.json())
             return pydantic.parse_obj_as(Trace, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(str, _response.json()))  # type: ignore

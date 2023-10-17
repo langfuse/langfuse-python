@@ -22,4 +22,7 @@ dmypy.json
 /coverage.xml
 /.coverage
 
+# jupyter notebook
+**/.ipynb_checkpoints
+
 .DS_Store
