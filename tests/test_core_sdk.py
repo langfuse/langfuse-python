@@ -180,6 +180,58 @@ def test_create_generation():
     assert generation["output"] == "This document entails the OKR goals for ACME"
 
 
+def test_create_generation_complex():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    generation_id = create_uuid()
+    langfuse.generation(
+        InitialGeneration(
+            id=generation_id,
+            name="query-generation",
+            prompt=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+                },
+            ],
+            completion=[{"foo": "bar"}],
+            usage=Usage(promptTokens=50, completionTokens=49),
+            metadata=[{"tags": ["yo"]}],
+        )
+    )
+
+    langfuse.flush()
+
+    assert len(langfuse.task_manager.result_mapping) == 2
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert trace["name"] == "query-generation"
+    assert trace["userId"] is None
+    assert trace["metadata"] is None
+    assert trace["externalId"] is None
+
+    assert len(trace["observations"]) == 1
+
+    generation = trace["observations"][0]
+
+    assert generation["id"] == generation_id
+    assert generation["name"] == "query-generation"
+    assert generation["input"] == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+        },
+    ]
+    assert generation["output"] == [{"foo": "bar"}]
+    assert generation["metadata"] == [{"tags": ["yo"]}]
+
+
 def test_create_span():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
