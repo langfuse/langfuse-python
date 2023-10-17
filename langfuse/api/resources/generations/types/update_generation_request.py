@@ -22,7 +22,7 @@ class UpdateGenerationRequest(pydantic.BaseModel):
     prompt: typing.Optional[typing.Any]
     version: typing.Optional[str]
     metadata: typing.Optional[typing.Any]
-    completion: typing.Optional[str]
+    completion: typing.Optional[typing.Any]
     usage: typing.Optional[LlmUsage]
     level: typing.Optional[ObservationLevel]
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
