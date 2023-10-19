@@ -444,6 +444,9 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
+    def get_trace_url(self):
+        return f"{self.client.environment}/trace/{self.trace_id}"
+
 
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
