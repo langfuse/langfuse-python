@@ -445,7 +445,7 @@ class StatefulClient(object):
             self.log.exception(e)
 
     def get_trace_url(self):
-        return f"{self.client.environment}/trace/{self.trace_id}"
+        return f"{self.client._environment}/trace/{self.trace_id}"
 
 
 class StatefulGenerationClient(StatefulClient):
