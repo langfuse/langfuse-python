@@ -102,6 +102,9 @@ class Langfuse(object):
     def get_trace_id(self):
         return self.trace_id
 
+    def get_trace_url(self):
+        return f"{self.base_url}/traces/{self.trace_id}"
+
     def get_dataset(self, name: str):
         try:
             self.log.debug(f"Getting datasets {name}")
@@ -440,6 +443,9 @@ class StatefulClient(object):
             return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
         except Exception as e:
             self.log.exception(e)
+
+    def get_trace_url(self):
+        return f"{self.client._environment}/trace/{self.trace_id}"
 
 
 class StatefulGenerationClient(StatefulClient):

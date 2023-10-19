@@ -155,6 +155,9 @@ class CallbackHandler(BaseCallbackHandler):
     def get_trace_id(self) -> str:
         return self.trace.id
 
+    def get_trace_url(self) -> str:
+        return self.trace.get_trace_url()
+
     def __generate_trace_and_parent(
         self,
         serialized: Dict[str, Any],
