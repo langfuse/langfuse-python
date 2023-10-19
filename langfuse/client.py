@@ -558,7 +558,7 @@ class DatasetItemClient:
 
         self.langfuse = langfuse
 
-    def link(self, observation: StatefulClient, run_name: str):
+    def flush(self, observation: StatefulClient, run_name: str):
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
         observation.task_manager.flush()
