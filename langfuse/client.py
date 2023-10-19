@@ -102,6 +102,9 @@ class Langfuse(object):
     def get_trace_id(self):
         return self.trace_id
 
+    def get_trace_url(self):
+        return f"{self.base_url}/traces/{self.trace_id}"
+
     def get_dataset(self, name: str):
         try:
             self.log.debug(f"Getting datasets {name}")
