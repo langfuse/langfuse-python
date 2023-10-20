@@ -1,4 +1,5 @@
 import os
+import pytest
 from dotenv import load_dotenv
 from langfuse.integrations import openai
 from langfuse.api.client import FintoLangfuse
@@ -16,6 +17,7 @@ api = FintoLangfuse(
 )
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_openai_chat_completion():
     trace_id = create_uuid()
     completion = openai.ChatCompletion.create(
@@ -28,6 +30,7 @@ def test_openai_chat_completion():
     assert len(completion.choices) != 0
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_openai_completion():
     trace_id = create_uuid()
     completion = openai.Completion.create(
