@@ -102,6 +102,9 @@ class Langfuse(object):
     def get_trace_id(self):
         return self.trace_id
 
+    def get_trace_url(self):
+        return f"{self.base_url}/traces/{self.trace_id}"
+
     def get_dataset(self, name: str):
         try:
             self.log.debug(f"Getting datasets {name}")
@@ -441,6 +444,9 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
+    def get_trace_url(self):
+        return f"{self.client._environment}/trace/{self.trace_id}"
+
 
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
@@ -558,7 +564,7 @@ class DatasetItemClient:
 
         self.langfuse = langfuse
 
-    def link(self, observation: StatefulClient, run_name: str):
+    def flush(self, observation: StatefulClient, run_name: str):
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
         observation.task_manager.flush()

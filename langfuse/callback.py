@@ -155,6 +155,9 @@ class CallbackHandler(BaseCallbackHandler):
     def get_trace_id(self) -> str:
         return self.trace.id
 
+    def get_trace_url(self) -> str:
+        return self.trace.get_trace_url()
+
     def __generate_trace_and_parent(
         self,
         serialized: Dict[str, Any],
@@ -546,7 +549,7 @@ class CallbackHandler(BaseCallbackHandler):
                 extracted_response = (
                     last_response.text
                     if last_response.text is not None and last_response.text != ""
-                    else str(last_response.message.additional_kwargs)
+                    else last_response.message.additional_kwargs
                 )
 
                 self.runs[run_id] = self.runs[run_id].update(
