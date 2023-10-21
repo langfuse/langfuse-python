@@ -1,3 +1,4 @@
+import asyncio
 from enum import Enum
 import logging
 import os
@@ -39,10 +40,18 @@ from langfuse.api.resources.generations.types.update_generation_request import U
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
+import nest_asyncio
+
+nest_asyncio.apply()
 
 
 class Langfuse(object):
     log = logging.getLogger("langfuse")
+    task_manager: TaskManager
+    client: AsyncFintoLangfuse
+    base_url: str
+    release: Optional[str]
+    trace_id: Optional[str]
 
     def __init__(
         self,
@@ -64,7 +73,19 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        self.task_manager = TaskManager(debug=debug)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # 'RuntimeError: There is no current event loop...'
+            loop = None
+
+        if loop and loop.is_running():
+            print("Async event loop already running. Adding coroutine to the event loop.")
+            tsk = loop.create_task(TaskManager.create(debug=debug))
+            self.task_manager = loop.run_until_complete(tsk)
+
+        else:
+            print("Starting new event loop")
+            self.task_manager = asyncio.run(TaskManager.create(debug=debug))
 
         public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
@@ -108,7 +129,9 @@ class Langfuse(object):
     def get_dataset(self, name: str):
         try:
             self.log.debug(f"Getting datasets {name}")
-            dataset = self.client.datasets.get(dataset_name=name)
+
+            loop = asyncio.get_event_loop()
+            dataset = loop.run_until_complete(self.client.datasets.get(dataset_name=name))
 
             items = [DatasetItemClient(i, langfuse=self) for i in dataset.items]
 
@@ -124,7 +147,9 @@ class Langfuse(object):
     ) -> DatasetRun:
         try:
             self.log.debug(f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}")
-            return self.client.datasets.get_runs(dataset_name=dataset_name, run_name=dataset_run_name)
+
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.client.datasets.get_runs(dataset_name=dataset_name, run_name=dataset_run_name))
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -132,7 +157,9 @@ class Langfuse(object):
     def create_dataset(self, body: CreateDatasetRequest):
         try:
             self.log.debug(f"Creating datasets {body}")
-            return self.client.datasets.create(request=body)
+
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.client.datasets.create(request=body))
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -140,7 +167,9 @@ class Langfuse(object):
     def create_dataset_item(self, body: CreateDatasetItemRequest):
         try:
             self.log.debug(f"Creating dataset item {body}")
-            return self.client.dataset_items.create(request=body)
+
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.client.dataset_items.create(request=body))
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -155,7 +184,10 @@ class Langfuse(object):
     ):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION")
+
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"))
+
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -165,7 +197,7 @@ class Langfuse(object):
             new_id = str(uuid.uuid4()) if body.id is None else body.id
             self.trace_id = new_id
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"id": new_id})
 
@@ -173,7 +205,7 @@ class Langfuse(object):
                         new_body = new_body.copy(update={"release": self.release})
 
                     self.log.debug(f"Creating trace {new_body}")
-                    return self.client.trace.create(request=new_body)
+                    return await self.client.trace.create(request=new_body)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -188,11 +220,11 @@ class Langfuse(object):
         try:
             new_id = str(uuid.uuid4()) if body.id is None else body.id
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"id": new_id})
                     self.log.debug(f"Creating score {new_body}...")
-                    return self.client.score.create(request=new_body)
+                    return await self.client.score.create(request=new_body)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -215,7 +247,7 @@ class Langfuse(object):
 
             if body.trace_id is None:
 
-                def create_trace():
+                async def create_trace():
                     try:
                         new_body = {
                             "id": new_trace_id,
@@ -225,21 +257,21 @@ class Langfuse(object):
 
                         self.log.debug(f"Creating trace {new_body}...")
                         request = CreateTraceRequest(**new_body)
-                        return self.client.trace.create(request=request)
+                        return await self.client.trace.create(request=request)
                     except Exception as e:
                         self.log.exception(e)
                         raise e
 
                 self.task_manager.add_task(new_trace_id, create_trace)
 
-            def create_span():
+            async def create_span():
                 try:
                     new_body = body.copy(update={"id": new_span_id, "trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = new_body.copy(update={"trace": {"release": self.release}})
                     self.log.debug(f"Creating span {new_body}...")
                     request = CreateSpanRequest(**new_body.dict())
-                    return self.client.span.create(request=request)
+                    return await self.client.span.create(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -258,7 +290,7 @@ class Langfuse(object):
 
             if body.trace_id is None:
 
-                def create_trace():
+                async def create_trace():
                     try:
                         new_body = {
                             "id": new_trace_id,
@@ -268,27 +300,26 @@ class Langfuse(object):
 
                         self.log.debug(f"Creating trace {new_body}...")
                         request = CreateTraceRequest(**new_body)
-                        return self.client.trace.create(request=request)
+                        return await self.client.trace.create(request=request)
                     except Exception as e:
                         self.log.exception(e)
                         raise e
 
                 self.task_manager.add_task(new_trace_id, create_trace)
 
-            def create_generation():
+            async def create_generation():
                 try:
                     new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
                     if self.release is not None:
                         new_body = new_body.copy(update={"trace": {"release": self.release}})
                     self.log.debug(f"Creating top-level generation {new_body}...")
                     request = CreateGenerationRequest(**new_body.dict())
-                    return self.client.generations.log(request=request)
+                    return await self.client.generations.log(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
 
             self.task_manager.add_task(new_generation_id, create_generation)
-
             return StatefulGenerationClient(self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -300,19 +331,22 @@ class Langfuse(object):
     # To guarantee all messages have been delivered, you'll still need to call flush().
     def join(self):
         try:
-            return self.task_manager.join()
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.task_manager.join())
         except Exception as e:
             self.log.exception(e)
 
     def flush(self):
         try:
-            return self.task_manager.flush()
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.task_manager.flush())
         except Exception as e:
             self.log.exception(e)
 
     def shutdown(self):
         try:
-            return self.task_manager.shutdown()
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.task_manager.shutdown())
         except Exception as e:
             self.log.exception(e)
 
@@ -324,6 +358,11 @@ class StateType(Enum):
 
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
+    client: AsyncFintoLangfuse
+    id: str
+    state_type: StateType
+    trace_id: str
+    task_manager: TaskManager
 
     def __init__(self, client: AsyncFintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
@@ -344,7 +383,7 @@ class StatefulClient(object):
         try:
             generation_id = str(uuid.uuid4()) if body.id is None else body.id
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"id": generation_id})
 
@@ -353,7 +392,7 @@ class StatefulClient(object):
                     self.log.debug(f"Creating generation {new_dict}...")
 
                     request = CreateGenerationRequest(**new_dict)
-                    return self.client.generations.log(request=request)
+                    return await self.client.generations.log(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -367,7 +406,7 @@ class StatefulClient(object):
         try:
             span_id = str(uuid.uuid4()) if body.id is None else body.id
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"id": span_id})
                     self.log.debug(f"Creating span {new_body}...")
@@ -375,7 +414,7 @@ class StatefulClient(object):
                     new_dict = self._add_state_to_observation(new_body.dict())
 
                     request = CreateSpanRequest(**new_dict)
-                    return self.client.span.create(request=request)
+                    return await self.client.span.create(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -389,7 +428,7 @@ class StatefulClient(object):
         try:
             score_id = str(uuid.uuid4()) if body.id is None else body.id
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"id": score_id})
                     self.log.debug(f"Creating score {new_body}...")
@@ -400,7 +439,7 @@ class StatefulClient(object):
                         new_dict["observationId"] = self.id
 
                     request = CreateScoreRequest(**new_dict)
-                    return self.client.score.create(request=request)
+                    return await self.client.score.create(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -414,7 +453,7 @@ class StatefulClient(object):
         try:
             event_id = str(uuid.uuid4()) if body.id is None else body.id
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"id": event_id})
                     self.log.debug(f"Creating event {new_body}...")
@@ -422,7 +461,7 @@ class StatefulClient(object):
                     new_dict = self._add_state_to_observation(new_body.dict())
 
                     request = CreateEventRequest(**new_dict)
-                    return self.client.event.create(request=request)
+                    return await self.client.event.create(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -446,12 +485,12 @@ class StatefulGenerationClient(StatefulClient):
         try:
             update_id = str(uuid.uuid4())
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"generation_id": self.id, "trace_id": self.trace_id})
                     self.log.debug(f"Update generation {new_body}...")
                     request = UpdateGenerationRequest(**new_body.dict())
-                    return self.client.generations.update(request=request)
+                    return await self.client.generations.update(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -480,12 +519,12 @@ class StatefulSpanClient(StatefulClient):
         try:
             update_id = str(uuid.uuid4())
 
-            def task():
+            async def task():
                 try:
                     new_body = body.copy(update={"span_id": self.id, "trace_id": self.trace_id})
                     self.log.debug(f"Update span {new_body}...")
                     request = UpdateSpanRequest(**new_body.dict())
-                    return self.client.span.update(request=request)
+                    return await self.client.span.update(request=request)
                 except Exception as e:
                     self.log.exception(e)
                     raise e
@@ -551,7 +590,7 @@ class DatasetItemClient:
     def flush(self, observation: StatefulClient, run_name: str):
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
-        observation.task_manager.flush()
+        self.langfuse.flush()
 
     def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
         observation_id = None
@@ -559,7 +598,7 @@ class DatasetItemClient:
         if isinstance(observation, StatefulClient):
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
-            observation.task_manager.flush()
+            self.langfuse.flush()
             observation_id = observation.id
         elif isinstance(observation, str):
             self.langfuse.flush()
@@ -568,7 +607,8 @@ class DatasetItemClient:
             raise ValueError("observation parameter must be either a StatefulClient or a string")
 
         logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
-        self.langfuse.client.dataset_run_items.create(request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id))
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.langfuse.client.dataset_run_items.create(request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id)))
 
     def get_langchain_handler(self, *, run_name: str):
         from langfuse.callback import CallbackHandler

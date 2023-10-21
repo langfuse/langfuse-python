@@ -1,5 +1,8 @@
+from asyncio import gather
 from datetime import datetime
 import time
+
+import pytest
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -49,6 +52,8 @@ def test_shutdown():
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
+    print(langfuse.task_manager.queue)
+    print(langfuse.task_manager.queue.empty())
     assert langfuse.task_manager.queue.empty()
 
 
@@ -409,37 +414,39 @@ def test_create_generation_and_trace():
     assert span["traceId"] == trace["id"]
 
 
-langfuse = Langfuse(debug=False)
+@pytest.mark.asyncio
+async def test_stuff():
+    start = time.time()
 
+    async def update_generation(i, langfuse: Langfuse):
+        # api = get_api()
+        print(f"update {i}")
+        generation = langfuse.generation(InitialGeneration(name="1-B"))
+        generation.update(UpdateGeneration(metadata={"dict": "value"}))
+        print(f"updated {i}")
 
-def update_generation(i):
-    # api = get_api()
-    print(f"update {i}")
-    generation = langfuse.generation(InitialGeneration(name="1-a"))
-    generation.update(UpdateGeneration(metadata={"dict": "value"}))
+    langfuse = Langfuse(debug=False)
 
-
-def test_stuff():
-    import multiprocessing
-
-    pool = multiprocessing.Pool()
-    pool.map(update_generation, range(100))
-    pool.close()
-    pool.join()
-
+    await gather(*(update_generation(i, langfuse) for i in range(1000)))
+    # pool.close()
+    # pool.join()
+    print(langfuse.task_manager.queue.qsize())
     print("done")
 
     langfuse.flush()
     print(f"flushed {str(langfuse.task_manager.queue.qsize())}")
 
     for x in langfuse.task_manager.consumers:
-        print(f"{x.identifier}, {x.is_alive()}")
+        print(f"{x.identifier}, {x.running}")
 
     langfuse.join()
     for x in langfuse.task_manager.consumers:
-        print(f"{x.identifier}, {x.is_alive()}")
+        print(f"{x.identifier}, {x.running}")
 
     print("joined")
+    end = time.time()
+    time_in_seconds = end - start
+    print(f"Time taken: {time_in_seconds} seconds")
 
     print("shutdown")
     print(f"flushed {str(langfuse.task_manager.queue.qsize())}")

@@ -84,7 +84,7 @@ class TaskManager:
         return instance
 
     async def init_resources(self):
-        for i in range(10):
+        for i in range(30):
             self.log.debug(f"Creating consumer {i}")
             consumer = Consumer(self.queue, i)
             task = asyncio.create_task(consumer.run())
