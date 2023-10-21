@@ -1,4 +1,5 @@
 import asyncio
+import asyncio_atexit
 import logging
 
 import backoff
@@ -74,6 +75,8 @@ class TaskManager:
         else:
             self.log.setLevel(logging.WARNING)
 
+        asyncio_atexit.register(self.join)
+
     @classmethod
     async def create(cls, debug=False, max_task_queue_size=10_000):
         instance = cls(debug=debug, max_task_queue_size=max_task_queue_size)
@@ -111,6 +114,7 @@ class TaskManager:
         for consumer in self.consumers:
             consumer.pause()
         await asyncio.gather(*self.consumer_tasks, return_exceptions=True)
+        self.log.debug("successfully joined all consumers")
 
     async def shutdown(self):
         self.log.info("shutdown initiated")

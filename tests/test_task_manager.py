@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import threading
 import time
@@ -62,45 +63,46 @@ async def test_task_manager_fail():
     assert retry_count == 3
 
 
-@pytest.mark.timeout(20)
-def test_consumer_restart():
+@pytest.mark.asyncio
+async def test_consumer_restart():
     counter = 0
 
-    def short_task():
+    async def short_task():
         nonlocal counter
         counter = counter + 1
 
-    tm = TaskManager(debug=False)
+    tm = await TaskManager.create(debug=True)
     tm.add_task(1, short_task)
-    tm.join()
+    await tm.flush()
 
     tm.add_task(2, short_task)
-    tm.shutdown()
+    await tm.shutdown()
 
     assert counter == 2
 
 
-@pytest.mark.timeout(10)
-def test_concurrent_task_additions():
+@pytest.mark.asyncio
+async def test_concurrent_task_additions():
     counter = 0
 
-    def concurrent_task():
+    async def concurrent_task():
         nonlocal counter
         counter = counter + 1
 
     def add_task_concurrently(tm, task_id, func):
         tm.add_task(task_id, func)
 
-    tm = TaskManager(debug=False)
-    threads = [threading.Thread(target=add_task_concurrently, args=(tm, i + 1, concurrent_task)) for i in range(10)]
+    tm = await TaskManager.create(debug=True)
+    threads = [threading.Thread(target=add_task_concurrently, args=(tm, i + 1, concurrent_task)) for i in range(50)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
 
-    tm.shutdown()
+    await tm.shutdown()
 
-    assert counter == 10
+    logging.warning(counter)
+    assert counter == 50
 
 
 @pytest.mark.timeout(10)
@@ -108,11 +110,12 @@ def test_atexit():
     python_code = """
 import time
 import logging
-from langfuse.task_manager import TaskManager  # assuming task_manager is the module name
+import asyncio
+from langfuse.task_manager import TaskManager
 
-def dummy_function():
+async def dummy_function():
     logging.info("dummy_function")
-    time.sleep(0.5)
+    await asyncio.sleep(0.5)
     return 42
 
 logging.basicConfig(
@@ -123,9 +126,13 @@ logging.basicConfig(
     ]
 )
 print("Adding task manager", TaskManager)
-manager = TaskManager(debug=True)
-a = manager.add_task(1, dummy_function)
-manager.add_task(2, dummy_function)
+loop = asyncio.get_event_loop()
+try:
+    manager = loop.run_until_complete(TaskManager.create(debug=True))
+    manager.add_task(1, dummy_function)
+    manager.add_task(2, dummy_function)
+finally:
+    loop.close()
 
 """
 
@@ -147,40 +154,42 @@ manager.add_task(2, dummy_function)
 
     print(process.stderr)
 
-    assert "consumer thread joined" in logs
+    assert "successfully joined all consumers" in logs
 
 
-def test_flush():
+@pytest.mark.asyncio
+async def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    def short_task():
+    async def short_task():
         return 2
 
-    tm = TaskManager(debug=False)  # debug=False to avoid logging
+    tm = await TaskManager.create(debug=False)  # debug=False to avoid logging
 
     for i in range(1000):
         tm.add_task(i, short_task)
     # We can't reliably assert that the queue is non-empty here; that's
     # a race condition. We do our best to load it up though.
-    tm.flush()
+    await tm.flush()
     # Make sure that the client queue is empty after flushing
     assert tm.queue.empty()
 
 
-def test_shutdown():
+@pytest.mark.asyncio
+async def test_shutdown():
     # set up the consumer with more requests than a single batch will allow
-    def short_task():
+    async def short_task():
         return 2
 
-    tm = TaskManager(debug=False)  # debug=False to avoid logging
+    tm = await TaskManager.create(debug=False)  # debug=False to avoid logging
 
     for i in range(1000):
         tm.add_task(i, short_task)
 
-    tm.shutdown()
+    await tm.shutdown()
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
     assert tm.queue.empty()
 
     for c in tm.consumers:
-        assert not c.is_alive()
+        assert not c.running
