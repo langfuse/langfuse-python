@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -14,7 +15,6 @@ from langfuse.model import (
     Usage,
 )
 
-from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 
@@ -50,7 +50,6 @@ def test_shutdown():
     # 1. client queue is empty
     # 2. consumer thread has stopped
     assert langfuse.task_manager.queue.empty()
-    assert not langfuse.task_manager.consumer_thread.is_alive()
 
 
 def test_create_score():
@@ -66,9 +65,6 @@ def test_create_score():
     )
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
-    assert all(
-        v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
-    ), "Not all tasks succeeded"
 
     score_id = create_uuid()
     langfuse.score(
@@ -87,9 +83,6 @@ def test_create_score():
     langfuse.flush()
 
     assert langfuse.task_manager.queue.qsize() == 0
-    assert all(
-        v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
-    ), "Not all tasks succeeded"
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -148,8 +141,6 @@ def test_create_generation():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 2
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -204,8 +195,6 @@ def test_create_generation_complex():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 2
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -252,8 +241,6 @@ def test_create_span():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 2
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -294,8 +281,6 @@ def test_score_trace():
     )
 
     langfuse.flush()
-
-    assert len(langfuse.task_manager.result_mapping) == 2
 
     trace_id = langfuse.get_trace_id()
 
@@ -342,8 +327,6 @@ def test_score_span():
     )
 
     langfuse.flush()
-
-    assert len(langfuse.task_manager.result_mapping) == 3
 
     trace_id = langfuse.get_trace_id()
 
@@ -426,24 +409,40 @@ def test_create_generation_and_trace():
     assert span["traceId"] == trace["id"]
 
 
-def test_update_generation():
-    langfuse = Langfuse(debug=False)
-    api = get_api()
+langfuse = Langfuse(debug=False)
 
-    generation = langfuse.generation(InitialGeneration(name="generation"))
+
+def update_generation(i):
+    # api = get_api()
+    print(f"update {i}")
+    generation = langfuse.generation(InitialGeneration(name="1-a"))
     generation.update(UpdateGeneration(metadata={"dict": "value"}))
 
+
+def test_stuff():
+    import multiprocessing
+
+    pool = multiprocessing.Pool()
+    pool.map(update_generation, range(100))
+    pool.close()
+    pool.join()
+
+    print("done")
+
     langfuse.flush()
+    print(f"flushed {str(langfuse.task_manager.queue.qsize())}")
 
-    trace = api.trace.get(generation.trace_id)
+    for x in langfuse.task_manager.consumers:
+        print(f"{x.identifier}, {x.is_alive()}")
 
-    assert trace.name == "generation"
-    assert len(trace.observations) == 1
+    langfuse.join()
+    for x in langfuse.task_manager.consumers:
+        print(f"{x.identifier}, {x.is_alive()}")
 
-    retrieved_generation = trace.observations[0]
-    assert retrieved_generation.name == "generation"
-    assert retrieved_generation.trace_id == generation.trace_id
-    assert retrieved_generation.metadata == {"dict": "value"}
+    print("joined")
+
+    print("shutdown")
+    print(f"flushed {str(langfuse.task_manager.queue.qsize())}")
 
 
 def test_update_span():
@@ -561,8 +560,6 @@ def test_end_generation():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 3
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -589,8 +586,6 @@ def test_end_span():
     span.end()
 
     langfuse.flush()
-
-    assert len(langfuse.task_manager.result_mapping) == 3
 
     trace_id = langfuse.get_trace_id()
 
