@@ -7,7 +7,7 @@ import uuid
 
 
 import datetime as dt
-from langfuse.api.client import FintoLangfuse
+from langfuse.api.client import AsyncFintoLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
@@ -78,7 +78,7 @@ class Langfuse(object):
             self.log.warning("secret_key is not set.")
             raise ValueError("secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'")
 
-        self.client = FintoLangfuse(
+        self.client = AsyncFintoLangfuse(
             environment=self.base_url,
             username=public_key,
             password=secret_key,
@@ -155,9 +155,7 @@ class Langfuse(object):
     ):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.observations.get_many(
-                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
-            )
+            return self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION")
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -202,9 +200,7 @@ class Langfuse(object):
             self.task_manager.add_task(new_id, task)
 
             if body.observation_id is not None:
-                return StatefulClient(
-                    self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager
-                )
+                return StatefulClient(self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager)
             else:
                 return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
 
@@ -293,9 +289,7 @@ class Langfuse(object):
 
             self.task_manager.add_task(new_generation_id, create_generation)
 
-            return StatefulGenerationClient(
-                self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager
-            )
+            return StatefulGenerationClient(self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -331,7 +325,7 @@ class StateType(Enum):
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: AsyncFintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -365,9 +359,7 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(generation_id, task)
-            return StatefulGenerationClient(
-                self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -389,9 +381,7 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(span_id, task)
-            return StatefulSpanClient(
-                self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -416,9 +406,7 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(score_id, task)
-            return StatefulClient(
-                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -451,7 +439,7 @@ class StatefulClient(object):
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: AsyncFintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateGeneration):
@@ -469,9 +457,7 @@ class StatefulGenerationClient(StatefulClient):
                     raise e
 
             self.task_manager.add_task(update_id, task)
-            return StatefulGenerationClient(
-                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -487,7 +473,7 @@ class StatefulGenerationClient(StatefulClient):
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: AsyncFintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateSpan):
@@ -505,9 +491,7 @@ class StatefulSpanClient(StatefulClient):
                     raise e
 
             self.task_manager.add_task(update_id, task)
-            return StatefulSpanClient(
-                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -528,7 +512,7 @@ class StatefulSpanClient(StatefulClient):
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: AsyncFintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
@@ -584,9 +568,7 @@ class DatasetItemClient:
             raise ValueError("observation parameter must be either a StatefulClient or a string")
 
         logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
-        self.langfuse.client.dataset_run_items.create(
-            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id)
-        )
+        self.langfuse.client.dataset_run_items.create(request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id))
 
     def get_langchain_handler(self, *, run_name: str):
         from langfuse.callback import CallbackHandler

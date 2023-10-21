@@ -4,53 +4,59 @@ import time
 
 import pytest
 
-from langfuse.task_manager import TaskManager, TaskStatus
+from langfuse.task_manager import TaskManager
 
 
-@pytest.mark.timeout(10)
-def test_multiple_tasks_without_predecessor():
+@pytest.mark.asyncio
+async def test_multiple_tasks_without_predecessor():
     counter = 0
 
-    def task_without_predecessor():
+    async def task_without_predecessor():
         nonlocal counter
         counter = counter + 1
 
-    tm = TaskManager()
+    tm = await TaskManager.create(debug=True)
 
     tm.add_task(10, task_without_predecessor)
     tm.add_task(20, task_without_predecessor)
     tm.add_task(30, task_without_predecessor)
 
-    tm.shutdown()
+    print("Waiting for tasks to finish")
+    await tm.flush()
+    print("Flushed")
+    await tm.join()
+    print("Joined")
     assert counter == 3
 
 
-@pytest.mark.timeout(10)
-def test_task_manager_fail():
+@pytest.mark.asyncio
+async def test_task_manager_fail():
     retry_count = 0
     counter = 0
 
-    def my_task():
+    async def my_task():
         nonlocal counter
         counter = counter + 1
         time.sleep(1)
 
-    def my_failing_task():
+    async def my_failing_task():
         nonlocal retry_count
         nonlocal counter
         time.sleep(1)
         retry_count += 1
         raise Exception(f"This task failed {retry_count}")
 
-    tm = TaskManager(debug=False)
+    tm = await TaskManager.create(debug=True)
 
     tm.add_task(1, my_task)
     tm.add_task(2, my_task)
-    tm.join()
+    await tm.flush()
+
     tm.add_task(3, my_failing_task)
     tm.add_task(4, my_task)
 
-    tm.shutdown()
+    await tm.flush()
+    await tm.join()
 
     assert counter == 3
     assert retry_count == 3

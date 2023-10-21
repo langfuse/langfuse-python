@@ -1,13 +1,7 @@
-import atexit
-from enum import Enum
+import asyncio
 import logging
-import queue
-from queue import Queue
-import threading
 
 import backoff
-
-from langfuse.logging import clean_logger
 
 
 class Task:
@@ -16,144 +10,110 @@ class Task:
         self.function = function
 
 
-class TaskStatus(Enum):
-    SUCCESS = "success"
-    FAIL = "fail"
-    UNSCHEDULED = "unscheduled"
-
-
-class Consumer(threading.Thread):
+class Consumer:
     log = logging.getLogger("langfuse")
-    queue: Queue
+    queue: asyncio.Queue
     identifier: int
+    running: bool
 
     def __init__(self, queue, identifier):
-        """Create a consumer thread."""
-
-        threading.Thread.__init__(self)
-        # Make consumer a daemon thread so that it doesn't block program exit
-        self.daemon = True
         self.queue = queue
-        # It's important to set running in the constructor: if we are asked to
-        # pause immediately after construction, we might set running to True in
-        # run() *after* we set it to False in pause... and keep running
-        # forever.
-        self.running = True
         self.identifier = identifier
+        self.running = True
 
-    def run(self):
-        """Runs the consumer."""
+    async def run(self):
         while self.running:
-            try:
-                self.log.warning(f"consumer {str(self.identifier)} looping qsize: {self.queue.qsize()}")
+            self.log.debug(f"Consumer {self.identifier} waiting for task")
+            task = await self.queue.get()
 
-                # elapsed = time.monotonic.monotonic() - start_time
-                task = self.queue.get(block=True, timeout=1)
-
-                self.log.debug(f"Task {task.task_id} received from the queue")
-
-                self._execute_task(task)
-                self.log.debug(f"Task {task.task_id} done")
+            if task is None:  # sentinel check
                 self.queue.task_done()
+                break
 
-            except queue.Empty:
-                pass
-
-        self.log.debug("consumer exited.")
+            self.log.debug(f"Consumer {self.identifier} got task {task.task_id}")
+            try:
+                self.log.debug(f"Task {task.task_id} received from the queue")
+                await self._execute_task(task)
+                self.log.debug(f"Task {task.task_id} done")
+            except Exception as e:
+                self.log.warning(f"Task {task.task_id} failed with exception {e}")
+            finally:
+                self.queue.task_done()
 
     def pause(self):
         """Pause the consumer."""
         self.running = False
+        self.queue.put_nowait(None)  # sentinel value
 
-    def _execute_task(self, task: Task):
+    async def _execute_task(self, task: Task):
         try:
             self.log.debug(f"Task {task.task_id} executing")
-            self._execute_task_with_backoff(task)
+            await self._execute_task_with_backoff(task)
         except Exception as e:
-            self.log.warning(f"Task {task.task_id} failed with exception {e} ")
+            self.log.warning(f"Task {task.task_id} failed with exception {e}")
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    def _execute_task_with_backoff(self, task: Task):
-        result = None
+    async def _execute_task_with_backoff(self, task: Task):
         self.log.debug(f"Task {task.task_id} executing with backoff")
-
-        result = task.function()
+        result = await asyncio.ensure_future(task.function())
         self.log.debug(f"Task {task.task_id} done with result {result}")
 
 
-class TaskManager(object):
+class TaskManager:
     log = logging.getLogger("langfuse")
     consumers: list[Consumer]
 
     def __init__(self, debug=False, max_task_queue_size=10_000):
         self.max_task_queue_size = max_task_queue_size
-        self.queue = queue.Queue(max_task_queue_size)
+        self.queue = asyncio.Queue(max_task_queue_size)
+        self.consumer_tasks = []
         self.consumers = []
         if debug:
-            # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level.
-            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
             self.log.setLevel(logging.DEBUG)
-            clean_logger()
         else:
             self.log.setLevel(logging.WARNING)
-            clean_logger()
 
-        self.init_resources()
+    @classmethod
+    async def create(cls, debug=False, max_task_queue_size=10_000):
+        instance = cls(debug=debug, max_task_queue_size=max_task_queue_size)
+        await instance.init_resources()
+        return instance
 
-        # cleans up when the python interpreter closes
-        atexit.register(self.join)
-
-    def init_resources(self):
-        for i in range(2):
+    async def init_resources(self):
+        for i in range(10):
+            self.log.debug(f"Creating consumer {i}")
             consumer = Consumer(self.queue, i)
-            consumer.start()
+            task = asyncio.create_task(consumer.run())
             self.consumers.append(consumer)
+            self.consumer_tasks.append(task)
+            self.log.debug(f"Consumer {i} created")
 
     def add_task(self, task_id, function):
         try:
             self.log.debug(f"Adding task {task_id}")
-            # if self.consumer_thread is None or not self.consumer_thread.is_alive():
-            #     self.init_resources()
             task = Task(task_id, function)
-
-            self.queue.put(task, block=False)
+            self.queue.put_nowait(task)
             self.log.debug(f"Task {task_id} added to queue")
-        except queue.Full:
+        except asyncio.QueueFull:
             self.log.warning("analytics-python queue is full")
             return False
         except Exception as e:
             self.log.warning(f"Exception in adding task {task_id} {e}")
             return False
 
-    def flush(self):
-        """Forces a flush from the internal queue to the server"""
+    async def flush(self):
         self.log.debug("flushing queue")
-        queue = self.queue
-        size = queue.qsize()
-        queue.join()
-        # Note that this message may not be precise, because of threading.
-        self.log.debug("successfully flushed about %s items.", size)
+        await self.queue.join()
+        self.log.debug("successfully flushed the queue")
 
-    def join(self):
-        """Ends the consumer threads once the queue is empty.
-        Blocks execution until finished
-        """
-        self.log.warn(f"joining consumer thread {len(self.consumers)}")
+    async def join(self):
         for consumer in self.consumers:
             consumer.pause()
-            try:
-                consumer.join()
-            except RuntimeError:
-                # consumer thread has not started
-                pass
+        await asyncio.gather(*self.consumer_tasks, return_exceptions=True)
 
-            self.log.warning(f"consumer thread {consumer.identifier} joined")
-
-    def shutdown(self):
-        """Flush all messages and cleanly shutdown the client"""
+    async def shutdown(self):
         self.log.info("shutdown initiated")
-        self.flush()
-        self.join()
+        await self.flush()
+        await self.join()
         self.log.info("shutdown completed")
