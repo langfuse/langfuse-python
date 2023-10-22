@@ -133,6 +133,7 @@ def test_openai_completion():
     assert generation.data[0].total_tokens is not None
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_fails_wrong_name():
     with pytest.raises(TypeError, match="name must be a string"):
         openai.Completion.create(
@@ -143,6 +144,7 @@ def test_fails_wrong_name():
         )
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_fails_wrong_metadata():
     with pytest.raises(TypeError, match="name must be a string"):
         openai.Completion.create(
