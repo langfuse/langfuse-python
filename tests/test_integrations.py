@@ -17,7 +17,7 @@ api = FintoLangfuse(
 )
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_openai_chat_completion():
     generation_name = create_uuid()
     completion = openai.ChatCompletion.create(
@@ -55,6 +55,7 @@ def test_openai_chat_completion():
     assert generation.data[0].total_tokens is not None
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_openai_chat_completion_two_calls():
     generation_name = create_uuid()
     completion = openai.ChatCompletion.create(
@@ -94,7 +95,7 @@ def test_openai_chat_completion_two_calls():
     assert generation_2.data[0].input == "2 + 2 = "
 
 
-# @pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="inference cost")
 def test_openai_completion():
     generation_name = create_uuid()
     completion = openai.Completion.create(
