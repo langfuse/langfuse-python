@@ -130,3 +130,23 @@ def test_openai_completion():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+
+
+def test_fails_wrong_name():
+    with pytest.raises(TypeError, match="name must be a string"):
+        openai.Completion.create(
+            name={"key": "generation_name"},
+            model="gpt-3.5-turbo-instruct",
+            prompt="1 + 1 = ",
+            temperature=0,
+        )
+
+
+def test_fails_wrong_metadata():
+    with pytest.raises(TypeError, match="name must be a string"):
+        openai.Completion.create(
+            metadata="metadata",
+            model="gpt-3.5-turbo-instruct",
+            prompt="1 + 1 = ",
+            temperature=0,
+        )
