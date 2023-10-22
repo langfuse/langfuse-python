@@ -24,7 +24,7 @@ class Consumer:
 
     async def run(self):
         while self.running:
-            self.log.debug(f"Consumer {self.identifier} waiting for task")
+            self.log.warning(f"Consumer {self.identifier} waiting for task {self.queue.qsize()}")
             task = await self.queue.get()
 
             if task is None:  # sentinel check
@@ -84,7 +84,7 @@ class TaskManager:
         return instance
 
     async def init_resources(self):
-        for i in range(30):
+        for i in range(20):
             self.log.debug(f"Creating consumer {i}")
             consumer = Consumer(self.queue, i)
             task = asyncio.create_task(consumer.run())

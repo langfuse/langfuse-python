@@ -17,6 +17,7 @@ backoff = "^2.2.1"
 langchain = ">=0.0.309,<0.0.315"
 asyncio-atexit = "^1.0.1"
 nest-asyncio = "^1.5.8"
+asyncio = "^3.4.3"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
@@ -63,3 +64,7 @@ profile = "black"
 log_cli = true
 
 [tool.poetry_bumpversion.file."langfuse/version.py"]
+
+
+[tool.poetry.scripts]
+my-script = "langfuse.main:start"
