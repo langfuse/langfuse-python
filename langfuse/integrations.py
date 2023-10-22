@@ -16,9 +16,10 @@ load_dotenv()
 
 
 class CreateArgsExtractor:
-    def __init__(self, name=None, **kwargs):
+    def __init__(self, name=None, metadata=None, **kwargs):
         self.args = {}
         self.args["name"] = name
+        self.args["metadata"] = metadata
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -42,13 +43,22 @@ class OpenAILangfuse:
 
     def initialize(self):
         self.langfuse = Langfuse()
-    
+
     @classmethod
     def flush(cls):
         cls._instance.langfuse.flush()
 
     def _get_call_details(self, result, **kwargs):
         name = kwargs.get("name", "OpenAI-generation")
+
+        if not isinstance(name, str):
+            raise TypeError("name must be a string")
+
+        metadata = kwargs.get("metadata", {})
+
+        if not isinstance(metadata, dict):
+            raise TypeError("metadata must be a dictionary")
+
         if result.object == "chat.completion":
             prompt = kwargs.get("messages", [{}])[-1].get("content", "")
             completion = result.choices[-1].message.content
@@ -75,13 +85,13 @@ class OpenAILangfuse:
             "model": model,
             "modelParameters": modelParameters,
             "usage": usage,
+            "metadata": metadata,
         }
         return all_details
 
     def _log_result(self, result, call_details):
         generation = InitialGeneration(**call_details)
         self.langfuse.generation(generation)
-        self.langfuse.flush()
         return result
 
     def langfuse_modified(self, func):
@@ -109,6 +119,8 @@ class OpenAILangfuse:
         for api_resource_class, method in api_resources_classes:
             create_method = getattr(api_resource_class, method)
             setattr(api_resource_class, method, self.langfuse_modified(create_method))
+
+        setattr(openai, "flush_langfuse", self.flush)
 
 
 modifier = OpenAILangfuse()
