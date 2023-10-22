@@ -66,7 +66,7 @@ class OpenAILangfuse:
             prompt = kwargs.get("prompt", "")
             completion = result.choices[-1].text
         else:
-            completion = ""
+            completion = None
         model = result.model
         usage = None if result.usage is None else LlmUsage(**result.usage)
         endTime = datetime.now()
