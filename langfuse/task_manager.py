@@ -1,5 +1,4 @@
 import atexit
-from enum import Enum
 import logging
 import queue
 from queue import Queue
@@ -14,12 +13,6 @@ class Task:
     def __init__(self, task_id, function):
         self.task_id = task_id
         self.function = function
-
-
-class TaskStatus(Enum):
-    SUCCESS = "success"
-    FAIL = "fail"
-    UNSCHEDULED = "unscheduled"
 
 
 class Consumer(threading.Thread):
@@ -45,8 +38,6 @@ class Consumer(threading.Thread):
         """Runs the consumer."""
         while self.running:
             try:
-                self.log.warning(f"consumer {str(self.identifier)} looping qsize: {self.queue.qsize()}")
-
                 # elapsed = time.monotonic.monotonic() - start_time
                 task = self.queue.get(block=True, timeout=1)
 
@@ -58,8 +49,6 @@ class Consumer(threading.Thread):
 
             except queue.Empty:
                 pass
-
-        self.log.debug("consumer exited.")
 
     def pause(self):
         """Pause the consumer."""
@@ -106,7 +95,7 @@ class TaskManager(object):
         atexit.register(self.join)
 
     def init_resources(self):
-        for i in range(2):
+        for i in range(10):
             consumer = Consumer(self.queue, i)
             consumer.start()
             self.consumers.append(consumer)
