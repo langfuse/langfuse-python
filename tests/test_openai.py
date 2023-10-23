@@ -1,7 +1,7 @@
 import os
 import pytest
 from dotenv import load_dotenv
-from langfuse import openai
+from langfuse.openai import openai
 from langfuse.api.client import FintoLangfuse
 
 
@@ -52,6 +52,17 @@ def test_openai_chat_completion():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+
+
+def test_openai_chat_completion_without_extra_param():
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    assert len(completion.choices) != 0
 
 
 def test_openai_chat_completion_two_calls():
@@ -141,7 +152,7 @@ def test_fails_wrong_name():
 
 
 def test_fails_wrong_metadata():
-    with pytest.raises(TypeError, match="name must be a string"):
+    with pytest.raises(TypeError, match="metadata must be a dictionary"):
         openai.Completion.create(
             metadata="metadata",
             model="gpt-3.5-turbo-instruct",

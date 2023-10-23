@@ -1,4 +1,3 @@
-import os
 import threading
 import functools
 from datetime import datetime
@@ -51,12 +50,12 @@ class OpenAILangfuse:
     def _get_call_details(self, result, **kwargs):
         name = kwargs.get("name", "OpenAI-generation")
 
-        if not isinstance(name, str):
+        if name is not None and not isinstance(name, str):
             raise TypeError("name must be a string")
 
         metadata = kwargs.get("metadata", {})
 
-        if not isinstance(metadata, dict):
+        if metadata is not None and not isinstance(metadata, dict):
             raise TypeError("metadata must be a dictionary")
 
         if result.object == "chat.completion":
