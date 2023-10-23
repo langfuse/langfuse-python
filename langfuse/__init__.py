@@ -1,2 +1,2 @@
 from .client import Langfuse
-from .integrations import openai
+from .openai import openai

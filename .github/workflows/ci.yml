@@ -18,7 +18,7 @@ jobs:
       LANGFUSE_HOST: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
       LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
-      # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
       # HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
     strategy:

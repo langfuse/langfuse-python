@@ -1,7 +1,7 @@
 import os
 import pytest
 from dotenv import load_dotenv
-from langfuse.integrations import openai
+from langfuse import openai
 from langfuse.api.client import FintoLangfuse
 
 
@@ -17,7 +17,6 @@ api = FintoLangfuse(
 )
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_openai_chat_completion():
     generation_name = create_uuid()
     completion = openai.ChatCompletion.create(
@@ -55,7 +54,6 @@ def test_openai_chat_completion():
     assert generation.data[0].total_tokens is not None
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_openai_chat_completion_two_calls():
     generation_name = create_uuid()
     completion = openai.ChatCompletion.create(
@@ -95,7 +93,6 @@ def test_openai_chat_completion_two_calls():
     assert generation_2.data[0].input == "2 + 2 = "
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_openai_completion():
     generation_name = create_uuid()
     completion = openai.Completion.create(
@@ -133,7 +130,6 @@ def test_openai_completion():
     assert generation.data[0].total_tokens is not None
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_fails_wrong_name():
     with pytest.raises(TypeError, match="name must be a string"):
         openai.Completion.create(
@@ -144,7 +140,6 @@ def test_fails_wrong_name():
         )
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_fails_wrong_metadata():
     with pytest.raises(TypeError, match="name must be a string"):
         openai.Completion.create(
