@@ -1,4 +1,3 @@
-import os
 import threading
 import functools
 from datetime import datetime
