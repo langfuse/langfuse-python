@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import asyncio_atexit
 import logging
 
@@ -60,9 +61,24 @@ class Consumer:
         self.log.debug(f"Task {task.task_id} done with result {result}")
 
 
+class TaskManagerSingleton:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:  # First check without acquiring the lock
+            with cls._lock:
+                if cls._instance is None:  # Second check after acquiring the lock
+                    cls._instance = super(, cls).__new__(cls)
+        return cls._instance
+
+
 class TaskManager:
     log = logging.getLogger("langfuse")
     consumers: list[Consumer]
+    _lock = asyncio.Lock()
+    _instance = None
+
 
     def __init__(self, debug=False, max_task_queue_size=10_000):
         self.max_task_queue_size = max_task_queue_size
@@ -79,9 +95,14 @@ class TaskManager:
 
     @classmethod
     async def create(cls, debug=False, max_task_queue_size=10_000):
-        instance = cls(debug=debug, max_task_queue_size=max_task_queue_size)
-        await instance.init_resources()
-        return instance
+        # Double-checked locking pattern for async context
+        if cls._instance is None:
+            async with cls._lock:
+                if cls._instance is None:
+                    instance = cls(debug=debug, max_task_queue_size=max_task_queue_size)
+                    await instance.init_resources()
+                    cls._instance = instance
+        return cls._instance
 
     async def init_resources(self):
         for i in range(20):

@@ -42,8 +42,6 @@ from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 import nest_asyncio
 
-nest_asyncio.apply()
-
 
 class Langfuse(object):
     log = logging.getLogger("langfuse")
