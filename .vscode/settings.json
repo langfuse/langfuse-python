@@ -1,12 +1,7 @@
 {
-  "python.linting.flake8Args": ["--max-line-length=120"],
-  "python.formatting.blackArgs": ["--line-length", "120"],
-  "python.linting.flake8Enabled": true,
-  "python.linting.enabled": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"
   },
-  "python.formatting.provider": "none",
   "prettier.documentSelectors": [
     "**/*.{cjs,mjs,ts,tsx,astro,md,mdx,json,yaml,yml}"
   ]
