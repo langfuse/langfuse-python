@@ -59,7 +59,7 @@ class OpenAILangfuse:
             raise TypeError("metadata must be a dictionary")
 
         if result.object == "chat.completion":
-            prompt = kwargs.get("messages", [{}])[-1].get("content", "")
+            prompt = kwargs.get("messages", [{}])
             completion = result.choices[-1].message.content
             if completion is None:
                 completion = result.choices[-1].message.function_call
