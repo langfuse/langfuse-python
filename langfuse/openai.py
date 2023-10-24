@@ -1,7 +1,6 @@
 import threading
 import functools
 from datetime import datetime
-from dotenv import load_dotenv
 
 import openai
 from openai.api_resources import ChatCompletion, Completion
@@ -9,9 +8,6 @@ from openai.api_resources import ChatCompletion, Completion
 from langfuse import Langfuse
 from langfuse.client import InitialGeneration
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
-
-
-load_dotenv()
 
 
 class CreateArgsExtractor:
