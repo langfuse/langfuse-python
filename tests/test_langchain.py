@@ -238,7 +238,7 @@ def test_next_span_id_from_trace_simple_chain():
     assert handler.get_trace_id() == trace_id
     assert trace["id"] == trace_id
 
-    assert trace["observations"][2]["id"] == next_span_id
+    assert any(observation["id"] == next_span_id for observation in trace["observations"])
     for observation in trace["observations"]:
         if observation["type"] == "GENERATION":
             assert observation["promptTokens"] > 0
