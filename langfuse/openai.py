@@ -61,6 +61,8 @@ class OpenAILangfuse:
         if result.object == "chat.completion":
             prompt = kwargs.get("messages", [{}])[-1].get("content", "")
             completion = result.choices[-1].message.content
+            if completion is None:
+                completion = result.choices[-1].message.function_call
         elif result.object == "text_completion":
             prompt = kwargs.get("prompt", "")
             completion = result.choices[-1].text
