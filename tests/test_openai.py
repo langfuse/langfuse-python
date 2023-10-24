@@ -1,14 +1,10 @@
 import os
 import pytest
-from dotenv import load_dotenv
 from langfuse.openai import openai
 from langfuse.api.client import FintoLangfuse
 
 
 from tests.utils import create_uuid
-
-
-load_dotenv()
 
 api = FintoLangfuse(
     environment=os.environ["LANGFUSE_HOST"],
