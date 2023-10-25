@@ -3,12 +3,15 @@
 import datetime as dt
 import typing
 
-import pydantic
-
 from ....core.datetime_utils import serialize_datetime
 from ...commons.types.llm_usage import LlmUsage
 from ...commons.types.map_value import MapValue
 from ...commons.types.observation_level import ObservationLevel
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 
 class UpdateGenerationRequest(pydantic.BaseModel):
@@ -37,5 +40,6 @@ class UpdateGenerationRequest(pydantic.BaseModel):
 
     class Config:
         frozen = True
+        smart_union = True
         allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}
