@@ -165,7 +165,7 @@ def test_shutdown():
     def short_task():
         return 2
 
-    tm = TaskManager(debug=False)  # debug=False to avoid logging
+    tm = TaskManager(debug=False, number_of_consumers=5)  # debug=False to avoid logging
 
     for i in range(1000):
         tm.add_task(i, short_task)
@@ -176,5 +176,7 @@ def test_shutdown():
     # 2. consumer thread has stopped
     assert tm.queue.empty()
 
+    assert len(tm.consumers) == 5
     for c in tm.consumers:
         assert not c.is_alive()
+    assert tm.queue.empty()

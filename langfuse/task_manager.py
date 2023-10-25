@@ -73,9 +73,13 @@ class Consumer(threading.Thread):
 class TaskManager(object):
     log = logging.getLogger("langfuse")
     consumers: list[Consumer]
+    number_of_consumers: int
+    max_task_queue_size: int
+    queue: Queue
 
-    def __init__(self, debug=False, max_task_queue_size=10_000):
+    def __init__(self, debug=False, max_task_queue_size=10_000, number_of_consumers=1):
         self.max_task_queue_size = max_task_queue_size
+        self.number_of_consumers = number_of_consumers
         self.queue = queue.Queue(max_task_queue_size)
         self.consumers = []
         if debug:
@@ -95,7 +99,7 @@ class TaskManager(object):
         atexit.register(self.join)
 
     def init_resources(self):
-        for i in range(2):
+        for i in range(self.number_of_consumers):
             consumer = Consumer(self.queue, i)
             consumer.start()
             self.consumers.append(consumer)
@@ -129,7 +133,7 @@ class TaskManager(object):
         """Ends the consumer threads once the queue is empty.
         Blocks execution until finished
         """
-        self.log.warn(f"joining consumer thread {len(self.consumers)}")
+        self.log.debug(f"joining {len(self.consumers)} consumer threads")
         for consumer in self.consumers:
             consumer.pause()
             try:
@@ -138,7 +142,7 @@ class TaskManager(object):
                 # consumer thread has not started
                 pass
 
-            self.log.warning(f"consumer thread {consumer.identifier} joined")
+            self.log.debug(f"consumer thread {consumer.identifier} joined")
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
