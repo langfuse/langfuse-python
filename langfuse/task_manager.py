@@ -38,7 +38,6 @@ class Consumer(threading.Thread):
         """Runs the consumer."""
         while self.running:
             try:
-                # elapsed = time.monotonic.monotonic() - start_time
                 task = self.queue.get(block=True, timeout=1)
 
                 self.log.debug(f"Task {task.task_id} received from the queue")
@@ -57,17 +56,14 @@ class Consumer(threading.Thread):
     def _execute_task(self, task: Task):
         try:
             self.log.debug(f"Task {task.task_id} executing")
-            self._execute_task_with_backoff(task)
+            result = self._execute_task_with_backoff(task)
+            self.log.debug(f"Task {task.task_id} done with result {result}")
         except Exception as e:
             self.log.warning(f"Task {task.task_id} failed with exception {e} ")
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     def _execute_task_with_backoff(self, task: Task):
-        result = None
-        self.log.debug(f"Task {task.task_id} executing with backoff")
-
-        result = task.function()
-        self.log.debug(f"Task {task.task_id} done with result {result}")
+        return task.function()
 
 
 class TaskManager(object):
@@ -107,10 +103,7 @@ class TaskManager(object):
     def add_task(self, task_id, function):
         try:
             self.log.debug(f"Adding task {task_id}")
-            # if self.consumer_thread is None or not self.consumer_thread.is_alive():
-            #     self.init_resources()
             task = Task(task_id, function)
-
             self.queue.put(task, block=False)
             self.log.debug(f"Task {task_id} added to queue")
         except queue.Full:
@@ -146,7 +139,7 @@ class TaskManager(object):
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
-        self.log.info("shutdown initiated")
+        self.log.debug("shutdown initiated")
         self.flush()
         self.join()
-        self.log.info("shutdown completed")
+        self.log.debug("shutdown completed")

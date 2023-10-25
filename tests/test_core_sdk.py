@@ -431,14 +431,23 @@ def test_create_generation_and_trace():
     assert span["traceId"] == trace["id"]
 
 
-langfuse = Langfuse(debug=False)
+def test_update_generation():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
 
-
-def update_generation(i):
-    # api = get_api()
-    print(f"update {i}")
-    generation = langfuse.generation(InitialGeneration(name="1-a"))
+    generation = langfuse.generation(InitialGeneration(name="generation"))
     generation.update(UpdateGeneration(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace = api.trace.get(generation.trace_id)
+
+    assert trace.name == "generation"
+    assert len(trace.observations) == 1
+    retrieved_generation = trace.observations[0]
+    assert retrieved_generation.name == "generation"
+    assert retrieved_generation.trace_id == generation.trace_id
+    assert retrieved_generation.metadata == {"dict": "value"}
 
 
 def test_update_span():
