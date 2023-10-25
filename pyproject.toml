@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.1.0"
+version = "1.1.4"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -11,7 +11,7 @@ python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<0.25.0"
 attrs = ">=21.3.0"
 python-dateutil = ">=2.8.0, <3.0"
-pydantic = ">=1.10.7, <2.0"
+pydantic = ">=1.10.7, <3.0"
 pytz = "^2023.3"
 backoff = "^2.2.1"
 langchain = ">=0.0.309,<0.0.321"
