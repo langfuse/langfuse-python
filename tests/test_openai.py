@@ -1,14 +1,10 @@
 import os
 import pytest
-from dotenv import load_dotenv
 from langfuse.openai import openai
 from langfuse.api.client import FintoLangfuse
 
 
 from tests.utils import create_uuid
-
-
-load_dotenv()
 
 api = FintoLangfuse(
     environment=os.environ["LANGFUSE_HOST"],
@@ -36,7 +32,7 @@ def test_openai_chat_completion():
     assert generation.data[0].metadata == {"someKey": "someResponse"}
     assert len(completion.choices) != 0
     assert completion.choices[0].message.content == generation.data[0].output
-    assert generation.data[0].input == "1 + 1 = "
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
     assert generation.data[0].model == "gpt-3.5-turbo-0613"
     assert generation.data[0].start_time is not None
@@ -93,7 +89,7 @@ def test_openai_chat_completion_two_calls():
     assert generation.data[0].name == generation_name
     assert len(completion.choices) != 0
     assert completion.choices[0].message.content == generation.data[0].output
-    assert generation.data[0].input == "1 + 1 = "
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
 
     generation_2 = api.observations.get_many(name=generation_name_2, type="GENERATION")
 
@@ -101,7 +97,7 @@ def test_openai_chat_completion_two_calls():
     assert generation_2.data[0].name == generation_name_2
     assert len(completion_2.choices) != 0
     assert completion_2.choices[0].message.content == generation_2.data[0].output
-    assert generation_2.data[0].input == "2 + 2 = "
+    assert generation_2.data[0].input == [{"content": "2 + 2 = ", "role": "user"}]
 
 
 def test_openai_completion():
