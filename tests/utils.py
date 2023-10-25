@@ -12,5 +12,5 @@ def get_api():
     return FintoLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
-        environment=os.environ.get("LANGFUSE_HOST"),
+        base_url=os.environ.get("LANGFUSE_HOST"),
     )
