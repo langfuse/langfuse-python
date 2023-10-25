@@ -3,15 +3,18 @@
 import datetime as dt
 import typing
 
-import pydantic
-
 from ....core.datetime_utils import serialize_datetime
 from .trace import Trace
 
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
 
 class TraceWithDetails(Trace):
-    observations: typing.List[str] = pydantic.Field(description=("List of observation ids\n"))
-    scores: typing.List[str] = pydantic.Field(description=("List of score ids\n"))
+    observations: typing.List[str] = pydantic.Field(description="List of observation ids")
+    scores: typing.List[str] = pydantic.Field(description="List of score ids")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -23,5 +26,6 @@ class TraceWithDetails(Trace):
 
     class Config:
         frozen = True
+        smart_union = True
         allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

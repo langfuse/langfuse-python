@@ -4,12 +4,10 @@ import typing
 import urllib.parse
 from json.decoder import JSONDecodeError
 
-import httpx
-import pydantic
-
 from ...core.api_error import ApiError
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.jsonable_encoder import jsonable_encoder
-from ...core.remove_none_from_headers import remove_none_from_headers
+from ...core.remove_none_from_dict import remove_none_from_dict
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
@@ -19,40 +17,31 @@ from ..commons.types.score import Score
 from .types.create_score_request import CreateScoreRequest
 from .types.scores import Scores
 
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
+
 
 class ScoreClient:
-    def __init__(
-        self,
-        *,
-        environment: str,
-        x_langfuse_sdk_name: typing.Optional[str] = None,
-        x_langfuse_sdk_version: typing.Optional[str] = None,
-        x_langfuse_public_key: typing.Optional[str] = None,
-        username: str,
-        password: str,
-    ):
-        self._environment = environment
-        self.x_langfuse_sdk_name = x_langfuse_sdk_name
-        self.x_langfuse_sdk_version = x_langfuse_sdk_version
-        self.x_langfuse_public_key = x_langfuse_public_key
-        self._username = username
-        self._password = password
+    def __init__(self, *, client_wrapper: SyncClientWrapper):
+        self._client_wrapper = client_wrapper
 
     def create(self, *, request: CreateScoreRequest) -> Score:
-        _response = httpx.request(
+        """
+        Add a score to the database
+
+        Parameters:
+            - request: CreateScoreRequest.
+        """
+        _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/scores"),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/scores"),
             json=jsonable_encoder(request),
-            headers=remove_none_from_headers(
-                {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                }
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -81,20 +70,23 @@ class ScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
     ) -> Scores:
-        _response = httpx.request(
+        """
+        Get scores
+
+        Parameters:
+            - page: typing.Optional[int].
+
+            - limit: typing.Optional[int].
+
+            - user_id: typing.Optional[str].
+
+            - name: typing.Optional[str].
+        """
+        _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/scores"),
-            params={"page": page, "limit": limit, "userId": user_id, "name": name},
-            headers=remove_none_from_headers(
-                {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                }
-            ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/scores"),
+            params=remove_none_from_dict({"page": page, "limit": limit, "userId": user_id, "name": name}),
+            headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -117,41 +109,23 @@ class ScoreClient:
 
 
 class AsyncScoreClient:
-    def __init__(
-        self,
-        *,
-        environment: str,
-        x_langfuse_sdk_name: typing.Optional[str] = None,
-        x_langfuse_sdk_version: typing.Optional[str] = None,
-        x_langfuse_public_key: typing.Optional[str] = None,
-        username: str,
-        password: str,
-    ):
-        self._environment = environment
-        self.x_langfuse_sdk_name = x_langfuse_sdk_name
-        self.x_langfuse_sdk_version = x_langfuse_sdk_version
-        self.x_langfuse_public_key = x_langfuse_public_key
-        self._username = username
-        self._password = password
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._client_wrapper = client_wrapper
 
     async def create(self, *, request: CreateScoreRequest) -> Score:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "POST",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/scores"),
-                json=jsonable_encoder(request),
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
+        """
+        Add a score to the database
+
+        Parameters:
+            - request: CreateScoreRequest.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/scores"),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Score, _response.json())  # type: ignore
         if _response.status_code == 400:
@@ -178,23 +152,25 @@ class AsyncScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
     ) -> Scores:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "GET",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/scores"),
-                params={"page": page, "limit": limit, "userId": user_id, "name": name},
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
+        """
+        Get scores
+
+        Parameters:
+            - page: typing.Optional[int].
+
+            - limit: typing.Optional[int].
+
+            - user_id: typing.Optional[str].
+
+            - name: typing.Optional[str].
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/scores"),
+            params=remove_none_from_dict({"page": page, "limit": limit, "userId": user_id, "name": name}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Scores, _response.json())  # type: ignore
         if _response.status_code == 400:
