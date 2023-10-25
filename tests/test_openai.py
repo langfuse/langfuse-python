@@ -1,6 +1,8 @@
 import os
 from openai.error import AuthenticationError
 import pytest
+from langfuse.client import Langfuse
+from langfuse.model import CreateTrace
 from langfuse.openai import openai
 
 
@@ -44,6 +46,31 @@ def test_openai_chat_completion():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+
+
+def test_openai_chat_completion_with_trace():
+    generation_name = create_uuid()
+    trace_id = create_uuid()
+    langfuse = Langfuse()
+
+    langfuse.trace(CreateTrace(id=trace_id))
+
+    openai.ChatCompletion.create(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        trace_id=trace_id,
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].trace_id == trace_id
 
 
 def test_openai_chat_completion_fail():
@@ -227,6 +254,16 @@ def test_fails_wrong_metadata():
     with pytest.raises(TypeError, match="metadata must be a dictionary"):
         openai.Completion.create(
             metadata="metadata",
+            model="gpt-3.5-turbo-instruct",
+            prompt="1 + 1 = ",
+            temperature=0,
+        )
+
+
+def test_fails_wrong_trace_id():
+    with pytest.raises(TypeError, match="trace_id must be a string"):
+        openai.Completion.create(
+            trace_id={"trace_id": "metadata"},
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
             temperature=0,

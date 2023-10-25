@@ -11,10 +11,11 @@ from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 
 
 class CreateArgsExtractor:
-    def __init__(self, name=None, metadata=None, **kwargs):
+    def __init__(self, name=None, metadata=None, trace_id=None, **kwargs):
         self.args = {}
         self.args["name"] = name
         self.args["metadata"] = metadata
+        self.args["trace_id"] = trace_id
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -48,6 +49,10 @@ class OpenAILangfuse:
 
         if name is not None and not isinstance(name, str):
             raise TypeError("name must be a string")
+
+        trace_id = kwargs.get("trace_id", "OpenAI-generation")
+        if trace_id is not None and not isinstance(trace_id, str):
+            raise TypeError("trace_id must be a string")
 
         metadata = kwargs.get("metadata", {})
 
@@ -100,6 +105,7 @@ class OpenAILangfuse:
             "usage": usage,
             "metadata": metadata,
             "level": "ERROR" if isinstance(result, Exception) else "DEFAULT",
+            "trace_id": trace_id,
         }
         return all_details
 
