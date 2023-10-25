@@ -23,16 +23,20 @@ from tests.utils import create_uuid, get_api
 
 @pytest.mark.asyncio
 async def test_concurrency():
+    start = datetime.now()
+
     async def update_generation(i, langfuse: Langfuse):
         trace = langfuse.trace(CreateTrace(name=str(i)))
         generation = trace.generation(InitialGeneration(name=str(i)))
         generation.update(UpdateGeneration(metadata={"count": str(i)}))
 
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=False, number_of_consumers=5)
 
-    await gather(*(update_generation(i, langfuse) for i in range(100)))
+    await gather(*(update_generation(i, langfuse) for i in range(1000)))
 
     langfuse.flush()
+    diff = datetime.now() - start
+    print(diff)
 
     api = get_api()
     for i in range(100):

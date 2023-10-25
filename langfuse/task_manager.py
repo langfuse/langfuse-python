@@ -3,6 +3,7 @@ import logging
 import queue
 from queue import Queue
 import threading
+from typing import List
 
 import backoff
 
@@ -68,7 +69,7 @@ class Consumer(threading.Thread):
 
 class TaskManager(object):
     log = logging.getLogger("langfuse")
-    consumers: list[Consumer]
+    consumers: List[Consumer]
     number_of_consumers: int
     max_task_queue_size: int
     queue: Queue
