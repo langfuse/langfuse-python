@@ -95,7 +95,7 @@ class TaskManager(object):
         atexit.register(self.join)
 
     def init_resources(self):
-        for i in range(10):
+        for i in range(2):
             consumer = Consumer(self.queue, i)
             consumer.start()
             self.consumers.append(consumer)

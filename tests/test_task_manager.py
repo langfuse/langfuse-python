@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from langfuse.task_manager import TaskManager, TaskStatus
+from langfuse.task_manager import TaskManager
 
 
 @pytest.mark.timeout(10)
@@ -46,11 +46,11 @@ def test_task_manager_fail():
 
     tm.add_task(1, my_task)
     tm.add_task(2, my_task)
-    tm.join()
+    tm.flush()
     tm.add_task(3, my_failing_task)
     tm.add_task(4, my_task)
 
-    tm.shutdown()
+    tm.flush()
 
     assert counter == 3
     assert retry_count == 3
@@ -66,7 +66,7 @@ def test_consumer_restart():
 
     tm = TaskManager(debug=False)
     tm.add_task(1, short_task)
-    tm.join()
+    tm.flush()
 
     tm.add_task(2, short_task)
     tm.shutdown()
@@ -141,7 +141,7 @@ manager.add_task(2, dummy_function)
 
     print(process.stderr)
 
-    assert "consumer thread joined" in logs
+    assert "consumer thread 0 joined" in logs
 
 
 def test_flush():
