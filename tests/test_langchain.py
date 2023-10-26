@@ -1,6 +1,6 @@
 import os
 from langchain import Anthropic, ConversationChain, HuggingFaceHub
-from langchain.llms import OpenAI
+from langchain.llms import OpenAI, HuggingFacePipeline
 from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
 from langchain.prompts import PromptTemplate
 import pytest
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.prompts import ChatPromptTemplate
 from langchain.chat_models import AzureChatOpenAI
-from typing import Optional
+from typing import Optional, Any
 from langfuse.client import Langfuse
 from langfuse.model import CreateSpan, CreateTrace
 from langchain.chains.summarize import load_summarize_chain
@@ -651,6 +651,36 @@ Title: {title}
             assert observation["input"] != ""
             assert observation["output"] is not None
             assert observation["output"] != ""
+
+def test_callback_huggingface_pipeline():
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=False)
+
+    def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
+        class fake_llm:
+            task = "summarization"
+
+            def __call__(self, *args: Any, **kwds: Any) -> Any:
+                return [{"summary_text": "fake"}]
+
+        llm = HuggingFacePipeline(pipeline=fake_llm())
+        return LLMChain(prompt=prompt, llm=llm)
+
+    hugging_chain = initialize_huggingface_llm(prompt=PromptTemplate(input_variables=["title"], template="""fake"""))
+    hugging_chain.run(title="Mission to Mars", callbacks=[handler])
+
+    handler.langfuse.flush()
+    trace_id = handler.get_trace_id()
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
+            assert observation["model"] == "<unknown>"  # hugging face pipeline doesn't have a model name
 
 
 @pytest.mark.skip(reason="inference cost")

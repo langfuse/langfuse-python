@@ -507,7 +507,9 @@ class CallbackHandler(BaseCallbackHandler):
             elif kwargs["invocation_params"]["_type"] == "llamacpp":
                 model_name = kwargs["invocation_params"]["model_path"]
             else:
-                model_name = kwargs["invocation_params"]["model_name"]
+                # Langchain has the model info in different parts of the kwargs dependent on the chain that is executed.
+                # if we can't find model_name, use <unknown> so at least all the traces are logged
+                model_name = kwargs["invocation_params"]["model_name"] if "model_name" in kwargs["invocation_params"] else "<unknown>"
             self.runs[run_id] = (
                 self.runs[parent_run_id].generation(
                     CreateGeneration(
