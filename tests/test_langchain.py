@@ -666,7 +666,7 @@ def test_callback_huggingface_pipeline():
         llm = HuggingFacePipeline(pipeline=fake_llm())
         return LLMChain(prompt=prompt, llm=llm)
 
-    hugging_chain = initialize_huggingface_llm(prompt=PromptTemplate(input_variables=["title"], template="""fake"""))
+    hugging_chain = initialize_huggingface_llm(prompt=PromptTemplate(input_variables=["title"], template="""fake {title}"""))
     hugging_chain.run(title="Mission to Mars", callbacks=[handler])
 
     handler.langfuse.flush()
