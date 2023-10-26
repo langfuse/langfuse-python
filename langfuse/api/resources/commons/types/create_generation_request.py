@@ -3,12 +3,15 @@
 import datetime as dt
 import typing
 
-import pydantic
-
 from ....core.datetime_utils import serialize_datetime
 from .create_span_request import CreateSpanRequest
 from .llm_usage import LlmUsage
 from .map_value import MapValue
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 
 class CreateGenerationRequest(CreateSpanRequest):
@@ -29,5 +32,6 @@ class CreateGenerationRequest(CreateSpanRequest):
 
     class Config:
         frozen = True
+        smart_union = True
         allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}
