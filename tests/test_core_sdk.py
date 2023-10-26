@@ -1,4 +1,7 @@
+from asyncio import gather
 from datetime import datetime
+
+import pytest
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -14,9 +17,32 @@ from langfuse.model import (
     Usage,
 )
 
-from langfuse.task_manager import TaskStatus
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
+
+
+@pytest.mark.asyncio
+async def test_concurrency():
+    start = datetime.now()
+
+    async def update_generation(i, langfuse: Langfuse):
+        trace = langfuse.trace(CreateTrace(name=str(i)))
+        generation = trace.generation(InitialGeneration(name=str(i)))
+        generation.update(UpdateGeneration(metadata={"count": str(i)}))
+
+    langfuse = Langfuse(debug=False, number_of_consumers=5)
+
+    await gather(*(update_generation(i, langfuse) for i in range(1000)))
+
+    langfuse.flush()
+    diff = datetime.now() - start
+    print(diff)
+
+    api = get_api()
+    for i in range(100):
+        observation = api.observations.get_many(name=str(i)).data[0]
+        assert observation.name == str(i)
+        assert observation.metadata == {"count": str(i)}
 
 
 def test_flush():
@@ -50,7 +76,6 @@ def test_shutdown():
     # 1. client queue is empty
     # 2. consumer thread has stopped
     assert langfuse.task_manager.queue.empty()
-    assert not langfuse.task_manager.consumer_thread.is_alive()
 
 
 def test_create_score():
@@ -66,9 +91,6 @@ def test_create_score():
     )
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
-    assert all(
-        v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
-    ), "Not all tasks succeeded"
 
     score_id = create_uuid()
     langfuse.score(
@@ -87,9 +109,6 @@ def test_create_score():
     langfuse.flush()
 
     assert langfuse.task_manager.queue.qsize() == 0
-    assert all(
-        v.status == TaskStatus.SUCCESS for v in langfuse.task_manager.result_mapping.values()
-    ), "Not all tasks succeeded"
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -148,8 +167,6 @@ def test_create_generation():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 2
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -204,8 +221,6 @@ def test_create_generation_complex():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 2
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -252,8 +267,6 @@ def test_create_span():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 2
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -294,8 +307,6 @@ def test_score_trace():
     )
 
     langfuse.flush()
-
-    assert len(langfuse.task_manager.result_mapping) == 2
 
     trace_id = langfuse.get_trace_id()
 
@@ -342,8 +353,6 @@ def test_score_span():
     )
 
     langfuse.flush()
-
-    assert len(langfuse.task_manager.result_mapping) == 3
 
     trace_id = langfuse.get_trace_id()
 
@@ -439,7 +448,6 @@ def test_update_generation():
 
     assert trace.name == "generation"
     assert len(trace.observations) == 1
-
     retrieved_generation = trace.observations[0]
     assert retrieved_generation.name == "generation"
     assert retrieved_generation.trace_id == generation.trace_id
@@ -561,8 +569,6 @@ def test_end_generation():
 
     langfuse.flush()
 
-    assert len(langfuse.task_manager.result_mapping) == 3
-
     trace_id = langfuse.get_trace_id()
 
     trace = api_wrapper.get_trace(trace_id)
@@ -589,8 +595,6 @@ def test_end_span():
     span.end()
 
     langfuse.flush()
-
-    assert len(langfuse.task_manager.result_mapping) == 3
 
     trace_id = langfuse.get_trace_id()
 

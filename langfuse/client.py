@@ -51,6 +51,7 @@ class Langfuse(object):
         host: Optional[str] = None,
         release: Optional[str] = None,
         debug: bool = False,
+        number_of_consumers: Optional[int] = None,
     ):
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
@@ -64,7 +65,11 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        self.task_manager = TaskManager(debug=debug)
+        args = {"debug": debug}
+        if number_of_consumers is not None:
+            args["number_of_consumers"] = number_of_consumers
+
+        self.task_manager = TaskManager(**args)
 
         public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
