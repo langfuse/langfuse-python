@@ -6,7 +6,7 @@ import openai
 from openai.api_resources import ChatCompletion, Completion
 
 from langfuse import Langfuse
-from langfuse.client import InitialGeneration
+from langfuse.client import InitialGeneration, CreateTrace
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 
 
@@ -111,6 +111,8 @@ class OpenAILangfuse:
 
     def _log_result(self, call_details):
         generation = InitialGeneration(**call_details)
+        if call_details["trace_id"] is not None:
+            self.langfuse.trace(CreateTrace(id=call_details["trace_id"]))
         self.langfuse.generation(generation)
 
     def langfuse_modified(self, func, api_resource_class):
