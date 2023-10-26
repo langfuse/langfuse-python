@@ -11,10 +11,7 @@ from .trace import Trace
 
 class TraceWithDetails(Trace):
     observations: typing.List[str] = pydantic.Field(description=("List of observation ids\n"))
-    scores: typing.List[str] = pydantic.Field(
-            description=("List of score ids\n"), 
-            default_factory=list
-        )
+    scores: typing.List[str] = pydantic.Field(description=("List of score ids\n"))
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
