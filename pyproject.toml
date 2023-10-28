@@ -35,6 +35,7 @@ anthropic = "^0.3.10"
 bs4 = "^0.0.1"
 lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
+boto3 = "^1.28.59"
 
 [build-system]
 requires = ["poetry-core"]
