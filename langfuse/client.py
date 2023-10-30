@@ -37,6 +37,7 @@ from langfuse.model import (
 )
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
+from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 from .version import __version__ as version
 
@@ -65,12 +66,6 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        args = {"debug": debug}
-        if number_of_consumers is not None:
-            args["number_of_consumers"] = number_of_consumers
-
-        self.task_manager = TaskManager(**args)
-
         public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
         self.base_url = host if host else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
@@ -91,6 +86,19 @@ class Langfuse(object):
             x_langfuse_sdk_version=version,
             x_langfuse_public_key=public_key,
         )
+
+        langfuse_client = LangfuseClient(
+            public_key=public_key,
+            secret_key=secret_key,
+            base_url=self.base_url,
+            version=version,
+        )
+
+        args = {"debug": debug, "langfuse_client": langfuse_client}
+        if number_of_consumers is not None:
+            args["number_of_consumers"] = number_of_consumers
+
+        self.task_manager = TaskManager(**args)
 
         self.trace_id = None
 

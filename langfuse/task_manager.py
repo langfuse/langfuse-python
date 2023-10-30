@@ -1,70 +1,124 @@
 import atexit
+import json
 import logging
 import queue
-from queue import Queue
+from queue import Empty, Queue
 import threading
 from typing import List
+import monotonic
 
 import backoff
 
 from langfuse.logging import clean_logger
+from langfuse.request import LangfuseClient
+from langfuse.serializer import DatetimeSerializer
+
+
+MAX_MSG_SIZE = 32 << 10
+
+# Our servers only accept batches less than 500KB. Here limit is set slightly
+# lower to leave space for extra data that will be added later, eg. "sentAt".
+BATCH_SIZE_LIMIT = 475000
 
 
 class Task:
-    def __init__(self, task_id, function):
+    data: any
+    task_id: int
+
+    def __init__(self, task_id, data):
         self.task_id = task_id
-        self.function = function
+        self.data = data
 
 
 class Consumer(threading.Thread):
-    log = logging.getLogger("langfuse")
-    queue: Queue
-    identifier: int
+    _log = logging.getLogger("langfuse")
+    _queue: Queue
+    _identifier: int
+    _client: LangfuseClient
+    _flush_at: int
+    _flush_interval: float
 
-    def __init__(self, queue, identifier):
+    def __init__(self, queue: Queue, identifier: int, client: LangfuseClient, flush_at=100, flush_interval=0.5):
         """Create a consumer thread."""
 
         threading.Thread.__init__(self)
         # Make consumer a daemon thread so that it doesn't block program exit
         self.daemon = True
-        self.queue = queue
+        self._queue = queue
         # It's important to set running in the constructor: if we are asked to
         # pause immediately after construction, we might set running to True in
         # run() *after* we set it to False in pause... and keep running
         # forever.
         self.running = True
-        self.identifier = identifier
+        self._identifier = identifier
+        self._client = client
+        self._flush_at = flush_at
+        self._flush_interval = flush_interval
+
+    def _next(self):
+        """Return the next batch of items to upload."""
+
+        self._log.debug("consumer thread %s is getting next batch", self._identifier)
+        queue = self._queue
+        items = []
+
+        start_time = monotonic.monotonic()
+        total_size = 0
+
+        while len(items) < self._flush_at:
+            self._log.debug("consumer thread %s is waiting for next item", self._identifier)
+            elapsed = monotonic.monotonic() - start_time
+            if elapsed >= self._flush_interval:
+                break
+            try:
+                self._log.debug("getting from q")
+                item = queue.get(block=True, timeout=self._flush_interval - elapsed)
+
+                item_size = len(json.dumps(item.data, cls=DatetimeSerializer).encode())
+
+                items.append(item.data)
+                total_size += item_size
+                if total_size >= BATCH_SIZE_LIMIT:
+                    self._log.debug("hit batch size limit (size: %d)", total_size)
+                    break
+            except Empty:
+                break
+
+        return items
 
     def run(self):
         """Runs the consumer."""
         while self.running:
+            self._log.debug("consumer thread %s is running", self._identifier)
+            success = False
+            batch = self._next()
+            if len(batch) == 0:
+                return False
+
             try:
-                task = self.queue.get(block=True, timeout=1)
-
-                self.log.debug(f"Task {task.task_id} received from the queue")
-
-                self._execute_task(task)
-                self.log.debug(f"Task {task.task_id} done")
-                self.queue.task_done()
-
-            except queue.Empty:
-                pass
+                self._upload_batch(batch)
+                success = True
+            except Exception as e:
+                self._log.error("error uploading: %s", e)
+                success = False
+                if self.on_error:
+                    self.on_error(e, batch)
+            finally:
+                # mark items as acknowledged from queue
+                for item in batch:
+                    self._queue.task_done()
+                return success
 
     def pause(self):
         """Pause the consumer."""
         self.running = False
 
-    def _execute_task(self, task: Task):
-        try:
-            self.log.debug(f"Task {task.task_id} executing")
-            result = self._execute_task_with_backoff(task)
-            self.log.debug(f"Task {task.task_id} done with result {result}")
-        except Exception as e:
-            self.log.warning(f"Task {task.task_id} failed with exception {e} ")
+    def _upload_batch(self, batch: List[Task]):
+        @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+        def execute_task_with_backoff(batch: [Task]):
+            return self._client.batch_post(gzip=False, batch=batch)
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    def _execute_task_with_backoff(self, task: Task):
-        return task.function()
+        execute_task_with_backoff(batch)
 
 
 class TaskManager(object):
@@ -73,12 +127,15 @@ class TaskManager(object):
     number_of_consumers: int
     max_task_queue_size: int
     queue: Queue
+    _client: LangfuseClient
 
-    def __init__(self, debug=False, max_task_queue_size=10_000, number_of_consumers=1):
+    def __init__(self, client: LangfuseClient, debug=False, max_task_queue_size=10_000, number_of_consumers=1):
         self.max_task_queue_size = max_task_queue_size
         self.number_of_consumers = number_of_consumers
         self.queue = queue.Queue(max_task_queue_size)
         self.consumers = []
+        self._client = client
+
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
             # Otherwise, defaults to WARNING level.
@@ -97,7 +154,7 @@ class TaskManager(object):
 
     def init_resources(self):
         for i in range(self.number_of_consumers):
-            consumer = Consumer(self.queue, i)
+            consumer = Consumer(self.queue, i, self._client)
             consumer.start()
             self.consumers.append(consumer)
 
@@ -136,7 +193,7 @@ class TaskManager(object):
                 # consumer thread has not started
                 pass
 
-            self.log.debug(f"consumer thread {consumer.identifier} joined")
+            self.log.debug(f"consumer thread {consumer._identifier} joined")
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
