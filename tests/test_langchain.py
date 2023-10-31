@@ -564,6 +564,7 @@ def test_callback_simple_openai_streaming():
             assert observation["output"] != ""
 
 
+@pytest.mark.skip(reason="no serpapi setup in CI")
 def test_callback_simple_llm_chat():
     handler = CallbackHandler()
 
