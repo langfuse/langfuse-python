@@ -530,6 +530,7 @@ def test_callback_simple_openai():
             assert observation["output"] != ""
 
 
+@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai_streaming():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)
