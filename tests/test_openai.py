@@ -8,10 +8,9 @@ from langfuse.openai import openai
 
 from tests.utils import create_uuid, get_api
 
-api = get_api()
-
 
 def test_openai_chat_completion():
+    api = get_api()
     generation_name = create_uuid()
     completion = openai.ChatCompletion.create(
         name=generation_name,
@@ -49,6 +48,7 @@ def test_openai_chat_completion():
 
 
 def test_openai_chat_completion_with_trace():
+    api = get_api()
     generation_name = create_uuid()
     trace_id = create_uuid()
     langfuse = Langfuse()
@@ -74,6 +74,7 @@ def test_openai_chat_completion_with_trace():
 
 
 def test_openai_chat_completion_fail():
+    api = get_api()
     generation_name = create_uuid()
 
     openai.api_key = ""
@@ -125,6 +126,7 @@ def test_openai_chat_completion_without_extra_param():
 
 
 def test_openai_chat_completion_two_calls():
+    api = get_api()
     generation_name = create_uuid()
     completion = openai.ChatCompletion.create(
         name=generation_name,
@@ -164,6 +166,7 @@ def test_openai_chat_completion_two_calls():
 
 
 def test_openai_completion():
+    api = get_api()
     generation_name = create_uuid()
     completion = openai.Completion.create(
         name=generation_name,
@@ -201,6 +204,7 @@ def test_openai_completion():
 
 
 def test_openai_completion_fail():
+    api = get_api()
     generation_name = create_uuid()
 
     openai.api_key = ""
