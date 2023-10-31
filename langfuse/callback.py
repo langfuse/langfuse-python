@@ -464,7 +464,6 @@ class CallbackHandler(BaseCallbackHandler):
     ):
         try:
             if self.trace is None:
-                # simple LLM call that has no trace and parent
                 self.__generate_trace_and_parent(
                     serialized,
                     inputs=prompts,
