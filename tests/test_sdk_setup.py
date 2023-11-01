@@ -72,18 +72,18 @@ def test_setup_without_sk():
 
 def test_init_precedence_pk():
     langfuse = Langfuse(public_key="test_LANGFUSE_PUBLIC_KEY")
-    assert langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
-    assert langfuse.client._username == "test_LANGFUSE_PUBLIC_KEY"
+    assert langfuse.client._client_wrapper._x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
+    assert langfuse.client._client_wrapper._username == "test_LANGFUSE_PUBLIC_KEY"
 
 
 def test_init_precedence_sk():
     langfuse = Langfuse(secret_key="test_LANGFUSE_SECRET_KEY")
-    assert langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
+    assert langfuse.client._client_wrapper._password == "test_LANGFUSE_SECRET_KEY"
 
 
 def test_init_precedence_env():
     langfuse = Langfuse(host="http://localhost:8000/")
-    assert langfuse.client._environment == "http://localhost:8000/"
+    assert langfuse.client._client_wrapper._base_url == "http://localhost:8000/"
 
 
 def test_sdk_default_host():
@@ -100,9 +100,9 @@ def test_sdk_default():
 
     langfuse = Langfuse()
 
-    assert langfuse.client._username == public_key
-    assert langfuse.client._password == secret_key
-    assert langfuse.client._environment == host
+    assert langfuse.client._client_wrapper._username == public_key
+    assert langfuse.client._client_wrapper._password == secret_key
+    assert langfuse.client._client_wrapper._base_url == host
 
 
 # callback
@@ -124,7 +124,7 @@ def test_callback_default_host():
     os.environ.pop("LANGFUSE_HOST")
 
     handler = CallbackHandler(debug=True)
-    assert handler.langfuse.base_url == "https://cloud.langfuse.com"
+    assert handler.langfuse.client._client_wrapper._base_url == "https://cloud.langfuse.com"
     os.environ["LANGFUSE_HOST"] = host
 
 
@@ -133,9 +133,9 @@ def test_callback_setup():
 
     callback_handler = CallbackHandler()
 
-    assert callback_handler.langfuse.client._username == public_key
-    assert callback_handler.langfuse.client._environment == host
-    assert callback_handler.langfuse.client._password == secret_key
+    assert callback_handler.langfuse.client._client_wrapper._username == public_key
+    assert callback_handler.langfuse.client._client_wrapper._base_url == host
+    assert callback_handler.langfuse.client._client_wrapper._password == secret_key
 
 
 def test_callback_setup_without_pk():
@@ -156,18 +156,38 @@ def test_callback_setup_without_sk():
 
 def test_callback_init_precedence_pk():
     handler = CallbackHandler(public_key="test_LANGFUSE_PUBLIC_KEY")
-    assert handler.langfuse.client.x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
-    assert handler.langfuse.client._username == "test_LANGFUSE_PUBLIC_KEY"
+    assert handler.langfuse.client._client_wrapper._x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
+    assert handler.langfuse.client._client_wrapper._username == "test_LANGFUSE_PUBLIC_KEY"
 
 
 def test_callback_init_precedence_sk():
     handler = CallbackHandler(secret_key="test_LANGFUSE_SECRET_KEY")
-    assert handler.langfuse.client._password == "test_LANGFUSE_SECRET_KEY"
+    assert handler.langfuse.client._client_wrapper._password == "test_LANGFUSE_SECRET_KEY"
 
 
 def test_callback_init_precedence_host():
     handler = CallbackHandler(host="http://localhost:8000/")
-    assert handler.langfuse.client._environment == "http://localhost:8000/"
+    assert handler.langfuse.client._client_wrapper._base_url == "http://localhost:8000/"
+
+
+def test_callback_init_workers():
+    handler = CallbackHandler()
+    assert handler.langfuse.task_manager.number_of_consumers == 1
+
+
+def test_callback_init_workers_5():
+    handler = CallbackHandler(number_of_consumers=5)
+    assert handler.langfuse.task_manager.number_of_consumers == 5
+
+
+def test_client_init_workers():
+    langfuse = Langfuse()
+    assert langfuse.task_manager.number_of_consumers == 1
+
+
+def test_client_init_workers_5():
+    langfuse = Langfuse(number_of_consumers=5)
+    assert langfuse.task_manager.number_of_consumers == 5
 
 
 def get_env_variables():

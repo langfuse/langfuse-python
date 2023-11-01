@@ -20,9 +20,7 @@ from langfuse.api.resources.commons.types.dataset_run import DatasetRun
 
 
 class InitialGeneration(CreateGenerationRequest):
-    __fields__ = {
-        name: field for name, field in CreateGenerationRequest.__fields__.items() if name not in ["traceIdType"]
-    }
+    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items() if name not in ["traceIdType"]}
 
 
 class InitialScore(CreateScoreRequest):
@@ -34,53 +32,31 @@ class InitialSpan(CreateSpanRequest):
 
 
 class CreateScore(CreateScoreRequest):
-    __fields__ = {
-        name: field
-        for name, field in CreateScoreRequest.__fields__.items()
-        if name not in ["trace_id", "observation_id", "traceIdType"]
-    }
+    __fields__ = {name: field for name, field in CreateScoreRequest.__fields__.items() if name not in ["trace_id", "observation_id", "traceIdType"]}
 
 
 class CreateTrace(CreateTraceRequest):
-    __fields__ = {
-        name: field for name, field in CreateTraceRequest.__fields__.items() if name not in ["release", "external_id"]
-    }
+    __fields__ = {name: field for name, field in CreateTraceRequest.__fields__.items() if name not in ["release", "external_id"]}
 
 
 class CreateGeneration(CreateGenerationRequest):
-    __fields__ = {
-        name: field
-        for name, field in CreateGenerationRequest.__fields__.items()
-        if name not in ["parent_observation_id", "traceIdType"]
-    }
+    __fields__ = {name: field for name, field in CreateGenerationRequest.__fields__.items() if name not in ["parent_observation_id", "traceIdType"]}
 
 
 class CreateSpan(CreateSpanRequest):
-    __fields__ = {
-        name: field
-        for name, field in CreateSpanRequest.__fields__.items()
-        if name not in ["parent_observation_id", "traceIdType"]
-    }
+    __fields__ = {name: field for name, field in CreateSpanRequest.__fields__.items() if name not in ["parent_observation_id", "traceIdType"]}
 
 
 class CreateEvent(CreateEventRequest):
-    __fields__ = {
-        name: field
-        for name, field in CreateEventRequest.__fields__.items()
-        if name not in ["parent_observation_id", "traceIdType"]
-    }
+    __fields__ = {name: field for name, field in CreateEventRequest.__fields__.items() if name not in ["parent_observation_id", "traceIdType"]}
 
 
 class UpdateGeneration(UpdateGenerationRequest):
-    __fields__ = {
-        name: field for name, field in UpdateGenerationRequest.__fields__.items() if name not in ["generation_id"]
-    }
+    __fields__ = {name: field for name, field in UpdateGenerationRequest.__fields__.items() if name not in ["generation_id"]}
 
 
 class UpdateSpan(UpdateSpanRequest):
-    __fields__ = {
-        name: field for name, field in UpdateSpanRequest.__fields__.items() if name not in ["spanId", "span_id"]
-    }
+    __fields__ = {name: field for name, field in UpdateSpanRequest.__fields__.items() if name not in ["spanId", "span_id"]}
 
 
 class Usage(LlmUsage):

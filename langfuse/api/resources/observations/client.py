@@ -4,11 +4,9 @@ import typing
 import urllib.parse
 from json.decoder import JSONDecodeError
 
-import httpx
-import pydantic
-
 from ...core.api_error import ApiError
-from ...core.remove_none_from_headers import remove_none_from_headers
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.remove_none_from_dict import remove_none_from_dict
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
@@ -17,39 +15,29 @@ from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.observation import Observation
 from .types.observations import Observations
 
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
 
 class ObservationsClient:
-    def __init__(
-        self,
-        *,
-        environment: str,
-        x_langfuse_sdk_name: typing.Optional[str] = None,
-        x_langfuse_sdk_version: typing.Optional[str] = None,
-        x_langfuse_public_key: typing.Optional[str] = None,
-        username: str,
-        password: str,
-    ):
-        self._environment = environment
-        self.x_langfuse_sdk_name = x_langfuse_sdk_name
-        self.x_langfuse_sdk_version = x_langfuse_sdk_version
-        self.x_langfuse_public_key = x_langfuse_public_key
-        self._username = username
-        self._password = password
+    def __init__(self, *, client_wrapper: SyncClientWrapper):
+        self._client_wrapper = client_wrapper
 
     def get(self, observation_id: str) -> Observation:
-        _response = httpx.request(
+        """
+        Get a specific observation
+
+        Parameters:
+            - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
+        """
+        _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._environment}/", f"api/public/observations/{observation_id}"),
-            headers=remove_none_from_headers(
-                {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                }
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/public/observations/{observation_id}"
             ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -78,21 +66,42 @@ class ObservationsClient:
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
     ) -> Observations:
-        _response = httpx.request(
+        """
+        Get a list of observations
+
+        Parameters:
+            - page: typing.Optional[int].
+
+            - limit: typing.Optional[int].
+
+            - name: typing.Optional[str].
+
+            - user_id: typing.Optional[str].
+
+            - type: typing.Optional[str].
+
+            - trace_id: typing.Optional[str].
+
+            - parent_observation_id: typing.Optional[str].
+        """
+        _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._environment}/", "api/public/observations"),
-            params={"page": page, "limit": limit, "name": name, "userId": user_id, "type": type},
-            headers=remove_none_from_headers(
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/observations"),
+            params=remove_none_from_dict(
                 {
-                    "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                    "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                    "X-Langfuse-Public-Key": self.x_langfuse_public_key,
+                    "page": page,
+                    "limit": limit,
+                    "name": name,
+                    "userId": user_id,
+                    "type": type,
+                    "traceId": trace_id,
+                    "parentObservationId": parent_observation_id,
                 }
             ),
-            auth=(self._username, self._password)
-            if self._username is not None and self._password is not None
-            else None,
+            headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
@@ -115,40 +124,24 @@ class ObservationsClient:
 
 
 class AsyncObservationsClient:
-    def __init__(
-        self,
-        *,
-        environment: str,
-        x_langfuse_sdk_name: typing.Optional[str] = None,
-        x_langfuse_sdk_version: typing.Optional[str] = None,
-        x_langfuse_public_key: typing.Optional[str] = None,
-        username: str,
-        password: str,
-    ):
-        self._environment = environment
-        self.x_langfuse_sdk_name = x_langfuse_sdk_name
-        self.x_langfuse_sdk_version = x_langfuse_sdk_version
-        self.x_langfuse_public_key = x_langfuse_public_key
-        self._username = username
-        self._password = password
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._client_wrapper = client_wrapper
 
     async def get(self, observation_id: str) -> Observation:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "GET",
-                urllib.parse.urljoin(f"{self._environment}/", f"api/public/observations/{observation_id}"),
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
+        """
+        Get a specific observation
+
+        Parameters:
+            - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/public/observations/{observation_id}"
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
         if _response.status_code == 400:
@@ -175,24 +168,44 @@ class AsyncObservationsClient:
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
     ) -> Observations:
-        async with httpx.AsyncClient() as _client:
-            _response = await _client.request(
-                "GET",
-                urllib.parse.urljoin(f"{self._environment}/", "api/public/observations"),
-                params={"page": page, "limit": limit, "name": name, "userId": user_id, "type": type},
-                headers=remove_none_from_headers(
-                    {
-                        "X-Langfuse-Sdk-Name": self.x_langfuse_sdk_name,
-                        "X-Langfuse-Sdk-Version": self.x_langfuse_sdk_version,
-                        "X-Langfuse-Public-Key": self.x_langfuse_public_key,
-                    }
-                ),
-                auth=(self._username, self._password)
-                if self._username is not None and self._password is not None
-                else None,
-                timeout=60,
-            )
+        """
+        Get a list of observations
+
+        Parameters:
+            - page: typing.Optional[int].
+
+            - limit: typing.Optional[int].
+
+            - name: typing.Optional[str].
+
+            - user_id: typing.Optional[str].
+
+            - type: typing.Optional[str].
+
+            - trace_id: typing.Optional[str].
+
+            - parent_observation_id: typing.Optional[str].
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/observations"),
+            params=remove_none_from_dict(
+                {
+                    "page": page,
+                    "limit": limit,
+                    "name": name,
+                    "userId": user_id,
+                    "type": type,
+                    "traceId": trace_id,
+                    "parentObservationId": parent_observation_id,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(Observations, _response.json())  # type: ignore
         if _response.status_code == 400:

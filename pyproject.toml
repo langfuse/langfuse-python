@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.0.38"
+version = "1.1.8"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -11,10 +11,10 @@ python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<0.25.0"
 attrs = ">=21.3.0"
 python-dateutil = ">=2.8.0, <3.0"
-pydantic = ">=1.10.7, <2.0"
+pydantic = ">=1.10.7, <3.0"
 pytz = "^2023.3"
 backoff = "^2.2.1"
-langchain = ">=0.0.309,<0.0.315"
+langchain = ">=0.0.309,<=0.0.327"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
@@ -23,7 +23,7 @@ pytest = "^7.4.0"
 black = "^23.7.0"
 openai = "^0.27.8"
 chromadb = "^0.4.2"
-tiktoken = "^0.4.0"
+tiktoken = "0.5.1"
 pytest-timeout = "^2.1.0"
 pytest-xdist = "^3.3.1"
 respx = "^0.20.2"
@@ -42,7 +42,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 120
+line-length = 200
 target_version = ['py38', 'py39', 'py310', 'py311']
 exclude = '''
 (
@@ -55,7 +55,7 @@ exclude = '''
 '''
 
 [tool.isort]
-line_length = 120
+line_length = 200
 profile = "black"
 
 [tool.pytest.ini_options]

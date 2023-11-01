@@ -51,6 +51,7 @@ class Langfuse(object):
         host: Optional[str] = None,
         release: Optional[str] = None,
         debug: bool = False,
+        number_of_consumers: Optional[int] = None,
     ):
         if debug:
             # Ensures that debug level messages are logged when debug mode is on.
@@ -64,7 +65,11 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        self.task_manager = TaskManager(debug=debug)
+        args = {"debug": debug}
+        if number_of_consumers is not None:
+            args["number_of_consumers"] = number_of_consumers
+
+        self.task_manager = TaskManager(**args)
 
         public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
@@ -79,7 +84,7 @@ class Langfuse(object):
             raise ValueError("secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'")
 
         self.client = FintoLangfuse(
-            environment=self.base_url,
+            base_url=self.base_url,
             username=public_key,
             password=secret_key,
             x_langfuse_sdk_name="python",
@@ -101,6 +106,9 @@ class Langfuse(object):
 
     def get_trace_id(self):
         return self.trace_id
+
+    def get_trace_url(self):
+        return f"{self.base_url}/traces/{self.trace_id}"
 
     def get_dataset(self, name: str):
         try:
@@ -152,9 +160,7 @@ class Langfuse(object):
     ):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.observations.get_many(
-                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
-            )
+            return self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION")
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -199,9 +205,7 @@ class Langfuse(object):
             self.task_manager.add_task(new_id, task)
 
             if body.observation_id is not None:
-                return StatefulClient(
-                    self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager
-                )
+                return StatefulClient(self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager)
             else:
                 return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
 
@@ -290,9 +294,7 @@ class Langfuse(object):
 
             self.task_manager.add_task(new_generation_id, create_generation)
 
-            return StatefulGenerationClient(
-                self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager
-            )
+            return StatefulGenerationClient(self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -362,9 +364,7 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(generation_id, task)
-            return StatefulGenerationClient(
-                self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -386,9 +386,7 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(span_id, task)
-            return StatefulSpanClient(
-                self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -413,9 +411,7 @@ class StatefulClient(object):
                     raise e
 
             self.task_manager.add_task(score_id, task)
-            return StatefulClient(
-                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -441,6 +437,9 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
+    def get_trace_url(self):
+        return f"{self.client._environment}/trace/{self.trace_id}"
+
 
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
@@ -463,9 +462,7 @@ class StatefulGenerationClient(StatefulClient):
                     raise e
 
             self.task_manager.add_task(update_id, task)
-            return StatefulGenerationClient(
-                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -499,9 +496,7 @@ class StatefulSpanClient(StatefulClient):
                     raise e
 
             self.task_manager.add_task(update_id, task)
-            return StatefulSpanClient(
-                self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager
-            )
+            return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
 
@@ -578,9 +573,7 @@ class DatasetItemClient:
             raise ValueError("observation parameter must be either a StatefulClient or a string")
 
         logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
-        self.langfuse.client.dataset_run_items.create(
-            request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id)
-        )
+        self.langfuse.client.dataset_run_items.create(request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id))
 
     def get_langchain_handler(self, *, run_name: str):
         from langfuse.callback import CallbackHandler
