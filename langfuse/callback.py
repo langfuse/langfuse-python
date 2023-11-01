@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import logging
+import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
@@ -476,6 +477,18 @@ class CallbackHandler(BaseCallbackHandler):
                 )
             if kwargs["invocation_params"]["_type"] in ["anthropic-llm", "anthropic-chat"]:
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
+            elif kwargs["invocation_params"]["_type"] == "amazon_bedrock":
+                # langchain only provides string representation of the model class. Hence have to parse it out.
+                def extract_model_id(text):
+                    match = re.search(r"model_id='(.*?)'", text)
+                    if match:
+                        return match.group(1)
+                    return None
+
+                def extract_second_part(text):
+                    return text.split(".")[-1]
+
+                model_name = extract_second_part(extract_model_id(serialized["repr"]))
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":

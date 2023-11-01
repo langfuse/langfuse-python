@@ -782,3 +782,60 @@ def test_create_extraction_chain():
         assert generation.total_tokens is not None
         assert generation.prompt_tokens is not None
         assert generation.completion_tokens is not None
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_aws_bedrock_chain():
+    import os
+
+    from langchain.llms.bedrock import Bedrock
+    import boto3
+
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=False)
+
+    bedrock_client = boto3.client(
+        "bedrock-runtime",
+        region_name="us-east-1",
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+        aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+    )
+
+    llm = Bedrock(
+        model_id="anthropic.claude-instant-v1",
+        client=bedrock_client,
+        model_kwargs={
+            "max_tokens_to_sample": 1000,
+            "temperature": 0.0,
+        },
+    )
+
+    text = "What would be a good company name for a company that makes colorful socks?"
+
+    llm.predict(text, callbacks=[handler])
+
+    handler.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    generation = trace["observations"][1]
+
+    assert generation["promptTokens"] is not None
+    assert generation["completionTokens"] is not None
+    assert generation["totalTokens"] is not None
+
+    assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
+            assert observation["name"] == "Bedrock"
+            assert observation["model"] == "claude"
