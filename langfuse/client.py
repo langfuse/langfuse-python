@@ -55,10 +55,7 @@ class Langfuse(object):
     ):
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
-        self.log.warning(f"Debug mode: {set_debug}")
-
         if set_debug is True:
-            self.log.warning("Debug mode")
             # Ensures that debug level messages are logged when debug mode is on.
             # Otherwise, defaults to WARNING level.
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided

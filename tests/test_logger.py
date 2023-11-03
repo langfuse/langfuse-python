@@ -22,7 +22,7 @@ def test_via_env():
 
     assert langfuse.log.level == 10
     assert langfuse.task_manager.log.level == 10
-    print(langfuse.log.level)
+    os.environ.pop("LANGFUSE_DEBUG")
 
 
 def test_debug_langfuse():
