@@ -53,8 +53,12 @@ class Langfuse(object):
         debug: bool = False,
         number_of_consumers: Optional[int] = None,
     ):
-        set_debug = debug if debug else os.environ.get("LANGFUSE_DEBUG")
-        if set_debug:
+        set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
+
+        self.log.warning(f"Debug mode: {set_debug}")
+
+        if set_debug is True:
+            self.log.warning("Debug mode")
             # Ensures that debug level messages are logged when debug mode is on.
             # Otherwise, defaults to WARNING level.
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
@@ -66,7 +70,7 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        args = {"debug": debug}
+        args = {"debug": set_debug}
         if number_of_consumers is not None:
             args["number_of_consumers"] = number_of_consumers
 
@@ -96,6 +100,8 @@ class Langfuse(object):
         self.trace_id = None
 
         self.release = self.get_release_value(release)
+
+        self.log.warning(self.log.level)
 
     def get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
