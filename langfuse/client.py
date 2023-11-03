@@ -53,7 +53,8 @@ class Langfuse(object):
         debug: bool = False,
         number_of_consumers: Optional[int] = None,
     ):
-        if debug:
+        set_debug = debug if debug else os.environ.get("LANGFUSE_DEBUG")
+        if set_debug:
             # Ensures that debug level messages are logged when debug mode is on.
             # Otherwise, defaults to WARNING level.
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
