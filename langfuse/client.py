@@ -98,8 +98,6 @@ class Langfuse(object):
 
         self.release = self.get_release_value(release)
 
-        self.log.warning(self.log.level)
-
     def get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
             return release
