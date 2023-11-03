@@ -22,6 +22,18 @@ def test_via_env():
 
     assert langfuse.log.level == 10
     assert langfuse.task_manager.log.level == 10
+
+    os.environ.pop("LANGFUSE_DEBUG")
+
+
+def test_via_env_callback():
+    os.environ["LANGFUSE_DEBUG"] = "True"
+
+    callback = CallbackHandler()
+
+    assert callback.log.level == 10
+    assert callback.langfuse.log.level == 10
+    assert callback.langfuse.task_manager.log.level == 10
     os.environ.pop("LANGFUSE_DEBUG")
 
 
