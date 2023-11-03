@@ -43,18 +43,6 @@ class CallbackHandler(BaseCallbackHandler):
 
         self.version = version
 
-        if debug:
-            # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level.
-            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
-
-            logging.basicConfig()
-            self.log.setLevel(logging.DEBUG)
-
-            self.log.debug("Debug mode is on. Logging debug level messages.")
-        else:
-            self.log.setLevel(logging.WARNING)
-
         if statefulClient and isinstance(statefulClient, StatefulTraceClient):
             self.trace = statefulClient
             self.runs = {}
