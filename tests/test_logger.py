@@ -1,3 +1,4 @@
+import os
 from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
 from langfuse.model import (
@@ -12,6 +13,28 @@ logging.INFO	20
 logging.WARNING	30
 logging.ERROR	40
 """
+
+
+def test_via_env():
+    os.environ["LANGFUSE_DEBUG"] = "True"
+
+    langfuse = Langfuse()
+
+    assert langfuse.log.level == 10
+    assert langfuse.task_manager.log.level == 10
+
+    os.environ.pop("LANGFUSE_DEBUG")
+
+
+def test_via_env_callback():
+    os.environ["LANGFUSE_DEBUG"] = "True"
+
+    callback = CallbackHandler()
+
+    assert callback.log.level == 10
+    assert callback.langfuse.log.level == 10
+    assert callback.langfuse.task_manager.log.level == 10
+    os.environ.pop("LANGFUSE_DEBUG")
 
 
 def test_debug_langfuse():

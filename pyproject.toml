@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.1.6"
+version = "1.1.11"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -14,7 +14,7 @@ python-dateutil = ">=2.8.0, <3.0"
 pydantic = ">=1.10.7, <3.0"
 pytz = "^2023.3"
 backoff = "^2.2.1"
-langchain = ">=0.0.309,<0.0.321"
+langchain = ">=0.0.309,<=0.0.327"
 monotonic = "^1.6"
 
 [tool.poetry.group.dev.dependencies]
@@ -37,6 +37,7 @@ bs4 = "^0.0.1"
 lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
 pytest-httpserver = "^1.0.8"
+boto3 = "^1.28.59"
 
 [build-system]
 requires = ["poetry-core"]

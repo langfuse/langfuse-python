@@ -94,7 +94,6 @@ def test_linking_via_id_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
     langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()

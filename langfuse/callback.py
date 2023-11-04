@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import logging
+import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
@@ -41,18 +42,6 @@ class CallbackHandler(BaseCallbackHandler):
         prioritized_host = host if host else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
         self.version = version
-
-        if debug:
-            # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level.
-            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
-
-            logging.basicConfig()
-            self.log.setLevel(logging.DEBUG)
-
-            self.log.debug("Debug mode is on. Logging debug level messages.")
-        else:
-            self.log.setLevel(logging.WARNING)
 
         if statefulClient and isinstance(statefulClient, StatefulTraceClient):
             self.trace = statefulClient
@@ -464,7 +453,6 @@ class CallbackHandler(BaseCallbackHandler):
     ):
         try:
             if self.trace is None:
-                # simple LLM call that has no trace and parent
                 self.__generate_trace_and_parent(
                     serialized,
                     inputs=prompts,
@@ -477,6 +465,18 @@ class CallbackHandler(BaseCallbackHandler):
                 )
             if kwargs["invocation_params"]["_type"] in ["anthropic-llm", "anthropic-chat"]:
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
+            elif kwargs["invocation_params"]["_type"] == "amazon_bedrock":
+                # langchain only provides string representation of the model class. Hence have to parse it out.
+                def extract_model_id(text):
+                    match = re.search(r"model_id='(.*?)'", text)
+                    if match:
+                        return match.group(1)
+                    return None
+
+                def extract_second_part(text):
+                    return text.split(".")[-1]
+
+                model_name = extract_second_part(extract_model_id(serialized["repr"]))
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
