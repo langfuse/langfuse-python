@@ -281,7 +281,6 @@ def test_create_span():
     assert len(trace["observations"]) == 1
 
     span = trace["observations"][0]
-    print(span)
 
     assert span["id"] == span_id
     assert span["name"] == "span"
