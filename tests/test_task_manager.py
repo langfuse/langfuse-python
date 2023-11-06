@@ -159,7 +159,7 @@ def test_flush():
     # a race condition. We do our best to load it up though.
     tm.flush()
     # Make sure that the client queue is empty after flushing
-    assert tm.queue.empty()
+    assert tm._queue.empty()
 
 
 def test_shutdown():
@@ -167,7 +167,7 @@ def test_shutdown():
     def short_task():
         return 2
 
-    tm = TaskManager(debug=False, number_of_consumers=5)  # debug=False to avoid logging
+    tm = TaskManager(debug=False, threads=5)  # debug=False to avoid logging
 
     for i in range(1000):
         tm.add_task(i, short_task)
@@ -176,9 +176,9 @@ def test_shutdown():
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
-    assert tm.queue.empty()
+    assert tm._queue.empty()
 
-    assert len(tm.consumers) == 5
-    for c in tm.consumers:
+    assert len(tm._consumers) == 5
+    for c in tm._consumers:
         assert not c.is_alive()
-    assert tm.queue.empty()
+    assert tm._queue.empty()

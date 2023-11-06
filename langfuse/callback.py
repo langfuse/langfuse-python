@@ -34,7 +34,11 @@ class CallbackHandler(BaseCallbackHandler):
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
-        number_of_consumers: Optional[int] = None,
+        threads: Optional[int] = None,
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[int] = None,
+        max_retries: Optional[int] = None,
+        timeout: Optional[int] = None,
     ) -> None:
         # If we're provided a stateful trace client directly
         prioritized_public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
@@ -66,8 +70,16 @@ class CallbackHandler(BaseCallbackHandler):
 
             if release is not None:
                 args["release"] = release
-            if number_of_consumers is not None:
-                args["number_of_consumers"] = number_of_consumers
+            if threads is not None:
+                args["threads"] = threads
+            if flush_at is not None:
+                args["flush_at"] = flush_at
+            if flush_interval is not None:
+                args["flush_interval"] = flush_interval
+            if max_retries is not None:
+                args["max_retries"] = max_retries
+            if timeout is not None:
+                args["timeout"] = timeout
 
             self.langfuse = Langfuse(**args)
             self.trace = None

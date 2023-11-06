@@ -31,7 +31,7 @@ async def test_concurrency():
         generation = trace.generation(InitialGeneration(name=str(i)))
         generation.update(UpdateGeneration(metadata={"count": str(i)}))
 
-    langfuse = Langfuse(debug=False, number_of_consumers=5)
+    langfuse = Langfuse(debug=False, threads=5)
 
     await gather(*(update_generation(i, langfuse) for i in range(1000)))
 
@@ -59,7 +59,7 @@ def test_flush():
 
     langfuse.flush()
     # Make sure that the client queue is empty after flushing
-    assert langfuse.task_manager.queue.empty()
+    assert langfuse.task_manager._queue.empty()
 
 
 def test_shutdown():
@@ -76,7 +76,7 @@ def test_shutdown():
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
-    assert langfuse.task_manager.queue.empty()
+    assert langfuse.task_manager._queue.empty()
 
 
 def test_create_score():
@@ -92,7 +92,7 @@ def test_create_score():
     )
     logging.info("FLUSH")
     langfuse.flush()
-    assert langfuse.task_manager.queue.qsize() == 0
+    assert langfuse.task_manager._queue.qsize() == 0
 
     score_id = create_uuid()
     langfuse.score(
@@ -110,7 +110,7 @@ def test_create_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager.queue.qsize() == 0
+    assert langfuse.task_manager._queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 

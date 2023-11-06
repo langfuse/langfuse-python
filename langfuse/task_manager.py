@@ -25,8 +25,9 @@ class Consumer(threading.Thread):
     _client: LangfuseClient
     _flush_at: int
     _flush_interval: float
+    _max_retries: int
 
-    def __init__(self, queue: Queue, identifier: int, client: LangfuseClient, flush_at=100, flush_interval=0.5):
+    def __init__(self, queue: Queue, identifier: int, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int):
         """Create a consumer thread."""
 
         threading.Thread.__init__(self)
@@ -42,6 +43,7 @@ class Consumer(threading.Thread):
         self._client = client
         self._flush_at = flush_at
         self._flush_interval = flush_interval
+        self._max_retries = max_retries
 
     def _next(self):
         """Return the next batch of items to upload."""
@@ -102,7 +104,7 @@ class Consumer(threading.Thread):
         self.running = False
 
     def _upload_batch(self, batch: List[any]):
-        @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+        @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
         def execute_task_with_backoff(batch: [any]):
             return self._client.batch_post(gzip=False, batch=batch)
 
@@ -111,18 +113,24 @@ class Consumer(threading.Thread):
 
 class TaskManager(object):
     _log = logging.getLogger("langfuse")
-    consumers: List[Consumer]
-    number_of_consumers: int
-    max_task_queue_size: int
-    queue: Queue
+    _consumers: List[Consumer]
+    _threads: int
+    _max_task_queue_size: int
+    _queue: Queue
     _client: LangfuseClient
+    _flush_at: int
+    _flush_interval: float
+    _max_retries: int
 
-    def __init__(self, **kwargs):
-        self.max_task_queue_size = kwargs.get("max_task_queue_size", 100_000)
-        self.number_of_consumers = kwargs.get("number_of_consumers", 1)
-        self.queue = queue.Queue(self.max_task_queue_size)
-        self.consumers = []
-        self._client = kwargs.get("client")
+    def __init__(self, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int, threads: int, max_task_queue_size: int = 100_000):
+        self._max_task_queue_size = max_task_queue_size
+        self._threads = threads
+        self._queue = queue.Queue(self._max_task_queue_size)
+        self._consumers = []
+        self._client = client
+        self._flush_at = flush_at
+        self._flush_interval = flush_interval
+        self._max_retries = max_retries
 
         self.init_resources()
 
@@ -130,15 +138,15 @@ class TaskManager(object):
         atexit.register(self.join)
 
     def init_resources(self):
-        for i in range(self.number_of_consumers):
-            consumer = Consumer(self.queue, i, self._client)
+        for i in range(self._threads):
+            consumer = Consumer(self._queue, i, self._client, self._flush_at, self._flush_interval, self._max_retries)
             consumer.start()
-            self.consumers.append(consumer)
+            self._consumers.append(consumer)
 
     def add_task(self, task_id, event):
         try:
             self._log.debug("Adding task")
-            self.queue.put(event, block=False)
+            self._queue.put(event, block=False)
         except queue.Full:
             self._log.warning("analytics-python queue is full")
             return False
@@ -149,7 +157,7 @@ class TaskManager(object):
     def flush(self):
         """Forces a flush from the internal queue to the server"""
         self._log.debug("flushing queue")
-        queue = self.queue
+        queue = self._queue
         size = queue.qsize()
         queue.join()
         # Note that this message may not be precise, because of threading.
@@ -159,8 +167,8 @@ class TaskManager(object):
         """Ends the consumer threads once the queue is empty.
         Blocks execution until finished
         """
-        self._log.debug(f"joining {len(self.consumers)} consumer threads")
-        for consumer in self.consumers:
+        self._log.debug(f"joining {len(self._consumers)} consumer threads")
+        for consumer in self._consumers:
             consumer.pause()
             try:
                 consumer.join()

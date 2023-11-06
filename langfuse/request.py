@@ -17,12 +17,14 @@ class LangfuseClient:
     _secret_key: str
     _base_url: str
     _version: str
+    _timeout: int
 
-    def __init__(self, public_key: str, secret_key: str, base_url: str, version: str):
+    def __init__(self, public_key: str, secret_key: str, base_url: str, version: str, timeout: int):
         self._public_key = public_key
         self._secret_key = secret_key
         self._base_url = base_url
         self._version = version
+        self._timeout = timeout
 
     def generate_headers(self):
         return {
@@ -33,12 +35,12 @@ class LangfuseClient:
             "x_langfuse_public_key": self._public_key,
         }
 
-    def batch_post(self, gzip: bool = False, timeout: int = 15, **kwargs) -> requests.Response:
+    def batch_post(self, gzip: bool = False, **kwargs) -> requests.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
-        res = self.post(gzip, timeout, **kwargs)
+        res = self.post(gzip, **kwargs)
         return self._process_response(res, success_message="data uploaded successfully", return_json=False)
 
-    def post(self, gzip: bool = False, timeout: int = 15, **kwargs) -> requests.Response:
+    def post(self, gzip: bool = False, **kwargs) -> requests.Response:
         """Post the `kwargs` to the API"""
         log = logging.getLogger("langfuse")
         body = kwargs
@@ -56,7 +58,7 @@ class LangfuseClient:
                 gz.write(data.encode("utf-8"))
             data = buf.getvalue()
 
-        res = _session.post(url, data=data, headers=headers, timeout=timeout)
+        res = _session.post(url, data=data, headers=headers, timeout=self._timeout)
 
         if res.status_code == 200:
             log.debug("data uploaded successfully")

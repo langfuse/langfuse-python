@@ -172,22 +172,22 @@ def test_callback_init_precedence_host():
 
 def test_callback_init_workers():
     handler = CallbackHandler()
-    assert handler.langfuse.task_manager.number_of_consumers == 1
+    assert handler.langfuse.task_manager._threads == 1
 
 
 def test_callback_init_workers_5():
-    handler = CallbackHandler(number_of_consumers=5)
-    assert handler.langfuse.task_manager.number_of_consumers == 5
+    handler = CallbackHandler(threads=5)
+    assert handler.langfuse.task_manager._threads == 5
 
 
 def test_client_init_workers():
     langfuse = Langfuse()
-    assert langfuse.task_manager.number_of_consumers == 1
+    assert langfuse.task_manager._threads == 1
 
 
 def test_client_init_workers_5():
-    langfuse = Langfuse(number_of_consumers=5)
-    assert langfuse.task_manager.number_of_consumers == 5
+    langfuse = Langfuse(threads=5)
+    assert langfuse.task_manager._threads == 5
 
 
 def get_env_variables():
