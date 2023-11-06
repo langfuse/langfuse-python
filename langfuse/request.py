@@ -26,7 +26,7 @@ class LangfuseClient:
 
     def generate_headers(self):
         return {
-            "Authorization": b64encode(f"{self._public_key}:{self._secret_key}".encode("utf-8")).decode("ascii"),
+            "Authorization": "Basic " + b64encode(f"{self._public_key}:{self._secret_key}".encode("utf-8")).decode("ascii"),
             "Content-Type": "application/json",
             "x_langfuse_sdk_name": "python",
             "x_langfuse_sdk_version": self._version,
@@ -45,7 +45,7 @@ class LangfuseClient:
 
         url = self.remove_trailing_slash(self._base_url) + "/api/public/ingestion"
         data = json.dumps(body, cls=DatetimeSerializer)
-        log.debug("making request: %s", data)
+        log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
         if gzip:
             headers["Content-Encoding"] = "gzip"
@@ -71,7 +71,7 @@ class LangfuseClient:
 
     def _process_response(self, res: requests.Response, success_message: str, *, return_json: bool = True) -> Union[requests.Response, Any]:
         log = logging.getLogger("posthog")
-        if res.status_code == 200:
+        if res.status_code == 200 or res.status_code == 201:
             log.debug(success_message)
             return res.json() if return_json else res
         try:

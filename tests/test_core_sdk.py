@@ -1,5 +1,6 @@
 from asyncio import gather
 from datetime import datetime
+import logging
 
 import pytest
 
@@ -79,7 +80,7 @@ def test_shutdown():
 
 
 def test_create_score():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
@@ -89,6 +90,7 @@ def test_create_score():
             metadata="test",
         )
     )
+    logging.info("FLUSH")
     langfuse.flush()
     assert langfuse.task_manager.queue.qsize() == 0
 
@@ -139,7 +141,7 @@ def test_create_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -248,7 +250,7 @@ def test_create_generation_complex():
 
 
 def test_create_span():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -279,6 +281,7 @@ def test_create_span():
     assert len(trace["observations"]) == 1
 
     span = trace["observations"][0]
+    print(span)
 
     assert span["id"] == span_id
     assert span["name"] == "span"
@@ -436,7 +439,7 @@ def test_create_generation_and_trace():
 
 
 def test_update_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api = get_api()
 
     generation = langfuse.generation(InitialGeneration(name="generation"))
@@ -475,7 +478,7 @@ def test_update_span():
 
 
 def test_create_trace_and_event():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
