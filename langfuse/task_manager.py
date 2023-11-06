@@ -15,8 +15,6 @@ from langfuse.serializer import DatetimeSerializer
 
 MAX_MSG_SIZE = 32 << 10
 
-# Our servers only accept batches less than 500KB. Here limit is set slightly
-# lower to leave space for extra data that will be added later, eg. "sentAt".
 BATCH_SIZE_LIMIT = 475000
 
 
@@ -120,7 +118,7 @@ class TaskManager(object):
     _client: LangfuseClient
 
     def __init__(self, **kwargs):
-        self.max_task_queue_size = kwargs.get("max_task_queue_size", 10_000)
+        self.max_task_queue_size = kwargs.get("max_task_queue_size", 100_000)
         self.number_of_consumers = kwargs.get("number_of_consumers", 1)
         self.queue = queue.Queue(self.max_task_queue_size)
         self.consumers = []
