@@ -3,7 +3,6 @@ import os
 from typing import List
 
 from langchain import LLMChain, OpenAI, PromptTemplate
-import pytest
 
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
