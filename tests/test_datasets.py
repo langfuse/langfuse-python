@@ -121,6 +121,7 @@ def test_langchain_dataset():
 
         synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
+    langfuse.flush()
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name

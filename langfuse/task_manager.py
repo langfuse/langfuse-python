@@ -88,7 +88,6 @@ class Consumer(threading.Thread):
         if len(batch) == 0:
             return
 
-        self._log.debug(batch)
         try:
             self._upload_batch(batch)
         except Exception as e:
@@ -105,6 +104,7 @@ class Consumer(threading.Thread):
     def _upload_batch(self, batch: List[any]):
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
         def execute_task_with_backoff(batch: [any]):
+            self._log.debug("uploading batch of %d items", len(batch))
             return self._client.batch_post(gzip=False, batch=batch)
 
         execute_task_with_backoff(batch)
