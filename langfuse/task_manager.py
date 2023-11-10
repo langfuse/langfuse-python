@@ -48,7 +48,6 @@ class Consumer(threading.Thread):
     def _next(self):
         """Return the next batch of items to upload."""
 
-        self._log.debug("consumer thread %s is getting next batch", self._identifier)
         queue = self._queue
         items = []
 
@@ -56,13 +55,12 @@ class Consumer(threading.Thread):
         total_size = 0
 
         while len(items) < self._flush_at:
-            self._log.debug("consumer thread %s is waiting for next item", self._identifier)
             elapsed = monotonic.monotonic() - start_time
             if elapsed >= self._flush_interval:
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
-                self._log.debug(item)
+                self._log.debug("got item from queue", item)
                 item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 items.append(item)
@@ -89,6 +87,7 @@ class Consumer(threading.Thread):
         batch = self._next()
         if len(batch) == 0:
             return
+
         self._log.debug(batch)
         try:
             self._upload_batch(batch)

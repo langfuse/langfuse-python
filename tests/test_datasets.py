@@ -95,7 +95,7 @@ def test_linking_via_id_observation():
 
 
 def test_langchain_dataset():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
 

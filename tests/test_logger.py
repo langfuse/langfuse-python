@@ -21,7 +21,7 @@ def test_via_env():
     langfuse = Langfuse()
 
     assert langfuse.log.level == 10
-    assert langfuse.task_manager.log.level == 10
+    assert langfuse.task_manager._log.level == 10
 
     os.environ.pop("LANGFUSE_DEBUG")
 
@@ -33,20 +33,20 @@ def test_via_env_callback():
 
     assert callback.log.level == 10
     assert callback.langfuse.log.level == 10
-    assert callback.langfuse.task_manager.log.level == 10
+    assert callback.langfuse.task_manager._log.level == 10
     os.environ.pop("LANGFUSE_DEBUG")
 
 
 def test_debug_langfuse():
     langfuse = Langfuse(debug=True)
     assert langfuse.log.level == 10
-    assert langfuse.task_manager.log.level == 10
+    assert langfuse.task_manager._log.level == 10
 
 
 def test_default_langfuse():
     langfuse = Langfuse()
     assert langfuse.log.level == 30
-    assert langfuse.task_manager.log.level == 30
+    assert langfuse.task_manager._log.level == 30
 
 
 def test_default_langfuse_callback():
@@ -71,7 +71,7 @@ def test_default_langfuse_trace_callback():
     assert callback.log.level == 30
     assert callback.log.level == 30
     assert callback.trace.log.level == 30
-    assert callback.trace.task_manager.log.level == 30
+    assert callback.trace.task_manager._log.level == 30
 
 
 def test_debug_langfuse_trace_callback():
@@ -82,4 +82,4 @@ def test_debug_langfuse_trace_callback():
     assert callback.log.level == 10
     assert callback.log.level == 10
     assert callback.trace.log.level == 10
-    assert callback.trace.task_manager.log.level == 10
+    assert callback.trace.task_manager._log.level == 10

@@ -1,3 +1,4 @@
+import logging
 import uuid
 import pydantic
 
@@ -9,7 +10,7 @@ from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequ
 def convert_observation_to_event(body: pydantic.BaseModel, type: str):
     dict_body = body.dict()
     dict_body["type"] = type
-
+    logging.info("huhu", body)
     if isinstance(body, CreateGenerationRequest) or isinstance(body, UpdateGenerationRequest):
         dict_body["output"] = body.completion
         dict_body.pop("completion", None)

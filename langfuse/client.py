@@ -445,7 +445,7 @@ class StatefulGenerationClient(StatefulClient):
         try:
             update_id = str(uuid.uuid4())
 
-            new_body = body.copy(update={"generation_id": self.id, "trace_id": self.trace_id})
+            new_body = body.model_copy(update={"generation_id": self.id, "trace_id": self.trace_id})
 
             request = UpdateGenerationRequest(**new_body.dict())
 
