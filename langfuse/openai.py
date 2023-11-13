@@ -107,7 +107,6 @@ class OpenAILangfuse:
             "metadata": metadata,
             "level": "ERROR" if isinstance(result, Exception) else "DEFAULT",
             "trace_id": trace_id,
-            "user_id": user_id,
         }
         return all_details
 
