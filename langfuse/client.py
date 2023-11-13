@@ -523,12 +523,15 @@ class StatefulTraceClient(StatefulClient):
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
-    def getNewHandler(self):
+    def get_langchain_handler(self):
         from langfuse.callback import CallbackHandler
 
         self.log.debug(f"Creating new handler for trace {self.id}")
 
         return CallbackHandler(statefulClient=self, debug=self.log.level == logging.DEBUG)
+
+    def getNewHandler(self):
+        return self.get_langchain_handler()
 
 
 class DatasetItemClient:
