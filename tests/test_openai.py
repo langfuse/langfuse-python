@@ -18,7 +18,7 @@ def test_openai_chat_completion():
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
         metadata={"someKey": "someResponse"},
-        user="someUser"
+        user_id="someUser"
     )
 
     openai.flush_langfuse()
@@ -33,7 +33,7 @@ def test_openai_chat_completion():
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
     assert generation.data[0].model == "gpt-3.5-turbo-0613"
-    assert generation.data[0].user == "someUser"
+    assert generation.data[0].user_id == "someUser"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time

@@ -84,7 +84,7 @@ class OpenAILangfuse:
             completion = None
 
         model = kwargs.get("model", None) if isinstance(result, Exception) else result.model
-        user = kwargs.get("user", None)
+        user_id = kwargs.get("user_id", None)
 
         usage = None if isinstance(result, Exception) or result.usage is None else LlmUsage(**result.usage)
         endTime = datetime.now()
@@ -107,7 +107,7 @@ class OpenAILangfuse:
             "metadata": metadata,
             "level": "ERROR" if isinstance(result, Exception) else "DEFAULT",
             "trace_id": trace_id,
-            "user": user,
+            "user_id": user_id,
         }
         return all_details
 
