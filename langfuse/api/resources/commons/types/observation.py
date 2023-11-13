@@ -22,7 +22,6 @@ class Observation(pydantic.BaseModel):
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime")
     model: typing.Optional[str]
-    user_id: typing.Optional[str]
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters")
     input: typing.Optional[typing.Any]
     version: typing.Optional[str]
