@@ -15,10 +15,13 @@ import backoff
 from langfuse.request import LangfuseClient
 from langfuse.serializer import DatetimeSerializer
 
+# largest message size in db is 331000 bytes right now
+MAX_MSG_SIZE = 700_000
 
-MAX_MSG_SIZE = 32 << 10
-
-BATCH_SIZE_LIMIT = 475000
+# https://vercel.com/docs/functions/serverless-functions/runtimes#request-body-size
+# The maximum payload size for the request body or the response body of a Serverless Function is 4.5 MB
+# 4_500_000 Bytes = 4.5 MB
+BATCH_SIZE_LIMIT = 2_000_000
 
 
 class Consumer(threading.Thread):
