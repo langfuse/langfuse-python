@@ -114,7 +114,7 @@ class OpenAILangfuse:
     def _log_result(self, call_details):
         generation = InitialGeneration(**call_details)
         if call_details["trace_id"] is not None:
-            self.langfuse.trace(CreateTrace(id=call_details["trace_id"], user_id=call_details["user"]))
+            self.langfuse.trace(CreateTrace(id=call_details["trace_id"], user_id=call_details["user_id"]))
         self.langfuse.generation(generation)
 
     def langfuse_modified(self, func, api_resource_class):

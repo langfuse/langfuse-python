@@ -271,7 +271,7 @@ class Langfuse(object):
                             "id": new_trace_id,
                             "release": self.release,
                             "name": body.name,
-                            "user_id": body.user
+                            "user_id": body.user_id
                         }
 
                         self.log.debug(f"Creating trace {new_body}...")
@@ -441,7 +441,7 @@ class StatefulClient(object):
             self.log.exception(e)
 
     def get_trace_url(self):
-        return f"{self.client._environment}/trace/{self.trace_id}"
+        return f"{self.client._client_wrapper._base_url}/trace/{self.trace_id}"
 
 
 class StatefulGenerationClient(StatefulClient):
