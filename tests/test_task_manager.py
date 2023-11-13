@@ -32,17 +32,31 @@ def get_host(url):
 
 @pytest.mark.timeout(10)
 def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
-    setup_server(httpserver, {"batch": [{"foo": "bar"}, {"foo_1": "bar_1"}, {"foo_2": "bar_2"}]})
+    failed = False
+
+    def handler(request: Request):
+        try:
+            if request.json["batch"][0]["foo"] == "bar":
+                return Response(status=200)
+            return Response(status=500)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            nonlocal failed
+            failed = True
+
+    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
     tm.add_task({"foo": "bar"})
-    tm.add_task({"foo_1": "bar_1"})
-    tm.add_task({"foo_2": "bar_2"})
+    tm.add_task({"foo": "bar"})
+    tm.add_task({"foo": "bar"})
 
     tm.flush()
+    assert not failed
 
 
 @pytest.mark.timeout(10)
@@ -50,12 +64,11 @@ def test_task_manager_fail(httpserver: HTTPServer):
     count = 0
 
     def handler(request: Request):
-        print("whoop", request.data)
         nonlocal count
         count = count + 1
         return Response(status=500)
 
-    httpserver.expect_request("/api/public/ingestion", method="POST", json={"batch": [{"foo": "bar"}]}).respond_with_handler(handler)
+    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
@@ -69,7 +82,20 @@ def test_task_manager_fail(httpserver: HTTPServer):
 
 @pytest.mark.timeout(20)
 def test_consumer_restart(httpserver: HTTPServer):
-    httpserver.expect_request("/api/public/ingestion", method="POST", json={"batch": [{"foo": "bar"}]}).respond_with_data("success")
+    failed = False
+
+    def handler(request: Request):
+        try:
+            if request.json["batch"][0]["foo"] == "bar":
+                return Response(status=200)
+            return Response(status=500)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            nonlocal failed
+            failed = True
+
+    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
@@ -80,6 +106,7 @@ def test_consumer_restart(httpserver: HTTPServer):
 
     tm.add_task({"foo": "bar"})
     tm.flush()
+    assert not failed
 
 
 @pytest.mark.timeout(10)
@@ -87,7 +114,6 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
     counter = 0
 
     def handler(request: Request):
-        print("whoop", request.data)
         nonlocal counter
         counter = counter + 1
         return Response(status=200)
@@ -95,7 +121,7 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
     def add_task_concurrently(tm, func):
         tm.add_task(func)
 
-    httpserver.expect_request("/api/public/ingestion", method="POST", json={"batch": [{"foo": "bar"}]}).respond_with_handler(handler)
+    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
@@ -156,11 +182,24 @@ manager = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
 def test_flush(httpserver: HTTPServer):
     # set up the consumer with more requests than a single batch will allow
+
+    failed = False
+
+    def handler(request: Request):
+        try:
+            if request.json["batch"][0]["foo"] == "bar":
+                return Response(status=200)
+            return Response(status=500)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            nonlocal failed
+            failed = True
+
     httpserver.expect_request(
         "/api/public/ingestion",
         method="POST",
-        json={"batch": [{"foo": "bar"}]},
-    ).respond_with_data("success")
+    ).respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
@@ -175,16 +214,29 @@ def test_flush(httpserver: HTTPServer):
     tm.flush()
     # Make sure that the client queue is empty after flushing
     assert tm._queue.empty()
+    assert not failed
 
 
 def test_shutdown(httpserver: HTTPServer):
     # set up the consumer with more requests than a single batch will allow
 
+    failed = False
+
+    def handler(request: Request):
+        try:
+            if request.json["batch"][0]["foo"] == "bar":
+                return Response(status=200)
+            return Response(status=500)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            nonlocal failed
+            failed = True
+
     httpserver.expect_request(
         "/api/public/ingestion",
         method="POST",
-        json={"batch": [{"foo": "bar"}]},
-    ).respond_with_data("success")
+    ).respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
@@ -203,3 +255,4 @@ def test_shutdown(httpserver: HTTPServer):
     for c in tm._consumers:
         assert not c.is_alive()
     assert tm._queue.empty()
+    assert not failed
