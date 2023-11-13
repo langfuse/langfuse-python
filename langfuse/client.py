@@ -270,8 +270,7 @@ class Langfuse(object):
                         new_body = {
                             "id": new_trace_id,
                             "release": self.release,
-                            "name": body.name,
-                            "user_id": body.user_id
+                            "name": body.name
                         }
 
                         self.log.debug(f"Creating trace {new_body}...")
