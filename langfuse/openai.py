@@ -84,6 +84,7 @@ class OpenAILangfuse:
             completion = None
 
         model = kwargs.get("model", None) if isinstance(result, Exception) else result.model
+        user = kwargs.get("user", None)
 
         usage = None if isinstance(result, Exception) or result.usage is None else LlmUsage(**result.usage)
         endTime = datetime.now()
@@ -106,13 +107,14 @@ class OpenAILangfuse:
             "metadata": metadata,
             "level": "ERROR" if isinstance(result, Exception) else "DEFAULT",
             "trace_id": trace_id,
+            "user": user,
         }
         return all_details
 
     def _log_result(self, call_details):
         generation = InitialGeneration(**call_details)
         if call_details["trace_id"] is not None:
-            self.langfuse.trace(CreateTrace(id=call_details["trace_id"]))
+            self.langfuse.trace(CreateTrace(id=call_details["trace_id"], user_id=call_details["user"]))
         self.langfuse.generation(generation)
 
     def langfuse_modified(self, func, api_resource_class):
