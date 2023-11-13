@@ -1,8 +1,6 @@
-from datetime import datetime
 import logging
 import uuid
 import pydantic
-from dateutil.tz import tzutc
 
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
@@ -29,7 +27,6 @@ def convert_observation_to_event(body: pydantic.BaseModel, type: str, update: bo
 
     return {
         "id": str(uuid.uuid4()),
-        "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
         "type": "observation-update" if update else "observation-create",
         "body": dict_body,
     }

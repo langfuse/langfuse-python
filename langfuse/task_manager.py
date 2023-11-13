@@ -1,4 +1,5 @@
 import atexit
+from datetime import datetime
 import json
 import logging
 import queue
@@ -6,6 +7,8 @@ from queue import Empty, Queue
 import threading
 from typing import List
 import monotonic
+from dateutil.tz import tzutc
+
 
 import backoff
 
@@ -145,6 +148,7 @@ class TaskManager(object):
     def add_task(self, event):
         try:
             self._log.debug("Adding task")
+            event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
             self._queue.put(event, block=False)
         except queue.Full:
             self._log.warning("analytics-python queue is full")

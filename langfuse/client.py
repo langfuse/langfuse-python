@@ -4,7 +4,6 @@ import os
 from typing import Optional
 import typing
 import uuid
-from dateutil.tz import tzutc
 
 
 import datetime as dt
@@ -197,7 +196,6 @@ class Langfuse(object):
             self.log.debug(f"Creating trace {new_body}")
             event = {
                 "id": str(uuid.uuid4()),
-                "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
                 "type": "trace-create",
                 "body": new_body.dict(),
             }
@@ -218,7 +216,6 @@ class Langfuse(object):
             self.log.debug(f"Creating score {new_body}...")
             event = {
                 "id": str(uuid.uuid4()),
-                "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
                 "type": "score-create",
                 "body": new_body.dict(),
             }
@@ -250,7 +247,6 @@ class Langfuse(object):
 
                 event = {
                     "id": str(uuid.uuid4()),
-                    "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
                     "type": "trace-create",
                     "body": request.dict(),
                 }
@@ -289,7 +285,6 @@ class Langfuse(object):
 
                 event = {
                     "id": str(uuid.uuid4()),
-                    "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
                     "type": "trace-create",
                     "body": request.dict(),
                 }
@@ -408,7 +403,6 @@ class StatefulClient(object):
 
             event = {
                 "id": str(uuid.uuid4()),
-                "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
                 "type": "score-create",
                 "body": request.dict(),
             }
