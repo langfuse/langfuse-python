@@ -1,13 +1,15 @@
+from datetime import datetime
 import logging
 import uuid
 import pydantic
+from dateutil.tz import tzutc
 
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 
 
-def convert_observation_to_event(body: pydantic.BaseModel, type: str):
+def convert_observation_to_event(body: pydantic.BaseModel, type: str, update: bool = False):
     dict_body = body.dict()
     dict_body["type"] = type
     logging.info("huhu", body)
@@ -27,6 +29,7 @@ def convert_observation_to_event(body: pydantic.BaseModel, type: str):
 
     return {
         "id": str(uuid.uuid4()),
-        "type": "observation",
+        "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
+        "type": "observation-update" if update else "observation-create",
         "body": dict_body,
     }

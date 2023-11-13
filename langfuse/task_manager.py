@@ -142,7 +142,7 @@ class TaskManager(object):
             consumer.start()
             self._consumers.append(consumer)
 
-    def add_task(self, task_id, event):
+    def add_task(self, event):
         try:
             self._log.debug("Adding task")
             self._queue.put(event, block=False)

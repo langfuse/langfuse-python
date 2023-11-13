@@ -38,9 +38,9 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
-    tm.add_task(10, {"foo": "bar"})
-    tm.add_task(20, {"foo_1": "bar_1"})
-    tm.add_task(30, {"foo_2": "bar_2"})
+    tm.add_task({"foo": "bar"})
+    tm.add_task({"foo_1": "bar_1"})
+    tm.add_task({"foo_2": "bar_2"})
 
     tm.flush()
 
@@ -61,7 +61,7 @@ def test_task_manager_fail(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
-    tm.add_task(1, {"foo": "bar"})
+    tm.add_task({"foo": "bar"})
     tm.flush()
 
     assert count == 3
@@ -75,10 +75,10 @@ def test_consumer_restart(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
-    tm.add_task(1, {"foo": "bar"})
+    tm.add_task({"foo": "bar"})
     tm.flush()
 
-    tm.add_task(2, {"foo": "bar"})
+    tm.add_task({"foo": "bar"})
     tm.flush()
 
 
@@ -92,15 +92,15 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
         counter = counter + 1
         return Response(status=200)
 
-    def add_task_concurrently(tm, task_id, func):
-        tm.add_task(task_id, func)
+    def add_task_concurrently(tm, func):
+        tm.add_task(func)
 
     httpserver.expect_request("/api/public/ingestion", method="POST", json={"batch": [{"foo": "bar"}]}).respond_with_handler(handler)
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
-    threads = [threading.Thread(target=add_task_concurrently, args=(tm, i + 1, {"foo": "bar"})) for i in range(10)]
+    threads = [threading.Thread(target=add_task_concurrently, args=(tm, {"foo": "bar"})) for i in range(10)]
     for t in threads:
         t.start()
     for t in threads:
@@ -168,8 +168,8 @@ def test_flush(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
 
-    for i in range(1000):
-        tm.add_task(i, {"foo": "bar"})
+    for _ in range(1000):
+        tm.add_task({"foo": "bar"})
     # We can't reliably assert that the queue is non-empty here; that's
     # a race condition. We do our best to load it up though.
     tm.flush()
@@ -190,8 +190,8 @@ def test_shutdown(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 5, 10_000)
 
-    for i in range(1000):
-        tm.add_task(i, {"foo": "bar"})
+    for _ in range(1000):
+        tm.add_task({"foo": "bar"})
 
     tm.shutdown()
     # we expect two things after shutdown:

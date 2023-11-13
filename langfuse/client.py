@@ -4,6 +4,7 @@ import os
 from typing import Optional
 import typing
 import uuid
+from dateutil.tz import tzutc
 
 
 import datetime as dt
@@ -196,12 +197,12 @@ class Langfuse(object):
             self.log.debug(f"Creating trace {new_body}")
             event = {
                 "id": str(uuid.uuid4()),
-                "type": "trace",
+                "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
+                "type": "trace-create",
                 "body": new_body.dict(),
             }
 
             self.task_manager.add_task(
-                new_id,
                 event,
             )
 
@@ -217,11 +218,12 @@ class Langfuse(object):
             self.log.debug(f"Creating score {new_body}...")
             event = {
                 "id": str(uuid.uuid4()),
-                "type": "score",
+                "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
+                "type": "score-create",
                 "body": new_body.dict(),
             }
 
-            self.task_manager.add_task(new_id, event)
+            self.task_manager.add_task(event)
 
             if body.observation_id is not None:
                 return StatefulClient(self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager)
@@ -248,12 +250,13 @@ class Langfuse(object):
 
                 event = {
                     "id": str(uuid.uuid4()),
-                    "type": "trace",
+                    "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
+                    "type": "trace-create",
                     "body": request.dict(),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
-                self.task_manager.add_task(new_trace_id, event)
+                self.task_manager.add_task(event)
 
             new_body = body.copy(update={"id": new_span_id, "trace_id": new_trace_id})
             if self.release is not None:
@@ -264,7 +267,7 @@ class Langfuse(object):
             event = convert_observation_to_event(request, "SPAN")
 
             self.log.debug(f"Creating span {event}...")
-            self.task_manager.add_task(new_span_id, event)
+            self.task_manager.add_task(event)
 
             return StatefulSpanClient(self.client, new_span_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
@@ -286,13 +289,14 @@ class Langfuse(object):
 
                 event = {
                     "id": str(uuid.uuid4()),
-                    "type": "trace",
+                    "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
+                    "type": "trace-create",
                     "body": request.dict(),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
 
-                self.task_manager.add_task(new_trace_id, event)
+                self.task_manager.add_task(event)
 
             new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
             if self.release is not None:
@@ -302,7 +306,7 @@ class Langfuse(object):
             event = convert_observation_to_event(request, "GENERATION")
 
             self.log.debug(f"Creating top-level generation {event} ...")
-            self.task_manager.add_task(new_generation_id, event)
+            self.task_manager.add_task(event)
 
             return StatefulGenerationClient(self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
         except Exception as e:
@@ -365,7 +369,6 @@ class StatefulClient(object):
 
             self.log.debug(f"Creating generation {new_body}...")
             self.task_manager.add_task(
-                generation_id,
                 convert_observation_to_event(new_body, "GENERATION"),
             )
             return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
@@ -384,7 +387,7 @@ class StatefulClient(object):
             request = CreateSpanRequest(**new_dict)
             event = convert_observation_to_event(request, "SPAN")
 
-            self.task_manager.add_task(span_id, event)
+            self.task_manager.add_task(event)
             return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -405,11 +408,12 @@ class StatefulClient(object):
 
             event = {
                 "id": str(uuid.uuid4()),
-                "type": "SCORE",
+                "timestamp": datetime.utcnow().replace(tzinfo=tzutc()),
+                "type": "score-create",
                 "body": request.dict(),
             }
 
-            self.task_manager.add_task(score_id, event)
+            self.task_manager.add_task(event)
             return StatefulClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -426,7 +430,7 @@ class StatefulClient(object):
 
             event = convert_observation_to_event(request, "EVENT")
             self.log.debug(f"Creating event {event}...")
-            self.task_manager.add_task(body.id, event)
+            self.task_manager.add_task(event)
             return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -443,15 +447,13 @@ class StatefulGenerationClient(StatefulClient):
 
     def update(self, body: UpdateGeneration):
         try:
-            update_id = str(uuid.uuid4())
-
             new_body = body.copy(update={"generation_id": self.id, "trace_id": self.trace_id})
 
             request = UpdateGenerationRequest(**new_body.dict())
 
-            event = convert_observation_to_event(request, "GENERATION")
+            event = convert_observation_to_event(request, "GENERATION", True)
             self.log.debug(f"Update generation {event}...")
-            self.task_manager.add_task(update_id, event)
+            self.task_manager.add_task(event)
             return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -473,15 +475,13 @@ class StatefulSpanClient(StatefulClient):
 
     def update(self, body: UpdateSpan):
         try:
-            update_id = str(uuid.uuid4())
-
             new_body = body.copy(update={"span_id": self.id, "trace_id": self.trace_id})
             self.log.debug(f"Update span {new_body}...")
             request = UpdateSpanRequest(**new_body.dict())
 
-            event = convert_observation_to_event(request, "SPAN")
+            event = convert_observation_to_event(request, "SPAN", True)
 
-            self.task_manager.add_task(update_id, event)
+            self.task_manager.add_task(event)
             return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
