@@ -1,13 +1,25 @@
 import threading
 import functools
 from datetime import datetime
-
+from packaging import version
 import openai
-from openai.api_resources import ChatCompletion, Completion
 
 from langfuse import Langfuse
 from langfuse.client import InitialGeneration, CreateTrace
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+
+from distutils.version import StrictVersion
+import openai
+
+if StrictVersion(openai.__version__) >= StrictVersion("1.0.0"):
+   print("huhu")
+   from openai.chat import completions as chat_completions
+else:
+   print("hehe")
+   from openai import OpenAI.completions as chat_completions
+   from openai import Completion as completions
+
+print("openai version: ", openai.__version__)
 
 
 class CreateArgsExtractor:
@@ -61,7 +73,7 @@ class OpenAILangfuse:
 
         completion = None
 
-        if api_resource_class == ChatCompletion:
+        if api_resource_class == chat_completions:
             prompt = (
                 {
                     "messages": kwargs.get("messages", [{}]),
@@ -76,7 +88,7 @@ class OpenAILangfuse:
                 if completion is None:
                     completion = result.choices[-1].message.function_call
 
-        elif api_resource_class == Completion:
+        elif api_resource_class == completions:
             prompt = kwargs.get("prompt", "")
             if not isinstance(result, Exception):
                 completion = result.choices[-1].text
@@ -85,7 +97,7 @@ class OpenAILangfuse:
 
         model = kwargs.get("model", None) if isinstance(result, Exception) else result.model
 
-        usage = None if isinstance(result, Exception) or result.usage is None else LlmUsage(**result.usage)
+        usage = None if isinstance(result, Exception) or result.usage is None else LlmUsage(**result.usage.dict())
         endTime = datetime.now()
         modelParameters = {
             "temperature": kwargs.get("temperature", 1),
@@ -137,8 +149,8 @@ class OpenAILangfuse:
 
     def replace_openai_funcs(self):
         api_resources_classes = [
-            (ChatCompletion, "create"),
-            (Completion, "create"),
+            (chat_completions, "create"),
+            (completions, "create"),
         ]
 
         for api_resource_class, method in api_resources_classes:
