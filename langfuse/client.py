@@ -55,7 +55,7 @@ class Langfuse(object):
         release: Optional[str] = None,
         debug: bool = False,
         threads: int = 1,
-        flush_at: int = 100,
+        flush_at: int = 50,
         flush_interval: int = 0.5,
         max_retries=3,
         timeout=15,

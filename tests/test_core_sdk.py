@@ -31,7 +31,7 @@ async def test_concurrency():
         generation = trace.generation(InitialGeneration(name=str(i)))
         generation.update(UpdateGeneration(metadata={"count": str(i)}))
 
-    langfuse = Langfuse(debug=False, threads=5)
+    langfuse = Langfuse(debug=True, threads=5)
 
     await gather(*(update_generation(i, langfuse) for i in range(1000)))
 
@@ -48,7 +48,7 @@ async def test_concurrency():
 
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
 
     for i in range(2):
         langfuse.trace(
