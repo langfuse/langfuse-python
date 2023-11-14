@@ -188,6 +188,8 @@ class TaskManager(object):
         """Flush all messages and cleanly shutdown the client"""
 
         self._log.debug("shutdown initiated")
+
         self.flush()
         self.join()
+
         self._log.debug("shutdown completed")
