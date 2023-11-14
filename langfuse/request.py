@@ -72,8 +72,8 @@ class LangfuseClient:
         return url
 
     def _process_response(self, res: requests.Response, success_message: str, *, return_json: bool = True) -> Union[requests.Response, Any]:
-        log = logging.getLogger("posthog")
-        log.warning("received response: %s", res.text)
+        log = logging.getLogger("langfuse")
+        log.debug("received response: %s", res.text)
         if res.status_code == 200 or res.status_code == 201:
             log.debug(success_message)
             return res.json() if return_json else res
@@ -81,13 +81,11 @@ class LangfuseClient:
             payload = res.json()
             errors = payload["errors"]
             if len(errors) > 0:
-                log.warning("received response: %s", payload)
                 raise APIError(res.status_code, errors[0]["message"])
             else:
                 return res.json() if return_json else res
         try:
             payload = res.json()
-            log.warning("received response: %s", payload)
             raise APIError(res.status_code, payload["detail"])
         except (KeyError, ValueError):
             raise APIError(res.status_code, res.text)
