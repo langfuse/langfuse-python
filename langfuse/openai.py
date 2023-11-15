@@ -1,16 +1,61 @@
 import threading
-import functools
 from datetime import datetime
 
-import openai
-from openai.api_resources import ChatCompletion, Completion
 
 from langfuse import Langfuse
 from langfuse.client import InitialGeneration, CreateTrace
-from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+
+from distutils.version import StrictVersion
+import openai
+from wrapt import wrap_function_wrapper
 
 
-class CreateArgsExtractor:
+class OpenAiDefinition:
+    module: str
+    object: str
+    method: str
+    type: str
+
+    def __init__(self, module: str, object: str, method: str, type: str):
+        self.module = module
+        self.object = object
+        self.method = method
+        self.type = type
+
+
+OPENAI_METHODS_V0 = [
+    OpenAiDefinition(
+        module="openai",
+        object="ChatCompletion",
+        method="create",
+        type="chat",
+    ),
+    OpenAiDefinition(
+        module="openai",
+        object="Completion",
+        method="create",
+        type="completion",
+    ),
+]
+
+
+OPENAI_METHODS_V1 = [
+    OpenAiDefinition(
+        module="openai.resources.chat.completions",
+        object="Completions",
+        method="create",
+        type="chat",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.completions",
+        object="Completions",
+        method="create",
+        type="completion",
+    ),
+]
+
+
+class OpenAiArgsExtractor:
     def __init__(self, name=None, metadata=None, trace_id=None, **kwargs):
         self.args = {}
         self.args["name"] = name
@@ -23,6 +68,105 @@ class CreateArgsExtractor:
 
     def get_openai_args(self):
         return self.kwargs
+
+
+def _with_tracer_wrapper(func):
+    """Helper for providing tracer for wrapper functions."""
+
+    def _with_tracer(open_ai_definitions, langfuse):
+        def wrapper(wrapped, instance, args, kwargs):
+            return func(open_ai_definitions, langfuse, wrapped, instance, args, kwargs)
+
+        return wrapper
+
+    return _with_tracer
+
+
+def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs):
+    name = kwargs.get("name", "OpenAI-generation")
+
+    if name is not None and not isinstance(name, str):
+        raise TypeError("name must be a string")
+
+    trace_id = kwargs.get("trace_id", "OpenAI-generation")
+    if trace_id is not None and not isinstance(trace_id, str):
+        raise TypeError("trace_id must be a string")
+
+    if trace_id:
+        langfuse.trace(CreateTrace(id=trace_id))
+
+    metadata = kwargs.get("metadata", {})
+
+    if metadata is not None and not isinstance(metadata, dict):
+        raise TypeError("metadata must be a dictionary")
+
+    prompt = None
+    if resource.type == "completion":
+        prompt = kwargs.get("prompt", None)
+    elif resource.type == "chat":
+        prompt = (
+            {
+                "messages": kwargs.get("messages", [{}]),
+                "functions": kwargs.get("functions", [{}]),
+                "function_call": kwargs.get("function_call", {}),
+            }
+            if kwargs.get("functions", None) is not None
+            else kwargs.get("messages", [{}])
+        )
+
+    modelParameters = {
+        "temperature": kwargs.get("temperature", 1),
+        "maxTokens": kwargs.get("max_tokens", float("inf")),
+        "top_p": kwargs.get("top_p", 1),
+        "frequency_penalty": kwargs.get("frequency_penalty", 0),
+        "presence_penalty": kwargs.get("presence_penalty", 0),
+    }
+
+    return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters)
+
+
+def _get_langfuse_data_from_response(resource: OpenAiDefinition, response):
+    model = response.get("model", None)
+
+    completion = None
+    if resource.type == "completion":
+        choices = response.get("choices", [])
+        if len(choices) > 0:
+            choice = choices[-1]
+
+            completion = choice.text if _is_openai_v1() else choice.get("text", None)
+    elif resource.type == "chat":
+        choices = response.get("choices", [])
+        if len(choices) > 0:
+            choice = choices[-1]
+            completion = choice.message.content if _is_openai_v1() else choice.get("message", None).get("content", None)
+
+    usage = response.get("usage", None)
+
+    return model, completion, usage
+
+
+def _is_openai_v1():
+    return StrictVersion(openai.__version__) >= StrictVersion("1.0.0")
+
+
+@_with_tracer_wrapper
+def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, wrapped, instance, args, kwargs):
+    start_time = datetime.now()
+    arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+
+    generation = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse, start_time, arg_extractor.get_langfuse_args())
+    updated_generation = generation
+    try:
+        result = wrapped(**arg_extractor.get_openai_args())
+        model, completion, usage = _get_langfuse_data_from_response(open_ai_resource, result.__dict__ if _is_openai_v1() else result)
+        updated_generation = generation.copy(update={"model": model, "completion": completion, "end_time": datetime.now(), "usage": usage})
+        langfuse.generation(updated_generation)
+        return result
+    except Exception as ex:
+        model = kwargs.get("model", None)
+        langfuse.generation(updated_generation.copy(update={"end_time": datetime.now(), "status_message": str(ex), "level": "ERROR", "model": model}))
+        raise ex
 
 
 class OpenAILangfuse:
@@ -44,109 +188,95 @@ class OpenAILangfuse:
     def flush(cls):
         cls._instance.langfuse.flush()
 
-    def _get_call_details(self, result, api_resource_class, **kwargs):
-        name = kwargs.get("name", "OpenAI-generation")
+    # def legacy(self, result, api_resource_class, **kwargs):
+    #     completion = None
 
-        if name is not None and not isinstance(name, str):
-            raise TypeError("name must be a string")
+    #     if api_resource_class == chat_completions:
+    #         prompt = (
+    #             {
+    #                 "messages": kwargs.get("messages", [{}]),
+    #                 "functions": kwargs.get("functions", [{}]),
+    #                 "function_call": kwargs.get("function_call", {}),
+    #             }
+    #             if kwargs.get("functions", None) is not None
+    #             else kwargs.get("messages", [{}])
+    #         )
+    #         if not isinstance(result, Exception):
+    #             completion = result.choices[-1].message.content
+    #             if completion is None:
+    #                 completion = result.choices[-1].message.function_call
 
-        trace_id = kwargs.get("trace_id", "OpenAI-generation")
-        if trace_id is not None and not isinstance(trace_id, str):
-            raise TypeError("trace_id must be a string")
+    #     elif api_resource_class == completions:
+    #         prompt = kwargs.get("prompt", "")
+    #         if not isinstance(result, Exception):
+    #             completion = result.choices[-1].text
+    #     else:
+    #         completion = None
 
-        metadata = kwargs.get("metadata", {})
+    #     model = kwargs.get("model", None) if isinstance(result, Exception) else result.model
 
-        if metadata is not None and not isinstance(metadata, dict):
-            raise TypeError("metadata must be a dictionary")
+    #     usage = None if isinstance(result, Exception) or result.usage is None else LlmUsage(**result.usage.dict())
+    #     endTime = datetime.now()
+    #     modelParameters = {
+    #         "temperature": kwargs.get("temperature", 1),
+    #         "maxTokens": kwargs.get("max_tokens", float("inf")),
+    #         "top_p": kwargs.get("top_p", 1),
+    #         "frequency_penalty": kwargs.get("frequency_penalty", 0),
+    #         "presence_penalty": kwargs.get("presence_penalty", 0),
+    #     }
+    #     all_details = {
+    #         "status_message": str(result) if isinstance(result, Exception) else None,
+    #         "name": name,
+    #         "prompt": prompt,
+    #         "completion": completion,
+    #         "endTime": endTime,
+    #         "model": model,
+    #         "modelParameters": modelParameters,
+    #         "usage": usage,
+    #         "metadata": metadata,
+    #         "level": "ERROR" if isinstance(result, Exception) else "DEFAULT",
+    #         "trace_id": trace_id,
+    #     }
+    #     return all_details
 
-        completion = None
+    # def _log_result(self, call_details):
+    # generation = InitialGeneration(**call_details)
+    # if call_details["trace_id"] is not None:
+    #     self.langfuse.trace(CreateTrace(id=call_details["trace_id"]))
+    # self.langfuse.generation(generation)
 
-        if api_resource_class == ChatCompletion:
-            prompt = (
-                {
-                    "messages": kwargs.get("messages", [{}]),
-                    "functions": kwargs.get("functions", [{}]),
-                    "function_call": kwargs.get("function_call", {}),
-                }
-                if kwargs.get("functions", None) is not None
-                else kwargs.get("messages", [{}])
+    # def langfuse_modified(self, func, api_resource_class):
+    #     @functools.wraps(func)
+    #     def wrapper(*args, **kwargs):
+    #         try:
+    #             startTime = datetime.now()
+    #             arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+    #             result = func(**arg_extractor.get_openai_args())
+    #             call_details = self._get_langfuse_data_from_kwargs(result, api_resource_class, **arg_extractor.get_langfuse_args())
+    #             call_details["startTime"] = startTime
+    #             self._log_result(call_details)
+    #         except Exception as ex:
+    #             call_details = self._get_langfuse_data_from_kwargs(ex, api_resource_class, **arg_extractor.get_langfuse_args())
+    #             call_details["startTime"] = startTime
+    #             self._log_result(call_details)
+    #             raise ex
+
+    #         return result
+
+    #     return wrapper
+
+    def register_tracing(self):
+        resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
+
+        for resource in resources:
+            wrap_function_wrapper(
+                resource.module,
+                f"{resource.object}.{resource.method}",
+                _wrap(resource, self.langfuse),
             )
-            if not isinstance(result, Exception):
-                completion = result.choices[-1].message.content
-                if completion is None:
-                    completion = result.choices[-1].message.function_call
-
-        elif api_resource_class == Completion:
-            prompt = kwargs.get("prompt", "")
-            if not isinstance(result, Exception):
-                completion = result.choices[-1].text
-        else:
-            completion = None
-
-        model = kwargs.get("model", None) if isinstance(result, Exception) else result.model
-
-        usage = None if isinstance(result, Exception) or result.usage is None else LlmUsage(**result.usage)
-        endTime = datetime.now()
-        modelParameters = {
-            "temperature": kwargs.get("temperature", 1),
-            "maxTokens": kwargs.get("max_tokens", float("inf")),
-            "top_p": kwargs.get("top_p", 1),
-            "frequency_penalty": kwargs.get("frequency_penalty", 0),
-            "presence_penalty": kwargs.get("presence_penalty", 0),
-        }
-        all_details = {
-            "status_message": str(result) if isinstance(result, Exception) else None,
-            "name": name,
-            "prompt": prompt,
-            "completion": completion,
-            "endTime": endTime,
-            "model": model,
-            "modelParameters": modelParameters,
-            "usage": usage,
-            "metadata": metadata,
-            "level": "ERROR" if isinstance(result, Exception) else "DEFAULT",
-            "trace_id": trace_id,
-        }
-        return all_details
-
-    def _log_result(self, call_details):
-        generation = InitialGeneration(**call_details)
-        if call_details["trace_id"] is not None:
-            self.langfuse.trace(CreateTrace(id=call_details["trace_id"]))
-        self.langfuse.generation(generation)
-
-    def langfuse_modified(self, func, api_resource_class):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                startTime = datetime.now()
-                arg_extractor = CreateArgsExtractor(*args, **kwargs)
-                result = func(**arg_extractor.get_openai_args())
-                call_details = self._get_call_details(result, api_resource_class, **arg_extractor.get_langfuse_args())
-                call_details["startTime"] = startTime
-                self._log_result(call_details)
-            except Exception as ex:
-                call_details = self._get_call_details(ex, api_resource_class, **arg_extractor.get_langfuse_args())
-                call_details["startTime"] = startTime
-                self._log_result(call_details)
-                raise ex
-
-            return result
-
-        return wrapper
-
-    def replace_openai_funcs(self):
-        api_resources_classes = [
-            (ChatCompletion, "create"),
-            (Completion, "create"),
-        ]
-
-        for api_resource_class, method in api_resources_classes:
-            create_method = getattr(api_resource_class, method)
-            setattr(api_resource_class, method, self.langfuse_modified(create_method, api_resource_class))
 
         setattr(openai, "flush_langfuse", self.flush)
 
 
 modifier = OpenAILangfuse()
-modifier.replace_openai_funcs()
+modifier.register_tracing()

@@ -100,12 +100,6 @@ jobs:
       - name: Install the project dependencies
         run: poetry install
 
-      # - name: Lint
-      #   run: |
-      #     poetry run black --check .
-      #     poetry run isort --check .
-      #     poetry run flake8 .
-
       - name: Run the automated tests
         run: |
           python --version
