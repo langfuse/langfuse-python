@@ -139,7 +139,7 @@ def _get_langfuse_data_from_response(resource: OpenAiDefinition, response):
         choices = response.get("choices", [])
         if len(choices) > 0:
             choice = choices[-1]
-            completion = choice.message.content if _is_openai_v1() else completion.get("message", None).get("content", None)
+            completion = choice.message.content if _is_openai_v1() else choice.get("message", None).get("content", None)
 
     usage = response.get("usage", None)
 
