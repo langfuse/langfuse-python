@@ -1,8 +1,7 @@
 import threading
 import functools
 from datetime import datetime
-from packaging import version
-import openai
+
 
 from langfuse import Langfuse
 from langfuse.client import InitialGeneration, CreateTrace
@@ -11,13 +10,16 @@ from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from distutils.version import StrictVersion
 import openai
 
+openai.chat.completions
+
 if StrictVersion(openai.__version__) >= StrictVersion("1.0.0"):
-   print("huhu")
-   from openai.chat import completions as chat_completions
+    from openai.resources.chat import completions as chat_completions
+
+    from openai import completions as completions
 else:
-   print("hehe")
-   from openai import OpenAI.completions as chat_completions
-   from openai import Completion as completions
+    print("hehe")
+    from openai import ChatCompletion as chat_completions
+    from openai import Completion as completions
 
 print("openai version: ", openai.__version__)
 
