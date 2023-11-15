@@ -15,6 +15,7 @@ pydantic = ">=1.10.7, <3.0"
 pytz = "^2023.3"
 backoff = "^2.2.1"
 langchain = ">=0.0.309"
+monotonic = "^1.6"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
@@ -35,6 +36,7 @@ anthropic = "^0.3.10"
 bs4 = "^0.0.1"
 lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
+pytest-httpserver = "^1.0.8"
 boto3 = "^1.28.59"
 
 [build-system]

@@ -3,7 +3,6 @@ import os
 from typing import List
 
 from langchain import LLMChain, OpenAI, PromptTemplate
-import pytest
 
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
@@ -95,7 +94,7 @@ def test_linking_via_id_observation():
 
 
 def test_langchain_dataset():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
 
@@ -121,6 +120,7 @@ def test_langchain_dataset():
 
         synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
+    langfuse.flush()
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name
