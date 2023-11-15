@@ -2,15 +2,21 @@ import os
 import pytest
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langfuse.openai import openai
+from langfuse.openai import _is_openai_v1, openai
 
 from tests.utils import create_uuid, get_api
+
+
+chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+completion_func = openai.completions.create if _is_openai_v1() else openai.Completion.create
+expected_err = openai.APIError if _is_openai_v1() else openai.error.AuthenticationError
+expected_err_msg = "Connection error." if _is_openai_v1() else "You didn't provide an API key."
 
 
 def test_openai_chat_completion():
     api = get_api()
     generation_name = create_uuid()
-    completion = openai.chat.completions.create(
+    completion = chat_func(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -53,7 +59,7 @@ def test_openai_chat_completion_with_trace():
 
     langfuse.trace(CreateTrace(id=trace_id))
 
-    openai.chat.completions.create(
+    chat_func(
         name=generation_name,
         model="gpt-3.5-turbo",
         trace_id=trace_id,
@@ -77,8 +83,8 @@ def test_openai_chat_completion_fail():
 
     openai.api_key = ""
 
-    with pytest.raises(openai.APIConnectionError, match="Connection error."):
-        openai.chat.completions.create(
+    with pytest.raises(expected_err, match=expected_err_msg):
+        chat_func(
             name=generation_name,
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -99,7 +105,7 @@ def test_openai_chat_completion_fail():
     assert generation.data[0].level == "ERROR"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
-    assert "Connection error." in generation.data[0].status_message
+    assert expected_err_msg in generation.data[0].status_message
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
         "temperature": 0,
@@ -113,7 +119,7 @@ def test_openai_chat_completion_fail():
 
 
 def test_openai_chat_completion_without_extra_param():
-    completion = openai.chat.completions.create(
+    completion = chat_func(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
@@ -126,7 +132,7 @@ def test_openai_chat_completion_without_extra_param():
 def test_openai_chat_completion_two_calls():
     api = get_api()
     generation_name = create_uuid()
-    completion = openai.chat.completions.create(
+    completion = chat_func(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -136,7 +142,7 @@ def test_openai_chat_completion_two_calls():
 
     generation_name_2 = create_uuid()
 
-    completion_2 = openai.chat.completions.create(
+    completion_2 = chat_func(
         name=generation_name_2,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "2 + 2 = "}],
@@ -166,7 +172,7 @@ def test_openai_chat_completion_two_calls():
 def test_openai_completion():
     api = get_api()
     generation_name = create_uuid()
-    completion = openai.completions.create(
+    completion = completion_func(
         name=generation_name,
         model="gpt-3.5-turbo-instruct",
         prompt="1 + 1 = ",
@@ -207,8 +213,8 @@ def test_openai_completion_fail():
 
     openai.api_key = ""
 
-    with pytest.raises(openai.APIConnectionError, match="Connection error."):
-        openai.completions.create(
+    with pytest.raises(expected_err, match=expected_err_msg):
+        completion_func(
             name=generation_name,
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
@@ -229,7 +235,7 @@ def test_openai_completion_fail():
     assert generation.data[0].level == "ERROR"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
-    assert "Connection error." in generation.data[0].status_message
+    assert expected_err_msg in generation.data[0].status_message
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
         "temperature": 0,
@@ -244,7 +250,7 @@ def test_openai_completion_fail():
 
 def test_fails_wrong_name():
     with pytest.raises(TypeError, match="name must be a string"):
-        openai.completions.create(
+        completion_func(
             name={"key": "generation_name"},
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
@@ -254,7 +260,7 @@ def test_fails_wrong_name():
 
 def test_fails_wrong_metadata():
     with pytest.raises(TypeError, match="metadata must be a dictionary"):
-        openai.completions.create(
+        completion_func(
             metadata="metadata",
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
@@ -264,7 +270,7 @@ def test_fails_wrong_metadata():
 
 def test_fails_wrong_trace_id():
     with pytest.raises(TypeError, match="trace_id must be a string"):
-        openai.completions.create(
+        completion_func(
             trace_id={"trace_id": "metadata"},
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
