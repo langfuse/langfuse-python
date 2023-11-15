@@ -1,94 +1,141 @@
 import atexit
+from datetime import datetime
+import json
 import logging
 import queue
-from queue import Queue
+from queue import Empty, Queue
 import threading
 from typing import List
+import monotonic
+from dateutil.tz import tzutc
+
 
 import backoff
 
-from langfuse.logging import clean_logger
+from langfuse.request import LangfuseClient
+from langfuse.serializer import DatetimeSerializer
 
+# largest message size in db is 331000 bytes right now
+MAX_MSG_SIZE = 700_000
 
-class Task:
-    def __init__(self, task_id, function):
-        self.task_id = task_id
-        self.function = function
+# https://vercel.com/docs/functions/serverless-functions/runtimes#request-body-size
+# The maximum payload size for the request body or the response body of a Serverless Function is 4.5 MB
+# 4_500_000 Bytes = 4.5 MB
+BATCH_SIZE_LIMIT = 2_000_000
 
 
 class Consumer(threading.Thread):
-    log = logging.getLogger("langfuse")
-    queue: Queue
-    identifier: int
+    _log = logging.getLogger("langfuse")
+    _queue: Queue
+    _identifier: int
+    _client: LangfuseClient
+    _flush_at: int
+    _flush_interval: float
+    _max_retries: int
 
-    def __init__(self, queue, identifier):
+    def __init__(self, queue: Queue, identifier: int, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int):
         """Create a consumer thread."""
 
         threading.Thread.__init__(self)
         # Make consumer a daemon thread so that it doesn't block program exit
         self.daemon = True
-        self.queue = queue
+        self._queue = queue
         # It's important to set running in the constructor: if we are asked to
         # pause immediately after construction, we might set running to True in
         # run() *after* we set it to False in pause... and keep running
         # forever.
         self.running = True
-        self.identifier = identifier
+        self._identifier = identifier
+        self._client = client
+        self._flush_at = flush_at
+        self._flush_interval = flush_interval
+        self._max_retries = max_retries
+
+    def _next(self):
+        """Return the next batch of items to upload."""
+
+        queue = self._queue
+        items = []
+
+        start_time = monotonic.monotonic()
+        total_size = 0
+
+        while len(items) < self._flush_at:
+            elapsed = monotonic.monotonic() - start_time
+            if elapsed >= self._flush_interval:
+                break
+            try:
+                item = queue.get(block=True, timeout=self._flush_interval - elapsed)
+                self._log.debug("got item from queue", item)
+                item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
+                self._log.debug(f"item size {item_size}")
+                items.append(item)
+                total_size += item_size
+                if total_size >= BATCH_SIZE_LIMIT:
+                    self._log.debug("hit batch size limit (size: %d)", total_size)
+                    break
+
+            except Empty:
+                self._log.debug("queue empty")
+                break
+
+        return items
 
     def run(self):
         """Runs the consumer."""
+        self._log.debug("consumer is running...")
         while self.running:
-            try:
-                task = self.queue.get(block=True, timeout=1)
+            self.upload()
 
-                self.log.debug(f"Task {task.task_id} received from the queue")
+    def upload(self):
+        """Upload the next batch of items, return whether successful."""
 
-                self._execute_task(task)
-                self.log.debug(f"Task {task.task_id} done")
-                self.queue.task_done()
+        batch = self._next()
+        if len(batch) == 0:
+            return
 
-            except queue.Empty:
-                pass
+        try:
+            self._upload_batch(batch)
+        except Exception as e:
+            self._log.error("error uploading: %s", e)
+        finally:
+            # mark items as acknowledged from queue
+            for _ in batch:
+                self._queue.task_done()
 
     def pause(self):
         """Pause the consumer."""
         self.running = False
 
-    def _execute_task(self, task: Task):
-        try:
-            self.log.debug(f"Task {task.task_id} executing")
-            result = self._execute_task_with_backoff(task)
-            self.log.debug(f"Task {task.task_id} done with result {result}")
-        except Exception as e:
-            self.log.warning(f"Task {task.task_id} failed with exception {e} ")
+    def _upload_batch(self, batch: List[any]):
+        @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
+        def execute_task_with_backoff(batch: [any]):
+            self._log.debug("uploading batch of %d items", len(batch))
+            return self._client.batch_post(gzip=False, batch=batch)
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    def _execute_task_with_backoff(self, task: Task):
-        return task.function()
+        execute_task_with_backoff(batch)
 
 
 class TaskManager(object):
-    log = logging.getLogger("langfuse")
-    consumers: List[Consumer]
-    number_of_consumers: int
-    max_task_queue_size: int
-    queue: Queue
+    _log = logging.getLogger("langfuse")
+    _consumers: List[Consumer]
+    _threads: int
+    _max_task_queue_size: int
+    _queue: Queue
+    _client: LangfuseClient
+    _flush_at: int
+    _flush_interval: float
+    _max_retries: int
 
-    def __init__(self, debug=False, max_task_queue_size=10_000, number_of_consumers=1):
-        self.max_task_queue_size = max_task_queue_size
-        self.number_of_consumers = number_of_consumers
-        self.queue = queue.Queue(max_task_queue_size)
-        self.consumers = []
-        if debug:
-            # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level.
-            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
-            logging.basicConfig()
-            self.log.setLevel(logging.DEBUG)
-            clean_logger()
-        else:
-            self.log.setLevel(logging.WARNING)
-            clean_logger()
+    def __init__(self, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int, threads: int, max_task_queue_size: int = 100_000):
+        self._max_task_queue_size = max_task_queue_size
+        self._threads = threads
+        self._queue = queue.Queue(self._max_task_queue_size)
+        self._consumers = []
+        self._client = client
+        self._flush_at = flush_at
+        self._flush_interval = flush_interval
+        self._max_retries = max_retries
 
         self.init_resources()
 
@@ -96,39 +143,38 @@ class TaskManager(object):
         atexit.register(self.join)
 
     def init_resources(self):
-        for i in range(self.number_of_consumers):
-            consumer = Consumer(self.queue, i)
+        for i in range(self._threads):
+            consumer = Consumer(self._queue, i, self._client, self._flush_at, self._flush_interval, self._max_retries)
             consumer.start()
-            self.consumers.append(consumer)
+            self._consumers.append(consumer)
 
-    def add_task(self, task_id, function):
+    def add_task(self, event):
         try:
-            self.log.debug(f"Adding task {task_id}")
-            task = Task(task_id, function)
-            self.queue.put(task, block=False)
-            self.log.debug(f"Task {task_id} added to queue")
+            self._log.debug("Adding task")
+            event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
+            self._queue.put(event, block=False)
         except queue.Full:
-            self.log.warning("analytics-python queue is full")
+            self._log.warning("analytics-python queue is full")
             return False
         except Exception as e:
-            self.log.warning(f"Exception in adding task {task_id} {e}")
+            self._log.warning(f"Exception in adding task {e}")
             return False
 
     def flush(self):
         """Forces a flush from the internal queue to the server"""
-        self.log.debug("flushing queue")
-        queue = self.queue
+        self._log.debug("flushing queue")
+        queue = self._queue
         size = queue.qsize()
         queue.join()
         # Note that this message may not be precise, because of threading.
-        self.log.debug("successfully flushed about %s items.", size)
+        self._log.debug("successfully flushed about %s items.", size)
 
     def join(self):
         """Ends the consumer threads once the queue is empty.
         Blocks execution until finished
         """
-        self.log.debug(f"joining {len(self.consumers)} consumer threads")
-        for consumer in self.consumers:
+        self._log.debug(f"joining {len(self._consumers)} consumer threads")
+        for consumer in self._consumers:
             consumer.pause()
             try:
                 consumer.join()
@@ -136,11 +182,14 @@ class TaskManager(object):
                 # consumer thread has not started
                 pass
 
-            self.log.debug(f"consumer thread {consumer.identifier} joined")
+            self._log.debug(f"consumer thread {consumer._identifier} joined")
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
-        self.log.debug("shutdown initiated")
+
+        self._log.debug("shutdown initiated")
+
         self.flush()
         self.join()
-        self.log.debug("shutdown completed")
+
+        self._log.debug("shutdown completed")

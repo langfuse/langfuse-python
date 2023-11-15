@@ -1,5 +1,6 @@
 from asyncio import gather
 from datetime import datetime
+import logging
 
 import pytest
 
@@ -30,7 +31,7 @@ async def test_concurrency():
         generation = trace.generation(InitialGeneration(name=str(i)))
         generation.update(UpdateGeneration(metadata={"count": str(i)}))
 
-    langfuse = Langfuse(debug=False, number_of_consumers=5)
+    langfuse = Langfuse(debug=True, threads=5)
 
     await gather(*(update_generation(i, langfuse) for i in range(1000)))
 
@@ -47,7 +48,7 @@ async def test_concurrency():
 
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
 
     for i in range(2):
         langfuse.trace(
@@ -58,7 +59,7 @@ def test_flush():
 
     langfuse.flush()
     # Make sure that the client queue is empty after flushing
-    assert langfuse.task_manager.queue.empty()
+    assert langfuse.task_manager._queue.empty()
 
 
 def test_shutdown():
@@ -75,11 +76,11 @@ def test_shutdown():
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
-    assert langfuse.task_manager.queue.empty()
+    assert langfuse.task_manager._queue.empty()
 
 
 def test_create_score():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
@@ -89,8 +90,9 @@ def test_create_score():
             metadata="test",
         )
     )
+    logging.info("FLUSH")
     langfuse.flush()
-    assert langfuse.task_manager.queue.qsize() == 0
+    assert langfuse.task_manager._queue.qsize() == 0
 
     score_id = create_uuid()
     langfuse.score(
@@ -108,7 +110,7 @@ def test_create_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager.queue.qsize() == 0
+    assert langfuse.task_manager._queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -139,7 +141,7 @@ def test_create_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -248,7 +250,7 @@ def test_create_generation_complex():
 
 
 def test_create_span():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -436,7 +438,7 @@ def test_create_generation_and_trace():
 
 
 def test_update_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api = get_api()
 
     generation = langfuse.generation(InitialGeneration(name="generation"))
@@ -475,7 +477,7 @@ def test_update_span():
 
 
 def test_create_trace_and_event():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
