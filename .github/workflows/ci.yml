@@ -100,11 +100,6 @@ jobs:
       - name: Install the project dependencies
         run: poetry install
 
-      - name: Install specific dependency version
-        run: |
-          source .venv/bin/activate
-          pip install "openai==1.0.0"
-
       - name: Run the automated tests
         run: |
           python --version
