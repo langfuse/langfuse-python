@@ -208,7 +208,7 @@ def test_openai_default():
         temperature=0,
         metadata={"someKey": "someResponse"},
     )
-
+    openai.flush_langfuse()
     assert modifier._langfuse.client._client_wrapper._username == public_key
     assert modifier._langfuse.client._client_wrapper._password == secret_key
     assert modifier._langfuse.client._client_wrapper._base_url == host
@@ -247,6 +247,7 @@ def test_openai_configured(httpserver: HTTPServer):
         temperature=0,
         metadata={"someKey": "someResponse"},
     )
+    openai.flush_langfuse()
 
     assert modifier._langfuse.client._client_wrapper._username == "pk-lf-asdfghjkl"
     assert modifier._langfuse.client._client_wrapper._password == "sk-lf-asdfghjkl"

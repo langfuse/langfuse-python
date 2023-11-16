@@ -77,7 +77,7 @@ def test_task_manager_fail(httpserver: HTTPServer):
     tm.add_task({"foo": "bar"})
     tm.flush()
 
-    assert count >= 3
+    assert count == 3
 
 
 @pytest.mark.timeout(20)

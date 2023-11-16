@@ -76,7 +76,6 @@ class Consumer(threading.Thread):
                     break
 
             except Empty:
-                self._log.debug("queue empty")
                 break
 
         return items
