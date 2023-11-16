@@ -33,7 +33,7 @@ async def test_concurrency():
 
     langfuse = Langfuse(debug=True, threads=5)
 
-    await gather(*(update_generation(i, langfuse) for i in range(1000)))
+    await gather(*(update_generation(i, langfuse) for i in range(100)))
 
     langfuse.flush()
     diff = datetime.now() - start

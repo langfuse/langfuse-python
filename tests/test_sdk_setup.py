@@ -1,9 +1,14 @@
+import importlib
 import os
 
 import pytest
+from pytest_httpserver import HTTPServer
+from werkzeug import Response
+import langfuse
 from langfuse.callback import CallbackHandler
 
 from langfuse.client import Langfuse
+from tests.test_task_manager import get_host
 
 
 def test_langfuse_release():
@@ -183,6 +188,74 @@ def test_callback_init_workers_5():
 def test_client_init_workers():
     langfuse = Langfuse()
     assert langfuse.task_manager._threads == 1
+
+
+def test_openai_default():
+    importlib.reload(langfuse)
+    importlib.reload(langfuse.openai)
+
+    from langfuse.openai import modifier, openai
+
+    public_key, secret_key, host = (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
+    )
+
+    openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    assert modifier._langfuse.client._client_wrapper._username == public_key
+    assert modifier._langfuse.client._client_wrapper._password == secret_key
+    assert modifier._langfuse.client._client_wrapper._base_url == host
+
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+    os.environ["LANGFUSE_HOST"] = host
+
+
+def test_openai_configured(httpserver: HTTPServer):
+    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_response(Response(status=200))
+    host = get_host(httpserver.url_for("/api/public/ingestion"))
+
+    importlib.reload(langfuse)
+    importlib.reload(langfuse.openai)
+
+    from langfuse.openai import modifier, openai
+
+    public_key, secret_key, original_host = (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
+    )
+
+    os.environ.pop("LANGFUSE_PUBLIC_KEY")
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+    os.environ.pop("LANGFUSE_HOST")
+
+    openai.public_key = "pk-lf-asdfghjkl"
+    openai.secret_key = "sk-lf-asdfghjkl"
+    openai.host = host
+
+    openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    assert modifier._langfuse.client._client_wrapper._username == "pk-lf-asdfghjkl"
+    assert modifier._langfuse.client._client_wrapper._password == "sk-lf-asdfghjkl"
+    assert modifier._langfuse.client._client_wrapper._base_url == host
+    assert modifier._langfuse.task_manager._client._base_url == host
+
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+    os.environ["LANGFUSE_HOST"] = original_host
 
 
 def test_client_init_workers_5():
