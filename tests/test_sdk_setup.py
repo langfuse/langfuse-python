@@ -9,6 +9,7 @@ from langfuse.callback import CallbackHandler
 
 from langfuse.client import Langfuse
 from tests.test_task_manager import get_host
+from langfuse.openai import modifier
 
 
 def test_langfuse_release():
@@ -192,7 +193,7 @@ def test_client_init_workers():
 
 def test_openai_uninitialized():
     importlib.reload(langfuse)
-    from langfuse.openai import modifier
+    importlib.reload(langfuse.openai)
 
     assert modifier._langfuse is None
 
@@ -200,6 +201,7 @@ def test_openai_uninitialized():
 def test_openai_default():
     importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
+
     from langfuse.openai import modifier, openai
 
     public_key, secret_key, host = (
