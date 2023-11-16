@@ -198,9 +198,9 @@ def test_openai_uninitialized():
 
 
 def test_openai_default():
-    from langfuse.openai import modifier, openai
-
+    importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
+    from langfuse.openai import modifier, openai
 
     public_key, secret_key, host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
@@ -228,9 +228,10 @@ def test_openai_configured(httpserver: HTTPServer):
     httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_response(Response(status=200))
     host = get_host(httpserver.url_for("/api/public/ingestion"))
 
-    from langfuse.openai import modifier, openai
-
+    importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
+
+    from langfuse.openai import modifier, openai
 
     public_key, secret_key, original_host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
