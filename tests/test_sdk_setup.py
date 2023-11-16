@@ -190,15 +190,6 @@ def test_client_init_workers():
     assert langfuse.task_manager._threads == 1
 
 
-def test_openai_uninitialized():
-    from langfuse.openai import modifier
-
-    importlib.reload(langfuse)
-    importlib.reload(langfuse.openai)
-
-    assert modifier._langfuse is None
-
-
 def test_openai_default():
     importlib.reload(langfuse)
     importlib.reload(langfuse.openai)

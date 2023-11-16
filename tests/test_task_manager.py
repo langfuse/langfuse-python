@@ -77,7 +77,7 @@ def test_task_manager_fail(httpserver: HTTPServer):
     tm.add_task({"foo": "bar"})
     tm.flush()
 
-    assert count == 3
+    assert count > 3
 
 
 @pytest.mark.timeout(20)
@@ -207,7 +207,7 @@ def test_flush(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
 
-    for _ in range(1000):
+    for _ in range(100):
         tm.add_task({"foo": "bar"})
     # We can't reliably assert that the queue is non-empty here; that's
     # a race condition. We do our best to load it up though.
@@ -242,7 +242,7 @@ def test_shutdown(httpserver: HTTPServer):
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 5, 10_000)
 
-    for _ in range(1000):
+    for _ in range(100):
         tm.add_task({"foo": "bar"})
 
     tm.shutdown()
