@@ -191,10 +191,10 @@ def test_client_init_workers():
 
 
 def test_openai_default():
+    from langfuse.openai import modifier, openai
+
     importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
-
-    from langfuse.openai import modifier, openai
 
     public_key, secret_key, host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
