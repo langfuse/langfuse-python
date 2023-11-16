@@ -188,7 +188,7 @@ class OpenAILangfuse:
         if not self._langfuse:
             with self._lock:
                 if not self._langfuse:
-                    self._langfuse = Langfuse(public_key=openai.public_key, secret_key=openai.secret_key, host=openai.host)
+                    self._langfuse = Langfuse(public_key=openai.langfuse_public_key, secret_key=openai.langfuse_secret_key, host=openai.langfuse_host)
         return self._langfuse
 
     @classmethod
@@ -205,9 +205,9 @@ class OpenAILangfuse:
                 _wrap(resource, self._langfuse, self.initialize),
             )
 
-        setattr(openai, "public_key", None)
-        setattr(openai, "secret_key", None)
-        setattr(openai, "host", None)
+        setattr(openai, "langfuse_public_key", None)
+        setattr(openai, "langfuse_secret_key", None)
+        setattr(openai, "langfuse_host", None)
 
         setattr(openai, "flush_langfuse", self.flush)
 

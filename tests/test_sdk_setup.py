@@ -237,9 +237,9 @@ def test_openai_configured(httpserver: HTTPServer):
     os.environ.pop("LANGFUSE_SECRET_KEY")
     os.environ.pop("LANGFUSE_HOST")
 
-    openai.public_key = "pk-lf-asdfghjkl"
-    openai.secret_key = "sk-lf-asdfghjkl"
-    openai.host = host
+    openai.langfuse_public_key = "pk-lf-asdfghjkl"
+    openai.langfuse_secret_key = "sk-lf-asdfghjkl"
+    openai.langfuse_host = host
 
     openai.chat.completions.create(
         model="gpt-3.5-turbo",
