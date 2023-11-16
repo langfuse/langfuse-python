@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.1.16a2"
+version = "1.1.16"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -16,7 +16,7 @@ pytz = "^2023.3"
 backoff = "^2.2.1"
 langchain = ">=0.0.309"
 openai = ">=0.27.8"
-wrapt = "^1.16.0"
+wrapt = "1.14"
 monotonic = "^1.6"
 
 [tool.poetry.group.dev.dependencies]
