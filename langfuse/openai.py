@@ -1,5 +1,6 @@
 import threading
 from datetime import datetime
+from typing import Optional
 
 
 from langfuse import Langfuse
@@ -73,9 +74,9 @@ class OpenAiArgsExtractor:
 def _with_tracer_wrapper(func):
     """Helper for providing tracer for wrapper functions."""
 
-    def _with_tracer(open_ai_definitions, langfuse):
+    def _with_tracer(open_ai_definitions, langfuse, initialize):
         def wrapper(wrapped, instance, args, kwargs):
-            return func(open_ai_definitions, langfuse, wrapped, instance, args, kwargs)
+            return func(open_ai_definitions, langfuse, initialize, wrapped, instance, args, kwargs)
 
         return wrapper
 
@@ -151,42 +152,48 @@ def _is_openai_v1():
 
 
 @_with_tracer_wrapper
-def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, wrapped, instance, args, kwargs):
+def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wrapped, instance, args, kwargs):
+    new_langfuse = initialize()
+
     start_time = datetime.now()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
-    generation = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse, start_time, arg_extractor.get_langfuse_args())
+    generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
     updated_generation = generation
     try:
         result = wrapped(**arg_extractor.get_openai_args())
         model, completion, usage = _get_langfuse_data_from_response(open_ai_resource, result.__dict__ if _is_openai_v1() else result)
         updated_generation = generation.copy(update={"model": model, "completion": completion, "end_time": datetime.now(), "usage": usage})
-        langfuse.generation(updated_generation)
+        new_langfuse.generation(updated_generation)
         return result
     except Exception as ex:
         model = kwargs.get("model", None)
-        langfuse.generation(updated_generation.copy(update={"end_time": datetime.now(), "status_message": str(ex), "level": "ERROR", "model": model}))
+        new_langfuse.generation(updated_generation.copy(update={"end_time": datetime.now(), "status_message": str(ex), "level": "ERROR", "model": model}))
         raise ex
 
 
 class OpenAILangfuse:
     _instance = None
     _lock = threading.Lock()
+    _langfuse: Optional[Langfuse] = None
 
     def __new__(cls):
         if not cls._instance:
             with cls._lock:
                 if not cls._instance:
                     cls._instance = super(OpenAILangfuse, cls).__new__(cls)
-                    cls._instance.initialize()
         return cls._instance
 
     def initialize(self):
-        self.langfuse = Langfuse()
+        if not self._langfuse:
+            with self._lock:
+                if not self._langfuse:
+                    self._langfuse = Langfuse(public_key=openai.public_key, secret_key=openai.secret_key, host=openai.host)
+        return self._langfuse
 
     @classmethod
     def flush(cls):
-        cls._instance.langfuse.flush()
+        cls._instance._langfuse.flush()
 
     def register_tracing(self):
         resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
@@ -195,10 +202,12 @@ class OpenAILangfuse:
             wrap_function_wrapper(
                 resource.module,
                 f"{resource.object}.{resource.method}",
-                _wrap(resource, self.langfuse),
+                _wrap(resource, self._langfuse, self.initialize),
             )
 
-        setattr(openai, "flush_langfuse", self.flush)
+        setattr(openai, "public_key", None)
+        setattr(openai, "secret_key", None)
+        setattr(openai, "host", None)
 
 
 modifier = OpenAILangfuse()
