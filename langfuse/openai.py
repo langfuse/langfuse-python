@@ -209,6 +209,8 @@ class OpenAILangfuse:
         setattr(openai, "secret_key", None)
         setattr(openai, "host", None)
 
+        setattr(openai, "flush_langfuse", self.flush)
+
 
 modifier = OpenAILangfuse()
 modifier.register_tracing()
