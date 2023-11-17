@@ -1,5 +1,6 @@
 import threading
 from datetime import datetime
+import types
 from typing import Optional
 
 
@@ -71,16 +72,14 @@ class OpenAiArgsExtractor:
         return self.kwargs
 
 
-def _with_tracer_wrapper(func):
-    """Helper for providing tracer for wrapper functions."""
-
-    def _with_tracer(open_ai_definitions, langfuse, initialize):
+def _langfuse_wrapper(func):
+    def _with_langfuse(open_ai_definitions, langfuse, initialize):
         def wrapper(wrapped, instance, args, kwargs):
             return func(open_ai_definitions, langfuse, initialize, wrapped, instance, args, kwargs)
 
         return wrapper
 
-    return _with_tracer
+    return _with_langfuse
 
 
 def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs):
@@ -101,7 +100,10 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
     if metadata is not None and not isinstance(metadata, dict):
         raise TypeError("metadata must be a dictionary")
 
+    model = kwargs.get("model", None)
+
     prompt = None
+
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
@@ -123,10 +125,70 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
-    return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters)
+    return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters, model=model)
 
 
-def _get_langfuse_data_from_response(resource: OpenAiDefinition, response):
+def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, response, generation: InitialGeneration, langfuse: Langfuse):
+    final_response = [] if resource.type == "chat" else ""
+    model = None
+    completion_start_time = None
+    for index, i in enumerate(response):
+        print(index)
+        if index == 0:
+            completion_start_time = datetime.now()
+
+        if _is_openai_v1():
+            i = i.__dict__
+
+        model = i.get("model", None) if model is None else model
+
+        choices = i.get("choices", [])
+
+        for choice in choices:
+            if _is_openai_v1():
+                choice = choice.__dict__
+            if resource.type == "chat":
+                delta = choice.get("delta", None)
+
+                if _is_openai_v1():
+                    delta = delta.__dict__
+
+                if delta.get("role", None) is not None:
+                    final_response.append({"role": delta.get("role", None), "function_call": None, "tool_calls": None, "content": None})
+
+                elif delta.get("content", None) is not None:
+                    final_response[-1]["content"] = delta.get("content", None) if final_response[-1]["content"] is None else final_response[-1]["content"] + delta.get("content", None)
+
+                elif delta.get("function_call", None) is not None:
+                    final_response[-1]["function_call"] = (
+                        delta.get("function_call", None) if final_response[-1]["function_call"] is None else final_response[-1]["function_call"] + delta.get("function_call", None)
+                    )
+                elif delta.get("tools_call", None) is not None:
+                    final_response[-1]["tool_calls"] = delta.get("tools_call", None) if final_response[-1]["tool_calls"] is None else final_response[-1]["tool_calls"] + delta.get("tools_call", None)
+            if resource.type == "completion":
+                final_response += choice.get("text", None)
+
+        yield i
+
+    def get_response_for_chat():
+        if len(final_response) > 0:
+            if final_response[-1].get("content", None) is not None:
+                return final_response[-1]["content"]
+            elif final_response[-1].get("function_call", None) is not None:
+                return final_response[-1]["function_call"]
+            elif final_response[-1].get("tool_calls", None) is not None:
+                return final_response[-1]["tool_calls"]
+        return None
+
+    new_generation = generation.copy(
+        update={"end_time": datetime.now(), "completion": get_response_for_chat() if resource.type == "chat" else final_response, "completion_start_time": completion_start_time}
+    )
+    if model is not None:
+        new_generation = new_generation.copy(update={"model": model})
+    langfuse.generation(new_generation)
+
+
+def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
     model = response.get("model", None)
 
     completion = None
@@ -151,7 +213,11 @@ def _is_openai_v1():
     return StrictVersion(openai.__version__) >= StrictVersion("1.0.0")
 
 
-@_with_tracer_wrapper
+def _is_streaming_response(response):
+    return isinstance(response, types.GeneratorType) or (_is_openai_v1() and isinstance(response, openai.Stream))
+
+
+@_langfuse_wrapper
 def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wrapped, instance, args, kwargs):
     new_langfuse = initialize()
 
@@ -161,11 +227,16 @@ def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wr
     generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
     updated_generation = generation
     try:
-        result = wrapped(**arg_extractor.get_openai_args())
-        model, completion, usage = _get_langfuse_data_from_response(open_ai_resource, result.__dict__ if _is_openai_v1() else result)
-        updated_generation = generation.copy(update={"model": model, "completion": completion, "end_time": datetime.now(), "usage": usage})
-        new_langfuse.generation(updated_generation)
-        return result
+        openai_response = wrapped(**arg_extractor.get_openai_args())
+
+        if _is_streaming_response(openai_response):
+            return _get_lagnfuse_data_from_streaming_response(open_ai_resource, openai_response, updated_generation, new_langfuse)
+
+        else:
+            model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
+            updated_generation = generation.copy(update={"model": model, "completion": completion, "end_time": datetime.now(), "usage": usage})
+            new_langfuse.generation(updated_generation)
+        return openai_response
     except Exception as ex:
         model = kwargs.get("model", None)
         new_langfuse.generation(updated_generation.copy(update={"end_time": datetime.now(), "status_message": str(ex), "level": "ERROR", "model": model}))
@@ -191,9 +262,8 @@ class OpenAILangfuse:
                     self._langfuse = Langfuse(public_key=openai.langfuse_public_key, secret_key=openai.langfuse_secret_key, host=openai.langfuse_host)
         return self._langfuse
 
-    @classmethod
     def flush(cls):
-        cls._instance._langfuse.flush()
+        cls._langfuse.flush()
 
     def register_tracing(self):
         resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
