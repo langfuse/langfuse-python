@@ -66,7 +66,6 @@ class Consumer(threading.Thread):
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
-                self._log.debug("got item from queue", item)
                 item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 items.append(item)
