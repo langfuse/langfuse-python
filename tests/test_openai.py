@@ -136,6 +136,7 @@ def test_openai_chat_completion_stream_fail():
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].level == "ERROR"
     assert expected_err_msg in generation.data[0].status_message
+    assert generation.data[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -203,6 +204,7 @@ def test_openai_chat_completion_fail():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
+    assert generation.data[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -294,6 +296,7 @@ def test_openai_completion():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+    assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
 def test_openai_completion_stream():
@@ -336,6 +339,7 @@ def test_openai_completion_stream():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+    assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
 def test_openai_completion_fail():
@@ -375,6 +379,7 @@ def test_openai_completion_fail():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
+    assert generation.data[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -420,6 +425,7 @@ def test_openai_completion_stream_fail():
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].level == "ERROR"
     assert expected_err_msg in generation.data[0].status_message
+    assert generation.data[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
