@@ -93,6 +93,7 @@ def test_openai_chat_completion_stream():
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].output == "2"
+    assert generation.data[0].completion_start_time is not None
 
 
 def test_openai_chat_completion_stream_fail():
@@ -340,6 +341,7 @@ def test_openai_completion_stream():
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
+    assert generation.data[0].completion_start_time is not None
 
 
 def test_openai_completion_fail():

@@ -131,7 +131,12 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
 def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, response, generation: InitialGeneration, langfuse: Langfuse):
     final_response = [] if resource.type == "chat" else ""
     model = None
-    for i in response:
+    completion_start_time = None
+    for index, i in enumerate(response):
+        print(index)
+        if index == 0:
+            completion_start_time = datetime.now()
+
         if _is_openai_v1():
             i = i.__dict__
 
@@ -175,7 +180,9 @@ def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, respo
                 return final_response[-1]["tool_calls"]
         return None
 
-    new_generation = generation.copy(update={"end_time": datetime.now(), "completion": get_response_for_chat() if resource.type == "chat" else final_response})
+    new_generation = generation.copy(
+        update={"end_time": datetime.now(), "completion": get_response_for_chat() if resource.type == "chat" else final_response, "completion_start_time": completion_start_time}
+    )
     if model is not None:
         new_generation = new_generation.copy(update={"model": model})
     langfuse.generation(new_generation)
