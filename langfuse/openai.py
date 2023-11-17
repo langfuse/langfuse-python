@@ -75,16 +75,14 @@ class OpenAiArgsExtractor:
         return self.kwargs
 
 
-def _with_tracer_wrapper(func):
-    """Helper for providing tracer for wrapper functions."""
-
-    def _with_tracer(open_ai_definitions, langfuse, initialize):
+def _langfuse_wrapper(func):
+    def _with_langfuse(open_ai_definitions, langfuse, initialize):
         def wrapper(wrapped, instance, args, kwargs):
             return func(open_ai_definitions, langfuse, initialize, wrapped, instance, args, kwargs)
 
         return wrapper
 
-    return _with_tracer
+    return _with_langfuse
 
 
 def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs):
@@ -210,7 +208,7 @@ def _is_streaming_response(response):
     return isinstance(response, types.GeneratorType) or (_is_openai_v1() and isinstance(response, openai.Stream))
 
 
-@_with_tracer_wrapper
+@_langfuse_wrapper
 def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wrapped, instance, args, kwargs):
     new_langfuse = initialize()
 
