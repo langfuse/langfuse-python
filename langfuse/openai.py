@@ -255,9 +255,8 @@ class OpenAILangfuse:
                     self._langfuse = Langfuse(public_key=openai.langfuse_public_key, secret_key=openai.langfuse_secret_key, host=openai.langfuse_host)
         return self._langfuse
 
-    @classmethod
     def flush(cls):
-        cls._instance._langfuse.flush()
+        cls._langfuse.flush()
 
     def register_tracing(self):
         resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
