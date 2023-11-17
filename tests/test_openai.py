@@ -49,6 +49,7 @@ def test_openai_chat_completion():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+    assert generation.data[0].output == "2"
 
 
 def test_openai_chat_completion_stream():
@@ -91,6 +92,52 @@ def test_openai_chat_completion_stream():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
+    assert generation.data[0].output == "2"
+
+
+def test_openai_chat_completion_stream_fail():
+    api = get_api()
+    generation_name = create_uuid()
+    openai.api_key = ""
+
+    with pytest.raises(expected_err, match=expected_err_msg):
+        chat_func(
+            name=generation_name,
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "1 + 1 = "}],
+            temperature=0,
+            metadata={"someKey": "someResponse"},
+            stream=True,
+        )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].metadata == {"someKey": "someResponse"}
+
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "maxTokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].prompt_tokens is not None
+    assert generation.data[0].completion_tokens is not None
+    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].level == "ERROR"
+    assert expected_err_msg in generation.data[0].status_message
+
+    openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
 def test_openai_chat_completion_with_trace():
@@ -328,6 +375,51 @@ def test_openai_completion_fail():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
+
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+
+
+def test_openai_completion_stream_fail():
+    api = get_api()
+    generation_name = create_uuid()
+    openai.api_key = ""
+
+    with pytest.raises(expected_err, match=expected_err_msg):
+        completion_func(
+            name=generation_name,
+            model="gpt-3.5-turbo",
+            prompt="1 + 1 = ",
+            temperature=0,
+            metadata={"someKey": "someResponse"},
+            stream=True,
+        )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].metadata == {"someKey": "someResponse"}
+
+    assert generation.data[0].input == "1 + 1 = "
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "maxTokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].prompt_tokens is not None
+    assert generation.data[0].completion_tokens is not None
+    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].level == "ERROR"
+    assert expected_err_msg in generation.data[0].status_message
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 

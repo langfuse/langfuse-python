@@ -1,4 +1,3 @@
-import logging
 import threading
 from datetime import datetime
 import types
@@ -11,8 +10,6 @@ from langfuse.client import InitialGeneration, CreateTrace
 from distutils.version import StrictVersion
 import openai
 from wrapt import wrap_function_wrapper
-
-logging = logging.getLogger("langfuse")
 
 
 class OpenAiDefinition:
@@ -106,6 +103,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
     model = kwargs.get("model", None)
 
     prompt = None
+
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
@@ -130,18 +128,15 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
     return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters, model=model)
 
 
-def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, response: openai.Stream, generation: InitialGeneration, langfuse: Langfuse):
+def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, response, generation: InitialGeneration, langfuse: Langfuse):
     final_response = [] if resource.type == "chat" else ""
     model = None
     for i in response:
-        logging.warning(f"response, {i}")
-
         if _is_openai_v1():
             i = i.__dict__
 
         model = i.get("model", None) if model is None else model
 
-        logging.info(f"choices, {i.get('choices')}")
         choices = i.get("choices", [])
 
         for choice in choices:
@@ -168,14 +163,21 @@ def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, respo
             if resource.type == "completion":
                 final_response += choice.get("text", None)
 
-        print("final_response", final_response)
         yield i
 
-    print(final_response)
-    new_generation = generation.copy(update={"end_time": datetime.now(), "completion": {"choices": final_response} if resource.type == "chat" else final_response})
+    def get_response_for_chat():
+        if len(final_response) > 0:
+            if final_response[-1].get("content", None) is not None:
+                return final_response[-1]["content"]
+            elif final_response[-1].get("function_call", None) is not None:
+                return final_response[-1]["function_call"]
+            elif final_response[-1].get("tool_calls", None) is not None:
+                return final_response[-1]["tool_calls"]
+        return None
+
+    new_generation = generation.copy(update={"end_time": datetime.now(), "completion": get_response_for_chat() if resource.type == "chat" else final_response})
     if model is not None:
         new_generation = new_generation.copy(update={"model": model})
-    logging.warning(f"new_generation, {new_generation}")
     langfuse.generation(new_generation)
 
 
@@ -218,11 +220,9 @@ def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wr
     generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
     updated_generation = generation
     try:
-        logging.warning(f"wrapped {wrapped}, {kwargs}, {_is_openai_v1()}")
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            logging.warning(f"streaming response {openai_response}")
             return _get_lagnfuse_data_from_streaming_response(open_ai_resource, openai_response, updated_generation, new_langfuse)
 
         else:
