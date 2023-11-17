@@ -1,5 +1,7 @@
+import logging
 import threading
 from datetime import datetime
+import types
 from typing import Optional
 
 
@@ -9,6 +11,8 @@ from langfuse.client import InitialGeneration, CreateTrace
 from distutils.version import StrictVersion
 import openai
 from wrapt import wrap_function_wrapper
+
+logging = logging.getLogger("langfuse")
 
 
 class OpenAiDefinition:
@@ -101,6 +105,8 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
     if metadata is not None and not isinstance(metadata, dict):
         raise TypeError("metadata must be a dictionary")
 
+    model = kwargs.get("model", None)
+
     prompt = None
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
@@ -123,10 +129,59 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
-    return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters)
+    return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters, model=model)
 
 
-def _get_langfuse_data_from_response(resource: OpenAiDefinition, response):
+def _get_lagnfuse_data_from_streaming_response(resource: OpenAiDefinition, response: openai.Stream, generation: InitialGeneration, langfuse: Langfuse):
+    final_response = [] if resource.type == "chat" else ""
+    model = None
+    for i in response:
+        logging.warning(f"response, {i}")
+
+        if _is_openai_v1():
+            i = i.__dict__
+
+        model = i.get("model", None) if model is None else model
+
+        logging.info(f"choices, {i.get('choices')}")
+        choices = i.get("choices", [])
+
+        for choice in choices:
+            if _is_openai_v1():
+                choice = choice.__dict__
+            if resource.type == "chat":
+                delta = choice.get("delta", None)
+
+                if _is_openai_v1():
+                    delta = delta.__dict__
+
+                if delta.get("role", None) is not None:
+                    final_response.append({"role": delta.get("role", None), "function_call": None, "tool_calls": None, "content": None})
+
+                elif delta.get("content", None) is not None:
+                    final_response[-1]["content"] = delta.get("content", None) if final_response[-1]["content"] is None else final_response[-1]["content"] + delta.get("content", None)
+
+                elif delta.get("function_call", None) is not None:
+                    final_response[-1]["function_call"] = (
+                        delta.get("function_call", None) if final_response[-1]["function_call"] is None else final_response[-1]["function_call"] + delta.get("function_call", None)
+                    )
+                elif delta.get("tools_call", None) is not None:
+                    final_response[-1]["tool_calls"] = delta.get("tools_call", None) if final_response[-1]["tool_calls"] is None else final_response[-1]["tool_calls"] + delta.get("tools_call", None)
+            if resource.type == "completion":
+                final_response += choice.get("text", None)
+
+        print("final_response", final_response)
+        yield i
+
+    print(final_response)
+    new_generation = generation.copy(update={"end_time": datetime.now(), "completion": {"choices": final_response} if resource.type == "chat" else final_response})
+    if model is not None:
+        new_generation = new_generation.copy(update={"model": model})
+    logging.warning(f"new_generation, {new_generation}")
+    langfuse.generation(new_generation)
+
+
+def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
     model = response.get("model", None)
 
     completion = None
@@ -151,6 +206,10 @@ def _is_openai_v1():
     return StrictVersion(openai.__version__) >= StrictVersion("1.0.0")
 
 
+def _is_streaming_response(response):
+    return isinstance(response, types.GeneratorType) or (_is_openai_v1() and isinstance(response, openai.Stream))
+
+
 @_with_tracer_wrapper
 def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wrapped, instance, args, kwargs):
     new_langfuse = initialize()
@@ -161,11 +220,18 @@ def _wrap(open_ai_resource: OpenAiDefinition, langfuse: Langfuse, initialize, wr
     generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
     updated_generation = generation
     try:
-        result = wrapped(**arg_extractor.get_openai_args())
-        model, completion, usage = _get_langfuse_data_from_response(open_ai_resource, result.__dict__ if _is_openai_v1() else result)
-        updated_generation = generation.copy(update={"model": model, "completion": completion, "end_time": datetime.now(), "usage": usage})
-        new_langfuse.generation(updated_generation)
-        return result
+        logging.warning(f"wrapped {wrapped}, {kwargs}, {_is_openai_v1()}")
+        openai_response = wrapped(**arg_extractor.get_openai_args())
+
+        if _is_streaming_response(openai_response):
+            logging.warning(f"streaming response {openai_response}")
+            return _get_lagnfuse_data_from_streaming_response(open_ai_resource, openai_response, updated_generation, new_langfuse)
+
+        else:
+            model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
+            updated_generation = generation.copy(update={"model": model, "completion": completion, "end_time": datetime.now(), "usage": usage})
+            new_langfuse.generation(updated_generation)
+        return openai_response
     except Exception as ex:
         model = kwargs.get("model", None)
         new_langfuse.generation(updated_generation.copy(update={"end_time": datetime.now(), "status_message": str(ex), "level": "ERROR", "model": model}))
