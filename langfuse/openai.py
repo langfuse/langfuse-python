@@ -139,7 +139,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
     return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters, model=model)
 
 
-def _get_lagnfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
+def _get_langfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
     responses = []
     for i in response:
         responses.append(i)
@@ -150,7 +150,7 @@ def _get_lagnfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
 
-async def _get_lagnfuse_data_from_async_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
+async def _get_langfuse_data_from_async_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
     responses = []
     async for i in response:
         responses.append(i)
@@ -263,7 +263,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return _get_lagnfuse_data_from_sync_streaming_response(open_ai_resource, openai_response, generation, new_langfuse)
+            return _get_langfuse_data_from_sync_streaming_response(open_ai_resource, openai_response, generation, new_langfuse)
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
@@ -287,7 +287,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return _get_lagnfuse_data_from_async_streaming_response(open_ai_resource, openai_response, generation, new_langfuse)
+            return _get_langfuse_data_from_async_streaming_response(open_ai_resource, openai_response, generation, new_langfuse)
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
