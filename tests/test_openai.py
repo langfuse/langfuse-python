@@ -5,6 +5,7 @@ from langfuse.model import CreateTrace
 from langfuse.openai import _is_openai_v1, _is_streaming_response, openai
 
 from tests.utils import create_uuid, get_api
+from openai import AsyncOpenAI
 
 
 chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
@@ -460,3 +461,76 @@ def test_fails_wrong_trace_id():
             prompt="1 + 1 = ",
             temperature=0,
         )
+
+
+@pytest.mark.asyncio
+async def test_async_chat():
+    api = get_api()
+    client = AsyncOpenAI()
+    generation_name = create_uuid()
+
+    completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name)
+
+    client.flush_langfuse()
+    print(completion)
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert len(completion.choices) != 0
+    assert completion.choices[0].message.content == generation.data[0].output
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 1,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "maxTokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].prompt_tokens is not None
+    assert generation.data[0].completion_tokens is not None
+    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].output == "2"
+
+
+@pytest.mark.asyncio
+async def test_async_chat_stream():
+    api = get_api()
+    client = AsyncOpenAI()
+    generation_name = create_uuid()
+
+    completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name, stream=True)
+
+    async for c in completion:
+        print(c)
+
+    client.flush_langfuse()
+    print(completion)
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 1,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "maxTokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].prompt_tokens is not None
+    assert generation.data[0].completion_tokens is not None
+    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].output == "2"
