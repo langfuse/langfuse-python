@@ -2,10 +2,9 @@ import os
 import pytest
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langfuse.openai import _is_openai_v1, _is_streaming_response, openai
+from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI
 
 from tests.utils import create_uuid, get_api
-from openai import AsyncOpenAI
 
 
 chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
