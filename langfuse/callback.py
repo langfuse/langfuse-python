@@ -481,7 +481,6 @@ class CallbackHandler(BaseCallbackHandler):
                 # langchain only provides string representation of the model class. Hence have to parse it out.
                 model_name = self.extract_second_part(self.extract_model_id("model_id", serialized["repr"]))
             elif kwargs["invocation_params"]["_type"] == "cohere-chat":
-                print("cohere chat", self.extract_model_id("model", serialized["repr"]), serialized)
                 model_name = self.extract_model_id("model", serialized["repr"])
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
@@ -493,7 +492,6 @@ class CallbackHandler(BaseCallbackHandler):
             elif kwargs["invocation_params"]["_type"] == "llamacpp":
                 model_name = kwargs["invocation_params"]["model_path"]
             else:
-                print("unknown model type", kwargs, serialized)
                 model_name = kwargs["invocation_params"]["model_name"]
             self.runs[run_id] = (
                 self.runs[parent_run_id].generation(
