@@ -502,6 +502,7 @@ async def test_async_chat():
 async def test_async_chat_stream():
     api = get_api()
     client = AsyncOpenAI()
+
     generation_name = create_uuid()
 
     completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name, stream=True)
