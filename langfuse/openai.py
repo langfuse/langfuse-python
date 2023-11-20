@@ -10,6 +10,7 @@ from langfuse import Langfuse
 from langfuse.client import InitialGeneration, CreateTrace, StatefulGenerationClient
 
 import openai
+from openai import AsyncOpenAI, OpenAI
 from wrapt import wrap_function_wrapper
 
 from langfuse.model import UpdateGeneration
@@ -336,15 +337,15 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_host", None)
         setattr(openai, "flush_langfuse", self.flush)
 
-        setattr(openai.AsyncOpenAI, "langfuse_public_key", None)
-        setattr(openai.AsyncOpenAI, "langfuse_secret_key", None)
-        setattr(openai.AsyncOpenAI, "langfuse_host", None)
-        setattr(openai.AsyncOpenAI, "flush_langfuse", self.flush)
+        setattr(AsyncOpenAI, "langfuse_public_key", None)
+        setattr(AsyncOpenAI, "langfuse_secret_key", None)
+        setattr(AsyncOpenAI, "langfuse_host", None)
+        setattr(AsyncOpenAI, "flush_langfuse", self.flush)
 
-        setattr(openai.OpenAI, "langfuse_public_key", None)
-        setattr(openai.OpenAI, "langfuse_secret_key", None)
-        setattr(openai.OpenAI, "langfuse_host", None)
-        setattr(openai.OpenAI, "flush_langfuse", self.flush)
+        setattr(OpenAI, "langfuse_public_key", None)
+        setattr(OpenAI, "langfuse_secret_key", None)
+        setattr(OpenAI, "langfuse_host", None)
+        setattr(OpenAI, "flush_langfuse", self.flush)
 
 
 modifier = OpenAILangfuse()
