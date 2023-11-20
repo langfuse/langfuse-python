@@ -2,10 +2,9 @@ import os
 import pytest
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langfuse.openai import _is_openai_v1, _is_streaming_response, openai
+from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI
 
 from tests.utils import create_uuid, get_api
-from openai import AsyncOpenAI
 
 
 chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
@@ -503,6 +502,7 @@ async def test_async_chat():
 async def test_async_chat_stream():
     api = get_api()
     client = AsyncOpenAI()
+
     generation_name = create_uuid()
 
     completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name, stream=True)
