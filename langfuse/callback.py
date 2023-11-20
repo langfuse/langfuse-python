@@ -479,16 +479,9 @@ class CallbackHandler(BaseCallbackHandler):
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
             elif kwargs["invocation_params"]["_type"] == "amazon_bedrock":
                 # langchain only provides string representation of the model class. Hence have to parse it out.
-                def extract_model_id(text):
-                    match = re.search(r"model_id='(.*?)'", text)
-                    if match:
-                        return match.group(1)
-                    return None
-
-                def extract_second_part(text):
-                    return text.split(".")[-1]
-
-                model_name = extract_second_part(extract_model_id(serialized["repr"]))
+                model_name = self.extract_second_part(self.extract_model_id("model_id", serialized["repr"]))
+            elif kwargs["invocation_params"]["_type"] == "cohere-chat":
+                model_name = self.extract_model_id("model", serialized["repr"])
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
@@ -549,6 +542,15 @@ class CallbackHandler(BaseCallbackHandler):
             )
         except Exception as e:
             self.log.exception(e)
+
+    def extract_model_id(self, pattern: str, text: str):
+        match = re.search(rf"{pattern}='(.*?)'", text)
+        if match:
+            return match.group(1)
+        return None
+
+    def extract_second_part(selg, text: str):
+        return text.split(".")[-1]
 
     def on_llm_end(
         self,
