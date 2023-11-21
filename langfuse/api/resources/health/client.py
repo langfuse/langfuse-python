@@ -6,44 +6,37 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.jsonable_encoder import jsonable_encoder
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.dataset_run_item import DatasetRunItem
-from .types.create_dataset_run_item_request import CreateDatasetRunItemRequest
+from .errors.service_unavailable_error import ServiceUnavailableError
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
 except ImportError:
     import pydantic  # type: ignore
 
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
 
-
-class DatasetRunItemsClient:
+class HealthClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
+    def health(self) -> None:
         """
-        Create a dataset run item
-
-        Parameters:
-            - request: CreateDatasetRunItemRequest.
+        Check health of API and database
         """
         _response = self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-run-items"),
-            json=jsonable_encoder(request),
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/health"),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DatasetRunItem, _response.json())  # type: ignore
+            return
+        if _response.status_code == 503:
+            raise ServiceUnavailableError()
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -61,26 +54,24 @@ class DatasetRunItemsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncDatasetRunItemsClient:
+class AsyncHealthClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
+    async def health(self) -> None:
         """
-        Create a dataset run item
-
-        Parameters:
-            - request: CreateDatasetRunItemRequest.
+        Check health of API and database
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-run-items"),
-            json=jsonable_encoder(request),
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/health"),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DatasetRunItem, _response.json())  # type: ignore
+            return
+        if _response.status_code == 503:
+            raise ServiceUnavailableError()
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

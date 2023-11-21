@@ -12,8 +12,8 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.dataset_run_item import DatasetRunItem
-from .types.create_dataset_run_item_request import CreateDatasetRunItemRequest
+from ..commons.types.score import Score
+from .types.ingestion_event import IngestionEvent
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -24,26 +24,26 @@ except ImportError:
 OMIT = typing.cast(typing.Any, ...)
 
 
-class DatasetRunItemsClient:
+class IngestionClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
+    def batch(self, *, batch: typing.List[IngestionEvent]) -> Score:
         """
-        Create a dataset run item
+        Ingest multiple events to Langfuse
 
         Parameters:
-            - request: CreateDatasetRunItemRequest.
+            - batch: typing.List[IngestionEvent].
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-run-items"),
-            json=jsonable_encoder(request),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/ingestion"),
+            json=jsonable_encoder({"batch": batch}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DatasetRunItem, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Score, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -61,26 +61,26 @@ class DatasetRunItemsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncDatasetRunItemsClient:
+class AsyncIngestionClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
+    async def batch(self, *, batch: typing.List[IngestionEvent]) -> Score:
         """
-        Create a dataset run item
+        Ingest multiple events to Langfuse
 
         Parameters:
-            - request: CreateDatasetRunItemRequest.
+            - batch: typing.List[IngestionEvent].
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-run-items"),
-            json=jsonable_encoder(request),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/ingestion"),
+            json=jsonable_encoder({"batch": batch}),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DatasetRunItem, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(Score, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
