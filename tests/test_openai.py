@@ -534,3 +534,39 @@ async def test_async_chat_stream():
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].output == "2"
+
+
+def test_openai_function_call():
+    from typing import List
+
+    from pydantic import BaseModel
+
+    api = get_api()
+    generation_name = create_uuid()
+
+    class StepByStepAIResponse(BaseModel):
+        title: str
+        steps: List[str]
+
+    import json
+
+    response = openai.chat.completions.create(
+        name=generation_name,
+        model="gpt-3.5-turbo-0613",
+        messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
+        functions=[{"name": "get_answer_for_user_query", "description": "Get user answer in series of steps", "parameters": StepByStepAIResponse.schema()}],
+        function_call={"name": "get_answer_for_user_query"},
+    )
+
+    output = json.loads(response.choices[0].message.function_call.arguments)
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].output is not None
+    assert "function_call" in generation.data[0].output
+
+    assert output["title"] is not None

@@ -15,6 +15,10 @@ from wrapt import wrap_function_wrapper
 
 from langfuse.model import UpdateGeneration
 
+import logging
+
+log = logging.getLogger("langfuse")
+
 
 class OpenAiDefinition:
     module: str
@@ -236,7 +240,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
         choices = response.get("choices", [])
         if len(choices) > 0:
             choice = choices[-1]
-            completion = choice.message.content if _is_openai_v1() else choice.get("message", None).get("content", None)
+            completion = choice.message.json() if _is_openai_v1() else choice.get("message", None)
 
     usage = response.get("usage", None)
 
@@ -269,8 +273,10 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
             generation.update(UpdateGeneration(model=model, completion=completion, end_time=datetime.now(), usage=usage))
+
         return openai_response
     except Exception as ex:
+        log.warn(ex)
         model = kwargs.get("model", None)
         generation.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(ex), level="ERROR", model=model))
         raise ex
