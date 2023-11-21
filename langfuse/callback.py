@@ -485,7 +485,9 @@ class CallbackHandler(BaseCallbackHandler):
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
-                if serialized["kwargs"].get("deployment_name") and serialized["kwargs"].get("model_version"):
+                if kwargs.get("invocation_params").get("model") and serialized["kwargs"].get("model_version"):
+                    model_name = kwargs.get("invocation_params").get("model") + "-" + serialized["kwargs"]["model_version"]
+                elif serialized["kwargs"].get("deployment_name") and serialized["kwargs"].get("model_version"):
                     model_name = serialized["kwargs"]["deployment_name"] + "-" + serialized["kwargs"]["model_version"]
                 else:
                     model_name = kwargs["invocation_params"]["engine"]
