@@ -213,17 +213,7 @@ def _extract_data(resource, responses):
             if resource.type == "completion":
                 completion += choice.get("text", None)
 
-    def get_response_for_chat():
-        if len(completion) > 0:
-            if completion[-1].get("content", None) is not None:
-                return completion[-1]["content"]
-            elif completion[-1].get("function_call", None) is not None:
-                return completion[-1]["function_call"]
-            elif completion[-1].get("tool_calls", None) is not None:
-                return completion[-1]["tool_calls"]
-        return None
-
-    return model, completion_start_time, get_response_for_chat() if resource.type == "chat" else completion
+    return model, completion_start_time, completion
 
 
 def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
