@@ -4,7 +4,6 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.trace_id_type_enum import TraceIdTypeEnum
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -15,7 +14,6 @@ except ImportError:
 class CreateScoreRequest(pydantic.BaseModel):
     id: typing.Optional[str]
     trace_id: str = pydantic.Field(alias="traceId")
-    trace_id_type: typing.Optional[TraceIdTypeEnum] = pydantic.Field(alias="traceIdType")
     name: str
     value: float
     observation_id: typing.Optional[str] = pydantic.Field(alias="observationId")

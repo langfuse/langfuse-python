@@ -4,6 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from ...commons.types.observation import Observation
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -11,14 +12,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class Trace(pydantic.BaseModel):
-    id: str = pydantic.Field(description="The unique identifier of a trace")
-    timestamp: dt.datetime
-    name: typing.Optional[str]
-    release: typing.Optional[str]
-    version: typing.Optional[str]
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId")
-    metadata: typing.Optional[typing.Any]
+class ObservationUpdateEvent(pydantic.BaseModel):
+    id: str
+    timestamp: str
+    body: Observation
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -31,5 +28,4 @@ class Trace(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

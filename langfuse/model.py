@@ -9,7 +9,6 @@ from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequ
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 
 # these imports need to stay here, otherwise imports from our clients wont work
-from langfuse.api.resources.commons.types.trace_id_type_enum import TraceIdTypeEnum
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.commons.types.dataset_item import DatasetItem
 from langfuse.api.resources.commons.types.dataset import Dataset
