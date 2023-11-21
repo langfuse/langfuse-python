@@ -2,6 +2,7 @@ import logging
 from urllib.parse import urlparse, urlunparse
 
 from pytest_httpserver import HTTPServer
+from langfuse.model import CreateTrace
 from langfuse.request import LangfuseClient
 import subprocess
 import threading
@@ -33,10 +34,14 @@ def get_host(url):
 @pytest.mark.timeout(10)
 def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
     failed = False
+    count = 0
 
     def handler(request: Request):
+        nonlocal count
         try:
             if request.json["batch"][0]["foo"] == "bar":
+                print("success")
+                count = count + 1
                 return Response(status=200)
             return Response(status=500)
         except Exception as e:
@@ -49,14 +54,15 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
 
     langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
 
-    tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
+    tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
 
-    tm.add_task({"foo": "bar"})
+    tm.add_task({"data": CreateTrace(name="name")})
     tm.add_task({"foo": "bar"})
     tm.add_task({"foo": "bar"})
 
     tm.flush()
     assert not failed
+    assert count == 2
 
 
 @pytest.mark.timeout(10)

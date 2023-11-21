@@ -76,6 +76,9 @@ class Consumer(threading.Thread):
 
             except Empty:
                 break
+            except Exception as e:
+                self._log.error("error getting item from queue. This event will not be sent to the server: %s", e)
+                self._queue.task_done()
 
         return items
 
@@ -88,8 +91,13 @@ class Consumer(threading.Thread):
     def upload(self):
         """Upload the next batch of items, return whether successful."""
 
-        batch = self._next()
-        if len(batch) == 0:
+        batch = []
+        try:
+            batch = self._next()
+            if len(batch) == 0:
+                return
+        except Exception as e:
+            self._log.error("error getting next batch: %s", e)
             return
 
         try:
@@ -148,7 +156,6 @@ class TaskManager(object):
 
     def add_task(self, event):
         try:
-            self._log.debug("Adding task")
             event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
             self._queue.put(event, block=False)
         except queue.Full:
