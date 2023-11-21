@@ -477,7 +477,7 @@ class CallbackHandler(BaseCallbackHandler):
                 )
             if kwargs["invocation_params"]["_type"] in ["anthropic-llm", "anthropic-chat"]:
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
-            elif kwargs["invocation_params"]["_type"] == "amazon_bedrock":
+            elif kwargs["invocation_params"]["_type"] in ["amazon_bedrock", "amazon_bedrock_chat"]:
                 # langchain only provides string representation of the model class. Hence have to parse it out.
                 model_name = self.extract_second_part(self.extract_model_id("model_id", serialized["repr"]))
             elif kwargs["invocation_params"]["_type"] == "cohere-chat":
