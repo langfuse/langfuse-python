@@ -15,7 +15,7 @@ from tests.utils import create_uuid, get_api
 
 
 def test_create_and_get_dataset():
-    langfuse = Langfuse(debug=True, secret_key="test", public_key="test")
+    langfuse = Langfuse(debug=True)
 
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))

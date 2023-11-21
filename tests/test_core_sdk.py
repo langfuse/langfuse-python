@@ -80,7 +80,7 @@ def test_shutdown():
 
 
 def test_create_score():
-    langfuse = Langfuse(debug=True, secret_key="test", public_key="test")
+    langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
