@@ -489,6 +489,8 @@ class CallbackHandler(BaseCallbackHandler):
                     model_name = kwargs.get("invocation_params").get("model") + "-" + serialized["kwargs"]["model_version"]
                 elif serialized["kwargs"].get("deployment_name") and serialized["kwargs"].get("model_version"):
                     model_name = serialized["kwargs"]["deployment_name"] + "-" + serialized["kwargs"]["model_version"]
+                elif kwargs.get("invocation_params").get("model"):
+                    model_name = kwargs.get("invocation_params").get("model")
                 else:
                     model_name = kwargs["invocation_params"]["engine"]
             elif kwargs["invocation_params"]["_type"] == "llamacpp":
