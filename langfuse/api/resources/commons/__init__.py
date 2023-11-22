@@ -15,7 +15,6 @@ from .types import (
     ObservationLevel,
     Score,
     Trace,
-    TraceIdTypeEnum,
     TraceWithDetails,
     TraceWithFullDetails,
 )
@@ -40,7 +39,6 @@ __all__ = [
     "ObservationLevel",
     "Score",
     "Trace",
-    "TraceIdTypeEnum",
     "TraceWithDetails",
     "TraceWithFullDetails",
     "UnauthorizedError",

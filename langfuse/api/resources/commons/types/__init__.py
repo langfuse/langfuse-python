@@ -14,7 +14,6 @@ from .observation import Observation
 from .observation_level import ObservationLevel
 from .score import Score
 from .trace import Trace
-from .trace_id_type_enum import TraceIdTypeEnum
 from .trace_with_details import TraceWithDetails
 from .trace_with_full_details import TraceWithFullDetails
 
@@ -33,7 +32,6 @@ __all__ = [
     "ObservationLevel",
     "Score",
     "Trace",
-    "TraceIdTypeEnum",
     "TraceWithDetails",
     "TraceWithFullDetails",
 ]

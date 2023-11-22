@@ -12,8 +12,8 @@ class BaseClientWrapper:
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
-        username: typing.Union[str, typing.Callable[[], str]],
-        password: typing.Union[str, typing.Callable[[], str]],
+        username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str
     ):
         self._x_langfuse_sdk_name = x_langfuse_sdk_name
@@ -25,7 +25,10 @@ class BaseClientWrapper:
 
     def get_headers(self) -> typing.Dict[str, str]:
         headers: typing.Dict[str, str] = {"X-Fern-Language": "Python"}
-        headers["Authorization"] = httpx.BasicAuth(self._get_username(), self._get_password())._auth_header
+        username = self._get_username()
+        password = self._get_password()
+        if username is not None and password is not None:
+            headers["Authorization"] = httpx.BasicAuth(username, password)._auth_header
         if self._x_langfuse_sdk_name is not None:
             headers["X-Langfuse-Sdk-Name"] = self._x_langfuse_sdk_name
         if self._x_langfuse_sdk_version is not None:
@@ -34,14 +37,14 @@ class BaseClientWrapper:
             headers["X-Langfuse-Public-Key"] = self._x_langfuse_public_key
         return headers
 
-    def _get_username(self) -> str:
-        if isinstance(self._username, str):
+    def _get_username(self) -> typing.Optional[str]:
+        if isinstance(self._username, str) or self._username is None:
             return self._username
         else:
             return self._username()
 
-    def _get_password(self) -> str:
-        if isinstance(self._password, str):
+    def _get_password(self) -> typing.Optional[str]:
+        if isinstance(self._password, str) or self._password is None:
             return self._password
         else:
             return self._password()
@@ -57,8 +60,8 @@ class SyncClientWrapper(BaseClientWrapper):
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
-        username: typing.Union[str, typing.Callable[[], str]],
-        password: typing.Union[str, typing.Callable[[], str]],
+        username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
         httpx_client: httpx.Client
     ):
@@ -80,8 +83,8 @@ class AsyncClientWrapper(BaseClientWrapper):
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
-        username: typing.Union[str, typing.Callable[[], str]],
-        password: typing.Union[str, typing.Callable[[], str]],
+        username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
         httpx_client: httpx.AsyncClient
     ):
