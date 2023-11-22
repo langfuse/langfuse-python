@@ -7,6 +7,8 @@ from . import (
     datasets,
     event,
     generations,
+    health,
+    ingestion,
     observations,
     score,
     span,
@@ -32,7 +34,6 @@ from .commons import (
     ObservationLevel,
     Score,
     Trace,
-    TraceIdTypeEnum,
     TraceWithDetails,
     TraceWithFullDetails,
     UnauthorizedError,
@@ -41,6 +42,18 @@ from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest
 from .generations import UpdateGenerationRequest
+from .health import ServiceUnavailableError
+from .ingestion import (
+    IngestionEvent,
+    IngestionEvent_ObservationCreate,
+    IngestionEvent_ObservationUpdate,
+    IngestionEvent_ScoreCreate,
+    IngestionEvent_TraceCreate,
+    ObservationCreateEvent,
+    ObservationUpdateEvent,
+    ScoreEvent,
+    TraceEvent,
+)
 from .observations import Observations
 from .score import CreateScoreRequest, Scores
 from .span import UpdateSpanRequest
@@ -62,17 +75,26 @@ __all__ = [
     "DatasetRunItem",
     "DatasetStatus",
     "Error",
+    "IngestionEvent",
+    "IngestionEvent_ObservationCreate",
+    "IngestionEvent_ObservationUpdate",
+    "IngestionEvent_ScoreCreate",
+    "IngestionEvent_TraceCreate",
     "LlmUsage",
     "MapValue",
     "MethodNotAllowedError",
     "NotFoundError",
     "Observation",
+    "ObservationCreateEvent",
     "ObservationLevel",
+    "ObservationUpdateEvent",
     "Observations",
     "Score",
+    "ScoreEvent",
     "Scores",
+    "ServiceUnavailableError",
     "Trace",
-    "TraceIdTypeEnum",
+    "TraceEvent",
     "TraceWithDetails",
     "TraceWithFullDetails",
     "Traces",
@@ -85,6 +107,8 @@ __all__ = [
     "datasets",
     "event",
     "generations",
+    "health",
+    "ingestion",
     "observations",
     "score",
     "span",

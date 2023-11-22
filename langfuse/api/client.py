@@ -10,6 +10,8 @@ from .resources.dataset_run_items.client import AsyncDatasetRunItemsClient, Data
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.event.client import AsyncEventClient, EventClient
 from .resources.generations.client import AsyncGenerationsClient, GenerationsClient
+from .resources.health.client import AsyncHealthClient, HealthClient
+from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
 from .resources.score.client import AsyncScoreClient, ScoreClient
 from .resources.span.client import AsyncSpanClient, SpanClient
@@ -24,9 +26,10 @@ class FintoLangfuse:
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
-        username: typing.Union[str, typing.Callable[[], str]],
-        password: typing.Union[str, typing.Callable[[], str]],
-        timeout: typing.Optional[float] = 60
+        username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        timeout: typing.Optional[float] = 60,
+        httpx_client: typing.Optional[httpx.Client] = None
     ):
         self._client_wrapper = SyncClientWrapper(
             base_url=base_url,
@@ -35,13 +38,15 @@ class FintoLangfuse:
             x_langfuse_public_key=x_langfuse_public_key,
             username=username,
             password=password,
-            httpx_client=httpx.Client(timeout=timeout),
+            httpx_client=httpx.Client(timeout=timeout) if httpx_client is None else httpx_client,
         )
         self.dataset_items = DatasetItemsClient(client_wrapper=self._client_wrapper)
         self.dataset_run_items = DatasetRunItemsClient(client_wrapper=self._client_wrapper)
         self.datasets = DatasetsClient(client_wrapper=self._client_wrapper)
         self.event = EventClient(client_wrapper=self._client_wrapper)
         self.generations = GenerationsClient(client_wrapper=self._client_wrapper)
+        self.health = HealthClient(client_wrapper=self._client_wrapper)
+        self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
         self.score = ScoreClient(client_wrapper=self._client_wrapper)
         self.span = SpanClient(client_wrapper=self._client_wrapper)
@@ -56,9 +61,10 @@ class AsyncFintoLangfuse:
         x_langfuse_sdk_name: typing.Optional[str] = None,
         x_langfuse_sdk_version: typing.Optional[str] = None,
         x_langfuse_public_key: typing.Optional[str] = None,
-        username: typing.Union[str, typing.Callable[[], str]],
-        password: typing.Union[str, typing.Callable[[], str]],
-        timeout: typing.Optional[float] = 60
+        username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        timeout: typing.Optional[float] = 60,
+        httpx_client: typing.Optional[httpx.AsyncClient] = None
     ):
         self._client_wrapper = AsyncClientWrapper(
             base_url=base_url,
@@ -67,13 +73,15 @@ class AsyncFintoLangfuse:
             x_langfuse_public_key=x_langfuse_public_key,
             username=username,
             password=password,
-            httpx_client=httpx.AsyncClient(timeout=timeout),
+            httpx_client=httpx.AsyncClient(timeout=timeout) if httpx_client is None else httpx_client,
         )
         self.dataset_items = AsyncDatasetItemsClient(client_wrapper=self._client_wrapper)
         self.dataset_run_items = AsyncDatasetRunItemsClient(client_wrapper=self._client_wrapper)
         self.datasets = AsyncDatasetsClient(client_wrapper=self._client_wrapper)
         self.event = AsyncEventClient(client_wrapper=self._client_wrapper)
         self.generations = AsyncGenerationsClient(client_wrapper=self._client_wrapper)
+        self.health = AsyncHealthClient(client_wrapper=self._client_wrapper)
+        self.ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.score = AsyncScoreClient(client_wrapper=self._client_wrapper)
         self.span = AsyncSpanClient(client_wrapper=self._client_wrapper)

@@ -5,7 +5,6 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from .observation_level import ObservationLevel
-from .trace_id_type_enum import TraceIdTypeEnum
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -16,7 +15,6 @@ except ImportError:
 class CreateEventRequest(pydantic.BaseModel):
     id: typing.Optional[str]
     trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
-    trace_id_type: typing.Optional[TraceIdTypeEnum] = pydantic.Field(alias="traceIdType")
     name: typing.Optional[str]
     start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime")
     metadata: typing.Optional[typing.Any]
