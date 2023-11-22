@@ -479,7 +479,12 @@ class CallbackHandler(BaseCallbackHandler):
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
             elif kwargs["invocation_params"]["_type"] in ["amazon_bedrock", "amazon_bedrock_chat"]:
                 # langchain only provides string representation of the model class. Hence have to parse it out.
-                model_name = self.extract_second_part(self.extract_model_id("model_id", serialized["repr"]))
+
+                if serialized.get("kwargs") and serialized["kwargs"].get("model_id"):
+                    model_name = self.extract_second_part(serialized["kwargs"]["model_id"])
+                else:
+                    model_name = self.extract_second_part(self.extract_model_id("model_id", serialized["repr"]))
+
             elif kwargs["invocation_params"]["_type"] == "cohere-chat":
                 model_name = self.extract_model_id("model", serialized["repr"])
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
