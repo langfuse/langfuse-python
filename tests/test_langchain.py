@@ -89,7 +89,7 @@ def test_callback_generated_from_trace():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
