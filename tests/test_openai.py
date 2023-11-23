@@ -616,6 +616,7 @@ def test_azure():
     assert generation.data[0].level == "ERROR"
 
 
+@pytest.mark.asyncio
 async def test_async_azure():
     api = get_api()
     generation_name = create_uuid()
