@@ -10,7 +10,7 @@ from langfuse import Langfuse
 from langfuse.client import InitialGeneration, CreateTrace, StatefulGenerationClient
 
 import openai
-from openai import AsyncOpenAI, OpenAI, AzureOpenAI
+from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI
 from wrapt import wrap_function_wrapper
 
 from langfuse.model import UpdateGeneration

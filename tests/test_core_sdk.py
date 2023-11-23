@@ -8,7 +8,6 @@ from langfuse import Langfuse
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
-    CreateScore,
     CreateSpan,
     CreateTrace,
     InitialGeneration,
