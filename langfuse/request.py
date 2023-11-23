@@ -3,7 +3,7 @@ from gzip import GzipFile
 from io import BytesIO
 import json
 import logging
-from typing import Any, Union
+from typing import Any, List, Union
 import requests
 
 from langfuse.serializer import DatetimeSerializer
@@ -103,7 +103,7 @@ class APIError:
 
 
 class APIErrors(Exception):
-    def __init__(self, errors: list[APIError]):
+    def __init__(self, errors: List[APIError]):
         self.errors = errors
 
     def __str__(self):
