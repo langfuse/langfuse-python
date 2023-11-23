@@ -8,6 +8,7 @@ from langfuse import Langfuse
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
+    CreateScore,
     CreateSpan,
     CreateTrace,
     InitialGeneration,
@@ -97,14 +98,22 @@ def test_create_score():
     score_id = create_uuid()
     langfuse.score(
         InitialScore(
-            id=score_id,
             traceId=trace.id,
-            name="this-is-a-score",
+            observation_id=None,
+            name="user-feeedback",
             value=1,
-            user_id="test",
-            metadata="test",
         )
     )
+    # langfuse.score(
+    #     InitialScore(
+    #         id=score_id,
+    #         traceId=trace.id,
+    #         name="this-is-a-score",
+    #         value=1,
+    #         user_id="test",
+    #         metadata="test",
+    #     )
+    # )
 
     trace.generation(CreateGeneration(name="yet another child", metadata="test"))
 
