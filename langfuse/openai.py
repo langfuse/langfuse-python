@@ -10,7 +10,7 @@ from langfuse import Langfuse
 from langfuse.client import InitialGeneration, CreateTrace, StatefulGenerationClient
 
 import openai
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI, AzureOpenAI
 from wrapt import wrap_function_wrapper
 
 from langfuse.model import UpdateGeneration
@@ -276,7 +276,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
 
         return openai_response
     except Exception as ex:
-        log.warn(ex)
+        log.warning(ex)
         model = kwargs.get("model", None)
         generation.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(ex), level="ERROR", model=model))
         raise ex
@@ -342,16 +342,6 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_secret_key", None)
         setattr(openai, "langfuse_host", None)
         setattr(openai, "flush_langfuse", self.flush)
-
-        setattr(AsyncOpenAI, "langfuse_public_key", None)
-        setattr(AsyncOpenAI, "langfuse_secret_key", None)
-        setattr(AsyncOpenAI, "langfuse_host", None)
-        setattr(AsyncOpenAI, "flush_langfuse", self.flush)
-
-        setattr(OpenAI, "langfuse_public_key", None)
-        setattr(OpenAI, "langfuse_secret_key", None)
-        setattr(OpenAI, "langfuse_host", None)
-        setattr(OpenAI, "flush_langfuse", self.flush)
 
 
 modifier = OpenAILangfuse()

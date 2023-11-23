@@ -8,6 +8,7 @@ from langfuse import Langfuse
 from langfuse.model import (
     CreateEvent,
     CreateGeneration,
+    CreateScore,
     CreateSpan,
     CreateTrace,
     InitialGeneration,
@@ -95,6 +96,7 @@ def test_create_score():
     assert langfuse.task_manager._queue.qsize() == 0
 
     score_id = create_uuid()
+
     langfuse.score(
         InitialScore(
             id=score_id,

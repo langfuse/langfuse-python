@@ -2,7 +2,8 @@ import os
 import pytest
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI
+from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI
+from openai import APIConnectionError
 
 from tests.utils import create_uuid, get_api
 
@@ -469,7 +470,7 @@ async def test_async_chat():
 
     completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name)
 
-    client.flush_langfuse()
+    openai.flush_langfuse()
     print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
@@ -509,7 +510,7 @@ async def test_async_chat_stream():
     async for c in completion:
         print(c)
 
-    client.flush_langfuse()
+    openai.flush_langfuse()
     print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
@@ -569,3 +570,47 @@ def test_openai_function_call():
     assert "function_call" in generation.data[0].output
 
     assert output["title"] is not None
+
+
+def test_azure():
+    api = get_api()
+    generation_name = create_uuid()
+    azure = AzureOpenAI(
+        api_key="missing",
+        api_version="2020-07-01-preview",
+        base_url="https://api.labs.azure.com",
+    )
+
+    with pytest.raises(APIConnectionError):
+        azure.chat.completions.create(
+            name=generation_name,
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "1 + 1 = "}],
+            temperature=0,
+            metadata={"someKey": "someResponse"},
+        )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].metadata == {"someKey": "someResponse"}
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "maxTokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].prompt_tokens is not None
+    assert generation.data[0].completion_tokens is not None
+    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].level == "ERROR"
