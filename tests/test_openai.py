@@ -470,7 +470,7 @@ async def test_async_chat():
 
     completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name)
 
-    client.flush_langfuse()
+    openai.flush_langfuse()
     print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
@@ -510,7 +510,7 @@ async def test_async_chat_stream():
     async for c in completion:
         print(c)
 
-    client.flush_langfuse()
+    openai.flush_langfuse()
     print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
