@@ -140,6 +140,18 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def auth_check(self):
+        try:
+            projects = self.client.projects.get()
+            self.log.warning(f"Auth check successful, found {len(projects.data)} projects")
+            if len(projects.data) == 0:
+                raise Exception("Auth check failed, no project found")
+            return True
+
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_dataset_run(
         self,
         dataset_name: str,

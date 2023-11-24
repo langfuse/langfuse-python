@@ -10,6 +10,7 @@ from . import (
     health,
     ingestion,
     observations,
+    projects,
     score,
     span,
     trace,
@@ -55,6 +56,7 @@ from .ingestion import (
     TraceEvent,
 )
 from .observations import Observations
+from .projects import Project, Projects
 from .score import CreateScoreRequest, Scores
 from .span import UpdateSpanRequest
 from .trace import CreateTraceRequest, Traces
@@ -89,6 +91,8 @@ __all__ = [
     "ObservationLevel",
     "ObservationUpdateEvent",
     "Observations",
+    "Project",
+    "Projects",
     "Score",
     "ScoreEvent",
     "Scores",
@@ -110,6 +114,7 @@ __all__ = [
     "health",
     "ingestion",
     "observations",
+    "projects",
     "score",
     "span",
     "trace",
