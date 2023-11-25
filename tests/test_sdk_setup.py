@@ -291,6 +291,7 @@ def test_openai_configured(httpserver: HTTPServer):
 
 def test_client_init_workers_5():
     langfuse = Langfuse(threads=5)
+    langfuse.flush()
 
     assert langfuse.task_manager._threads == 5
 
@@ -308,6 +309,8 @@ def test_auth_check():
 
     assert langfuse.auth_check() is True
 
+    langfuse.flush()
+
 
 def test_wrong_key_auth_check():
     langfuse = Langfuse(debug=False, secret_key="test")
@@ -315,12 +318,22 @@ def test_wrong_key_auth_check():
     with pytest.raises(UnauthorizedError):
         langfuse.auth_check()
 
+    langfuse.flush()
+
+
+def test_auth_check_callback():
+    langfuse = CallbackHandler(debug=False)
+
+    assert langfuse.auth_check() is True
+    langfuse.flush()
+
 
 def test_wrong_key_auth_check_callback():
     langfuse = CallbackHandler(debug=False, secret_key="test")
 
     with pytest.raises(UnauthorizedError):
         langfuse.auth_check()
+    langfuse.flush()
 
 
 def test_wrong_url_auth_check():
@@ -329,9 +342,12 @@ def test_wrong_url_auth_check():
     with pytest.raises(httpx.ConnectError):
         langfuse.auth_check()
 
+    langfuse.flush()
+
 
 def test_wrong_url_auth_check_callback():
     langfuse = CallbackHandler(debug=False, host="http://localhost:4000/")
 
-    with pytest.raises(UnauthorizedError):
+    with pytest.raises(httpx.ConnectError):
         langfuse.auth_check()
+    langfuse.flush()
