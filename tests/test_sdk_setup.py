@@ -10,6 +10,7 @@ from langfuse.api.resources.commons.errors.unauthorized_error import Unauthorize
 from langfuse.callback import CallbackHandler
 
 from langfuse.client import Langfuse
+from langfuse.model import CreateTrace
 from tests.test_task_manager import get_host
 from langfuse.openai import _is_openai_v1, auth_check, openai
 
@@ -326,6 +327,15 @@ def test_auth_check_callback():
 
     assert langfuse.auth_check() is True
     langfuse.flush()
+
+
+def test_auth_check_callback_stateful():
+    langfuse = Langfuse(debug=False)
+    trace = langfuse.trace(CreateTrace(name="name"))
+    handler = trace.get_langchain_handler()
+
+    assert handler.auth_check() is True
+    handler.flush()
 
 
 def test_wrong_key_auth_check_callback():
