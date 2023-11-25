@@ -2,7 +2,7 @@ import os
 import pytest
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI
+from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI, auth_check
 from openai import APIConnectionError
 
 from tests.utils import create_uuid, get_api

@@ -51,10 +51,12 @@ class CallbackHandler(BaseCallbackHandler):
             self.trace = statefulClient
             self.runs = {}
             self.rootSpan = None
+            self.langfuse = None
 
         elif statefulClient and isinstance(statefulClient, StatefulSpanClient):
             self.runs = {}
             self.rootSpan = statefulClient
+            self.langfuse = None
             self.trace = StatefulTraceClient(
                 statefulClient.client,
                 statefulClient.trace_id,
@@ -97,6 +99,22 @@ class CallbackHandler(BaseCallbackHandler):
             self.rootSpan.task_manager.flush()
         else:
             self.log.debug("There was no trace yet, hence no flushing possible.")
+
+    def auth_check(self):
+        if self.langfuse is not None:
+            return self.langfuse.auth_check()
+        elif self.trace is not None:
+            projects = self.trace.client.projects.get()
+            if len(projects.data) == 0:
+                raise Exception("No projects found for the keys.")
+            return True
+        elif self.rootSpan is not None:
+            projects = self.rootSpan.client.projects.get()
+            if len(projects) == 0:
+                raise Exception("No projects found for the keys.")
+            return True
+
+        return False
 
     def setNextSpan(self, id: str):
         self.nextSpanId = id

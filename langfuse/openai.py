@@ -346,3 +346,10 @@ class OpenAILangfuse:
 
 modifier = OpenAILangfuse()
 modifier.register_tracing()
+
+
+def auth_check():
+    if modifier._langfuse is None:
+        modifier.initialize()
+
+    return modifier._langfuse.auth_check()

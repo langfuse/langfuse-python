@@ -10,8 +10,9 @@ from langfuse.api.resources.commons.errors.unauthorized_error import Unauthorize
 from langfuse.callback import CallbackHandler
 
 from langfuse.client import Langfuse
+from langfuse.model import CreateTrace
 from tests.test_task_manager import get_host
-from langfuse.openai import _is_openai_v1, openai
+from langfuse.openai import _is_openai_v1, auth_check, openai
 
 chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
 
@@ -226,6 +227,27 @@ def test_openai_default():
     os.environ["LANGFUSE_HOST"] = host
 
 
+def test_openai_auth_check():
+    assert auth_check() is True
+
+
+def test_openai_auth_check_failing_key():
+    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+
+    importlib.reload(langfuse)
+    importlib.reload(langfuse.openai)
+
+    from langfuse.openai import openai
+
+    openai.langfuse_secret_key = "test"
+
+    with pytest.raises(UnauthorizedError):
+        auth_check()
+
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+
+
 def test_openai_configured(httpserver: HTTPServer):
     httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_response(Response(status=200))
     host = get_host(httpserver.url_for("/api/public/ingestion"))
@@ -270,6 +292,7 @@ def test_openai_configured(httpserver: HTTPServer):
 
 def test_client_init_workers_5():
     langfuse = Langfuse(threads=5)
+    langfuse.flush()
 
     assert langfuse.task_manager._threads == 5
 
@@ -287,6 +310,8 @@ def test_auth_check():
 
     assert langfuse.auth_check() is True
 
+    langfuse.flush()
+
 
 def test_wrong_key_auth_check():
     langfuse = Langfuse(debug=False, secret_key="test")
@@ -294,9 +319,45 @@ def test_wrong_key_auth_check():
     with pytest.raises(UnauthorizedError):
         langfuse.auth_check()
 
+    langfuse.flush()
+
+
+def test_auth_check_callback():
+    langfuse = CallbackHandler(debug=False)
+
+    assert langfuse.auth_check() is True
+    langfuse.flush()
+
+
+def test_auth_check_callback_stateful():
+    langfuse = Langfuse(debug=False)
+    trace = langfuse.trace(CreateTrace(name="name"))
+    handler = trace.get_langchain_handler()
+
+    assert handler.auth_check() is True
+    handler.flush()
+
+
+def test_wrong_key_auth_check_callback():
+    langfuse = CallbackHandler(debug=False, secret_key="test")
+
+    with pytest.raises(UnauthorizedError):
+        langfuse.auth_check()
+    langfuse.flush()
+
 
 def test_wrong_url_auth_check():
     langfuse = Langfuse(debug=False, host="http://localhost:4000/")
 
     with pytest.raises(httpx.ConnectError):
         langfuse.auth_check()
+
+    langfuse.flush()
+
+
+def test_wrong_url_auth_check_callback():
+    langfuse = CallbackHandler(debug=False, host="http://localhost:4000/")
+
+    with pytest.raises(httpx.ConnectError):
+        langfuse.auth_check()
+    langfuse.flush()
