@@ -145,7 +145,7 @@ class Langfuse(object):
             projects = self.client.projects.get()
             self.log.warning(f"Auth check successful, found {len(projects.data)} projects")
             if len(projects.data) == 0:
-                raise Exception("Auth check failed, no project found")
+                raise Exception("Auth check failed, no project found for the keys provided.")
             return True
 
         except Exception as e:
