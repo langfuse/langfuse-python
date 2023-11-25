@@ -98,6 +98,20 @@ class CallbackHandler(BaseCallbackHandler):
         else:
             self.log.debug("There was no trace yet, hence no flushing possible.")
 
+    def auth_check(self):
+        if self.langfuse is not None:
+            self.langfuse.auth_check()
+        elif self.trace is not None:
+            projects = self.trace.client.projects.get()
+            if len(projects) == 0:
+                raise Exception("No projects found for the keys.")
+            return True
+        elif self.rootSpan is not None:
+            projects = self.rootSpan.client.projects.get()
+            if len(projects) == 0:
+                raise Exception("No projects found for the keys.")
+            return True
+
     def setNextSpan(self, id: str):
         self.nextSpanId = id
 

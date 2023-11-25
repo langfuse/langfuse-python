@@ -295,8 +295,22 @@ def test_wrong_key_auth_check():
         langfuse.auth_check()
 
 
+def test_wrong_key_auth_check_callback():
+    langfuse = CallbackHandler(debug=False, secret_key="test")
+
+    with pytest.raises(UnauthorizedError):
+        langfuse.auth_check()
+
+
 def test_wrong_url_auth_check():
     langfuse = Langfuse(debug=False, host="http://localhost:4000/")
 
     with pytest.raises(httpx.ConnectError):
+        langfuse.auth_check()
+
+
+def test_wrong_url_auth_check_callback():
+    langfuse = CallbackHandler(debug=False, host="http://localhost:4000/")
+
+    with pytest.raises(UnauthorizedError):
         langfuse.auth_check()

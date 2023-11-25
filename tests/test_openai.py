@@ -2,7 +2,7 @@ import os
 import pytest
 from langfuse.client import Langfuse
 from langfuse.model import CreateTrace
-from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI
+from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI, auth_check
 from openai import APIConnectionError
 
 from tests.utils import create_uuid, get_api
@@ -659,3 +659,7 @@ async def test_async_azure():
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].level == "ERROR"
+
+
+def test_auth_check():
+    assert auth_check() is True
