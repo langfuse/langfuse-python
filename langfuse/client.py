@@ -143,7 +143,7 @@ class Langfuse(object):
     def auth_check(self):
         try:
             projects = self.client.projects.get()
-            self.log.warning(f"Auth check successful, found {len(projects.data)} projects")
+            self.log.debug(f"Auth check successful, found {len(projects.data)} projects")
             if len(projects.data) == 0:
                 raise Exception("Auth check failed, no project found for the keys provided.")
             return True
