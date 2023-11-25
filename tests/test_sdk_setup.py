@@ -270,6 +270,7 @@ def test_openai_configured(httpserver: HTTPServer):
 
 def test_client_init_workers_5():
     langfuse = Langfuse(threads=5)
+
     assert langfuse.task_manager._threads == 5
 
 
