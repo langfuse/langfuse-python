@@ -102,7 +102,7 @@ class CallbackHandler(BaseCallbackHandler):
 
     def auth_check(self):
         if self.langfuse is not None:
-            self.langfuse.auth_check()
+            return self.langfuse.auth_check()
         elif self.trace is not None:
             projects = self.trace.client.projects.get()
             if len(projects.data) == 0:
@@ -113,6 +113,8 @@ class CallbackHandler(BaseCallbackHandler):
             if len(projects) == 0:
                 raise Exception("No projects found for the keys.")
             return True
+
+        return False
 
     def setNextSpan(self, id: str):
         self.nextSpanId = id
