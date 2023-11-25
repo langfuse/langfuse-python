@@ -11,7 +11,7 @@ from langfuse.callback import CallbackHandler
 
 from langfuse.client import Langfuse
 from tests.test_task_manager import get_host
-from langfuse.openai import _is_openai_v1, openai
+from langfuse.openai import _is_openai_v1, auth_check, openai
 
 chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
 
@@ -224,6 +224,27 @@ def test_openai_default():
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
     os.environ["LANGFUSE_HOST"] = host
+
+
+def test_openai_auth_check():
+    assert auth_check() is True
+
+
+def test_openai_auth_check_failing_key():
+    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
+    os.environ.pop("LANGFUSE_SECRET_KEY")
+
+    importlib.reload(langfuse)
+    importlib.reload(langfuse.openai)
+
+    from langfuse.openai import openai
+
+    openai.langfuse_secret_key = "test"
+
+    with pytest.raises(UnauthorizedError):
+        auth_check()
+
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
 
 
 def test_openai_configured(httpserver: HTTPServer):

@@ -659,7 +659,3 @@ async def test_async_azure():
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
     assert generation.data[0].level == "ERROR"
-
-
-def test_auth_check():
-    assert auth_check() is True
