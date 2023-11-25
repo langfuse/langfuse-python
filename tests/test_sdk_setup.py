@@ -1,10 +1,12 @@
 import importlib
 import os
+import httpx
 
 import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Response
 import langfuse
+from langfuse.api.resources.commons.errors.unauthorized_error import UnauthorizedError
 from langfuse.callback import CallbackHandler
 
 from langfuse.client import Langfuse
@@ -268,6 +270,7 @@ def test_openai_configured(httpserver: HTTPServer):
 
 def test_client_init_workers_5():
     langfuse = Langfuse(threads=5)
+
     assert langfuse.task_manager._threads == 5
 
 
@@ -277,3 +280,23 @@ def get_env_variables():
         os.environ["LANGFUSE_SECRET_KEY"],
         os.environ["LANGFUSE_HOST"],
     )
+
+
+def test_auth_check():
+    langfuse = Langfuse(debug=False)
+
+    assert langfuse.auth_check() is True
+
+
+def test_wrong_key_auth_check():
+    langfuse = Langfuse(debug=False, secret_key="test")
+
+    with pytest.raises(UnauthorizedError):
+        langfuse.auth_check()
+
+
+def test_wrong_url_auth_check():
+    langfuse = Langfuse(debug=False, host="http://localhost:4000/")
+
+    with pytest.raises(httpx.ConnectError):
+        langfuse.auth_check()
