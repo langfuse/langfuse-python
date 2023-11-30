@@ -14,6 +14,8 @@ from langfuse.api.resources.commons.types.create_event_request import CreateEven
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.dataset import Dataset
+from langfuse.api.resources.commons.types.dataset_item import DatasetItem
+from langfuse.api.resources.commons.types.observation import Observation
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
@@ -149,7 +151,7 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def auth_check(self):
+    def auth_check(self) -> bool:
         try:
             projects = self.client.projects.get()
             self.log.debug(f"Auth check successful, found {len(projects.data)} projects")
@@ -173,7 +175,7 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset(self, body: CreateDatasetRequest):
+    def create_dataset(self, body: CreateDatasetRequest) -> Dataset:
         try:
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
@@ -181,7 +183,7 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset_item(self, body: CreateDatasetItemRequest):
+    def create_dataset_item(self, body: CreateDatasetItemRequest) -> DatasetItem:
         """
         Creates a dataset item. Upserts if an item with id already exists.
         """
@@ -203,6 +205,17 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
             return self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION")
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+    
+    def get_observation(
+        self,
+        id: str,
+    ) -> Observation:
+        try:
+            self.log.debug(f"Getting observation {id}")
+            return self.client.observations.get(id=id)
         except Exception as e:
             self.log.exception(e)
             raise e
