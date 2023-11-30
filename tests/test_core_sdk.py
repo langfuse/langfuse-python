@@ -3,6 +3,7 @@ from datetime import datetime
 import logging
 
 import pytest
+import pytz
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -441,9 +442,10 @@ def test_create_generation_and_trace():
 def test_update_generation():
     langfuse = Langfuse(debug=True)
     api = get_api()
+    start = datetime.utcnow()
 
     generation = langfuse.generation(InitialGeneration(name="generation"))
-    generation.update(UpdateGeneration(metadata={"dict": "value"}))
+    generation.update(UpdateGeneration(start_time=start, metadata={"dict": "value"}))
 
     langfuse.flush()
 
@@ -455,6 +457,7 @@ def test_update_generation():
     assert retrieved_generation.name == "generation"
     assert retrieved_generation.trace_id == generation.trace_id
     assert retrieved_generation.metadata == {"dict": "value"}
+    assert start.replace(microsecond=0, tzinfo=pytz.UTC) == retrieved_generation.start_time.replace(microsecond=0)
 
 
 def test_update_span():
