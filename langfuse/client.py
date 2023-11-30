@@ -404,7 +404,7 @@ class StatefulClient(object):
             self.log.debug(f"Creating span {new_body}...")
 
             new_dict = self._add_state_to_event(new_body.dict())
-            new_body = self._add_default_values(new_body)
+            new_body = self._add_default_values(new_dict)
 
             request = CreateSpanRequest(**new_dict)
             event = convert_observation_to_event(request, "SPAN")
@@ -446,7 +446,7 @@ class StatefulClient(object):
             new_body = body.copy(update={"id": event_id})
 
             new_dict = self._add_state_to_event(new_body.dict())
-            new_body = self._add_default_values(new_body)
+            new_body = self._add_default_values(new_dict)
 
             request = CreateEventRequest(**new_dict)
 
