@@ -243,12 +243,13 @@ def test_openai_configs():
         os.environ["LANGFUSE_HOST"],
     )
 
-    chat_func(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": "1 + 1 = "}],
-        temperature=0,
-        metadata={"someKey": "someResponse"},
-    )
+    with pytest.raises(openai.APIConnectionError):
+        chat_func(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "1 + 1 = "}],
+            temperature=0,
+            metadata={"someKey": "someResponse"},
+        )
 
     openai.flush_langfuse()
     assert modifier._langfuse.client._client_wrapper._username == public_key
@@ -258,6 +259,7 @@ def test_openai_configs():
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
     os.environ["LANGFUSE_HOST"] = host
+    openai.base_url = None
 
 
 def test_openai_auth_check():
