@@ -18,7 +18,6 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chat_models import AzureChatOpenAI
 from typing import Optional
 from langfuse.client import Langfuse
-from langfuse.model import CreateSpan, CreateTrace
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
@@ -42,8 +41,8 @@ def test_langfuse_span():
     trace_id = create_uuid()
     span_id = create_uuid()
     langfuse = Langfuse(debug=False)
-    trace = langfuse.trace(CreateTrace(id=trace_id))
-    span = trace.span(CreateSpan(id=span_id))
+    trace = langfuse.trace(id=trace_id)
+    span = trace.span(id=span_id)
 
     handler = span.get_langchain_handler()
 
@@ -56,7 +55,7 @@ def test_callback_generated_from_trace():
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
 
@@ -95,7 +94,7 @@ def test_callback_generated_from_trace_azure_chat():
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
 
@@ -132,7 +131,7 @@ def test_callback_generated_from_trace_anthropic():
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
 
@@ -168,7 +167,7 @@ def test_callback_from_trace_simple_chain():
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -207,7 +206,7 @@ def test_next_span_id_from_trace_simple_chain():
     langfuse = Langfuse()
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -249,7 +248,7 @@ def test_next_span_id_from_trace_simple_chain():
 
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
+    handler = CallbackHandler(debug=True)
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -716,7 +715,6 @@ def test_create_extraction_chain():
     from langchain.chains import create_extraction_chain
 
     from langfuse.client import Langfuse
-    from langfuse.model import CreateTrace
     from langchain.text_splitter import CharacterTextSplitter
     from langchain.embeddings.openai import OpenAIEmbeddings
     from langchain.vectorstores import Chroma
@@ -730,7 +728,7 @@ def test_create_extraction_chain():
 
     trace_id = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
     handler = trace.getNewHandler()
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")

@@ -7,7 +7,7 @@ from langchain import LLMChain, OpenAI, PromptTemplate
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
 
-from langfuse.model import CreateDatasetItemRequest, InitialGeneration
+from langfuse.model import CreateDatasetItemRequest
 from langfuse.model import CreateDatasetRequest
 
 
@@ -53,7 +53,7 @@ def test_linking_observation():
     generation_id = create_uuid()
 
     for item in dataset.items:
-        generation = langfuse.generation(InitialGeneration(id=generation_id))
+        generation = langfuse.generation(id=generation_id)
 
         item.link(generation, run_name)
 
@@ -81,7 +81,7 @@ def test_linking_via_id_observation():
     generation_id = create_uuid()
 
     for item in dataset.items:
-        langfuse.generation(InitialGeneration(id=generation_id))
+        langfuse.generation(id=generation_id)
         langfuse.flush()
 
         item.link(generation_id, run_name)

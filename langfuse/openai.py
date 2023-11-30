@@ -13,7 +13,6 @@ from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI
 from wrapt import wrap_function_wrapper
 from langfuse.client import StatefulGenerationClient
 
-from langfuse.model import UpdateGeneration
 
 import logging
 
@@ -297,7 +296,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
     generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
-    generation = new_langfuse.generation(generation)
+    generation = new_langfuse.generation(**generation)
     try:
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 

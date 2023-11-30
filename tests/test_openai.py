@@ -1,7 +1,6 @@
 import os
 import pytest
 from langfuse.client import Langfuse
-from langfuse.model import CreateTrace
 from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI, auth_check
 from openai import APIConnectionError
 
@@ -148,7 +147,7 @@ def test_openai_chat_completion_with_trace():
     trace_id = create_uuid()
     langfuse = Langfuse()
 
-    langfuse.trace(CreateTrace(id=trace_id))
+    langfuse.trace(id=trace_id)
 
     chat_func(
         name=generation_name,
