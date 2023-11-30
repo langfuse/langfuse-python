@@ -920,8 +920,8 @@ class DatasetItemClient:
         from langfuse.callback import CallbackHandler
 
         metadata = {"dataset_item_id": self.id, "run_name": run_name, "dataset_id": self.dataset_id}
-        trace = self.langfuse.trace(CreateTrace(name="dataset-run", metadata=metadata))
-        span = trace.span(CreateSpan(name="dataset-run", metadata=metadata))
+        trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
+        span = trace.span(name="dataset-run", metadata=metadata)
 
         self.langfuse.flush()
 
