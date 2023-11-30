@@ -6,9 +6,7 @@ import pytest
 import pytz
 
 from langfuse import Langfuse
-from langfuse.model import (
-    UpdateSpan,
-)
+
 
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
@@ -25,7 +23,7 @@ async def test_concurrency():
 
     langfuse = Langfuse(debug=True, threads=5)
 
-    await gather(*(update_generation(i, langfuse) for i in range(1)))
+    await gather(*(update_generation(i, langfuse) for i in range(100)))
 
     langfuse.flush()
     logging.warning("flushed")
@@ -33,8 +31,7 @@ async def test_concurrency():
     print(diff)
 
     api = get_api()
-    for i in range(1):
-        logging.warning("getting")
+    for i in range(100):
         observation = api.observations.get_many(name=str(i)).data[0]
         assert observation.name == str(i)
         assert observation.metadata == {"count": str(i)}
@@ -502,7 +499,7 @@ def test_update_span():
     api = get_api()
 
     span = langfuse.span(name="span")
-    span.update(UpdateSpan(metadata={"dict": "value"}))
+    span.update(metadata={"dict": "value"})
 
     langfuse.flush()
 
@@ -643,7 +640,7 @@ def test_end_generation_with_data():
         metadata={"interface": "whatsapp"},
     )
 
-    generation.end(UpdateSpan(metadata={"dict": "value"}))
+    generation.end(metadata={"dict": "value"})
 
     langfuse.flush()
 
@@ -694,7 +691,7 @@ def test_end_span_with_data():
         metadata={"interface": "whatsapp"},
     )
 
-    span.end(UpdateSpan(metadata={"dict": "value"}))
+    span.end(metadata={"dict": "value"})
 
     langfuse.flush()
 

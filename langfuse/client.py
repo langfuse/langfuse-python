@@ -221,7 +221,7 @@ class Langfuse(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "trace-create",
-                "body": new_body.dict(),
+                "body": new_body.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(
@@ -254,7 +254,7 @@ class Langfuse(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": new_body.dict(),
+                "body": new_body.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(event)
@@ -319,7 +319,7 @@ class Langfuse(object):
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": trace_body.dict(),
+                    "body": trace_body.dict(exclude_none=True),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
@@ -402,7 +402,7 @@ class Langfuse(object):
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": request.dict(),
+                    "body": request.dict(exclude_none=True),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
@@ -605,7 +605,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": request.dict(),
+                "body": request.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(event)
@@ -691,7 +691,7 @@ class StatefulGenerationClient(StatefulClient):
             generation_body = {
                 "generationId": self.id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time,
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -742,7 +742,6 @@ class StatefulGenerationClient(StatefulClient):
     ):
         try:
             generation_body = {
-                "generationId": self.id,
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
@@ -757,7 +756,9 @@ class StatefulGenerationClient(StatefulClient):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": LlmUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
             }
             if kwargs is not None:
                 generation_body.update(kwargs)
@@ -774,11 +775,36 @@ class StatefulSpanClient(StatefulClient):
     def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
-    def update(self, body: UpdateSpan):
+    def update(
+        self,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        kwargs=None,
+    ):
         try:
-            new_body = body.copy(update={"span_id": self.id, "trace_id": self.trace_id})
-            self.log.debug(f"Update span {new_body}...")
-            request = UpdateSpanRequest(**new_body.dict())
+            span_body = {
+                "spanId": self.id,
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time,
+            }
+            if kwargs is not None:
+                span_body.update(kwargs)
+            self.log.debug(f"Update span {span_body}...")
+            request = UpdateSpanRequest(**span_body)
 
             event = convert_observation_to_event(request, "SPAN", True)
 
@@ -787,17 +813,35 @@ class StatefulSpanClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self, body: Optional[UpdateSpan] = None):
+    def end(
+        self,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        kwargs=None,
+    ):
         try:
-            if body is None:
-                end_time = datetime.now()
-                return self.update(UpdateSpan(endTime=end_time))
+            span_body = {
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time if end_time is not None else datetime.now(),
+            }
+            if kwargs is not None:
+                span_body.update(kwargs)
 
-            if body.end_time is None:
-                end_time = datetime.now()
-                body = body.copy(update={"endTime": end_time})
-
-            return self.update(body)
+            return self.update(**span_body)
 
         except Exception as e:
             self.log.warning(e)

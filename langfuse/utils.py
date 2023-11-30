@@ -7,7 +7,7 @@ from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequ
 
 
 def convert_observation_to_event(body: pydantic.BaseModel, type: str, update: bool = False):
-    dict_body = body.dict()
+    dict_body = body.dict(exclude_none=True)
     dict_body["type"] = type
 
     if isinstance(body, CreateGenerationRequest) or isinstance(body, UpdateGenerationRequest):

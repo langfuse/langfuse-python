@@ -7,11 +7,11 @@ from packaging.version import Version
 
 
 from langfuse import Langfuse
-from langfuse.client import InitialGeneration, CreateTrace, StatefulGenerationClient
 
 import openai
 from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI
 from wrapt import wrap_function_wrapper
+from langfuse.client import StatefulGenerationClient
 
 from langfuse.model import UpdateGeneration
 
@@ -109,7 +109,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
         raise TypeError("trace_id must be a string")
 
     if trace_id:
-        langfuse.trace(CreateTrace(id=trace_id))
+        langfuse.trace(id=trace_id)
 
     metadata = kwargs.get("metadata", {})
 
@@ -141,7 +141,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
-    return InitialGeneration(name=name, metadata=metadata, trace_id=trace_id, start_time=start_time, prompt=prompt, modelParameters=modelParameters, model=model)
+    return {"name": name, "metadata": metadata, "trace_id": trace_id, "start_time": start_time, "prompt": prompt, "model_parameters": modelParameters, "model": model}
 
 
 def _get_langfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
@@ -167,10 +167,11 @@ async def _get_langfuse_data_from_async_streaming_response(resource: OpenAiDefin
 
 
 def _create_langfuse_update(completion, generation: StatefulGenerationClient, completion_start_time, model=None):
-    update = UpdateGeneration(end_time=datetime.now(), completion=completion, completion_start_time=completion_start_time)
+    update = {"end_time": datetime.now(), "completion": completion, "completion_start_time": completion_start_time}
     if model is not None:
-        update = update.copy(update={"model": model})
-    generation.update(update)
+        update["model"] = model
+
+    generation.update(**update)
 
 
 def _extract_data(resource, responses):
@@ -244,7 +245,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
 
     usage = response.get("usage", None)
 
-    return model, completion, usage
+    return model, completion, usage.__dict__ if _is_openai_v1() else usage
 
 
 def _is_openai_v1():
@@ -257,13 +258,13 @@ def _is_streaming_response(response):
 
 @_langfuse_wrapper
 def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
-    new_langfuse = initialize()
+    new_langfuse: Langfuse = initialize()
 
     start_time = datetime.now()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
     generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
-    generation = new_langfuse.generation(generation)
+    generation = new_langfuse.generation(**generation)
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
@@ -272,13 +273,20 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
-            generation.update(UpdateGeneration(model=model, completion=completion, end_time=datetime.now(), usage=usage))
+            generation.update(
+                model=model,
+                completion=completion,
+                end_time=datetime.now(),
+                prompt_tokens=usage.get("prompt_tokens", None),
+                completion_tokens=usage.get("completion_tokens", None),
+                total_tokens=usage.get("total_tokens", None),
+            )
 
         return openai_response
     except Exception as ex:
         log.warning(ex)
         model = kwargs.get("model", None)
-        generation.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(ex), level="ERROR", model=model))
+        generation.update(end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model)
         raise ex
 
 
@@ -298,11 +306,18 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
-            generation.update(UpdateGeneration(model=model, completion=completion, end_time=datetime.now(), usage=usage))
+            generation.update(
+                model=model,
+                completion=completion,
+                end_time=datetime.now(),
+                prompt_tokens=usage.get("prompt_tokens", None),
+                completion_tokens=usage.get("completion_tokens", None),
+                total_tokens=usage.get("total_tokens", None),
+            )
         return openai_response
     except Exception as ex:
         model = kwargs.get("model", None)
-        generation.update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(ex), level="ERROR", model=model))
+        generation.update(end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model)
         raise ex
 
 
