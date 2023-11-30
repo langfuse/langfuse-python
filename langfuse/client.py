@@ -215,7 +215,7 @@ class Langfuse(object):
     ) -> Observation:
         try:
             self.log.debug(f"Getting observation {id}")
-            return self.client.observations.get(id=id)
+            return self.client.observations.get(id)
         except Exception as e:
             self.log.exception(e)
             raise e
