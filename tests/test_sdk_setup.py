@@ -227,6 +227,39 @@ def test_openai_default():
     os.environ["LANGFUSE_HOST"] = host
 
 
+def test_openai_configs():
+    from langfuse.openai import modifier, openai
+
+    importlib.reload(langfuse)
+    importlib.reload(langfuse.openai)
+
+    chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+
+    openai.base_url = "http://localhost:8000/"
+
+    public_key, secret_key, host = (
+        os.environ["LANGFUSE_PUBLIC_KEY"],
+        os.environ["LANGFUSE_SECRET_KEY"],
+        os.environ["LANGFUSE_HOST"],
+    )
+
+    chat_func(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+    assert modifier._langfuse.client._client_wrapper._username == public_key
+    assert modifier._langfuse.client._client_wrapper._password == secret_key
+    assert modifier._langfuse.client._client_wrapper._base_url == host
+
+    os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = secret_key
+    os.environ["LANGFUSE_HOST"] = host
+
+
 def test_openai_auth_check():
     assert auth_check() is True
 

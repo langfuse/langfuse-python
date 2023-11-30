@@ -640,6 +640,19 @@ def test_get_generations():
     assert generations.data[0].output == "great-completion"
 
 
+def test_sth():
+    from langfuse import Langfuse
+
+    from langfuse.model import CreateSpan, UpdateSpan
+    from datetime import datetime
+
+    langfuse = Langfuse(debug=True)
+    start_time = datetime.now()
+    span = CreateSpan(name="test")
+    span = langfuse.span(span)
+    span.update(UpdateSpan(start_time=start_time, end_time=datetime.now()))
+
+
 def test_get_generations_by_user():
     langfuse = Langfuse(debug=False)
 
