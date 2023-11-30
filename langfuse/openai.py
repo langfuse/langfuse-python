@@ -9,7 +9,7 @@ from packaging.version import Version
 from langfuse import Langfuse
 
 import openai
-from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI
+from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI  # noqa: F401
 from wrapt import wrap_function_wrapper
 from langfuse.client import StatefulGenerationClient
 
