@@ -270,6 +270,9 @@ class Langfuse(object):
             if self.release is not None:
                 new_body = new_body.copy(update={"trace": {"release": self.release}})
 
+            if new_body.start_time is None:
+                new_body = new_body.copy(update={"startTime": datetime.now()})
+
             request = CreateSpanRequest(**new_body.dict())
 
             event = convert_observation_to_event(request, "SPAN")
@@ -308,6 +311,10 @@ class Langfuse(object):
             new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
             if self.release is not None:
                 new_body = new_body.copy(update={"trace": {"release": self.release}})
+
+            if new_body.start_time is None:
+                new_body = new_body.copy(update={"startTime": datetime.now()})
+
             request = CreateGenerationRequest(**new_body.dict())
 
             event = convert_observation_to_event(request, "GENERATION")
@@ -366,12 +373,19 @@ class StatefulClient(object):
             body["trace_id"] = self.id
         return body
 
+    def _add_default_values(self, body: dict):
+        if body.get("startTime") is None:
+            body["start_time"] = datetime.now()
+        return body
+
     def generation(self, body: CreateGeneration):
         try:
             generation_id = str(uuid.uuid4()) if body.id is None else body.id
 
             new_body = body.copy(update={"id": generation_id})
             new_body = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_body)
+
             new_body = CreateGenerationRequest(**new_body)
 
             self.log.debug(f"Creating generation {new_body}...")
@@ -390,6 +404,7 @@ class StatefulClient(object):
             self.log.debug(f"Creating span {new_body}...")
 
             new_dict = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_dict)
 
             request = CreateSpanRequest(**new_dict)
             event = convert_observation_to_event(request, "SPAN")
@@ -431,6 +446,7 @@ class StatefulClient(object):
             new_body = body.copy(update={"id": event_id})
 
             new_dict = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_dict)
 
             request = CreateEventRequest(**new_dict)
 
@@ -464,13 +480,20 @@ class StatefulGenerationClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self):
+    def end(self, body: Optional[UpdateGeneration] = None):
         try:
-            end_time = datetime.now()
-            self.log.debug(f"Generation ended at {end_time}")
-            return self.update(UpdateGeneration(endTime=end_time))
+            if body is None:
+                end_time = datetime.now()
+                return self.update(UpdateGeneration(endTime=end_time))
+
+            if body.end_time is None:
+                end_time = datetime.now()
+                body = body.copy(update={"endTime": end_time})
+
+            return self.update(body)
+
         except Exception as e:
-            self.log.exception(e)
+            self.log.warning(e)
 
 
 class StatefulSpanClient(StatefulClient):
@@ -492,11 +515,18 @@ class StatefulSpanClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self):
+    def end(self, body: Optional[UpdateSpan] = None):
         try:
-            end_time = datetime.now()
-            self.log.debug(f"Span ended at {end_time}")
-            return self.update(UpdateGeneration(endTime=end_time))
+            if body is None:
+                end_time = datetime.now()
+                return self.update(UpdateSpan(endTime=end_time))
+
+            if body.end_time is None:
+                end_time = datetime.now()
+                body = body.copy(update={"endTime": end_time})
+
+            return self.update(body)
+
         except Exception as e:
             self.log.warning(e)
 

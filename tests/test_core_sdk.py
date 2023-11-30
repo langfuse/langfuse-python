@@ -203,7 +203,7 @@ def test_create_generation():
 
 def test_create_generation_complex():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
     generation_id = create_uuid()
     langfuse.generation(
@@ -227,33 +227,33 @@ def test_create_generation_complex():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert trace["name"] == "query-generation"
-    assert trace["userId"] is None
-    assert trace["metadata"] is None
-    assert trace["externalId"] is None
+    assert trace.name == "query-generation"
+    assert trace.user_id is None
+    assert trace.metadata is None
 
-    assert len(trace["observations"]) == 1
+    assert len(trace.observations) == 1
 
-    generation = trace["observations"][0]
+    generation = trace.observations[0]
 
-    assert generation["id"] == generation_id
-    assert generation["name"] == "query-generation"
-    assert generation["input"] == [
+    assert generation.id == generation_id
+    assert generation.name == "query-generation"
+    assert generation.input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
             "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
         },
     ]
-    assert generation["output"] == [{"foo": "bar"}]
-    assert generation["metadata"] == [{"tags": ["yo"]}]
+    assert generation.output == [{"foo": "bar"}]
+    assert generation.metadata == [{"tags": ["yo"]}]
+    assert generation.start_time is not None
 
 
 def test_create_span():
     langfuse = Langfuse(debug=True)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
     timestamp = datetime.now()
     span_id = create_uuid()
@@ -273,24 +273,23 @@ def test_create_span():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert trace["name"] == "span"
-    assert trace["userId"] is None
-    assert trace["metadata"] is None
-    assert trace["externalId"] is None
+    assert trace.name == "span"
+    assert trace.user_id is None
+    assert trace.metadata is None
 
-    assert len(trace["observations"]) == 1
+    assert len(trace.observations) == 1
 
-    span = trace["observations"][0]
+    span = trace.observations[0]
 
-    assert span["id"] == span_id
-    assert span["name"] == "span"
-    assert span["startTime"] is not None
-    assert span["startTime"] is not None
-    assert span["endTime"] is not None
-    assert span["input"] == {"key": "value"}
-    assert span["output"] == {"key": "value"}
+    assert span.id == span_id
+    assert span.name == "span"
+    assert span.start_time is not None
+    assert span.end_time is not None
+    assert span.input == {"key": "value"}
+    assert span.output == {"key": "value"}
+    assert span.start_time is not None
 
 
 def test_score_trace():
@@ -375,7 +374,7 @@ def test_score_span():
 
 def test_create_trace_and_span():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
     trace_name = create_uuid()
     spanId = create_uuid()
@@ -385,19 +384,20 @@ def test_create_trace_and_span():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = api.trace.get(trace.id)
 
-    assert trace["name"] == trace_name
-    assert len(trace["observations"]) == 1
+    assert trace.name == trace_name
+    assert len(trace.observations) == 1
 
-    span = trace["observations"][0]
-    assert span["name"] == "span"
-    assert span["traceId"] == trace["id"]
+    span = trace.observations[0]
+    assert span.name == "span"
+    assert span.trace_id == trace.id
+    assert span.start_time is not None
 
 
 def test_create_trace_and_generation():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
     trace_name = create_uuid()
     generationId = create_uuid()
@@ -407,14 +407,15 @@ def test_create_trace_and_generation():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = api.trace.get(trace.id)
 
-    assert trace["name"] == trace_name
-    assert len(trace["observations"]) == 1
+    assert trace.name == trace_name
+    assert len(trace.observations) == 1
 
-    span = trace["observations"][0]
-    assert span["name"] == "generation"
-    assert span["traceId"] == trace["id"]
+    generation = trace.observations[0]
+    assert generation.name == "generation"
+    assert generation.trace_id == trace.id
+    assert generation.start_time is not None
 
 
 def test_create_generation_and_trace():
@@ -482,7 +483,7 @@ def test_update_span():
 
 def test_create_trace_and_event():
     langfuse = Langfuse(debug=True)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
     trace_name = create_uuid()
     eventId = create_uuid()
@@ -492,14 +493,15 @@ def test_create_trace_and_event():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = api.trace.get(trace.id)
 
-    assert trace["name"] == trace_name
-    assert len(trace["observations"]) == 1
+    assert trace.name == trace_name
+    assert len(trace.observations) == 1
 
-    span = trace["observations"][0]
-    assert span["name"] == "event"
-    assert span["traceId"] == trace["id"]
+    span = trace.observations[0]
+    assert span.name == "event"
+    assert span.trace_id == trace.id
+    assert span.start_time is not None
 
 
 def test_create_span_and_generation():
@@ -583,6 +585,43 @@ def test_end_generation():
     assert span["endTime"] is not None
 
 
+def test_end_generation_with_data():
+    langfuse = Langfuse()
+    api = get_api()
+
+    timestamp = datetime.now()
+    generation = langfuse.generation(
+        InitialGeneration(
+            name="query-generation",
+            startTime=timestamp,
+            model="gpt-3.5-turbo",
+            modelParameters={"maxTokens": "1000", "temperature": "0.9"},
+            prompt=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+                },
+            ],
+            completion="This document entails the OKR goals for ACME",
+            usage=Usage(promptTokens=50, completionTokens=49),
+            metadata={"interface": "whatsapp"},
+        )
+    )
+
+    generation.end(UpdateSpan(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    generation = trace.observations[0]
+    assert generation.end_time is not None
+    assert generation.metadata == {"dict": "value", "interface": "whatsapp"}
+
+
 def test_end_span():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
@@ -608,6 +647,34 @@ def test_end_span():
 
     span = trace["observations"][0]
     assert span["endTime"] is not None
+
+
+def test_end_span_with_data():
+    langfuse = Langfuse()
+    api = get_api()
+
+    timestamp = datetime.now()
+    span = langfuse.span(
+        InitialSpan(
+            name="span",
+            startTime=timestamp,
+            input={"key": "value"},
+            output={"key": "value"},
+            metadata={"interface": "whatsapp"},
+        )
+    )
+
+    span.end(UpdateSpan(metadata={"dict": "value"}))
+
+    langfuse.flush()
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    span = trace.observations[0]
+    assert span.end_time is not None
+    assert span.metadata == {"dict": "value", "interface": "whatsapp"}
 
 
 def test_get_generations():
