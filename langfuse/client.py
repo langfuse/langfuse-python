@@ -369,10 +369,13 @@ class StatefulClient(object):
         if self.state_type == StateType.OBSERVATION:
             body["parent_observation_id"] = self.id
             body["trace_id"] = self.trace_id
-            if body.get("startTime") is None:
-                body["startTime"] = datetime.now()
         else:
             body["trace_id"] = self.id
+        return body
+
+    def _add_default_values(self, body: dict):
+        if body.get("startTime") is None:
+            body["start_time"] = datetime.now()
         return body
 
     def generation(self, body: CreateGeneration):
@@ -381,6 +384,8 @@ class StatefulClient(object):
 
             new_body = body.copy(update={"id": generation_id})
             new_body = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_body)
+
             new_body = CreateGenerationRequest(**new_body)
 
             self.log.debug(f"Creating generation {new_body}...")
@@ -399,6 +404,7 @@ class StatefulClient(object):
             self.log.debug(f"Creating span {new_body}...")
 
             new_dict = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_body)
 
             request = CreateSpanRequest(**new_dict)
             event = convert_observation_to_event(request, "SPAN")
@@ -440,6 +446,7 @@ class StatefulClient(object):
             new_body = body.copy(update={"id": event_id})
 
             new_dict = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_body)
 
             request = CreateEventRequest(**new_dict)
 
