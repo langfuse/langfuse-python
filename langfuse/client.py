@@ -139,6 +139,15 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+    
+    def get_dataset_item(self, id: str):
+        try:
+            self.log.debug(f"Getting dataset item {id}")
+            dataset_item = self.client.dataset_items.get(id=id)
+            return DatasetItemClient(dataset_item, langfuse=self)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def auth_check(self):
         try:
@@ -173,6 +182,9 @@ class Langfuse(object):
             raise e
 
     def create_dataset_item(self, body: CreateDatasetItemRequest):
+        """
+        Creates a dataset item. Upserts if an item with id already exists.
+        """
         try:
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
