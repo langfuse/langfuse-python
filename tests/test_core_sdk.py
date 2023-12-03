@@ -402,20 +402,21 @@ def test_create_trace_and_generation():
     trace_name = create_uuid()
     generationId = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(name=trace_name))
+    trace = langfuse.trace(CreateTrace(name=trace_name, input={"key": "value"}, sessionId="test"))
     trace.generation(CreateGeneration(id=generationId, name="generation"))
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    getTrace = api.trace.get(trace.id)
 
-    assert trace.name == trace_name
+    assert getTrace.name == trace_name
     assert len(trace.observations) == 1
 
-    generation = trace.observations[0]
+    generation = getTrace.observations[0]
     assert generation.name == "generation"
-    assert generation.trace_id == trace.id
+    assert generation.trace_id == getTrace.id
     assert generation.start_time is not None
+    assert getTrace.input == {"key": "value"}
 
 
 def test_create_generation_and_trace():
