@@ -272,14 +272,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
-            generation.update(
-                model=model,
-                completion=completion,
-                end_time=datetime.now(),
-                prompt_tokens=usage.get("prompt_tokens", None),
-                completion_tokens=usage.get("completion_tokens", None),
-                total_tokens=usage.get("total_tokens", None),
-            )
+            generation.update(model=model, completion=completion, end_time=datetime.now(), usage=usage)
 
         return openai_response
     except Exception as ex:
