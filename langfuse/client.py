@@ -219,7 +219,7 @@ class Langfuse(object):
         user_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         metadata: typing.Optional[typing.Any] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             new_id = str(uuid.uuid4()) if id is None else id
@@ -246,7 +246,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, trace_id: str, name: str, value: float, id: typing.Optional[str] = None, observation_id: typing.Optional[str] = None, comment: typing.Optional[str] = None, kwargs=None):
+    def score(self, trace_id: str, name: str, value: float, id: typing.Optional[str] = None, observation_id: typing.Optional[str] = None, comment: typing.Optional[str] = None, **kwargs):
         try:
             new_id = str(uuid.uuid4()) if id is None else id
 
@@ -295,7 +295,7 @@ class Langfuse(object):
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             new_span_id = str(uuid.uuid4()) if id is None else id
@@ -371,7 +371,7 @@ class Langfuse(object):
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
         usage: typing.Optional[LlmUsage] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
@@ -504,7 +504,7 @@ class StatefulClient(object):
         prompt_tokens: typing.Optional[int] = None,
         completion_tokens: typing.Optional[int] = None,
         total_tokens: typing.Optional[int] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             generation_id = str(uuid.uuid4()) if id is None else id
@@ -556,7 +556,7 @@ class StatefulClient(object):
         level: typing.Optional[ObservationLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             span_id = str(uuid.uuid4()) if id is None else id
@@ -636,7 +636,7 @@ class StatefulClient(object):
         level: typing.Optional[ObservationLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             event_id = str(uuid.uuid4()) if id is None else id
@@ -697,7 +697,7 @@ class StatefulGenerationClient(StatefulClient):
         prompt_tokens: typing.Optional[int] = None,
         completion_tokens: typing.Optional[int] = None,
         total_tokens: typing.Optional[int] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             generation_body = {
@@ -750,7 +750,7 @@ class StatefulGenerationClient(StatefulClient):
         prompt_tokens: typing.Optional[int] = None,
         completion_tokens: typing.Optional[int] = None,
         total_tokens: typing.Optional[int] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             generation_body = {
@@ -798,7 +798,7 @@ class StatefulSpanClient(StatefulClient):
         level: typing.Optional[ObservationLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             span_body = {
@@ -836,7 +836,7 @@ class StatefulSpanClient(StatefulClient):
         level: typing.Optional[ObservationLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        kwargs=None,
+        **kwargs,
     ):
         try:
             span_body = {
