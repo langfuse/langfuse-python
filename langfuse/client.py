@@ -486,6 +486,7 @@ class StatefulClient(object):
 
     def generation(
         self,
+        *,
         id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
@@ -546,6 +547,7 @@ class StatefulClient(object):
 
     def span(
         self,
+        *,
         id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
@@ -590,7 +592,7 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, name: str, value: float, id: typing.Optional[str] = None, comment: typing.Optional[str] = None, kwargs=None):
+    def score(self, *, id: typing.Optional[str] = None, name: str, value: float, comment: typing.Optional[str] = None, kwargs=None):
         try:
             score_id = str(uuid.uuid4()) if id is None else id
 
@@ -627,6 +629,7 @@ class StatefulClient(object):
 
     def event(
         self,
+        *,
         id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
@@ -680,6 +683,7 @@ class StatefulGenerationClient(StatefulClient):
 
     def update(
         self,
+        *,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
@@ -733,6 +737,7 @@ class StatefulGenerationClient(StatefulClient):
 
     def end(
         self,
+        *,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
@@ -789,6 +794,7 @@ class StatefulSpanClient(StatefulClient):
 
     def update(
         self,
+        *,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
@@ -827,6 +833,7 @@ class StatefulSpanClient(StatefulClient):
 
     def end(
         self,
+        *,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,

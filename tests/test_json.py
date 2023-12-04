@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 import json
-from typing import List
 from langchain.schema.messages import HumanMessage
 from pydantic import BaseModel
 
