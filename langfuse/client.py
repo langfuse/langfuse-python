@@ -214,6 +214,7 @@ class Langfuse(object):
 
     def trace(
         self,
+        *,
         id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
@@ -225,7 +226,7 @@ class Langfuse(object):
             new_id = str(uuid.uuid4()) if id is None else id
             self.trace_id = new_id
 
-            new_dict = {"id": new_id, "name": name, "userId": user_id, "externalId": None, "release": self.release, "version": version, "metadata": metadata}
+            new_dict = {"id": new_id, "name": name, "userId": user_id, "release": self.release, "version": version, "metadata": metadata}
             if kwargs is not None:
                 new_dict.update(kwargs)
 
