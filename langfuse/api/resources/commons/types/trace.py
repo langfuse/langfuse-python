@@ -19,6 +19,7 @@ class Trace(pydantic.BaseModel):
     version: typing.Optional[str]
     user_id: typing.Optional[str] = pydantic.Field(alias="userId")
     metadata: typing.Optional[typing.Any]
+    public: typing.Optional[bool] = pydantic.Field(description="Public traces are accessible via url without login")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
