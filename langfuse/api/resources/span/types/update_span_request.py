@@ -15,6 +15,7 @@ except ImportError:
 class UpdateSpanRequest(pydantic.BaseModel):
     span_id: str = pydantic.Field(alias="spanId")
     trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
+    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime")
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
     name: typing.Optional[str]
     metadata: typing.Optional[typing.Any]

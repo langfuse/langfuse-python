@@ -14,6 +14,8 @@ from langfuse.api.resources.commons.types.create_event_request import CreateEven
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.dataset import Dataset
+from langfuse.api.resources.commons.types.dataset_item import DatasetItem
+from langfuse.api.resources.commons.types.observation import Observation
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
@@ -139,6 +141,27 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+    
+    def get_dataset_item(self, id: str):
+        try:
+            self.log.debug(f"Getting dataset item {id}")
+            dataset_item = self.client.dataset_items.get(id=id)
+            return DatasetItemClient(dataset_item, langfuse=self)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def auth_check(self) -> bool:
+        try:
+            projects = self.client.projects.get()
+            self.log.debug(f"Auth check successful, found {len(projects.data)} projects")
+            if len(projects.data) == 0:
+                raise Exception("Auth check failed, no project found for the keys provided.")
+            return True
+
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def get_dataset_run(
         self,
@@ -152,7 +175,7 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset(self, body: CreateDatasetRequest):
+    def create_dataset(self, body: CreateDatasetRequest) -> Dataset:
         try:
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
@@ -160,7 +183,10 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset_item(self, body: CreateDatasetItemRequest):
+    def create_dataset_item(self, body: CreateDatasetItemRequest) -> DatasetItem:
+        """
+        Creates a dataset item. Upserts if an item with id already exists.
+        """
         try:
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
@@ -179,6 +205,17 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
             return self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION")
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+    
+    def get_observation(
+        self,
+        id: str,
+    ) -> Observation:
+        try:
+            self.log.debug(f"Getting observation {id}")
+            return self.client.observations.get(id)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -258,6 +295,9 @@ class Langfuse(object):
             if self.release is not None:
                 new_body = new_body.copy(update={"trace": {"release": self.release}})
 
+            if new_body.start_time is None:
+                new_body = new_body.copy(update={"startTime": datetime.now()})
+
             request = CreateSpanRequest(**new_body.dict())
 
             event = convert_observation_to_event(request, "SPAN")
@@ -296,6 +336,10 @@ class Langfuse(object):
             new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
             if self.release is not None:
                 new_body = new_body.copy(update={"trace": {"release": self.release}})
+
+            if new_body.start_time is None:
+                new_body = new_body.copy(update={"startTime": datetime.now()})
+
             request = CreateGenerationRequest(**new_body.dict())
 
             event = convert_observation_to_event(request, "GENERATION")
@@ -354,12 +398,19 @@ class StatefulClient(object):
             body["trace_id"] = self.id
         return body
 
+    def _add_default_values(self, body: dict):
+        if body.get("startTime") is None:
+            body["start_time"] = datetime.now()
+        return body
+
     def generation(self, body: CreateGeneration):
         try:
             generation_id = str(uuid.uuid4()) if body.id is None else body.id
 
             new_body = body.copy(update={"id": generation_id})
             new_body = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_body)
+
             new_body = CreateGenerationRequest(**new_body)
 
             self.log.debug(f"Creating generation {new_body}...")
@@ -378,6 +429,7 @@ class StatefulClient(object):
             self.log.debug(f"Creating span {new_body}...")
 
             new_dict = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_dict)
 
             request = CreateSpanRequest(**new_dict)
             event = convert_observation_to_event(request, "SPAN")
@@ -419,6 +471,7 @@ class StatefulClient(object):
             new_body = body.copy(update={"id": event_id})
 
             new_dict = self._add_state_to_event(new_body.dict())
+            new_body = self._add_default_values(new_dict)
 
             request = CreateEventRequest(**new_dict)
 
@@ -452,13 +505,20 @@ class StatefulGenerationClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self):
+    def end(self, body: Optional[UpdateGeneration] = None):
         try:
-            end_time = datetime.now()
-            self.log.debug(f"Generation ended at {end_time}")
-            return self.update(UpdateGeneration(endTime=end_time))
+            if body is None:
+                end_time = datetime.now()
+                return self.update(UpdateGeneration(endTime=end_time))
+
+            if body.end_time is None:
+                end_time = datetime.now()
+                body = body.copy(update={"endTime": end_time})
+
+            return self.update(body)
+
         except Exception as e:
-            self.log.exception(e)
+            self.log.warning(e)
 
 
 class StatefulSpanClient(StatefulClient):
@@ -480,11 +540,18 @@ class StatefulSpanClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self):
+    def end(self, body: Optional[UpdateSpan] = None):
         try:
-            end_time = datetime.now()
-            self.log.debug(f"Span ended at {end_time}")
-            return self.update(UpdateGeneration(endTime=end_time))
+            if body is None:
+                end_time = datetime.now()
+                return self.update(UpdateSpan(endTime=end_time))
+
+            if body.end_time is None:
+                end_time = datetime.now()
+                body = body.copy(update={"endTime": end_time})
+
+            return self.update(body)
+
         except Exception as e:
             self.log.warning(e)
 
