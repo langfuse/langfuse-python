@@ -771,3 +771,30 @@ def test_get_generations_by_user():
     assert generations.data[0].name == generation_name
     assert generations.data[0].input == "great-prompt"
     assert generations.data[0].output == "great-completion"
+
+
+def test_kwargs():
+    langfuse = Langfuse()
+    api = get_api()
+
+    timestamp = datetime.now()
+
+    dict = {
+        "start_time": timestamp,
+        "input": {"key": "value"},
+        "output": {"key": "value"},
+        "metadata": {"interface": "whatsapp"},
+    }
+
+    span = langfuse.span(
+        name="span",
+        **dict,
+    )
+
+    langfuse.flush()
+
+    observation = api.observations.get(span.id)
+    assert observation.start_time is not None
+    assert observation.input == {"key": "value"}
+    assert observation.output == {"key": "value"}
+    assert observation.metadata == {"interface": "whatsapp"}
