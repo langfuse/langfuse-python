@@ -247,7 +247,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, trace_id: str, name: str, value: float, id: typing.Optional[str] = None, observation_id: typing.Optional[str] = None, comment: typing.Optional[str] = None, **kwargs):
+    def score(self, *, trace_id: str, name: str, value: float, id: typing.Optional[str] = None, comment: typing.Optional[str] = None, observation_id: typing.Optional[str] = None, kwargs=None):
         try:
             new_id = str(uuid.uuid4()) if id is None else id
 
