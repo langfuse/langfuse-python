@@ -288,6 +288,7 @@ class Langfuse(object):
 
     def span(
         self,
+        *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
