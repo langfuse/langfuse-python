@@ -1,12 +1,11 @@
 from asyncio import gather
 from datetime import datetime
-import logging
 
 import pytest
 import pytz
 
 from langfuse import Langfuse
-from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+from langfuse.model import Usage
 
 
 from tests.api_wrapper import LangfuseAPI
@@ -27,7 +26,6 @@ async def test_concurrency():
     await gather(*(update_generation(i, langfuse) for i in range(100)))
 
     langfuse.flush()
-    logging.warning("flushed")
     diff = datetime.now() - start
     print(diff)
 
@@ -142,7 +140,7 @@ def test_create_generation():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        usage=LlmUsage(promptTokens=50, completionTokens=49),
+        usage=Usage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
 
@@ -194,7 +192,7 @@ def test_create_generation_complex():
             },
         ],
         completion=[{"foo": "bar"}],
-        usage=LlmUsage(promptTokens=51, completionTokens=49, totalTokens=100),
+        usage=Usage(promptTokens=51, completionTokens=49, totalTokens=100),
         metadata=[{"tags": ["yo"]}],
     )
 
@@ -647,7 +645,7 @@ def test_end_generation_with_data():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        usage=LlmUsage(promptTokens=50, completionTokens=49),
+        usage=Usage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
 

@@ -151,7 +151,7 @@ class TaskManager(object):
             self._log.debug(f"adding task {event}")
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
-            self._log.debug(f"adding task {event}")
+
             self._queue.put(event, block=False)
         except queue.Full:
             self._log.warning("analytics-python queue is full")

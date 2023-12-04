@@ -16,20 +16,14 @@ from langfuse.api.resources.commons.types.create_span_request import CreateSpanR
 from langfuse.api.resources.commons.types.dataset import Dataset
 from langfuse.api.resources.commons.types.observation import Observation
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
-from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+
 from langfuse.api.resources.commons.types.map_value import MapValue
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import (
-    DatasetItem,
-    CreateDatasetRunItemRequest,
-    CreateDatasetRequest,
-    CreateDatasetItemRequest,
-    DatasetRun,
-)
+from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, Usage
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
@@ -381,7 +375,7 @@ class Langfuse(object):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        usage: typing.Optional[LlmUsage] = None,
+        usage: typing.Optional[Usage] = None,
         **kwargs,
     ):
         try:
@@ -537,7 +531,7 @@ class StatefulClient(object):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": LlmUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+                "usage": Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
             }
 
             if kwargs is not None:
@@ -731,7 +725,7 @@ class StatefulGenerationClient(StatefulClient):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": LlmUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+                "usage": Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
             }
 
             if kwargs is not None:
