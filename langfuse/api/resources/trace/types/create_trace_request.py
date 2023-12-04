@@ -19,6 +19,7 @@ class CreateTraceRequest(pydantic.BaseModel):
     release: typing.Optional[str]
     version: typing.Optional[str]
     metadata: typing.Optional[typing.Any]
+    public: typing.Optional[bool] = pydantic.Field(description="Make trace publicly accessible via url")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

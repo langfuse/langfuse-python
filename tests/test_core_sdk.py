@@ -474,6 +474,16 @@ def test_create_generation_and_trace():
     assert span["name"] == "generation"
     assert span["traceId"] == trace["id"]
 
+def test_create_span_and_get_observation():
+    langfuse = Langfuse(debug=False)
+
+    span_id = create_uuid()
+    langfuse.span(InitialSpan(id=span_id, name="span"))
+    langfuse.flush()
+
+    observation = langfuse.get_observation(span_id)
+    assert observation.name == "span"
+    assert observation.id == span_id
 
 def test_update_generation():
     langfuse = Langfuse(debug=True)

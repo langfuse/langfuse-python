@@ -28,12 +28,31 @@ def test_create_dataset_item():
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
 
-    input = json.dumps({"input": "Hello World"})
+    input = {"input": "Hello World"}
     langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=input))
 
     dataset = langfuse.get_dataset(name)
     assert len(dataset.items) == 1
     assert dataset.items[0].input == input
+
+def test_upsert_and_get_dataset_item():
+    langfuse = Langfuse(debug=False)
+    name = create_uuid()
+    langfuse.create_dataset(CreateDatasetRequest(name=name))
+    input ={"input": "Hello World"}
+    item = langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=input, expectedOutput=input))
+    
+    get_item = langfuse.get_dataset_item(item.id)
+    assert get_item.input == input
+    assert get_item.id == item.id
+    assert get_item.expected_output == input
+
+    new_input = {"input": "Hello World 2"}
+    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=new_input, id=item.id, expectedOutput=new_input))
+    get_new_item = langfuse.get_dataset_item(item.id)
+    assert get_new_item.input == new_input
+    assert get_new_item.id == item.id
+    assert get_new_item.expected_output == new_input
 
 
 def test_linking_observation():
