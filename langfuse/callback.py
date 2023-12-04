@@ -506,16 +506,10 @@ class CallbackHandler(BaseCallbackHandler):
             else:
                 model_name = kwargs["invocation_params"]["model_name"]
 
-            parsed_prompts = []
-            if isinstance(prompts[0], str):
-                parsed_prompts = prompts
-            else:
-                for prompt in prompts:
-                    parsed_prompts.append([message.dict() for message in prompt])
             self.runs[run_id] = (
                 self.runs[parent_run_id].generation(
                     name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                    prompt=parsed_prompts,
+                    prompt=prompts,
                     start_time=datetime.now(),
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     model=model_name,

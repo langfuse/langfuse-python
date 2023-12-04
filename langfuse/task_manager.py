@@ -13,7 +13,7 @@ from dateutil.tz import tzutc
 import backoff
 
 from langfuse.request import LangfuseClient
-from langfuse.serializer import DatetimeSerializer
+from langfuse.serializer import EventSerializer
 
 # largest message size in db is 331000 bytes right now
 MAX_MSG_SIZE = 700_000
@@ -66,7 +66,7 @@ class Consumer(threading.Thread):
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
-                item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
+                item_size = len(json.dumps(item, cls=EventSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 items.append(item)
                 total_size += item_size
@@ -146,16 +146,19 @@ class TaskManager(object):
             consumer.start()
             self._consumers.append(consumer)
 
-    def add_task(self, event):
+    def add_task(self, event: dict):
         try:
-            self._log.debug("Adding task")
+            self._log.debug(f"adding task {event}")
+            json.dumps(event, cls=EventSerializer)
             event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
+            self._log.debug(f"adding task {event}")
             self._queue.put(event, block=False)
         except queue.Full:
             self._log.warning("analytics-python queue is full")
             return False
         except Exception as e:
-            self._log.warning(f"Exception in adding task {e}")
+            self._log.exception(f"Exception in adding task {e}")
+
             return False
 
     def flush(self):

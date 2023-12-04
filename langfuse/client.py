@@ -14,7 +14,6 @@ from langfuse.api.resources.commons.types.create_event_request import CreateEven
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.dataset import Dataset
-from langfuse.api.resources.commons.types.dataset_item import DatasetItem
 from langfuse.api.resources.commons.types.observation import Observation
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
@@ -134,7 +133,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-    
+
     def get_dataset_item(self, id: str):
         try:
             self.log.debug(f"Getting dataset item {id}")
@@ -201,7 +200,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-    
+
     def get_observation(
         self,
         id: str,
