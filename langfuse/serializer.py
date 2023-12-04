@@ -1,12 +1,9 @@
 from datetime import date, datetime, timezone
 from json import JSONEncoder
-import logging
 from typing import Any
 from langchain.schema.messages import Serializable
 
 from pydantic import BaseModel
-
-log = logging.getLogger("langfuse")
 
 
 class EventSerializer(JSONEncoder):
