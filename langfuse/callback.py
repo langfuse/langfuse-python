@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
+from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
@@ -575,16 +576,14 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
             else:
                 last_response = response.generations[-1][-1]
-                llm_usage = None if response.llm_output is None else response.llm_output["token_usage"]
+                llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
 
                 extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
 
                 self.runs[run_id] = self.runs[run_id].update(
                     completion=extracted_response,
                     end_time=datetime.now(),
-                    prompt_tokens=llm_usage.get("prompt_tokens"),
-                    completion_tokens=llm_usage.get("completion_tokens"),
-                    total_tokens=llm_usage.get("total_tokens"),
+                    usage=llm_usage,
                     version=self.version,
                 )
         except Exception as e:
