@@ -302,9 +302,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
                 model=model,
                 completion=completion,
                 end_time=datetime.now(),
-                prompt_tokens=usage.get("prompt_tokens", None),
-                completion_tokens=usage.get("completion_tokens", None),
-                total_tokens=usage.get("total_tokens", None),
+                usage=usage,
             )
         return openai_response
     except Exception as ex:

@@ -247,7 +247,17 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, *, trace_id: str, name: str, value: float, id: typing.Optional[str] = None, comment: typing.Optional[str] = None, observation_id: typing.Optional[str] = None, kwargs=None):
+    def score(
+        self,
+        *,
+        name: str,
+        value: float,
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        kwargs=None,
+    ):
         try:
             new_id = str(uuid.uuid4()) if id is None else id
 
@@ -306,7 +316,6 @@ class Langfuse(object):
             span_body = {
                 "id": new_span_id,
                 "trace_id": new_trace_id,
-                "release": self.release,
                 "name": name,
                 "start_time": start_time if start_time is not None else datetime.now(),
                 "metadata": metadata,
@@ -354,6 +363,7 @@ class Langfuse(object):
 
     def generation(
         self,
+        *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
