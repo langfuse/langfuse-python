@@ -6,6 +6,7 @@ import pytest
 import pytz
 
 from langfuse import Langfuse
+from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 
 
 from tests.api_wrapper import LangfuseAPI
@@ -141,8 +142,7 @@ def test_create_generation():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        prompt_tokens=50,
-        completion_tokens=49,
+        usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
 
@@ -194,8 +194,7 @@ def test_create_generation_complex():
             },
         ],
         completion=[{"foo": "bar"}],
-        prompt_tokens=50,
-        completion_tokens=49,
+        usage=LlmUsage(promptTokens=51, completionTokens=49, totalTokens=100),
         metadata=[{"tags": ["yo"]}],
     )
 
@@ -225,6 +224,9 @@ def test_create_generation_complex():
     assert generation.output == [{"foo": "bar"}]
     assert generation.metadata == [{"tags": ["yo"]}]
     assert generation.start_time is not None
+    assert generation.prompt_tokens == 51
+    assert generation.completion_tokens == 49
+    assert generation.total_tokens == 100
 
 
 def test_create_span():
@@ -600,8 +602,6 @@ def test_end_generation():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        prompt_tokens=50,
-        completion_tokens=49,
         metadata={"interface": "whatsapp"},
     )
 
@@ -635,8 +635,7 @@ def test_end_generation_with_data():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        prompt_tokens=50,
-        completion_tokens=49,
+        usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
 

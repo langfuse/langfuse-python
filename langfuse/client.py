@@ -346,9 +346,7 @@ class Langfuse(object):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        prompt_tokens: typing.Optional[int] = None,
-        completion_tokens: typing.Optional[int] = None,
-        total_tokens: typing.Optional[int] = None,
+        usage: typing.Optional[LlmUsage] = None,
         kwargs=None,
     ):
         try:
@@ -375,7 +373,7 @@ class Langfuse(object):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": LlmUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+                "usage": usage,
                 "trace": {"release": self.release},
             }
             if kwargs is not None:
