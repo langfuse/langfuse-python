@@ -440,12 +440,15 @@ def test_create_trace_and_generation():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    getTrace = langfuse.get_trace(trace.id)
+    dbTrace = api.trace.get(trace.id)
 
-    assert trace.name == trace_name
-    assert len(trace.observations) == 1
+    assert dbTrace.name == trace_name
+    assert len(dbTrace.observations) == 1
+    assert getTrace.name == trace_name
+    assert len(getTrace.observations) == 1
 
-    generation = trace.observations[0]
+    generation = getTrace.observations[0]
     assert generation.name == "generation"
     assert generation.trace_id == trace.id
     assert generation.start_time is not None

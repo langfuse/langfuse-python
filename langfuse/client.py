@@ -19,6 +19,7 @@ from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 
 from langfuse.api.resources.commons.types.map_value import MapValue
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
+from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
@@ -176,6 +177,17 @@ class Langfuse(object):
         try:
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def get_trace(
+        self,
+        id: str,
+    ) -> TraceWithFullDetails:
+        try:
+            self.log.debug(f"Getting trace {id}")
+            return self.client.trace.get(id)
         except Exception as e:
             self.log.exception(e)
             raise e
