@@ -415,7 +415,7 @@ def test_create_trace_and_generation():
     assert getTrace.name == trace_name
     assert len(getTrace.observations) == 1
 
-    generation = trace.observations[0]
+    generation = getTrace.observations[0]
     assert generation.name == "generation"
     assert generation.trace_id == trace.id
     assert generation.start_time is not None
