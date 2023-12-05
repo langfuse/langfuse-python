@@ -38,6 +38,7 @@ from langfuse.model import (
     CreateDatasetItemRequest,
     DatasetRun,
 )
+from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
@@ -141,7 +142,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-    
+
     def get_dataset_item(self, id: str):
         try:
             self.log.debug(f"Getting dataset item {id}")
@@ -194,6 +195,17 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_trace(
+        self,
+        id: str,
+    ) -> TraceWithFullDetails:
+        try:
+            self.log.debug(f"Getting trace {id}")
+            return self.client.trace.get(id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_generations(
         self,
         *,
@@ -208,7 +220,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-    
+
     def get_observation(
         self,
         id: str,
