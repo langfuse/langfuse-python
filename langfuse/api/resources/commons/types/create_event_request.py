@@ -13,17 +13,17 @@ except ImportError:
 
 
 class CreateEventRequest(pydantic.BaseModel):
-    id: typing.Optional[str]
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
-    name: typing.Optional[str]
-    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime")
-    metadata: typing.Optional[typing.Any]
-    input: typing.Optional[typing.Any]
-    output: typing.Optional[typing.Any]
-    level: typing.Optional[ObservationLevel]
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
-    parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId")
-    version: typing.Optional[str]
+    id: typing.Optional[str] = None
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
+    name: typing.Optional[str] = None
+    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
+    metadata: typing.Optional[typing.Any] = None
+    input: typing.Optional[typing.Any] = None
+    output: typing.Optional[typing.Any] = None
+    level: typing.Optional[ObservationLevel] = None
+    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
+    parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId", default=None)
+    version: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
