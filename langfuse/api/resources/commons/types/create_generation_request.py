@@ -20,7 +20,7 @@ class CreateGenerationRequest(CreateSpanRequest):
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters", default=None)
     prompt: typing.Optional[typing.Any] = None
     completion: typing.Optional[typing.Any] = None
-    usage: typing.Optional[Usage] = None
+    usage: typing.Optional[LlmUsage] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

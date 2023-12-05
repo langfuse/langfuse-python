@@ -23,14 +23,14 @@ class Observation(pydantic.BaseModel):
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
     model: typing.Optional[str] = None
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
-        alias="modelParameters", default=None
-    )
+    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters", default=None)
     input: typing.Optional[typing.Any] = None
     version: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
     output: typing.Optional[typing.Any] = None
-    usage: typing.Optional[Usage] = None
+    prompt_tokens: int = pydantic.Field(alias="promptTokens")
+    completion_tokens: int = pydantic.Field(alias="completionTokens")
+    total_tokens: int = pydantic.Field(alias="totalTokens")
     level: ObservationLevel
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
     parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId", default=None)
