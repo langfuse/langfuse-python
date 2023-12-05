@@ -16,8 +16,8 @@ class DatasetItem(pydantic.BaseModel):
     id: str
     status: DatasetStatus
     input: typing.Any
-    expected_output: typing.Optional[typing.Any] = pydantic.Field(alias="expectedOutput")
-    source_observation_id: typing.Optional[str] = pydantic.Field(alias="sourceObservationId")
+    expected_output: typing.Optional[typing.Any] = pydantic.Field(alias="expectedOutput", default=None)
+    source_observation_id: typing.Optional[str] = pydantic.Field(alias="sourceObservationId", default=None)
     dataset_id: str = pydantic.Field(alias="datasetId")
     created_at: dt.datetime = pydantic.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic.Field(alias="updatedAt")

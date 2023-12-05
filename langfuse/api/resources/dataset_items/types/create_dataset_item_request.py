@@ -14,8 +14,8 @@ except ImportError:
 class CreateDatasetItemRequest(pydantic.BaseModel):
     dataset_name: str = pydantic.Field(alias="datasetName")
     input: typing.Any
-    expected_output: typing.Optional[typing.Any] = pydantic.Field(alias="expectedOutput")
-    id: typing.Optional[str]
+    expected_output: typing.Optional[typing.Any] = pydantic.Field(alias="expectedOutput", default=None)
+    id: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

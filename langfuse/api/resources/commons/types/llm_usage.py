@@ -12,9 +12,9 @@ except ImportError:
 
 
 class LlmUsage(pydantic.BaseModel):
-    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens")
-    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens")
-    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens")
+    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens", default=None)
+    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens", default=None)
+    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

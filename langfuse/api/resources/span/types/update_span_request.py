@@ -14,16 +14,16 @@ except ImportError:
 
 class UpdateSpanRequest(pydantic.BaseModel):
     span_id: str = pydantic.Field(alias="spanId")
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId")
-    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime")
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime")
-    name: typing.Optional[str]
-    metadata: typing.Optional[typing.Any]
-    input: typing.Optional[typing.Any]
-    output: typing.Optional[typing.Any]
-    level: typing.Optional[ObservationLevel]
-    version: typing.Optional[str]
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage")
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
+    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
+    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
+    name: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
+    input: typing.Optional[typing.Any] = None
+    output: typing.Optional[typing.Any] = None
+    level: typing.Optional[ObservationLevel] = None
+    version: typing.Optional[str] = None
+    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

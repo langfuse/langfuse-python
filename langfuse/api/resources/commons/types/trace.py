@@ -14,12 +14,14 @@ except ImportError:
 class Trace(pydantic.BaseModel):
     id: str = pydantic.Field(description="The unique identifier of a trace")
     timestamp: dt.datetime
-    name: typing.Optional[str]
-    release: typing.Optional[str]
-    version: typing.Optional[str]
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId")
-    metadata: typing.Optional[typing.Any]
-    public: typing.Optional[bool] = pydantic.Field(description="Public traces are accessible via url without login")
+    name: typing.Optional[str] = None
+    release: typing.Optional[str] = None
+    version: typing.Optional[str] = None
+    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
+    metadata: typing.Optional[typing.Any] = None
+    public: typing.Optional[bool] = pydantic.Field(
+        default=None, description="Public traces are accessible via url without login"
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
