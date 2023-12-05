@@ -17,9 +17,7 @@ except ImportError:
 class CreateGenerationRequest(CreateSpanRequest):
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
     model: typing.Optional[str] = None
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
-        alias="modelParameters", default=None
-    )
+    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters", default=None)
     prompt: typing.Optional[typing.Any] = None
     completion: typing.Optional[typing.Any] = None
     usage: typing.Optional[Usage] = None

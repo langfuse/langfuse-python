@@ -29,7 +29,24 @@ from langfuse.api.resources.score.types.create_score_request import CreateScoreR
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, ModelUsage
+from langfuse.model import (
+    DatasetItem,
+    CreateDatasetRunItemRequest,
+    CreateDatasetRequest,
+    CreateEvent,
+    CreateGeneration,
+    CreateScore,
+    CreateSpan,
+    CreateTrace,
+    InitialGeneration,
+    InitialScore,
+    InitialSpan,
+    UpdateGeneration,
+    UpdateSpan,
+    CreateDatasetItemRequest,
+    DatasetRun,
+)
+from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
