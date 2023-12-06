@@ -1,15 +1,14 @@
-import logging
 import os
-import re
 from datetime import datetime
+import logging
+import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
-
 from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.client import Langfuse, StatefulSpanClient, StatefulTraceClient, StateType
+from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
 from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 
 try:
@@ -632,6 +631,12 @@ class CallbackHandler(BaseCallbackHandler):
         if tags is None and metadata is None:
             return None
         elif tags is not None and len(tags) > 0:
+            final_dict = {"tags": tags}
+            if metadata is not None:
+                final_dict.update(metadata)  # Merge metadata into final_dict
+            return final_dict
+        else:
+            return metadata
             final_dict = {"tags": tags}
             if metadata is not None:
                 final_dict.update(metadata)  # Merge metadata into final_dict
