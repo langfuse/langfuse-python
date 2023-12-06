@@ -14,7 +14,7 @@ python-dateutil = ">=2.8.0, <3.0"
 pydantic = ">=1.10.7, <3.0"
 pytz = "^2023.3"
 backoff = "^2.2.1"
-langchain = ">=0.0.309"
+langchain = { version = ">=0.0.309", optional = true }
 openai = ">=0.27.8"
 wrapt = "1.14"
 monotonic = "^1.6"
@@ -39,6 +39,9 @@ lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
 pytest-httpserver = "^1.0.8"
 boto3 = "^1.28.59"
+
+[tool.poetry.extras]
+langchain = ["langchain"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
