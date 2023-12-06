@@ -637,9 +637,3 @@ class CallbackHandler(BaseCallbackHandler):
             return final_dict
         else:
             return metadata
-            final_dict = {"tags": tags}
-            if metadata is not None:
-                final_dict.update(metadata)  # Merge metadata into final_dict
-            return final_dict
-        else:
-            return metadata
