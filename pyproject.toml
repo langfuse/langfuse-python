@@ -17,6 +17,7 @@ backoff = "^2.2.1"
 openai = ">=0.27.8"
 wrapt = "1.14"
 monotonic = "^1.6"
+langchain = { version = ">=0.0.309", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
@@ -38,7 +39,6 @@ lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
 pytest-httpserver = "^1.0.8"
 boto3 = "^1.28.59"
-langchain = ">=0.0.309"
 
 [tool.poetry.extras]
 langchain = ["langchain"]
