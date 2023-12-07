@@ -98,7 +98,7 @@ jobs:
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
       - name: Install the project dependencies
-        run: poetry install
+        run: poetry install --all-extras
 
       - name: Run the automated tests
         run: |
