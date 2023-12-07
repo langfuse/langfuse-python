@@ -70,7 +70,7 @@ jobs:
       - name: Wait for server to be available
         uses: MaximeGoyette/wait-for-it-action@master
         with:
-          host: localhost
+          host: http://127.0.0.1
           port: 3000
 
       - name: Install Python
