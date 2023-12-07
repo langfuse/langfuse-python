@@ -133,7 +133,7 @@ def test_callback_default_host():
     _, _, host = get_env_variables()
     os.environ.pop("LANGFUSE_HOST")
 
-    handler = CallbackHandler(debug=True)
+    handler = CallbackHandler(debug=False)
     assert handler.langfuse.client._client_wrapper._base_url == "https://cloud.langfuse.com"
     os.environ["LANGFUSE_HOST"] = host
 

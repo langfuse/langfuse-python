@@ -27,7 +27,7 @@ poetry self add poetry-bumpversion
 ### Install dependencies
 
 ```
-poetry install
+poetry install --all-extras
 ```
 
 ### Add Pre-commit

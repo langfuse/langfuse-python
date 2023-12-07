@@ -35,7 +35,7 @@ def test_via_env_callback():
 
 
 def test_debug_langfuse():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     assert langfuse.log.level == 10
     assert langfuse.task_manager._log.level == 10
 
@@ -54,7 +54,7 @@ def test_default_langfuse_callback():
 
 
 def test_debug_langfuse_callback():
-    callback = CallbackHandler(debug=True)
+    callback = CallbackHandler(debug=False)
     assert callback.log.level == 10
     assert callback.log.level == 10
     assert callback.langfuse.log.level == 10

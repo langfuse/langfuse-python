@@ -9,11 +9,20 @@ from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
-from langchain.schema.output import LLMResult
-from langchain.schema.messages import BaseMessage
-from langchain.schema.document import Document
+from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 
-from langchain.schema.agent import AgentAction, AgentFinish
+try:
+    from langchain.schema.agent import AgentAction, AgentFinish
+    from langchain.schema.document import Document
+    from langchain.schema.messages import BaseMessage
+    from langchain.schema.output import LLMResult
+except ImportError:
+    logging.getLogger("langfuse").warning("Could not import langchain. Some functionality may be missing.")
+    LLMResult = Any
+    BaseMessage = Any
+    Document = Any
+    AgentAction = Any
+    AgentFinish = Any
 
 from langfuse.model import Usage
 
@@ -30,7 +39,7 @@ class CallbackHandler(BaseCallbackHandler):
         self,
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
-        host: str = None,
+        host: Optional[str] = None,
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,
