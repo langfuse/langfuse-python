@@ -15,7 +15,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      LANGFUSE_HOST: "http://localhost:3000"
+      LANGFUSE_HOST: "http://127.0.0.1:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
       LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -98,7 +98,7 @@ jobs:
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
       - name: Install the project dependencies
-        run: poetry install
+        run: poetry install --all-extras
 
       - name: Run the automated tests
         run: |
