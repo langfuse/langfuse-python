@@ -79,7 +79,7 @@ jobs:
             echo "Attempt $retry_count of $max_retries..."
             if [ $retry_count -ge $max_retries ]; then
               echo "Langfuse server did not respond in time. Printing logs..."
-              docker logs langfuse-server
+              docker logs langfuse-langfuse-server-1
               echo "Failing the step..."
               exit 1
             fi
