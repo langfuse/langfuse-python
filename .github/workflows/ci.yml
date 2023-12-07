@@ -15,7 +15,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     env:
-      LANGFUSE_HOST: "http://127.0.0.1:3000"
+      LANGFUSE_HOST: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
       LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -66,6 +66,12 @@ jobs:
           cp .env.dev.example .env
           npx --yes prisma migrate reset --force --skip-generate
           echo "::endgroup::"
+
+      - name: Wait for server to be available
+        uses: MaximeGoyette/wait-for-it-action@master
+        with:
+          host: localhost
+          port: 3000
 
       - name: Install Python
         uses: actions/setup-python@v4
