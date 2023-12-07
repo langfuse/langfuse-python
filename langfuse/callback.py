@@ -9,7 +9,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
-from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
+from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan, Usage
 
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
@@ -601,7 +601,10 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
             else:
                 last_response = response.generations[-1][-1]
-                llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
+                if response.llm_output and isinstance(response.llm_output["token_usage"], Usage):
+                    llm_usage = response.llm_output["token_usage"]
+                else:
+                    llm_usage = response.llm_output["token_usage"] if response.llm_output else None
 
                 extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
 
