@@ -9,6 +9,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
+from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
