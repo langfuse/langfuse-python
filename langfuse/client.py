@@ -581,11 +581,19 @@ class StatefulTraceClient(StatefulClient):
         self.task_manager = task_manager
 
     def get_langchain_handler(self):
-        from langfuse.callback import CallbackHandler
+        try:
+            # adding this to ensure our users installed langchain
+            import langchain  # noqa
+            from langfuse.callback import CallbackHandler
 
-        self.log.debug(f"Creating new handler for trace {self.id}")
+            self.log.debug(f"Creating new handler for trace {self.id}")
 
-        return CallbackHandler(statefulClient=self, debug=self.log.level == logging.DEBUG)
+            return CallbackHandler(statefulClient=self, debug=self.log.level == logging.DEBUG)
+        except ImportError as e:
+            self.log.exception(f"Could not import langchain. Some functionality may be missing. {e.message}")
+
+        except Exception as e:
+            self.log.exception(e)
 
     def getNewHandler(self):
         return self.get_langchain_handler()
