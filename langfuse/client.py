@@ -129,7 +129,7 @@ class Langfuse(object):
         return self.trace_id
 
     def get_trace_url(self):
-        return f"{self.base_url}/traces/{self.trace_id}"
+        return f"{self.base_url}/trace/{self.trace_id}"
 
     def get_dataset(self, name: str):
         try:
