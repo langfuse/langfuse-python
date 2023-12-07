@@ -14,30 +14,16 @@ from langfuse.api.resources.commons.types.create_event_request import CreateEven
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.dataset import Dataset
-from langfuse.api.resources.commons.types.dataset_item import DatasetItem
 from langfuse.api.resources.commons.types.observation import Observation
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
+
+from langfuse.api.resources.commons.types.map_value import MapValue
+from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import (
-    DatasetItem,
-    CreateDatasetRunItemRequest,
-    CreateDatasetRequest,
-    CreateEvent,
-    CreateGeneration,
-    CreateScore,
-    CreateSpan,
-    CreateTrace,
-    InitialGeneration,
-    InitialScore,
-    InitialSpan,
-    UpdateGeneration,
-    UpdateSpan,
-    CreateDatasetItemRequest,
-    DatasetRun,
-)
+from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, Usage
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
@@ -141,7 +127,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-    
+
     def get_dataset_item(self, id: str):
         try:
             self.log.debug(f"Getting dataset item {id}")
@@ -208,7 +194,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-    
+
     def get_observation(
         self,
         id: str,
@@ -220,21 +206,31 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def trace(self, body: CreateTrace):
+    def trace(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        **kwargs,
+    ):
         try:
-            new_id = str(uuid.uuid4()) if body.id is None else body.id
+            new_id = str(uuid.uuid4()) if id is None else id
             self.trace_id = new_id
 
-            new_body = body.copy(update={"id": new_id})
+            new_dict = {"id": new_id, "name": name, "userId": user_id, "release": self.release, "version": version, "metadata": metadata}
+            if kwargs is not None:
+                new_dict.update(kwargs)
 
-            if self.release is not None:
-                new_body = new_body.copy(update={"release": self.release})
+            new_body = CreateTraceRequest(**new_dict)
 
             self.log.debug(f"Creating trace {new_body}")
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "trace-create",
-                "body": new_body.dict(),
+                "body": new_body.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(
@@ -245,62 +241,113 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, body: InitialScore):
+    def score(
+        self,
+        *,
+        name: str,
+        value: float,
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        kwargs=None,
+    ):
         try:
-            new_id = str(uuid.uuid4()) if body.id is None else body.id
+            new_id = str(uuid.uuid4()) if id is None else id
 
-            new_body = body.copy(update={"id": new_id})
-            self.log.debug(f"Creating score {new_body}...")
+            new_dict = {
+                "id": new_id,
+                "trace_id": self.trace_id if trace_id is None else trace_id,
+                "observation_id": observation_id,
+                "name": name,
+                "value": value,
+                "comment": comment,
+            }
+
+            if kwargs is not None:
+                new_dict.update(kwargs)
+
+            self.log.debug(f"Creating score {new_dict}...")
+            new_body = CreateScoreRequest(**new_dict)
+
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": new_body.dict(),
+                "body": new_body.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(event)
 
-            if body.observation_id is not None:
-                return StatefulClient(self.client, body.observation_id, StateType.OBSERVATION, body.trace_id, self.task_manager)
+            if observation_id is not None:
+                return StatefulClient(self.client, observation_id, StateType.OBSERVATION, trace_id, self.task_manager)
             else:
                 return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
 
         except Exception as e:
             self.log.exception(e)
 
-    def span(self, body: InitialSpan):
+    def span(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ):
         try:
-            new_span_id = str(uuid.uuid4()) if body.id is None else body.id
-            new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
+            new_span_id = str(uuid.uuid4()) if id is None else id
+            new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
             self.trace_id = new_trace_id
 
-            if body.trace_id is None:
-                new_body = {
+            span_body = {
+                "id": new_span_id,
+                "trace_id": new_trace_id,
+                "name": name,
+                "start_time": start_time if start_time is not None else datetime.now(),
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "parent_observation_id": parent_observation_id,
+                "version": version,
+                "end_time": end_time,
+                "trace": {"release": self.release},
+            }
+            if kwargs is not None:
+                span_body.update(kwargs)
+
+            if trace_id is None:
+                trace_dict = {
                     "id": new_trace_id,
                     "release": self.release,
-                    "name": body.name,
+                    "name": name,
                 }
 
-                request = CreateTraceRequest(**new_body)
+                trace_body = CreateTraceRequest(**trace_dict)
 
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": request.dict(),
+                    "body": trace_body.dict(exclude_none=True),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
                 self.task_manager.add_task(event)
 
-            new_body = body.copy(update={"id": new_span_id, "trace_id": new_trace_id})
-            if self.release is not None:
-                new_body = new_body.copy(update={"trace": {"release": self.release}})
+            self.log.debug(f"Creating span {span_body}...")
+            span_body = CreateSpanRequest(**span_body)
 
-            if new_body.start_time is None:
-                new_body = new_body.copy(update={"startTime": datetime.now()})
-
-            request = CreateSpanRequest(**new_body.dict())
-
-            event = convert_observation_to_event(request, "SPAN")
+            event = convert_observation_to_event(span_body, "SPAN")
 
             self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
@@ -309,38 +356,78 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
-    def generation(self, body: InitialGeneration):
+    def generation(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
+        model: typing.Optional[str] = None,
+        model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
+        prompt: typing.Optional[typing.Any] = None,
+        completion: typing.Optional[typing.Any] = None,
+        usage: typing.Optional[Usage] = None,
+        **kwargs,
+    ):
         try:
-            new_trace_id = str(uuid.uuid4()) if body.trace_id is None else body.trace_id
-            new_generation_id = str(uuid.uuid4()) if body.id is None else body.id
+            new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
+            new_generation_id = str(uuid.uuid4()) if id is None else id
             self.trace_id = new_trace_id
 
-            if body.trace_id is None:
+            generation_body = {
+                "id": new_generation_id,
+                "trace_id": new_trace_id,
+                "release": self.release,
+                "name": name,
+                "start_time": start_time if start_time is not None else datetime.now(),
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "parent_observation_id": parent_observation_id,
+                "version": version,
+                "end_time": end_time,
+                "completion_start_time": completion_start_time,
+                "model": model,
+                "model_parameters": model_parameters,
+                "prompt": prompt,
+                "completion": completion,
+                "usage": usage,
+                "trace": {"release": self.release},
+            }
+            if kwargs is not None:
+                generation_body.update(kwargs)
+
+            if trace_id is None:
                 trace = {
                     "id": new_trace_id,
                     "release": self.release,
-                    "name": body.name,
+                    "name": name,
                 }
                 request = CreateTraceRequest(**trace)
 
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": request.dict(),
+                    "body": request.dict(exclude_none=True),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
 
                 self.task_manager.add_task(event)
 
-            new_body = body.copy(update={"id": new_generation_id, "trace_id": new_trace_id})
-            if self.release is not None:
-                new_body = new_body.copy(update={"trace": {"release": self.release}})
-
-            if new_body.start_time is None:
-                new_body = new_body.copy(update={"startTime": datetime.now()})
-
-            request = CreateGenerationRequest(**new_body.dict())
+            request = CreateGenerationRequest(**generation_body)
 
             event = convert_observation_to_event(request, "GENERATION")
 
@@ -403,13 +490,56 @@ class StatefulClient(object):
             body["start_time"] = datetime.now()
         return body
 
-    def generation(self, body: CreateGeneration):
+    def generation(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
+        model: typing.Optional[str] = None,
+        model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
+        prompt: typing.Optional[typing.Any] = None,
+        completion: typing.Optional[typing.Any] = None,
+        prompt_tokens: typing.Optional[int] = None,
+        completion_tokens: typing.Optional[int] = None,
+        total_tokens: typing.Optional[int] = None,
+        **kwargs,
+    ):
         try:
-            generation_id = str(uuid.uuid4()) if body.id is None else body.id
+            generation_id = str(uuid.uuid4()) if id is None else id
 
-            new_body = body.copy(update={"id": generation_id})
-            new_body = self._add_state_to_event(new_body.dict())
-            new_body = self._add_default_values(new_body)
+            generation_body = {
+                "id": generation_id,
+                "name": name,
+                "start_time": start_time if start_time is not None else datetime.now(),
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time,
+                "completion_start_time": completion_start_time,
+                "model": model,
+                "model_parameters": model_parameters,
+                "prompt": prompt,
+                "completion": completion,
+                "usage": Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+            }
+
+            if kwargs is not None:
+                generation_body.update(kwargs)
+
+            generation_body = self._add_state_to_event(generation_body)
+            new_body = self._add_default_values(generation_body)
 
             new_body = CreateGenerationRequest(**new_body)
 
@@ -421,17 +551,46 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
-    def span(self, body: CreateSpan):
+    def span(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ):
         try:
-            span_id = str(uuid.uuid4()) if body.id is None else body.id
+            span_id = str(uuid.uuid4()) if id is None else id
 
-            new_body = body.copy(update={"id": span_id})
-            self.log.debug(f"Creating span {new_body}...")
+            span_body = {
+                "id": span_id,
+                "name": name,
+                "start_time": start_time if start_time is not None else datetime.now(),
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time,
+            }
 
-            new_dict = self._add_state_to_event(new_body.dict())
+            if kwargs is not None:
+                span_body.update(kwargs)
+
+            self.log.debug(f"Creating span {span_body}...")
+
+            new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
 
-            request = CreateSpanRequest(**new_dict)
+            request = CreateSpanRequest(**new_body)
             event = convert_observation_to_event(request, "SPAN")
 
             self.task_manager.add_task(event)
@@ -439,14 +598,24 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, body: CreateScore):
+    def score(self, *, id: typing.Optional[str] = None, name: str, value: float, comment: typing.Optional[str] = None, kwargs=None):
         try:
-            score_id = str(uuid.uuid4()) if body.id is None else body.id
+            score_id = str(uuid.uuid4()) if id is None else id
 
-            new_body = body.copy(update={"id": score_id})
-            self.log.debug(f"Creating score {new_body}...")
+            new_score = {
+                "id": score_id,
+                "trace_id": self.trace_id,
+                "name": name,
+                "value": value,
+                "comment": comment,
+            }
 
-            new_dict = self._add_state_to_event(new_body.dict())
+            if kwargs is not None:
+                new_score.update(kwargs)
+
+            self.log.debug(f"Creating score {new_score}...")
+
+            new_dict = self._add_state_to_event(new_score)
 
             if self.state_type == StateType.OBSERVATION:
                 new_dict["observationId"] = self.id
@@ -456,7 +625,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": request.dict(),
+                "body": request.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(event)
@@ -464,16 +633,42 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
 
-    def event(self, body: CreateEvent):
+    def event(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ):
         try:
-            event_id = str(uuid.uuid4()) if body.id is None else body.id
+            event_id = str(uuid.uuid4()) if id is None else id
 
-            new_body = body.copy(update={"id": event_id})
+            event_body = {
+                "id": event_id,
+                "name": name,
+                "start_time": start_time if start_time is not None else datetime.now(),
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+            }
 
-            new_dict = self._add_state_to_event(new_body.dict())
+            if kwargs is not None:
+                event_body.update(kwargs)
+
+            new_dict = self._add_state_to_event(event_body)
             new_body = self._add_default_values(new_dict)
 
-            request = CreateEventRequest(**new_dict)
+            request = CreateEventRequest(**new_body)
 
             event = convert_observation_to_event(request, "EVENT")
             self.log.debug(f"Creating event {event}...")
@@ -492,11 +687,52 @@ class StatefulGenerationClient(StatefulClient):
     def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
-    def update(self, body: UpdateGeneration):
+    def update(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
+        model: typing.Optional[str] = None,
+        model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
+        prompt: typing.Optional[typing.Any] = None,
+        completion: typing.Optional[typing.Any] = None,
+        prompt_tokens: typing.Optional[int] = None,
+        completion_tokens: typing.Optional[int] = None,
+        total_tokens: typing.Optional[int] = None,
+        **kwargs,
+    ):
         try:
-            new_body = body.copy(update={"generation_id": self.id, "trace_id": self.trace_id})
+            generation_body = {
+                "generationId": self.id,
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time,
+                "completion_start_time": completion_start_time,
+                "model": model,
+                "model_parameters": model_parameters,
+                "prompt": prompt,
+                "completion": completion,
+                "usage": Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+            }
 
-            request = UpdateGenerationRequest(**new_body.dict())
+            if kwargs is not None:
+                generation_body.update(kwargs)
+
+            request = UpdateGenerationRequest(**generation_body)
 
             event = convert_observation_to_event(request, "GENERATION", True)
             self.log.debug(f"Update generation {event}...")
@@ -505,17 +741,52 @@ class StatefulGenerationClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self, body: Optional[UpdateGeneration] = None):
+    def end(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
+        model: typing.Optional[str] = None,
+        model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
+        prompt: typing.Optional[typing.Any] = None,
+        completion: typing.Optional[typing.Any] = None,
+        prompt_tokens: typing.Optional[int] = None,
+        completion_tokens: typing.Optional[int] = None,
+        total_tokens: typing.Optional[int] = None,
+        **kwargs,
+    ):
         try:
-            if body is None:
-                end_time = datetime.now()
-                return self.update(UpdateGeneration(endTime=end_time))
+            generation_body = {
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time if end_time is not None else datetime.now(),
+                "completion_start_time": completion_start_time,
+                "model": model,
+                "model_parameters": model_parameters,
+                "prompt": prompt,
+                "completion": completion,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+            }
+            if kwargs is not None:
+                generation_body.update(kwargs)
 
-            if body.end_time is None:
-                end_time = datetime.now()
-                body = body.copy(update={"endTime": end_time})
-
-            return self.update(body)
+            return self.update(**generation_body)
 
         except Exception as e:
             self.log.warning(e)
@@ -527,11 +798,37 @@ class StatefulSpanClient(StatefulClient):
     def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
-    def update(self, body: UpdateSpan):
+    def update(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ):
         try:
-            new_body = body.copy(update={"span_id": self.id, "trace_id": self.trace_id})
-            self.log.debug(f"Update span {new_body}...")
-            request = UpdateSpanRequest(**new_body.dict())
+            span_body = {
+                "spanId": self.id,
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time,
+            }
+            if kwargs is not None:
+                span_body.update(kwargs)
+            self.log.debug(f"Update span {span_body}...")
+            request = UpdateSpanRequest(**span_body)
 
             event = convert_observation_to_event(request, "SPAN", True)
 
@@ -540,17 +837,36 @@ class StatefulSpanClient(StatefulClient):
         except Exception as e:
             self.log.exception(e)
 
-    def end(self, body: Optional[UpdateSpan] = None):
+    def end(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        end_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ):
         try:
-            if body is None:
-                end_time = datetime.now()
-                return self.update(UpdateSpan(endTime=end_time))
+            span_body = {
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                "end_time": end_time if end_time is not None else datetime.now(),
+            }
+            if kwargs is not None:
+                span_body.update(kwargs)
 
-            if body.end_time is None:
-                end_time = datetime.now()
-                body = body.copy(update={"endTime": end_time})
-
-            return self.update(body)
+            return self.update(**span_body)
 
         except Exception as e:
             self.log.warning(e)
@@ -629,8 +945,8 @@ class DatasetItemClient:
         from langfuse.callback import CallbackHandler
 
         metadata = {"dataset_item_id": self.id, "run_name": run_name, "dataset_id": self.dataset_id}
-        trace = self.langfuse.trace(CreateTrace(name="dataset-run", metadata=metadata))
-        span = trace.span(CreateSpan(name="dataset-run", metadata=metadata))
+        trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
+        span = trace.span(name="dataset-run", metadata=metadata)
 
         self.langfuse.flush()
 
