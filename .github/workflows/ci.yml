@@ -67,11 +67,19 @@ jobs:
           npx --yes prisma migrate reset --force --skip-generate
           echo "::endgroup::"
 
-      - name: Wait for server to be available
-        uses: MaximeGoyette/wait-for-it-action@master
-        with:
-          host: http://127.0.0.1
-          port: 3000
+      # Add this step to check the health of the container
+      - name: Check Health of Langfuse Server
+        run: |
+          echo "Checking health of Langfuse server..."
+          for i in {1..10}; do
+            if curl -f http://localhost:3000/api/public/health; then
+              echo "Langfuse server is up and running."
+              break
+            else
+              echo "Waiting for Langfuse server to be up..."
+              sleep 5
+            fi
+          done
 
       - name: Install Python
         uses: actions/setup-python@v4
