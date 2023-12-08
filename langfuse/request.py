@@ -102,7 +102,7 @@ class APIError:
         return msg.format(self.message, self.status, self.details)
 
 
-class APIErrors(Exception):
+class APIErrors(BaseException):
     def __init__(self, errors: List[APIError]):
         self.errors = errors
 
