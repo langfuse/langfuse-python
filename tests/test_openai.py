@@ -1,6 +1,7 @@
 import os
 import pytest
 from langfuse.client import Langfuse
+from langfuse.model import CreateTrace
 from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI
 from openai import APIConnectionError
 
@@ -529,9 +530,9 @@ async def test_async_chat_stream():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
+    assert generation.data[0].prompt_tokens is not None
+    assert generation.data[0].completion_tokens is not None
+    assert generation.data[0].total_tokens is not None
     assert "2" in generation.data[0].output
 
 
