@@ -95,7 +95,7 @@ class Consumer(threading.Thread):
         try:
             self._upload_batch(batch)
         except Exception as e:
-            self._log.error("error uploading: %s", e)
+            self._log.exception("error uploading: %s", e)
         finally:
             # mark items as acknowledged from queue
             for _ in batch:
