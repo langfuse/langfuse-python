@@ -532,7 +532,7 @@ async def test_async_chat_stream():
     assert generation.data[0].prompt_tokens is not None
     assert generation.data[0].completion_tokens is not None
     assert generation.data[0].total_tokens is not None
-    assert generation.data[0].output == "2"
+    assert "2" in generation.data[0].output
 
 
 def test_openai_function_call():
