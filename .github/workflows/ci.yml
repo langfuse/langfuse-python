@@ -64,7 +64,7 @@ jobs:
           npm ci
           echo "::endgroup::"
 
-          echo "::group::Apply migrations and seed db"
+          echo "::group::Seed db"
           cp .env.dev.example .env
           npx --yes prisma db seed
           echo "::endgroup::"

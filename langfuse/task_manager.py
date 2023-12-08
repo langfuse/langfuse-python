@@ -106,12 +106,15 @@ class Consumer(threading.Thread):
         self.running = False
 
     def _upload_batch(self, batch: List[any]):
+        self._log.warn("uploading batch of %d items", len(batch))
+
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
         def execute_task_with_backoff(batch: [any]):
             self._log.debug("uploading batch of %d items", len(batch))
             return self._client.batch_post(gzip=False, batch=batch)
 
         execute_task_with_backoff(batch)
+        self._log.warn("successfully uploaded batch of %d items", len(batch))
 
 
 class TaskManager(object):

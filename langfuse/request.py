@@ -86,12 +86,13 @@ class LangfuseClient:
                 return res.json() if return_json else res
         try:
             payload = res.json()
-            raise APIError(res.status_code, payload["detail"])
+            log.error("received error response: %s", payload)
+            raise APIError(res.status_code, payload)
         except (KeyError, ValueError):
             raise APIError(res.status_code, res.text)
 
 
-class APIError:
+class APIError(Exception):
     def __init__(self, status: Union[int, str], message: str, details: Any = None):
         self.message = message
         self.status = status
@@ -102,7 +103,7 @@ class APIError:
         return msg.format(self.message, self.status, self.details)
 
 
-class APIErrors(BaseException):
+class APIErrors(Exception):
     def __init__(self, errors: List[APIError]):
         self.errors = errors
 
