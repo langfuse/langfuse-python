@@ -11,12 +11,14 @@ from .types import (
     DatasetStatus,
     LlmUsage,
     MapValue,
+    ModelUsageType,
     Observation,
     ObservationLevel,
     Score,
     Trace,
     TraceWithDetails,
     TraceWithFullDetails,
+    Usage,
 )
 from .errors import AccessDeniedError, Error, MethodNotAllowedError, NotFoundError, UnauthorizedError
 
@@ -34,6 +36,7 @@ __all__ = [
     "LlmUsage",
     "MapValue",
     "MethodNotAllowedError",
+    "ModelUsageType",
     "NotFoundError",
     "Observation",
     "ObservationLevel",
@@ -42,4 +45,5 @@ __all__ = [
     "TraceWithDetails",
     "TraceWithFullDetails",
     "UnauthorizedError",
+    "Usage",
 ]

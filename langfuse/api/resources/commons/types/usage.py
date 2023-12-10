@@ -4,9 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .create_span_request import CreateSpanRequest
-from .map_value import MapValue
-from .usage import Usage
+from .model_usage_type import ModelUsageType
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,15 +12,11 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class CreateGenerationRequest(CreateSpanRequest):
-    completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
-    model: typing.Optional[str] = None
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
-        alias="modelParameters", default=None
-    )
-    prompt: typing.Optional[typing.Any] = None
-    completion: typing.Optional[typing.Any] = None
-    usage: typing.Optional[Usage] = None
+class Usage(pydantic.BaseModel):
+    input: typing.Optional[int] = None
+    output: typing.Optional[int] = None
+    total: typing.Optional[int] = None
+    unit: ModelUsageType
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -35,5 +29,4 @@ class CreateGenerationRequest(CreateSpanRequest):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

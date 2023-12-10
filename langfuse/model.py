@@ -1,3 +1,4 @@
+from typing import TypedDict
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
@@ -60,3 +61,10 @@ class UpdateSpan(UpdateSpanRequest):
 
 class Usage(LlmUsage):
     __fields__ = {name: field for name, field in LlmUsage.__fields__.items()}
+
+
+class FlexibleUsage(TypedDict):
+    usage: str
+    input: int
+    output: int
+    total: int

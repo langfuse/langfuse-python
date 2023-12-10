@@ -1,7 +1,7 @@
 import os
 from uuid import uuid4
 
-from langfuse.api.client import FintoLangfuse
+from langfuse.api.client import Langfuse as FernLangfuse
 
 
 def create_uuid():
@@ -9,7 +9,7 @@ def create_uuid():
 
 
 def get_api():
-    return FintoLangfuse(
+    return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
         base_url=os.environ.get("LANGFUSE_HOST"),

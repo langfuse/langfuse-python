@@ -176,8 +176,9 @@ def test_create_generation():
     assert generation["output"] == "This document entails the OKR goals for ACME"
 
 
-def test_create_generation_complex():
-    langfuse = Langfuse(debug=False)
+@pytest.mark.parametrize("usage", [Usage(promptTokens=51, completionTokens=49, totalTokens=100), {"input": 51, "output": 49, "total": 100, "unit": "TOKENS"}])
+def test_create_generation_complex(usage):
+    langfuse = Langfuse(debug=True)
     api = get_api()
 
     generation_id = create_uuid()
@@ -192,7 +193,7 @@ def test_create_generation_complex():
             },
         ],
         completion=[{"foo": "bar"}],
-        usage=Usage(promptTokens=51, completionTokens=49, totalTokens=100),
+        usage=usage,
         metadata=[{"tags": ["yo"]}],
     )
 
@@ -222,9 +223,10 @@ def test_create_generation_complex():
     assert generation.output == [{"foo": "bar"}]
     assert generation.metadata == [{"tags": ["yo"]}]
     assert generation.start_time is not None
-    assert generation.prompt_tokens == 51
-    assert generation.completion_tokens == 49
-    assert generation.total_tokens == 100
+    assert generation.usage.input == 51
+    assert generation.usage.output == 49
+    assert generation.usage.total == 100
+    assert generation.usage.unit == "TOKENS"
 
 
 def test_create_span():

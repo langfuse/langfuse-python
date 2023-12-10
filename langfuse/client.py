@@ -8,7 +8,12 @@ import uuid
 
 import datetime as dt
 
-from langfuse.api.client import FintoLangfuse
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
+from langfuse.api.client import Langfuse as FernLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
@@ -24,7 +29,7 @@ from langfuse.api.resources.score.types.create_score_request import CreateScoreR
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, Usage
+from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, FlexibleUsage
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
@@ -75,7 +80,7 @@ class Langfuse(object):
             self.log.warning("secret_key is not set.")
             raise ValueError("secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'")
 
-        self.client = FintoLangfuse(
+        self.client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
             password=secret_key,
@@ -388,7 +393,7 @@ class Langfuse(object):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        usage: typing.Optional[Usage] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, FlexibleUsage]] = None,
         **kwargs,
     ):
         try:
@@ -415,7 +420,7 @@ class Langfuse(object):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": usage,
+                "usage": _convert_usage_input(usage) if usage is not None else None,
                 "trace": {"release": self.release},
             }
             if kwargs is not None:
@@ -482,7 +487,7 @@ class StateType(Enum):
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -520,9 +525,7 @@ class StatefulClient(object):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        prompt_tokens: typing.Optional[int] = None,
-        completion_tokens: typing.Optional[int] = None,
-        total_tokens: typing.Optional[int] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, FlexibleUsage]] = None,
         **kwargs,
     ):
         try:
@@ -544,7 +547,7 @@ class StatefulClient(object):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+                "usage": _convert_usage_input(usage) if usage is not None else None,
             }
 
             if kwargs is not None:
@@ -696,7 +699,7 @@ class StatefulClient(object):
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(
@@ -716,9 +719,7 @@ class StatefulGenerationClient(StatefulClient):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        prompt_tokens: typing.Optional[int] = None,
-        completion_tokens: typing.Optional[int] = None,
-        total_tokens: typing.Optional[int] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, FlexibleUsage]] = None,
         **kwargs,
     ):
         try:
@@ -738,7 +739,7 @@ class StatefulGenerationClient(StatefulClient):
                 "model_parameters": model_parameters,
                 "prompt": prompt,
                 "completion": completion,
-                "usage": Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, total_tokens=total_tokens),
+                "usage": _convert_usage_input(usage) if usage is not None else None,
             }
 
             if kwargs is not None:
@@ -807,7 +808,7 @@ class StatefulGenerationClient(StatefulClient):
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(
@@ -892,7 +893,7 @@ class StatefulSpanClient(StatefulClient):
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
@@ -996,3 +997,35 @@ class DatasetClient:
         self.updated_at = dataset.updated_at
         self.items = items
         self.runs = dataset.runs
+
+
+def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, FlexibleUsage]):
+    """Converts any usage input to a FlexibleUsage object"""
+
+    if isinstance(usage, pydantic.BaseModel):
+        usage = usage.dict()
+
+    # validate that usage object has input, output, total, usage
+    is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "usage"))
+    is_openai_usage = any(k in usage for k in ("promptTokens", "prompt_tokens", "completionTokens", "completion_tokens", "totalTokens", "total_tokens"))
+
+    if not is_langfuse_usage and not is_openai_usage:
+        raise ValueError("Usage object must have either {input, output, total, usage} or {promptTokens, completionTokens, totalTokens}")
+
+    def extract_by_priority(usage: dict, keys: list[str]) -> typing.Optional[int]:
+        """Extracts the first key that exists in usage"""
+        for key in keys:
+            if key in usage:
+                return int(usage[key])
+        return None
+
+    if is_openai_usage:
+        # convert to langfuse usage
+        usage = {
+            "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"]),
+            "output": extract_by_priority(usage, ["completionTokens", "completion_tokens"]),
+            "total": extract_by_priority(usage, ["totalTokens", "total_tokens"]),
+            "unit": "TOKENS",
+        }
+
+    return usage

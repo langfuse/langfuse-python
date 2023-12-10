@@ -45,9 +45,9 @@ def test_openai_chat_completion():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
@@ -88,9 +88,9 @@ def test_openai_chat_completion_stream():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2"
     assert generation.data[0].completion_start_time is not None
 
@@ -131,9 +131,9 @@ def test_openai_chat_completion_stream_fail():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
     assert expected_err_msg in generation.data[0].status_message
     assert generation.data[0].output is None
@@ -293,9 +293,9 @@ def test_openai_completion():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
@@ -336,9 +336,9 @@ def test_openai_completion_stream():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
     assert generation.data[0].completion_start_time is not None
 
@@ -421,9 +421,9 @@ def test_openai_completion_stream_fail():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
     assert expected_err_msg in generation.data[0].status_message
     assert generation.data[0].output is None
@@ -491,9 +491,9 @@ async def test_async_chat():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
@@ -529,9 +529,9 @@ async def test_async_chat_stream():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
@@ -609,9 +609,9 @@ def test_azure():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
 
 
@@ -654,7 +654,7 @@ async def test_async_azure():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"

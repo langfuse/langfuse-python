@@ -196,9 +196,9 @@ def test_callback_from_trace_simple_chain():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
 def test_next_span_id_from_trace_simple_chain():
@@ -456,9 +456,9 @@ def test_callback_retriever_conversational_with_memory():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
 def test_callback_retriever_conversational():
@@ -703,9 +703,9 @@ def test_callback_openai_functions_python():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
 def test_create_extraction_chain():
@@ -777,9 +777,9 @@ def test_create_extraction_chain():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
 @pytest.mark.skip(reason="inference cost")

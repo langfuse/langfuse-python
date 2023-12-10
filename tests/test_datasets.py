@@ -177,9 +177,9 @@ def test_langchain_dataset():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
 def sorted_dependencies(
