@@ -19,7 +19,7 @@ from .resources.span.client import AsyncSpanClient, SpanClient
 from .resources.trace.client import AsyncTraceClient, TraceClient
 
 
-class Langfuse:
+class FernLangfuse:
     def __init__(
         self,
         *,
@@ -55,7 +55,7 @@ class Langfuse:
         self.trace = TraceClient(client_wrapper=self._client_wrapper)
 
 
-class AsyncLangfuse:
+class AsyncFernLangfuse:
     def __init__(
         self,
         *,

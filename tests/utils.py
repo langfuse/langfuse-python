@@ -1,7 +1,7 @@
 import os
 from uuid import uuid4
 
-from langfuse.api.client import Langfuse as FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 
 def create_uuid():

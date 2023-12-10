@@ -13,7 +13,7 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-from langfuse.api.client import Langfuse as FernLangfuse
+from langfuse.api.client import FernLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
