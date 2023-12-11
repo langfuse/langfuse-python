@@ -5,29 +5,22 @@ from . import (
     dataset_items,
     dataset_run_items,
     datasets,
-    event,
-    generations,
     health,
     ingestion,
     observations,
     projects,
     score,
-    span,
     trace,
     utils,
 )
 from .commons import (
     AccessDeniedError,
-    CreateEventRequest,
-    CreateGenerationRequest,
-    CreateSpanRequest,
     Dataset,
     DatasetItem,
     DatasetRun,
     DatasetRunItem,
     DatasetStatus,
     Error,
-    LlmUsage,
     MapValue,
     MethodNotAllowedError,
     ModelUsageType,
@@ -44,7 +37,6 @@ from .commons import (
 from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest
-from .generations import UpdateGenerationRequest
 from .health import ServiceUnavailableError
 from .ingestion import (
     IngestionEvent,
@@ -60,19 +52,14 @@ from .ingestion import (
 from .observations import Observations
 from .projects import Project, Projects
 from .score import CreateScoreRequest, Scores
-from .span import UpdateSpanRequest
-from .trace import CreateTraceRequest, Traces
+from .trace import Traces
 
 __all__ = [
     "AccessDeniedError",
     "CreateDatasetItemRequest",
     "CreateDatasetRequest",
     "CreateDatasetRunItemRequest",
-    "CreateEventRequest",
-    "CreateGenerationRequest",
     "CreateScoreRequest",
-    "CreateSpanRequest",
-    "CreateTraceRequest",
     "Dataset",
     "DatasetItem",
     "DatasetRun",
@@ -84,7 +71,6 @@ __all__ = [
     "IngestionEvent_ObservationUpdate",
     "IngestionEvent_ScoreCreate",
     "IngestionEvent_TraceCreate",
-    "LlmUsage",
     "MapValue",
     "MethodNotAllowedError",
     "ModelUsageType",
@@ -106,21 +92,16 @@ __all__ = [
     "TraceWithFullDetails",
     "Traces",
     "UnauthorizedError",
-    "UpdateGenerationRequest",
-    "UpdateSpanRequest",
     "Usage",
     "commons",
     "dataset_items",
     "dataset_run_items",
     "datasets",
-    "event",
-    "generations",
     "health",
     "ingestion",
     "observations",
     "projects",
     "score",
-    "span",
     "trace",
     "utils",
 ]

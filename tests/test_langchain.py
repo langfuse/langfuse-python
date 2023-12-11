@@ -248,7 +248,7 @@ def test_next_span_id_from_trace_simple_chain():
 
 def test_callback_simple_chain():
     api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=True)
+    handler = CallbackHandler(debug=False)
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
