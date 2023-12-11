@@ -29,7 +29,7 @@ from langfuse.api.resources.score.types.create_score_request import CreateScoreR
 from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, FlexibleUsage
+from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, ModelUsage
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
@@ -393,7 +393,7 @@ class Langfuse(object):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        usage: typing.Optional[typing.Union[pydantic.BaseModel, FlexibleUsage]] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         **kwargs,
     ):
         try:
@@ -525,7 +525,7 @@ class StatefulClient(object):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        usage: typing.Optional[typing.Union[pydantic.BaseModel, FlexibleUsage]] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         **kwargs,
     ):
         try:
@@ -719,7 +719,7 @@ class StatefulGenerationClient(StatefulClient):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         prompt: typing.Optional[typing.Any] = None,
         completion: typing.Optional[typing.Any] = None,
-        usage: typing.Optional[typing.Union[pydantic.BaseModel, FlexibleUsage]] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         **kwargs,
     ):
         try:
@@ -999,7 +999,7 @@ class DatasetClient:
         self.runs = dataset.runs
 
 
-def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, FlexibleUsage]):
+def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
     """Converts any usage input to a FlexibleUsage object"""
 
     if isinstance(usage, pydantic.BaseModel):
