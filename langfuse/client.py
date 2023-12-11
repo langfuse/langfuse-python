@@ -38,9 +38,6 @@ from langfuse.utils import convert_observation_to_event
 from .version import __version__ as version
 
 
-Observation_Level = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
-
-
 class Langfuse(object):
     log = logging.getLogger("langfuse")
 
@@ -317,7 +314,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -387,7 +384,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -520,7 +517,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -579,7 +576,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -660,7 +657,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -714,7 +711,7 @@ class StatefulGenerationClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -766,7 +763,7 @@ class StatefulGenerationClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -823,7 +820,7 @@ class StatefulSpanClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -862,7 +859,7 @@ class StatefulSpanClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Observation_Level] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
