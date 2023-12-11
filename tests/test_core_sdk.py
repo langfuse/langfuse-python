@@ -40,8 +40,8 @@ async def test_concurrency():
         generation = trace.generation(name=str(i))
         generation.update(metadata={"count": str(i)})
 
-    langfuse = Langfuse(debug=False, threads=5)
-    print("start")
+    langfuse = Langfuse(debug=True, threads=5)
+
     await gather(*(update_generation(i, langfuse) for i in range(100)))
     print("flush")
     langfuse.flush()
