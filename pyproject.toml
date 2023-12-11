@@ -9,9 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<0.26.0"
-python-dateutil = ">=2.8.0, <3.0"
 pydantic = ">=1.10.7, <3.0"
-pytz = "^2023.3"
 backoff = "^2.2.1"
 openai = ">=0.27.8"
 wrapt = "1.14"
@@ -37,6 +35,7 @@ lark = "^1.1.7"
 pytest-asyncio = "^0.21.1"
 pytest-httpserver = "^1.0.8"
 boto3 = "^1.28.59"
+pytz = "^2023.3"
 
 [tool.poetry.extras]
 langchain = ["langchain"]
