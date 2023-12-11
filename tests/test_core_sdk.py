@@ -1,15 +1,34 @@
 from asyncio import gather
 from datetime import datetime
+import typing
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 import pytest
 import pytz
 
 from langfuse import Langfuse
-from langfuse.model import Usage
 
 
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
+
+
+class LlmUsage(pydantic.BaseModel):
+    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens", default=None)
+    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens", default=None)
+    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens", default=None)
+
+    def json(self, **kwargs: typing.Any) -> str:
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        return super().json(**kwargs_with_defaults)
+
+    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        return super().dict(**kwargs_with_defaults)
 
 
 @pytest.mark.asyncio
@@ -140,7 +159,7 @@ def test_create_generation():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        usage=Usage(promptTokens=50, completionTokens=49),
+        usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
 
@@ -176,7 +195,8 @@ def test_create_generation():
     assert generation["output"] == "This document entails the OKR goals for ACME"
 
 
-def test_create_generation_complex():
+@pytest.mark.parametrize("usage", [LlmUsage(promptTokens=51, completionTokens=49, totalTokens=100), {"input": 51, "output": 49, "total": 100, "unit": "TOKENS"}])
+def test_create_generation_complex(usage):
     langfuse = Langfuse(debug=False)
     api = get_api()
 
@@ -192,7 +212,7 @@ def test_create_generation_complex():
             },
         ],
         completion=[{"foo": "bar"}],
-        usage=Usage(promptTokens=51, completionTokens=49, totalTokens=100),
+        usage=usage,
         metadata=[{"tags": ["yo"]}],
     )
 
@@ -222,9 +242,10 @@ def test_create_generation_complex():
     assert generation.output == [{"foo": "bar"}]
     assert generation.metadata == [{"tags": ["yo"]}]
     assert generation.start_time is not None
-    assert generation.prompt_tokens == 51
-    assert generation.completion_tokens == 49
-    assert generation.total_tokens == 100
+    assert generation.usage.input == 51
+    assert generation.usage.output == 49
+    assert generation.usage.total == 100
+    assert generation.usage.unit == "TOKENS"
 
 
 def test_create_span():
@@ -648,7 +669,7 @@ def test_end_generation_with_data():
             },
         ],
         completion="This document entails the OKR goals for ACME",
-        usage=Usage(promptTokens=50, completionTokens=49),
+        usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
 

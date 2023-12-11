@@ -10,12 +10,14 @@ from .dataset_run_item import DatasetRunItem
 from .dataset_status import DatasetStatus
 from .llm_usage import LlmUsage
 from .map_value import MapValue
+from .model_usage_type import ModelUsageType
 from .observation import Observation
 from .observation_level import ObservationLevel
 from .score import Score
 from .trace import Trace
 from .trace_with_details import TraceWithDetails
 from .trace_with_full_details import TraceWithFullDetails
+from .usage import Usage
 
 __all__ = [
     "CreateEventRequest",
@@ -28,10 +30,12 @@ __all__ = [
     "DatasetStatus",
     "LlmUsage",
     "MapValue",
+    "ModelUsageType",
     "Observation",
     "ObservationLevel",
     "Score",
     "Trace",
     "TraceWithDetails",
     "TraceWithFullDetails",
+    "Usage",
 ]

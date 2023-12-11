@@ -14,7 +14,7 @@ def test_json_encoder():
 
     assert (
         json.dumps(obj, cls=EventSerializer)
-        == '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00", "messages": [{"lc": 1, "type": "constructor", "id": ["langchain", "schema", "messages", "HumanMessage"], "kwargs": {"content": "I love programming!"}}]}'
+        == '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00", "messages": [{"lc": 1, "type": "constructor", "id": ["langchain_core", "messages", "human", "HumanMessage"], "kwargs": {"content": "I love programming!"}}]}'
     )
 
 

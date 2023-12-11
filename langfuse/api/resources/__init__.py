@@ -30,6 +30,7 @@ from .commons import (
     LlmUsage,
     MapValue,
     MethodNotAllowedError,
+    ModelUsageType,
     NotFoundError,
     Observation,
     ObservationLevel,
@@ -38,6 +39,7 @@ from .commons import (
     TraceWithDetails,
     TraceWithFullDetails,
     UnauthorizedError,
+    Usage,
 )
 from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
@@ -85,6 +87,7 @@ __all__ = [
     "LlmUsage",
     "MapValue",
     "MethodNotAllowedError",
+    "ModelUsageType",
     "NotFoundError",
     "Observation",
     "ObservationCreateEvent",
@@ -105,6 +108,7 @@ __all__ = [
     "UnauthorizedError",
     "UpdateGenerationRequest",
     "UpdateSpanRequest",
+    "Usage",
     "commons",
     "dataset_items",
     "dataset_run_items",

@@ -1,7 +1,7 @@
+from typing import TypedDict
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
-from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
 from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
 
@@ -58,5 +58,8 @@ class UpdateSpan(UpdateSpanRequest):
     __fields__ = {name: field for name, field in UpdateSpanRequest.__fields__.items() if name not in ["spanId", "span_id"]}
 
 
-class Usage(LlmUsage):
-    __fields__ = {name: field for name, field in LlmUsage.__fields__.items()}
+class ModelUsage(TypedDict):
+    usage: str
+    input: int
+    output: int
+    total: int
