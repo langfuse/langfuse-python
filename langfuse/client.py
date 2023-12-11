@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import os
-from typing import Optional
+from typing import Literal, Optional
 import typing
 import uuid
 from datetime import datetime
@@ -32,12 +32,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.api.client import FernLangfuse
-from langfuse.api.resources.commons.types.dataset import Dataset
-from langfuse.api.resources.commons.types.observation import Observation
-from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
-from langfuse.api.resources.commons.types.map_value import MapValue
-from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
+from langfuse.model import Dataset
+from langfuse.model import Observation
+from langfuse.model import MapValue
+from langfuse.model import TraceWithFullDetails
 
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
@@ -45,6 +43,10 @@ from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 from langfuse.utils import convert_observation_to_event
 from .version import __version__ as version
+
+
+Observation_Level = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
+Dataset_Status = Literal["ACTIVE", "ARCHIVED"]
 
 
 class Langfuse(object):
@@ -323,7 +325,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -393,7 +395,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -526,7 +528,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -585,7 +587,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -666,7 +668,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -720,7 +722,7 @@ class StatefulGenerationClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -772,7 +774,7 @@ class StatefulGenerationClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -829,7 +831,7 @@ class StatefulSpanClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -868,7 +870,7 @@ class StatefulSpanClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[ObservationLevel] = None,
+        level: typing.Optional[Observation_Level] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -927,7 +929,7 @@ class StatefulTraceClient(StatefulClient):
 
 class DatasetItemClient:
     id: str
-    status: DatasetStatus
+    status: Dataset_Status
     input: typing.Any
     expected_output: typing.Optional[typing.Any]
     source_observation_id: typing.Optional[str]
@@ -988,7 +990,7 @@ class DatasetItemClient:
 class DatasetClient:
     id: str
     name: str
-    status: DatasetStatus
+    status: Dataset_Status
     project_id: str
     dataset_name: str
     created_at: dt.datetime
