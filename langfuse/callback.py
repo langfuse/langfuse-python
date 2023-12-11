@@ -584,7 +584,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
             else:
                 last_response = response.generations[-1][-1]
-                llm_usage = None if response.llm_output is None else {"output": response.llm_output["token_usage"]}
+                llm_usage = None if response.llm_output is None else response.llm_output["token_usage"]
 
                 extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
 

@@ -753,7 +753,7 @@ class StatefulGenerationClient(StatefulClient):
 
             if kwargs is not None:
                 generation_body.update(kwargs)
-
+            self.log.debug(f"Update generation {generation_body}...")
             request = UpdateGenerationValidation(**generation_body)
 
             event = convert_observation_to_event(request, "GENERATION", True)

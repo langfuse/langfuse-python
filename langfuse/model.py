@@ -1,4 +1,5 @@
-from typing import TypedDict
+from typing import TypedDict, Optional
+
 
 # these imports need to stay here, otherwise imports from our clients wont work
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel  # noqa: F401
@@ -11,7 +12,7 @@ from langfuse.api.resources.commons.types.dataset_run import DatasetRun  # noqa:
 
 
 class ModelUsage(TypedDict):
-    usage: str
-    input: int
-    output: int
-    total: int
+    unit: Optional[str]
+    input: Optional[int]
+    output: Optional[int]
+    total: Optional[int]
