@@ -73,7 +73,7 @@ def test_default_langfuse_trace_callback():
 
 def test_debug_langfuse_trace_callback():
     langfuse = Langfuse(debug=True)
-    trace = langfuse.trace(CreateTrace(name="test"))
+    trace = langfuse.trace(name="test")
     callback = trace.getNewHandler()
 
     assert callback.log.level == 10
