@@ -5,8 +5,8 @@ import logging
 import queue
 from queue import Empty, Queue
 import threading
-from typing import List
-import monotonic
+import time
+from typing import List, Any
 from dateutil.tz import tzutc
 
 
@@ -57,11 +57,11 @@ class Consumer(threading.Thread):
         queue = self._queue
         items = []
 
-        start_time = monotonic.monotonic()
+        start_time = time.monotonic()
         total_size = 0
 
         while len(items) < self._flush_at:
-            elapsed = monotonic.monotonic() - start_time
+            elapsed = time.monotonic() - start_time
             if elapsed >= self._flush_interval:
                 break
             try:
@@ -105,11 +105,11 @@ class Consumer(threading.Thread):
         """Pause the consumer."""
         self.running = False
 
-    def _upload_batch(self, batch: List[any]):
+    def _upload_batch(self, batch: List[Any]):
         self._log.warn("uploading batch of %d items", len(batch))
 
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
-        def execute_task_with_backoff(batch: [any]):
+        def execute_task_with_backoff(batch: List[Any]):
             self._log.debug("uploading batch of %d items", len(batch))
             return self._client.batch_post(gzip=False, batch=batch)
 

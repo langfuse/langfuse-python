@@ -196,7 +196,7 @@ files = [
 name = "attrs"
 version = "23.1.0"
 description = "Classes Without Boilerplate"
-optional = false
+optional = true
 python-versions = ">=3.7"
 files = [
     {file = "attrs-23.1.0-py3-none-any.whl", hash = "sha256:1f28b4522cdc2fb4256ac1a020c78acf9cba2c6b461ccd2c126f3aa8e8335d04"},
@@ -3729,4 +3729,4 @@ langchain = ["langchain"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "5e68512f55b730afc139301057e1c32fc0433b24972c9c41e74075e885a7c89a"
+content-hash = "db87c13497f8a725f07a70db3ff16a63ee9497149473c83e54192a5d303a542d"
