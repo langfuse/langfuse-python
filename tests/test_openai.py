@@ -529,9 +529,9 @@ async def test_async_chat_stream():
         "maxTokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
