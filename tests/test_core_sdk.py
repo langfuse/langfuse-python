@@ -140,7 +140,7 @@ def test_create_trace():
 
 def test_create_generation():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
     timestamp = datetime.now()
     generation_id = create_uuid()
@@ -161,38 +161,38 @@ def test_create_generation():
         completion="This document entails the OKR goals for ACME",
         usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
+        level="DEBUG",
     )
 
     langfuse.flush()
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert trace["name"] == "query-generation"
-    assert trace["userId"] is None
-    assert trace["metadata"] is None
-    assert trace["externalId"] is None
+    assert trace.name == "query-generation"
+    assert trace.user_id is None
+    assert trace.metadata is None
 
-    assert len(trace["observations"]) == 1
+    assert len(trace.observations) == 1
 
-    generation = trace["observations"][0]
+    generation = trace.observations[0]
 
-    assert generation["id"] == generation_id
-    assert generation["name"] == "query-generation"
-    assert generation["startTime"] is not None
-    assert generation["startTime"] is not None
-    assert generation["endTime"] is not None
-    assert generation["model"] == "gpt-3.5-turbo"
-    assert generation["modelParameters"] == {"maxTokens": "1000", "temperature": "0.9"}
-    assert generation["input"] == [
+    assert generation.id == generation_id
+    assert generation.name == "query-generation"
+    assert generation.start_time is not None
+    assert generation.end_time is not None
+    assert generation.model == "gpt-3.5-turbo"
+    assert generation.model_parameters == {"maxTokens": "1000", "temperature": "0.9"}
+    assert generation.input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
             "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
         },
     ]
-    assert generation["output"] == "This document entails the OKR goals for ACME"
+    assert generation.output == "This document entails the OKR goals for ACME"
+    assert generation.level == "DEBUG"
 
 
 @pytest.mark.parametrize("usage", [LlmUsage(promptTokens=51, completionTokens=49, totalTokens=100), {"input": 51, "output": 49, "total": 100, "unit": "TOKENS"}])
