@@ -11,6 +11,7 @@ from langfuse.api.resources.commons.types.dataset_run import DatasetRun  # noqa:
 from langfuse.api.resources.commons.types.observation import Observation  # noqa: F401
 from langfuse.api.resources.commons.types.map_value import MapValue  # noqa: F401
 from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails  # noqa: F401
+from langfuse.api.resources.commons.types.dataset_status import DatasetStatus  # noqa: F401
 
 
 class ModelUsage(TypedDict):

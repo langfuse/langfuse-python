@@ -17,14 +17,7 @@ from langfuse.input_validation import (
     UpdateSpanValidation,
 )
 
-from langfuse.model import (
-    DatasetItem,
-    CreateDatasetRunItemRequest,
-    CreateDatasetRequest,
-    CreateDatasetItemRequest,
-    DatasetRun,
-    ModelUsage,
-)
+from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, ModelUsage, DatasetStatus
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -46,7 +39,6 @@ from .version import __version__ as version
 
 
 Observation_Level = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
-Dataset_Status = Literal["ACTIVE", "ARCHIVED"]
 
 
 class Langfuse(object):
@@ -929,7 +921,7 @@ class StatefulTraceClient(StatefulClient):
 
 class DatasetItemClient:
     id: str
-    status: Dataset_Status
+    status: DatasetStatus
     input: typing.Any
     expected_output: typing.Optional[typing.Any]
     source_observation_id: typing.Optional[str]
@@ -990,7 +982,7 @@ class DatasetItemClient:
 class DatasetClient:
     id: str
     name: str
-    status: Dataset_Status
+    status: DatasetStatus
     project_id: str
     dataset_name: str
     created_at: dt.datetime
