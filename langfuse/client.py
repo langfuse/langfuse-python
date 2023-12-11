@@ -4,9 +4,27 @@ import os
 from typing import Optional
 import typing
 import uuid
-
-
+from datetime import datetime
 import datetime as dt
+
+from langfuse.input_validation import (
+    CreateEventValidation,
+    CreateGenerationValidation,
+    CreateScoreValidation,
+    CreateSpanValidation,
+    CreateTraceValidation,
+    UpdateGenerationValidation,
+    UpdateSpanValidation,
+)
+
+from langfuse.model import (
+    DatasetItem,
+    CreateDatasetRunItemRequest,
+    CreateDatasetRequest,
+    CreateDatasetItemRequest,
+    DatasetRun,
+    ModelUsage,
+)
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,41 +32,15 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.api.client import FernLangfuse
-from datetime import datetime
-from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
-from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
-from langfuse.api.resources.commons.types.create_span_request import CreateSpanRequest
 from langfuse.api.resources.commons.types.dataset import Dataset
 from langfuse.api.resources.commons.types.observation import Observation
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
-
 from langfuse.api.resources.commons.types.map_value import MapValue
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
-from langfuse.api.resources.score.types.create_score_request import CreateScoreRequest
-from langfuse.api.resources.trace.types.create_trace_request import CreateTraceRequest
+
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import (
-    DatasetItem,
-    CreateDatasetRunItemRequest,
-    CreateDatasetRequest,
-    CreateEvent,
-    CreateGeneration,
-    CreateScore,
-    CreateSpan,
-    CreateTrace,
-    InitialGeneration,
-    InitialScore,
-    InitialSpan,
-    UpdateGeneration,
-    UpdateSpan,
-    CreateDatasetItemRequest,
-    DatasetRun,
-)
-from langfuse.api.resources.commons.types.trace_with_full_details import TraceWithFullDetails
-from langfuse.api.resources.generations.types.update_generation_request import UpdateGenerationRequest
-from langfuse.api.resources.span.types.update_span_request import UpdateSpanRequest
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 from langfuse.utils import convert_observation_to_event
@@ -258,7 +250,7 @@ class Langfuse(object):
             if kwargs is not None:
                 new_dict.update(kwargs)
 
-            new_body = CreateTraceRequest(**new_dict)
+            new_body = CreateTraceValidation(**new_dict)
 
             self.log.debug(f"Creating trace {new_body}")
             event = {
@@ -302,7 +294,7 @@ class Langfuse(object):
                 new_dict.update(kwargs)
 
             self.log.debug(f"Creating score {new_dict}...")
-            new_body = CreateScoreRequest(**new_dict)
+            new_body = CreateScoreValidation(**new_dict)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -367,7 +359,7 @@ class Langfuse(object):
                     "name": name,
                 }
 
-                trace_body = CreateTraceRequest(**trace_dict)
+                trace_body = CreateTraceValidation(**trace_dict)
 
                 event = {
                     "id": str(uuid.uuid4()),
@@ -379,7 +371,7 @@ class Langfuse(object):
                 self.task_manager.add_task(event)
 
             self.log.debug(f"Creating span {span_body}...")
-            span_body = CreateSpanRequest(**span_body)
+            span_body = CreateSpanValidation(**span_body)
 
             event = convert_observation_to_event(span_body, "SPAN")
 
@@ -449,7 +441,7 @@ class Langfuse(object):
                     "release": self.release,
                     "name": name,
                 }
-                request = CreateTraceRequest(**trace)
+                request = CreateTraceValidation(**trace)
 
                 event = {
                     "id": str(uuid.uuid4()),
@@ -461,7 +453,7 @@ class Langfuse(object):
 
                 self.task_manager.add_task(event)
 
-            request = CreateGenerationRequest(**generation_body)
+            request = CreateGenerationValidation(**generation_body)
 
             event = convert_observation_to_event(request, "GENERATION")
 
@@ -573,7 +565,7 @@ class StatefulClient(object):
             generation_body = self._add_state_to_event(generation_body)
             new_body = self._add_default_values(generation_body)
 
-            new_body = CreateGenerationRequest(**new_body)
+            new_body = CreateGenerationValidation(**new_body)
 
             self.log.debug(f"Creating generation {new_body}...")
             self.task_manager.add_task(
@@ -622,7 +614,7 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
 
-            request = CreateSpanRequest(**new_body)
+            request = CreateSpanValidation(**new_body)
             event = convert_observation_to_event(request, "SPAN")
 
             self.task_manager.add_task(event)
@@ -652,7 +644,7 @@ class StatefulClient(object):
             if self.state_type == StateType.OBSERVATION:
                 new_dict["observationId"] = self.id
 
-            request = CreateScoreRequest(**new_dict)
+            request = CreateScoreValidation(**new_dict)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -700,7 +692,7 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(event_body)
             new_body = self._add_default_values(new_dict)
 
-            request = CreateEventRequest(**new_body)
+            request = CreateEventValidation(**new_body)
 
             event = convert_observation_to_event(request, "EVENT")
             self.log.debug(f"Creating event {event}...")
@@ -762,7 +754,7 @@ class StatefulGenerationClient(StatefulClient):
             if kwargs is not None:
                 generation_body.update(kwargs)
 
-            request = UpdateGenerationRequest(**generation_body)
+            request = UpdateGenerationValidation(**generation_body)
 
             event = convert_observation_to_event(request, "GENERATION", True)
             self.log.debug(f"Update generation {event}...")
@@ -858,7 +850,7 @@ class StatefulSpanClient(StatefulClient):
             if kwargs is not None:
                 span_body.update(kwargs)
             self.log.debug(f"Update span {span_body}...")
-            request = UpdateSpanRequest(**span_body)
+            request = UpdateSpanValidation(**span_body)
 
             event = convert_observation_to_event(request, "SPAN", True)
 
