@@ -1,7 +1,11 @@
 from asyncio import gather
 from datetime import datetime
 import typing
-import pydantic
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 import pytest
 import pytz
@@ -193,7 +197,7 @@ def test_create_generation():
 
 @pytest.mark.parametrize("usage", [LlmUsage(promptTokens=51, completionTokens=49, totalTokens=100), {"input": 51, "output": 49, "total": 100, "unit": "TOKENS"}])
 def test_create_generation_complex(usage):
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     generation_id = create_uuid()
