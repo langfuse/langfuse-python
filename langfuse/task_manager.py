@@ -15,13 +15,15 @@ import backoff
 from langfuse.request import LangfuseClient
 from langfuse.serializer import DatetimeSerializer
 
-# largest message size in db is 331000 bytes right now
-MAX_MSG_SIZE = 700_000
+# largest message size in db is 331_000 bytes right now
+MAX_MSG_SIZE = 650_000
 
 # https://vercel.com/docs/functions/serverless-functions/runtimes#request-body-size
 # The maximum payload size for the request body or the response body of a Serverless Function is 4.5 MB
 # 4_500_000 Bytes = 4.5 MB
-BATCH_SIZE_LIMIT = 2_000_000
+# https://nextjs.org/docs/pages/building-your-application/routing/api-routes#custom-config
+# The default nextjs body parser takes a max body size of 1mb. Hence, our BATCH_SIZE_LIMIT should be less to accomodate the final event.
+BATCH_SIZE_LIMIT = 650_000
 
 
 class Consumer(threading.Thread):
@@ -68,6 +70,9 @@ class Consumer(threading.Thread):
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
                 item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
                 self._log.debug(f"item size {item_size}")
+                if item_size > MAX_MSG_SIZE:
+                    self._log.warning("Item exceeds size limit (size: %s), dropping item. (%s)", item_size, item)
+                    continue
                 items.append(item)
                 total_size += item_size
                 if total_size >= BATCH_SIZE_LIMIT:
