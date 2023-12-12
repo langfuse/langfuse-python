@@ -1,6 +1,6 @@
+import logging
 import os
 from datetime import datetime
-import logging
 import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
@@ -10,11 +10,19 @@ from langfuse.api.resources.commons.types.llm_usage import LlmUsage
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
 from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
-from langchain.schema.output import LLMResult
-from langchain.schema.messages import BaseMessage
-from langchain.schema.document import Document
 
-from langchain.schema.agent import AgentAction, AgentFinish
+try:
+    from langchain.schema.agent import AgentAction, AgentFinish
+    from langchain.schema.document import Document
+    from langchain.schema.messages import BaseMessage
+    from langchain.schema.output import LLMResult
+except ImportError:
+    logging.getLogger("langfuse").warning("Could not import langchain. Some functionality may be missing.")
+    LLMResult = Any
+    BaseMessage = Any
+    Document = Any
+    AgentAction = Any
+    AgentFinish = Any
 
 
 class CallbackHandler(BaseCallbackHandler):
@@ -29,7 +37,7 @@ class CallbackHandler(BaseCallbackHandler):
         self,
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
-        host: str = None,
+        host: Optional[str] = None,
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         release: Optional[str] = None,

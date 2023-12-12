@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   ci:
@@ -58,14 +58,36 @@ jobs:
           TELEMETRY_ENABLED=false docker-compose up -d
           echo "::endgroup::"
 
+          sleep 20
+
           echo "::group::Install dependencies (necessary to run seeder)"
           npm ci
           echo "::endgroup::"
 
-          echo "::group::Apply migrations and seed db"
+          echo "::group::Seed db"
           cp .env.dev.example .env
-          npx --yes prisma migrate reset --force --skip-generate
+          npx --yes prisma db seed
           echo "::endgroup::"
+
+      # Add this step to check the health of the container
+      - name: Health check for langfuse server
+        run: |
+          echo "Checking if the langfuse server is up..."
+          retry_count=0
+          max_retries=5
+          until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health
+          do
+            retry_count=`expr $retry_count + 1`
+            echo "Attempt $retry_count of $max_retries..."
+            if [ $retry_count -ge $max_retries ]; then
+              echo "Langfuse server did not respond in time. Printing logs..."
+              docker logs langfuse-server_langfuse-server_1
+              echo "Failing the step..."
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "Langfuse server is up and running!"
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -98,7 +120,7 @@ jobs:
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
       - name: Install the project dependencies
-        run: poetry install
+        run: poetry install --all-extras
 
       - name: Run the automated tests
         run: |

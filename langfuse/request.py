@@ -6,7 +6,7 @@ import logging
 from typing import Any, List, Union
 import requests
 
-from langfuse.serializer import DatetimeSerializer
+from langfuse.serializer import EventSerializer
 
 
 _session = requests.sessions.Session()
@@ -46,7 +46,7 @@ class LangfuseClient:
         body = kwargs
 
         url = self.remove_trailing_slash(self._base_url) + "/api/public/ingestion"
-        data = json.dumps(body, cls=DatetimeSerializer)
+        data = json.dumps(body, cls=EventSerializer)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
         if gzip:
@@ -86,12 +86,13 @@ class LangfuseClient:
                 return res.json() if return_json else res
         try:
             payload = res.json()
-            raise APIError(res.status_code, payload["detail"])
+            log.error("received error response: %s", payload)
+            raise APIError(res.status_code, payload)
         except (KeyError, ValueError):
             raise APIError(res.status_code, res.text)
 
 
-class APIError:
+class APIError(Exception):
     def __init__(self, status: Union[int, str], message: str, details: Any = None):
         self.message = message
         self.status = status

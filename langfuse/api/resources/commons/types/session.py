@@ -11,14 +11,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class Score(pydantic.BaseModel):
+class Session(pydantic.BaseModel):
     id: str
-    trace_id: str = pydantic.Field(alias="traceId")
-    name: str
-    value: float
-    observation_id: typing.Optional[str] = pydantic.Field(alias="observationId", default=None)
-    timestamp: dt.datetime
-    comment: typing.Optional[str] = None
+    created_at: dt.datetime = pydantic.Field(alias="createdAt")
+    project_id: str = pydantic.Field(alias="projectId")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

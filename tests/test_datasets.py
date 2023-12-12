@@ -15,7 +15,7 @@ from tests.utils import create_uuid, get_api
 
 
 def test_create_and_get_dataset():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
@@ -35,13 +35,14 @@ def test_create_dataset_item():
     assert len(dataset.items) == 1
     assert dataset.items[0].input == input
 
+
 def test_upsert_and_get_dataset_item():
     langfuse = Langfuse(debug=False)
     name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=name))
-    input ={"input": "Hello World"}
+    input = {"input": "Hello World"}
     item = langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=input, expectedOutput=input))
-    
+
     get_item = langfuse.get_dataset_item(item.id)
     assert get_item.input == input
     assert get_item.id == item.id
@@ -113,7 +114,7 @@ def test_linking_via_id_observation():
 
 
 def test_langchain_dataset():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
     langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
 

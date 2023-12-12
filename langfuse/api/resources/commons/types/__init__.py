@@ -13,6 +13,8 @@ from .map_value import MapValue
 from .observation import Observation
 from .observation_level import ObservationLevel
 from .score import Score
+from .session import Session
+from .session_with_traces import SessionWithTraces
 from .trace import Trace
 from .trace_with_details import TraceWithDetails
 from .trace_with_full_details import TraceWithFullDetails
@@ -31,6 +33,8 @@ __all__ = [
     "Observation",
     "ObservationLevel",
     "Score",
+    "Session",
+    "SessionWithTraces",
     "Trace",
     "TraceWithDetails",
     "TraceWithFullDetails",

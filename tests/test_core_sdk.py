@@ -32,10 +32,10 @@ async def test_concurrency():
         generation = trace.generation(InitialGeneration(name=str(i)))
         generation.update(UpdateGeneration(metadata={"count": str(i)}))
 
-    langfuse = Langfuse(debug=True, threads=5)
-
+    langfuse = Langfuse(debug=False, threads=5)
+    print("start")
     await gather(*(update_generation(i, langfuse) for i in range(100)))
-
+    print("flush")
     langfuse.flush()
     diff = datetime.now() - start
     print(diff)
@@ -49,7 +49,7 @@ async def test_concurrency():
 
 def test_flush():
     # set up the consumer with more requests than a single batch will allow
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     for i in range(2):
         langfuse.trace(
@@ -81,7 +81,7 @@ def test_shutdown():
 
 
 def test_create_score():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
@@ -143,7 +143,7 @@ def test_create_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     timestamp = datetime.now()
@@ -252,7 +252,7 @@ def test_create_generation_complex():
 
 
 def test_create_span():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     timestamp = datetime.now()
@@ -407,10 +407,13 @@ def test_create_trace_and_generation():
 
     langfuse.flush()
 
-    getTrace = api.trace.get(trace.id)
+    getTrace = langfuse.get_trace(trace.id)
+    dbTrace = api.trace.get(trace.id)
 
+    assert dbTrace.name == trace_name
+    assert len(dbTrace.observations) == 1
     assert getTrace.name == trace_name
-    assert len(trace.observations) == 1
+    assert len(getTrace.observations) == 1
 
     generation = getTrace.observations[0]
     assert generation.name == "generation"
@@ -440,6 +443,7 @@ def test_create_generation_and_trace():
     assert span["name"] == "generation"
     assert span["traceId"] == trace["id"]
 
+
 def test_create_span_and_get_observation():
     langfuse = Langfuse(debug=False)
 
@@ -451,8 +455,9 @@ def test_create_span_and_get_observation():
     assert observation.name == "span"
     assert observation.id == span_id
 
+
 def test_update_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
     start = datetime.utcnow()
 
@@ -493,7 +498,7 @@ def test_update_span():
 
 
 def test_create_trace_and_event():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     trace_name = create_uuid()

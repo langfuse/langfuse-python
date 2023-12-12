@@ -27,7 +27,7 @@ poetry self add poetry-bumpversion
 ### Install dependencies
 
 ```
-poetry install
+poetry install --all-extras
 ```
 
 ### Add Pre-commit
@@ -72,3 +72,4 @@ poetry run pre-commit install
 8. `poetry publish`
    - Create PyPi API token: https://pypi.org/manage/account/token/
    - Setup: `poetry config pypi-token.pypi your-api-token`
+9. Create a release on GitHub with the changelog
