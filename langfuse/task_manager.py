@@ -13,7 +13,7 @@ from dateutil.tz import tzutc
 import backoff
 
 from langfuse.request import LangfuseClient
-from langfuse.serializer import DatetimeSerializer
+from langfuse.serializer import EventSerializer
 
 # largest message size in db is 331_000 bytes right now
 MAX_MSG_SIZE = 650_000
@@ -68,7 +68,7 @@ class Consumer(threading.Thread):
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
-                item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
+                item_size = len(json.dumps(item, cls=EventSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 if item_size > MAX_MSG_SIZE:
                     self._log.warning("Item exceeds size limit (size: %s), dropping item. (%s)", item_size, item)

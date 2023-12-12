@@ -6,7 +6,7 @@ import logging
 from typing import Any, List, Union
 import requests
 
-from langfuse.serializer import DatetimeSerializer
+from langfuse.serializer import EventSerializer
 
 
 _session = requests.sessions.Session()
@@ -46,7 +46,7 @@ class LangfuseClient:
         body = kwargs
 
         url = self.remove_trailing_slash(self._base_url) + "/api/public/ingestion"
-        data = json.dumps(body, cls=DatetimeSerializer)
+        data = json.dumps(body, cls=EventSerializer)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
         if gzip:
