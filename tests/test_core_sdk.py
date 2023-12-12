@@ -1,9 +1,8 @@
 from asyncio import gather
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 import pytest
-import pytz
 
 from langfuse import Langfuse
 from langfuse.model import (
@@ -473,7 +472,7 @@ def test_update_generation():
     assert retrieved_generation.name == "generation"
     assert retrieved_generation.trace_id == generation.trace_id
     assert retrieved_generation.metadata == {"dict": "value"}
-    assert start.replace(microsecond=0, tzinfo=pytz.UTC) == retrieved_generation.start_time.replace(microsecond=0)
+    assert start.replace(microsecond=0, tzinfo=timezone.utc) == retrieved_generation.start_time.replace(microsecond=0)
 
 
 def test_update_span():
