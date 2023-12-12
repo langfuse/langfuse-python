@@ -119,21 +119,13 @@ jobs:
           key: |
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
-      - name: Install the mandatory project dependencies
-        run: poetry install --without dev
-
-      - name: Run the core SKD tests
-        run: |
-          python --version
-          poetry run pytest -s -v tests/test_core_sdk.py tests/test_task_manager.py
-
-      - name: Install extra project dependencies
+      - name: Install the project dependencies
         run: poetry install --all-extras
 
-      - name: Run all tests
+      - name: Run the automated tests
         run: |
           python --version
-          poetry run pytest -s -v tests/test_core_sdk.py tests/test_task_manager.py
+          poetry run pytest -s -v --log-cli-level=INFO
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
