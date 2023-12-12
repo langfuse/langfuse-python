@@ -120,7 +120,7 @@ jobs:
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
       - name: Install the mandatory project dependencies
-        run: poetry install
+        run: poetry install --without dev
 
       - name: Run the core SKD tests
         run: |
