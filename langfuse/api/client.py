@@ -15,11 +15,12 @@ from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.score.client import AsyncScoreClient, ScoreClient
+from .resources.sessions.client import AsyncSessionsClient, SessionsClient
 from .resources.span.client import AsyncSpanClient, SpanClient
 from .resources.trace.client import AsyncTraceClient, TraceClient
 
 
-class FintoLangfuse:
+class FernLangfuse:
     def __init__(
         self,
         *,
@@ -51,11 +52,12 @@ class FintoLangfuse:
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.score = ScoreClient(client_wrapper=self._client_wrapper)
+        self.sessions = SessionsClient(client_wrapper=self._client_wrapper)
         self.span = SpanClient(client_wrapper=self._client_wrapper)
         self.trace = TraceClient(client_wrapper=self._client_wrapper)
 
 
-class AsyncFintoLangfuse:
+class AsyncFernLangfuse:
     def __init__(
         self,
         *,
@@ -87,5 +89,6 @@ class AsyncFintoLangfuse:
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.score = AsyncScoreClient(client_wrapper=self._client_wrapper)
+        self.sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
         self.span = AsyncSpanClient(client_wrapper=self._client_wrapper)
         self.trace = AsyncTraceClient(client_wrapper=self._client_wrapper)

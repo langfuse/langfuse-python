@@ -15,6 +15,9 @@ class Trace(pydantic.BaseModel):
     id: str = pydantic.Field(description="The unique identifier of a trace")
     timestamp: dt.datetime
     name: typing.Optional[str] = None
+    input: typing.Optional[typing.Any] = None
+    output: typing.Optional[typing.Any] = None
+    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
     user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)

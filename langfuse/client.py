@@ -8,7 +8,7 @@ import uuid
 
 import datetime as dt
 
-from langfuse.api.client import FintoLangfuse
+from langfuse.api.client import FernLangfuse
 from datetime import datetime
 from langfuse.api.resources.commons.types.create_event_request import CreateEventRequest
 from langfuse.api.resources.commons.types.create_generation_request import CreateGenerationRequest
@@ -89,7 +89,7 @@ class Langfuse(object):
             self.log.warning("secret_key is not set.")
             raise ValueError("secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'")
 
-        self.client = FintoLangfuse(
+        self.client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
             password=secret_key,
@@ -395,7 +395,7 @@ class StateType(Enum):
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -501,7 +501,7 @@ class StatefulClient(object):
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateGeneration):
@@ -536,7 +536,7 @@ class StatefulGenerationClient(StatefulClient):
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(self, body: UpdateSpan):
@@ -576,7 +576,7 @@ class StatefulSpanClient(StatefulClient):
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FintoLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
