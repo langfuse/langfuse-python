@@ -3749,4 +3749,4 @@ langchain = ["langchain"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "d1fdca47e67eff51ed7d4f638dbfd871de0c3b74a1d7cbdb7de49e0f33e94780"
+content-hash = "ecc0fb1104ac6875d37719e51e00710a7e7ed35f746da2c1db33e47f2b2f0a88"
