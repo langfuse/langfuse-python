@@ -195,7 +195,15 @@ def test_create_generation():
     assert generation.level == "DEBUG"
 
 
-@pytest.mark.parametrize("usage", [LlmUsage(promptTokens=51, completionTokens=49, totalTokens=100), {"input": 51, "output": 49, "total": 100, "unit": "TOKENS"}])
+@pytest.mark.parametrize(
+    "usage",
+    [
+        LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
+        LlmUsage(promptTokens=51, totalTokens=100),
+        {"input": 51, "output": 0, "total": 100, "unit": "TOKENS"},
+        {"input": 51, "total": 100},
+    ],
+)
 def test_create_generation_complex(usage):
     langfuse = Langfuse(debug=False)
     api = get_api()
@@ -243,7 +251,7 @@ def test_create_generation_complex(usage):
     assert generation.metadata == [{"tags": ["yo"]}]
     assert generation.start_time is not None
     assert generation.usage.input == 51
-    assert generation.usage.output == 49
+    assert generation.usage.output == 0
     assert generation.usage.total == 100
     assert generation.usage.unit == "TOKENS"
 

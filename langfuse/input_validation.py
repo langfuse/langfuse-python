@@ -6,7 +6,7 @@ import typing
 from langfuse.api.core.datetime_utils import serialize_datetime
 from langfuse.api.resources.commons.types.map_value import MapValue
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.model import ModelUsage
+from langfuse.api.resources.commons.types.usage import Usage
 
 
 try:
@@ -117,7 +117,7 @@ class CreateGenerationValidation(CreateSpanValidation):
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(alias="modelParameters", default=None)
     prompt: typing.Optional[typing.Any] = None
     completion: typing.Optional[typing.Any] = None
-    usage: typing.Optional[ModelUsage] = None
+    usage: typing.Optional[Usage] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -147,7 +147,7 @@ class UpdateGenerationValidation(pydantic.BaseModel):
     version: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
     completion: typing.Optional[typing.Any] = None
-    usage: typing.Optional[ModelUsage] = None
+    usage: typing.Optional[Usage] = None
     level: typing.Optional[ObservationLevel] = None
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
 

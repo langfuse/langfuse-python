@@ -16,7 +16,7 @@ class Usage(pydantic.BaseModel):
     input: typing.Optional[int] = None
     output: typing.Optional[int] = None
     total: typing.Optional[int] = None
-    unit: ModelUsageType
+    unit: typing.Optional[ModelUsageType] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
