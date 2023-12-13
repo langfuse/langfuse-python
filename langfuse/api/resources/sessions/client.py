@@ -6,44 +6,38 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.jsonable_encoder import jsonable_encoder
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from .types.ingestion_event import IngestionEvent
-from .types.ingestion_response import IngestionResponse
+from ..commons.types.session_with_traces import SessionWithTraces
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
 except ImportError:
     import pydantic  # type: ignore
 
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
 
-
-class IngestionClient:
+class SessionsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
+    def get(self, session_id: str) -> SessionWithTraces:
         """
-        Ingest multiple events to Langfuse
+        Get a session
 
         Parameters:
-            - batch: typing.List[IngestionEvent].
+            - session_id: str. The unique id of a session
         """
         _response = self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/ingestion"),
-            json=jsonable_encoder({"batch": batch}),
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/sessions/{session_id}"),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(IngestionResponse, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(SessionWithTraces, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -61,26 +55,25 @@ class IngestionClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncIngestionClient:
+class AsyncSessionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
+    async def get(self, session_id: str) -> SessionWithTraces:
         """
-        Ingest multiple events to Langfuse
+        Get a session
 
         Parameters:
-            - batch: typing.List[IngestionEvent].
+            - session_id: str. The unique id of a session
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/ingestion"),
-            json=jsonable_encoder({"batch": batch}),
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/sessions/{session_id}"),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(IngestionResponse, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(SessionWithTraces, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

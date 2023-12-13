@@ -22,6 +22,8 @@ class CreateTraceValidation(pydantic.BaseModel):
     external_id: typing.Optional[str] = pydantic.Field(alias="externalId", default=None)
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
+    input: typing.Optional[typing.Any] = None
+    output: typing.Optional[typing.Any] = None
     metadata: typing.Optional[typing.Any] = None
     public: typing.Optional[bool] = pydantic.Field(default=None, description="Make trace publicly accessible via url")
 

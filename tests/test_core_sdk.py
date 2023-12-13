@@ -456,7 +456,7 @@ def test_create_trace_and_generation():
     trace_name = create_uuid()
     generationId = create_uuid()
 
-    trace = langfuse.trace(name=trace_name)
+    trace = langfuse.trace(name=trace_name, input={"key": "value"}, sessionId="test")
     trace.generation(id=generationId, name="generation")
 
     langfuse.flush()
@@ -471,8 +471,9 @@ def test_create_trace_and_generation():
 
     generation = getTrace.observations[0]
     assert generation.name == "generation"
-    assert generation.trace_id == trace.id
+    assert generation.trace_id == getTrace.id
     assert generation.start_time is not None
+    assert getTrace.input == {"key": "value"}
 
 
 def test_create_generation_and_trace():

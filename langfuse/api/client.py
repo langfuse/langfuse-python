@@ -13,6 +13,7 @@ from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.score.client import AsyncScoreClient, ScoreClient
+from .resources.sessions.client import AsyncSessionsClient, SessionsClient
 from .resources.trace.client import AsyncTraceClient, TraceClient
 
 
@@ -46,6 +47,7 @@ class FernLangfuse:
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.score = ScoreClient(client_wrapper=self._client_wrapper)
+        self.sessions = SessionsClient(client_wrapper=self._client_wrapper)
         self.trace = TraceClient(client_wrapper=self._client_wrapper)
 
 
@@ -79,4 +81,5 @@ class AsyncFernLangfuse:
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.score = AsyncScoreClient(client_wrapper=self._client_wrapper)
+        self.sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
         self.trace = AsyncTraceClient(client_wrapper=self._client_wrapper)

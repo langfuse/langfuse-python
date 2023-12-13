@@ -4,7 +4,8 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .observation_event import ObservationEvent
+from .ingestion_error import IngestionError
+from .ingestion_success import IngestionSuccess
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -12,10 +13,9 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class ObservationCreateEvent(pydantic.BaseModel):
-    id: str
-    timestamp: str
-    body: ObservationEvent
+class IngestionResponse(pydantic.BaseModel):
+    successes: typing.List[IngestionSuccess]
+    errors: typing.List[IngestionError]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

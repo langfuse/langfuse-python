@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.trace import Trace
+from .create_trace_request import CreateTraceRequest
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -15,7 +15,7 @@ except ImportError:
 class TraceEvent(pydantic.BaseModel):
     id: str
     timestamp: str
-    body: Trace
+    body: CreateTraceRequest
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
