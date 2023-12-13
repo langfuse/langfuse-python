@@ -34,7 +34,7 @@ from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.utils import convert_observation_to_event
+from langfuse.utils import _convert_observation_to_event, _convert_usage_input
 from .version import __version__ as version
 
 
@@ -366,7 +366,7 @@ class Langfuse(object):
             self.log.debug(f"Creating span {span_body}...")
             span_body = CreateSpanValidation(**span_body)
 
-            event = convert_observation_to_event(span_body, "SPAN")
+            event = _convert_observation_to_event(span_body, "SPAN")
 
             self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
@@ -448,7 +448,7 @@ class Langfuse(object):
 
             request = CreateGenerationValidation(**generation_body)
 
-            event = convert_observation_to_event(request, "GENERATION")
+            event = _convert_observation_to_event(request, "GENERATION")
 
             self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
@@ -562,7 +562,7 @@ class StatefulClient(object):
 
             self.log.debug(f"Creating generation {new_body}...")
             self.task_manager.add_task(
-                convert_observation_to_event(new_body, "GENERATION"),
+                _convert_observation_to_event(new_body, "GENERATION"),
             )
             return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
@@ -608,7 +608,7 @@ class StatefulClient(object):
             new_body = self._add_default_values(new_dict)
 
             request = CreateSpanValidation(**new_body)
-            event = convert_observation_to_event(request, "SPAN")
+            event = _convert_observation_to_event(request, "SPAN")
 
             self.task_manager.add_task(event)
             return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
@@ -687,7 +687,7 @@ class StatefulClient(object):
 
             request = CreateEventValidation(**new_body)
 
-            event = convert_observation_to_event(request, "EVENT")
+            event = _convert_observation_to_event(request, "EVENT")
             self.log.debug(f"Creating event {event}...")
             self.task_manager.add_task(event)
             return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
@@ -749,7 +749,7 @@ class StatefulGenerationClient(StatefulClient):
             self.log.debug(f"Update generation {generation_body}...")
             request = UpdateGenerationValidation(**generation_body)
 
-            event = convert_observation_to_event(request, "GENERATION", True)
+            event = _convert_observation_to_event(request, "GENERATION", True)
             self.log.debug(f"Update generation {event}...")
             self.task_manager.add_task(event)
             return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
@@ -845,7 +845,7 @@ class StatefulSpanClient(StatefulClient):
             self.log.debug(f"Update span {span_body}...")
             request = UpdateSpanValidation(**span_body)
 
-            event = convert_observation_to_event(request, "SPAN", True)
+            event = _convert_observation_to_event(request, "SPAN", True)
 
             self.task_manager.add_task(event)
             return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
@@ -999,35 +999,3 @@ class DatasetClient:
         self.updated_at = dataset.updated_at
         self.items = items
         self.runs = dataset.runs
-
-
-def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
-    """Converts any usage input to a FlexibleUsage object"""
-
-    if isinstance(usage, pydantic.BaseModel):
-        usage = usage.dict()
-
-    # validate that usage object has input, output, total, usage
-    is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "usage"))
-    is_openai_usage = any(k in usage for k in ("promptTokens", "prompt_tokens", "completionTokens", "completion_tokens", "totalTokens", "total_tokens"))
-
-    if not is_langfuse_usage and not is_openai_usage:
-        raise ValueError("Usage object must have either {input, output, total, usage} or {promptTokens, completionTokens, totalTokens}")
-
-    def extract_by_priority(usage: dict, keys: list[str]) -> typing.Optional[int]:
-        """Extracts the first key that exists in usage"""
-        for key in keys:
-            if key in usage:
-                return int(usage[key])
-        return None
-
-    if is_openai_usage:
-        # convert to langfuse usage
-        usage = {
-            "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"]),
-            "output": extract_by_priority(usage, ["completionTokens", "completion_tokens"]),
-            "total": extract_by_priority(usage, ["totalTokens", "total_tokens"]),
-            "unit": "TOKENS",
-        }
-
-    return usage
