@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.score import Score
+from .score_body import ScoreBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -15,7 +15,7 @@ except ImportError:
 class ScoreEvent(pydantic.BaseModel):
     id: str
     timestamp: str
-    body: Score
+    body: ScoreBody
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

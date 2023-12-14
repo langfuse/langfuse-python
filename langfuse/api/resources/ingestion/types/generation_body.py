@@ -4,6 +4,9 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from ...commons.types.map_value import MapValue
+from .ingestion_usage import IngestionUsage
+from .span_body import SpanBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -11,17 +14,15 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class CreateTraceRequest(pydantic.BaseModel):
-    id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
-    input: typing.Optional[typing.Any] = None
-    output: typing.Optional[typing.Any] = None
-    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
-    release: typing.Optional[str] = None
-    version: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    public: typing.Optional[bool] = pydantic.Field(default=None, description="Make trace publicly accessible via url")
+class GenerationBody(SpanBody):
+    completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
+    model: typing.Optional[str] = None
+    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
+        alias="modelParameters", default=None
+    )
+    prompt: typing.Optional[typing.Any] = None
+    completion: typing.Optional[typing.Any] = None
+    usage: typing.Optional[IngestionUsage] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

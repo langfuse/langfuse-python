@@ -6,16 +6,11 @@ import typing
 import uuid
 from datetime import datetime
 import datetime as dt
-
-from langfuse.input_validation import (
-    CreateEventValidation,
-    CreateGenerationValidation,
-    CreateScoreValidation,
-    CreateSpanValidation,
-    CreateTraceValidation,
-    UpdateGenerationValidation,
-    UpdateSpanValidation,
-)
+from langfuse.api.resources.ingestion.types.event_body import EventBody
+from langfuse.api.resources.ingestion.types.generation_body import GenerationBody
+from langfuse.api.resources.ingestion.types.score_body import ScoreBody
+from langfuse.api.resources.ingestion.types.span_body import SpanBody
+from langfuse.api.resources.ingestion.types.trace_body import TraceBody
 
 from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, ModelUsage, DatasetStatus
 
@@ -34,7 +29,7 @@ from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.utils import _convert_observation_to_event, _convert_usage_input
+from langfuse.utils import _convert_usage_input
 from .version import __version__ as version
 
 
@@ -243,7 +238,7 @@ class Langfuse(object):
             if kwargs is not None:
                 new_dict.update(kwargs)
 
-            new_body = CreateTraceValidation(**new_dict)
+            new_body = TraceBody(**new_dict)
 
             self.log.debug(f"Creating trace {new_body}")
             event = {
@@ -287,7 +282,7 @@ class Langfuse(object):
                 new_dict.update(kwargs)
 
             self.log.debug(f"Creating score {new_dict}...")
-            new_body = CreateScoreValidation(**new_dict)
+            new_body = ScoreBody(**new_dict)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -352,7 +347,7 @@ class Langfuse(object):
                     "name": name,
                 }
 
-                trace_body = CreateTraceValidation(**trace_dict)
+                trace_body = TraceBody(**trace_dict)
 
                 event = {
                     "id": str(uuid.uuid4()),
@@ -364,9 +359,13 @@ class Langfuse(object):
                 self.task_manager.add_task(event)
 
             self.log.debug(f"Creating span {span_body}...")
-            span_body = CreateSpanValidation(**span_body)
+            span_body = SpanBody(**span_body)
 
-            event = _convert_observation_to_event(span_body, "SPAN")
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "span-create",
+                "body": span_body.dict(exclude_none=True),
+            }
 
             self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
@@ -384,8 +383,6 @@ class Langfuse(object):
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        input: typing.Optional[typing.Any] = None,
-        output: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
@@ -410,8 +407,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time if start_time is not None else datetime.now(),
                 "metadata": metadata,
-                "input": input,
-                "output": output,
+                "input": prompt,
+                "output": completion,
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,
@@ -420,8 +417,6 @@ class Langfuse(object):
                 "completion_start_time": completion_start_time,
                 "model": model,
                 "model_parameters": model_parameters,
-                "prompt": prompt,
-                "completion": completion,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 "trace": {"release": self.release},
             }
@@ -434,7 +429,7 @@ class Langfuse(object):
                     "release": self.release,
                     "name": name,
                 }
-                request = CreateTraceValidation(**trace)
+                request = TraceBody(**trace)
 
                 event = {
                     "id": str(uuid.uuid4()),
@@ -446,9 +441,13 @@ class Langfuse(object):
 
                 self.task_manager.add_task(event)
 
-            request = CreateGenerationValidation(**generation_body)
+            request = GenerationBody(**generation_body)
 
-            event = _convert_observation_to_event(request, "GENERATION")
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "generation-create",
+                "body": request.dict(exclude_none=True),
+            }
 
             self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
@@ -517,8 +516,6 @@ class StatefulClient(object):
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        input: typing.Optional[typing.Any] = None,
-        output: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -538,8 +535,6 @@ class StatefulClient(object):
                 "name": name,
                 "start_time": start_time if start_time is not None else datetime.now(),
                 "metadata": metadata,
-                "input": input,
-                "output": output,
                 "level": level,
                 "status_message": status_message,
                 "version": version,
@@ -547,8 +542,8 @@ class StatefulClient(object):
                 "completion_start_time": completion_start_time,
                 "model": model,
                 "model_parameters": model_parameters,
-                "prompt": prompt,
-                "completion": completion,
+                "input": prompt,
+                "output": completion,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
             }
 
@@ -558,12 +553,17 @@ class StatefulClient(object):
             generation_body = self._add_state_to_event(generation_body)
             new_body = self._add_default_values(generation_body)
 
-            new_body = CreateGenerationValidation(**new_body)
+            new_body = GenerationBody(**new_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "generation-create",
+                "body": new_body.dict(exclude_none=True),
+            }
 
             self.log.debug(f"Creating generation {new_body}...")
-            self.task_manager.add_task(
-                _convert_observation_to_event(new_body, "GENERATION"),
-            )
+            self.task_manager.add_task(event)
+
             return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -607,8 +607,13 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
 
-            request = CreateSpanValidation(**new_body)
-            event = _convert_observation_to_event(request, "SPAN")
+            event = SpanBody(**new_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "span-create",
+                "body": event.dict(exclude_none=True),
+            }
 
             self.task_manager.add_task(event)
             return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
@@ -637,7 +642,7 @@ class StatefulClient(object):
             if self.state_type == StateType.OBSERVATION:
                 new_dict["observationId"] = self.id
 
-            request = CreateScoreValidation(**new_dict)
+            request = ScoreBody(**new_dict)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -685,11 +690,17 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(event_body)
             new_body = self._add_default_values(new_dict)
 
-            request = CreateEventValidation(**new_body)
+            request = EventBody(**new_body)
 
-            event = _convert_observation_to_event(request, "EVENT")
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "event-create",
+                "body": request.dict(exclude_none=True),
+            }
+
             self.log.debug(f"Creating event {event}...")
             self.task_manager.add_task(event)
+
             return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -711,8 +722,6 @@ class StatefulGenerationClient(StatefulClient):
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        input: typing.Optional[typing.Any] = None,
-        output: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -726,12 +735,10 @@ class StatefulGenerationClient(StatefulClient):
     ):
         try:
             generation_body = {
-                "generationId": self.id,
+                "id": self.id,
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
-                "input": input,
-                "output": output,
                 "level": level,
                 "status_message": status_message,
                 "version": version,
@@ -739,19 +746,26 @@ class StatefulGenerationClient(StatefulClient):
                 "completion_start_time": completion_start_time,
                 "model": model,
                 "model_parameters": model_parameters,
-                "prompt": prompt,
-                "completion": completion,
+                "input": prompt,
+                "output": completion,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
             }
 
             if kwargs is not None:
                 generation_body.update(kwargs)
             self.log.debug(f"Update generation {generation_body}...")
-            request = UpdateGenerationValidation(**generation_body)
 
-            event = _convert_observation_to_event(request, "GENERATION", True)
+            request = GenerationBody(**generation_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "generation-update",
+                "body": request.dict(exclude_none=True),
+            }
+
             self.log.debug(f"Update generation {event}...")
             self.task_manager.add_task(event)
+
             return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
         except Exception as e:
             self.log.exception(e)
@@ -763,8 +777,6 @@ class StatefulGenerationClient(StatefulClient):
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        input: typing.Optional[typing.Any] = None,
-        output: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -783,8 +795,6 @@ class StatefulGenerationClient(StatefulClient):
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
-                "input": input,
-                "output": output,
                 "level": level,
                 "status_message": status_message,
                 "version": version,
@@ -792,8 +802,8 @@ class StatefulGenerationClient(StatefulClient):
                 "completion_start_time": completion_start_time,
                 "model": model,
                 "model_parameters": model_parameters,
-                "prompt": prompt,
-                "completion": completion,
+                "input": prompt,
+                "output": completion,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
@@ -829,7 +839,7 @@ class StatefulSpanClient(StatefulClient):
     ):
         try:
             span_body = {
-                "spanId": self.id,
+                "id": self.id,
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
@@ -843,9 +853,14 @@ class StatefulSpanClient(StatefulClient):
             if kwargs is not None:
                 span_body.update(kwargs)
             self.log.debug(f"Update span {span_body}...")
-            request = UpdateSpanValidation(**span_body)
 
-            event = _convert_observation_to_event(request, "SPAN", True)
+            request = SpanBody(**span_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "span-update",
+                "body": request.dict(exclude_none=True),
+            }
 
             self.task_manager.add_task(event)
             return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)

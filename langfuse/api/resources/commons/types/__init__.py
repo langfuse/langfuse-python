@@ -6,7 +6,7 @@ from .dataset_run import DatasetRun
 from .dataset_run_item import DatasetRunItem
 from .dataset_status import DatasetStatus
 from .map_value import MapValue
-from .model_usage_type import ModelUsageType
+from .model_usage_unit import ModelUsageUnit
 from .observation import Observation
 from .observation_level import ObservationLevel
 from .score import Score
@@ -24,7 +24,7 @@ __all__ = [
     "DatasetRunItem",
     "DatasetStatus",
     "MapValue",
-    "ModelUsageType",
+    "ModelUsageUnit",
     "Observation",
     "ObservationLevel",
     "Score",

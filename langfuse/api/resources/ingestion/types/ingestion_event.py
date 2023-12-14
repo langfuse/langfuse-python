@@ -6,9 +6,14 @@ import typing
 
 import typing_extensions
 
+from .event_create_event import EventCreateEvent
+from .generation_create_event import GenerationCreateEvent
+from .generation_update_event import GenerationUpdateEvent
 from .observation_create_event import ObservationCreateEvent
 from .observation_update_event import ObservationUpdateEvent
 from .score_event import ScoreEvent
+from .span_create_event import SpanCreateEvent
+from .span_update_event import SpanUpdateEvent
 from .trace_event import TraceEvent
 
 
@@ -23,6 +28,51 @@ class IngestionEvent_TraceCreate(TraceEvent):
 
 class IngestionEvent_ScoreCreate(ScoreEvent):
     type: typing_extensions.Literal["score-create"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class IngestionEvent_EventCreate(EventCreateEvent):
+    type: typing_extensions.Literal["event-create"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class IngestionEvent_GenerationCreate(GenerationCreateEvent):
+    type: typing_extensions.Literal["generation-create"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class IngestionEvent_GenerationUpdate(GenerationUpdateEvent):
+    type: typing_extensions.Literal["generation-update"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class IngestionEvent_SpanCreate(SpanCreateEvent):
+    type: typing_extensions.Literal["span-create"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class IngestionEvent_SpanUpdate(SpanUpdateEvent):
+    type: typing_extensions.Literal["span-update"]
 
     class Config:
         frozen = True
@@ -51,6 +101,11 @@ class IngestionEvent_ObservationUpdate(ObservationUpdateEvent):
 IngestionEvent = typing.Union[
     IngestionEvent_TraceCreate,
     IngestionEvent_ScoreCreate,
+    IngestionEvent_EventCreate,
+    IngestionEvent_GenerationCreate,
+    IngestionEvent_GenerationUpdate,
+    IngestionEvent_SpanCreate,
+    IngestionEvent_SpanUpdate,
     IngestionEvent_ObservationCreate,
     IngestionEvent_ObservationUpdate,
 ]

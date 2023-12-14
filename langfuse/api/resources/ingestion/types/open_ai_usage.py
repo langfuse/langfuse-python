@@ -4,7 +4,6 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .model_usage_unit import ModelUsageUnit
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -12,11 +11,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class Usage(pydantic.BaseModel):
-    input: typing.Optional[int] = None
-    output: typing.Optional[int] = None
-    total: typing.Optional[int] = None
-    unit: typing.Optional[ModelUsageUnit] = None
+class OpenAiUsage(pydantic.BaseModel):
+    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens", default=None)
+    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens", default=None)
+    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -29,4 +27,5 @@ class Usage(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

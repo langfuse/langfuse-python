@@ -14,8 +14,8 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class ObservationEvent(pydantic.BaseModel):
-    id: str
+class ObservationBody(pydantic.BaseModel):
+    id: typing.Optional[str] = None
     trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
     type: str
     name: typing.Optional[str] = None

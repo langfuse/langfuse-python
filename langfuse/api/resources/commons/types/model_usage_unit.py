@@ -6,12 +6,12 @@ import typing
 T_Result = typing.TypeVar("T_Result")
 
 
-class ModelUsageType(str, enum.Enum):
+class ModelUsageUnit(str, enum.Enum):
     CHARACTERS = "CHARACTERS"
     TOKENS = "TOKENS"
 
     def visit(self, characters: typing.Callable[[], T_Result], tokens: typing.Callable[[], T_Result]) -> T_Result:
-        if self is ModelUsageType.CHARACTERS:
+        if self is ModelUsageUnit.CHARACTERS:
             return characters()
-        if self is ModelUsageType.TOKENS:
+        if self is ModelUsageUnit.TOKENS:
             return tokens()
