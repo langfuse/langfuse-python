@@ -13,6 +13,7 @@ except ImportError:
 
 
 class OpetionalObservationBody(pydantic.BaseModel):
+    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
     name: typing.Optional[str] = None
     start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
     metadata: typing.Optional[typing.Any] = None

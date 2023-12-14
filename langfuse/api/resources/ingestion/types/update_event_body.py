@@ -6,15 +6,9 @@ import typing
 from ....core.datetime_utils import serialize_datetime
 from .opetional_observation_body import OpetionalObservationBody
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
-
 
 class UpdateEventBody(OpetionalObservationBody):
     id: str
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

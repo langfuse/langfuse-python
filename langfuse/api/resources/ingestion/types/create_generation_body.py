@@ -20,8 +20,6 @@ class CreateGenerationBody(CreateSpanBody):
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
         alias="modelParameters", default=None
     )
-    prompt: typing.Optional[typing.Any] = None
-    completion: typing.Optional[typing.Any] = None
     usage: typing.Optional[IngestionUsage] = None
 
     def json(self, **kwargs: typing.Any) -> str:

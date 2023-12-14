@@ -12,7 +12,7 @@ except ImportError:
 
 
 class ScoreBody(pydantic.BaseModel):
-    id: str
+    id: typing.Optional[str] = None
     trace_id: str = pydantic.Field(alias="traceId")
     name: str
     value: float
