@@ -7,9 +7,6 @@ from langchain import LLMChain, OpenAI, PromptTemplate
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
 
-from langfuse.model import CreateDatasetItemRequest
-from langfuse.model import CreateDatasetRequest
-
 
 from tests.utils import create_uuid, get_api
 
@@ -18,7 +15,7 @@ def test_create_and_get_dataset():
     langfuse = Langfuse(debug=False)
 
     name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=name))
+    langfuse.create_dataset(name=name)
     dataset = langfuse.get_dataset(name)
     assert dataset.name == name
 
@@ -26,10 +23,10 @@ def test_create_and_get_dataset():
 def test_create_dataset_item():
     langfuse = Langfuse(debug=False)
     name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=name))
+    langfuse.create_dataset(name=name)
 
     input = {"input": "Hello World"}
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=input))
+    langfuse.create_dataset_item(dataset_name=name, input=input)
 
     dataset = langfuse.get_dataset(name)
     assert len(dataset.items) == 1
@@ -39,9 +36,9 @@ def test_create_dataset_item():
 def test_upsert_and_get_dataset_item():
     langfuse = Langfuse(debug=False)
     name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=name))
+    langfuse.create_dataset(name=name)
     input = {"input": "Hello World"}
-    item = langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=input, expectedOutput=input))
+    item = langfuse.create_dataset_item(dataset_name=name, input=input, expected_output=input)
 
     get_item = langfuse.get_dataset_item(item.id)
     assert get_item.input == input
@@ -49,7 +46,7 @@ def test_upsert_and_get_dataset_item():
     assert get_item.expected_output == input
 
     new_input = {"input": "Hello World 2"}
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=new_input, id=item.id, expectedOutput=new_input))
+    langfuse.create_dataset_item(dataset_name=name, input=new_input, id=item.id, expected_output=new_input)
     get_new_item = langfuse.get_dataset_item(item.id)
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
@@ -60,10 +57,10 @@ def test_linking_observation():
     langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+    langfuse.create_dataset(name=dataset_name)
 
     input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
     assert len(dataset.items) == 1
@@ -88,10 +85,10 @@ def test_linking_via_id_observation():
     langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+    langfuse.create_dataset(name=dataset_name)
 
     input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
     assert len(dataset.items) == 1
@@ -116,10 +113,10 @@ def test_linking_via_id_observation():
 def test_langchain_dataset():
     langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+    langfuse.create_dataset(name=dataset_name)
 
     input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
 

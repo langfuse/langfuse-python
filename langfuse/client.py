@@ -164,19 +164,21 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset(self, body: CreateDatasetRequest) -> Dataset:
+    def create_dataset(self, name: str) -> Dataset:
         try:
+            body = CreateDatasetRequest(name=name)
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
         except Exception as e:
             self.log.exception(e)
             raise e
 
-    def create_dataset_item(self, body: CreateDatasetItemRequest) -> DatasetItem:
+    def create_dataset_item(self, dataset_name: str, input: any, expected_output: Optional[any] = None, id: Optional[str] = None) -> DatasetItem:
         """
         Creates a dataset item. Upserts if an item with id already exists.
         """
         try:
+            body = CreateDatasetItemRequest(datasetName=dataset_name, input=input, expectedOutput=expected_output, id=id)
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
         except Exception as e:
