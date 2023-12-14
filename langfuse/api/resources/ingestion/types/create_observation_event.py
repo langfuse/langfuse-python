@@ -12,7 +12,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class ObservationCreateEvent(pydantic.BaseModel):
+class CreateObservationEvent(pydantic.BaseModel):
     id: str
     timestamp: str
     body: ObservationBody

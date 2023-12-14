@@ -12,7 +12,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class SpanCreateEvent(pydantic.BaseModel):
+class CreateSpanEvent(pydantic.BaseModel):
     id: str
     timestamp: str
     body: CreateSpanBody

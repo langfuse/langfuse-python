@@ -6,15 +6,15 @@ import typing
 
 import typing_extensions
 
-from .event_create_event import EventCreateEvent
-from .generation_create_event import GenerationCreateEvent
-from .generation_update_event import GenerationUpdateEvent
-from .observation_create_event import ObservationCreateEvent
-from .observation_update_event import ObservationUpdateEvent
+from .create_event_event import CreateEventEvent
+from .create_generation_event import CreateGenerationEvent
+from .create_observation_event import CreateObservationEvent
+from .create_span_event import CreateSpanEvent
 from .score_event import ScoreEvent
-from .span_create_event import SpanCreateEvent
-from .span_update_event import SpanUpdateEvent
 from .trace_event import TraceEvent
+from .update_generation_event import UpdateGenerationEvent
+from .update_observation_event import UpdateObservationEvent
+from .update_span_event import UpdateSpanEvent
 
 
 class IngestionEvent_TraceCreate(TraceEvent):
@@ -35,7 +35,7 @@ class IngestionEvent_ScoreCreate(ScoreEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_EventCreate(EventCreateEvent):
+class IngestionEvent_EventCreate(CreateEventEvent):
     type: typing_extensions.Literal["event-create"]
 
     class Config:
@@ -44,7 +44,7 @@ class IngestionEvent_EventCreate(EventCreateEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_GenerationCreate(GenerationCreateEvent):
+class IngestionEvent_GenerationCreate(CreateGenerationEvent):
     type: typing_extensions.Literal["generation-create"]
 
     class Config:
@@ -53,7 +53,7 @@ class IngestionEvent_GenerationCreate(GenerationCreateEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_GenerationUpdate(GenerationUpdateEvent):
+class IngestionEvent_GenerationUpdate(UpdateGenerationEvent):
     type: typing_extensions.Literal["generation-update"]
 
     class Config:
@@ -62,7 +62,7 @@ class IngestionEvent_GenerationUpdate(GenerationUpdateEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_SpanCreate(SpanCreateEvent):
+class IngestionEvent_SpanCreate(CreateSpanEvent):
     type: typing_extensions.Literal["span-create"]
 
     class Config:
@@ -71,7 +71,7 @@ class IngestionEvent_SpanCreate(SpanCreateEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_SpanUpdate(SpanUpdateEvent):
+class IngestionEvent_SpanUpdate(UpdateSpanEvent):
     type: typing_extensions.Literal["span-update"]
 
     class Config:
@@ -80,7 +80,7 @@ class IngestionEvent_SpanUpdate(SpanUpdateEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_ObservationCreate(ObservationCreateEvent):
+class IngestionEvent_ObservationCreate(CreateObservationEvent):
     type: typing_extensions.Literal["observation-create"]
 
     class Config:
@@ -89,7 +89,7 @@ class IngestionEvent_ObservationCreate(ObservationCreateEvent):
         allow_population_by_field_name = True
 
 
-class IngestionEvent_ObservationUpdate(ObservationUpdateEvent):
+class IngestionEvent_ObservationUpdate(UpdateObservationEvent):
     type: typing_extensions.Literal["observation-update"]
 
     class Config:

@@ -12,7 +12,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class GenerationCreateEvent(pydantic.BaseModel):
+class CreateGenerationEvent(pydantic.BaseModel):
     id: str
     timestamp: str
     body: CreateGenerationBody
