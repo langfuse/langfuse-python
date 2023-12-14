@@ -12,9 +12,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class EventBody(pydantic.BaseModel):
-    id: typing.Optional[str] = None
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
+class OpetionalObservationBody(pydantic.BaseModel):
     name: typing.Optional[str] = None
     start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
     metadata: typing.Optional[typing.Any] = None

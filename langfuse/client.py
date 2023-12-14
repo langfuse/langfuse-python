@@ -6,11 +6,13 @@ import typing
 import uuid
 from datetime import datetime
 import datetime as dt
-from langfuse.api.resources.ingestion.types.event_body import EventBody
-from langfuse.api.resources.ingestion.types.generation_body import GenerationBody
+from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
+from langfuse.api.resources.ingestion.types.create_generation_body import CreateGenerationBody
+from langfuse.api.resources.ingestion.types.create_span_body import CreateSpanBody
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.ingestion.types.span_body import SpanBody
 from langfuse.api.resources.ingestion.types.trace_body import TraceBody
+from langfuse.api.resources.ingestion.types.update_generation_body import UpdateGenerationBody
+from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
 
 from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, ModelUsage, DatasetStatus
 
@@ -359,7 +361,7 @@ class Langfuse(object):
                 self.task_manager.add_task(event)
 
             self.log.debug(f"Creating span {span_body}...")
-            span_body = SpanBody(**span_body)
+            span_body = CreateSpanBody(**span_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -441,7 +443,7 @@ class Langfuse(object):
 
                 self.task_manager.add_task(event)
 
-            request = GenerationBody(**generation_body)
+            request = CreateGenerationBody(**generation_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -553,7 +555,7 @@ class StatefulClient(object):
             generation_body = self._add_state_to_event(generation_body)
             new_body = self._add_default_values(generation_body)
 
-            new_body = GenerationBody(**new_body)
+            new_body = CreateGenerationBody(**new_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -607,7 +609,7 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
 
-            event = SpanBody(**new_body)
+            event = CreateSpanBody(**new_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -690,7 +692,7 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(event_body)
             new_body = self._add_default_values(new_dict)
 
-            request = EventBody(**new_body)
+            request = CreateEventBody(**new_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -755,7 +757,7 @@ class StatefulGenerationClient(StatefulClient):
                 generation_body.update(kwargs)
             self.log.debug(f"Update generation {generation_body}...")
 
-            request = GenerationBody(**generation_body)
+            request = UpdateGenerationBody(**generation_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -854,7 +856,7 @@ class StatefulSpanClient(StatefulClient):
                 span_body.update(kwargs)
             self.log.debug(f"Update span {span_body}...")
 
-            request = SpanBody(**span_body)
+            request = UpdateSpanBody(**span_body)
 
             event = {
                 "id": str(uuid.uuid4()),

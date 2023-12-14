@@ -4,9 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.map_value import MapValue
-from .ingestion_usage import IngestionUsage
-from .span_body import SpanBody
+from .create_event_body import CreateEventBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,15 +12,8 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class GenerationBody(SpanBody):
-    completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
-    model: typing.Optional[str] = None
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
-        alias="modelParameters", default=None
-    )
-    prompt: typing.Optional[typing.Any] = None
-    completion: typing.Optional[typing.Any] = None
-    usage: typing.Optional[IngestionUsage] = None
+class CreateSpanBody(CreateEventBody):
+    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

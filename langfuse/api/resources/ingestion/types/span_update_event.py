@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .span_body import SpanBody
+from .update_span_body import UpdateSpanBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -15,7 +15,7 @@ except ImportError:
 class SpanUpdateEvent(pydantic.BaseModel):
     id: str
     timestamp: str
-    body: SpanBody
+    body: UpdateSpanBody
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

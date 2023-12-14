@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .generation_body import GenerationBody
+from .create_generation_body import CreateGenerationBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -15,7 +15,7 @@ except ImportError:
 class GenerationCreateEvent(pydantic.BaseModel):
     id: str
     timestamp: str
-    body: GenerationBody
+    body: CreateGenerationBody
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
