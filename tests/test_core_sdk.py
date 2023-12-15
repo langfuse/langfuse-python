@@ -138,6 +138,27 @@ def test_create_trace():
     assert True if not trace["externalId"] else False
 
 
+def test_create_update_trace():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(
+        name=trace_name,
+        user_id="test",
+        metadata={"key": "value"},
+    )
+    trace.update(metadata={"key": "value2"})
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert trace.name == trace_name
+    assert trace.user_id == "test"
+    assert trace.metadata == {"key": "value2"}
+
+
 def test_create_generation():
     langfuse = Langfuse(debug=False)
     api = get_api()

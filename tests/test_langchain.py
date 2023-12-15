@@ -26,15 +26,12 @@ from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 
 
-def test_langfuse_release_init():
-    callback = CallbackHandler(release="something")
-    assert callback.langfuse.release == "something"
-
-
 def test_callback_init():
-    callback = CallbackHandler(debug=False)
+    callback = CallbackHandler(release="something", session_id="session-id")
     assert callback.trace is None
     assert not callback.runs
+    assert callback.langfuse.release == "something"
+    assert callback.session_id == "session-id"
 
 
 def test_langfuse_span():
@@ -248,8 +245,8 @@ def test_next_span_id_from_trace_simple_chain():
 
 
 def test_callback_simple_chain():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
+    api = get_api()
+    handler = CallbackHandler(debug=True)
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -265,18 +262,22 @@ def test_callback_simple_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+    assert trace.input == trace.observations[0].input
+    assert trace.output == trace.observations[0].output
+
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
 def test_callback_sequential_chain():
@@ -312,11 +313,16 @@ def test_callback_sequential_chain():
     trace = api.trace.get(trace_id)
 
     assert len(trace.observations) == 5
+    assert trace.id == trace_id
+    root_observation = list(filter(lambda x: x.parent_observation_id is None, trace.observations))[0]
+    assert str(trace.input) == str(root_observation.input)
+    assert str(trace.output) == str(root_observation.output)
+
     for observation in trace.observations:
         if observation.type == "GENERATION":
+            assert observation.usage.input > 0
             assert observation.usage.output > 0
             assert observation.usage.total > 0
-            assert observation.usage.input > 0
             assert observation.input is not None
             assert observation.input != ""
             assert observation.output is not None
@@ -503,7 +509,7 @@ def test_callback_retriever_conversational():
 
 
 def test_callback_simple_openai():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -516,18 +522,19 @@ def test_callback_simple_openai():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.input == trace.observations[0].input
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
 def test_callback_multiple_invocations_on_different_traces():

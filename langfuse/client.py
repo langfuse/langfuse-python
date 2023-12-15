@@ -918,6 +918,44 @@ class StatefulTraceClient(StatefulClient):
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
+    def update(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        **kwargs,
+    ):
+        try:
+            trace_body = {
+                "id": self.id,
+                "name": name,
+                "userId": user_id,
+                "version": version,
+                "input": input,
+                "output": output,
+                "metadata": metadata,
+            }
+            if kwargs is not None:
+                trace_body.update(kwargs)
+            self.log.debug(f"Update trace {trace_body}...")
+
+            request = TraceBody(**trace_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "trace-create",
+                "body": request.dict(exclude_none=True),
+            }
+
+            self.task_manager.add_task(event)
+            return StatefulTraceClient(self.client, self.id, StateType.TRACE, self.trace_id, task_manager=self.task_manager)
+        except Exception as e:
+            self.log.exception(e)
+
     def get_langchain_handler(self):
         try:
             # adding this to ensure our users installed langchain

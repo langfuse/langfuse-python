@@ -31,6 +31,7 @@ class CallbackHandler(BaseCallbackHandler):
     root_span: Optional[StatefulSpanClient]
     langfuse: Optional[Langfuse]
     version: Optional[str] = None
+    session_id: Optional[str] = None
 
     def __init__(
         self,
@@ -39,6 +40,7 @@ class CallbackHandler(BaseCallbackHandler):
         host: Optional[str] = None,
         debug: bool = False,
         statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
+        session_id: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
         threads: Optional[int] = None,
@@ -94,6 +96,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.trace = None
             self.root_span = None
             self.runs = {}
+            self.session_id = session_id
 
         else:
             self.log.error("Either provide a stateful langfuse object or both public_key and secret_key.")
@@ -154,6 +157,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now(), version=self.version)
+            self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
 
@@ -226,9 +230,12 @@ class CallbackHandler(BaseCallbackHandler):
             if self.trace is None and self.langfuse is not None:
                 self.log.debug("root for non provided root")
                 trace = self.langfuse.trace(
+                    id=str(run_id),
                     name=class_name,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     version=self.version,
+                    session_id=self.session_id,
+                    input=inputs,
                 )
 
                 self.trace = trace
@@ -292,6 +299,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(endTime=datetime.now(), output=action, version=self.version)
+            self.__update_trace(run_id, parent_run_id, action)
         except Exception as e:
             self.log.exception(e)
 
@@ -309,6 +317,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(endTime=datetime.now(), output=finish, version=self.version)
+            self.__update_trace(run_id, parent_run_id, finish)
         except Exception as e:
             self.log.exception(e)
 
@@ -327,6 +336,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(output=outputs, endTime=datetime.now(), version=self.version)
+            self.__update_trace(run_id, parent_run_id, outputs)
         except Exception as e:
             self.log.exception(e)
 
@@ -342,6 +352,7 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             self.log.debug(f"on chain error: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.runs[run_id] = self.runs[run_id].update(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now(), version=self.version)
+            self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
 
@@ -455,6 +466,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(output=documents, endTime=datetime.now(), version=self.version)
+            self.__update_trace(run_id, parent_run_id, documents)
         except Exception as e:
             self.log.exception(e)
 
@@ -472,6 +484,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(output=output, endTime=datetime.now(), version=self.version)
+            self.__update_trace(run_id, parent_run_id, output)
         except Exception as e:
             self.log.exception(e)
 
@@ -489,6 +502,7 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].update(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now(), version=self.version)
+            self.__update_trace(run_id, parent_run_id, error)
         except Exception as e:
             self.log.exception(e)
 
@@ -614,6 +628,7 @@ class CallbackHandler(BaseCallbackHandler):
                 extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
 
                 self.runs[run_id] = self.runs[run_id].update(completion=extracted_response, end_time=datetime.now(), usage=llm_usage, version=self.version)
+                self.__update_trace(run_id, parent_run_id, str(extracted_response))
         except Exception as e:
             self.log.exception(e)
 
@@ -628,6 +643,7 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             self.log.debug(f"on llm error: run_id: {run_id} parent_run_id: {parent_run_id}")
             self.runs[run_id] = self.runs[run_id].update(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR, version=self.version)
+            self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
 
@@ -645,3 +661,9 @@ class CallbackHandler(BaseCallbackHandler):
             return final_dict
         else:
             return metadata
+
+    def __update_trace(self, run_id: str, parent_run_id: Optional[str], output: any):
+        self.log.debug(f"__update_trace: trace_id:{self.trace.id} run_id: {run_id} parent_run_id: {parent_run_id} output: {output}")
+        self.log.debug(f"__update_trace: conditions: {self.trace is not None} {parent_run_id is None} {self.trace.id == str(run_id)}")
+        if parent_run_id is None and self.trace is not None and self.trace.id == str(run_id):
+            self.trace = self.trace.update(output=output)
