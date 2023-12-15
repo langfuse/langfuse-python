@@ -12,7 +12,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class OpetionalObservationBody(pydantic.BaseModel):
+class OptionalObservationBody(pydantic.BaseModel):
     trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
     name: typing.Optional[str] = None
     start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)

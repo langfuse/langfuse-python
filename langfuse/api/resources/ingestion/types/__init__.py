@@ -24,8 +24,9 @@ from .ingestion_response import IngestionResponse
 from .ingestion_success import IngestionSuccess
 from .ingestion_usage import IngestionUsage
 from .observation_body import ObservationBody
+from .observation_type import ObservationType
 from .open_ai_usage import OpenAiUsage
-from .opetional_observation_body import OpetionalObservationBody
+from .optional_observation_body import OptionalObservationBody
 from .score_body import ScoreBody
 from .score_event import ScoreEvent
 from .trace_body import TraceBody
@@ -60,8 +61,9 @@ __all__ = [
     "IngestionSuccess",
     "IngestionUsage",
     "ObservationBody",
+    "ObservationType",
     "OpenAiUsage",
-    "OpetionalObservationBody",
+    "OptionalObservationBody",
     "ScoreBody",
     "ScoreEvent",
     "TraceBody",

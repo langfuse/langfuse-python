@@ -7,6 +7,7 @@ from ....core.datetime_utils import serialize_datetime
 from ...commons.types.map_value import MapValue
 from ...commons.types.observation_level import ObservationLevel
 from ...commons.types.usage import Usage
+from .observation_type import ObservationType
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -17,7 +18,7 @@ except ImportError:
 class ObservationBody(pydantic.BaseModel):
     id: typing.Optional[str] = None
     trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
-    type: str
+    type: ObservationType
     name: typing.Optional[str] = None
     start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)

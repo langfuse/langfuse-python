@@ -4,10 +4,10 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .opetional_observation_body import OpetionalObservationBody
+from .optional_observation_body import OptionalObservationBody
 
 
-class UpdateEventBody(OpetionalObservationBody):
+class UpdateEventBody(OptionalObservationBody):
     id: str
 
     def json(self, **kwargs: typing.Any) -> str:
