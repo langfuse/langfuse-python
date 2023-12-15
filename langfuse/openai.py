@@ -148,7 +148,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
-    return {"name": name, "metadata": metadata, "trace_id": trace_id, "start_time": start_time, "prompt": prompt, "model_parameters": modelParameters, "model": model}
+    return {"name": name, "metadata": metadata, "trace_id": trace_id, "start_time": start_time, "input": prompt, "model_parameters": modelParameters, "model": model}
 
 
 def _get_langfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
@@ -174,7 +174,7 @@ async def _get_langfuse_data_from_async_streaming_response(resource: OpenAiDefin
 
 
 def _create_langfuse_update(completion, generation: StatefulGenerationClient, completion_start_time, model=None):
-    update = {"end_time": datetime.now(), "completion": completion, "completion_start_time": completion_start_time}
+    update = {"end_time": datetime.now(), "output": completion, "completion_start_time": completion_start_time}
     if model is not None:
         update["model"] = model
 
@@ -335,7 +335,7 @@ class OpenAILangfuse:
         if not self._langfuse:
             with self._lock:
                 if not self._langfuse:
-                    self._langfuse = Langfuse(public_key=openai.langfuse_public_key, secret_key=openai.langfuse_secret_key, host=openai.langfuse_host)
+                    self._langfuse = Langfuse(public_key=openai.langfuse_public_key, secret_key=openai.langfuse_secret_key, host=openai.langfuse_host, debug=openai.langfuse_debug)
         return self._langfuse
 
     def flush(cls):
@@ -354,6 +354,7 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_public_key", None)
         setattr(openai, "langfuse_secret_key", None)
         setattr(openai, "langfuse_host", None)
+        setattr(openai, "langfuse_debug", None)
         setattr(openai, "flush_langfuse", self.flush)
 
 
