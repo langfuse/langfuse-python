@@ -620,7 +620,7 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             self.log.debug(f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id} response: {response} kwargs: {kwargs}")
             if run_id not in self.runs:
-                raise Exception("run not found")
+                raise Exception("Run not found, see docs what to do in this case.")
             else:
                 last_response = response.generations[-1][-1]
                 llm_usage = None if response.llm_output is None else response.llm_output["token_usage"]
