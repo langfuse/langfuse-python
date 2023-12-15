@@ -47,11 +47,11 @@ def test_langfuse_span():
     handler = span.get_langchain_handler()
 
     assert handler.get_trace_id() == trace_id
-    assert handler.rootSpan.id == span_id
+    assert handler.root_span.id == span_id
 
 
 def test_callback_generated_from_trace():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -71,21 +71,22 @@ def test_callback_generated_from_trace():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
-    assert len(trace["observations"]) == 2
-    assert trace["id"] == trace_id
 
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -279,7 +280,7 @@ def test_callback_simple_chain():
 
 
 def test_callback_sequential_chain():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -308,18 +309,18 @@ def test_callback_sequential_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 5
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 5
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.usage.input > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
 def test_stuffed_chain():
@@ -527,6 +528,43 @@ def test_callback_simple_openai():
             assert observation["input"] != ""
             assert observation["output"] is not None
             assert observation["output"] != ""
+
+
+def test_callback_multiple_invocations_on_different_traces():
+    api = get_api()
+    handler = CallbackHandler(debug=False)
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+
+    text = "What would be a good company name for a company that makes colorful socks?"
+
+    llm.predict(text, callbacks=[handler])
+
+    trace_id_one = handler.get_trace_id()
+
+    llm.predict(text, callbacks=[handler])
+
+    trace_id_two = handler.get_trace_id()
+
+    handler.flush()
+
+    assert trace_id_one != trace_id_two
+
+    trace_one = api.trace.get(trace_id_one)
+    trace_two = api.trace.get(trace_id_two)
+
+    for test_data in [{"trace": trace_one, "expected_trace_id": trace_id_one}, {"trace": trace_two, "expected_trace_id": trace_id_two}]:
+        assert len(test_data["trace"].observations) == 2
+        assert test_data["trace"].id == test_data["expected_trace_id"]
+        for observation in test_data["trace"].observations:
+            if observation.type == "GENERATION":
+                assert observation.usage.input > 0
+                assert observation.usage.output > 0
+                assert observation.usage.total > 0
+                assert observation.input is not None
+                assert observation.input != ""
+                assert observation.output is not None
+                assert observation.output != ""
 
 
 @pytest.mark.skip(reason="inference cost")

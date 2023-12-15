@@ -26,9 +26,9 @@ except ImportError:
 
 class CallbackHandler(BaseCallbackHandler):
     log = logging.getLogger("langfuse")
-    nextSpanId: Optional[str] = None
+    next_span_id: Optional[str] = None
     trace: Optional[StatefulTraceClient]
-    rootSpan: Optional[StatefulSpanClient]
+    root_span: Optional[StatefulSpanClient]
     langfuse: Optional[Langfuse]
     version: Optional[str] = None
 
@@ -57,12 +57,12 @@ class CallbackHandler(BaseCallbackHandler):
         if statefulClient and isinstance(statefulClient, StatefulTraceClient):
             self.trace = statefulClient
             self.runs = {}
-            self.rootSpan = None
+            self.root_span = None
             self.langfuse = None
 
         elif statefulClient and isinstance(statefulClient, StatefulSpanClient):
             self.runs = {}
-            self.rootSpan = statefulClient
+            self.root_span = statefulClient
             self.langfuse = None
             self.trace = StatefulTraceClient(
                 statefulClient.client,
@@ -92,7 +92,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.langfuse = Langfuse(**args)
             self.trace = None
-            self.rootSpan = None
+            self.root_span = None
             self.runs = {}
 
         else:
@@ -102,8 +102,8 @@ class CallbackHandler(BaseCallbackHandler):
     def flush(self):
         if self.trace is not None:
             self.trace.task_manager.flush()
-        elif self.rootSpan is not None:
-            self.rootSpan.task_manager.flush()
+        elif self.root_span is not None:
+            self.root_span.task_manager.flush()
         else:
             self.log.debug("There was no trace yet, hence no flushing possible.")
 
@@ -115,8 +115,8 @@ class CallbackHandler(BaseCallbackHandler):
             if len(projects.data) == 0:
                 raise Exception("No projects found for the keys.")
             return True
-        elif self.rootSpan is not None:
-            projects = self.rootSpan.client.projects.get()
+        elif self.root_span is not None:
+            projects = self.root_span.client.projects.get()
             if len(projects) == 0:
                 raise Exception("No projects found for the keys.")
             return True
@@ -124,7 +124,7 @@ class CallbackHandler(BaseCallbackHandler):
         return False
 
     def setNextSpan(self, id: str):
-        self.nextSpanId = id
+        self.next_span_id = id
 
     def on_llm_new_token(
         self,
@@ -169,7 +169,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on chain start: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(f"on chain start: run_id: {run_id} parent_run_id: {parent_run_id}, name {serialized.get('name', serialized.get('id', ['<unknown>'])[-1])}")
             self.__generate_trace_and_parent(
                 serialized=serialized,
                 inputs=inputs,
@@ -180,6 +180,16 @@ class CallbackHandler(BaseCallbackHandler):
                 kwargs=kwargs,
                 version=self.version,
             )
+            if parent_run_id is not None:
+                self.runs[run_id] = self.runs[parent_run_id].span(
+                    id=self.next_span_id,
+                    traceId=self.trace.id,
+                    name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    input=inputs,
+                    startTime=datetime.now(),
+                    version=self.version,
+                )
         except Exception as e:
             self.log.exception(e)
 
@@ -201,9 +211,20 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
+            self.log.debug(f"__generate_trace_and_parent: run_id: {run_id} parent_run_id: {parent_run_id}")
             class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
+            # on a new invocation, and not user provided root, we want to initialise a new trace
+            # parent_run_id is None when we are at the root of a langchain execution
+            if self.trace is not None and parent_run_id is None and self.langfuse is not None:
+                self.log.debug("initialising new trace")
+                self.trace = None
+                self.runs = {}
+
+            # if we are at a root, but langfuse exists, it means we do not have a
+            # root provided by a user. Initialise it by creating a trace and root span.
             if self.trace is None and self.langfuse is not None:
+                self.log.debug("root for non provided root")
                 trace = self.langfuse.trace(
                     name=class_name,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
@@ -212,20 +233,24 @@ class CallbackHandler(BaseCallbackHandler):
 
                 self.trace = trace
 
-            if parent_run_id is not None and parent_run_id in self.runs:
-                self.runs[run_id] = self.runs[parent_run_id].span(
-                    id=self.nextSpanId,
+                self.runs[run_id] = self.trace.span(
+                    id=self.next_span_id,
+                    traceId=self.trace.id,
                     name=class_name,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     input=inputs,
                     startTime=datetime.now(),
                     version=self.version,
                 )
-                self.nextSpanId = None
-            else:
+                return
+
+            # if we are at root, and root was provided by user,
+            # create a span for the trace or span provided
+            if self.langfuse is None and parent_run_id is None:
+                self.log.debug("root for provided root")
                 self.runs[run_id] = (
                     self.trace.span(
-                        id=self.nextSpanId,
+                        id=self.next_span_id,
                         traceId=self.trace.id,
                         name=class_name,
                         metadata=self.__join_tags_and_metadata(tags, metadata),
@@ -233,9 +258,9 @@ class CallbackHandler(BaseCallbackHandler):
                         startTime=datetime.now(),
                         version=self.version,
                     )
-                    if self.rootSpan is None
-                    else self.rootSpan.span(
-                        id=self.nextSpanId,
+                    if self.root_span is None
+                    else self.root_span.span(
+                        id=self.next_span_id,
                         traceId=self.trace.id,
                         name=class_name,
                         metadata=self.__join_tags_and_metadata(tags, metadata),
@@ -245,7 +270,8 @@ class CallbackHandler(BaseCallbackHandler):
                     )
                 )
 
-                self.nextSpanId = None
+                self.next_span_id = None
+                return
 
         except Exception as e:
             self.log.exception(e)
@@ -374,14 +400,14 @@ class CallbackHandler(BaseCallbackHandler):
             meta.update({key: value for key, value in kwargs.items() if value is not None})
 
             self.runs[run_id] = self.runs[parent_run_id].span(
-                id=self.nextSpanId,
+                id=self.next_span_id,
                 name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                 input=input_str,
                 startTime=datetime.now(),
                 metadata=meta,
                 version=self.version,
             )
-            self.nextSpanId = None
+            self.next_span_id = None
         except Exception as e:
             self.log.exception(e)
 
@@ -403,14 +429,14 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("parent run not found")
 
             self.runs[run_id] = self.runs[parent_run_id].span(
-                id=self.nextSpanId,
+                id=self.next_span_id,
                 name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                 input=query,
                 startTime=datetime.now(),
                 metadata=self.__join_tags_and_metadata(tags, metadata),
                 version=self.version,
             )
-            self.nextSpanId = None
+            self.next_span_id = None
         except Exception as e:
             self.log.exception(e)
 
@@ -477,17 +503,16 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            if self.trace is None:
-                self.__generate_trace_and_parent(
-                    serialized,
-                    inputs=prompts,
-                    run_id=run_id,
-                    parent_run_id=parent_run_id,
-                    tags=tags,
-                    metadata=metadata,
-                    version=self.version,
-                    kwargs=kwargs,
-                )
+            self.__generate_trace_and_parent(
+                serialized,
+                inputs=prompts,
+                run_id=run_id,
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+                version=self.version,
+                kwargs=kwargs,
+            )
             if kwargs["invocation_params"]["_type"] in ["anthropic-llm", "anthropic-chat"]:
                 model_name = "anthropic"  # unfortunately no model info by anthropic provided.
             elif kwargs["invocation_params"]["_type"] in ["amazon_bedrock", "amazon_bedrock_chat"]:
