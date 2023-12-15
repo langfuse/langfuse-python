@@ -215,20 +215,17 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            self.log.debug(f"__generate_trace_and_parent: run_id: {run_id} parent_run_id: {parent_run_id}")
             class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
             # on a new invocation, and not user provided root, we want to initialise a new trace
             # parent_run_id is None when we are at the root of a langchain execution
             if self.trace is not None and parent_run_id is None and self.langfuse is not None:
-                self.log.debug("initialising new trace")
                 self.trace = None
                 self.runs = {}
 
             # if we are at a root, but langfuse exists, it means we do not have a
             # root provided by a user. Initialise it by creating a trace and root span.
             if self.trace is None and self.langfuse is not None:
-                self.log.debug("root for non provided root")
                 trace = self.langfuse.trace(
                     id=str(run_id),
                     name=class_name,
@@ -254,7 +251,6 @@ class CallbackHandler(BaseCallbackHandler):
             # if we are at root, and root was provided by user,
             # create a span for the trace or span provided
             if self.langfuse is None and parent_run_id is None:
-                self.log.debug("root for provided root")
                 self.runs[run_id] = (
                     self.trace.span(
                         id=self.next_span_id,
