@@ -659,7 +659,5 @@ class CallbackHandler(BaseCallbackHandler):
             return metadata
 
     def __update_trace(self, run_id: str, parent_run_id: Optional[str], output: any):
-        self.log.debug(f"__update_trace: trace_id:{self.trace.id} run_id: {run_id} parent_run_id: {parent_run_id} output: {output}")
-        self.log.debug(f"__update_trace: conditions: {self.trace is not None} {parent_run_id is None} {self.trace.id == str(run_id)}")
         if parent_run_id is None and self.trace is not None and self.trace.id == str(run_id):
             self.trace = self.trace.update(output=output)
