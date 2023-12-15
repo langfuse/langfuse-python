@@ -172,14 +172,14 @@ def test_create_generation():
         end_time=timestamp,
         model="gpt-3.5-turbo",
         model_parameters={"maxTokens": "1000", "temperature": "0.9"},
-        prompt=[
+        input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
                 "role": "user",
                 "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
             },
         ],
-        completion="This document entails the OKR goals for ACME",
+        output="This document entails the OKR goals for ACME",
         usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
         level="DEBUG",
@@ -233,14 +233,14 @@ def test_create_generation_complex(usage):
     langfuse.generation(
         id=generation_id,
         name="query-generation",
-        prompt=[
+        input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
                 "role": "user",
                 "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
             },
         ],
-        completion=[{"foo": "bar"}],
+        output=[{"foo": "bar"}],
         usage=usage,
         metadata=[{"tags": ["yo"]}],
     )
@@ -658,14 +658,14 @@ def test_end_generation():
         start_time=timestamp,
         model="gpt-3.5-turbo",
         model_parameters={"maxTokens": "1000", "temperature": "0.9"},
-        prompt=[
+        input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
                 "role": "user",
                 "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
             },
         ],
-        completion="This document entails the OKR goals for ACME",
+        output="This document entails the OKR goals for ACME",
         metadata={"interface": "whatsapp"},
     )
 
@@ -691,14 +691,14 @@ def test_end_generation_with_data():
         start_time=timestamp,
         model="gpt-3.5-turbo",
         model_parameters={"maxTokens": "1000", "temperature": "0.9"},
-        prompt=[
+        input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
                 "role": "user",
                 "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
             },
         ],
-        completion="This document entails the OKR goals for ACME",
+        output="This document entails the OKR goals for ACME",
         usage=LlmUsage(promptTokens=50, completionTokens=49),
         metadata={"interface": "whatsapp"},
     )
@@ -784,8 +784,8 @@ def test_get_generations():
         name=generation_name,
         start_time=timestamp,
         end_time=timestamp,
-        prompt="great-prompt",
-        completion="great-completion",
+        input="great-prompt",
+        output="great-completion",
     )
 
     langfuse.flush()
@@ -809,8 +809,8 @@ def test_get_generations_by_user():
         name=generation_name,
         start_time=timestamp,
         end_time=timestamp,
-        prompt="great-prompt",
-        completion="great-completion",
+        input="great-prompt",
+        output="great-completion",
     )
 
     langfuse.generation(

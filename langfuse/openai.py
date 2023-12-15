@@ -280,7 +280,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
-            generation.update(model=model, completion=completion, end_time=datetime.now(), usage=usage)
+            generation.update(model=model, output=completion, end_time=datetime.now(), usage=usage)
 
         return openai_response
     except Exception as ex:
@@ -308,7 +308,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
             model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
             generation.update(
                 model=model,
-                completion=completion,
+                output=completion,
                 end_time=datetime.now(),
                 usage=usage,
             )

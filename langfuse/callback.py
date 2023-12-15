@@ -557,7 +557,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[run_id] = (
                 self.runs[parent_run_id].generation(
                     name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                    prompt=prompts,
+                    input=prompts,
                     startTime=datetime.now(),
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     model=model_name,
@@ -578,7 +578,7 @@ class CallbackHandler(BaseCallbackHandler):
                 if parent_run_id in self.runs
                 else self.trace.generation(
                     name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                    prompt=prompts,
+                    input=prompts,
                     startTime=datetime.now(),
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     model=model_name,
@@ -627,7 +627,7 @@ class CallbackHandler(BaseCallbackHandler):
 
                 extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
 
-                self.runs[run_id] = self.runs[run_id].update(completion=extracted_response, end_time=datetime.now(), usage=llm_usage, version=self.version)
+                self.runs[run_id] = self.runs[run_id].update(output=extracted_response, end_time=datetime.now(), usage=llm_usage, version=self.version)
                 self.__update_trace(run_id, parent_run_id, str(extracted_response))
         except Exception as e:
             self.log.exception(e)
