@@ -129,10 +129,10 @@ def _get_langfuse_data_from_kwargs(
         raise TypeError("session_id must be a string")
 
     if trace_id:
-        langfuse.trace(id=trace_id, sessionId=session_id)
+        langfuse.trace(id=trace_id, session_id=session_id)
     elif session_id:
         # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
-        trace_id = langfuse.trace(sessionId=session_id).id
+        trace_id = langfuse.trace(session_id=session_id).id
 
     metadata = kwargs.get("metadata", {})
 
@@ -158,7 +158,7 @@ def _get_langfuse_data_from_kwargs(
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
-        "maxTokens": kwargs.get("max_tokens", float("inf")),
+        "maxTokens": kwargs.get("max_tokens", float("inf")),  # casing?
         "top_p": kwargs.get("top_p", 1),
         "frequency_penalty": kwargs.get("frequency_penalty", 0),
         "presence_penalty": kwargs.get("presence_penalty", 0),
