@@ -38,7 +38,9 @@ def test_upsert_and_get_dataset_item():
     name = create_uuid()
     langfuse.create_dataset(name=name)
     input = {"input": "Hello World"}
-    item = langfuse.create_dataset_item(dataset_name=name, input=input, expected_output=input)
+    item = langfuse.create_dataset_item(
+        dataset_name=name, input=input, expected_output=input
+    )
 
     get_item = langfuse.get_dataset_item(item.id)
     assert get_item.input == input
@@ -46,7 +48,9 @@ def test_upsert_and_get_dataset_item():
     assert get_item.expected_output == input
 
     new_input = {"input": "Hello World 2"}
-    langfuse.create_dataset_item(dataset_name=name, input=new_input, id=item.id, expected_output=new_input)
+    langfuse.create_dataset_item(
+        dataset_name=name, input=new_input, id=item.id, expected_output=new_input
+    )
     get_new_item = langfuse.get_dataset_item(item.id)
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
@@ -158,7 +162,11 @@ def test_langchain_dataset():
 
     assert trace.name == "dataset-run"
     assert sorted_observations[0].name == "dataset-run"
-    assert trace.metadata == {"dataset_item_id": dataset_item_id, "run_name": run_name, "dataset_id": dataset.id}
+    assert trace.metadata == {
+        "dataset_item_id": dataset_item_id,
+        "run_name": run_name,
+        "dataset_id": dataset.id,
+    }
 
     assert sorted_observations[0].metadata == {
         "dataset_item_id": dataset_item_id,
@@ -166,7 +174,9 @@ def test_langchain_dataset():
         "dataset_id": dataset.id,
     }
 
-    generations = list(filter(lambda obs: obs.type == "GENERATION", sorted_observations))
+    generations = list(
+        filter(lambda obs: obs.type == "GENERATION", sorted_observations)
+    )
 
     assert len(generations) > 0
     for generation in generations:
