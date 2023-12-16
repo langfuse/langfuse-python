@@ -908,7 +908,7 @@ class StatefulSpanClient(StatefulClient):
     def get_langchain_handler(self):
         from langfuse.callback import CallbackHandler
 
-        return CallbackHandler(statefulClient=self)
+        return CallbackHandler(stateful_client=self)
 
 
 class StatefulTraceClient(StatefulClient):
