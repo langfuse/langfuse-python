@@ -908,7 +908,7 @@ class StatefulSpanClient(StatefulClient):
     def get_langchain_handler(self):
         from langfuse.callback import CallbackHandler
 
-        return CallbackHandler(statefulClient=self)
+        return CallbackHandler(stateful_client=self)
 
 
 class StatefulTraceClient(StatefulClient):
@@ -964,7 +964,7 @@ class StatefulTraceClient(StatefulClient):
 
             self.log.debug(f"Creating new handler for trace {self.id}")
 
-            return CallbackHandler(statefulClient=self, debug=self.log.level == logging.DEBUG)
+            return CallbackHandler(stateful_client=self, debug=self.log.level == logging.DEBUG)
         except ImportError as e:
             self.log.exception(f"Could not import langchain. Some functionality may be missing. {e.message}")
 
@@ -1032,7 +1032,7 @@ class DatasetItemClient:
 
         self.link(span, run_name)
 
-        return CallbackHandler(statefulClient=span)
+        return CallbackHandler(stateful_client=span)
 
 
 class DatasetClient:

@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 import logging
 import re
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -39,7 +38,7 @@ class CallbackHandler(BaseCallbackHandler):
         secret_key: Optional[str] = None,
         host: Optional[str] = None,
         debug: bool = False,
-        statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
+        stateful_client: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
         session_id: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
@@ -56,24 +55,24 @@ class CallbackHandler(BaseCallbackHandler):
 
         self.version = version
 
-        if statefulClient and isinstance(statefulClient, StatefulTraceClient):
-            self.trace = statefulClient
+        if stateful_client and isinstance(stateful_client, StatefulTraceClient):
+            self.trace = stateful_client
             self.runs = {}
             self.root_span = None
             self.langfuse = None
 
-        elif statefulClient and isinstance(statefulClient, StatefulSpanClient):
+        elif stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs = {}
-            self.root_span = statefulClient
+            self.root_span = stateful_client
             self.langfuse = None
             self.trace = StatefulTraceClient(
-                statefulClient.client,
-                statefulClient.trace_id,
+                stateful_client.client,
+                stateful_client.trace_id,
                 StateType.TRACE,
-                statefulClient.trace_id,
-                statefulClient.task_manager,
+                stateful_client.trace_id,
+                stateful_client.task_manager,
             )
-            self.runs[statefulClient.id] = statefulClient
+            self.runs[stateful_client.id] = stateful_client
 
         # Otherwise, initialize stateless using the provided keys
         elif prioritized_public_key and prioritized_secret_key:
@@ -156,7 +155,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now(), version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(level=ObservationLevel.ERROR, status_message=str(error), version=self.version)
             self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
@@ -187,11 +186,10 @@ class CallbackHandler(BaseCallbackHandler):
             if parent_run_id is not None:
                 self.runs[run_id] = self.runs[parent_run_id].span(
                     id=self.next_span_id,
-                    traceId=self.trace.id,
+                    trace_id=self.trace.id,
                     name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     input=inputs,
-                    startTime=datetime.now(),
                     version=self.version,
                 )
         except Exception as e:
@@ -239,11 +237,10 @@ class CallbackHandler(BaseCallbackHandler):
 
                 self.runs[run_id] = self.trace.span(
                     id=self.next_span_id,
-                    traceId=self.trace.id,
+                    trace_id=self.trace.id,
                     name=class_name,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     input=inputs,
-                    startTime=datetime.now(),
                     version=self.version,
                 )
                 return
@@ -254,21 +251,19 @@ class CallbackHandler(BaseCallbackHandler):
                 self.runs[run_id] = (
                     self.trace.span(
                         id=self.next_span_id,
-                        traceId=self.trace.id,
+                        trace_id=self.trace.id,
                         name=class_name,
                         metadata=self.__join_tags_and_metadata(tags, metadata),
                         input=inputs,
-                        startTime=datetime.now(),
                         version=self.version,
                     )
                     if self.root_span is None
                     else self.root_span.span(
                         id=self.next_span_id,
-                        traceId=self.trace.id,
+                        trace_id=self.trace.id,
                         name=class_name,
                         metadata=self.__join_tags_and_metadata(tags, metadata),
                         input=inputs,
-                        startTime=datetime.now(),
                         version=self.version,
                     )
                 )
@@ -294,7 +289,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(endTime=datetime.now(), output=action, version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(output=action, version=self.version)
             self.__update_trace(run_id, parent_run_id, action)
         except Exception as e:
             self.log.exception(e)
@@ -312,7 +307,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(endTime=datetime.now(), output=finish, version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(output=finish, version=self.version)
             self.__update_trace(run_id, parent_run_id, finish)
         except Exception as e:
             self.log.exception(e)
@@ -331,7 +326,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(output=outputs, endTime=datetime.now(), version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(output=outputs, version=self.version)
             self.__update_trace(run_id, parent_run_id, outputs)
         except Exception as e:
             self.log.exception(e)
@@ -347,7 +342,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> None:
         try:
             self.log.debug(f"on chain error: run_id: {run_id} parent_run_id: {parent_run_id}")
-            self.runs[run_id] = self.runs[run_id].update(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now(), version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(level=ObservationLevel.ERROR, status_message=str(error), version=self.version)
             self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
@@ -410,7 +405,6 @@ class CallbackHandler(BaseCallbackHandler):
                 id=self.next_span_id,
                 name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                 input=input_str,
-                startTime=datetime.now(),
                 metadata=meta,
                 version=self.version,
             )
@@ -439,7 +433,6 @@ class CallbackHandler(BaseCallbackHandler):
                 id=self.next_span_id,
                 name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                 input=query,
-                startTime=datetime.now(),
                 metadata=self.__join_tags_and_metadata(tags, metadata),
                 version=self.version,
             )
@@ -461,7 +454,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(output=documents, endTime=datetime.now(), version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(output=documents, version=self.version)
             self.__update_trace(run_id, parent_run_id, documents)
         except Exception as e:
             self.log.exception(e)
@@ -479,7 +472,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(output=output, endTime=datetime.now(), version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(output=output, version=self.version)
             self.__update_trace(run_id, parent_run_id, output)
         except Exception as e:
             self.log.exception(e)
@@ -497,7 +490,7 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now(), version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(status_message=error, level=ObservationLevel.ERROR, version=self.version)
             self.__update_trace(run_id, parent_run_id, error)
         except Exception as e:
             self.log.exception(e)
@@ -554,10 +547,9 @@ class CallbackHandler(BaseCallbackHandler):
                 self.runs[parent_run_id].generation(
                     name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                     input=prompts,
-                    startTime=datetime.now(),
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     model=model_name,
-                    modelParameters={
+                    model_parameters={
                         key: value
                         for key, value in {
                             "temperature": kwargs["invocation_params"].get("temperature"),
@@ -575,10 +567,9 @@ class CallbackHandler(BaseCallbackHandler):
                 else self.trace.generation(
                     name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
                     input=prompts,
-                    startTime=datetime.now(),
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     model=model_name,
-                    modelParameters={
+                    model_parameters={
                         key: value
                         for key, value in {
                             "temperature": kwargs["invocation_params"].get("temperature"),
@@ -623,7 +614,7 @@ class CallbackHandler(BaseCallbackHandler):
 
                 extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
 
-                self.runs[run_id] = self.runs[run_id].update(output=extracted_response, end_time=datetime.now(), usage=llm_usage, version=self.version)
+                self.runs[run_id] = self.runs[run_id].end(output=extracted_response, usage=llm_usage, version=self.version)
                 self.__update_trace(run_id, parent_run_id, str(extracted_response))
         except Exception as e:
             self.log.exception(e)
@@ -638,7 +629,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         try:
             self.log.debug(f"on llm error: run_id: {run_id} parent_run_id: {parent_run_id}")
-            self.runs[run_id] = self.runs[run_id].update(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR, version=self.version)
+            self.runs[run_id] = self.runs[run_id].end(status_message=str(error), level=ObservationLevel.ERROR, version=self.version)
             self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
