@@ -958,7 +958,7 @@ class StatefulTraceClient(StatefulClient):
 
     def get_langchain_handler(self):
         try:
-            # adding this to ensure our users installed langchain
+            # adding this to ensure langchain is installed
             import langchain  # noqa
             from langfuse.callback import CallbackHandler
 
