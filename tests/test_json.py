@@ -21,16 +21,26 @@ def test_json_encoder():
     """Test that the JSON encoder encodes datetimes correctly."""
 
     message = HumanMessage(content="I love programming!")
-    obj = {"foo": "bar", "bar": datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc), "messages": [message]}
+    obj = {
+        "foo": "bar",
+        "bar": datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        "messages": [message],
+    }
 
     result = json.dumps(obj, cls=EventSerializer)
-    assert '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00", "messages": [{"lc": 1, "type": "constructor", "id":' in result
+    assert (
+        '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00", "messages": [{"lc": 1, "type": "constructor", "id":'
+        in result
+    )
     assert "HumanMessage" in result
 
 
 def test_json_decoder_pydantic():
     obj = TestModel(foo="bar", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
-    assert json.dumps(obj, cls=EventSerializer) == '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00"}'
+    assert (
+        json.dumps(obj, cls=EventSerializer)
+        == '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00"}'
+    )
 
 
 @pytest.fixture
@@ -40,7 +50,9 @@ def event_serializer():
 
 def test_json_decoder_without_langchain_serializer():
     with patch.dict("sys.modules", {"langchain.load.serializable": None}):
-        model = TestModel(foo="John", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+        model = TestModel(
+            foo="John", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        )
         result = json.dumps(model, cls=EventSerializer)
         assert result == '{"foo": "John", "bar": "2021-01-01T00:00:00+00:00"}'
 

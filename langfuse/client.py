@@ -7,14 +7,26 @@ import uuid
 from datetime import datetime
 import datetime as dt
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
-from langfuse.api.resources.ingestion.types.create_generation_body import CreateGenerationBody
+from langfuse.api.resources.ingestion.types.create_generation_body import (
+    CreateGenerationBody,
+)
 from langfuse.api.resources.ingestion.types.create_span_body import CreateSpanBody
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.ingestion.types.trace_body import TraceBody
-from langfuse.api.resources.ingestion.types.update_generation_body import UpdateGenerationBody
+from langfuse.api.resources.ingestion.types.update_generation_body import (
+    UpdateGenerationBody,
+)
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
 
-from langfuse.model import DatasetItem, CreateDatasetRunItemRequest, CreateDatasetRequest, CreateDatasetItemRequest, DatasetRun, ModelUsage, DatasetStatus
+from langfuse.model import (
+    DatasetItem,
+    CreateDatasetRunItemRequest,
+    CreateDatasetRequest,
+    CreateDatasetItemRequest,
+    DatasetRun,
+    ModelUsage,
+    DatasetStatus,
+)
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -67,15 +79,23 @@ class Langfuse(object):
 
         public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
-        self.base_url = host if host else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        self.base_url = (
+            host
+            if host
+            else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        )
 
         if not public_key:
             self.log.warning("public_key is not set.")
-            raise ValueError("public_key is required, set as parameter or environment variable 'LANGFUSE_PUBLIC_KEY'")
+            raise ValueError(
+                "public_key is required, set as parameter or environment variable 'LANGFUSE_PUBLIC_KEY'"
+            )
 
         if not secret_key:
             self.log.warning("secret_key is not set.")
-            raise ValueError("secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'")
+            raise ValueError(
+                "secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'"
+            )
 
         self.client = FernLangfuse(
             base_url=self.base_url,
@@ -94,7 +114,13 @@ class Langfuse(object):
             timeout=timeout,
         )
 
-        args = {"threads": threads, "flush_at": flush_at, "flush_interval": flush_interval, "max_retries": max_retries, "client": langfuse_client}
+        args = {
+            "threads": threads,
+            "flush_at": flush_at,
+            "flush_interval": flush_interval,
+            "max_retries": max_retries,
+            "client": langfuse_client,
+        }
 
         if threads is not None:
             args["threads"] = threads
@@ -143,9 +169,13 @@ class Langfuse(object):
     def auth_check(self) -> bool:
         try:
             projects = self.client.projects.get()
-            self.log.debug(f"Auth check successful, found {len(projects.data)} projects")
+            self.log.debug(
+                f"Auth check successful, found {len(projects.data)} projects"
+            )
             if len(projects.data) == 0:
-                raise Exception("Auth check failed, no project found for the keys provided.")
+                raise Exception(
+                    "Auth check failed, no project found for the keys provided."
+                )
             return True
 
         except Exception as e:
@@ -158,8 +188,12 @@ class Langfuse(object):
         dataset_run_name: str,
     ) -> DatasetRun:
         try:
-            self.log.debug(f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}")
-            return self.client.datasets.get_runs(dataset_name=dataset_name, run_name=dataset_run_name)
+            self.log.debug(
+                f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
+            )
+            return self.client.datasets.get_runs(
+                dataset_name=dataset_name, run_name=dataset_run_name
+            )
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -173,12 +207,23 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset_item(self, dataset_name: str, input: any, expected_output: Optional[any] = None, id: Optional[str] = None) -> DatasetItem:
+    def create_dataset_item(
+        self,
+        dataset_name: str,
+        input: any,
+        expected_output: Optional[any] = None,
+        id: Optional[str] = None,
+    ) -> DatasetItem:
         """
         Creates a dataset item. Upserts if an item with id already exists.
         """
         try:
-            body = CreateDatasetItemRequest(datasetName=dataset_name, input=input, expectedOutput=expected_output, id=id)
+            body = CreateDatasetItemRequest(
+                datasetName=dataset_name,
+                input=input,
+                expectedOutput=expected_output,
+                id=id,
+            )
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
         except Exception as e:
@@ -206,7 +251,9 @@ class Langfuse(object):
     ):
         try:
             self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.observations.get_many(page=page, limit=limit, name=name, user_id=user_id, type="GENERATION")
+            return self.client.observations.get_many(
+                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
+            )
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -238,7 +285,16 @@ class Langfuse(object):
             new_id = str(uuid.uuid4()) if id is None else id
             self.trace_id = new_id
 
-            new_dict = {"id": new_id, "name": name, "userId": user_id, "release": self.release, "version": version, "metadata": metadata, "input": input, "output": output}
+            new_dict = {
+                "id": new_id,
+                "name": name,
+                "userId": user_id,
+                "release": self.release,
+                "version": version,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+            }
             if kwargs is not None:
                 new_dict.update(kwargs)
 
@@ -255,7 +311,9 @@ class Langfuse(object):
                 event,
             )
 
-            return StatefulTraceClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
+            return StatefulTraceClient(
+                self.client, new_id, StateType.TRACE, new_id, self.task_manager
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -297,9 +355,17 @@ class Langfuse(object):
             self.task_manager.add_task(event)
 
             if observation_id is not None:
-                return StatefulClient(self.client, observation_id, StateType.OBSERVATION, trace_id, self.task_manager)
+                return StatefulClient(
+                    self.client,
+                    observation_id,
+                    StateType.OBSERVATION,
+                    trace_id,
+                    self.task_manager,
+                )
             else:
-                return StatefulClient(self.client, new_id, StateType.TRACE, new_id, self.task_manager)
+                return StatefulClient(
+                    self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                )
 
         except Exception as e:
             self.log.exception(e)
@@ -374,7 +440,13 @@ class Langfuse(object):
             self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
 
-            return StatefulSpanClient(self.client, new_span_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
+            return StatefulSpanClient(
+                self.client,
+                new_span_id,
+                StateType.OBSERVATION,
+                new_trace_id,
+                self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -456,7 +528,13 @@ class Langfuse(object):
             self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
 
-            return StatefulGenerationClient(self.client, new_generation_id, StateType.OBSERVATION, new_trace_id, self.task_manager)
+            return StatefulGenerationClient(
+                self.client,
+                new_generation_id,
+                StateType.OBSERVATION,
+                new_trace_id,
+                self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -492,7 +570,14 @@ class StateType(Enum):
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(
+        self,
+        client: FernLangfuse,
+        id: str,
+        state_type: StateType,
+        trace_id: str,
+        task_manager: TaskManager,
+    ):
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -568,7 +653,13 @@ class StatefulClient(object):
             self.log.debug(f"Creating generation {new_body}...")
             self.task_manager.add_task(event)
 
-            return StatefulGenerationClient(self.client, generation_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulGenerationClient(
+                self.client,
+                generation_id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -620,11 +711,25 @@ class StatefulClient(object):
             }
 
             self.task_manager.add_task(event)
-            return StatefulSpanClient(self.client, span_id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulSpanClient(
+                self.client,
+                span_id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
-    def score(self, *, id: typing.Optional[str] = None, name: str, value: float, comment: typing.Optional[str] = None, kwargs=None):
+    def score(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: str,
+        value: float,
+        comment: typing.Optional[str] = None,
+        kwargs=None,
+    ):
         try:
             score_id = str(uuid.uuid4()) if id is None else id
 
@@ -655,7 +760,13 @@ class StatefulClient(object):
             }
 
             self.task_manager.add_task(event)
-            return StatefulClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulClient(
+                self.client,
+                self.id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -705,7 +816,9 @@ class StatefulClient(object):
             self.log.debug(f"Creating event {event}...")
             self.task_manager.add_task(event)
 
-            return StatefulClient(self.client, event_id, self.state_type, self.trace_id, self.task_manager)
+            return StatefulClient(
+                self.client, event_id, self.state_type, self.trace_id, self.task_manager
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -716,7 +829,14 @@ class StatefulClient(object):
 class StatefulGenerationClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(
+        self,
+        client: FernLangfuse,
+        id: str,
+        state_type: StateType,
+        trace_id: str,
+        task_manager: TaskManager,
+    ):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(
@@ -770,7 +890,13 @@ class StatefulGenerationClient(StatefulClient):
             self.log.debug(f"Update generation {event}...")
             self.task_manager.add_task(event)
 
-            return StatefulGenerationClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulGenerationClient(
+                self.client,
+                self.id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -824,7 +950,14 @@ class StatefulGenerationClient(StatefulClient):
 class StatefulSpanClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(
+        self,
+        client: FernLangfuse,
+        id: str,
+        state_type: StateType,
+        trace_id: str,
+        task_manager: TaskManager,
+    ):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     def update(
@@ -867,7 +1000,13 @@ class StatefulSpanClient(StatefulClient):
             }
 
             self.task_manager.add_task(event)
-            return StatefulSpanClient(self.client, self.id, StateType.OBSERVATION, self.trace_id, task_manager=self.task_manager)
+            return StatefulSpanClient(
+                self.client,
+                self.id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -914,7 +1053,14 @@ class StatefulSpanClient(StatefulClient):
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
 
-    def __init__(self, client: FernLangfuse, id: str, state_type: StateType, trace_id: str, task_manager: TaskManager):
+    def __init__(
+        self,
+        client: FernLangfuse,
+        id: str,
+        state_type: StateType,
+        trace_id: str,
+        task_manager: TaskManager,
+    ):
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
@@ -952,7 +1098,13 @@ class StatefulTraceClient(StatefulClient):
             }
 
             self.task_manager.add_task(event)
-            return StatefulTraceClient(self.client, self.id, StateType.TRACE, self.trace_id, task_manager=self.task_manager)
+            return StatefulTraceClient(
+                self.client,
+                self.id,
+                StateType.TRACE,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -964,9 +1116,13 @@ class StatefulTraceClient(StatefulClient):
 
             self.log.debug(f"Creating new handler for trace {self.id}")
 
-            return CallbackHandler(stateful_client=self, debug=self.log.level == logging.DEBUG)
+            return CallbackHandler(
+                stateful_client=self, debug=self.log.level == logging.DEBUG
+            )
         except ImportError as e:
-            self.log.exception(f"Could not import langchain. Some functionality may be missing. {e.message}")
+            self.log.exception(
+                f"Could not import langchain. Some functionality may be missing. {e.message}"
+            )
 
         except Exception as e:
             self.log.exception(e)
@@ -1016,15 +1172,27 @@ class DatasetItemClient:
             self.langfuse.flush()
             observation_id = observation
         else:
-            raise ValueError("observation parameter must be either a StatefulClient or a string")
+            raise ValueError(
+                "observation parameter must be either a StatefulClient or a string"
+            )
 
-        logging.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
-        self.langfuse.client.dataset_run_items.create(request=CreateDatasetRunItemRequest(runName=run_name, datasetItemId=self.id, observationId=observation_id))
+        logging.debug(
+            f"Creating dataset run item: {run_name} {self.id} {observation_id}"
+        )
+        self.langfuse.client.dataset_run_items.create(
+            request=CreateDatasetRunItemRequest(
+                runName=run_name, datasetItemId=self.id, observationId=observation_id
+            )
+        )
 
     def get_langchain_handler(self, *, run_name: str):
         from langfuse.callback import CallbackHandler
 
-        metadata = {"dataset_item_id": self.id, "run_name": run_name, "dataset_id": self.dataset_id}
+        metadata = {
+            "dataset_item_id": self.id,
+            "run_name": run_name,
+            "dataset_id": self.dataset_id,
+        }
         trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
         span = trace.span(name="dataset-run", metadata=metadata)
 

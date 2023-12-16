@@ -18,16 +18,30 @@ from tests.utils import create_uuid, get_api
 
 
 class LlmUsage(pydantic.BaseModel):
-    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens", default=None)
-    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens", default=None)
-    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens", default=None)
+    prompt_tokens: typing.Optional[int] = pydantic.Field(
+        alias="promptTokens", default=None
+    )
+    completion_tokens: typing.Optional[int] = pydantic.Field(
+        alias="completionTokens", default=None
+    )
+    total_tokens: typing.Optional[int] = pydantic.Field(
+        alias="totalTokens", default=None
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
 
@@ -557,7 +571,9 @@ def test_update_generation():
     assert retrieved_generation.name == "generation"
     assert retrieved_generation.trace_id == generation.trace_id
     assert retrieved_generation.metadata == {"dict": "value"}
-    assert start.replace(microsecond=0, tzinfo=pytz.UTC) == retrieved_generation.start_time.replace(microsecond=0)
+    assert start.replace(
+        microsecond=0, tzinfo=pytz.UTC
+    ) == retrieved_generation.start_time.replace(microsecond=0)
 
 
 def test_update_span():

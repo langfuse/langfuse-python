@@ -53,8 +53,20 @@ OPENAI_METHODS_V0 = [
 
 
 OPENAI_METHODS_V1 = [
-    OpenAiDefinition(module="openai.resources.chat.completions", object="Completions", method="create", type="chat", sync=True),
-    OpenAiDefinition(module="openai.resources.completions", object="Completions", method="create", type="completion", sync=True),
+    OpenAiDefinition(
+        module="openai.resources.chat.completions",
+        object="Completions",
+        method="create",
+        type="chat",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.completions",
+        object="Completions",
+        method="create",
+        type="completion",
+        sync=True,
+    ),
     OpenAiDefinition(
         module="openai.resources.chat.completions",
         object="AsyncCompletions",
@@ -73,7 +85,9 @@ OPENAI_METHODS_V1 = [
 
 
 class OpenAiArgsExtractor:
-    def __init__(self, name=None, metadata=None, trace_id=None, session_id=None, **kwargs):
+    def __init__(
+        self, name=None, metadata=None, trace_id=None, session_id=None, **kwargs
+    ):
         self.args = {}
         self.args["name"] = name
         self.args["metadata"] = metadata
@@ -98,7 +112,9 @@ def _langfuse_wrapper(func):
     return _with_langfuse
 
 
-def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs):
+def _get_langfuse_data_from_kwargs(
+    resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs
+):
     name = kwargs.get("name", "OpenAI-generation")
 
     if name is not None and not isinstance(name, str):
@@ -148,10 +164,23 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, langfuse: Langfus
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
-    return {"name": name, "metadata": metadata, "trace_id": trace_id, "start_time": start_time, "input": prompt, "model_parameters": modelParameters, "model": model}
+    return {
+        "name": name,
+        "metadata": metadata,
+        "trace_id": trace_id,
+        "start_time": start_time,
+        "input": prompt,
+        "model_parameters": modelParameters,
+        "model": model,
+    }
 
 
-def _get_langfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
+def _get_langfuse_data_from_sync_streaming_response(
+    resource: OpenAiDefinition,
+    response,
+    generation: StatefulGenerationClient,
+    langfuse: Langfuse,
+):
     responses = []
     for i in response:
         responses.append(i)
@@ -162,7 +191,12 @@ def _get_langfuse_data_from_sync_streaming_response(resource: OpenAiDefinition, 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
 
-async def _get_langfuse_data_from_async_streaming_response(resource: OpenAiDefinition, response, generation: StatefulGenerationClient, langfuse: Langfuse):
+async def _get_langfuse_data_from_async_streaming_response(
+    resource: OpenAiDefinition,
+    response,
+    generation: StatefulGenerationClient,
+    langfuse: Langfuse,
+):
     responses = []
     async for i in response:
         responses.append(i)
@@ -173,8 +207,14 @@ async def _get_langfuse_data_from_async_streaming_response(resource: OpenAiDefin
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
 
-def _create_langfuse_update(completion, generation: StatefulGenerationClient, completion_start_time, model=None):
-    update = {"end_time": datetime.now(), "output": completion, "completion_start_time": completion_start_time}
+def _create_langfuse_update(
+    completion, generation: StatefulGenerationClient, completion_start_time, model=None
+):
+    update = {
+        "end_time": datetime.now(),
+        "output": completion,
+        "completion_start_time": completion_start_time,
+    }
     if model is not None:
         update["model"] = model
 
@@ -207,17 +247,36 @@ def _extract_data(resource, responses):
                     delta = delta.__dict__
 
                 if delta.get("role", None) is not None:
-                    completion.append({"role": delta.get("role", None), "function_call": None, "tool_calls": None, "content": None})
+                    completion.append(
+                        {
+                            "role": delta.get("role", None),
+                            "function_call": None,
+                            "tool_calls": None,
+                            "content": None,
+                        }
+                    )
 
                 elif delta.get("content", None) is not None:
-                    completion[-1]["content"] = delta.get("content", None) if completion[-1]["content"] is None else completion[-1]["content"] + delta.get("content", None)
+                    completion[-1]["content"] = (
+                        delta.get("content", None)
+                        if completion[-1]["content"] is None
+                        else completion[-1]["content"] + delta.get("content", None)
+                    )
 
                 elif delta.get("function_call", None) is not None:
                     completion[-1]["function_call"] = (
-                        delta.get("function_call", None) if completion[-1]["function_call"] is None else completion[-1]["function_call"] + delta.get("function_call", None)
+                        delta.get("function_call", None)
+                        if completion[-1]["function_call"] is None
+                        else completion[-1]["function_call"]
+                        + delta.get("function_call", None)
                     )
                 elif delta.get("tools_call", None) is not None:
-                    completion[-1]["tool_calls"] = delta.get("tools_call", None) if completion[-1]["tool_calls"] is None else completion[-1]["tool_calls"] + delta.get("tools_call", None)
+                    completion[-1]["tool_calls"] = (
+                        delta.get("tools_call", None)
+                        if completion[-1]["tool_calls"] is None
+                        else completion[-1]["tool_calls"]
+                        + delta.get("tools_call", None)
+                    )
             if resource.type == "completion":
                 completion += choice.get("text", None)
 
@@ -231,7 +290,11 @@ def _extract_data(resource, responses):
                 return completion[-1]["tool_calls"]
         return None
 
-    return model, completion_start_time, get_response_for_chat() if resource.type == "chat" else completion
+    return (
+        model,
+        completion_start_time,
+        get_response_for_chat() if resource.type == "chat" else completion,
+    )
 
 
 def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
@@ -248,7 +311,11 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
         choices = response.get("choices", [])
         if len(choices) > 0:
             choice = choices[-1]
-            completion = choice.message.json() if _is_openai_v1() else choice.get("message", None)
+            completion = (
+                choice.message.json()
+                if _is_openai_v1()
+                else choice.get("message", None)
+            )
 
     usage = response.get("usage", None)
 
@@ -260,7 +327,11 @@ def _is_openai_v1():
 
 
 def _is_streaming_response(response):
-    return isinstance(response, types.GeneratorType) or (_is_openai_v1() and isinstance(response, openai.Stream)) or (_is_openai_v1() and isinstance(response, openai.AsyncStream))
+    return (
+        isinstance(response, types.GeneratorType)
+        or (_is_openai_v1() and isinstance(response, openai.Stream))
+        or (_is_openai_v1() and isinstance(response, openai.AsyncStream))
+    )
 
 
 @_langfuse_wrapper
@@ -270,42 +341,62 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     start_time = datetime.now()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
-    generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
+    generation = _get_langfuse_data_from_kwargs(
+        open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
+    )
     generation = new_langfuse.generation(**generation)
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return _get_langfuse_data_from_sync_streaming_response(open_ai_resource, openai_response, generation, new_langfuse)
+            return _get_langfuse_data_from_sync_streaming_response(
+                open_ai_resource, openai_response, generation, new_langfuse
+            )
 
         else:
-            model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
-            generation.update(model=model, output=completion, end_time=datetime.now(), usage=usage)
+            model, completion, usage = _get_langfuse_data_from_default_response(
+                open_ai_resource,
+                openai_response.__dict__ if _is_openai_v1() else openai_response,
+            )
+            generation.update(
+                model=model, output=completion, end_time=datetime.now(), usage=usage
+            )
 
         return openai_response
     except Exception as ex:
         log.warning(ex)
         model = kwargs.get("model", None)
-        generation.update(end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model)
+        generation.update(
+            end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model
+        )
         raise ex
 
 
 @_langfuse_wrapper
-async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
+async def _wrap_async(
+    open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs
+):
     new_langfuse = initialize()
     start_time = datetime.now()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
-    generation = _get_langfuse_data_from_kwargs(open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args())
+    generation = _get_langfuse_data_from_kwargs(
+        open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
+    )
     generation = new_langfuse.generation(**generation)
     try:
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return _get_langfuse_data_from_async_streaming_response(open_ai_resource, openai_response, generation, new_langfuse)
+            return _get_langfuse_data_from_async_streaming_response(
+                open_ai_resource, openai_response, generation, new_langfuse
+            )
 
         else:
-            model, completion, usage = _get_langfuse_data_from_default_response(open_ai_resource, openai_response.__dict__ if _is_openai_v1() else openai_response)
+            model, completion, usage = _get_langfuse_data_from_default_response(
+                open_ai_resource,
+                openai_response.__dict__ if _is_openai_v1() else openai_response,
+            )
             generation.update(
                 model=model,
                 output=completion,
@@ -315,7 +406,9 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
         return openai_response
     except Exception as ex:
         model = kwargs.get("model", None)
-        generation.update(end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model)
+        generation.update(
+            end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model
+        )
         raise ex
 
 
@@ -335,7 +428,12 @@ class OpenAILangfuse:
         if not self._langfuse:
             with self._lock:
                 if not self._langfuse:
-                    self._langfuse = Langfuse(public_key=openai.langfuse_public_key, secret_key=openai.langfuse_secret_key, host=openai.langfuse_host, debug=openai.langfuse_debug)
+                    self._langfuse = Langfuse(
+                        public_key=openai.langfuse_public_key,
+                        secret_key=openai.langfuse_secret_key,
+                        host=openai.langfuse_host,
+                        debug=openai.langfuse_debug,
+                    )
         return self._langfuse
 
     def flush(cls):
@@ -348,7 +446,9 @@ class OpenAILangfuse:
             wrap_function_wrapper(
                 resource.module,
                 f"{resource.object}.{resource.method}",
-                _wrap(resource, self.initialize) if resource.sync else _wrap_async(resource, self.initialize),
+                _wrap(resource, self.initialize)
+                if resource.sync
+                else _wrap_async(resource, self.initialize),
             )
 
         setattr(openai, "langfuse_public_key", None)
