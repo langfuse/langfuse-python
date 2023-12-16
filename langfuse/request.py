@@ -19,7 +19,14 @@ class LangfuseClient:
     _version: str
     _timeout: int
 
-    def __init__(self, public_key: str, secret_key: str, base_url: str, version: str, timeout: int):
+    def __init__(
+        self,
+        public_key: str,
+        secret_key: str,
+        base_url: str,
+        version: str,
+        timeout: int,
+    ):
         self._public_key = public_key
         self._secret_key = secret_key
         self._base_url = base_url
@@ -28,7 +35,10 @@ class LangfuseClient:
 
     def generate_headers(self):
         return {
-            "Authorization": "Basic " + b64encode(f"{self._public_key}:{self._secret_key}".encode("utf-8")).decode("ascii"),
+            "Authorization": "Basic "
+            + b64encode(
+                f"{self._public_key}:{self._secret_key}".encode("utf-8")
+            ).decode("ascii"),
             "Content-Type": "application/json",
             "x_langfuse_sdk_name": "python",
             "x_langfuse_sdk_version": self._version,
@@ -38,7 +48,9 @@ class LangfuseClient:
     def batch_post(self, gzip: bool = False, **kwargs) -> requests.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
         res = self.post(gzip, **kwargs)
-        return self._process_response(res, success_message="data uploaded successfully", return_json=False)
+        return self._process_response(
+            res, success_message="data uploaded successfully", return_json=False
+        )
 
     def post(self, gzip: bool = False, **kwargs) -> requests.Response:
         """Post the `kwargs` to the API"""
@@ -71,7 +83,9 @@ class LangfuseClient:
             return url[:-1]
         return url
 
-    def _process_response(self, res: requests.Response, success_message: str, *, return_json: bool = True) -> Union[requests.Response, Any]:
+    def _process_response(
+        self, res: requests.Response, success_message: str, *, return_json: bool = True
+    ) -> Union[requests.Response, Any]:
         log = logging.getLogger("langfuse")
         log.debug("received response: %s", res.text)
         if res.status_code == 200 or res.status_code == 201:
@@ -81,7 +95,12 @@ class LangfuseClient:
             payload = res.json()
             errors = payload["errors"]
             if len(errors) > 0:
-                raise APIErrors([APIError(error["status"], error["message"], error["error"]) for error in errors])
+                raise APIErrors(
+                    [
+                        APIError(error["status"], error["message"], error["error"])
+                        for error in errors
+                    ]
+                )
             else:
                 return res.json() if return_json else res
         try:

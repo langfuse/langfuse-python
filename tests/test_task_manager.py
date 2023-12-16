@@ -17,7 +17,9 @@ log.setLevel(logging.DEBUG)
 
 
 def setup_server(httpserver, expected_body: dict):
-    httpserver.expect_request("/api/public/ingestion", method="POST", json=expected_body).respond_with_data("success")
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST", json=expected_body
+    ).respond_with_data("success")
 
 
 def setup_langfuse_client(server: str):
@@ -45,9 +47,13 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
             nonlocal failed
             failed = True
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
@@ -68,9 +74,13 @@ def test_task_manager_fail(httpserver: HTTPServer):
         count = count + 1
         return Response(status=500)
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
@@ -95,9 +105,13 @@ def test_consumer_restart(httpserver: HTTPServer):
             nonlocal failed
             failed = True
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
     tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
@@ -121,12 +135,19 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
     def add_task_concurrently(tm, func):
         tm.add_task(func)
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
-    threads = [threading.Thread(target=add_task_concurrently, args=(tm, {"foo": "bar"})) for i in range(10)]
+    threads = [
+        threading.Thread(target=add_task_concurrently, args=(tm, {"foo": "bar"}))
+        for i in range(10)
+    ]
     for t in threads:
         t.start()
     for t in threads:
@@ -159,7 +180,9 @@ manager = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
 
 """
 
-    process = subprocess.Popen(["python", "-c", python_code], stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(
+        ["python", "-c", python_code], stderr=subprocess.PIPE, text=True
+    )
 
     logs = ""
 
@@ -201,9 +224,13 @@ def test_flush(httpserver: HTTPServer):
         method="POST",
     ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
 
@@ -238,7 +265,9 @@ def test_shutdown(httpserver: HTTPServer):
         method="POST",
     ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
     tm = TaskManager(langfuse_client, 1, 0.1, 3, 5, 10_000)
 
