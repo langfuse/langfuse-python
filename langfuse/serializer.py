@@ -21,7 +21,7 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, BaseModel):
             return obj.dict()
         # if langchain is not available, the Serializable type is NoneType
-        if isinstance(obj, Serializable):
+        if Serializable is not None and isinstance(obj, Serializable):
             return obj.to_json()
 
         # Standard JSON-encodable types
