@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
-from typing import Any
 from json import JSONEncoder
+from typing import Any
+
 from pydantic import BaseModel
 
 # Attempt to import Serializable

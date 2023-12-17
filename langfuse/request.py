@@ -1,13 +1,13 @@
+import json
+import logging
 from base64 import b64encode
 from gzip import GzipFile
 from io import BytesIO
-import json
-import logging
 from typing import Any, List, Union
+
 import requests
 
 from langfuse.serializer import EventSerializer
-
 
 _session = requests.sessions.Session()
 

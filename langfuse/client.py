@@ -1,11 +1,12 @@
-from enum import Enum
+import datetime as dt
 import logging
 import os
-from typing import Literal, Optional
 import typing
 import uuid
 from datetime import datetime
-import datetime as dt
+from enum import Enum
+from typing import Literal, Optional
+
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
     CreateGenerationBody,
@@ -17,15 +18,14 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
-
 from langfuse.model import (
-    DatasetItem,
-    CreateDatasetRunItemRequest,
-    CreateDatasetRequest,
     CreateDatasetItemRequest,
+    CreateDatasetRequest,
+    CreateDatasetRunItemRequest,
+    DatasetItem,
     DatasetRun,
-    ModelUsage,
     DatasetStatus,
+    ModelUsage,
 )
 
 try:
@@ -34,16 +34,13 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.api.client import FernLangfuse
-from langfuse.model import Dataset
-from langfuse.model import Observation
-from langfuse.model import MapValue
-from langfuse.model import TraceWithFullDetails
-
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
+from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 from langfuse.utils import _convert_usage_input
+
 from .version import __version__ as version
 
 

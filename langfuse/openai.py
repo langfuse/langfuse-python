@@ -1,20 +1,16 @@
+import logging
 import threading
-from datetime import datetime
 import types
+from datetime import datetime
 from typing import Optional
 
+import openai
+from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 from packaging.version import Version
-
+from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
-
-import openai
-from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI  # noqa: F401
-from wrapt import wrap_function_wrapper
 from langfuse.client import SDKIntegrationTypes, StatefulGenerationClient
-
-
-import logging
 
 log = logging.getLogger("langfuse")
 

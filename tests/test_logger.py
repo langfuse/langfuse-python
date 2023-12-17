@@ -1,7 +1,7 @@
 import os
+
 from langfuse import Langfuse
 from langfuse.callback import CallbackHandler
-
 
 """
 Level	Numeric value
