@@ -158,7 +158,7 @@ def _get_langfuse_data_from_kwargs(
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
-        "maxTokens": kwargs.get("max_tokens", float("inf")),  # casing?
+        "max_tokens": kwargs.get("max_tokens", float("inf")),  # casing?
         "top_p": kwargs.get("top_p", 1),
         "frequency_penalty": kwargs.get("frequency_penalty", 0),
         "presence_penalty": kwargs.get("presence_penalty", 0),

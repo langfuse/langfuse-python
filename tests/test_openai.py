@@ -55,7 +55,7 @@ def test_openai_chat_completion():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -98,7 +98,7 @@ def test_openai_chat_completion_stream():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -141,7 +141,7 @@ def test_openai_chat_completion_stream_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -214,7 +214,7 @@ def test_openai_chat_completion_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].output is None
@@ -303,7 +303,7 @@ def test_openai_completion():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -346,7 +346,7 @@ def test_openai_completion_stream():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -390,7 +390,7 @@ def test_openai_completion_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].output is None
@@ -431,7 +431,7 @@ def test_openai_completion_stream_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -505,7 +505,7 @@ async def test_async_chat():
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -548,7 +548,7 @@ async def test_async_chat_stream():
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -634,7 +634,7 @@ def test_azure():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
@@ -679,7 +679,7 @@ async def test_async_azure():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
