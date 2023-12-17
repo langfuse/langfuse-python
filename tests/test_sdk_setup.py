@@ -1,17 +1,17 @@
 import importlib
 import os
-import httpx
 
+import httpx
 import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Response
+
 import langfuse
 from langfuse.api.resources.commons.errors.unauthorized_error import UnauthorizedError
 from langfuse.callback import CallbackHandler
-
 from langfuse.client import Langfuse
-from tests.test_task_manager import get_host
 from langfuse.openai import _is_openai_v1, auth_check, openai
+from tests.test_task_manager import get_host
 
 chat_func = (
     openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create

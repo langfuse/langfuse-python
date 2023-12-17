@@ -2,4 +2,6 @@
 
 import typing
 
-MapValue = typing.Union[typing.Optional[str], typing.Optional[int], typing.Optional[bool]]
+MapValue = typing.Union[
+    typing.Optional[str], typing.Optional[int], typing.Optional[bool]
+]

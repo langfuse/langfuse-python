@@ -10,7 +10,11 @@ class ModelUsageUnit(str, enum.Enum):
     CHARACTERS = "CHARACTERS"
     TOKENS = "TOKENS"
 
-    def visit(self, characters: typing.Callable[[], T_Result], tokens: typing.Callable[[], T_Result]) -> T_Result:
+    def visit(
+        self,
+        characters: typing.Callable[[], T_Result],
+        tokens: typing.Callable[[], T_Result],
+    ) -> T_Result:
         if self is ModelUsageUnit.CHARACTERS:
             return characters()
         if self is ModelUsageUnit.TOKENS:

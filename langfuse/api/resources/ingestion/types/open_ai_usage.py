@@ -12,16 +12,30 @@ except ImportError:
 
 
 class OpenAiUsage(pydantic.BaseModel):
-    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens", default=None)
-    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens", default=None)
-    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens", default=None)
+    prompt_tokens: typing.Optional[int] = pydantic.Field(
+        alias="promptTokens", default=None
+    )
+    completion_tokens: typing.Optional[int] = pydantic.Field(
+        alias="completionTokens", default=None
+    )
+    total_tokens: typing.Optional[int] = pydantic.Field(
+        alias="totalTokens", default=None
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

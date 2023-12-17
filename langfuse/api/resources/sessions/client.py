@@ -32,7 +32,10 @@ class SessionsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/sessions/{session_id}"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/sessions/{session_id}",
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -45,7 +48,9 @@ class SessionsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -68,7 +73,10 @@ class AsyncSessionsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/sessions/{session_id}"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/sessions/{session_id}",
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -81,7 +89,9 @@ class AsyncSessionsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
