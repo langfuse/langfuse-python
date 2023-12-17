@@ -114,7 +114,7 @@ class CallbackHandler(BaseCallbackHandler):
             if timeout is not None:
                 args["timeout"] = timeout
 
-            args["integration"] = SDKIntegrationTypes.LANGCHAIN
+            args["sdk_integration"] = SDKIntegrationTypes.LANGCHAIN
 
             self.langfuse = Langfuse(**args)
             self.trace = None
