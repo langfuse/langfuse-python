@@ -596,6 +596,20 @@ def test_update_span():
     assert retrieved_span.metadata == {"dict": "value"}
 
 
+def test_create_event():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    event = langfuse.event(name="event")
+
+    langfuse.flush()
+
+    observation = api.observations.get(event.id)
+
+    assert observation.type == "EVENT"
+    assert observation.name == "event"
+
+
 def test_create_trace_and_event():
     langfuse = Langfuse(debug=False)
     api = get_api()

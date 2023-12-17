@@ -411,24 +411,10 @@ class Langfuse(object):
                 span_body.update(kwargs)
 
             if trace_id is None:
-                trace_dict = {
-                    "id": new_trace_id,
-                    "release": self.release,
-                    "name": name,
-                }
-
-                trace_body = TraceBody(**trace_dict)
-
-                event = {
-                    "id": str(uuid.uuid4()),
-                    "type": "trace-create",
-                    "body": trace_body.dict(exclude_none=True),
-                }
-
-                self.log.debug(f"Creating trace {event}...")
-                self.task_manager.add_task(event)
+                self._generate_trace(new_trace_id, name)
 
             self.log.debug(f"Creating span {span_body}...")
+
             span_body = CreateSpanBody(**span_body)
 
             event = {
@@ -443,6 +429,70 @@ class Langfuse(object):
             return StatefulSpanClient(
                 self.client,
                 new_span_id,
+                StateType.OBSERVATION,
+                new_trace_id,
+                self.task_manager,
+            )
+        except Exception as e:
+            self.log.exception(e)
+
+    def event(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        status_message: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ):
+        try:
+            event_id = str(uuid.uuid4()) if id is None else id
+
+            new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
+            self.trace_id = new_trace_id
+
+            event_body = {
+                "id": event_id,
+                "trace_id": new_trace_id,
+                "name": name,
+                "start_time": start_time if start_time is not None else datetime.now(),
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "parent_observation_id": parent_observation_id,
+                "version": version,
+                "trace": {"release": self.release},
+            }
+
+            if kwargs is not None:
+                event_body.update(kwargs)
+
+            if trace_id is None:
+                self._generate_trace(new_trace_id, name)
+
+            request = CreateEventBody(**event_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "event-create",
+                "body": request.dict(exclude_none=True),
+            }
+
+            self.log.debug(f"Creating event {event}...")
+            self.task_manager.add_task(event)
+
+            return StatefulSpanClient(
+                self.client,
+                event_id,
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
@@ -537,6 +587,24 @@ class Langfuse(object):
             )
         except Exception as e:
             self.log.exception(e)
+
+    def _generate_trace(self, trace_id: str, name: str):
+        trace_dict = {
+            "id": trace_id,
+            "release": self.release,
+            "name": name,
+        }
+
+        trace_body = TraceBody(**trace_dict)
+
+        event = {
+            "id": str(uuid.uuid4()),
+            "type": "trace-create",
+            "body": trace_body.dict(exclude_none=True),
+        }
+
+        self.log.debug(f"Creating trace {event}...")
+        self.task_manager.add_task(event)
 
     # On program exit, allow the consumer thread to exit cleanly.
     # This prevents exceptions and a messy shutdown when the
