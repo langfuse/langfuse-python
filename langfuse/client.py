@@ -48,9 +48,9 @@ from .version import __version__ as version
 
 
 class SDKIntegrationTypes(Enum):
-    Langchain = "langchain"
-    Default = "default"
-    Openai = "openai"
+    LANGCHAIN = "langchain"
+    DEFAULT = "default"
+    OPENAI = "openai"
 
 
 class Langfuse(object):
@@ -68,6 +68,7 @@ class Langfuse(object):
         flush_interval: int = 0.5,
         max_retries=3,
         timeout=15,
+        sdk_integration: SDKIntegrationTypes = SDKIntegrationTypes.DEFAULT,
     ):
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
@@ -129,7 +130,7 @@ class Langfuse(object):
             "public_key": public_key,
             "sdk_name": "python",
             "sdk_version": version,
-            "sdk_integration": SDKIntegrationTypes.Default.value,
+            "sdk_integration": sdk_integration.value,
         }
 
         if threads is not None:

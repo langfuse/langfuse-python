@@ -11,7 +11,7 @@ from langfuse import Langfuse
 import openai
 from openai import AsyncOpenAI, OpenAI, AzureOpenAI, AsyncAzureOpenAI  # noqa: F401
 from wrapt import wrap_function_wrapper
-from langfuse.client import StatefulGenerationClient
+from langfuse.client import SDKIntegrationTypes, StatefulGenerationClient
 
 
 import logging
@@ -433,6 +433,7 @@ class OpenAILangfuse:
                         secret_key=openai.langfuse_secret_key,
                         host=openai.langfuse_host,
                         debug=openai.langfuse_debug,
+                        sdk_integration=SDKIntegrationTypes.OPENAI,
                     )
         return self._langfuse
 
