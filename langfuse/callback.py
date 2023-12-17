@@ -7,7 +7,13 @@ from langchain.callbacks.base import BaseCallbackHandler
 
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
+from langfuse.client import (
+    Langfuse,
+    SDKIntegrationTypes,
+    StateType,
+    StatefulSpanClient,
+    StatefulTraceClient,
+)
 
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
@@ -107,6 +113,8 @@ class CallbackHandler(BaseCallbackHandler):
                 args["max_retries"] = max_retries
             if timeout is not None:
                 args["timeout"] = timeout
+
+            args["sdk_integration"] = SDKIntegrationTypes.LANGCHAIN
 
             self.langfuse = Langfuse(**args)
             self.trace = None

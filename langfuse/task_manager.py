@@ -6,8 +6,14 @@ import queue
 from queue import Empty, Queue
 import threading
 from typing import List
+import typing
 import monotonic
 from dateutil.tz import tzutc
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 
 import backoff
@@ -26,6 +32,14 @@ MAX_MSG_SIZE = 650_000
 BATCH_SIZE_LIMIT = 650_000
 
 
+class LangfuseMetadata(pydantic.BaseModel):
+    batch_size: int
+    sdk_integration: typing.Optional[str] = None
+    sdk_name: str = None
+    sdk_version: str = None
+    public_key: str = None
+
+
 class Consumer(threading.Thread):
     _log = logging.getLogger("langfuse")
     _queue: Queue
@@ -34,6 +48,10 @@ class Consumer(threading.Thread):
     _flush_at: int
     _flush_interval: float
     _max_retries: int
+    _public_key: str
+    _sdk_name: str
+    _sdk_version: str
+    _sdk_integration: str
 
     def __init__(
         self,
@@ -43,6 +61,10 @@ class Consumer(threading.Thread):
         flush_at: int,
         flush_interval: float,
         max_retries: int,
+        public_key: str,
+        sdk_name: str,
+        sdk_version: str,
+        sdk_integration: str,
     ):
         """Create a consumer thread."""
 
@@ -60,6 +82,10 @@ class Consumer(threading.Thread):
         self._flush_at = flush_at
         self._flush_interval = flush_interval
         self._max_retries = max_retries
+        self._public_key = public_key
+        self._sdk_name = sdk_name
+        self._sdk_version = sdk_version
+        self._sdk_integration = sdk_integration
 
     def _next(self):
         """Return the next batch of items to upload."""
@@ -125,10 +151,17 @@ class Consumer(threading.Thread):
     def _upload_batch(self, batch: List[any]):
         self._log.debug("uploading batch of %d items", len(batch))
 
+        metadata = LangfuseMetadata(
+            batch_size=len(batch),
+            sdk_integration=self._sdk_integration,
+            sdk_name=self._sdk_name,
+            sdk_version=self._sdk_version,
+            public_key=self._public_key,
+        ).dict()
+
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
         def execute_task_with_backoff(batch: [any]):
-            self._log.debug("uploading batch of %d items", len(batch))
-            return self._client.batch_post(gzip=False, batch=batch)
+            return self._client.batch_post(gzip=False, batch=batch, metadata=metadata)
 
         execute_task_with_backoff(batch)
         self._log.debug("successfully uploaded batch of %d items", len(batch))
@@ -144,6 +177,10 @@ class TaskManager(object):
     _flush_at: int
     _flush_interval: float
     _max_retries: int
+    _public_key: str
+    _sdk_name: str
+    _sdk_version: str
+    _sdk_integration: str
 
     def __init__(
         self,
@@ -152,6 +189,10 @@ class TaskManager(object):
         flush_interval: float,
         max_retries: int,
         threads: int,
+        public_key: str,
+        sdk_name: str,
+        sdk_version: str,
+        sdk_integration: str,
         max_task_queue_size: int = 100_000,
     ):
         self._max_task_queue_size = max_task_queue_size
@@ -162,6 +203,10 @@ class TaskManager(object):
         self._flush_at = flush_at
         self._flush_interval = flush_interval
         self._max_retries = max_retries
+        self._public_key = public_key
+        self._sdk_name = sdk_name
+        self._sdk_version = sdk_version
+        self._sdk_integration = sdk_integration
 
         self.init_resources()
 
@@ -171,12 +216,16 @@ class TaskManager(object):
     def init_resources(self):
         for i in range(self._threads):
             consumer = Consumer(
-                self._queue,
-                i,
-                self._client,
-                self._flush_at,
-                self._flush_interval,
-                self._max_retries,
+                queue=self._queue,
+                identifier=i,
+                client=self._client,
+                flush_at=self._flush_at,
+                flush_interval=self._flush_interval,
+                max_retries=self._max_retries,
+                public_key=self._public_key,
+                sdk_name=self._sdk_name,
+                sdk_version=self._sdk_version,
+                sdk_integration=self._sdk_integration,
             )
             consumer.start()
             self._consumers.append(consumer)

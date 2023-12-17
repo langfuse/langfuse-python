@@ -4,17 +4,11 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from .base_event import BaseEvent
 from .update_generation_body import UpdateGenerationBody
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class UpdateGenerationEvent(pydantic.BaseModel):
-    id: str
-    timestamp: str
+class UpdateGenerationEvent(BaseEvent):
     body: UpdateGenerationBody
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -28,4 +22,5 @@ class UpdateGenerationEvent(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

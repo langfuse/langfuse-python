@@ -2,6 +2,7 @@
 
 from .resources import (
     AccessDeniedError,
+    BaseEvent,
     CreateDatasetItemRequest,
     CreateDatasetRequest,
     CreateDatasetRunItemRequest,
@@ -83,6 +84,7 @@ from .resources import (
 
 __all__ = [
     "AccessDeniedError",
+    "BaseEvent",
     "CreateDatasetItemRequest",
     "CreateDatasetRequest",
     "CreateDatasetRunItemRequest",
