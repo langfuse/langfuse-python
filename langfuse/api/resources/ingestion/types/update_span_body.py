@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .observation_level import ObservationLevel
+from .update_event_body import UpdateEventBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -12,18 +12,8 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class CreateEventRequest(pydantic.BaseModel):
-    id: typing.Optional[str] = None
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
-    name: typing.Optional[str] = None
-    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
-    metadata: typing.Optional[typing.Any] = None
-    input: typing.Optional[typing.Any] = None
-    output: typing.Optional[typing.Any] = None
-    level: typing.Optional[ObservationLevel] = None
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
-    parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId", default=None)
-    version: typing.Optional[str] = None
+class UpdateSpanBody(UpdateEventBody):
+    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

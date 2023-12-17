@@ -4,17 +4,11 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from .optional_observation_body import OptionalObservationBody
 
 
-class LlmUsage(pydantic.BaseModel):
-    prompt_tokens: typing.Optional[int] = pydantic.Field(alias="promptTokens", default=None)
-    completion_tokens: typing.Optional[int] = pydantic.Field(alias="completionTokens", default=None)
-    total_tokens: typing.Optional[int] = pydantic.Field(alias="totalTokens", default=None)
+class UpdateEventBody(OptionalObservationBody):
+    id: str
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

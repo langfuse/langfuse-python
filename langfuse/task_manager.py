@@ -35,7 +35,15 @@ class Consumer(threading.Thread):
     _flush_interval: float
     _max_retries: int
 
-    def __init__(self, queue: Queue, identifier: int, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int):
+    def __init__(
+        self,
+        queue: Queue,
+        identifier: int,
+        client: LangfuseClient,
+        flush_at: int,
+        flush_interval: float,
+        max_retries: int,
+    ):
         """Create a consumer thread."""
 
         threading.Thread.__init__(self)
@@ -71,7 +79,11 @@ class Consumer(threading.Thread):
                 item_size = len(json.dumps(item, cls=EventSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 if item_size > MAX_MSG_SIZE:
-                    self._log.warning("Item exceeds size limit (size: %s), dropping item. (%s)", item_size, item)
+                    self._log.warning(
+                        "Item exceeds size limit (size: %s), dropping item. (%s)",
+                        item_size,
+                        item,
+                    )
                     continue
                 items.append(item)
                 total_size += item_size
@@ -133,7 +145,15 @@ class TaskManager(object):
     _flush_interval: float
     _max_retries: int
 
-    def __init__(self, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int, threads: int, max_task_queue_size: int = 100_000):
+    def __init__(
+        self,
+        client: LangfuseClient,
+        flush_at: int,
+        flush_interval: float,
+        max_retries: int,
+        threads: int,
+        max_task_queue_size: int = 100_000,
+    ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
         self._queue = queue.Queue(self._max_task_queue_size)
@@ -150,20 +170,30 @@ class TaskManager(object):
 
     def init_resources(self):
         for i in range(self._threads):
-            consumer = Consumer(self._queue, i, self._client, self._flush_at, self._flush_interval, self._max_retries)
+            consumer = Consumer(
+                self._queue,
+                i,
+                self._client,
+                self._flush_at,
+                self._flush_interval,
+                self._max_retries,
+            )
             consumer.start()
             self._consumers.append(consumer)
 
-    def add_task(self, event):
+    def add_task(self, event: dict):
         try:
-            self._log.debug("Adding task")
+            self._log.debug(f"adding task {event}")
+            json.dumps(event, cls=EventSerializer)
             event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
+
             self._queue.put(event, block=False)
         except queue.Full:
             self._log.warning("analytics-python queue is full")
             return False
         except Exception as e:
-            self._log.warning(f"Exception in adding task {e}")
+            self._log.exception(f"Exception in adding task {e}")
+
             return False
 
     def flush(self):

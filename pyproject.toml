@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "1.14.0"
+version = "2.0.0a4"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -49,7 +49,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 200
+line-length = 88
 target_version = ['py38', 'py39', 'py310', 'py311']
 exclude = '''
 (
@@ -57,12 +57,13 @@ exclude = '''
     | \.git
     | \.venv
     | \.mypy_cache
+    | langfuse/api
   )/
 )
 '''
 
 [tool.isort]
-line_length = 200
+line_length = 88
 profile = "black"
 
 [tool.pytest.ini_options]

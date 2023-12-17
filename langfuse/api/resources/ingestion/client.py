@@ -12,8 +12,8 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.score import Score
 from .types.ingestion_event import IngestionEvent
+from .types.ingestion_response import IngestionResponse
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -28,7 +28,7 @@ class IngestionClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def batch(self, *, batch: typing.List[IngestionEvent]) -> Score:
+    def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
         """
         Ingest multiple events to Langfuse
 
@@ -43,7 +43,7 @@ class IngestionClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Score, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(IngestionResponse, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -65,7 +65,7 @@ class AsyncIngestionClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def batch(self, *, batch: typing.List[IngestionEvent]) -> Score:
+    async def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
         """
         Ingest multiple events to Langfuse
 
@@ -80,7 +80,7 @@ class AsyncIngestionClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Score, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(IngestionResponse, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

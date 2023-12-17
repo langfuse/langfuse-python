@@ -4,6 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from .create_generation_body import CreateGenerationBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -11,20 +12,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class Trace(pydantic.BaseModel):
-    id: str = pydantic.Field(description="The unique identifier of a trace")
-    timestamp: dt.datetime
-    name: typing.Optional[str] = None
-    input: typing.Optional[typing.Any] = None
-    output: typing.Optional[typing.Any] = None
-    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
-    release: typing.Optional[str] = None
-    version: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
-    metadata: typing.Optional[typing.Any] = None
-    public: typing.Optional[bool] = pydantic.Field(
-        default=None, description="Public traces are accessible via url without login"
-    )
+class CreateGenerationEvent(pydantic.BaseModel):
+    id: str
+    timestamp: str
+    body: CreateGenerationBody
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -37,5 +28,4 @@ class Trace(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

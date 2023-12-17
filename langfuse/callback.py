@@ -1,15 +1,13 @@
-import logging
 import os
-from datetime import datetime
+import logging
 import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 
-from langfuse.api.resources.commons.types.llm_usage import LlmUsage
+
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import Langfuse, StateType, StatefulSpanClient, StatefulTraceClient
-from langfuse.model import CreateGeneration, CreateSpan, CreateTrace, UpdateGeneration, UpdateSpan
 
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
@@ -17,7 +15,9 @@ try:
     from langchain.schema.messages import BaseMessage
     from langchain.schema.output import LLMResult
 except ImportError:
-    logging.getLogger("langfuse").warning("Could not import langchain. Some functionality may be missing.")
+    logging.getLogger("langfuse").warning(
+        "Could not import langchain. Some functionality may be missing."
+    )
     LLMResult = Any
     BaseMessage = Any
     Document = Any
@@ -27,11 +27,12 @@ except ImportError:
 
 class CallbackHandler(BaseCallbackHandler):
     log = logging.getLogger("langfuse")
-    nextSpanId: Optional[str] = None
+    next_span_id: Optional[str] = None
     trace: Optional[StatefulTraceClient]
-    rootSpan: Optional[StatefulSpanClient]
+    root_span: Optional[StatefulSpanClient]
     langfuse: Optional[Langfuse]
     version: Optional[str] = None
+    session_id: Optional[str] = None
 
     def __init__(
         self,
@@ -39,7 +40,10 @@ class CallbackHandler(BaseCallbackHandler):
         secret_key: Optional[str] = None,
         host: Optional[str] = None,
         debug: bool = False,
-        statefulClient: Optional[Union[StatefulTraceClient, StatefulSpanClient]] = None,
+        stateful_client: Optional[
+            Union[StatefulTraceClient, StatefulSpanClient]
+        ] = None,
+        session_id: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
         threads: Optional[int] = None,
@@ -49,34 +53,47 @@ class CallbackHandler(BaseCallbackHandler):
         timeout: Optional[int] = None,
     ) -> None:
         # If we're provided a stateful trace client directly
-        prioritized_public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
-        prioritized_secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
-        prioritized_host = host if host else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        prioritized_public_key = (
+            public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
+        )
+        prioritized_secret_key = (
+            secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        )
+        prioritized_host = (
+            host
+            if host
+            else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        )
 
         self.version = version
 
-        if statefulClient and isinstance(statefulClient, StatefulTraceClient):
-            self.trace = statefulClient
+        if stateful_client and isinstance(stateful_client, StatefulTraceClient):
+            self.trace = stateful_client
             self.runs = {}
-            self.rootSpan = None
+            self.root_span = None
             self.langfuse = None
 
-        elif statefulClient and isinstance(statefulClient, StatefulSpanClient):
+        elif stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs = {}
-            self.rootSpan = statefulClient
+            self.root_span = stateful_client
             self.langfuse = None
             self.trace = StatefulTraceClient(
-                statefulClient.client,
-                statefulClient.trace_id,
+                stateful_client.client,
+                stateful_client.trace_id,
                 StateType.TRACE,
-                statefulClient.trace_id,
-                statefulClient.task_manager,
+                stateful_client.trace_id,
+                stateful_client.task_manager,
             )
-            self.runs[statefulClient.id] = statefulClient
+            self.runs[stateful_client.id] = stateful_client
 
         # Otherwise, initialize stateless using the provided keys
         elif prioritized_public_key and prioritized_secret_key:
-            args = {"public_key": prioritized_public_key, "secret_key": prioritized_secret_key, "host": prioritized_host, "debug": debug}
+            args = {
+                "public_key": prioritized_public_key,
+                "secret_key": prioritized_secret_key,
+                "host": prioritized_host,
+                "debug": debug,
+            }
 
             if release is not None:
                 args["release"] = release
@@ -93,18 +110,23 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.langfuse = Langfuse(**args)
             self.trace = None
-            self.rootSpan = None
+            self.root_span = None
             self.runs = {}
+            self.session_id = session_id
 
         else:
-            self.log.error("Either provide a stateful langfuse object or both public_key and secret_key.")
-            raise ValueError("Either provide a stateful langfuse object or both public_key and secret_key.")
+            self.log.error(
+                "Either provide a stateful langfuse object or both public_key and secret_key."
+            )
+            raise ValueError(
+                "Either provide a stateful langfuse object or both public_key and secret_key."
+            )
 
     def flush(self):
         if self.trace is not None:
             self.trace.task_manager.flush()
-        elif self.rootSpan is not None:
-            self.rootSpan.task_manager.flush()
+        elif self.root_span is not None:
+            self.root_span.task_manager.flush()
         else:
             self.log.debug("There was no trace yet, hence no flushing possible.")
 
@@ -116,8 +138,8 @@ class CallbackHandler(BaseCallbackHandler):
             if len(projects.data) == 0:
                 raise Exception("No projects found for the keys.")
             return True
-        elif self.rootSpan is not None:
-            projects = self.rootSpan.client.projects.get()
+        elif self.root_span is not None:
+            projects = self.root_span.client.projects.get()
             if len(projects) == 0:
                 raise Exception("No projects found for the keys.")
             return True
@@ -125,7 +147,7 @@ class CallbackHandler(BaseCallbackHandler):
         return False
 
     def setNextSpan(self, id: str):
-        self.nextSpanId = id
+        self.next_span_id = id
 
     def on_llm_new_token(
         self,
@@ -137,7 +159,9 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
         # Nothing needs to happen here for langfuse. Once the streaming is done,
-        self.log.debug(f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}")
+        self.log.debug(
+            f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
+        )
 
     def on_retriever_error(
         self,
@@ -149,12 +173,19 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when Retriever errors."""
         try:
-            self.log.debug(f"on retriever error: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on retriever error: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
 
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now(), version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                level=ObservationLevel.ERROR,
+                status_message=str(error),
+                version=self.version,
+            )
+            self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
 
@@ -170,7 +201,9 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on chain start: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on chain start: run_id: {run_id} parent_run_id: {parent_run_id}, name {serialized.get('name', serialized.get('id', ['<unknown>'])[-1])}"
+            )
             self.__generate_trace_and_parent(
                 serialized=serialized,
                 inputs=inputs,
@@ -181,6 +214,17 @@ class CallbackHandler(BaseCallbackHandler):
                 kwargs=kwargs,
                 version=self.version,
             )
+            if parent_run_id is not None:
+                self.runs[run_id] = self.runs[parent_run_id].span(
+                    id=self.next_span_id,
+                    trace_id=self.trace.id,
+                    name=serialized.get(
+                        "name", serialized.get("id", ["<unknown>"])[-1]
+                    ),
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    input=inputs,
+                    version=self.version,
+                )
         except Exception as e:
             self.log.exception(e)
 
@@ -204,57 +248,65 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
+            # on a new invocation, and not user provided root, we want to initialise a new trace
+            # parent_run_id is None when we are at the root of a langchain execution
+            if (
+                self.trace is not None
+                and parent_run_id is None
+                and self.langfuse is not None
+            ):
+                self.trace = None
+                self.runs = {}
+
+            # if we are at a root, but langfuse exists, it means we do not have a
+            # root provided by a user. Initialise it by creating a trace and root span.
             if self.trace is None and self.langfuse is not None:
                 trace = self.langfuse.trace(
-                    CreateTrace(
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        version=self.version,
-                    )
+                    id=str(run_id),
+                    name=class_name,
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    version=self.version,
+                    session_id=self.session_id,
+                    input=inputs,
                 )
 
                 self.trace = trace
 
-            if parent_run_id is not None and parent_run_id in self.runs:
-                self.runs[run_id] = self.runs[parent_run_id].span(
-                    CreateSpan(
-                        id=self.nextSpanId,
+                self.runs[run_id] = self.trace.span(
+                    id=self.next_span_id,
+                    trace_id=self.trace.id,
+                    name=class_name,
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    input=inputs,
+                    version=self.version,
+                )
+                return
+
+            # if we are at root, and root was provided by user,
+            # create a span for the trace or span provided
+            if self.langfuse is None and parent_run_id is None:
+                self.runs[run_id] = (
+                    self.trace.span(
+                        id=self.next_span_id,
+                        trace_id=self.trace.id,
                         name=class_name,
                         metadata=self.__join_tags_and_metadata(tags, metadata),
                         input=inputs,
-                        startTime=datetime.now(),
+                        version=self.version,
+                    )
+                    if self.root_span is None
+                    else self.root_span.span(
+                        id=self.next_span_id,
+                        trace_id=self.trace.id,
+                        name=class_name,
+                        metadata=self.__join_tags_and_metadata(tags, metadata),
+                        input=inputs,
                         version=self.version,
                     )
                 )
-                self.nextSpanId = None
-            else:
-                self.runs[run_id] = (
-                    self.trace.span(
-                        CreateSpan(
-                            id=self.nextSpanId,
-                            traceId=self.trace.id,
-                            name=class_name,
-                            metadata=self.__join_tags_and_metadata(tags, metadata),
-                            input=inputs,
-                            startTime=datetime.now(),
-                            version=self.version,
-                        )
-                    )
-                    if self.rootSpan is None
-                    else self.rootSpan.span(
-                        CreateSpan(
-                            id=self.nextSpanId,
-                            traceId=self.trace.id,
-                            name=class_name,
-                            metadata=self.__join_tags_and_metadata(tags, metadata),
-                            input=inputs,
-                            startTime=datetime.now(),
-                            version=self.version,
-                        )
-                    )
-                )
 
-                self.nextSpanId = None
+                self.next_span_id = None
+                return
 
         except Exception as e:
             self.log.exception(e)
@@ -269,12 +321,17 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run on agent action."""
         try:
-            self.log.debug(f"on agent action: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on agent action: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
 
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(endTime=datetime.now(), output=action, version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                output=action, version=self.version
+            )
+            self.__update_trace(run_id, parent_run_id, action)
         except Exception as e:
             self.log.exception(e)
 
@@ -287,11 +344,16 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on agent finish: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on agent finish: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(endTime=datetime.now(), output=finish, version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                output=finish, version=self.version
+            )
+            self.__update_trace(run_id, parent_run_id, finish)
         except Exception as e:
             self.log.exception(e)
 
@@ -304,12 +366,17 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on chain end: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on chain end: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
 
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(output=outputs, endTime=datetime.now(), version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                output=outputs, version=self.version
+            )
+            self.__update_trace(run_id, parent_run_id, outputs)
         except Exception as e:
             self.log.exception(e)
 
@@ -323,8 +390,15 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         try:
-            self.log.debug(f"on chain error: run_id: {run_id} parent_run_id: {parent_run_id}")
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(level=ObservationLevel.ERROR, statusMessage=str(error), endTime=datetime.now(), version=self.version))
+            self.log.debug(
+                f"on chain error: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
+            self.runs[run_id] = self.runs[run_id].end(
+                level=ObservationLevel.ERROR,
+                status_message=str(error),
+                version=self.version,
+            )
+            self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
 
@@ -340,8 +414,18 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}")
-            self.__on_llm_action(serialized, run_id, messages, parent_run_id, tags=tags, metadata=metadata, **kwargs)
+            self.log.debug(
+                f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
+            self.__on_llm_action(
+                serialized,
+                run_id,
+                messages,
+                parent_run_id,
+                tags=tags,
+                metadata=metadata,
+                **kwargs,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -357,8 +441,18 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm start: run_id: {run_id} parent_run_id: {parent_run_id}")
-            self.__on_llm_action(serialized, run_id, prompts, parent_run_id, tags=tags, metadata=metadata, **kwargs)
+            self.log.debug(
+                f"on llm start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
+            self.__on_llm_action(
+                serialized,
+                run_id,
+                prompts,
+                parent_run_id,
+                tags=tags,
+                metadata=metadata,
+                **kwargs,
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -374,25 +468,26 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on tool start: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on tool start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
             meta = self.__join_tags_and_metadata(tags, metadata)
 
-            meta.update({key: value for key, value in kwargs.items() if value is not None})
+            meta.update(
+                {key: value for key, value in kwargs.items() if value is not None}
+            )
 
             self.runs[run_id] = self.runs[parent_run_id].span(
-                CreateSpan(
-                    id=self.nextSpanId,
-                    name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                    input=input_str,
-                    startTime=datetime.now(),
-                    metadata=meta,
-                    version=self.version,
-                )
+                id=self.next_span_id,
+                name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                input=input_str,
+                metadata=meta,
+                version=self.version,
             )
-            self.nextSpanId = None
+            self.next_span_id = None
         except Exception as e:
             self.log.exception(e)
 
@@ -408,22 +503,21 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on retriever start: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on retriever start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
 
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
 
             self.runs[run_id] = self.runs[parent_run_id].span(
-                CreateSpan(
-                    id=self.nextSpanId,
-                    name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                    input=query,
-                    startTime=datetime.now(),
-                    metadata=self.__join_tags_and_metadata(tags, metadata),
-                    version=self.version,
-                )
+                id=self.next_span_id,
+                name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                input=query,
+                metadata=self.__join_tags_and_metadata(tags, metadata),
+                version=self.version,
             )
-            self.nextSpanId = None
+            self.next_span_id = None
         except Exception as e:
             self.log.exception(e)
 
@@ -436,12 +530,17 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on retriever end: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on retriever end: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
 
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(output=documents, endTime=datetime.now(), version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                output=documents, version=self.version
+            )
+            self.__update_trace(run_id, parent_run_id, documents)
         except Exception as e:
             self.log.exception(e)
 
@@ -454,11 +553,16 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on tool end: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on tool end: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(output=output, endTime=datetime.now(), version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                output=output, version=self.version
+            )
+            self.__update_trace(run_id, parent_run_id, output)
         except Exception as e:
             self.log.exception(e)
 
@@ -471,11 +575,16 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on tool error: run_id: {run_id} parent_run_id: {parent_run_id}")
+            self.log.debug(
+                f"on tool error: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].update(UpdateSpan(statusMessage=error, level=ObservationLevel.ERROR, endTime=datetime.now(), version=self.version))
+            self.runs[run_id] = self.runs[run_id].end(
+                status_message=error, level=ObservationLevel.ERROR, version=self.version
+            )
+            self.__update_trace(run_id, parent_run_id, error)
         except Exception as e:
             self.log.exception(e)
 
@@ -490,36 +599,59 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            if self.trace is None:
-                self.__generate_trace_and_parent(
-                    serialized,
-                    inputs=prompts,
-                    run_id=run_id,
-                    parent_run_id=parent_run_id,
-                    tags=tags,
-                    metadata=metadata,
-                    version=self.version,
-                    kwargs=kwargs,
+            self.__generate_trace_and_parent(
+                serialized,
+                inputs=prompts,
+                run_id=run_id,
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+                version=self.version,
+                kwargs=kwargs,
+            )
+            if kwargs["invocation_params"]["_type"] in [
+                "anthropic-llm",
+                "anthropic-chat",
+            ]:
+                model_name = (
+                    "anthropic"  # unfortunately no model info by anthropic provided.
                 )
-            if kwargs["invocation_params"]["_type"] in ["anthropic-llm", "anthropic-chat"]:
-                model_name = "anthropic"  # unfortunately no model info by anthropic provided.
-            elif kwargs["invocation_params"]["_type"] in ["amazon_bedrock", "amazon_bedrock_chat"]:
+            elif kwargs["invocation_params"]["_type"] in [
+                "amazon_bedrock",
+                "amazon_bedrock_chat",
+            ]:
                 # langchain only provides string representation of the model class. Hence have to parse it out.
 
                 if serialized.get("kwargs") and serialized["kwargs"].get("model_id"):
-                    model_name = self.extract_second_part(serialized["kwargs"]["model_id"])
+                    model_name = self.extract_second_part(
+                        serialized["kwargs"]["model_id"]
+                    )
                 else:
-                    model_name = self.extract_second_part(self.extract_model_id("model_id", serialized["repr"]))
+                    model_name = self.extract_second_part(
+                        self.extract_model_id("model_id", serialized["repr"])
+                    )
 
             elif kwargs["invocation_params"]["_type"] == "cohere-chat":
                 model_name = self.extract_model_id("model", serialized["repr"])
             elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
                 model_name = kwargs["invocation_params"]["repo_id"]
             elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
-                if kwargs.get("invocation_params").get("model") and serialized["kwargs"].get("model_version"):
-                    model_name = kwargs.get("invocation_params").get("model") + "-" + serialized["kwargs"]["model_version"]
-                elif serialized["kwargs"].get("deployment_name") and serialized["kwargs"].get("model_version"):
-                    model_name = serialized["kwargs"]["deployment_name"] + "-" + serialized["kwargs"]["model_version"]
+                if kwargs.get("invocation_params").get("model") and serialized[
+                    "kwargs"
+                ].get("model_version"):
+                    model_name = (
+                        kwargs.get("invocation_params").get("model")
+                        + "-"
+                        + serialized["kwargs"]["model_version"]
+                    )
+                elif serialized["kwargs"].get("deployment_name") and serialized[
+                    "kwargs"
+                ].get("model_version"):
+                    model_name = (
+                        serialized["kwargs"]["deployment_name"]
+                        + "-"
+                        + serialized["kwargs"]["model_version"]
+                    )
                 elif kwargs.get("invocation_params").get("model"):
                     model_name = kwargs.get("invocation_params").get("model")
                 else:
@@ -530,49 +662,63 @@ class CallbackHandler(BaseCallbackHandler):
                 model_name = kwargs["invocation_params"]["model_name"]
             self.runs[run_id] = (
                 self.runs[parent_run_id].generation(
-                    CreateGeneration(
-                        name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                        prompt=prompts,
-                        startTime=datetime.now(),
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        model=model_name,
-                        modelParameters={
-                            key: value
-                            for key, value in {
-                                "temperature": kwargs["invocation_params"].get("temperature"),
-                                "max_tokens": kwargs["invocation_params"].get("max_tokens"),
-                                "top_p": kwargs["invocation_params"].get("top_p"),
-                                "frequency_penalty": kwargs["invocation_params"].get("frequency_penalty"),
-                                "presence_penalty": kwargs["invocation_params"].get("presence_penalty"),
-                                "request_timeout": kwargs["invocation_params"].get("request_timeout"),
-                            }.items()
-                            if value is not None
-                        },
-                        version=self.version,
-                    )
+                    name=serialized.get(
+                        "name", serialized.get("id", ["<unknown>"])[-1]
+                    ),
+                    input=prompts,
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    model=model_name,
+                    model_parameters={
+                        key: value
+                        for key, value in {
+                            "temperature": kwargs["invocation_params"].get(
+                                "temperature"
+                            ),
+                            "max_tokens": kwargs["invocation_params"].get("max_tokens"),
+                            "top_p": kwargs["invocation_params"].get("top_p"),
+                            "frequency_penalty": kwargs["invocation_params"].get(
+                                "frequency_penalty"
+                            ),
+                            "presence_penalty": kwargs["invocation_params"].get(
+                                "presence_penalty"
+                            ),
+                            "request_timeout": kwargs["invocation_params"].get(
+                                "request_timeout"
+                            ),
+                        }.items()
+                        if value is not None
+                    },
+                    version=self.version,
                 )
                 if parent_run_id in self.runs
                 else self.trace.generation(
-                    CreateGeneration(
-                        name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
-                        prompt=prompts,
-                        startTime=datetime.now(),
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        model=model_name,
-                        modelParameters={
-                            key: value
-                            for key, value in {
-                                "temperature": kwargs["invocation_params"].get("temperature"),
-                                "max_tokens": kwargs["invocation_params"].get("max_tokens"),
-                                "top_p": kwargs["invocation_params"].get("top_p"),
-                                "frequency_penalty": kwargs["invocation_params"].get("frequency_penalty"),
-                                "presence_penalty": kwargs["invocation_params"].get("presence_penalty"),
-                                "request_timeout": kwargs["invocation_params"].get("request_timeout"),
-                            }.items()
-                            if value is not None
-                        },
-                        version=self.version,
-                    )
+                    name=serialized.get(
+                        "name", serialized.get("id", ["<unknown>"])[-1]
+                    ),
+                    input=prompts,
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    model=model_name,
+                    model_parameters={
+                        key: value
+                        for key, value in {
+                            "temperature": kwargs["invocation_params"].get(
+                                "temperature"
+                            ),
+                            "max_tokens": kwargs["invocation_params"].get("max_tokens"),
+                            "top_p": kwargs["invocation_params"].get("top_p"),
+                            "frequency_penalty": kwargs["invocation_params"].get(
+                                "frequency_penalty"
+                            ),
+                            "presence_penalty": kwargs["invocation_params"].get(
+                                "presence_penalty"
+                            ),
+                            "request_timeout": kwargs["invocation_params"].get(
+                                "request_timeout"
+                            ),
+                        }.items()
+                        if value is not None
+                    },
+                    version=self.version,
                 )
             )
         except Exception as e:
@@ -596,16 +742,29 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id} response: {response} kwargs: {kwargs}")
+            self.log.debug(
+                f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id} response: {response} kwargs: {kwargs}"
+            )
             if run_id not in self.runs:
-                raise Exception("run not found")
+                raise Exception("Run not found, see docs what to do in this case.")
             else:
                 last_response = response.generations[-1][-1]
-                llm_usage = None if response.llm_output is None else LlmUsage(**response.llm_output["token_usage"])
+                llm_usage = (
+                    None
+                    if response.llm_output is None
+                    else response.llm_output["token_usage"]
+                )
 
-                extracted_response = last_response.text if last_response.text is not None and last_response.text != "" else last_response.message.additional_kwargs
+                extracted_response = (
+                    last_response.text
+                    if last_response.text is not None and last_response.text != ""
+                    else last_response.message.additional_kwargs
+                )
 
-                self.runs[run_id] = self.runs[run_id].update(UpdateGeneration(completion=extracted_response, end_time=datetime.now(), usage=llm_usage, version=self.version))
+                self.runs[run_id] = self.runs[run_id].end(
+                    output=extracted_response, usage=llm_usage, version=self.version
+                )
+                self.__update_trace(run_id, parent_run_id, str(extracted_response))
         except Exception as e:
             self.log.exception(e)
 
@@ -618,8 +777,15 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(f"on llm error: run_id: {run_id} parent_run_id: {parent_run_id}")
-            self.runs[run_id] = self.runs[run_id].update(UpdateGeneration(endTime=datetime.now(), statusMessage=str(error), level=ObservationLevel.ERROR, version=self.version))
+            self.log.debug(
+                f"on llm error: run_id: {run_id} parent_run_id: {parent_run_id}"
+            )
+            self.runs[run_id] = self.runs[run_id].end(
+                status_message=str(error),
+                level=ObservationLevel.ERROR,
+                version=self.version,
+            )
+            self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
 
@@ -637,3 +803,11 @@ class CallbackHandler(BaseCallbackHandler):
             return final_dict
         else:
             return metadata
+
+    def __update_trace(self, run_id: str, parent_run_id: Optional[str], output: any):
+        if (
+            parent_run_id is None
+            and self.trace is not None
+            and self.trace.id == str(run_id)
+        ):
+            self.trace = self.trace.update(output=output)

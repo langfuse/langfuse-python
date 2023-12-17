@@ -1,17 +1,29 @@
 import os
 import pytest
 from langfuse.client import Langfuse
-from langfuse.model import CreateTrace
-from langfuse.openai import _is_openai_v1, _is_streaming_response, openai, AsyncOpenAI, AzureOpenAI, AsyncAzureOpenAI
+from langfuse.openai import (
+    _is_openai_v1,
+    _is_streaming_response,
+    openai,
+    AsyncOpenAI,
+    AzureOpenAI,
+    AsyncAzureOpenAI,
+)
 from openai import APIConnectionError
 
 from tests.utils import create_uuid, get_api
 
 
-chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
-completion_func = openai.completions.create if _is_openai_v1() else openai.Completion.create
+chat_func = (
+    openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+)
+completion_func = (
+    openai.completions.create if _is_openai_v1() else openai.Completion.create
+)
 expected_err = openai.APIError if _is_openai_v1() else openai.error.AuthenticationError
-expected_err_msg = "Connection error." if _is_openai_v1() else "You didn't provide an API key."
+expected_err_msg = (
+    "Connection error." if _is_openai_v1() else "You didn't provide an API key."
+)
 
 
 def test_openai_chat_completion():
@@ -43,12 +55,12 @@ def test_openai_chat_completion():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
@@ -86,12 +98,12 @@ def test_openai_chat_completion_stream():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2"
     assert generation.data[0].completion_start_time is not None
 
@@ -129,12 +141,12 @@ def test_openai_chat_completion_stream_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
     assert expected_err_msg in generation.data[0].status_message
     assert generation.data[0].output is None
@@ -148,7 +160,7 @@ def test_openai_chat_completion_with_trace():
     trace_id = create_uuid()
     langfuse = Langfuse()
 
-    langfuse.trace(CreateTrace(id=trace_id))
+    langfuse.trace(id=trace_id)
 
     chat_func(
         name=generation_name,
@@ -202,7 +214,7 @@ def test_openai_chat_completion_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].output is None
@@ -291,12 +303,12 @@ def test_openai_completion():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
@@ -334,12 +346,12 @@ def test_openai_completion_stream():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
     assert generation.data[0].completion_start_time is not None
 
@@ -378,7 +390,7 @@ def test_openai_completion_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
     assert generation.data[0].output is None
@@ -419,12 +431,12 @@ def test_openai_completion_stream_fail():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
     assert expected_err_msg in generation.data[0].status_message
     assert generation.data[0].output is None
@@ -468,7 +480,11 @@ async def test_async_chat():
     client = AsyncOpenAI()
     generation_name = create_uuid()
 
-    completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name)
+    completion = await client.chat.completions.create(
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        model="gpt-3.5-turbo",
+        name=generation_name,
+    )
 
     openai.flush_langfuse()
     print(completion)
@@ -489,12 +505,12 @@ async def test_async_chat():
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
@@ -505,7 +521,12 @@ async def test_async_chat_stream():
 
     generation_name = create_uuid()
 
-    completion = await client.chat.completions.create(messages=[{"role": "user", "content": "1 + 1 = "}], model="gpt-3.5-turbo", name=generation_name, stream=True)
+    completion = await client.chat.completions.create(
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        model="gpt-3.5-turbo",
+        name=generation_name,
+        stream=True,
+    )
 
     async for c in completion:
         print(c)
@@ -527,12 +548,12 @@ async def test_async_chat_stream():
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
 
 
@@ -554,7 +575,13 @@ def test_openai_function_call():
         name=generation_name,
         model="gpt-3.5-turbo-0613",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
-        functions=[{"name": "get_answer_for_user_query", "description": "Get user answer in series of steps", "parameters": StepByStepAIResponse.schema()}],
+        functions=[
+            {
+                "name": "get_answer_for_user_query",
+                "description": "Get user answer in series of steps",
+                "parameters": StepByStepAIResponse.schema(),
+            }
+        ],
         function_call={"name": "get_answer_for_user_query"},
     )
 
@@ -607,12 +634,12 @@ def test_azure():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
 
 
@@ -652,10 +679,10 @@ async def test_async_azure():
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
-        "maxTokens": "inf",
+        "max_tokens": "inf",
         "presence_penalty": 0,
     }
-    assert generation.data[0].prompt_tokens is not None
-    assert generation.data[0].completion_tokens is not None
-    assert generation.data[0].total_tokens is not None
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"

@@ -4,9 +4,10 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .map_value import MapValue
-from .observation_level import ObservationLevel
-from .usage import Usage
+from ...commons.types.map_value import MapValue
+from ...commons.types.observation_level import ObservationLevel
+from ...commons.types.usage import Usage
+from .observation_type import ObservationType
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,12 +15,12 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class Observation(pydantic.BaseModel):
-    id: str
+class ObservationBody(pydantic.BaseModel):
+    id: typing.Optional[str] = None
     trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
-    type: str
+    type: ObservationType
     name: typing.Optional[str] = None
-    start_time: dt.datetime = pydantic.Field(alias="startTime")
+    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
     end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
     model: typing.Optional[str] = None
@@ -31,7 +32,7 @@ class Observation(pydantic.BaseModel):
     metadata: typing.Optional[typing.Any] = None
     output: typing.Optional[typing.Any] = None
     usage: typing.Optional[Usage] = None
-    level: ObservationLevel
+    level: typing.Optional[ObservationLevel] = None
     status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
     parent_observation_id: typing.Optional[str] = pydantic.Field(alias="parentObservationId", default=None)
 

@@ -4,9 +4,9 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.llm_usage import LlmUsage
 from ...commons.types.map_value import MapValue
-from ...commons.types.observation_level import ObservationLevel
+from .create_span_body import CreateSpanBody
+from .ingestion_usage import IngestionUsage
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,24 +14,13 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class UpdateGenerationRequest(pydantic.BaseModel):
-    generation_id: str = pydantic.Field(alias="generationId")
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
-    name: typing.Optional[str] = None
-    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
+class CreateGenerationBody(CreateSpanBody):
     completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="completionStartTime", default=None)
     model: typing.Optional[str] = None
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
         alias="modelParameters", default=None
     )
-    prompt: typing.Optional[typing.Any] = None
-    version: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    completion: typing.Optional[typing.Any] = None
-    usage: typing.Optional[LlmUsage] = None
-    level: typing.Optional[ObservationLevel] = None
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
+    usage: typing.Optional[IngestionUsage] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
