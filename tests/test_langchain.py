@@ -1,27 +1,30 @@
 import os
-from langchain import Anthropic, ConversationChain, HuggingFaceHub
-from langchain.llms import OpenAI
-from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
-from langchain.prompts import PromptTemplate
+from typing import Optional
+
 import pytest
-from langfuse.callback import CallbackHandler
+from langchain import Anthropic, ConversationChain, HuggingFaceHub
+from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.chains import (
+    ConversationalRetrievalChain,
+    LLMChain,
+    RetrievalQA,
+    SimpleSequentialChain,
+)
+from langchain.chains.openai_functions import create_openai_fn_chain
+from langchain.chains.summarize import load_summarize_chain
+from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.llms import OpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.agents import AgentType, initialize_agent, load_tools
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import Document
 from pydantic import BaseModel, Field
-from langchain.chains.openai_functions import create_openai_fn_chain
-from langchain.prompts import ChatPromptTemplate
-from langchain.chat_models import AzureChatOpenAI
-from typing import Optional
-from langfuse.client import Langfuse
-from langchain.chains.summarize import load_summarize_chain
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
 
+from langfuse.callback import CallbackHandler
+from langfuse.client import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 
@@ -792,16 +795,16 @@ def test_callback_openai_functions_python():
 
 def test_create_extraction_chain():
     import os
-
     from uuid import uuid4
-    from langchain.chains import create_extraction_chain
 
-    from langfuse.client import Langfuse
-    from langchain.text_splitter import CharacterTextSplitter
-    from langchain.embeddings.openai import OpenAIEmbeddings
-    from langchain.vectorstores import Chroma
+    from langchain.chains import create_extraction_chain
     from langchain.chat_models import ChatOpenAI
     from langchain.document_loaders import TextLoader
+    from langchain.embeddings.openai import OpenAIEmbeddings
+    from langchain.text_splitter import CharacterTextSplitter
+    from langchain.vectorstores import Chroma
+
+    from langfuse.client import Langfuse
 
     def create_uuid():
         return str(uuid4())
@@ -870,8 +873,8 @@ def test_create_extraction_chain():
 def test_aws_bedrock_chain():
     import os
 
-    from langchain.llms.bedrock import Bedrock
     import boto3
+    from langchain.llms.bedrock import Bedrock
 
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)

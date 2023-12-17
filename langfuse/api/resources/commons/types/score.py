@@ -16,16 +16,26 @@ class Score(pydantic.BaseModel):
     trace_id: str = pydantic.Field(alias="traceId")
     name: str
     value: float
-    observation_id: typing.Optional[str] = pydantic.Field(alias="observationId", default=None)
+    observation_id: typing.Optional[str] = pydantic.Field(
+        alias="observationId", default=None
+    )
     timestamp: dt.datetime
     comment: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

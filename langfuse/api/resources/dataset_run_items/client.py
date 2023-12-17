@@ -37,7 +37,10 @@ class DatasetRunItemsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-run-items"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                "api/public/dataset-run-items",
+            ),
             json=jsonable_encoder(request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -51,7 +54,9 @@ class DatasetRunItemsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -74,7 +79,10 @@ class AsyncDatasetRunItemsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-run-items"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                "api/public/dataset-run-items",
+            ),
             json=jsonable_encoder(request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -88,7 +96,9 @@ class AsyncDatasetRunItemsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:

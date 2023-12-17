@@ -21,14 +21,24 @@ class TraceBody(pydantic.BaseModel):
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
-    public: typing.Optional[bool] = pydantic.Field(default=None, description="Make trace publicly accessible via url")
+    public: typing.Optional[bool] = pydantic.Field(
+        default=None, description="Make trace publicly accessible via url"
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

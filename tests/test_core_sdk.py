@@ -1,6 +1,6 @@
+import typing
 from asyncio import gather
 from datetime import datetime
-import typing
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -11,8 +11,6 @@ import pytest
 import pytz
 
 from langfuse import Langfuse
-
-
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 

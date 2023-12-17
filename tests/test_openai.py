@@ -1,18 +1,18 @@
 import os
+
 import pytest
+from openai import APIConnectionError
+
 from langfuse.client import Langfuse
 from langfuse.openai import (
+    AsyncAzureOpenAI,
+    AsyncOpenAI,
+    AzureOpenAI,
     _is_openai_v1,
     _is_streaming_response,
     openai,
-    AsyncOpenAI,
-    AzureOpenAI,
-    AsyncAzureOpenAI,
 )
-from openai import APIConnectionError
-
 from tests.utils import create_uuid, get_api
-
 
 chat_func = (
     openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create

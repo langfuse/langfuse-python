@@ -1,12 +1,13 @@
 import atexit
-from datetime import datetime
 import json
 import logging
 import queue
-from queue import Empty, Queue
 import threading
-from typing import List
 import typing
+from datetime import datetime
+from queue import Empty, Queue
+from typing import List
+
 import monotonic
 from dateutil.tz import tzutc
 

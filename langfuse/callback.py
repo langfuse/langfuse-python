@@ -1,18 +1,18 @@
-import os
 import logging
+import os
 import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
-from langchain.callbacks.base import BaseCallbackHandler
 
+from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.client import (
     Langfuse,
     SDKIntegrationTypes,
-    StateType,
     StatefulSpanClient,
     StatefulTraceClient,
+    StateType,
 )
 
 try:

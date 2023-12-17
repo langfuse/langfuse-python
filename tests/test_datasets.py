@@ -6,8 +6,6 @@ from langchain import LLMChain, OpenAI, PromptTemplate
 
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
-
-
 from tests.utils import create_uuid, get_api
 
 

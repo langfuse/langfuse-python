@@ -10,7 +10,11 @@ class DatasetStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
     ARCHIVED = "ARCHIVED"
 
-    def visit(self, active: typing.Callable[[], T_Result], archived: typing.Callable[[], T_Result]) -> T_Result:
+    def visit(
+        self,
+        active: typing.Callable[[], T_Result],
+        archived: typing.Callable[[], T_Result],
+    ) -> T_Result:
         if self is DatasetStatus.ACTIVE:
             return active()
         if self is DatasetStatus.ARCHIVED:
