@@ -47,6 +47,12 @@ from langfuse.utils import _convert_usage_input
 from .version import __version__ as version
 
 
+class SDKIntegrationTypes(Enum):
+    Langchain = "langchain"
+    Default = "default"
+    Openai = "openai"
+
+
 class Langfuse(object):
     log = logging.getLogger("langfuse")
 
@@ -120,6 +126,10 @@ class Langfuse(object):
             "flush_interval": flush_interval,
             "max_retries": max_retries,
             "client": langfuse_client,
+            "public_key": public_key,
+            "sdk_name": "python",
+            "sdk_version": version,
+            "sdk_integration": SDKIntegrationTypes.Default.value,
         }
 
         if threads is not None:

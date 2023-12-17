@@ -47,6 +47,8 @@ class LangfuseClient:
 
     def batch_post(self, gzip: bool = False, **kwargs) -> requests.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
+
+        logging.debug("uploading data: %s", kwargs)
         res = self.post(gzip, **kwargs)
         return self._process_response(
             res, success_message="data uploaded successfully", return_json=False

@@ -42,6 +42,7 @@ from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest
 from .health import ServiceUnavailableError
 from .ingestion import (
+    BaseEvent,
     CreateEventBody,
     CreateEventEvent,
     CreateGenerationBody,
@@ -85,6 +86,7 @@ from .trace import Traces
 
 __all__ = [
     "AccessDeniedError",
+    "BaseEvent",
     "CreateDatasetItemRequest",
     "CreateDatasetRequest",
     "CreateDatasetRunItemRequest",
