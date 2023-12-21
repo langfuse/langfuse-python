@@ -89,7 +89,7 @@ def test_callback_generated_from_trace():
             assert observation.output != ""
 
 
-@pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="missing api key")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
@@ -124,6 +124,29 @@ def test_callback_generated_from_trace_azure_chat():
     assert handler.get_trace_id() == trace_id
     assert len(trace["observations"]) == 2
     assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="missing api key")
+def test_mistral():
+    from langchain_core.messages import HumanMessage
+    from langchain_mistralai.chat_models import ChatMistralAI
+
+    api = get_api()
+    callback = CallbackHandler(debug=True)
+
+    chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
+    messages = [HumanMessage(content="say a brief hello")]
+    chat.invoke(messages)
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+    generation = filter(lambda o: o.type == "GENERATION", trace.observations)[0]
+    assert generation.model == "mistral-small"
 
 
 @pytest.mark.skip(reason="inference cost")

@@ -617,57 +617,69 @@ class CallbackHandler(BaseCallbackHandler):
                 version=self.version,
                 kwargs=kwargs,
             )
-            if kwargs["invocation_params"]["_type"] in [
-                "anthropic-llm",
-                "anthropic-chat",
-            ]:
-                model_name = (
-                    "anthropic"  # unfortunately no model info by anthropic provided.
+
+            model_name = None
+
+            try:
+                if kwargs["invocation_params"]["_type"] in [
+                    "anthropic-llm",
+                    "anthropic-chat",
+                ]:
+                    model_name = "anthropic"  # unfortunately no model info by anthropic provided.
+                elif kwargs["invocation_params"]["_type"] in [
+                    "amazon_bedrock",
+                    "amazon_bedrock_chat",
+                ]:
+                    # langchain only provides string representation of the model class. Hence have to parse it out.
+
+                    if serialized.get("kwargs") and serialized["kwargs"].get(
+                        "model_id"
+                    ):
+                        model_name = self.extract_second_part(
+                            serialized["kwargs"]["model_id"]
+                        )
+                    else:
+                        model_name = self.extract_second_part(
+                            self.extract_model_id("model_id", serialized["repr"])
+                        )
+
+                elif kwargs["invocation_params"]["_type"] == "cohere-chat":
+                    model_name = self.extract_model_id("model", serialized["repr"])
+                elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
+                    model_name = kwargs["invocation_params"]["repo_id"]
+                elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
+                    if kwargs.get("invocation_params").get("model") and serialized[
+                        "kwargs"
+                    ].get("model_version"):
+                        model_name = (
+                            kwargs.get("invocation_params").get("model")
+                            + "-"
+                            + serialized["kwargs"]["model_version"]
+                        )
+                    elif serialized["kwargs"].get("deployment_name") and serialized[
+                        "kwargs"
+                    ].get("model_version"):
+                        model_name = (
+                            serialized["kwargs"]["deployment_name"]
+                            + "-"
+                            + serialized["kwargs"]["model_version"]
+                        )
+                    elif kwargs.get("invocation_params").get("model"):
+                        model_name = kwargs.get("invocation_params").get("model")
+                    else:
+                        model_name = kwargs["invocation_params"]["engine"]
+                elif kwargs["invocation_params"]["_type"] == "llamacpp":
+                    model_name = kwargs["invocation_params"]["model_path"]
+
+                else:
+                    model_name = kwargs["invocation_params"]["model_name"]
+
+            except Exception as e:
+                self.log.exception(e)
+                self.log.warning(
+                    "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
                 )
-            elif kwargs["invocation_params"]["_type"] in [
-                "amazon_bedrock",
-                "amazon_bedrock_chat",
-            ]:
-                # langchain only provides string representation of the model class. Hence have to parse it out.
 
-                if serialized.get("kwargs") and serialized["kwargs"].get("model_id"):
-                    model_name = self.extract_second_part(
-                        serialized["kwargs"]["model_id"]
-                    )
-                else:
-                    model_name = self.extract_second_part(
-                        self.extract_model_id("model_id", serialized["repr"])
-                    )
-
-            elif kwargs["invocation_params"]["_type"] == "cohere-chat":
-                model_name = self.extract_model_id("model", serialized["repr"])
-            elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
-                model_name = kwargs["invocation_params"]["repo_id"]
-            elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
-                if kwargs.get("invocation_params").get("model") and serialized[
-                    "kwargs"
-                ].get("model_version"):
-                    model_name = (
-                        kwargs.get("invocation_params").get("model")
-                        + "-"
-                        + serialized["kwargs"]["model_version"]
-                    )
-                elif serialized["kwargs"].get("deployment_name") and serialized[
-                    "kwargs"
-                ].get("model_version"):
-                    model_name = (
-                        serialized["kwargs"]["deployment_name"]
-                        + "-"
-                        + serialized["kwargs"]["model_version"]
-                    )
-                elif kwargs.get("invocation_params").get("model"):
-                    model_name = kwargs.get("invocation_params").get("model")
-                else:
-                    model_name = kwargs["invocation_params"]["engine"]
-            elif kwargs["invocation_params"]["_type"] == "llamacpp":
-                model_name = kwargs["invocation_params"]["model_path"]
-            else:
-                model_name = kwargs["invocation_params"]["model_name"]
             self.runs[run_id] = (
                 self.runs[parent_run_id].generation(
                     name=serialized.get(
