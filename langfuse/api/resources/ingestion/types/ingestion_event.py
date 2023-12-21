@@ -11,6 +11,7 @@ from .create_generation_event import CreateGenerationEvent
 from .create_observation_event import CreateObservationEvent
 from .create_span_event import CreateSpanEvent
 from .score_event import ScoreEvent
+from .sdk_log_event import SdkLogEvent
 from .trace_event import TraceEvent
 from .update_generation_event import UpdateGenerationEvent
 from .update_observation_event import UpdateObservationEvent
@@ -80,6 +81,15 @@ class IngestionEvent_SpanUpdate(UpdateSpanEvent):
         allow_population_by_field_name = True
 
 
+class IngestionEvent_SdkLog(SdkLogEvent):
+    type: typing_extensions.Literal["sdk-log"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
 class IngestionEvent_ObservationCreate(CreateObservationEvent):
     type: typing_extensions.Literal["observation-create"]
 
@@ -106,6 +116,7 @@ IngestionEvent = typing.Union[
     IngestionEvent_GenerationUpdate,
     IngestionEvent_SpanCreate,
     IngestionEvent_SpanUpdate,
+    IngestionEvent_SdkLog,
     IngestionEvent_ObservationCreate,
     IngestionEvent_ObservationUpdate,
 ]

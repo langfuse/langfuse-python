@@ -1,4 +1,5 @@
 import typing
+from datetime import datetime, timezone
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -6,6 +7,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.model import ModelUsage
+
+
+def _get_timestamp():
+    return datetime.now(timezone.utc)  # datetime.now()
 
 
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):

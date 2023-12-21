@@ -35,6 +35,7 @@ def test_callback_init():
     assert not callback.runs
     assert callback.langfuse.release == "something"
     assert callback.session_id == "session-id"
+    assert callback._task_manager is not None
 
 
 def test_langfuse_span():
@@ -48,6 +49,7 @@ def test_langfuse_span():
 
     assert handler.get_trace_id() == trace_id
     assert handler.root_span.id == span_id
+    assert handler._task_manager is not None
 
 
 def test_callback_generated_from_trace():
@@ -137,6 +139,31 @@ def test_mistral():
     chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
     messages = [HumanMessage(content="say a brief hello")]
     chat.invoke(messages)
+
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+    generation = filter(lambda o: o.type == "GENERATION", trace.observations)[0]
+    assert generation.model == "mistral-small"
+
+
+# @pytest.mark.skip(reason="missing api key")
+def test_vertx():
+    from langchain.llms import VertexAI
+
+    api = get_api()
+    callback = CallbackHandler(debug=True)
+
+    llm = VertexAI(callbacks=[callback])
+    llm.predict("say a brief hello", callbacks=[callback])
+
+    callback.flush()
 
     trace_id = callback.get_trace_id()
 
@@ -276,7 +303,7 @@ def test_next_span_id_from_trace_simple_chain():
 
 def test_callback_simple_chain():
     api = get_api()
-    handler = CallbackHandler(debug=False)
+    handler = CallbackHandler(debug=True)
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.

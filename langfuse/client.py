@@ -3,7 +3,6 @@ import logging
 import os
 import typing
 import uuid
-from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
@@ -39,7 +38,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.utils import _convert_usage_input
+from langfuse.utils import _convert_usage_input, _get_timestamp
 
 from .version import __version__ as version
 
@@ -404,7 +403,9 @@ class Langfuse(object):
                 "id": new_span_id,
                 "trace_id": new_trace_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -470,7 +471,9 @@ class Langfuse(object):
                 "id": event_id,
                 "trace_id": new_trace_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -539,7 +542,9 @@ class Langfuse(object):
                 "trace_id": new_trace_id,
                 "release": self.release,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -670,7 +675,7 @@ class StatefulClient(object):
 
     def _add_default_values(self, body: dict):
         if body.get("startTime") is None:
-            body["start_time"] = datetime.now()
+            body["start_time"] = _get_timestamp()
         return body
 
     def generation(
@@ -698,7 +703,9 @@ class StatefulClient(object):
             generation_body = {
                 "id": generation_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "level": level,
                 "status_message": status_message,
@@ -760,7 +767,9 @@ class StatefulClient(object):
             span_body = {
                 "id": span_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -866,7 +875,9 @@ class StatefulClient(object):
             event_body = {
                 "id": event_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -1004,7 +1015,7 @@ class StatefulGenerationClient(StatefulClient):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
-                "end_time": end_time if end_time is not None else datetime.now(),
+                "end_time": end_time if end_time is not None else _get_timestamp(),
                 "completion_start_time": completion_start_time,
                 "model": model,
                 "model_parameters": model_parameters,
@@ -1110,7 +1121,7 @@ class StatefulSpanClient(StatefulClient):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
-                "end_time": end_time if end_time is not None else datetime.now(),
+                "end_time": end_time if end_time is not None else _get_timestamp(),
             }
             if kwargs is not None:
                 span_body.update(kwargs)

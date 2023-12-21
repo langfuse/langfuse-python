@@ -2,6 +2,8 @@ import typing
 from asyncio import gather
 from datetime import datetime
 
+from langfuse.utils import _get_timestamp
+
 try:
     import pydantic.v1 as pydantic  # type: ignore
 except ImportError:
@@ -45,7 +47,7 @@ class LlmUsage(pydantic.BaseModel):
 
 @pytest.mark.asyncio
 async def test_concurrency():
-    start = datetime.now()
+    start = _get_timestamp()
 
     async def update_generation(i, langfuse: Langfuse):
         trace = langfuse.trace(name=str(i))
@@ -57,7 +59,7 @@ async def test_concurrency():
     await gather(*(update_generation(i, langfuse) for i in range(100)))
     print("flush")
     langfuse.flush()
-    diff = datetime.now() - start
+    diff = _get_timestamp() - start
     print(diff)
 
     api = get_api()
@@ -175,7 +177,7 @@ def test_create_generation():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation_id = create_uuid()
     langfuse.generation(
         id=generation_id,
@@ -293,7 +295,7 @@ def test_create_span():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span_id = create_uuid()
     langfuse.span(
         id=span_id,
@@ -431,7 +433,7 @@ def test_score_span():
     api_wrapper = LangfuseAPI()
 
     spanId = create_uuid()
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     langfuse.span(
         id=spanId,
         name="span",
@@ -680,7 +682,7 @@ def test_end_generation():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation = langfuse.generation(
         name="query-generation",
         start_time=timestamp,
@@ -713,7 +715,7 @@ def test_end_generation_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation = langfuse.generation(
         name="query-generation",
         start_time=timestamp,
@@ -748,7 +750,7 @@ def test_end_span():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span = langfuse.span(
         name="span",
         start_time=timestamp,
@@ -773,7 +775,7 @@ def test_end_span_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span = langfuse.span(
         name="span",
         start_time=timestamp,
@@ -798,7 +800,7 @@ def test_end_span_with_data():
 def test_get_generations():
     langfuse = Langfuse(debug=False)
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     langfuse.generation(
         name=create_uuid(),
@@ -827,7 +829,7 @@ def test_get_generations():
 def test_get_generations_by_user():
     langfuse = Langfuse(debug=False)
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     user_id = create_uuid()
     generation_name = create_uuid()
@@ -859,7 +861,7 @@ def test_kwargs():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     dict = {
         "start_time": timestamp,

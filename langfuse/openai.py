@@ -1,7 +1,6 @@
 import logging
 import threading
 import types
-from datetime import datetime
 from typing import Optional
 
 import openai
@@ -207,7 +206,7 @@ def _create_langfuse_update(
     completion, generation: StatefulGenerationClient, completion_start_time, model=None
 ):
     update = {
-        "end_time": datetime.now(),
+        "end_time": _get_timestamp(),
         "output": completion,
         "completion_start_time": completion_start_time,
     }
@@ -224,7 +223,7 @@ def _extract_data(resource, responses):
 
     for index, i in enumerate(responses):
         if index == 0:
-            completion_start_time = datetime.now()
+            completion_start_time = _get_timestamp()
 
         if _is_openai_v1():
             i = i.__dict__
@@ -334,7 +333,7 @@ def _is_streaming_response(response):
 def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
     new_langfuse: Langfuse = initialize()
 
-    start_time = datetime.now()
+    start_time = _get_timestamp()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
     generation = _get_langfuse_data_from_kwargs(
@@ -355,7 +354,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
             generation.update(
-                model=model, output=completion, end_time=datetime.now(), usage=usage
+                model=model, output=completion, end_time=_get_timestamp(), usage=usage
             )
 
         return openai_response
@@ -363,7 +362,10 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         log.warning(ex)
         model = kwargs.get("model", None)
         generation.update(
-            end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model
+            end_time=_get_timestamp(),
+            status_message=str(ex),
+            level="ERROR",
+            model=model,
         )
         raise ex
 
@@ -373,7 +375,7 @@ async def _wrap_async(
     open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs
 ):
     new_langfuse = initialize()
-    start_time = datetime.now()
+    start_time = _get_timestamp()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
     generation = _get_langfuse_data_from_kwargs(
@@ -396,14 +398,17 @@ async def _wrap_async(
             generation.update(
                 model=model,
                 output=completion,
-                end_time=datetime.now(),
+                end_time=_get_timestamp(),
                 usage=usage,
             )
         return openai_response
     except Exception as ex:
         model = kwargs.get("model", None)
         generation.update(
-            end_time=datetime.now(), status_message=str(ex), level="ERROR", model=model
+            end_time=_get_timestamp(),
+            status_message=str(ex),
+            level="ERROR",
+            model=model,
         )
         raise ex
 

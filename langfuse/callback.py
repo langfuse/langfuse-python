@@ -2,11 +2,12 @@ import logging
 import os
 import re
 from typing import Any, Dict, List, Optional, Sequence, Union
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
+from langfuse.api.resources.ingestion.types.sdk_log_event import SdkLogEvent
 from langfuse.client import (
     Langfuse,
     SDKIntegrationTypes,
@@ -14,6 +15,8 @@ from langfuse.client import (
     StatefulTraceClient,
     StateType,
 )
+from langfuse.task_manager import TaskManager
+from langfuse.utils import _get_timestamp
 
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
@@ -39,6 +42,7 @@ class CallbackHandler(BaseCallbackHandler):
     langfuse: Optional[Langfuse]
     version: Optional[str] = None
     session_id: Optional[str] = None
+    _task_manager: TaskManager
 
     def __init__(
         self,
@@ -78,6 +82,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs = {}
             self.root_span = None
             self.langfuse = None
+            self._task_manager = stateful_client.task_manager
 
         elif stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs = {}
@@ -91,6 +96,7 @@ class CallbackHandler(BaseCallbackHandler):
                 stateful_client.task_manager,
             )
             self.runs[stateful_client.id] = stateful_client
+            self._task_manager = stateful_client.task_manager
 
         # Otherwise, initialize stateless using the provided keys
         elif prioritized_public_key and prioritized_secret_key:
@@ -121,6 +127,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.root_span = None
             self.runs = {}
             self.session_id = session_id
+            self._task_manager = self.langfuse.task_manager
 
         else:
             self.log.error(
@@ -196,6 +203,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
+            self._task_manager.add_task({})
 
     def on_chain_start(
         self,
@@ -683,10 +691,25 @@ class CallbackHandler(BaseCallbackHandler):
                         self.log.warning(
                             "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
                         )
+                        self._report_error(
+                            {
+                                "log": "unable to parse model name",
+                                "kwargs": str(kwargs),
+                                "serialized": str(serialized),
+                            }
+                        )
             except Exception as e:
                 self.log.exception(e)
                 self.log.warning(
                     "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+                )
+                self._report_error(
+                    {
+                        "log": "unable to parse model name",
+                        "kwargs": str(kwargs),
+                        "serialized": str(serialized),
+                        "exception": str(e),
+                    }
                 )
 
             self.runs[run_id] = (
@@ -840,3 +863,7 @@ class CallbackHandler(BaseCallbackHandler):
             and self.trace.id == str(run_id)
         ):
             self.trace = self.trace.update(output=output)
+
+    def _report_error(self, error: dict):
+        event = SdkLogEvent(id=str(uuid4()), data=error, timestamp=_get_timestamp())
+        self._task_manager.add_task(event)
