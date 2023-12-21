@@ -632,6 +632,20 @@ class CallbackHandler(BaseCallbackHandler):
                 ]:
                     # langchain only provides string representation of the model class. Hence have to parse it out.
 
+            model_name = None
+
+            try:
+                if kwargs["invocation_params"]["_type"] in [
+                    "anthropic-llm",
+                    "anthropic-chat",
+                ]:
+                    model_name = "anthropic"  # unfortunately no model info by anthropic provided.
+                elif kwargs["invocation_params"]["_type"] in [
+                    "amazon_bedrock",
+                    "amazon_bedrock_chat",
+                ]:
+                    # langchain only provides string representation of the model class. Hence have to parse it out.
+
                     if serialized.get("kwargs") and serialized["kwargs"].get(
                         "model_id"
                     ):
