@@ -65,7 +65,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Logs from langfuse server"
-          docker compose logs
+          TELEMETRY_ENABLED=false docker-compose logs
           echo "::endgroup::"
 
           sleep 20
