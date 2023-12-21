@@ -10,6 +10,7 @@ from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
 from langfuse.client import SDKIntegrationTypes, StatefulGenerationClient
+from langfuse.utils import _get_timestamp
 
 log = logging.getLogger("langfuse")
 
