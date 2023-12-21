@@ -675,6 +675,7 @@ class CallbackHandler(BaseCallbackHandler):
                     if "model_name" in kwargs["invocation_params"]:
                         model_name = kwargs["invocation_params"]["model_name"]
 
+                    # model used by mistral
                     elif "model" in kwargs["invocation_params"]:
                         model_name = kwargs["invocation_params"]["model"]
 
