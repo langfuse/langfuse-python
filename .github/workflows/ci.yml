@@ -61,14 +61,12 @@ jobs:
           cd ./langfuse-server
 
           echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker-compose up -d
+          TELEMETRY_ENABLED=false docker-compose up -d db
           echo "::endgroup::"
 
           echo "::group::Logs from langfuse server"
           TELEMETRY_ENABLED=false docker-compose logs
           echo "::endgroup::"
-
-          sleep 30
 
           echo "::group::Install dependencies (necessary to run seeder)"
           npm ci
@@ -78,6 +76,10 @@ jobs:
           cp .env.dev.example .env
           npx --yes prisma migrate deploy
           npx --yes prisma db seed
+          echo "::endgroup::"
+
+          echo "::group::Run server"
+          TELEMETRY_ENABLED=false docker-compose up -d langfuse-server
           echo "::endgroup::"
 
       # Add this step to check the health of the container
