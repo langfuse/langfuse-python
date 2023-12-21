@@ -153,7 +153,7 @@ def test_mistral():
     assert generation.model == "mistral-small"
 
 
-# @pytest.mark.skip(reason="missing api key")
+@pytest.mark.skip(reason="missing api key")
 def test_vertx():
     from langchain.llms import VertexAI
 
