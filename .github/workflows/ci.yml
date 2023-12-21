@@ -68,7 +68,7 @@ jobs:
           TELEMETRY_ENABLED=false docker-compose logs
           echo "::endgroup::"
 
-          sleep 20
+          sleep 30
 
           echo "::group::Install dependencies (necessary to run seeder)"
           npm ci
