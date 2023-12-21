@@ -61,7 +61,11 @@ jobs:
           cd ./langfuse-server
 
           echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker-compose up -d
+          TELEMETRY_ENABLED=false docker-compose --pull up -d
+          echo "::endgroup::"
+
+          echo "::group::Logs from langfuse server"
+          docker-compose logs
           echo "::endgroup::"
 
           sleep 20
