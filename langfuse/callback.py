@@ -203,7 +203,6 @@ class CallbackHandler(BaseCallbackHandler):
             self.__update_trace(run_id, parent_run_id, str(error))
         except Exception as e:
             self.log.exception(e)
-            self._task_manager.add_task({})
 
     def on_chain_start(
         self,

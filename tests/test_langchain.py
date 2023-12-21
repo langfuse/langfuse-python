@@ -149,7 +149,7 @@ def test_mistral():
     assert trace.id == trace_id
     assert len(trace.observations) == 2
 
-    generation = filter(lambda o: o.type == "GENERATION", trace.observations)[0]
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
     assert generation.model == "mistral-small"
 
 
@@ -172,8 +172,8 @@ def test_vertx():
     assert trace.id == trace_id
     assert len(trace.observations) == 2
 
-    generation = filter(lambda o: o.type == "GENERATION", trace.observations)[0]
-    assert generation.model == "mistral-small"
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
+    assert generation.model == "text-bison"
 
 
 @pytest.mark.skip(reason="inference cost")
