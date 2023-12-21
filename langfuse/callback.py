@@ -672,8 +672,17 @@ class CallbackHandler(BaseCallbackHandler):
                     model_name = kwargs["invocation_params"]["model_path"]
 
                 else:
-                    model_name = kwargs["invocation_params"]["model_name"]
+                    if "model_name" in kwargs["invocation_params"]:
+                        model_name = kwargs["invocation_params"]["model_name"]
 
+                    # model used by mistral
+                    elif "model" in kwargs["invocation_params"]:
+                        model_name = kwargs["invocation_params"]["model"]
+
+                    else:
+                        self.log.warning(
+                            "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+                        )
             except Exception as e:
                 self.log.exception(e)
                 self.log.warning(
