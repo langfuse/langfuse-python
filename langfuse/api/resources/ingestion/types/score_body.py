@@ -11,22 +11,30 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class CreateTraceRequest(pydantic.BaseModel):
+class ScoreBody(pydantic.BaseModel):
     id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
-    external_id: typing.Optional[str] = pydantic.Field(alias="externalId", default=None)
-    release: typing.Optional[str] = None
-    version: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    public: typing.Optional[bool] = pydantic.Field(default=None, description="Make trace publicly accessible via url")
+    trace_id: str = pydantic.Field(alias="traceId")
+    name: str
+    value: float
+    observation_id: typing.Optional[str] = pydantic.Field(
+        alias="observationId", default=None
+    )
+    comment: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

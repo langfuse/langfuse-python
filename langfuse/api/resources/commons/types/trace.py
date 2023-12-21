@@ -15,6 +15,9 @@ class Trace(pydantic.BaseModel):
     id: str = pydantic.Field(description="The unique identifier of a trace")
     timestamp: dt.datetime
     name: typing.Optional[str] = None
+    input: typing.Optional[typing.Any] = None
+    output: typing.Optional[typing.Any] = None
+    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
     user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
@@ -24,11 +27,19 @@ class Trace(pydantic.BaseModel):
     )
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

@@ -1,20 +1,21 @@
 import importlib
 import os
-import httpx
 
+import httpx
 import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug import Response
+
 import langfuse
 from langfuse.api.resources.commons.errors.unauthorized_error import UnauthorizedError
 from langfuse.callback import CallbackHandler
-
 from langfuse.client import Langfuse
-from langfuse.model import CreateTrace
-from tests.test_task_manager import get_host
 from langfuse.openai import _is_openai_v1, auth_check, openai
+from tests.test_task_manager import get_host
 
-chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+chat_func = (
+    openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+)
 
 
 def test_langfuse_release():
@@ -83,7 +84,10 @@ def test_setup_without_sk():
 
 def test_init_precedence_pk():
     langfuse = Langfuse(public_key="test_LANGFUSE_PUBLIC_KEY")
-    assert langfuse.client._client_wrapper._x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
+    assert (
+        langfuse.client._client_wrapper._x_langfuse_public_key
+        == "test_LANGFUSE_PUBLIC_KEY"
+    )
     assert langfuse.client._client_wrapper._username == "test_LANGFUSE_PUBLIC_KEY"
 
 
@@ -135,7 +139,10 @@ def test_callback_default_host():
     os.environ.pop("LANGFUSE_HOST")
 
     handler = CallbackHandler(debug=False)
-    assert handler.langfuse.client._client_wrapper._base_url == "https://cloud.langfuse.com"
+    assert (
+        handler.langfuse.client._client_wrapper._base_url
+        == "https://cloud.langfuse.com"
+    )
     os.environ["LANGFUSE_HOST"] = host
 
 
@@ -167,13 +174,20 @@ def test_callback_setup_without_sk():
 
 def test_callback_init_precedence_pk():
     handler = CallbackHandler(public_key="test_LANGFUSE_PUBLIC_KEY")
-    assert handler.langfuse.client._client_wrapper._x_langfuse_public_key == "test_LANGFUSE_PUBLIC_KEY"
-    assert handler.langfuse.client._client_wrapper._username == "test_LANGFUSE_PUBLIC_KEY"
+    assert (
+        handler.langfuse.client._client_wrapper._x_langfuse_public_key
+        == "test_LANGFUSE_PUBLIC_KEY"
+    )
+    assert (
+        handler.langfuse.client._client_wrapper._username == "test_LANGFUSE_PUBLIC_KEY"
+    )
 
 
 def test_callback_init_precedence_sk():
     handler = CallbackHandler(secret_key="test_LANGFUSE_SECRET_KEY")
-    assert handler.langfuse.client._client_wrapper._password == "test_LANGFUSE_SECRET_KEY"
+    assert (
+        handler.langfuse.client._client_wrapper._password == "test_LANGFUSE_SECRET_KEY"
+    )
 
 
 def test_callback_init_precedence_host():
@@ -202,7 +216,11 @@ def test_openai_default():
     importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
 
-    chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+    chat_func = (
+        openai.chat.completions.create
+        if _is_openai_v1()
+        else openai.ChatCompletion.create
+    )
 
     public_key, secret_key, host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
@@ -233,7 +251,11 @@ def test_openai_configs():
     importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
 
-    chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+    chat_func = (
+        openai.chat.completions.create
+        if _is_openai_v1()
+        else openai.ChatCompletion.create
+    )
 
     openai.base_url = "http://localhost:8000/"
 
@@ -284,14 +306,20 @@ def test_openai_auth_check_failing_key():
 
 
 def test_openai_configured(httpserver: HTTPServer):
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_response(Response(status=200))
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_response(Response(status=200))
     host = get_host(httpserver.url_for("/api/public/ingestion"))
 
     importlib.reload(langfuse)
     importlib.reload(langfuse.openai)
     from langfuse.openai import modifier, openai
 
-    chat_func = openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
+    chat_func = (
+        openai.chat.completions.create
+        if _is_openai_v1()
+        else openai.ChatCompletion.create
+    )
 
     public_key, secret_key, original_host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
@@ -366,7 +394,7 @@ def test_auth_check_callback():
 
 def test_auth_check_callback_stateful():
     langfuse = Langfuse(debug=False)
-    trace = langfuse.trace(CreateTrace(name="name"))
+    trace = langfuse.trace(name="name")
     handler = trace.get_langchain_handler()
 
     assert handler.auth_check() is True

@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.observation import Observation
+from .model_usage_unit import ModelUsageUnit
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -12,17 +12,26 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class ObservationCreateEvent(pydantic.BaseModel):
-    id: str
-    timestamp: str
-    body: Observation
+class Usage(pydantic.BaseModel):
+    input: typing.Optional[int] = None
+    output: typing.Optional[int] = None
+    total: typing.Optional[int] = None
+    unit: typing.Optional[ModelUsageUnit] = None
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

@@ -4,7 +4,6 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.observation_level import ObservationLevel
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -12,25 +11,34 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class UpdateSpanRequest(pydantic.BaseModel):
-    span_id: str = pydantic.Field(alias="spanId")
-    trace_id: typing.Optional[str] = pydantic.Field(alias="traceId", default=None)
-    start_time: typing.Optional[dt.datetime] = pydantic.Field(alias="startTime", default=None)
-    end_time: typing.Optional[dt.datetime] = pydantic.Field(alias="endTime", default=None)
+class TraceBody(pydantic.BaseModel):
+    id: typing.Optional[str] = None
     name: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
     input: typing.Optional[typing.Any] = None
     output: typing.Optional[typing.Any] = None
-    level: typing.Optional[ObservationLevel] = None
+    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
+    release: typing.Optional[str] = None
     version: typing.Optional[str] = None
-    status_message: typing.Optional[str] = pydantic.Field(alias="statusMessage", default=None)
+    metadata: typing.Optional[typing.Any] = None
+    public: typing.Optional[bool] = pydantic.Field(
+        default=None, description="Make trace publicly accessible via url"
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

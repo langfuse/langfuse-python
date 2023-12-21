@@ -1,14 +1,13 @@
 import logging
-from urllib.parse import urlparse, urlunparse
-
-from pytest_httpserver import HTTPServer
-from langfuse.request import LangfuseClient
 import subprocess
 import threading
-from werkzeug.wrappers import Request, Response
+from urllib.parse import urlparse, urlunparse
 
 import pytest
+from pytest_httpserver import HTTPServer
+from werkzeug.wrappers import Request, Response
 
+from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 
 logging.basicConfig()
@@ -17,7 +16,9 @@ log.setLevel(logging.DEBUG)
 
 
 def setup_server(httpserver, expected_body: dict):
-    httpserver.expect_request("/api/public/ingestion", method="POST", json=expected_body).respond_with_data("success")
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST", json=expected_body
+    ).respond_with_data("success")
 
 
 def setup_langfuse_client(server: str):
@@ -45,11 +46,17 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
             nonlocal failed
             failed = True
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
+    tm = TaskManager(
+        langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
 
     tm.add_task({"foo": "bar"})
     tm.add_task({"foo": "bar"})
@@ -68,11 +75,17 @@ def test_task_manager_fail(httpserver: HTTPServer):
         count = count + 1
         return Response(status=500)
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
+    tm = TaskManager(
+        langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
 
     tm.add_task({"foo": "bar"})
     tm.flush()
@@ -95,11 +108,17 @@ def test_consumer_restart(httpserver: HTTPServer):
             nonlocal failed
             failed = True
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    tm = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
+    tm = TaskManager(
+        langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
 
     tm.add_task({"foo": "bar"})
     tm.flush()
@@ -121,12 +140,21 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
     def add_task_concurrently(tm, func):
         tm.add_task(func)
 
-    httpserver.expect_request("/api/public/ingestion", method="POST").respond_with_handler(handler)
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
-    threads = [threading.Thread(target=add_task_concurrently, args=(tm, {"foo": "bar"})) for i in range(10)]
+    tm = TaskManager(
+        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
+    threads = [
+        threading.Thread(target=add_task_concurrently, args=(tm, {"foo": "bar"}))
+        for i in range(10)
+    ]
     for t in threads:
         t.start()
     for t in threads:
@@ -155,11 +183,13 @@ logging.basicConfig(
     ]
 )
 print("Adding task manager", TaskManager)
-manager = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000)
+manager = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default")
 
 """
 
-    process = subprocess.Popen(["python", "-c", python_code], stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(
+        ["python", "-c", python_code], stderr=subprocess.PIPE, text=True
+    )
 
     logs = ""
 
@@ -201,11 +231,17 @@ def test_flush(httpserver: HTTPServer):
         method="POST",
     ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    tm = TaskManager(langfuse_client, 1, 0.1, 3, 1, 10_000)
+    tm = TaskManager(
+        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
 
     for _ in range(100):
         tm.add_task({"foo": "bar"})
@@ -238,9 +274,13 @@ def test_shutdown(httpserver: HTTPServer):
         method="POST",
     ).respond_with_handler(handler)
 
-    langfuse_client = setup_langfuse_client(get_host(httpserver.url_for("/api/public/ingestion")))
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
 
-    tm = TaskManager(langfuse_client, 1, 0.1, 3, 5, 10_000)
+    tm = TaskManager(
+        langfuse_client, 1, 0.1, 3, 5, 10_000, "test-sdk", "1.0.0", "default"
+    )
 
     for _ in range(100):
         tm.add_task({"foo": "bar"})

@@ -6,16 +6,13 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.jsonable_encoder import jsonable_encoder
 from ...core.remove_none_from_dict import remove_none_from_dict
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.trace import Trace
 from ..commons.types.trace_with_full_details import TraceWithFullDetails
-from .types.create_trace_request import CreateTraceRequest
 from .types.traces import Traces
 
 try:
@@ -23,45 +20,10 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
-
 
 class TraceClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
-
-    def create(self, *, request: CreateTraceRequest) -> Trace:
-        """
-        Add a trace to the database
-
-        Parameters:
-            - request: CreateTraceRequest.
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/traces"),
-            json=jsonable_encoder(request),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
-        )
-        if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Trace, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get(self, trace_id: str) -> TraceWithFullDetails:
         """
@@ -72,7 +34,10 @@ class TraceClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/traces/{trace_id}"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/traces/{trace_id}",
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -85,7 +50,9 @@ class TraceClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -116,8 +83,12 @@ class TraceClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/traces"),
-            params=remove_none_from_dict({"page": page, "limit": limit, "userId": user_id, "name": name}),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/traces"
+            ),
+            params=remove_none_from_dict(
+                {"page": page, "limit": limit, "userId": user_id, "name": name}
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -130,7 +101,9 @@ class TraceClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -144,38 +117,6 @@ class AsyncTraceClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def create(self, *, request: CreateTraceRequest) -> Trace:
-        """
-        Add a trace to the database
-
-        Parameters:
-            - request: CreateTraceRequest.
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/traces"),
-            json=jsonable_encoder(request),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
-        )
-        if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Trace, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
     async def get(self, trace_id: str) -> TraceWithFullDetails:
         """
         Get a specific trace
@@ -185,7 +126,10 @@ class AsyncTraceClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/traces/{trace_id}"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/traces/{trace_id}",
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -198,7 +142,9 @@ class AsyncTraceClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -229,8 +175,12 @@ class AsyncTraceClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/traces"),
-            params=remove_none_from_dict({"page": page, "limit": limit, "userId": user_id, "name": name}),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/traces"
+            ),
+            params=remove_none_from_dict(
+                {"page": page, "limit": limit, "userId": user_id, "name": name}
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -243,7 +193,9 @@ class AsyncTraceClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
