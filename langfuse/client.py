@@ -301,6 +301,7 @@ class Langfuse(object):
                 "metadata": metadata,
                 "input": input,
                 "output": output,
+                "timestamp": _get_timestamp(),
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
