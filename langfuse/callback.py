@@ -42,6 +42,7 @@ class CallbackHandler(BaseCallbackHandler):
     langfuse: Optional[Langfuse]
     version: Optional[str] = None
     session_id: Optional[str] = None
+    user_id: Optional[str] = None
     _task_manager: TaskManager
 
     def __init__(
@@ -54,6 +55,7 @@ class CallbackHandler(BaseCallbackHandler):
             Union[StatefulTraceClient, StatefulSpanClient]
         ] = None,
         session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
         threads: Optional[int] = None,
@@ -127,6 +129,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.root_span = None
             self.runs = {}
             self.session_id = session_id
+            self.user_id = user_id
             self._task_manager = self.langfuse.task_manager
 
         else:
@@ -282,6 +285,7 @@ class CallbackHandler(BaseCallbackHandler):
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     version=self.version,
                     session_id=self.session_id,
+                    user_id=self.user_id,
                     input=inputs,
                 )
 
