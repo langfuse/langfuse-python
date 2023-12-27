@@ -1,63 +1,63 @@
 import os
-from langchain import Anthropic, ConversationChain, HuggingFaceHub
-from langchain.llms import OpenAI
-from langchain.chains import LLMChain, SimpleSequentialChain, RetrievalQA
-from langchain.prompts import PromptTemplate
+from typing import Optional
+
 import pytest
-from langfuse.callback import CallbackHandler
+from langchain import Anthropic, ConversationChain, HuggingFaceHub
+from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.chains import (
+    ConversationalRetrievalChain,
+    LLMChain,
+    RetrievalQA,
+    SimpleSequentialChain,
+)
+from langchain.chains.openai_functions import create_openai_fn_chain
+from langchain.chains.summarize import load_summarize_chain
+from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.llms import OpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.agents import AgentType, initialize_agent, load_tools
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import Document
 from pydantic import BaseModel, Field
-from langchain.chains.openai_functions import create_openai_fn_chain
-from langchain.prompts import ChatPromptTemplate
-from langchain.chat_models import AzureChatOpenAI
-from typing import Optional
-from langfuse.client import Langfuse
-from langfuse.model import CreateSpan, CreateTrace
-from langchain.chains.summarize import load_summarize_chain
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
 
+from langfuse.callback import CallbackHandler
+from langfuse.client import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 
 
-def test_langfuse_release_init():
-    callback = CallbackHandler(release="something")
-    assert callback.langfuse.release == "something"
-
-
 def test_callback_init():
-    callback = CallbackHandler(debug=False)
+    callback = CallbackHandler(release="something", session_id="session-id")
     assert callback.trace is None
     assert not callback.runs
+    assert callback.langfuse.release == "something"
+    assert callback.session_id == "session-id"
+    assert callback._task_manager is not None
 
 
 def test_langfuse_span():
     trace_id = create_uuid()
     span_id = create_uuid()
     langfuse = Langfuse(debug=False)
-    trace = langfuse.trace(CreateTrace(id=trace_id))
-    span = trace.span(CreateSpan(id=span_id))
+    trace = langfuse.trace(id=trace_id)
+    span = trace.span(id=span_id)
 
     handler = span.get_langchain_handler()
 
     assert handler.get_trace_id() == trace_id
-    assert handler.rootSpan.id == span_id
+    assert handler.root_span.id == span_id
+    assert handler._task_manager is not None
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
 
@@ -73,30 +73,31 @@ def test_callback_generated_from_trace():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
-    assert len(trace["observations"]) == 2
-    assert trace["id"] == trace_id
 
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
-@pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="missing api key")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
 
@@ -127,17 +128,67 @@ def test_callback_generated_from_trace_azure_chat():
     assert trace["id"] == trace_id
 
 
+@pytest.mark.skip(reason="missing api key")
+def test_mistral():
+    from langchain_core.messages import HumanMessage
+    from langchain_mistralai.chat_models import ChatMistralAI
+
+    api = get_api()
+    callback = CallbackHandler(debug=True)
+
+    chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
+    messages = [HumanMessage(content="say a brief hello")]
+    chat.invoke(messages)
+
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
+    assert generation.model == "mistral-small"
+
+
+@pytest.mark.skip(reason="missing api key")
+def test_vertx():
+    from langchain.llms import VertexAI
+
+    api = get_api()
+    callback = CallbackHandler(debug=False)
+
+    llm = VertexAI(callbacks=[callback])
+    llm.predict("say a brief hello", callbacks=[callback])
+
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
+    assert generation.model == "text-bison"
+
+
 @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
 
-    llm = Anthropic(anthropic_api_key=os.environ.get("OPENAI_API_KEY"), model="Claude-v1")
+    llm = Anthropic(
+        anthropic_api_key=os.environ.get("OPENAI_API_KEY"), model="Claude-v1"
+    )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
@@ -165,12 +216,11 @@ def test_callback_generated_from_trace_anthropic():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_from_trace_simple_chain():
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -199,18 +249,17 @@ def test_callback_from_trace_simple_chain():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_next_span_id_from_trace_simple_chain():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse()
 
     trace_id = create_uuid()
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
 
     handler = trace.getNewHandler()
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -238,7 +287,9 @@ def test_next_span_id_from_trace_simple_chain():
     assert handler.get_trace_id() == trace_id
     assert trace["id"] == trace_id
 
-    assert any(observation["id"] == next_span_id for observation in trace["observations"])
+    assert any(
+        observation["id"] == next_span_id for observation in trace["observations"]
+    )
     for observation in trace["observations"]:
         if observation["type"] == "GENERATION":
             assert observation["promptTokens"] > 0
@@ -250,9 +301,8 @@ def test_next_span_id_from_trace_simple_chain():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_chain():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -269,23 +319,29 @@ def test_callback_simple_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+    root_observation = list(
+        filter(lambda x: x.parent_observation_id is None, trace.observations)
+    )[0]
+    assert trace.input == root_observation.input
+    assert trace.output == root_observation.output
+
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_sequential_chain():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -314,21 +370,27 @@ def test_callback_sequential_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 5
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 5
+    assert trace.id == trace_id
+    root_observation = list(
+        filter(lambda x: x.parent_observation_id is None, trace.observations)
+    )[0]
+    assert str(trace.input) == str(root_observation.input)
+    assert str(trace.output) == str(root_observation.output)
+
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_stuffed_chain():
     with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
         api_wrapper = LangfuseAPI()
@@ -345,7 +407,9 @@ def test_stuffed_chain():
 
         prompt = PromptTemplate(input_variables=["text"], template=template)
 
-        chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt, verbose=False)
+        chain = load_summarize_chain(
+            llm, chain_type="stuff", prompt=prompt, verbose=False
+        )
 
         chain.run(docs, callbacks=[handler])
 
@@ -367,7 +431,6 @@ def test_stuffed_chain():
                 assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)
@@ -408,7 +471,6 @@ def test_callback_retriever():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_with_sources():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)
@@ -425,7 +487,9 @@ def test_callback_retriever_with_sources():
 
     query = "What did the president say about Ketanji Brown Jackson"
 
-    chain = RetrievalQA.from_chain_type(llm, retriever=docsearch.as_retriever(), return_source_documents=True)
+    chain = RetrievalQA.from_chain_type(
+        llm, retriever=docsearch.as_retriever(), return_source_documents=True
+    )
 
     chain(query, callbacks=[handler])
     handler.flush()
@@ -446,11 +510,12 @@ def test_callback_retriever_with_sources():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_conversational_with_memory():
     handler = CallbackHandler(debug=False)
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    conversation = ConversationChain(llm=llm, verbose=True, memory=ConversationBufferMemory(), callbacks=[handler])
+    conversation = ConversationChain(
+        llm=llm, verbose=True, memory=ConversationBufferMemory(), callbacks=[handler]
+    )
     conversation.predict(input="Hi there!", callbacks=[handler])
     handler.flush()
 
@@ -466,12 +531,11 @@ def test_callback_retriever_conversational_with_memory():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_retriever_conversational():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)
@@ -488,7 +552,11 @@ def test_callback_retriever_conversational():
     query = "What did the president say about Ketanji Brown Jackson"
 
     chain = ConversationalRetrievalChain.from_llm(
-        ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), temperature=0.5, model="gpt-3.5-turbo-16k"),
+        ChatOpenAI(
+            openai_api_key=os.environ.get("OPENAI_API_KEY"),
+            temperature=0.5,
+            model="gpt-3.5-turbo-16k",
+        ),
         docsearch.as_retriever(search_kwargs={"k": 6}),
         return_source_documents=True,
     )
@@ -512,9 +580,8 @@ def test_callback_retriever_conversational():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_simple_openai():
-    api_wrapper = LangfuseAPI()
+    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -527,18 +594,59 @@ def test_callback_simple_openai():
 
     trace_id = handler.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.input == trace.observations[0].input
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
+
+
+def test_callback_multiple_invocations_on_different_traces():
+    api = get_api()
+    handler = CallbackHandler(debug=False)
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+
+    text = "What would be a good company name for a company that makes colorful socks?"
+
+    llm.predict(text, callbacks=[handler])
+
+    trace_id_one = handler.get_trace_id()
+
+    llm.predict(text, callbacks=[handler])
+
+    trace_id_two = handler.get_trace_id()
+
+    handler.flush()
+
+    assert trace_id_one != trace_id_two
+
+    trace_one = api.trace.get(trace_id_one)
+    trace_two = api.trace.get(trace_id_two)
+
+    for test_data in [
+        {"trace": trace_one, "expected_trace_id": trace_id_one},
+        {"trace": trace_two, "expected_trace_id": trace_id_two},
+    ]:
+        assert len(test_data["trace"].observations) == 2
+        assert test_data["trace"].id == test_data["expected_trace_id"]
+        for observation in test_data["trace"].observations:
+            if observation.type == "GENERATION":
+                assert observation.usage.input > 0
+                assert observation.usage.output > 0
+                assert observation.usage.total > 0
+                assert observation.input is not None
+                assert observation.input != ""
+                assert observation.output is not None
+                assert observation.output != ""
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -576,7 +684,7 @@ def test_callback_simple_openai_streaming():
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="no serpapi setup in CI")
 def test_callback_simple_llm_chat():
     handler = CallbackHandler()
 
@@ -587,7 +695,8 @@ def test_callback_simple_llm_chat():
     agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION)
 
     agent.run(
-        "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?", callbacks=[handler]
+        "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?",
+        callbacks=[handler],
     )
 
     handler.flush()
@@ -620,7 +729,9 @@ def test_callback_huggingface_hub():
     def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
         repo_id = "google/flan-t5-small"
         # Experiment with the max_length parameter and temperature
-        llm = HuggingFaceHub(repo_id=repo_id, model_kwargs={"temperature": 0.1, "max_length": 500})
+        llm = HuggingFaceHub(
+            repo_id=repo_id, model_kwargs={"temperature": 0.1, "max_length": 500}
+        )
         return LLMChain(prompt=prompt, llm=llm)
 
     hugging_chain = initialize_huggingface_llm(
@@ -653,7 +764,6 @@ Title: {title}
             assert observation["output"] != ""
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_openai_functions_python():
     handler = CallbackHandler(debug=False)
     assert handler.langfuse.base_url == "http://localhost:3000"
@@ -661,8 +771,14 @@ def test_callback_openai_functions_python():
     llm = ChatOpenAI(model="gpt-4", temperature=0)
     prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", "You are a world class algorithm for extracting information in structured formats."),
-            ("human", "Use the given format to extract information from the following input: {input}"),
+            (
+                "system",
+                "You are a world class algorithm for extracting information in structured formats.",
+            ),
+            (
+                "human",
+                "Use the given format to extract information from the following input: {input}",
+            ),
             ("human", "Tip: Make sure to answer in the correct format"),
         ]
     )
@@ -684,7 +800,9 @@ def test_callback_openai_functions_python():
             fav_food: An OptionalFavFood object that either contains the person's favorite food or a null value.
             Food should be null if it's not known.
         """
-        return f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
+        return (
+            f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
+        )
 
     def record_dog(name: str, color: str, fav_food: OptionalFavFood) -> str:
         """Record some basic identifying information about a dog.
@@ -697,7 +815,9 @@ def test_callback_openai_functions_python():
         """
         return f"Recording dog {name} of color {color} with favorite food {fav_food}!"
 
-    chain = create_openai_fn_chain([record_person, record_dog], llm, prompt, callbacks=[handler])
+    chain = create_openai_fn_chain(
+        [record_person, record_dog], llm, prompt, callbacks=[handler]
+    )
     chain.run(
         "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
         callbacks=[handler],
@@ -718,25 +838,23 @@ def test_callback_openai_functions_python():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_create_extraction_chain():
     import os
-
     from uuid import uuid4
-    from langchain.chains import create_extraction_chain
 
-    from langfuse.client import Langfuse
-    from langfuse.model import CreateTrace
-    from langchain.text_splitter import CharacterTextSplitter
-    from langchain.embeddings.openai import OpenAIEmbeddings
-    from langchain.vectorstores import Chroma
+    from langchain.chains import create_extraction_chain
     from langchain.chat_models import ChatOpenAI
     from langchain.document_loaders import TextLoader
+    from langchain.embeddings.openai import OpenAIEmbeddings
+    from langchain.text_splitter import CharacterTextSplitter
+    from langchain.vectorstores import Chroma
+
+    from langfuse.client import Langfuse
 
     def create_uuid():
         return str(uuid4())
@@ -745,7 +863,7 @@ def test_create_extraction_chain():
 
     trace_id = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(id=trace_id))
+    trace = langfuse.trace(id=trace_id)
     handler = trace.getNewHandler()
 
     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
@@ -757,7 +875,9 @@ def test_create_extraction_chain():
     embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     vector_search = Chroma.from_documents(texts, embeddings)
 
-    main_character = vector_search.similarity_search("Who is the main character and what is the summary of the text?")
+    main_character = vector_search.similarity_search(
+        "Who is the main character and what is the summary of the text?"
+    )
 
     llm = ChatOpenAI(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
@@ -794,6 +914,63 @@ def test_create_extraction_chain():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
+
+
+@pytest.mark.skip(reason="inference cost")
+def test_aws_bedrock_chain():
+    import os
+
+    import boto3
+    from langchain.llms.bedrock import Bedrock
+
+    api_wrapper = LangfuseAPI()
+    handler = CallbackHandler(debug=False)
+
+    bedrock_client = boto3.client(
+        "bedrock-runtime",
+        region_name="us-east-1",
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+        aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+    )
+
+    llm = Bedrock(
+        model_id="anthropic.claude-instant-v1",
+        client=bedrock_client,
+        model_kwargs={
+            "max_tokens_to_sample": 1000,
+            "temperature": 0.0,
+        },
+    )
+
+    text = "What would be a good company name for a company that makes colorful socks?"
+
+    llm.predict(text, callbacks=[handler])
+
+    handler.flush()
+
+    trace_id = handler.get_trace_id()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    generation = trace["observations"][1]
+
+    assert generation["promptTokens"] is not None
+    assert generation["completionTokens"] is not None
+    assert generation["totalTokens"] is not None
+
+    assert len(trace["observations"]) == 2
+    for observation in trace["observations"]:
+        if observation["type"] == "GENERATION":
+            assert observation["promptTokens"] > 0
+            assert observation["completionTokens"] > 0
+            assert observation["totalTokens"] > 0
+            assert observation["input"] is not None
+            assert observation["input"] != ""
+            assert observation["output"] is not None
+            assert observation["output"] != ""
+            assert observation["name"] == "Bedrock"
+            assert observation["model"] == "claude"

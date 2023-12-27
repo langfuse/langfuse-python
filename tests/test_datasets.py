@@ -3,15 +3,9 @@ import os
 from typing import List
 
 from langchain import LLMChain, OpenAI, PromptTemplate
-import pytest
 
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
-
-from langfuse.model import CreateDatasetItemRequest, InitialGeneration
-from langfuse.model import CreateDatasetRequest
-
-
 from tests.utils import create_uuid, get_api
 
 
@@ -19,7 +13,7 @@ def test_create_and_get_dataset():
     langfuse = Langfuse(debug=False)
 
     name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=name))
+    langfuse.create_dataset(name=name)
     dataset = langfuse.get_dataset(name)
     assert dataset.name == name
 
@@ -27,24 +21,48 @@ def test_create_and_get_dataset():
 def test_create_dataset_item():
     langfuse = Langfuse(debug=False)
     name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=name))
+    langfuse.create_dataset(name=name)
 
-    input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=name, input=input))
+    input = {"input": "Hello World"}
+    langfuse.create_dataset_item(dataset_name=name, input=input)
 
     dataset = langfuse.get_dataset(name)
     assert len(dataset.items) == 1
     assert dataset.items[0].input == input
 
 
+def test_upsert_and_get_dataset_item():
+    langfuse = Langfuse(debug=False)
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+    input = {"input": "Hello World"}
+    item = langfuse.create_dataset_item(
+        dataset_name=name, input=input, expected_output=input
+    )
+
+    get_item = langfuse.get_dataset_item(item.id)
+    assert get_item.input == input
+    assert get_item.id == item.id
+    assert get_item.expected_output == input
+
+    new_input = {"input": "Hello World 2"}
+    langfuse.create_dataset_item(
+        dataset_name=name, input=new_input, id=item.id, expected_output=new_input
+    )
+    get_new_item = langfuse.get_dataset_item(item.id)
+    assert get_new_item.input == new_input
+    assert get_new_item.id == item.id
+    assert get_new_item.expected_output == new_input
+
+
 def test_linking_observation():
     langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+    langfuse.create_dataset(name=dataset_name)
 
     input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
     assert len(dataset.items) == 1
@@ -54,7 +72,7 @@ def test_linking_observation():
     generation_id = create_uuid()
 
     for item in dataset.items:
-        generation = langfuse.generation(InitialGeneration(id=generation_id))
+        generation = langfuse.generation(id=generation_id)
 
         item.link(generation, run_name)
 
@@ -69,10 +87,10 @@ def test_linking_via_id_observation():
     langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+    langfuse.create_dataset(name=dataset_name)
 
     input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
     assert len(dataset.items) == 1
@@ -82,7 +100,7 @@ def test_linking_via_id_observation():
     generation_id = create_uuid()
 
     for item in dataset.items:
-        langfuse.generation(InitialGeneration(id=generation_id))
+        langfuse.generation(id=generation_id)
         langfuse.flush()
 
         item.link(generation_id, run_name)
@@ -94,14 +112,13 @@ def test_linking_via_id_observation():
     assert run.dataset_run_items[0].observation_id == generation_id
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_langchain_dataset():
     langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
-    langfuse.create_dataset(CreateDatasetRequest(name=dataset_name))
+    langfuse.create_dataset(name=dataset_name)
 
     input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(CreateDatasetItemRequest(dataset_name=dataset_name, input=input))
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
 
@@ -122,6 +139,7 @@ def test_langchain_dataset():
 
         synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
+    langfuse.flush()
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name
@@ -142,7 +160,11 @@ def test_langchain_dataset():
 
     assert trace.name == "dataset-run"
     assert sorted_observations[0].name == "dataset-run"
-    assert trace.metadata == {"dataset_item_id": dataset_item_id, "run_name": run_name, "dataset_id": dataset.id}
+    assert trace.metadata == {
+        "dataset_item_id": dataset_item_id,
+        "run_name": run_name,
+        "dataset_id": dataset.id,
+    }
 
     assert sorted_observations[0].metadata == {
         "dataset_item_id": dataset_item_id,
@@ -150,7 +172,9 @@ def test_langchain_dataset():
         "dataset_id": dataset.id,
     }
 
-    generations = list(filter(lambda obs: obs.type == "GENERATION", sorted_observations))
+    generations = list(
+        filter(lambda obs: obs.type == "GENERATION", sorted_observations)
+    )
 
     assert len(generations) > 0
     for generation in generations:
@@ -158,9 +182,9 @@ def test_langchain_dataset():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
 
 
 def sorted_dependencies(

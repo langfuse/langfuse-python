@@ -1,1 +1,2 @@
-from .client import Langfuse
+from .client import Langfuse  # noqa
+from .version import __version__  # noqa

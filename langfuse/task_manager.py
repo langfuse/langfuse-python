@@ -1,51 +1,213 @@
 import atexit
-from datetime import datetime, timedelta
-from enum import Enum
+import json
 import logging
 import queue
 import threading
+import typing
+from datetime import datetime
+from queue import Empty, Queue
+from typing import List
+
+import monotonic
+from dateutil.tz import tzutc
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
 
 import backoff
 
-from langfuse.logging import clean_logger
+from langfuse.request import LangfuseClient
+from langfuse.serializer import EventSerializer
+
+# largest message size in db is 331_000 bytes right now
+MAX_MSG_SIZE = 650_000
+
+# https://vercel.com/docs/functions/serverless-functions/runtimes#request-body-size
+# The maximum payload size for the request body or the response body of a Serverless Function is 4.5 MB
+# 4_500_000 Bytes = 4.5 MB
+# https://nextjs.org/docs/pages/building-your-application/routing/api-routes#custom-config
+# The default nextjs body parser takes a max body size of 1mb. Hence, our BATCH_SIZE_LIMIT should be less to accomodate the final event.
+BATCH_SIZE_LIMIT = 650_000
 
 
-class Task:
-    def __init__(self, task_id, function, predecessor_id: str = None):
-        self.task_id = task_id
-        self.predecessor_id = predecessor_id
-        self.function = function
-        self.result = None
-        self.timestamp = None
-        self.lock = threading.Lock()
-        self.status = TaskStatus.UNSCHEDULED
+class LangfuseMetadata(pydantic.BaseModel):
+    batch_size: int
+    sdk_integration: typing.Optional[str] = None
+    sdk_name: str = None
+    sdk_version: str = None
+    public_key: str = None
 
 
-class TaskStatus(Enum):
-    SUCCESS = "success"
-    FAIL = "fail"
-    UNSCHEDULED = "unscheduled"
+class Consumer(threading.Thread):
+    _log = logging.getLogger("langfuse")
+    _queue: Queue
+    _identifier: int
+    _client: LangfuseClient
+    _flush_at: int
+    _flush_interval: float
+    _max_retries: int
+    _public_key: str
+    _sdk_name: str
+    _sdk_version: str
+    _sdk_integration: str
+
+    def __init__(
+        self,
+        queue: Queue,
+        identifier: int,
+        client: LangfuseClient,
+        flush_at: int,
+        flush_interval: float,
+        max_retries: int,
+        public_key: str,
+        sdk_name: str,
+        sdk_version: str,
+        sdk_integration: str,
+    ):
+        """Create a consumer thread."""
+
+        threading.Thread.__init__(self)
+        # Make consumer a daemon thread so that it doesn't block program exit
+        self.daemon = True
+        self._queue = queue
+        # It's important to set running in the constructor: if we are asked to
+        # pause immediately after construction, we might set running to True in
+        # run() *after* we set it to False in pause... and keep running
+        # forever.
+        self.running = True
+        self._identifier = identifier
+        self._client = client
+        self._flush_at = flush_at
+        self._flush_interval = flush_interval
+        self._max_retries = max_retries
+        self._public_key = public_key
+        self._sdk_name = sdk_name
+        self._sdk_version = sdk_version
+        self._sdk_integration = sdk_integration
+
+    def _next(self):
+        """Return the next batch of items to upload."""
+
+        queue = self._queue
+        items = []
+
+        start_time = monotonic.monotonic()
+        total_size = 0
+
+        while len(items) < self._flush_at:
+            elapsed = monotonic.monotonic() - start_time
+            if elapsed >= self._flush_interval:
+                break
+            try:
+                item = queue.get(block=True, timeout=self._flush_interval - elapsed)
+                item_size = len(json.dumps(item, cls=EventSerializer).encode())
+                self._log.debug(f"item size {item_size}")
+                if item_size > MAX_MSG_SIZE:
+                    self._log.warning(
+                        "Item exceeds size limit (size: %s), dropping item. (%s)",
+                        item_size,
+                        item,
+                    )
+                    continue
+                items.append(item)
+                total_size += item_size
+                if total_size >= BATCH_SIZE_LIMIT:
+                    self._log.debug("hit batch size limit (size: %d)", total_size)
+                    break
+
+            except Empty:
+                break
+
+        return items
+
+    def run(self):
+        """Runs the consumer."""
+        self._log.debug("consumer is running...")
+        while self.running:
+            self.upload()
+
+    def upload(self):
+        """Upload the next batch of items, return whether successful."""
+
+        batch = self._next()
+        if len(batch) == 0:
+            return
+
+        try:
+            self._upload_batch(batch)
+        except Exception as e:
+            self._log.exception("error uploading: %s", e)
+        finally:
+            # mark items as acknowledged from queue
+            for _ in batch:
+                self._queue.task_done()
+
+    def pause(self):
+        """Pause the consumer."""
+        self.running = False
+
+    def _upload_batch(self, batch: List[any]):
+        self._log.debug("uploading batch of %d items", len(batch))
+
+        metadata = LangfuseMetadata(
+            batch_size=len(batch),
+            sdk_integration=self._sdk_integration,
+            sdk_name=self._sdk_name,
+            sdk_version=self._sdk_version,
+            public_key=self._public_key,
+        ).dict()
+
+        @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
+        def execute_task_with_backoff(batch: [any]):
+            return self._client.batch_post(gzip=False, batch=batch, metadata=metadata)
+
+        execute_task_with_backoff(batch)
+        self._log.debug("successfully uploaded batch of %d items", len(batch))
 
 
 class TaskManager(object):
-    log = logging.getLogger("langfuse")
+    _log = logging.getLogger("langfuse")
+    _consumers: List[Consumer]
+    _threads: int
+    _max_task_queue_size: int
+    _queue: Queue
+    _client: LangfuseClient
+    _flush_at: int
+    _flush_interval: float
+    _max_retries: int
+    _public_key: str
+    _sdk_name: str
+    _sdk_version: str
+    _sdk_integration: str
 
-    def __init__(self, debug=False, max_task_queue_size=10_000, max_task_age=600):
-        self.max_task_queue_size = max_task_queue_size
-        self.queue = queue.Queue(max_task_queue_size)
-        self.consumer_thread = None
-        self.result_mapping = {}
-        self.max_task_age = max_task_age
-        if debug:
-            # Ensures that debug level messages are logged when debug mode is on.
-            # Otherwise, defaults to WARNING level.
-            # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
-            logging.basicConfig()
-            self.log.setLevel(logging.DEBUG)
-            clean_logger()
-        else:
-            self.log.setLevel(logging.WARNING)
-            clean_logger()
+    def __init__(
+        self,
+        client: LangfuseClient,
+        flush_at: int,
+        flush_interval: float,
+        max_retries: int,
+        threads: int,
+        public_key: str,
+        sdk_name: str,
+        sdk_version: str,
+        sdk_integration: str,
+        max_task_queue_size: int = 100_000,
+    ):
+        self._max_task_queue_size = max_task_queue_size
+        self._threads = threads
+        self._queue = queue.Queue(self._max_task_queue_size)
+        self._consumers = []
+        self._client = client
+        self._flush_at = flush_at
+        self._flush_interval = flush_interval
+        self._max_retries = max_retries
+        self._public_key = public_key
+        self._sdk_name = sdk_name
+        self._sdk_version = sdk_version
+        self._sdk_integration = sdk_integration
 
         self.init_resources()
 
@@ -53,142 +215,67 @@ class TaskManager(object):
         atexit.register(self.join)
 
     def init_resources(self):
-        self.consumer_thread = Consumer(self.queue, self.result_mapping, self.max_task_age)
-        self.consumer_thread.start()
+        for i in range(self._threads):
+            consumer = Consumer(
+                queue=self._queue,
+                identifier=i,
+                client=self._client,
+                flush_at=self._flush_at,
+                flush_interval=self._flush_interval,
+                max_retries=self._max_retries,
+                public_key=self._public_key,
+                sdk_name=self._sdk_name,
+                sdk_version=self._sdk_version,
+                sdk_integration=self._sdk_integration,
+            )
+            consumer.start()
+            self._consumers.append(consumer)
 
-    def add_task(self, task_id, function, predecessor_id=None):
+    def add_task(self, event: dict):
         try:
-            self.log.debug(f"Adding task {task_id} with predecessor {predecessor_id}")
-            if self.consumer_thread is None or not self.consumer_thread.is_alive():
-                self.init_resources()
-            task = Task(task_id, function, predecessor_id)
+            self._log.debug(f"adding task {event}")
+            json.dumps(event, cls=EventSerializer)
+            event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
 
-            self.queue.put(task, block=False)
-            self.log.debug(f"Task {task_id} added to queue")
+            self._queue.put(event, block=False)
         except queue.Full:
-            self.log.warning("analytics-python queue is full")
+            self._log.warning("analytics-python queue is full")
             return False
         except Exception as e:
-            self.log.warning(f"Exception in adding task {task_id} {e}")
+            self._log.exception(f"Exception in adding task {e}")
+
             return False
 
     def flush(self):
         """Forces a flush from the internal queue to the server"""
-        self.log.debug("flushing queue")
-        queue = self.queue
+        self._log.debug("flushing queue")
+        queue = self._queue
         size = queue.qsize()
         queue.join()
         # Note that this message may not be precise, because of threading.
-        self.log.debug("successfully flushed about %s items.", size)
+        self._log.debug("successfully flushed about %s items.", size)
 
     def join(self):
-        """Ends the consumer thread once the queue is empty.
+        """Ends the consumer threads once the queue is empty.
         Blocks execution until finished
         """
-        self.log.debug("joining consumer thread")
-        self.consumer_thread.pause()
-        try:
-            self.consumer_thread.join()
-        except RuntimeError:
-            # consumer thread has not started
-            pass
-        self.log.debug("consumer thread joined")
+        self._log.debug(f"joining {len(self._consumers)} consumer threads")
+        for consumer in self._consumers:
+            consumer.pause()
+            try:
+                consumer.join()
+            except RuntimeError:
+                # consumer thread has not started
+                pass
+
+            self._log.debug(f"consumer thread {consumer._identifier} joined")
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
-        self.log.debug("shutdown initiated")
+
+        self._log.debug("shutdown initiated")
+
         self.flush()
         self.join()
-        self.log.debug("shutdown completed")
 
-    def get_result(self, task_id):
-        try:
-            return self.result_mapping.get(task_id)
-        except Exception as e:
-            self.log.warning(f"Exception in getting result for task {task_id} {e}")
-
-
-class Consumer(threading.Thread):
-    log = logging.getLogger("langfuse")
-
-    def __init__(self, queue, result_mapping, max_task_age):
-        """Create a consumer thread."""
-
-        threading.Thread.__init__(self)
-        # Make consumer a daemon thread so that it doesn't block program exit
-        self.daemon = True
-        self.queue = queue
-        # It's important to set running in the constructor: if we are asked to
-        # pause immediately after construction, we might set running to True in
-        # run() *after* we set it to False in pause... and keep running
-        # forever.
-        self.running = True
-        self.result_mapping = result_mapping
-        self.max_task_age = max_task_age
-
-    def run(self):
-        """Runs the consumer."""
-        self.log.debug("consumer is running...")
-        while self.running:
-            try:
-                self.log.debug("consumer looping")
-                self._prune_old_tasks(self.max_task_age)
-
-                # elapsed = time.monotonic.monotonic() - start_time
-                task = self.queue.get(block=True, timeout=1)
-
-                self.result_mapping[task.task_id] = task
-
-                self.log.debug(f"Task {task.task_id} received from the queue")
-
-                self._execute_task(task)
-                self.log.debug(f"Task {task.task_id} done")
-                self.queue.task_done()
-
-            except queue.Empty:
-                break
-
-        self.log.debug("consumer exited.")
-
-    def pause(self):
-        """Pause the consumer."""
-        self.running = False
-
-    def _execute_task(self, task: Task):
-        try:
-            self.log.debug(f"Task {task.task_id} executing")
-            self._execute_task_with_backoff(task)
-        except Exception as e:
-            self.result_mapping[task.task_id].result = e
-            self.result_mapping[task.task_id].status = TaskStatus.FAIL
-            self.result_mapping[task.task_id].timestamp = datetime.now()
-            self.log.warning(f"Task {task.task_id} failed with exception {e} ")
-
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    def _execute_task_with_backoff(self, task: Task):
-        result = None
-        self.log.debug(f"Task {task.task_id} executing with backoff")
-        with task.lock:
-            result = task.function()
-            self.result_mapping[task.task_id].result = result
-            self.result_mapping[task.task_id].status = TaskStatus.SUCCESS
-            self.result_mapping[task.task_id].timestamp = datetime.now()
-            self.log.debug(f"Task {task.task_id} done with result {result}")
-
-    def _prune_old_tasks(self, delta: int):
-        try:
-            self.log.debug("Pruning old tasks")
-            now = datetime.now()
-
-            to_remove = [
-                task_id
-                for task_id, task in self.result_mapping.items()
-                if task.status in [TaskStatus.SUCCESS, TaskStatus.FAIL]
-                and task.timestamp
-                and now - task.timestamp > timedelta(seconds=delta)
-            ]
-            for task_id in to_remove:
-                self.result_mapping.pop(task_id, None)
-                self.log.debug(f"Task {task_id} pruned due to age")
-        except Exception as e:
-            self.log.error(f"Exception in pruning old tasks {e}")
+        self._log.debug("shutdown completed")

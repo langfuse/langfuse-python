@@ -7,6 +7,11 @@
 [![Discord](https://img.shields.io/discord/1111061815649124414?style=flat-square&logo=Discord&logoColor=white&label=Discord&color=%23434EE4)](https://discord.gg/7NXusRtqYU)
 [![YC W23](https://img.shields.io/badge/Y%20Combinator-W23-orange?style=flat-square)](https://www.ycombinator.com/companies/langfuse)
 
+## Installation
+
+> [!IMPORTANT]
+> The SDK was rewritten in v2 and released on December 17, 2023. Refer to the [v2 migration guide](https://langfuse.com/docs/sdk/python#upgrading-from-v1xx-to-v2xx) for instructions on updating your code.
+
 ```
 pip install langfuse
 ```
@@ -27,7 +32,7 @@ poetry self add poetry-bumpversion
 ### Install dependencies
 
 ```
-poetry install
+poetry install --all-extras
 ```
 
 ### Add Pre-commit
@@ -65,6 +70,11 @@ poetry run pre-commit install
    - `poetry version prepatch` for pre-release versions
 2. `poetry install`
 3. `poetry build`
-4. `poetry publish`
+4. `git commit -am "chore: release v{version}"`
+5. `git push`
+6. `git tag v{version}`
+7. `git push --tags`
+8. `poetry publish`
    - Create PyPi API token: https://pypi.org/manage/account/token/
    - Setup: `poetry config pypi-token.pypi your-api-token`
+9. Create a release on GitHub with the changelog
