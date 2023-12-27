@@ -1,6 +1,8 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from json import JSONEncoder
 from typing import Any
+
+from langfuse.api.core import serialize_datetime
 
 from pydantic import BaseModel
 
@@ -16,9 +18,7 @@ class EventSerializer(JSONEncoder):
     def default(self, obj: Any):
         if isinstance(obj, (date, datetime)):
             # Timezone-awareness check
-            if obj.tzinfo is None or obj.tzinfo.utcoffset(obj) is None:
-                obj = obj.replace(tzinfo=timezone.utc)
-            return obj.isoformat()
+            return serialize_datetime(obj)
         if isinstance(obj, BaseModel):
             return obj.dict()
         # if langchain is not available, the Serializable type is NoneType

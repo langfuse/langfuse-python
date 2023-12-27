@@ -706,7 +706,7 @@ class StatefulClient(object):
         return body
 
     def _add_default_values(self, body: dict):
-        if body.get("startTime") is None:
+        if body.get("start_time") is None:
             body["start_time"] = _get_timestamp()
         return body
 
