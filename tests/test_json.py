@@ -29,7 +29,7 @@ def test_json_encoder():
 
     result = json.dumps(obj, cls=EventSerializer)
     assert (
-        '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00", "messages": [{"lc": 1, "type": "constructor", "id":'
+        '{"foo": "bar", "bar": "2021-01-01T00:00:00Z", "messages": [{"lc": 1, "type": "constructor", "id":'
         in result
     )
     assert "HumanMessage" in result
@@ -39,7 +39,7 @@ def test_json_decoder_pydantic():
     obj = TestModel(foo="bar", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
     assert (
         json.dumps(obj, cls=EventSerializer)
-        == '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00"}'
+        == '{"foo": "bar", "bar": "2021-01-01T00:00:00Z"}'
     )
 
 
@@ -54,7 +54,7 @@ def test_json_decoder_without_langchain_serializer():
             foo="John", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         )
         result = json.dumps(model, cls=EventSerializer)
-        assert result == '{"foo": "John", "bar": "2021-01-01T00:00:00+00:00"}'
+        assert result == '{"foo": "John", "bar": "2021-01-01T00:00:00Z"}'
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def test_json_decoder_without_langchain_serializer_with_langchain_message():
     importlib.reload(langfuse)
     obj = TestModel(foo="bar", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
     result = json.dumps(obj, cls=EventSerializer)
-    assert result == '{"foo": "bar", "bar": "2021-01-01T00:00:00+00:00"}'
+    assert result == '{"foo": "bar", "bar": "2021-01-01T00:00:00Z"}'
 
 
 @pytest.mark.usefixtures("hide_available_langchain")

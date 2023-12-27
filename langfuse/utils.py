@@ -10,7 +10,7 @@ from langfuse.model import ModelUsage
 
 
 def _get_timestamp():
-    return datetime.now(timezone.utc)  # datetime.now()
+    return datetime.now(timezone.utc)
 
 
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
