@@ -135,7 +135,7 @@ def test_create_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -496,7 +496,7 @@ def test_create_trace_and_span():
 
 
 def test_create_trace_and_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     trace_name = create_uuid()
@@ -896,7 +896,7 @@ def test_timezone_awareness():
     assert utc_now.tzinfo is not None
 
 
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
     
     trace = langfuse.trace(name="test")
@@ -936,7 +936,7 @@ def test_timezone_awareness_setting_timestamps():
     print(now)
     print(utc_now)
 
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
     
     trace = langfuse.trace(name="test")

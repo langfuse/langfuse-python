@@ -28,9 +28,5 @@ def serialize_datetime(v: dt.datetime) -> str:
     else:
 
         local_tz = dt.datetime.now().astimezone().tzinfo
-        logger = logging.getLogger("langfuse")
-
         localized_dt = v.replace(tzinfo=local_tz)
-
-        logger.warning(f"{local_tz}, {v.strftime('%Y-%m-%dT%H:%M:%S%z')}, {localized_dt.strftime('%Y-%m-%dT%H:%M:%S%z')}, iso: {localized_dt.isoformat()}")
         return _serialize_zoned_datetime(localized_dt)
