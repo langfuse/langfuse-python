@@ -1232,6 +1232,7 @@ class StatefulTraceClient(StatefulClient):
         try:
             # adding this to ensure langchain is installed
             import langchain  # noqa
+
             from langfuse.callback import CallbackHandler
 
             self.log.debug(f"Creating new handler for trace {self.id}")
