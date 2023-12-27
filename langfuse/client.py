@@ -248,6 +248,34 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_observations(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        type: typing.Optional[str] = None,
+    ):
+        try:
+            self.log.debug(
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
+            )
+            return self.client.observations.get_many(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                trace_id=trace_id,
+                parent_observation_id=parent_observation_id,
+                type=type,
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_generations(
         self,
         *,
@@ -255,15 +283,18 @@ class Langfuse(object):
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
     ):
-        try:
-            self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.observations.get_many(
-                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
-            )
-        except Exception as e:
-            self.log.exception(e)
-            raise e
+        return self.get_observations(
+            page=page,
+            limit=limit,
+            name=name,
+            user_id=user_id,
+            trace_id=trace_id,
+            parent_observation_id=parent_observation_id,
+            type="GENERATION",
+        )
 
     def get_observation(
         self,
@@ -1200,6 +1231,7 @@ class StatefulTraceClient(StatefulClient):
         try:
             # adding this to ensure langchain is installed
             import langchain  # noqa
+
             from langfuse.callback import CallbackHandler
 
             self.log.debug(f"Creating new handler for trace {self.id}")
