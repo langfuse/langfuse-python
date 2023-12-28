@@ -1,5 +1,7 @@
 from typing import Optional, TypedDict
 
+import chevron
+
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
 )
@@ -53,4 +55,4 @@ class PromptClient:
         self.prompt = prompt.prompt
 
     def compile(self, kwargs) -> str:
-        return self.prompt.format(**kwargs)
+        return chevron.render(self.prompt, kwargs)
