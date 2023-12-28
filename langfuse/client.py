@@ -17,6 +17,9 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.prompts.types.create_prompt_request import (
+    CreatePromptRequest,
+)
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
@@ -25,6 +28,7 @@ from langfuse.model import (
     DatasetRun,
     DatasetStatus,
     ModelUsage,
+    PromptClient,
 )
 
 try:
@@ -303,6 +307,30 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def get_prompt(self, name: str, version: Optional[int] = None) -> PromptClient:
+        try:
+            self.log.debug(f"Getting prompt {name}, version {version}")
+            prompt = self.client.prompts.get(name=name, version=version)
+            return PromptClient(prompt=prompt)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
+        try:
+            self.log.debug(f"Creating prompt {name}, version {version}")
+
+            request = CreatePromptRequest(
+                name=name,
+                prompt=prompt,
+                is_active=is_active,
+            )
+            prompt = self.client.prompts.create(request=request)
+            return PromptClient(prompt=prompt)
         except Exception as e:
             self.log.exception(e)
             raise e

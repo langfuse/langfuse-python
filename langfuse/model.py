@@ -32,6 +32,7 @@ from langfuse.api.resources.dataset_run_items.types.create_dataset_run_item_requ
 from langfuse.api.resources.datasets.types.create_dataset_request import (  # noqa: F401
     CreateDatasetRequest,
 )
+from langfuse.api.resources.prompts.types.prompt import Prompt
 
 
 class ModelUsage(TypedDict):
@@ -39,3 +40,17 @@ class ModelUsage(TypedDict):
     input: Optional[int]
     output: Optional[int]
     total: Optional[int]
+
+
+class PromptClient:
+    name: str
+    version: int
+    prompt: str
+
+    def __init__(self, prompt: Prompt):
+        self.name = prompt.name
+        self.version = prompt.version
+        self.prompt = prompt.prompt
+
+    def compile(self, kwargs) -> str:
+        return self.prompt.format(**kwargs)

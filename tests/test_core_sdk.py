@@ -503,7 +503,12 @@ def test_create_trace_and_generation():
     generationId = create_uuid()
 
     trace = langfuse.trace(name=trace_name, input={"key": "value"}, sessionId="test")
-    trace.generation(id=generationId, name="generation", start_time=datetime.now(), end_time=datetime.now())
+    trace.generation(
+        id=generationId,
+        name="generation",
+        start_time=datetime.now(),
+        end_time=datetime.now(),
+    )
 
     langfuse.flush()
 
@@ -888,17 +893,15 @@ def test_kwargs():
 
 
 def test_timezone_awareness():
-
-    os.environ['TZ'] = 'US/Pacific'
+    os.environ["TZ"] = "US/Pacific"
     time.tzset()
 
-    utc_now =  datetime.now(timezone.utc) 
+    utc_now = datetime.now(timezone.utc)
     assert utc_now.tzinfo is not None
-
 
     langfuse = Langfuse(debug=False)
     api = get_api()
-    
+
     trace = langfuse.trace(name="test")
     span = trace.span(name="span")
     span.end()
@@ -909,28 +912,26 @@ def test_timezone_awareness():
     langfuse.flush()
 
     trace = api.trace.get(trace.id)
-    
+
     assert len(trace.observations) == 3
     for observation in trace.observations:
-
-        delta =  observation.start_time-utc_now
+        delta = observation.start_time - utc_now
         assert delta.seconds < 5
 
         if observation.type != "EVENT":
-            delta = observation.end_time-utc_now
+            delta = observation.end_time - utc_now
             assert delta.seconds < 5
-    
-    os.environ['TZ'] = 'UTC'
+
+    os.environ["TZ"] = "UTC"
     time.tzset()
 
 
 def test_timezone_awareness_setting_timestamps():
-
-    os.environ['TZ'] = 'US/Pacific'
+    os.environ["TZ"] = "US/Pacific"
     time.tzset()
 
     now = datetime.now()
-    utc_now =  datetime.now(timezone.utc) 
+    utc_now = datetime.now(timezone.utc)
     assert utc_now.tzinfo is not None
 
     print(now)
@@ -938,7 +939,7 @@ def test_timezone_awareness_setting_timestamps():
 
     langfuse = Langfuse(debug=False)
     api = get_api()
-    
+
     trace = langfuse.trace(name="test")
     trace.span(name="span", start_time=now, end_time=now)
     trace.generation(name="generation", start_time=now, end_time=now)
@@ -947,19 +948,15 @@ def test_timezone_awareness_setting_timestamps():
     langfuse.flush()
 
     trace = api.trace.get(trace.id)
-    
+
     assert len(trace.observations) == 3
     for observation in trace.observations:
-
         delta = utc_now - observation.start_time
         assert delta.seconds < 5
 
         if observation.type != "EVENT":
-
             delta = utc_now - observation.end_time
             assert delta.seconds < 5
-    
-    os.environ['TZ'] = 'UTC'
+
+    os.environ["TZ"] = "UTC"
     time.tzset()
-
-
