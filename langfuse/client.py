@@ -42,7 +42,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.utils import _convert_usage_input, _get_timestamp
+from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
 
@@ -590,6 +590,9 @@ class Langfuse(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
+        prompt_name: typing.Optional[str] = None,
+        prompt_version: typing.Optional[str] = None,
         **kwargs,
     ):
         try:
@@ -618,6 +621,7 @@ class Langfuse(object):
                 "model_parameters": model_parameters,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 "trace": {"release": self.release},
+                **_create_prompt_context(prompt, prompt_name, prompt_version),
             }
             if kwargs is not None:
                 generation_body.update(kwargs)
@@ -755,6 +759,9 @@ class StatefulClient(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
+        prompt_name: typing.Optional[str] = None,
+        prompt_version: typing.Optional[str] = None,
         **kwargs,
     ):
         try:
@@ -777,6 +784,7 @@ class StatefulClient(object):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                **_create_prompt_context(prompt, prompt_name, prompt_version),
             }
 
             if kwargs is not None:
@@ -1002,6 +1010,9 @@ class StatefulGenerationClient(StatefulClient):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
+        prompt_name: typing.Optional[str] = None,
+        prompt_version: typing.Optional[str] = None,
         **kwargs,
     ):
         try:
@@ -1020,6 +1031,7 @@ class StatefulGenerationClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                **_create_prompt_context(prompt, prompt_name, prompt_version),
             }
 
             if kwargs is not None:
