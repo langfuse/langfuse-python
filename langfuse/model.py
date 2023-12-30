@@ -54,5 +54,5 @@ class PromptClient:
         self.version = prompt.version
         self.prompt = prompt.prompt
 
-    def compile(self, kwargs) -> str:
+    def compile(self, **kwargs) -> str:
         return chevron.render(self.prompt, kwargs)
