@@ -2,14 +2,14 @@
   "[python]": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.codeActionsOnSave": {
-      "source.fixAll": "explicit",
-      "source.organizeImports": "explicit"
-    },
-    "notebook.codeActionsOnSave": {
-      "source.fixAll": true,
-      "source.organizeImports": true
-    }
+    // "editor.codeActionsOnSave": {
+    //   "source.fixAll": "explicit",
+    //   "source.organizeImports": "explicit"
+    // },
+    // "notebook.codeActionsOnSave": {
+    //   "source.fixAll": true,
+    //   "source.organizeImports": true
+    // }
   },
   "prettier.documentSelectors": [
     "**/*.{cjs,mjs,ts,tsx,astro,md,mdx,json,yaml,yml}"
