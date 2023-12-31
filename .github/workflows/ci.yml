@@ -80,7 +80,7 @@ jobs:
 
           echo "::group::Run server"
           TELEMETRY_ENABLED=false docker run --name langfuse \
-          -e DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres \
+          -e DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
           -e NEXTAUTH_URL=http://localhost:3000 \
           -e NEXTAUTH_SECRET=mysecret \
           -e SALT=mysalt \
