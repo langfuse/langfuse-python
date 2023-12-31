@@ -32,7 +32,7 @@ def test_compiling_prompt():
     assert prompt_client.prompt == second_prompt_client.prompt
 
     assert (
-        second_prompt_client.compile({"target": "world", "state": "great"})
+        second_prompt_client.compile(target="world", state="great")
         == "Hello, world! I hope you are great."
     )
 
@@ -48,7 +48,7 @@ def test_prompt_end_to_end():
 
     prompt = langfuse.get_prompt("test")
 
-    prompt_str = prompt.compile({"target": "world", "state": "great"})
+    prompt_str = prompt.compile(target="world", state="great")
     assert prompt_str == "Hello, world! I hope you are great."
 
     langfuse.generation(input=prompt_str, prompt=prompt)
