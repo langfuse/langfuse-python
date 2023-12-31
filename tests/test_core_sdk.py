@@ -4,7 +4,6 @@ import typing
 from asyncio import gather
 from datetime import datetime, timezone
 
-
 from langfuse.utils import _get_timestamp
 
 try:
@@ -177,7 +176,7 @@ def test_create_update_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     timestamp = _get_timestamp()
