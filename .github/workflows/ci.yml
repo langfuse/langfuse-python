@@ -79,14 +79,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false docker run --name langfuse \
-          -e DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
-          -e NEXTAUTH_URL=http://localhost:3000 \
-          -e NEXTAUTH_SECRET=mysecret \
-          -e SALT=mysalt \
-          -p 3000:3000 \
-          -a STDOUT \
-          ghcr.io/langfuse/langfuse:main
+          TELEMETRY_ENABLED=false docker-compose up -d langfuse-server
           echo "::endgroup::"
 
       # Add this step to check the health of the container
