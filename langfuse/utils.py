@@ -1,3 +1,4 @@
+import logging
 import typing
 from datetime import datetime, timezone
 
@@ -6,11 +7,32 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-from langfuse.model import ModelUsage
+from langfuse.model import ModelUsage, PromptClient
+
+log = logging.getLogger("langfuse")
 
 
 def _get_timestamp():
     return datetime.now(timezone.utc)
+
+
+def _create_prompt_context(
+    prompt: typing.Optional[PromptClient] = None,
+    prompt_name: typing.Optional[str] = None,
+    prompt_version: typing.Optional[str] = None,
+):
+    if prompt is not None:
+        return {"prompt_version": prompt.version, "prompt_name": prompt.name}
+
+    elif prompt_name is not None and prompt_version is not None:
+        return {"prompt_version": prompt_version, "prompt_name": prompt_name}
+
+    elif (prompt_name is not None and prompt_version is None) or (
+        prompt_version is not None and prompt_name is None
+    ):
+        log.warning("Expected to get prompt name and prompt version. One was missing.")
+
+    return {"prompt_version": None, "prompt_name": None}
 
 
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):

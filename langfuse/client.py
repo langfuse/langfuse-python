@@ -17,6 +17,9 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.prompts.types.create_prompt_request import (
+    CreatePromptRequest,
+)
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
@@ -25,6 +28,7 @@ from langfuse.model import (
     DatasetRun,
     DatasetStatus,
     ModelUsage,
+    PromptClient,
 )
 
 try:
@@ -38,7 +42,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.utils import _convert_usage_input, _get_timestamp
+from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
 
@@ -307,6 +311,30 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_prompt(self, name: str, version: Optional[int] = None) -> PromptClient:
+        try:
+            self.log.debug(f"Getting prompt {name}, version {version}")
+            prompt = self.client.prompts.get(name=name, version=version)
+            return PromptClient(prompt=prompt)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
+        try:
+            self.log.debug(f"Creating prompt {name}, version {version}")
+
+            request = CreatePromptRequest(
+                name=name,
+                prompt=prompt,
+                is_active=is_active,
+            )
+            prompt = self.client.prompts.create(request=request)
+            return PromptClient(prompt=prompt)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def trace(
         self,
         *,
@@ -562,6 +590,9 @@ class Langfuse(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
+        prompt_name: typing.Optional[str] = None,
+        prompt_version: typing.Optional[str] = None,
         **kwargs,
     ):
         try:
@@ -590,6 +621,7 @@ class Langfuse(object):
                 "model_parameters": model_parameters,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 "trace": {"release": self.release},
+                **_create_prompt_context(prompt, prompt_name, prompt_version),
             }
             if kwargs is not None:
                 generation_body.update(kwargs)
@@ -727,6 +759,9 @@ class StatefulClient(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
+        prompt_name: typing.Optional[str] = None,
+        prompt_version: typing.Optional[str] = None,
         **kwargs,
     ):
         try:
@@ -749,6 +784,7 @@ class StatefulClient(object):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                **_create_prompt_context(prompt, prompt_name, prompt_version),
             }
 
             if kwargs is not None:
@@ -974,6 +1010,9 @@ class StatefulGenerationClient(StatefulClient):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
+        prompt_name: typing.Optional[str] = None,
+        prompt_version: typing.Optional[str] = None,
         **kwargs,
     ):
         try:
@@ -992,6 +1031,7 @@ class StatefulGenerationClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                **_create_prompt_context(prompt, prompt_name, prompt_version),
             }
 
             if kwargs is not None:

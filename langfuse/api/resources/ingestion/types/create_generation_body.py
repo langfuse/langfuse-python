@@ -23,6 +23,10 @@ class CreateGenerationBody(CreateSpanBody):
         alias="modelParameters", default=None
     )
     usage: typing.Optional[IngestionUsage] = None
+    prompt_name: typing.Optional[str] = pydantic.Field(alias="promptName", default=None)
+    prompt_version: typing.Optional[int] = pydantic.Field(
+        alias="promptVersion", default=None
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

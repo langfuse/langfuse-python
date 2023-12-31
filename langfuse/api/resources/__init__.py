@@ -9,6 +9,7 @@ from . import (
     ingestion,
     observations,
     projects,
+    prompts,
     score,
     sessions,
     trace,
@@ -84,6 +85,7 @@ from .ingestion import (
 )
 from .observations import Observations
 from .projects import Project, Projects
+from .prompts import CreatePromptRequest, Prompt
 from .score import CreateScoreRequest, Scores
 from .trace import Traces
 
@@ -98,6 +100,7 @@ __all__ = [
     "CreateGenerationBody",
     "CreateGenerationEvent",
     "CreateObservationEvent",
+    "CreatePromptRequest",
     "CreateScoreRequest",
     "CreateSpanBody",
     "CreateSpanEvent",
@@ -135,6 +138,7 @@ __all__ = [
     "OptionalObservationBody",
     "Project",
     "Projects",
+    "Prompt",
     "Score",
     "ScoreBody",
     "ScoreEvent",
@@ -166,6 +170,7 @@ __all__ = [
     "ingestion",
     "observations",
     "projects",
+    "prompts",
     "score",
     "sessions",
     "trace",
