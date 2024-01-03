@@ -303,7 +303,9 @@ def test_next_span_id_from_trace_simple_chain():
 
 def test_callback_simple_chain():
     api = get_api()
-    handler = CallbackHandler(debug=False)
+    handler = CallbackHandler(
+        debug=False, trace_name="test-trace-name", session_id="100", user_id="200"
+    )
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -328,6 +330,9 @@ def test_callback_simple_chain():
     )[0]
     assert trace.input == root_observation.input
     assert trace.output == root_observation.output
+    assert trace.name == "test-trace-name"
+    assert trace.session_id == "100"
+    assert trace.user_id == "200"
 
     for observation in trace.observations:
         if observation.type == "GENERATION":
