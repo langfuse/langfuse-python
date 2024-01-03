@@ -812,10 +812,10 @@ class CallbackHandler(BaseCallbackHandler):
                     if response.llm_output is None
                     else response.llm_output["token_usage"]
                 )
-
+                
                 extracted_response = (
-                    last_response.text
-                    if last_response.text is not None and last_response.text != ""
+                    last_response.text.strip()
+                    if last_response.text is not None and last_response.text.strip() != ""
                     else last_response.message.additional_kwargs
                 )
 
