@@ -17,6 +17,7 @@ from .ingestion_event import (
     IngestionEvent_ObservationCreate,
     IngestionEvent_ObservationUpdate,
     IngestionEvent_ScoreCreate,
+    IngestionEvent_SdkLog,
     IngestionEvent_SpanCreate,
     IngestionEvent_SpanUpdate,
     IngestionEvent_TraceCreate,
@@ -30,6 +31,8 @@ from .open_ai_usage import OpenAiUsage
 from .optional_observation_body import OptionalObservationBody
 from .score_body import ScoreBody
 from .score_event import ScoreEvent
+from .sdk_log_body import SdkLogBody
+from .sdk_log_event import SdkLogEvent
 from .trace_body import TraceBody
 from .trace_event import TraceEvent
 from .update_event_body import UpdateEventBody
@@ -56,6 +59,7 @@ __all__ = [
     "IngestionEvent_ObservationCreate",
     "IngestionEvent_ObservationUpdate",
     "IngestionEvent_ScoreCreate",
+    "IngestionEvent_SdkLog",
     "IngestionEvent_SpanCreate",
     "IngestionEvent_SpanUpdate",
     "IngestionEvent_TraceCreate",
@@ -68,6 +72,8 @@ __all__ = [
     "OptionalObservationBody",
     "ScoreBody",
     "ScoreEvent",
+    "SdkLogBody",
+    "SdkLogEvent",
     "TraceBody",
     "TraceEvent",
     "UpdateEventBody",

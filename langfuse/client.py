@@ -3,7 +3,6 @@ import logging
 import os
 import typing
 import uuid
-from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
@@ -18,6 +17,9 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.prompts.types.create_prompt_request import (
+    CreatePromptRequest,
+)
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
@@ -26,6 +28,7 @@ from langfuse.model import (
     DatasetRun,
     DatasetStatus,
     ModelUsage,
+    PromptClient,
 )
 
 try:
@@ -39,7 +42,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.utils import _convert_usage_input
+from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
 
@@ -249,6 +252,34 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_observations(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        type: typing.Optional[str] = None,
+    ):
+        try:
+            self.log.debug(
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
+            )
+            return self.client.observations.get_many(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                trace_id=trace_id,
+                parent_observation_id=parent_observation_id,
+                type=type,
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_generations(
         self,
         *,
@@ -256,15 +287,18 @@ class Langfuse(object):
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
     ):
-        try:
-            self.log.debug(f"Getting generations... {page}, {limit}, {name}, {user_id}")
-            return self.client.observations.get_many(
-                page=page, limit=limit, name=name, user_id=user_id, type="GENERATION"
-            )
-        except Exception as e:
-            self.log.exception(e)
-            raise e
+        return self.get_observations(
+            page=page,
+            limit=limit,
+            name=name,
+            user_id=user_id,
+            trace_id=trace_id,
+            parent_observation_id=parent_observation_id,
+            type="GENERATION",
+        )
 
     def get_observation(
         self,
@@ -273,6 +307,30 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def get_prompt(self, name: str, version: Optional[int] = None) -> PromptClient:
+        try:
+            self.log.debug(f"Getting prompt {name}, version {version}")
+            prompt = self.client.prompts.get(name=name, version=version)
+            return PromptClient(prompt=prompt)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
+        try:
+            self.log.debug(f"Creating prompt {name}, version {version}")
+
+            request = CreatePromptRequest(
+                name=name,
+                prompt=prompt,
+                is_active=is_active,
+            )
+            prompt = self.client.prompts.create(request=request)
+            return PromptClient(prompt=prompt)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -302,6 +360,7 @@ class Langfuse(object):
                 "metadata": metadata,
                 "input": input,
                 "output": output,
+                "timestamp": _get_timestamp(),
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
@@ -404,7 +463,9 @@ class Langfuse(object):
                 "id": new_span_id,
                 "trace_id": new_trace_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -470,7 +531,9 @@ class Langfuse(object):
                 "id": event_id,
                 "trace_id": new_trace_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -527,6 +590,7 @@ class Langfuse(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
         try:
@@ -539,7 +603,9 @@ class Langfuse(object):
                 "trace_id": new_trace_id,
                 "release": self.release,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -553,6 +619,7 @@ class Langfuse(object):
                 "model_parameters": model_parameters,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 "trace": {"release": self.release},
+                **_create_prompt_context(prompt),
             }
             if kwargs is not None:
                 generation_body.update(kwargs)
@@ -669,8 +736,8 @@ class StatefulClient(object):
         return body
 
     def _add_default_values(self, body: dict):
-        if body.get("startTime") is None:
-            body["start_time"] = datetime.now()
+        if body.get("start_time") is None:
+            body["start_time"] = _get_timestamp()
         return body
 
     def generation(
@@ -690,6 +757,7 @@ class StatefulClient(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
         try:
@@ -698,7 +766,9 @@ class StatefulClient(object):
             generation_body = {
                 "id": generation_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "level": level,
                 "status_message": status_message,
@@ -710,6 +780,7 @@ class StatefulClient(object):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                **_create_prompt_context(prompt),
             }
 
             if kwargs is not None:
@@ -760,7 +831,9 @@ class StatefulClient(object):
             span_body = {
                 "id": span_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -866,7 +939,9 @@ class StatefulClient(object):
             event_body = {
                 "id": event_id,
                 "name": name,
-                "start_time": start_time if start_time is not None else datetime.now(),
+                "start_time": start_time
+                if start_time is not None
+                else _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -931,6 +1006,7 @@ class StatefulGenerationClient(StatefulClient):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
         try:
@@ -949,6 +1025,7 @@ class StatefulGenerationClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                **_create_prompt_context(prompt),
             }
 
             if kwargs is not None:
@@ -1004,7 +1081,7 @@ class StatefulGenerationClient(StatefulClient):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
-                "end_time": end_time if end_time is not None else datetime.now(),
+                "end_time": end_time if end_time is not None else _get_timestamp(),
                 "completion_start_time": completion_start_time,
                 "model": model,
                 "model_parameters": model_parameters,
@@ -1110,7 +1187,7 @@ class StatefulSpanClient(StatefulClient):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
-                "end_time": end_time if end_time is not None else datetime.now(),
+                "end_time": end_time if end_time is not None else _get_timestamp(),
             }
             if kwargs is not None:
                 span_body.update(kwargs)
@@ -1188,6 +1265,7 @@ class StatefulTraceClient(StatefulClient):
         try:
             # adding this to ensure langchain is installed
             import langchain  # noqa
+
             from langfuse.callback import CallbackHandler
 
             self.log.debug(f"Creating new handler for trace {self.id}")

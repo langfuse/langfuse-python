@@ -35,6 +35,7 @@ def test_callback_init():
     assert not callback.runs
     assert callback.langfuse.release == "something"
     assert callback.session_id == "session-id"
+    assert callback._task_manager is not None
 
 
 def test_langfuse_span():
@@ -48,6 +49,7 @@ def test_langfuse_span():
 
     assert handler.get_trace_id() == trace_id
     assert handler.root_span.id == span_id
+    assert handler._task_manager is not None
 
 
 def test_callback_generated_from_trace():
@@ -89,7 +91,7 @@ def test_callback_generated_from_trace():
             assert observation.output != ""
 
 
-@pytest.mark.skip(reason="inference cost")
+@pytest.mark.skip(reason="missing api key")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
@@ -124,6 +126,54 @@ def test_callback_generated_from_trace_azure_chat():
     assert handler.get_trace_id() == trace_id
     assert len(trace["observations"]) == 2
     assert trace["id"] == trace_id
+
+
+@pytest.mark.skip(reason="missing api key")
+def test_mistral():
+    from langchain_core.messages import HumanMessage
+    from langchain_mistralai.chat_models import ChatMistralAI
+
+    api = get_api()
+    callback = CallbackHandler(debug=True)
+
+    chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
+    messages = [HumanMessage(content="say a brief hello")]
+    chat.invoke(messages)
+
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
+    assert generation.model == "mistral-small"
+
+
+@pytest.mark.skip(reason="missing api key")
+def test_vertx():
+    from langchain.llms import VertexAI
+
+    api = get_api()
+    callback = CallbackHandler(debug=False)
+
+    llm = VertexAI(callbacks=[callback])
+    llm.predict("say a brief hello", callbacks=[callback])
+
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
+    assert generation.model == "text-bison"
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -253,7 +303,9 @@ def test_next_span_id_from_trace_simple_chain():
 
 def test_callback_simple_chain():
     api = get_api()
-    handler = CallbackHandler(debug=False)
+    handler = CallbackHandler(
+        debug=False, trace_name="test-trace-name", session_id="100", user_id="200"
+    )
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -278,6 +330,9 @@ def test_callback_simple_chain():
     )[0]
     assert trace.input == root_observation.input
     assert trace.output == root_observation.output
+    assert trace.name == "test-trace-name"
+    assert trace.session_id == "100"
+    assert trace.user_id == "200"
 
     for observation in trace.observations:
         if observation.type == "GENERATION":

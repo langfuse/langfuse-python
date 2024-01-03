@@ -1,11 +1,28 @@
+import logging
 import typing
+from datetime import datetime, timezone
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
 except ImportError:
     import pydantic  # type: ignore
 
-from langfuse.model import ModelUsage
+from langfuse.model import ModelUsage, PromptClient
+
+log = logging.getLogger("langfuse")
+
+
+def _get_timestamp():
+    return datetime.now(timezone.utc)
+
+
+def _create_prompt_context(
+    prompt: typing.Optional[PromptClient] = None,
+):
+    if prompt is not None:
+        return {"prompt_version": prompt.version, "prompt_name": prompt.name}
+
+    return {"prompt_version": None, "prompt_name": None}
 
 
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):

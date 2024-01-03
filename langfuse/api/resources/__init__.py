@@ -9,6 +9,7 @@ from . import (
     ingestion,
     observations,
     projects,
+    prompts,
     score,
     sessions,
     trace,
@@ -58,6 +59,7 @@ from .ingestion import (
     IngestionEvent_ObservationCreate,
     IngestionEvent_ObservationUpdate,
     IngestionEvent_ScoreCreate,
+    IngestionEvent_SdkLog,
     IngestionEvent_SpanCreate,
     IngestionEvent_SpanUpdate,
     IngestionEvent_TraceCreate,
@@ -70,6 +72,8 @@ from .ingestion import (
     OptionalObservationBody,
     ScoreBody,
     ScoreEvent,
+    SdkLogBody,
+    SdkLogEvent,
     TraceBody,
     TraceEvent,
     UpdateEventBody,
@@ -81,6 +85,7 @@ from .ingestion import (
 )
 from .observations import Observations
 from .projects import Project, Projects
+from .prompts import CreatePromptRequest, Prompt
 from .score import CreateScoreRequest, Scores
 from .trace import Traces
 
@@ -95,6 +100,7 @@ __all__ = [
     "CreateGenerationBody",
     "CreateGenerationEvent",
     "CreateObservationEvent",
+    "CreatePromptRequest",
     "CreateScoreRequest",
     "CreateSpanBody",
     "CreateSpanEvent",
@@ -112,6 +118,7 @@ __all__ = [
     "IngestionEvent_ObservationCreate",
     "IngestionEvent_ObservationUpdate",
     "IngestionEvent_ScoreCreate",
+    "IngestionEvent_SdkLog",
     "IngestionEvent_SpanCreate",
     "IngestionEvent_SpanUpdate",
     "IngestionEvent_TraceCreate",
@@ -131,10 +138,13 @@ __all__ = [
     "OptionalObservationBody",
     "Project",
     "Projects",
+    "Prompt",
     "Score",
     "ScoreBody",
     "ScoreEvent",
     "Scores",
+    "SdkLogBody",
+    "SdkLogEvent",
     "ServiceUnavailableError",
     "Session",
     "SessionWithTraces",
@@ -160,6 +170,7 @@ __all__ = [
     "ingestion",
     "observations",
     "projects",
+    "prompts",
     "score",
     "sessions",
     "trace",

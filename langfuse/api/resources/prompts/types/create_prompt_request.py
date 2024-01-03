@@ -4,9 +4,6 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ...commons.types.map_value import MapValue
-from .ingestion_usage import IngestionUsage
-from .update_span_body import UpdateSpanBody
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,19 +11,10 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class UpdateGenerationBody(UpdateSpanBody):
-    completion_start_time: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="completionStartTime", default=None
-    )
-    model: typing.Optional[str] = None
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic.Field(
-        alias="modelParameters", default=None
-    )
-    usage: typing.Optional[IngestionUsage] = None
-    prompt_name: typing.Optional[str] = pydantic.Field(alias="promptName", default=None)
-    prompt_version: typing.Optional[int] = pydantic.Field(
-        alias="promptVersion", default=None
-    )
+class CreatePromptRequest(pydantic.BaseModel):
+    name: str
+    is_active: bool = pydantic.Field(alias="isActive")
+    prompt: str
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

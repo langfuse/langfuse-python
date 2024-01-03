@@ -1,6 +1,10 @@
+import os
+import time
 import typing
 from asyncio import gather
-from datetime import datetime
+from datetime import datetime, timezone
+
+from langfuse.utils import _get_timestamp
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -45,7 +49,7 @@ class LlmUsage(pydantic.BaseModel):
 
 @pytest.mark.asyncio
 async def test_concurrency():
-    start = datetime.now()
+    start = _get_timestamp()
 
     async def update_generation(i, langfuse: Langfuse):
         trace = langfuse.trace(name=str(i))
@@ -57,7 +61,7 @@ async def test_concurrency():
     await gather(*(update_generation(i, langfuse) for i in range(100)))
     print("flush")
     langfuse.flush()
-    diff = datetime.now() - start
+    diff = _get_timestamp() - start
     print(diff)
 
     api = get_api()
@@ -130,7 +134,7 @@ def test_create_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -175,7 +179,7 @@ def test_create_generation():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation_id = create_uuid()
     langfuse.generation(
         id=generation_id,
@@ -293,7 +297,7 @@ def test_create_span():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span_id = create_uuid()
     langfuse.span(
         id=span_id,
@@ -431,7 +435,7 @@ def test_score_span():
     api_wrapper = LangfuseAPI()
 
     spanId = create_uuid()
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     langfuse.span(
         id=spanId,
         name="span",
@@ -498,7 +502,12 @@ def test_create_trace_and_generation():
     generationId = create_uuid()
 
     trace = langfuse.trace(name=trace_name, input={"key": "value"}, sessionId="test")
-    trace.generation(id=generationId, name="generation")
+    trace.generation(
+        id=generationId,
+        name="generation",
+        start_time=datetime.now(),
+        end_time=datetime.now(),
+    )
 
     langfuse.flush()
 
@@ -680,7 +689,7 @@ def test_end_generation():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation = langfuse.generation(
         name="query-generation",
         start_time=timestamp,
@@ -713,7 +722,7 @@ def test_end_generation_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation = langfuse.generation(
         name="query-generation",
         start_time=timestamp,
@@ -748,7 +757,7 @@ def test_end_span():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span = langfuse.span(
         name="span",
         start_time=timestamp,
@@ -773,7 +782,7 @@ def test_end_span_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span = langfuse.span(
         name="span",
         start_time=timestamp,
@@ -798,7 +807,7 @@ def test_end_span_with_data():
 def test_get_generations():
     langfuse = Langfuse(debug=False)
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     langfuse.generation(
         name=create_uuid(),
@@ -827,7 +836,7 @@ def test_get_generations():
 def test_get_generations_by_user():
     langfuse = Langfuse(debug=False)
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     user_id = create_uuid()
     generation_name = create_uuid()
@@ -859,7 +868,7 @@ def test_kwargs():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     dict = {
         "start_time": timestamp,
@@ -880,3 +889,73 @@ def test_kwargs():
     assert observation.input == {"key": "value"}
     assert observation.output == {"key": "value"}
     assert observation.metadata == {"interface": "whatsapp"}
+
+
+def test_timezone_awareness():
+    os.environ["TZ"] = "US/Pacific"
+    time.tzset()
+
+    utc_now = datetime.now(timezone.utc)
+    assert utc_now.tzinfo is not None
+
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace = langfuse.trace(name="test")
+    span = trace.span(name="span")
+    span.end()
+    generation = trace.generation(name="generation")
+    generation.end()
+    trace.event(name="event")
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert len(trace.observations) == 3
+    for observation in trace.observations:
+        delta = observation.start_time - utc_now
+        assert delta.seconds < 5
+
+        if observation.type != "EVENT":
+            delta = observation.end_time - utc_now
+            assert delta.seconds < 5
+
+    os.environ["TZ"] = "UTC"
+    time.tzset()
+
+
+def test_timezone_awareness_setting_timestamps():
+    os.environ["TZ"] = "US/Pacific"
+    time.tzset()
+
+    now = datetime.now()
+    utc_now = datetime.now(timezone.utc)
+    assert utc_now.tzinfo is not None
+
+    print(now)
+    print(utc_now)
+
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace = langfuse.trace(name="test")
+    trace.span(name="span", start_time=now, end_time=now)
+    trace.generation(name="generation", start_time=now, end_time=now)
+    trace.event(name="event", start_time=now)
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert len(trace.observations) == 3
+    for observation in trace.observations:
+        delta = utc_now - observation.start_time
+        assert delta.seconds < 5
+
+        if observation.type != "EVENT":
+            delta = utc_now - observation.end_time
+            assert delta.seconds < 5
+
+    os.environ["TZ"] = "UTC"
+    time.tzset()
