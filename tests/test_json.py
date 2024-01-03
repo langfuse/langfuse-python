@@ -1,7 +1,7 @@
 import builtins
 import importlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from unittest.mock import patch
 
 import pytest
@@ -24,12 +24,13 @@ def test_json_encoder():
     obj = {
         "foo": "bar",
         "bar": datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        "date": date(2024, 1, 1),
         "messages": [message],
     }
 
     result = json.dumps(obj, cls=EventSerializer)
     assert (
-        '{"foo": "bar", "bar": "2021-01-01T00:00:00Z", "messages": [{"lc": 1, "type": "constructor", "id":'
+        '{"foo": "bar", "bar": "2021-01-01T00:00:00Z", "date": "2024-01-01", "messages": [{"lc": 1, "type": "constructor", "id":'
         in result
     )
     assert "HumanMessage" in result

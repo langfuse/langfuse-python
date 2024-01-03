@@ -16,9 +16,11 @@ except ImportError:
 
 class EventSerializer(JSONEncoder):
     def default(self, obj: Any):
-        if isinstance(obj, (date, datetime)):
+        if isinstance(obj, (datetime, date)):
             # Timezone-awareness check
             return serialize_datetime(obj)
+        if isinstance(obj, (date)):
+            return obj.isoformat()
         if isinstance(obj, BaseModel):
             return obj.dict()
         # if langchain is not available, the Serializable type is NoneType
