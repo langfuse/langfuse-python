@@ -142,6 +142,7 @@ def test_create_trace():
         name=trace_name,
         user_id="test",
         metadata={"key": "value"},
+        tags=["tag1", "tag2"],
     )
 
     langfuse.flush()
@@ -151,6 +152,7 @@ def test_create_trace():
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
     assert trace["metadata"] == {"key": "value"}
+    assert trace["tags"] == ["tag1", "tag2"]
     assert True if not trace["externalId"] else False
 
 

@@ -41,7 +41,7 @@ from .commons import (
 from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest
-from .health import ServiceUnavailableError
+from .health import HealthResponse, ServiceUnavailableError
 from .ingestion import (
     BaseEvent,
     CreateEventBody,
@@ -110,6 +110,7 @@ __all__ = [
     "DatasetRunItem",
     "DatasetStatus",
     "Error",
+    "HealthResponse",
     "IngestionError",
     "IngestionEvent",
     "IngestionEvent_EventCreate",
