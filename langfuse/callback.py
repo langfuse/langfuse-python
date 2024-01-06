@@ -10,7 +10,6 @@ from langfuse.api.resources.commons.types.observation_level import ObservationLe
 from langfuse.api.resources.ingestion.types.sdk_log_event import SdkLogEvent
 from langfuse.client import (
     Langfuse,
-    SDKIntegrationTypes,
     StatefulSpanClient,
     StatefulTraceClient,
     StateType,
@@ -124,7 +123,7 @@ class CallbackHandler(BaseCallbackHandler):
             if timeout is not None:
                 args["timeout"] = timeout
 
-            args["sdk_integration"] = SDKIntegrationTypes.LANGCHAIN
+            args["sdk_integration"] = "langchain"
 
             self.langfuse = Langfuse(**args)
             self.trace = None
