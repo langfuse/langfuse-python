@@ -130,7 +130,7 @@ class Langfuse(object):
             "public_key": public_key,
             "sdk_name": "python",
             "sdk_version": version,
-            "sdk_integration": sdk_integration.value,
+            "sdk_integration": sdk_integration,
         }
 
         if threads is not None:
