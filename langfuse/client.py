@@ -1364,7 +1364,6 @@ class DatasetItemClient:
 class DatasetClient:
     id: str
     name: str
-    status: DatasetStatus
     project_id: str
     dataset_name: str
     created_at: dt.datetime
@@ -1375,7 +1374,6 @@ class DatasetClient:
     def __init__(self, dataset: Dataset, items: typing.List[DatasetItemClient]):
         self.id = dataset.id
         self.name = dataset.name
-        self.status = dataset.status
         self.project_id = dataset.project_id
         self.dataset_name = dataset.name
         self.created_at = dataset.created_at
