@@ -47,12 +47,6 @@ from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_ti
 from .version import __version__ as version
 
 
-class SDKIntegrationTypes(Enum):
-    LANGCHAIN = "langchain"
-    DEFAULT = "default"
-    OPENAI = "openai"
-
-
 class Langfuse(object):
     log = logging.getLogger("langfuse")
 
