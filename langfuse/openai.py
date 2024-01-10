@@ -9,7 +9,7 @@ from packaging.version import Version
 from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
-from langfuse.client import SDKIntegrationTypes, StatefulGenerationClient
+from langfuse.client import StatefulGenerationClient
 from langfuse.utils import _get_timestamp
 
 log = logging.getLogger("langfuse")
@@ -435,7 +435,7 @@ class OpenAILangfuse:
                         secret_key=openai.langfuse_secret_key,
                         host=openai.langfuse_host,
                         debug=openai.langfuse_debug,
-                        sdk_integration=SDKIntegrationTypes.OPENAI,
+                        sdk_integration="openai",
                     )
         return self._langfuse
 

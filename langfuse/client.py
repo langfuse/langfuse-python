@@ -68,7 +68,7 @@ class Langfuse(object):
         flush_interval: int = 0.5,
         max_retries=3,
         timeout=15,
-        sdk_integration: SDKIntegrationTypes = SDKIntegrationTypes.DEFAULT,
+        sdk_integration: str = "default",
     ):
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
@@ -130,7 +130,7 @@ class Langfuse(object):
             "public_key": public_key,
             "sdk_name": "python",
             "sdk_version": version,
-            "sdk_integration": sdk_integration.value,
+            "sdk_integration": sdk_integration,
         }
 
         if threads is not None:
