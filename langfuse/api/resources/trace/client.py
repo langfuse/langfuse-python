@@ -68,6 +68,7 @@ class TraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
         """
         Get list of traces
@@ -80,6 +81,8 @@ class TraceClient:
             - user_id: typing.Optional[str].
 
             - name: typing.Optional[str].
+
+            - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Only traces that include all of these tags will be returned.
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
@@ -87,7 +90,13 @@ class TraceClient:
                 f"{self._client_wrapper.get_base_url()}/", "api/public/traces"
             ),
             params=remove_none_from_dict(
-                {"page": page, "limit": limit, "userId": user_id, "name": name}
+                {
+                    "page": page,
+                    "limit": limit,
+                    "userId": user_id,
+                    "name": name,
+                    "tags": tags,
+                }
             ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -160,6 +169,7 @@ class AsyncTraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
         """
         Get list of traces
@@ -172,6 +182,8 @@ class AsyncTraceClient:
             - user_id: typing.Optional[str].
 
             - name: typing.Optional[str].
+
+            - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Only traces that include all of these tags will be returned.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
@@ -179,7 +191,13 @@ class AsyncTraceClient:
                 f"{self._client_wrapper.get_base_url()}/", "api/public/traces"
             ),
             params=remove_none_from_dict(
-                {"page": page, "limit": limit, "userId": user_id, "name": name}
+                {
+                    "page": page,
+                    "limit": limit,
+                    "userId": user_id,
+                    "name": name,
+                    "tags": tags,
+                }
             ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,

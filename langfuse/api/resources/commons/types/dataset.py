@@ -5,7 +5,6 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from .dataset_item import DatasetItem
-from .dataset_status import DatasetStatus
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -16,7 +15,6 @@ except ImportError:
 class Dataset(pydantic.BaseModel):
     id: str
     name: str
-    status: DatasetStatus
     project_id: str = pydantic.Field(alias="projectId")
     created_at: dt.datetime = pydantic.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic.Field(alias="updatedAt")
