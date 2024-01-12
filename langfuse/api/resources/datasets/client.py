@@ -38,7 +38,10 @@ class DatasetsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/datasets/{dataset_name}"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/datasets/{dataset_name}",
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -51,7 +54,9 @@ class DatasetsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -69,7 +74,9 @@ class DatasetsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"
+            ),
             json=jsonable_encoder(request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -83,7 +90,9 @@ class DatasetsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -104,7 +113,8 @@ class DatasetsClient:
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", f"api/public/datasets/{dataset_name}/runs/{run_name}"
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/datasets/{dataset_name}/runs/{run_name}",
             ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -118,7 +128,9 @@ class DatasetsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -141,7 +153,10 @@ class AsyncDatasetsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/public/datasets/{dataset_name}"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/datasets/{dataset_name}",
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -154,7 +169,9 @@ class AsyncDatasetsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -172,7 +189,9 @@ class AsyncDatasetsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"
+            ),
             json=jsonable_encoder(request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -186,7 +205,9 @@ class AsyncDatasetsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -207,7 +228,8 @@ class AsyncDatasetsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", f"api/public/datasets/{dataset_name}/runs/{run_name}"
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/datasets/{dataset_name}/runs/{run_name}",
             ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -221,7 +243,9 @@ class AsyncDatasetsClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:

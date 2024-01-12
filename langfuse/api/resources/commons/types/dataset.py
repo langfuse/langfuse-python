@@ -5,7 +5,6 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from .dataset_item import DatasetItem
-from .dataset_status import DatasetStatus
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -16,7 +15,6 @@ except ImportError:
 class Dataset(pydantic.BaseModel):
     id: str
     name: str
-    status: DatasetStatus
     project_id: str = pydantic.Field(alias="projectId")
     created_at: dt.datetime = pydantic.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic.Field(alias="updatedAt")
@@ -24,11 +22,19 @@ class Dataset(pydantic.BaseModel):
     runs: typing.List[str]
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

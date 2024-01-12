@@ -12,6 +12,7 @@ from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from .errors.service_unavailable_error import ServiceUnavailableError
+from .types.health_response import HealthResponse
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -23,18 +24,20 @@ class HealthClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def health(self) -> None:
+    def health(self) -> HealthResponse:
         """
         Check health of API and database
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/health"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/health"
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return
+            return pydantic.parse_obj_as(HealthResponse, _response.json())  # type: ignore
         if _response.status_code == 503:
             raise ServiceUnavailableError()
         if _response.status_code == 400:
@@ -44,7 +47,9 @@ class HealthClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -58,18 +63,20 @@ class AsyncHealthClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def health(self) -> None:
+    async def health(self) -> HealthResponse:
         """
         Check health of API and database
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/health"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/health"
+            ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return
+            return pydantic.parse_obj_as(HealthResponse, _response.json())  # type: ignore
         if _response.status_code == 503:
             raise ServiceUnavailableError()
         if _response.status_code == 400:
@@ -79,7 +86,9 @@ class AsyncHealthClient:
         if _response.status_code == 403:
             raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:

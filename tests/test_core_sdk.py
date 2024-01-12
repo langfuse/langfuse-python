@@ -1,42 +1,66 @@
+import os
+import time
+import typing
 from asyncio import gather
 from datetime import datetime, timezone
-import logging
+
+from langfuse.utils import _get_timestamp
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 import pytest
 
 from langfuse import Langfuse
-from langfuse.model import (
-    CreateEvent,
-    CreateGeneration,
-    CreateSpan,
-    CreateTrace,
-    InitialGeneration,
-    InitialScore,
-    InitialSpan,
-    UpdateGeneration,
-    UpdateSpan,
-    Usage,
-)
-
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 
 
+class LlmUsage(pydantic.BaseModel):
+    prompt_tokens: typing.Optional[int] = pydantic.Field(
+        alias="promptTokens", default=None
+    )
+    completion_tokens: typing.Optional[int] = pydantic.Field(
+        alias="completionTokens", default=None
+    )
+    total_tokens: typing.Optional[int] = pydantic.Field(
+        alias="totalTokens", default=None
+    )
+
+    def json(self, **kwargs: typing.Any) -> str:
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        return super().json(**kwargs_with_defaults)
+
+    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        return super().dict(**kwargs_with_defaults)
+
+
 @pytest.mark.asyncio
 async def test_concurrency():
-    start = datetime.now()
+    start = _get_timestamp()
 
     async def update_generation(i, langfuse: Langfuse):
-        trace = langfuse.trace(CreateTrace(name=str(i)))
-        generation = trace.generation(InitialGeneration(name=str(i)))
-        generation.update(UpdateGeneration(metadata={"count": str(i)}))
+        trace = langfuse.trace(name=str(i))
+        generation = trace.generation(name=str(i))
+        generation.update(metadata={"count": str(i)})
 
     langfuse = Langfuse(debug=False, threads=5)
     print("start")
     await gather(*(update_generation(i, langfuse) for i in range(100)))
     print("flush")
     langfuse.flush()
-    diff = datetime.now() - start
+    diff = _get_timestamp() - start
     print(diff)
 
     api = get_api()
@@ -52,9 +76,7 @@ def test_flush():
 
     for i in range(2):
         langfuse.trace(
-            CreateTrace(
-                name=str(i),
-            )
+            name=str(i),
         )
 
     langfuse.flush()
@@ -67,9 +89,7 @@ def test_shutdown():
 
     for i in range(2):
         langfuse.trace(
-            CreateTrace(
-                name=str(i),
-            )
+            name=str(i),
         )
 
     langfuse.shutdown()
@@ -84,30 +104,24 @@ def test_create_score():
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(
-        CreateTrace(
-            name="this-is-so-great-new",
-            user_id="test",
-            metadata="test",
-        )
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
     )
-    logging.info("FLUSH")
+
     langfuse.flush()
     assert langfuse.task_manager._queue.qsize() == 0
 
     score_id = create_uuid()
 
     langfuse.score(
-        InitialScore(
-            id=score_id,
-            traceId=trace.id,
-            name="this-is-a-score",
-            value=1,
-            user_id="test",
-            metadata="test",
-        )
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=1,
     )
 
-    trace.generation(CreateGeneration(name="yet another child", metadata="test"))
+    trace.generation(name="yet another child", metadata="test")
 
     langfuse.flush()
 
@@ -124,11 +138,10 @@ def test_create_trace():
     trace_name = create_uuid()
 
     trace = langfuse.trace(
-        CreateTrace(
-            name=trace_name,
-            user_id="test",
-            metadata={"key": "value"},
-        )
+        name=trace_name,
+        user_id="test",
+        metadata={"key": "value"},
+        tags=["tag1", "tag2"],
     )
 
     langfuse.flush()
@@ -138,88 +151,115 @@ def test_create_trace():
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
     assert trace["metadata"] == {"key": "value"}
+    assert trace["tags"] == ["tag1", "tag2"]
     assert True if not trace["externalId"] else False
+
+
+def test_create_update_trace():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(
+        name=trace_name,
+        user_id="test",
+        metadata={"key": "value"},
+    )
+    trace.update(metadata={"key": "value2"})
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert trace.name == trace_name
+    assert trace.user_id == "test"
+    assert trace.metadata == {"key": "value2"}
 
 
 def test_create_generation():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
+    api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation_id = create_uuid()
     langfuse.generation(
-        InitialGeneration(
-            id=generation_id,
-            name="query-generation",
-            startTime=timestamp,
-            endTime=timestamp,
-            model="gpt-3.5-turbo",
-            modelParameters={"maxTokens": "1000", "temperature": "0.9"},
-            prompt=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
-                },
-            ],
-            completion="This document entails the OKR goals for ACME",
-            usage=Usage(promptTokens=50, completionTokens=49),
-            metadata={"interface": "whatsapp"},
-        )
+        id=generation_id,
+        name="query-generation",
+        start_time=timestamp,
+        end_time=timestamp,
+        model="gpt-3.5-turbo",
+        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
+        input=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+            },
+        ],
+        output="This document entails the OKR goals for ACME",
+        usage=LlmUsage(promptTokens=50, completionTokens=49),
+        metadata={"interface": "whatsapp"},
+        level="DEBUG",
     )
 
     langfuse.flush()
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api.trace.get(trace_id)
 
-    assert trace["name"] == "query-generation"
-    assert trace["userId"] is None
-    assert trace["metadata"] is None
-    assert trace["externalId"] is None
+    assert trace.name == "query-generation"
+    assert trace.user_id is None
+    assert trace.metadata is None
 
-    assert len(trace["observations"]) == 1
+    assert len(trace.observations) == 1
 
-    generation = trace["observations"][0]
+    generation = trace.observations[0]
 
-    assert generation["id"] == generation_id
-    assert generation["name"] == "query-generation"
-    assert generation["startTime"] is not None
-    assert generation["startTime"] is not None
-    assert generation["endTime"] is not None
-    assert generation["model"] == "gpt-3.5-turbo"
-    assert generation["modelParameters"] == {"maxTokens": "1000", "temperature": "0.9"}
-    assert generation["input"] == [
+    assert generation.id == generation_id
+    assert generation.name == "query-generation"
+    assert generation.start_time is not None
+    assert generation.end_time is not None
+    assert generation.model == "gpt-3.5-turbo"
+    assert generation.model_parameters == {"max_tokens": "1000", "temperature": "0.9"}
+    assert generation.input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
             "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
         },
     ]
-    assert generation["output"] == "This document entails the OKR goals for ACME"
+    assert generation.output == "This document entails the OKR goals for ACME"
+    assert generation.level == "DEBUG"
 
 
-def test_create_generation_complex():
+@pytest.mark.parametrize(
+    "usage",
+    [
+        LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
+        LlmUsage(promptTokens=51, totalTokens=100),
+        {"input": 51, "output": 0, "total": 100, "unit": "TOKENS"},
+        {"input": 51, "total": 100},
+    ],
+)
+def test_create_generation_complex(usage):
     langfuse = Langfuse(debug=False)
     api = get_api()
 
     generation_id = create_uuid()
     langfuse.generation(
-        InitialGeneration(
-            id=generation_id,
-            name="query-generation",
-            prompt=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
-                },
-            ],
-            completion=[{"foo": "bar"}],
-            usage=Usage(promptTokens=50, completionTokens=49),
-            metadata=[{"tags": ["yo"]}],
-        )
+        id=generation_id,
+        name="query-generation",
+        input=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+            },
+        ],
+        output=[{"foo": "bar"}],
+        usage=usage,
+        metadata=[{"tags": ["yo"]}],
     )
 
     langfuse.flush()
@@ -248,24 +288,26 @@ def test_create_generation_complex():
     assert generation.output == [{"foo": "bar"}]
     assert generation.metadata == [{"tags": ["yo"]}]
     assert generation.start_time is not None
+    assert generation.usage.input == 51
+    assert generation.usage.output == 0
+    assert generation.usage.total == 100
+    assert generation.usage.unit == "TOKENS"
 
 
 def test_create_span():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span_id = create_uuid()
     langfuse.span(
-        InitialSpan(
-            id=span_id,
-            name="span",
-            startTime=timestamp,
-            endTime=timestamp,
-            input={"key": "value"},
-            output={"key": "value"},
-            metadata={"interface": "whatsapp"},
-        )
+        id=span_id,
+        name="span",
+        start_time=timestamp,
+        end_time=timestamp,
+        input={"key": "value"},
+        output={"key": "value"},
+        metadata={"interface": "whatsapp"},
     )
 
     langfuse.flush()
@@ -297,15 +339,13 @@ def test_score_trace():
 
     trace_name = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(name=trace_name))
+    trace = langfuse.trace(name=trace_name)
 
     langfuse.score(
-        InitialScore(
-            traceId=langfuse.get_trace_id(),
-            name="valuation",
-            value=0.5,
-            comment="This is a comment",
-        )
+        trace_id=langfuse.get_trace_id(),
+        name="valuation",
+        value=0.5,
+        comment="This is a comment",
     )
 
     langfuse.flush()
@@ -326,32 +366,93 @@ def test_score_trace():
     assert score["observationId"] is None
 
 
+def test_score_trace_nested_trace():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(name=trace_name)
+
+    trace.score(
+        name="valuation",
+        value=0.5,
+        comment="This is a comment",
+    )
+
+    langfuse.flush()
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.name == trace_name
+
+    assert len(trace.scores) == 1
+
+    score = trace.scores[0]
+
+    assert score.name == "valuation"
+    assert score.value == 0.5
+    assert score.comment == "This is a comment"
+    assert score.observation_id is None
+
+
+def test_score_trace_nested_observation():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(name=trace_name)
+    span = trace.span(name="span")
+
+    span.score(
+        name="valuation",
+        value=0.5,
+        comment="This is a comment",
+    )
+
+    langfuse.flush()
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.name == trace_name
+
+    assert len(trace.scores) == 1
+
+    score = trace.scores[0]
+
+    assert score.name == "valuation"
+    assert score.value == 0.5
+    assert score.comment == "This is a comment"
+    assert score.observation_id == span.id
+
+
 def test_score_span():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
     spanId = create_uuid()
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     langfuse.span(
-        InitialSpan(
-            id=spanId,
-            name="span",
-            startTime=timestamp,
-            endTime=timestamp,
-            input={"key": "value"},
-            output={"key": "value"},
-            metadata={"interface": "whatsapp"},
-        )
+        id=spanId,
+        name="span",
+        start_time=timestamp,
+        end_time=timestamp,
+        input={"key": "value"},
+        output={"key": "value"},
+        metadata={"interface": "whatsapp"},
     )
 
     langfuse.score(
-        InitialScore(
-            traceId=langfuse.get_trace_id(),
-            observationId=spanId,
-            name="valuation",
-            value=1,
-            comment="This is a comment",
-        )
+        trace_id=langfuse.get_trace_id(),
+        observation_id=spanId,
+        name="valuation",
+        value=1,
+        comment="This is a comment",
     )
 
     langfuse.flush()
@@ -378,8 +479,8 @@ def test_create_trace_and_span():
     trace_name = create_uuid()
     spanId = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(name=trace_name))
-    trace.span(CreateSpan(id=spanId, name="span"))
+    trace = langfuse.trace(name=trace_name)
+    trace.span(id=spanId, name="span")
 
     langfuse.flush()
 
@@ -401,8 +502,13 @@ def test_create_trace_and_generation():
     trace_name = create_uuid()
     generationId = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(name=trace_name))
-    trace.generation(CreateGeneration(id=generationId, name="generation"))
+    trace = langfuse.trace(name=trace_name, input={"key": "value"}, sessionId="test")
+    trace.generation(
+        id=generationId,
+        name="generation",
+        start_time=datetime.now(),
+        end_time=datetime.now(),
+    )
 
     langfuse.flush()
 
@@ -416,8 +522,9 @@ def test_create_trace_and_generation():
 
     generation = getTrace.observations[0]
     assert generation.name == "generation"
-    assert generation.trace_id == trace.id
+    assert generation.trace_id == getTrace.id
     assert generation.start_time is not None
+    assert getTrace.input == {"key": "value"}
 
 
 def test_create_generation_and_trace():
@@ -427,8 +534,8 @@ def test_create_generation_and_trace():
     trace_name = create_uuid()
     trace_id = create_uuid()
 
-    langfuse.generation(CreateGeneration(traceId=trace_id, name="generation"))
-    langfuse.trace(CreateTrace(id=trace_id, name=trace_name))
+    langfuse.generation(trace_id=trace_id, name="generation")
+    langfuse.trace(id=trace_id, name=trace_name)
 
     langfuse.flush()
 
@@ -446,7 +553,7 @@ def test_create_span_and_get_observation():
     langfuse = Langfuse(debug=False)
 
     span_id = create_uuid()
-    langfuse.span(InitialSpan(id=span_id, name="span"))
+    langfuse.span(id=span_id, name="span")
     langfuse.flush()
 
     observation = langfuse.get_observation(span_id)
@@ -459,8 +566,8 @@ def test_update_generation():
     api = get_api()
     start = datetime.utcnow()
 
-    generation = langfuse.generation(InitialGeneration(name="generation"))
-    generation.update(UpdateGeneration(start_time=start, metadata={"dict": "value"}))
+    generation = langfuse.generation(name="generation")
+    generation.update(start_time=start, metadata={"dict": "value"})
 
     langfuse.flush()
 
@@ -472,15 +579,17 @@ def test_update_generation():
     assert retrieved_generation.name == "generation"
     assert retrieved_generation.trace_id == generation.trace_id
     assert retrieved_generation.metadata == {"dict": "value"}
-    assert start.replace(microsecond=0, tzinfo=timezone.utc) == retrieved_generation.start_time.replace(microsecond=0)
+    assert start.replace(
+        microsecond=0, tzinfo=timezone.utc
+    ) == retrieved_generation.start_time.replace(microsecond=0)
 
 
 def test_update_span():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    span = langfuse.span(InitialSpan(name="span"))
-    span.update(UpdateSpan(metadata={"dict": "value"}))
+    span = langfuse.span(name="span")
+    span.update(metadata={"dict": "value"})
 
     langfuse.flush()
 
@@ -495,6 +604,20 @@ def test_update_span():
     assert retrieved_span.metadata == {"dict": "value"}
 
 
+def test_create_event():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    event = langfuse.event(name="event")
+
+    langfuse.flush()
+
+    observation = api.observations.get(event.id)
+
+    assert observation.type == "EVENT"
+    assert observation.name == "event"
+
+
 def test_create_trace_and_event():
     langfuse = Langfuse(debug=False)
     api = get_api()
@@ -502,8 +625,8 @@ def test_create_trace_and_event():
     trace_name = create_uuid()
     eventId = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(name=trace_name))
-    trace.event(CreateEvent(id=eventId, name="event"))
+    trace = langfuse.trace(name=trace_name)
+    trace.event(id=eventId, name="event")
 
     langfuse.flush()
 
@@ -523,8 +646,8 @@ def test_create_span_and_generation():
 
     langfuse = Langfuse(debug=False)
 
-    span = langfuse.span(InitialSpan(name="span"))
-    langfuse.generation(InitialGeneration(traceId=span.trace_id, name="generation"))
+    span = langfuse.span(name="span")
+    langfuse.generation(trace_id=span.trace_id, name="generation")
 
     langfuse.flush()
 
@@ -547,8 +670,8 @@ def test_create_trace_with_id_and_generation():
     trace_name = create_uuid()
     trace_id = create_uuid()
 
-    trace = langfuse.trace(CreateTrace(id=trace_id, name=trace_name))
-    trace.generation(CreateGeneration(name="generation"))
+    trace = langfuse.trace(id=trace_id, name=trace_name)
+    trace.generation(name="generation")
 
     langfuse.flush()
 
@@ -567,24 +690,21 @@ def test_end_generation():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation = langfuse.generation(
-        InitialGeneration(
-            name="query-generation",
-            startTime=timestamp,
-            model="gpt-3.5-turbo",
-            modelParameters={"maxTokens": "1000", "temperature": "0.9"},
-            prompt=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
-                },
-            ],
-            completion="This document entails the OKR goals for ACME",
-            usage=Usage(promptTokens=50, completionTokens=49),
-            metadata={"interface": "whatsapp"},
-        )
+        name="query-generation",
+        start_time=timestamp,
+        model="gpt-3.5-turbo",
+        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
+        input=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+            },
+        ],
+        output="This document entails the OKR goals for ACME",
+        metadata={"interface": "whatsapp"},
     )
 
     generation.end()
@@ -603,27 +723,25 @@ def test_end_generation_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     generation = langfuse.generation(
-        InitialGeneration(
-            name="query-generation",
-            startTime=timestamp,
-            model="gpt-3.5-turbo",
-            modelParameters={"maxTokens": "1000", "temperature": "0.9"},
-            prompt=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {
-                    "role": "user",
-                    "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
-                },
-            ],
-            completion="This document entails the OKR goals for ACME",
-            usage=Usage(promptTokens=50, completionTokens=49),
-            metadata={"interface": "whatsapp"},
-        )
+        name="query-generation",
+        start_time=timestamp,
+        model="gpt-3.5-turbo",
+        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
+        input=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
+            },
+        ],
+        output="This document entails the OKR goals for ACME",
+        usage=LlmUsage(promptTokens=50, completionTokens=49),
+        metadata={"interface": "whatsapp"},
     )
 
-    generation.end(UpdateSpan(metadata={"dict": "value"}))
+    generation.end(metadata={"dict": "value"})
 
     langfuse.flush()
 
@@ -640,15 +758,13 @@ def test_end_span():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span = langfuse.span(
-        InitialSpan(
-            name="span",
-            startTime=timestamp,
-            input={"key": "value"},
-            output={"key": "value"},
-            metadata={"interface": "whatsapp"},
-        )
+        name="span",
+        start_time=timestamp,
+        input={"key": "value"},
+        output={"key": "value"},
+        metadata={"interface": "whatsapp"},
     )
 
     span.end()
@@ -667,18 +783,16 @@ def test_end_span_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
     span = langfuse.span(
-        InitialSpan(
-            name="span",
-            startTime=timestamp,
-            input={"key": "value"},
-            output={"key": "value"},
-            metadata={"interface": "whatsapp"},
-        )
+        name="span",
+        start_time=timestamp,
+        input={"key": "value"},
+        output={"key": "value"},
+        metadata={"interface": "whatsapp"},
     )
 
-    span.end(UpdateSpan(metadata={"dict": "value"}))
+    span.end(metadata={"dict": "value"})
 
     langfuse.flush()
 
@@ -694,26 +808,22 @@ def test_end_span_with_data():
 def test_get_generations():
     langfuse = Langfuse(debug=False)
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     langfuse.generation(
-        InitialGeneration(
-            name=create_uuid(),
-            startTime=timestamp,
-            endTime=timestamp,
-        )
+        name=create_uuid(),
+        start_time=timestamp,
+        end_time=timestamp,
     )
 
     generation_name = create_uuid()
 
     langfuse.generation(
-        InitialGeneration(
-            name=generation_name,
-            startTime=timestamp,
-            endTime=timestamp,
-            prompt="great-prompt",
-            completion="great-completion",
-        )
+        name=generation_name,
+        start_time=timestamp,
+        end_time=timestamp,
+        input="great-prompt",
+        output="great-completion",
     )
 
     langfuse.flush()
@@ -727,27 +837,23 @@ def test_get_generations():
 def test_get_generations_by_user():
     langfuse = Langfuse(debug=False)
 
-    timestamp = datetime.now()
+    timestamp = _get_timestamp()
 
     user_id = create_uuid()
     generation_name = create_uuid()
-    trace = langfuse.trace(CreateTrace(name="test-user", userId=user_id))
+    trace = langfuse.trace(name="test-user", user_id=user_id)
 
     trace.generation(
-        CreateGeneration(
-            name=generation_name,
-            startTime=timestamp,
-            endTime=timestamp,
-            prompt="great-prompt",
-            completion="great-completion",
-        )
+        name=generation_name,
+        start_time=timestamp,
+        end_time=timestamp,
+        input="great-prompt",
+        output="great-completion",
     )
 
     langfuse.generation(
-        InitialGeneration(
-            startTime=timestamp,
-            endTime=timestamp,
-        )
+        start_time=timestamp,
+        end_time=timestamp,
     )
 
     langfuse.flush()
@@ -757,3 +863,100 @@ def test_get_generations_by_user():
     assert generations.data[0].name == generation_name
     assert generations.data[0].input == "great-prompt"
     assert generations.data[0].output == "great-completion"
+
+
+def test_kwargs():
+    langfuse = Langfuse()
+    api = get_api()
+
+    timestamp = _get_timestamp()
+
+    dict = {
+        "start_time": timestamp,
+        "input": {"key": "value"},
+        "output": {"key": "value"},
+        "metadata": {"interface": "whatsapp"},
+    }
+
+    span = langfuse.span(
+        name="span",
+        **dict,
+    )
+
+    langfuse.flush()
+
+    observation = api.observations.get(span.id)
+    assert observation.start_time is not None
+    assert observation.input == {"key": "value"}
+    assert observation.output == {"key": "value"}
+    assert observation.metadata == {"interface": "whatsapp"}
+
+
+def test_timezone_awareness():
+    os.environ["TZ"] = "US/Pacific"
+    time.tzset()
+
+    utc_now = datetime.now(timezone.utc)
+    assert utc_now.tzinfo is not None
+
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace = langfuse.trace(name="test")
+    span = trace.span(name="span")
+    span.end()
+    generation = trace.generation(name="generation")
+    generation.end()
+    trace.event(name="event")
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert len(trace.observations) == 3
+    for observation in trace.observations:
+        delta = observation.start_time - utc_now
+        assert delta.seconds < 5
+
+        if observation.type != "EVENT":
+            delta = observation.end_time - utc_now
+            assert delta.seconds < 5
+
+    os.environ["TZ"] = "UTC"
+    time.tzset()
+
+
+def test_timezone_awareness_setting_timestamps():
+    os.environ["TZ"] = "US/Pacific"
+    time.tzset()
+
+    now = datetime.now()
+    utc_now = datetime.now(timezone.utc)
+    assert utc_now.tzinfo is not None
+
+    print(now)
+    print(utc_now)
+
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace = langfuse.trace(name="test")
+    trace.span(name="span", start_time=now, end_time=now)
+    trace.generation(name="generation", start_time=now, end_time=now)
+    trace.event(name="event", start_time=now)
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert len(trace.observations) == 3
+    for observation in trace.observations:
+        delta = utc_now - observation.start_time
+        assert delta.seconds < 5
+
+        if observation.type != "EVENT":
+            delta = utc_now - observation.end_time
+            assert delta.seconds < 5
+
+    os.environ["TZ"] = "UTC"
+    time.tzset()

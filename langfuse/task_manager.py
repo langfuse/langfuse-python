@@ -1,17 +1,25 @@
 import atexit
-from datetime import datetime, timezone
 import json
 import logging
 import queue
-from queue import Empty, Queue
 import threading
+from queue import Empty, Queue
 import time
 from typing import List, Any
+from datetime import datetime
+import typing
+from dateutil.tz import tzutc
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
 
 import backoff
 
 from langfuse.request import LangfuseClient
-from langfuse.serializer import DatetimeSerializer
+from langfuse.serializer import EventSerializer
 
 # largest message size in db is 331_000 bytes right now
 MAX_MSG_SIZE = 650_000
@@ -24,6 +32,14 @@ MAX_MSG_SIZE = 650_000
 BATCH_SIZE_LIMIT = 650_000
 
 
+class LangfuseMetadata(pydantic.BaseModel):
+    batch_size: int
+    sdk_integration: typing.Optional[str] = None
+    sdk_name: str = None
+    sdk_version: str = None
+    public_key: str = None
+
+
 class Consumer(threading.Thread):
     _log = logging.getLogger("langfuse")
     _queue: Queue
@@ -32,8 +48,24 @@ class Consumer(threading.Thread):
     _flush_at: int
     _flush_interval: float
     _max_retries: int
+    _public_key: str
+    _sdk_name: str
+    _sdk_version: str
+    _sdk_integration: str
 
-    def __init__(self, queue: Queue, identifier: int, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int):
+    def __init__(
+        self,
+        queue: Queue,
+        identifier: int,
+        client: LangfuseClient,
+        flush_at: int,
+        flush_interval: float,
+        max_retries: int,
+        public_key: str,
+        sdk_name: str,
+        sdk_version: str,
+        sdk_integration: str,
+    ):
         """Create a consumer thread."""
 
         threading.Thread.__init__(self)
@@ -50,6 +82,10 @@ class Consumer(threading.Thread):
         self._flush_at = flush_at
         self._flush_interval = flush_interval
         self._max_retries = max_retries
+        self._public_key = public_key
+        self._sdk_name = sdk_name
+        self._sdk_version = sdk_version
+        self._sdk_integration = sdk_integration
 
     def _next(self):
         """Return the next batch of items to upload."""
@@ -66,10 +102,13 @@ class Consumer(threading.Thread):
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
-                item_size = len(json.dumps(item, cls=DatetimeSerializer).encode())
+                item_size = len(json.dumps(item, cls=EventSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 if item_size > MAX_MSG_SIZE:
-                    self._log.warning("Item exceeds size limit (size: %s), dropping item. (%s)", item_size, item)
+                    self._log.warning(
+                        "Item exceeds size limit (size: %s), dropping item.",
+                        item_size,
+                    )
                     continue
                 items.append(item)
                 total_size += item_size
@@ -109,15 +148,22 @@ class Consumer(threading.Thread):
         self.running = False
 
     def _upload_batch(self, batch: List[Any]):
-        self._log.warn("uploading batch of %d items", len(batch))
+        self._log.debug("uploading batch of %d items", len(batch))
+
+        metadata = LangfuseMetadata(
+            batch_size=len(batch),
+            sdk_integration=self._sdk_integration,
+            sdk_name=self._sdk_name,
+            sdk_version=self._sdk_version,
+            public_key=self._public_key,
+        ).dict()
 
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
-        def execute_task_with_backoff(batch: List[Any]):
-            self._log.debug("uploading batch of %d items", len(batch))
-            return self._client.batch_post(gzip=False, batch=batch)
+        def execute_task_with_backoff(batch: list[Any]):
+            return self._client.batch_post(gzip=False, batch=batch, metadata=metadata)
 
         execute_task_with_backoff(batch)
-        self._log.warn("successfully uploaded batch of %d items", len(batch))
+        self._log.debug("successfully uploaded batch of %d items", len(batch))
 
 
 class TaskManager(object):
@@ -130,8 +176,24 @@ class TaskManager(object):
     _flush_at: int
     _flush_interval: float
     _max_retries: int
+    _public_key: str
+    _sdk_name: str
+    _sdk_version: str
+    _sdk_integration: str
 
-    def __init__(self, client: LangfuseClient, flush_at: int, flush_interval: float, max_retries: int, threads: int, max_task_queue_size: int = 100_000):
+    def __init__(
+        self,
+        client: LangfuseClient,
+        flush_at: int,
+        flush_interval: float,
+        max_retries: int,
+        threads: int,
+        public_key: str,
+        sdk_name: str,
+        sdk_version: str,
+        sdk_integration: str,
+        max_task_queue_size: int = 100_000,
+    ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
         self._queue = queue.Queue(self._max_task_queue_size)
@@ -140,6 +202,10 @@ class TaskManager(object):
         self._flush_at = flush_at
         self._flush_interval = flush_interval
         self._max_retries = max_retries
+        self._public_key = public_key
+        self._sdk_name = sdk_name
+        self._sdk_version = sdk_version
+        self._sdk_integration = sdk_integration
 
         self.init_resources()
 
@@ -148,20 +214,34 @@ class TaskManager(object):
 
     def init_resources(self):
         for i in range(self._threads):
-            consumer = Consumer(self._queue, i, self._client, self._flush_at, self._flush_interval, self._max_retries)
+            consumer = Consumer(
+                queue=self._queue,
+                identifier=i,
+                client=self._client,
+                flush_at=self._flush_at,
+                flush_interval=self._flush_interval,
+                max_retries=self._max_retries,
+                public_key=self._public_key,
+                sdk_name=self._sdk_name,
+                sdk_version=self._sdk_version,
+                sdk_integration=self._sdk_integration,
+            )
             consumer.start()
             self._consumers.append(consumer)
 
-    def add_task(self, event):
+    def add_task(self, event: dict):
         try:
-            self._log.debug("Adding task")
-            event["timestamp"] = datetime.now(timezone.utc)
+            self._log.debug(f"adding task {event}")
+            json.dumps(event, cls=EventSerializer)
+            event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
+
             self._queue.put(event, block=False)
         except queue.Full:
             self._log.warning("analytics-python queue is full")
             return False
         except Exception as e:
-            self._log.warning(f"Exception in adding task {e}")
+            self._log.exception(f"Exception in adding task {e}")
+
             return False
 
     def flush(self):
