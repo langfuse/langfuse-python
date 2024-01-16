@@ -82,13 +82,14 @@ OPENAI_METHODS_V1 = [
 
 class OpenAiArgsExtractor:
     def __init__(
-        self, name=None, metadata=None, trace_id=None, session_id=None, **kwargs
+        self, name=None, metadata=None, trace_id=None, session_id=None, user_id=None, **kwargs
     ):
         self.args = {}
         self.args["name"] = name
         self.args["metadata"] = metadata
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
+        self.args["user_id"] = user_id
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -124,11 +125,15 @@ def _get_langfuse_data_from_kwargs(
     if session_id is not None and not isinstance(session_id, str):
         raise TypeError("session_id must be a string")
 
+    user_id = kwargs.get("user_id", None)
+    if user_id is not None and not isinstance(user_id, str):
+        raise TypeError("user_id must be a string")
+
     if trace_id:
-        langfuse.trace(id=trace_id, session_id=session_id)
+        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id)
     elif session_id:
         # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
-        trace_id = langfuse.trace(session_id=session_id).id
+        trace_id = langfuse.trace(session_id=session_id, user_id=user_id).id
 
     metadata = kwargs.get("metadata", {})
 
@@ -164,6 +169,7 @@ def _get_langfuse_data_from_kwargs(
         "name": name,
         "metadata": metadata,
         "trace_id": trace_id,
+        "user_id": user_id,
         "start_time": start_time,
         "input": prompt,
         "model_parameters": modelParameters,
