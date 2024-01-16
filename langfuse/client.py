@@ -438,6 +438,7 @@ class Langfuse(object):
         *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
@@ -476,7 +477,7 @@ class Langfuse(object):
                 span_body.update(kwargs)
 
             if trace_id is None:
-                self._generate_trace(new_trace_id, name)
+                self._generate_trace(new_trace_id, name, user_id)
 
             self.log.debug(f"Creating span {span_body}...")
 
@@ -506,6 +507,7 @@ class Langfuse(object):
         *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
@@ -544,7 +546,7 @@ class Langfuse(object):
                 event_body.update(kwargs)
 
             if trace_id is None:
-                self._generate_trace(new_trace_id, name)
+                self._generate_trace(new_trace_id, name, user_id)
 
             request = CreateEventBody(**event_body)
 
@@ -572,6 +574,7 @@ class Langfuse(object):
         *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
@@ -625,6 +628,7 @@ class Langfuse(object):
                     "id": new_trace_id,
                     "release": self.release,
                     "name": name,
+                    "userId": user_id,
                 }
                 request = TraceBody(**trace)
 
@@ -659,11 +663,12 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
-    def _generate_trace(self, trace_id: str, name: str):
+    def _generate_trace(self, trace_id: str, name: str, user_id: Optional[str]):
         trace_dict = {
             "id": trace_id,
             "release": self.release,
             "name": name,
+            "userId": user_id,
         }
 
         trace_body = TraceBody(**trace_dict)

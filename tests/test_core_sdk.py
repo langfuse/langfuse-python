@@ -183,8 +183,10 @@ def test_create_generation():
 
     timestamp = _get_timestamp()
     generation_id = create_uuid()
+    user_id = create_uuid()
     langfuse.generation(
         id=generation_id,
+        user_id=user_id,
         name="query-generation",
         start_time=timestamp,
         end_time=timestamp,
@@ -210,7 +212,7 @@ def test_create_generation():
     trace = api.trace.get(trace_id)
 
     assert trace.name == "query-generation"
-    assert trace.user_id is None
+    assert trace.user_id == user_id
     assert trace.metadata is None
 
     assert len(trace.observations) == 1
@@ -301,8 +303,10 @@ def test_create_span():
 
     timestamp = _get_timestamp()
     span_id = create_uuid()
+    user_id = create_uuid()
     langfuse.span(
         id=span_id,
+        user_id=user_id,
         name="span",
         start_time=timestamp,
         end_time=timestamp,
@@ -318,7 +322,7 @@ def test_create_span():
     trace = api.trace.get(trace_id)
 
     assert trace.name == "span"
-    assert trace.user_id is None
+    assert trace.user_id == user_id
     assert trace.metadata is None
 
     assert len(trace.observations) == 1
