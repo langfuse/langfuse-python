@@ -232,7 +232,7 @@ def test_basic_chat_openai():
         ),
     ]
 
-    res = chat(messages, callbacks=[callback])
+    chat(messages, callbacks=[callback])
     callback.flush()
 
     trace_id = callback.get_trace_id()
