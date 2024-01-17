@@ -216,6 +216,35 @@ def test_callback_generated_from_trace_anthropic():
             assert observation["output"] != ""
 
 
+def test_basic_chat_openai():
+    from langchain.schema import HumanMessage, SystemMessage
+
+    callback = CallbackHandler(debug=False)
+
+    chat = ChatOpenAI(temperature=0)
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to French."
+        ),
+        HumanMessage(
+            content="Translate this sentence from English to French. I love programming."
+        ),
+    ]
+
+    res = chat(messages, callbacks=[callback])
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    api = get_api()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 2
+
+
 def test_callback_from_trace_simple_chain():
     langfuse = Langfuse(debug=False)
 
