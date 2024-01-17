@@ -488,8 +488,9 @@ def filter_image_data(messages: List[dict]):
         if message.get("content", None) is not None:
             content = message["content"]
             for index, item in enumerate(content):
-                if type(item) == "dict" and item.get("image_url", None) is not None:
+                if isinstance(item, dict) and item.get("image_url", None) is not None:
                     url = item["image_url"]["url"]
                     if url.startswith("data:image/jpeg;base64,"):
                         del content[index]["image_url"]
+
     return output_messages

@@ -734,6 +734,8 @@ def test_image_filter_base64():
     ]
     result = filter_image_data(messages)
 
+    print(result)
+
     assert result == [
         {
             "role": "user",
