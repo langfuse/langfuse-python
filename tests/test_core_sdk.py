@@ -189,7 +189,11 @@ def test_create_generation():
         start_time=timestamp,
         end_time=timestamp,
         model="gpt-3.5-turbo",
-        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
+        model_parameters={
+            "max_tokens": "1000",
+            "temperature": "0.9",
+            "stop": ["user-1", "user-2"],
+        },
         input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
@@ -222,7 +226,11 @@ def test_create_generation():
     assert generation.start_time is not None
     assert generation.end_time is not None
     assert generation.model == "gpt-3.5-turbo"
-    assert generation.model_parameters == {"max_tokens": "1000", "temperature": "0.9"}
+    assert generation.model_parameters == {
+        "max_tokens": "1000",
+        "temperature": "0.9",
+        "stop": ["user-1", "user-2"],
+    }
     assert generation.input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {
