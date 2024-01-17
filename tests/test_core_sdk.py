@@ -183,6 +183,7 @@ def test_create_generation():
 
     timestamp = _get_timestamp()
     generation_id = create_uuid()
+
     langfuse.generation(
         id=generation_id,
         name="query-generation",
