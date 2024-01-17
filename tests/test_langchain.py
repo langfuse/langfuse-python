@@ -308,7 +308,7 @@ def test_callback_simple_chain():
     )
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title. It should be as long as possible.
         Title: {title}
         Playwright: This is a synopsis for the above play:"""
 

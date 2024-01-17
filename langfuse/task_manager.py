@@ -23,14 +23,14 @@ from langfuse.request import LangfuseClient
 from langfuse.serializer import EventSerializer
 
 # largest message size in db is 331_000 bytes right now
-MAX_MSG_SIZE = 650_000
+MAX_MSG_SIZE = 1_000_000
 
 # https://vercel.com/docs/functions/serverless-functions/runtimes#request-body-size
 # The maximum payload size for the request body or the response body of a Serverless Function is 4.5 MB
 # 4_500_000 Bytes = 4.5 MB
-# https://nextjs.org/docs/pages/building-your-application/routing/api-routes#custom-config
-# The default nextjs body parser takes a max body size of 1mb. Hence, our BATCH_SIZE_LIMIT should be less to accomodate the final event.
-BATCH_SIZE_LIMIT = 650_000
+# configured to be 3 MB to be safe
+
+BATCH_SIZE_LIMIT = 2_500_000
 
 
 class LangfuseMetadata(pydantic.BaseModel):
