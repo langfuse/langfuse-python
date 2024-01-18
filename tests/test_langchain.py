@@ -54,7 +54,7 @@ def test_langfuse_span():
 
 def test_callback_generated_from_trace():
     api = get_api()
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
     trace = langfuse.trace(id=trace_id)
@@ -219,7 +219,7 @@ def test_callback_generated_from_trace_anthropic():
 def test_basic_chat_openai():
     from langchain.schema import HumanMessage, SystemMessage
 
-    callback = CallbackHandler(debug=False)
+    callback = CallbackHandler(debug=True)
 
     chat = ChatOpenAI(temperature=0)
 
@@ -242,7 +242,41 @@ def test_basic_chat_openai():
     trace = api.trace.get(trace_id)
 
     assert trace.id == trace_id
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
+
+
+def test_basic_chat_openai_based_on_trace():
+    from langchain.schema import HumanMessage, SystemMessage
+
+    trace_id = create_uuid()
+
+    langfuse = Langfuse(debug=False)
+    trace = langfuse.trace(id=trace_id)
+
+    callback = trace.get_langchain_handler()
+
+    chat = ChatOpenAI(temperature=0)
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to French."
+        ),
+        HumanMessage(
+            content="Translate this sentence from English to French. I love programming."
+        ),
+    ]
+
+    chat(messages, callbacks=[callback])
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    api = get_api()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 1
 
 
 def test_callback_from_trace_simple_chain():
@@ -333,7 +367,7 @@ def test_next_span_id_from_trace_simple_chain():
 def test_callback_simple_chain():
     api = get_api()
     handler = CallbackHandler(
-        debug=False, trace_name="test-trace-name", session_id="100", user_id="200"
+        debug=True, trace_name="test-trace-name", session_id="100", user_id="200"
     )
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -630,7 +664,7 @@ def test_callback_simple_openai():
 
     trace = api.trace.get(trace_id)
 
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
     assert trace.input == trace.observations[0].input
     for observation in trace.observations:
         if observation.type == "GENERATION":
@@ -670,7 +704,7 @@ def test_callback_multiple_invocations_on_different_traces():
         {"trace": trace_one, "expected_trace_id": trace_id_one},
         {"trace": trace_two, "expected_trace_id": trace_id_two},
     ]:
-        assert len(test_data["trace"].observations) == 2
+        assert len(test_data["trace"].observations) == 1
         assert test_data["trace"].id == test_data["expected_trace_id"]
         for observation in test_data["trace"].observations:
             if observation.type == "GENERATION":

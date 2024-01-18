@@ -234,6 +234,18 @@ class CallbackHandler(BaseCallbackHandler):
                 kwargs=kwargs,
                 version=self.version,
             )
+            if parent_run_id is None:
+                self.runs[run_id] = self.trace.span(
+                    id=self.next_span_id,
+                    trace_id=self.trace.id,
+                    name=serialized.get(
+                        "name", serialized.get("id", ["<unknown>"])[-1]
+                    ),
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    input=inputs,
+                    version=self.version,
+                )
+
             if parent_run_id is not None:
                 self.runs[run_id] = self.runs[parent_run_id].span(
                     id=self.next_span_id,
@@ -281,6 +293,7 @@ class CallbackHandler(BaseCallbackHandler):
             # if we are at a root, but langfuse exists, it means we do not have a
             # root provided by a user. Initialise it by creating a trace and root span.
             if self.trace is None and self.langfuse is not None:
+                self.log.warning("first")
                 trace = self.langfuse.trace(
                     id=str(run_id),
                     name=self.trace_name if self.trace_name is not None else class_name,
@@ -293,37 +306,33 @@ class CallbackHandler(BaseCallbackHandler):
 
                 self.trace = trace
 
-                self.runs[run_id] = self.trace.span(
+                if parent_run_id is not None and parent_run_id in self.runs:
+                    self.runs[run_id] = self.trace.span(
+                        id=self.next_span_id,
+                        trace_id=self.trace.id,
+                        name=class_name,
+                        metadata=self.__join_tags_and_metadata(tags, metadata),
+                        input=inputs,
+                        version=self.version,
+                    )
+
+                return
+
+            # if we are at root, and root was provided by user,
+            # create a span for the trace or span provided
+            if (
+                self.langfuse is None
+                and parent_run_id is not None
+                and self.root_span is not None
+            ):
+                self.log.warning("second")
+                self.runs[parent_run_id] = self.root_span.span(
                     id=self.next_span_id,
                     trace_id=self.trace.id,
                     name=class_name,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     input=inputs,
                     version=self.version,
-                )
-                return
-
-            # if we are at root, and root was provided by user,
-            # create a span for the trace or span provided
-            if self.langfuse is None and parent_run_id is None:
-                self.runs[run_id] = (
-                    self.trace.span(
-                        id=self.next_span_id,
-                        trace_id=self.trace.id,
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        input=inputs,
-                        version=self.version,
-                    )
-                    if self.root_span is None
-                    else self.root_span.span(
-                        id=self.next_span_id,
-                        trace_id=self.trace.id,
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        input=inputs,
-                        version=self.version,
-                    )
                 )
 
                 self.next_span_id = None
