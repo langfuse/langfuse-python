@@ -54,7 +54,7 @@ def test_langfuse_span():
 
 def test_callback_generated_from_trace():
     api = get_api()
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
     trace = langfuse.trace(id=trace_id)
@@ -134,7 +134,7 @@ def test_mistral():
     from langchain_mistralai.chat_models import ChatMistralAI
 
     api = get_api()
-    callback = CallbackHandler(debug=True)
+    callback = CallbackHandler(debug=False)
 
     chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
     messages = [HumanMessage(content="say a brief hello")]
@@ -219,7 +219,7 @@ def test_callback_generated_from_trace_anthropic():
 def test_basic_chat_openai():
     from langchain.schema import HumanMessage, SystemMessage
 
-    callback = CallbackHandler(debug=True)
+    callback = CallbackHandler(debug=False)
 
     chat = ChatOpenAI(temperature=0)
 
@@ -367,7 +367,7 @@ def test_next_span_id_from_trace_simple_chain():
 def test_callback_simple_chain():
     api = get_api()
     handler = CallbackHandler(
-        debug=True, trace_name="test-trace-name", session_id="100", user_id="200"
+        debug=False, trace_name="test-trace-name", session_id="100", user_id="200"
     )
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -722,7 +722,7 @@ def test_callback_simple_openai_streaming():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=True)
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=False)
 
     text = "What would be a good company name for a company that makes laptops?"
 
