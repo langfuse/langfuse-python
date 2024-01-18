@@ -134,7 +134,7 @@ def test_mistral():
     from langchain_mistralai.chat_models import ChatMistralAI
 
     api = get_api()
-    callback = CallbackHandler(debug=True)
+    callback = CallbackHandler(debug=False)
 
     chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
     messages = [HumanMessage(content="say a brief hello")]
@@ -242,7 +242,41 @@ def test_basic_chat_openai():
     trace = api.trace.get(trace_id)
 
     assert trace.id == trace_id
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
+
+
+def test_basic_chat_openai_based_on_trace():
+    from langchain.schema import HumanMessage, SystemMessage
+
+    trace_id = create_uuid()
+
+    langfuse = Langfuse(debug=False)
+    trace = langfuse.trace(id=trace_id)
+
+    callback = trace.get_langchain_handler()
+
+    chat = ChatOpenAI(temperature=0)
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to French."
+        ),
+        HumanMessage(
+            content="Translate this sentence from English to French. I love programming."
+        ),
+    ]
+
+    chat(messages, callbacks=[callback])
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    api = get_api()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.id == trace_id
+    assert len(trace.observations) == 1
 
 
 def test_callback_from_trace_simple_chain():
@@ -630,7 +664,7 @@ def test_callback_simple_openai():
 
     trace = api.trace.get(trace_id)
 
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
     assert trace.input == trace.observations[0].input
     for observation in trace.observations:
         if observation.type == "GENERATION":
@@ -670,7 +704,7 @@ def test_callback_multiple_invocations_on_different_traces():
         {"trace": trace_one, "expected_trace_id": trace_id_one},
         {"trace": trace_two, "expected_trace_id": trace_id_two},
     ]:
-        assert len(test_data["trace"].observations) == 2
+        assert len(test_data["trace"].observations) == 1
         assert test_data["trace"].id == test_data["expected_trace_id"]
         for observation in test_data["trace"].observations:
             if observation.type == "GENERATION":
@@ -688,7 +722,7 @@ def test_callback_simple_openai_streaming():
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=True)
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=False)
 
     text = "What would be a good company name for a company that makes laptops?"
 
