@@ -5,6 +5,7 @@ on:
       - main
       - master
       - development
+      - native_support_for_assistants
   workflow_dispatch:
 
 concurrency:
