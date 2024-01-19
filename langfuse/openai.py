@@ -145,7 +145,7 @@ def _get_langfuse_data_from_kwargs(
 
     model = kwargs.get("model", None)
 
-    prompt = None
+    prompt = None  # TODO: rename, not always prompt
 
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
@@ -160,7 +160,14 @@ def _get_langfuse_data_from_kwargs(
             else filter_image_data(kwargs.get("messages", []))
         )
     elif resource.type == "assistant":
-        pass  # TODO:
+        # based on https://platform.openai.com/docs/api-reference/assistants/createAssistant
+        prompt = {
+            "description": kwargs.get("description"),
+            "instructions": kwargs.get("instructions"),
+            "tools": kwargs.get("tools", []),
+            "file_ids": kwargs.get("file_ids", []),
+            # "metadata": kwargs.get("metadata"), # TODO: extract here?
+        }
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
@@ -323,15 +330,25 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
                 else choice.get("message", None)
             )
     elif resource.type == "assistant":
-        response.get("id", None)
-
+        # based on https://platform.openai.com/docs/api-reference/assistants/object
+        completion = {
+            "id": response.get("id"),
+            "object": response.get("object"),
+            "created_at": response.get("created_at"),
+            "name": response.get("name"),
+            "description": response.get("description"),
+            "instructions": response.get("instructions"),
+            "tools": response.get("tools", []),
+            "file_ids": response.get("file_ids", []),
+            "metadata": response.get("metadata"),
+        }
     usage = response.get("usage", None)
 
     return (
         model,
         completion,
-        usage.__dict__ if _is_openai_v1() else usage,
-    )  # BUG: in case usage is None is above usage.__dict__ fails
+        usage.__dict__ if _is_openai_v1() and usage else usage,
+    )
 
 
 def _is_openai_v1():
@@ -353,29 +370,28 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     start_time = _get_timestamp()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
-    generation = _get_langfuse_data_from_kwargs(
+    parsed_kwargs = _get_langfuse_data_from_kwargs(
         open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
     )
-    generation = new_langfuse.generation(**generation)
+    if open_ai_resource.type == "assistant":
+        observation = new_langfuse.event(**parsed_kwargs)
+    else:
+        observation = new_langfuse.generation(**parsed_kwargs)
+
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
             return _get_langfuse_data_from_sync_streaming_response(
-                open_ai_resource, openai_response, generation, new_langfuse
+                open_ai_resource, openai_response, observation, new_langfuse
+            )
+        else:
+            model, completion, usage = _get_langfuse_data_from_default_response(
+                open_ai_resource,
+                openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
 
-        else:
-            if open_ai_resource.type == "assistant":
-                model = "A TEST!!!"  # TODO: Continue here
-                completion = None
-                usage = None
-            else:
-                model, completion, usage = _get_langfuse_data_from_default_response(
-                    open_ai_resource,
-                    openai_response.__dict__ if _is_openai_v1() else openai_response,
-                )
-            generation.update(
+            observation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
             )
 
@@ -383,7 +399,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     except Exception as ex:
         log.warning(ex)
         model = kwargs.get("model", None)
-        generation.update(
+        observation.update(
             end_time=_get_timestamp(),
             status_message=str(ex),
             level="ERROR",

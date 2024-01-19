@@ -780,24 +780,60 @@ def test_image_filter_url():
     ]
 
 
-def test_openai_assist_creation_with_trace():
+def test_openai_assistant_creation():
     api = get_api()
-    generation_name = create_uuid()
+    event_name = create_uuid()
+    assistant_description = "Hello world, I am a test assistant"
+
+    assistant = openai.beta.assistants.create(
+        name=event_name,  # TODO: Assistent name is meant here, not event name
+        model="gpt-3.5-turbo",
+        description=assistant_description,
+    )
+    openai.flush_langfuse()
+
+    # event = api.observations.get(observation_id=event_name) # TODO: returns 404
+    observations = api.observations.get_many(name=event_name, type="EVENT")
+
+    assert len(observations.data) != 0
+
+    event = observations.data[0]
+    assert event.name == event_name
+    assert event.type == "EVENT"
+    assert event.input["description"] == assistant_description
+    assert event.output["description"] == assistant_description
+    assert event.output["object"] == "assistant"
+    assert event.output["id"] is not None
+    assert event.output["instructions"] is None
+
+
+def test_openai_assistant_creation_with_trace():
+    api = get_api()
+    event_name = create_uuid()
+    assistant_description = "Hello world, I am a test assistant"
     trace_id = create_uuid()
     langfuse = Langfuse()
-
     langfuse.trace(id=trace_id)
 
     assistant = openai.beta.assistants.create(
-        name=generation_name,
+        name=event_name,  # TODO: Assistent name is meant here, not event name
         model="gpt-3.5-turbo",
-        description="test assistant",
+        description=assistant_description,
+        trace_id=trace_id,
     )
-
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    # event = api.observations.get(observation_id=event_name) # TODO: returns 404
+    observations = api.observations.get_many(name=event_name, type="EVENT")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].trace_id == trace_id
+    assert len(observations.data) != 0
+
+    event = observations.data[0]
+    assert event.trace_id == trace_id
+    assert event.name == event_name
+    assert event.type == "EVENT"
+    assert event.input["description"] == assistant_description
+    assert event.output["description"] == assistant_description
+    assert event.output["object"] == "assistant"
+    assert event.output["id"] is not None
+    assert event.output["instructions"] is None
