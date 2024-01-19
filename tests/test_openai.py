@@ -786,7 +786,7 @@ def test_openai_assistant_creation():
     assistant_description = "Hello world, I am a test assistant"
 
     assistant = openai.beta.assistants.create(
-        name=event_name,  # TODO: Assistent name is meant here, not event name
+        name=event_name,  # TODO: Assistant name is meant here, not event name
         model="gpt-3.5-turbo",
         description=assistant_description,
     )
