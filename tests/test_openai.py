@@ -778,3 +778,26 @@ def test_image_filter_url():
             ],
         }
     ]
+
+
+def test_openai_assist_creation_with_trace():
+    api = get_api()
+    generation_name = create_uuid()
+    trace_id = create_uuid()
+    langfuse = Langfuse()
+
+    langfuse.trace(id=trace_id)
+
+    assistant = openai.beta.assistants.create(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        description="test assistant",
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].trace_id == trace_id

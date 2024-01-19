@@ -78,6 +78,13 @@ OPENAI_METHODS_V1 = [
         type="completion",
         sync=False,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.assistants",
+        object="Assistants",
+        method="create",
+        type="assistant",
+        sync=True,
+    ),
 ]
 
 
@@ -152,6 +159,8 @@ def _get_langfuse_data_from_kwargs(
             if kwargs.get("functions", None) is not None
             else filter_image_data(kwargs.get("messages", []))
         )
+    elif resource.type == "assistant":
+        pass  # TODO:
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
@@ -313,10 +322,16 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
                 if _is_openai_v1()
                 else choice.get("message", None)
             )
+    elif resource.type == "assistant":
+        response.get("id", None)
 
     usage = response.get("usage", None)
 
-    return model, completion, usage.__dict__ if _is_openai_v1() else usage
+    return (
+        model,
+        completion,
+        usage.__dict__ if _is_openai_v1() else usage,
+    )  # BUG: in case usage is None is above usage.__dict__ fails
 
 
 def _is_openai_v1():
@@ -351,10 +366,15 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             )
 
         else:
-            model, completion, usage = _get_langfuse_data_from_default_response(
-                open_ai_resource,
-                openai_response.__dict__ if _is_openai_v1() else openai_response,
-            )
+            if open_ai_resource.type == "assistant":
+                model = "A TEST!!!"  # TODO: Continue here
+                completion = None
+                usage = None
+            else:
+                model, completion, usage = _get_langfuse_data_from_default_response(
+                    open_ai_resource,
+                    openai_response.__dict__ if _is_openai_v1() else openai_response,
+                )
             generation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
             )
