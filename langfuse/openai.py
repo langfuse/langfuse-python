@@ -85,6 +85,20 @@ OPENAI_METHODS_V1 = [
         type="assistant",
         sync=True,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads",
+        object="Threads",
+        method="create",
+        type="thread",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.messages",
+        object="Messages",
+        method="create",
+        type="message",
+        sync=True,
+    ),
 ]
 
 
@@ -163,8 +177,17 @@ def _get_langfuse_data_from_kwargs(
         # based on https://platform.openai.com/docs/api-reference/assistants/createAssistant
         prompt = {
             "description": kwargs.get("description"),
-            "instructions": kwargs.get("instructions"),
+            "instructions": kwargs.get("instructions", ""),
             "tools": kwargs.get("tools", []),
+            "file_ids": kwargs.get("file_ids", []),
+            # "metadata": kwargs.get("metadata"), # TODO: extract here?
+        }
+    elif resource.type == "message":
+        # based on https://platform.openai.com/docs/api-reference/messages/createMessage
+        prompt = {
+            "thread_id": kwargs.get("thread_id"),
+            "role": kwargs.get("role"),
+            "content": kwargs.get("content"),
             "file_ids": kwargs.get("file_ids", []),
             # "metadata": kwargs.get("metadata"), # TODO: extract here?
         }
@@ -340,7 +363,15 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
             "instructions": response.get("instructions"),
             "tools": response.get("tools", []),
             "file_ids": response.get("file_ids", []),
-            "metadata": response.get("metadata"),
+            "metadata": response.get("metadata", {}),
+        }
+    elif resource.type == "thread":
+        # based on https://platform.openai.com/docs/api-reference/threads/object
+        completion = {
+            "id": response.get("id"),
+            "object": response.get("object"),  # always "thread"
+            "created_at": response.get("created_at"),
+            "metadata": response.get("metadata", {}),
         }
     usage = response.get("usage", None)
 
@@ -373,11 +404,10 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     parsed_kwargs = _get_langfuse_data_from_kwargs(
         open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
     )
-    if open_ai_resource.type == "assistant":
+    if open_ai_resource.type in ["assistant", "thread"]:
         observation = new_langfuse.event(**parsed_kwargs)
     else:
         observation = new_langfuse.generation(**parsed_kwargs)
-
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
@@ -394,6 +424,8 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             observation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
             )
+            if open_ai_resource.type in ["thread"]:
+                pass  # TODO: set session_id of trace to thread_id
 
         return openai_response
     except Exception as ex:

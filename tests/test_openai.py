@@ -901,3 +901,25 @@ def test_openai_assistant_creation_all_attributes():
     )
     # assert event["metadata"] == # TODO
     # assert event.input["name"] == assistant_name == assistant.name # TODO
+
+
+def test_openai_thread_creation():
+    # TODO: Decide if thread creation should create it's own trace
+    api = get_api()
+    event_name = create_uuid()
+
+    thread = openai.beta.threads.create(name=event_name)
+    openai.flush_langfuse()
+
+    observations = api.observations.get_many(name=event_name, type="EVENT")
+
+    # session id of trace!
+    assert len(observations.data) != 0
+
+
+def test_openai_message_creation():
+    # TODO: Decide if thread creation should create it's own trace
+    api = get_api()
+    event_name = create_uuid()
+    langfuse = Langfuse()
+    pass  # TODO
