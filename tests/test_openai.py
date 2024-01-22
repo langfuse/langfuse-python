@@ -837,3 +837,67 @@ def test_openai_assistant_creation_with_trace():
     assert event.output["object"] == "assistant"
     assert event.output["id"] is not None
     assert event.output["instructions"] is None
+
+
+def test_openai_assistant_creation_all_attributes():
+    api = get_api()
+    event_name = create_uuid()
+    trace_id = create_uuid()
+    langfuse = Langfuse()
+    langfuse.trace(id=trace_id)
+
+    assistant_description = "Hello world, I am a test assistant"
+    assistant_name = "My awesome assistant"
+    assistant_instructions = "Please help me with this"
+    assistant_tools = [{"type": "code_interpreter"}]
+    assistant_metadata = {"my_key": "my_value", "my_other_key": 1, "my_third_key": True}
+    assistant_file_ids = []  # TODO: Add file ids
+
+    assistant = openai.beta.assistants.create(
+        name=event_name,  # TODO: Assistent name is meant here, not event name
+        model="gpt-3.5-turbo",
+        instructions=assistant_instructions,
+        tools=assistant_tools,
+        metadata=assistant_metadata,  # TODO: Assistant metadata is meant here, not event metadata
+        description=assistant_description,
+        trace_id=trace_id,
+    )
+    openai.flush_langfuse()
+
+    # event = api.observations.get(observation_id=event_name) # TODO: returns 404
+    observations = api.observations.get_many(name=event_name, type="EVENT")
+
+    assert len(observations.data) != 0
+
+    event = observations.data[0]
+    assert event.trace_id == trace_id
+    assert event.name == event_name
+    assert event.type == "EVENT"
+    assert event.output["object"] == "assistant"
+    assert event.output["id"] == assistant.id
+    assert (
+        event.input["description"]
+        == event.output["description"]
+        == assistant_description
+        == assistant.description
+    )
+    assert (
+        event.input["instructions"]
+        == event.output["instructions"]
+        == assistant_instructions
+        == assistant.instructions
+    )
+    assert (
+        event.input["tools"]
+        == event.output["tools"]
+        == assistant_tools
+        == [{"type": a.type} for a in assistant.tools]
+    )
+    assert (
+        event.input["file_ids"]
+        == event.output["file_ids"]
+        == assistant_file_ids
+        == assistant.file_ids
+    )
+    # assert event["metadata"] == # TODO
+    # assert event.input["name"] == assistant_name == assistant.name # TODO
