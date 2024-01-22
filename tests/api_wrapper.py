@@ -1,14 +1,20 @@
 import os
 
 import requests
+import logging
 
 
 class LangfuseAPI:
     def __init__(self, username=None, password=None, base_url=None):
-        username = username if username else os.environ["LANGFUSE_PUBLIC_KEY"]
-        password = password if password else os.environ["LANGFUSE_SECRET_KEY"]
-        self.auth = (username, password)
-        self.BASE_URL = base_url if base_url else os.environ["LANGFUSE_HOST"]
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        try:
+            username = username or os.environ["LANGFUSE_PUBLIC_KEY"]
+            password = password or os.environ["LANGFUSE_SECRET_KEY"]
+            self.auth = (username, password)
+            self.BASE_URL = base_url or os.environ["LANGFUSE_HOST"]
+        except KeyError as e:
+            logging.error(f"Environment variable {e} is not set.")
 
     def get_observation(self, observation_id):
         url = f"{self.BASE_URL}/api/public/observations/{observation_id}"

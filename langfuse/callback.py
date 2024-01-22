@@ -67,15 +67,18 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> None:
         # If we're provided a stateful trace client directly
         prioritized_public_key = (
-            public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
+            public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         )
+        if not prioritized_public_key:
+            logging.error("Neither public_key nor LANGFUSE_PUBLIC_KEY is available.")
         prioritized_secret_key = (
-            secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+            secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         )
+        if not prioritized_secret_key:
+            logging.error("Neither secret_key nor LANGFUSE_SECRET_KEY is available.")
         prioritized_host = (
             host
-            if host
-            else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+            or os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
         )
 
         self.version = version

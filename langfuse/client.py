@@ -77,14 +77,16 @@ class Langfuse(object):
         else:
             self.log.setLevel(logging.WARNING)
             clean_logger()
-
-        public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
-        self.base_url = (
-            host
-            if host
-            else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
-        )
+        try:
+            public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
+            secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+            self.base_url = (
+                host
+                if host
+                else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+            )
+        except KeyError as e:
+            self.log.error(f"Environment variable {e} is not set.")
 
         if not public_key:
             self.log.warning("public_key is not set.")
