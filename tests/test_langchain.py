@@ -67,9 +67,9 @@ def test_callback_generated_from_trace():
         Playwright: This is a synopsis for the above play:"""
 
     prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+    synopsis_chain = ChatOpenAI(llm=llm, prompt=prompt_template)
 
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+    synopsis_chain.generate("Tragedy at sunset on the beach", callbacks=[handler])
 
     langfuse.flush()
 
