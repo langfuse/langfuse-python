@@ -91,6 +91,59 @@ def test_callback_generated_from_trace():
             assert observation.output != ""
 
 
+def test_callback_generated_from_span():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
+
+    trace_id = create_uuid()
+    span_id = create_uuid()
+
+    trace = langfuse.trace(id=trace_id, name=trace_id)
+    span = trace.span(id=span_id, name=span_id)
+
+    handler = span.get_langchain_handler()
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace_id)
+
+    assert handler.get_trace_id() == trace_id
+
+    assert len(trace.observations) == 3
+    assert trace.id == trace_id
+
+    langchain_span = list(
+        filter(lambda o: o.type == "SPAN" and o.name == "LLMChain", trace.observations)
+    )[0]
+
+    assert langchain_span.parent_observation_id == span_id
+
+    langchain_generation_span = list(
+        filter(
+            lambda o: o.type == "GENERATION" and o.name == "OpenAI", trace.observations
+        )
+    )[0]
+
+    assert langchain_generation_span.parent_observation_id == langchain_span.id
+    assert langchain_generation_span.usage.input > 0
+    assert langchain_generation_span.usage.output > 0
+    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.input is not None
+    assert langchain_generation_span.input != ""
+    assert langchain_generation_span.output is not None
+    assert langchain_generation_span.output != ""
+
+
 @pytest.mark.skip(reason="missing api key")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
