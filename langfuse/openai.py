@@ -404,8 +404,10 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     parsed_kwargs = _get_langfuse_data_from_kwargs(
         open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
     )
-    if open_ai_resource.type in ["assistant", "thread"]:
+    if open_ai_resource.type == "assistant":
         observation = new_langfuse.event(**parsed_kwargs)
+    elif open_ai_resource.type == "thread":
+        observation = new_langfuse.trace(id=parsed_kwargs["trace_id"], **parsed_kwargs)
     else:
         observation = new_langfuse.generation(**parsed_kwargs)
     try:
@@ -420,12 +422,15 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 open_ai_resource,
                 openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
-
-            observation.update(
-                model=model, output=completion, end_time=_get_timestamp(), usage=usage
-            )
-            if open_ai_resource.type in ["thread"]:
-                pass  # TODO: set session_id of trace to thread_id
+            if open_ai_resource.type == "thread":
+                observation.update(session_id=openai_response.id)
+            else:
+                observation.update(
+                    model=model,
+                    output=completion,
+                    end_time=_get_timestamp(),
+                    usage=usage,
+                )
 
         return openai_response
     except Exception as ex:

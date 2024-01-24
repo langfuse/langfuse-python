@@ -906,15 +906,15 @@ def test_openai_assistant_creation_all_attributes():
 def test_openai_thread_creation():
     # TODO: Decide if thread creation should create it's own trace
     api = get_api()
-    event_name = create_uuid()
+    trace_id = create_uuid()
 
-    thread = openai.beta.threads.create(name=event_name)
+    thread = openai.beta.threads.create(trace_id=trace_id)
     openai.flush_langfuse()
 
-    observations = api.observations.get_many(name=event_name, type="EVENT")
+    trace = api.trace.get(trace_id)
 
-    # session id of trace!
-    assert len(observations.data) != 0
+    assert trace.id == trace_id
+    assert trace.session_id == thread.id
 
 
 def test_openai_message_creation():
