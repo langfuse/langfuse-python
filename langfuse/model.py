@@ -42,6 +42,9 @@ class ModelUsage(TypedDict):
     input: Optional[int]
     output: Optional[int]
     total: Optional[int]
+    input_cost: Optional[float]
+    output_cost: Optional[float]
+    total_cost: Optional[float]
 
 
 class PromptClient:

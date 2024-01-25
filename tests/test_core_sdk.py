@@ -248,7 +248,15 @@ def test_create_generation():
     [
         LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
         LlmUsage(promptTokens=51, totalTokens=100),
-        {"input": 51, "output": 0, "total": 100, "unit": "TOKENS"},
+        {
+            "input": 51,
+            "output": 0,
+            "total": 100,
+            "unit": "TOKENS",
+            "input_cost": 100,
+            "output_cost": 200,
+            "total_cost": 300,
+        },
         {"input": 51, "total": 100},
     ],
 )

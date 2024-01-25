@@ -68,6 +68,7 @@ class TraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        order_by: str,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
         """
@@ -82,6 +83,8 @@ class TraceClient:
 
             - name: typing.Optional[str].
 
+            - order_by: str. Format of the string sort_by=timestamp.asc (id, timestamp, name, userId, release, version, public, bookmarked, sessionId)
+
             - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Only traces that include all of these tags will be returned.
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -95,6 +98,7 @@ class TraceClient:
                     "limit": limit,
                     "userId": user_id,
                     "name": name,
+                    "orderBy": order_by,
                     "tags": tags,
                 }
             ),
@@ -169,6 +173,7 @@ class AsyncTraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        order_by: str,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
         """
@@ -183,6 +188,8 @@ class AsyncTraceClient:
 
             - name: typing.Optional[str].
 
+            - order_by: str. Format of the string sort_by=timestamp.asc (id, timestamp, name, userId, release, version, public, bookmarked, sessionId)
+
             - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Only traces that include all of these tags will be returned.
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -196,6 +203,7 @@ class AsyncTraceClient:
                     "limit": limit,
                     "userId": user_id,
                     "name": name,
+                    "orderBy": order_by,
                     "tags": tags,
                 }
             ),
