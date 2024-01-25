@@ -35,9 +35,9 @@ BATCH_SIZE_LIMIT = 2_500_000
 class LangfuseMetadata(pydantic.BaseModel):
     batch_size: int
     sdk_integration: typing.Optional[str] = None
-    sdk_name: str = None
-    sdk_version: str = None
-    public_key: str = None
+    sdk_name: typing.Optional[str] = None
+    sdk_version: typing.Optional[str] = None
+    public_key: typing.Optional[str] = None
 
 
 class Consumer(threading.Thread):
