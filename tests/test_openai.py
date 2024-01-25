@@ -10,6 +10,7 @@ from langfuse.openai import (
     AzureOpenAI,
     _is_openai_v1,
     _is_streaming_response,
+    filter_image_data,
     openai,
 )
 from tests.utils import create_uuid, get_api
@@ -686,3 +687,94 @@ async def test_async_azure():
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
     assert generation.data[0].level == "ERROR"
+
+
+def test_image_data_filtered():
+    api = get_api()
+    generation_name = create_uuid()
+
+    openai.chat.completions.create(
+        name=generation_name,
+        model="gpt-4-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
+                        },
+                    },
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) == 1
+    assert "data:image/jpeg;base64" not in generation.data[0].input
+
+
+def test_image_filter_base64():
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What’s in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/jpeg;base64,base64_image"},
+                },
+            ],
+        }
+    ]
+    result = filter_image_data(messages)
+
+    print(result)
+
+    assert result == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What’s in this image?"},
+                {"type": "image_url"},
+            ],
+        }
+    ]
+
+
+def test_image_filter_url():
+    result = filter_image_data(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What’s in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                        },
+                    },
+                ],
+            }
+        ]
+    )
+    assert result == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What’s in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                    },
+                },
+            ],
+        }
+    ]
