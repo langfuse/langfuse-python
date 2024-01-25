@@ -1,7 +1,8 @@
+import copy
 import logging
 import threading
 import types
-from typing import Optional
+from typing import List, Optional
 
 import openai
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
@@ -149,12 +150,12 @@ def _get_langfuse_data_from_kwargs(
     elif resource.type == "chat":
         prompt = (
             {
-                "messages": kwargs.get("messages", [{}]),
-                "functions": kwargs.get("functions", [{}]),
+                "messages": filter_image_data(kwargs.get("messages", [])),
+                "functions": kwargs.get("functions", []),
                 "function_call": kwargs.get("function_call", {}),
             }
             if kwargs.get("functions", None) is not None
-            else kwargs.get("messages", [{}])
+            else filter_image_data(kwargs.get("messages", []))
         )
 
     modelParameters = {
@@ -476,3 +477,26 @@ def auth_check():
         modifier.initialize()
 
     return modifier._langfuse.auth_check()
+
+
+def filter_image_data(messages: List[dict]):
+    """
+    https://platform.openai.com/docs/guides/vision?lang=python
+
+    The messages array remains the same, but the 'image_url' is removed from the 'content' array.
+    It should only be removed if the value starts with 'data:image/jpeg;base64,'
+
+    """
+
+    output_messages = copy.deepcopy(messages)
+
+    for message in output_messages:
+        if message.get("content", None) is not None:
+            content = message["content"]
+            for index, item in enumerate(content):
+                if isinstance(item, dict) and item.get("image_url", None) is not None:
+                    url = item["image_url"]["url"]
+                    if url.startswith("data:image/jpeg;base64,"):
+                        del content[index]["image_url"]
+
+    return output_messages

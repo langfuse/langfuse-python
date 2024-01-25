@@ -184,6 +184,7 @@ def test_create_generation():
     timestamp = _get_timestamp()
     generation_id = create_uuid()
     user_id = create_uuid()
+
     langfuse.generation(
         id=generation_id,
         user_id=user_id,
@@ -191,7 +192,11 @@ def test_create_generation():
         start_time=timestamp,
         end_time=timestamp,
         model="gpt-3.5-turbo",
-        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
+        model_parameters={
+            "max_tokens": "1000",
+            "temperature": "0.9",
+            "stop": ["user-1", "user-2"],
+        },
         input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
@@ -224,7 +229,11 @@ def test_create_generation():
     assert generation.start_time is not None
     assert generation.end_time is not None
     assert generation.model == "gpt-3.5-turbo"
-    assert generation.model_parameters == {"max_tokens": "1000", "temperature": "0.9"}
+    assert generation.model_parameters == {
+        "max_tokens": "1000",
+        "temperature": "0.9",
+        "stop": ["user-1", "user-2"],
+    }
     assert generation.input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {
@@ -241,7 +250,15 @@ def test_create_generation():
     [
         LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
         LlmUsage(promptTokens=51, totalTokens=100),
-        {"input": 51, "output": 0, "total": 100, "unit": "TOKENS"},
+        {
+            "input": 51,
+            "output": 0,
+            "total": 100,
+            "unit": "TOKENS",
+            "input_cost": 100,
+            "output_cost": 200,
+            "total_cost": 300,
+        },
         {"input": 51, "total": 100},
     ],
 )
