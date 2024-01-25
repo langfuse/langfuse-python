@@ -160,7 +160,7 @@ class Consumer(threading.Thread):
 
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
         def execute_task_with_backoff(batch: List[Any]):
-            return self._client.batch_post(gzip=False, batch=batch, metadata=metadata)
+            return self._client.batch_post(batch=batch, metadata=metadata)
 
         execute_task_with_backoff(batch)
         self._log.debug("successfully uploaded batch of %d items", len(batch))
