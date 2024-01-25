@@ -159,7 +159,7 @@ class Consumer(threading.Thread):
         ).dict()
 
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
-        def execute_task_with_backoff(batch: list[Any]):
+        def execute_task_with_backoff(batch: List[Any]):
             return self._client.batch_post(gzip=False, batch=batch, metadata=metadata)
 
         execute_task_with_backoff(batch)
