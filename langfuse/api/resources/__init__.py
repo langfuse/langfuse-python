@@ -87,7 +87,7 @@ from .observations import Observations
 from .projects import Project, Projects
 from .prompts import CreatePromptRequest, Prompt
 from .score import CreateScoreRequest, Scores
-from .trace import Traces
+from .trace import Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
@@ -149,6 +149,7 @@ __all__ = [
     "ServiceUnavailableError",
     "Session",
     "SessionWithTraces",
+    "Sort",
     "Trace",
     "TraceBody",
     "TraceEvent",
