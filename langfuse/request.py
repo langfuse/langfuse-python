@@ -38,7 +38,6 @@ class LangfuseClient:
                 f"{self._public_key}:{self._secret_key}".encode("utf-8")
             ).decode("ascii"),
             "Content-Type": "application/json",
-            "Accept-Encoding": "gzip",
             "x_langfuse_sdk_name": "python",
             "x_langfuse_sdk_version": self._version,
             "x_langfuse_public_key": self._public_key,
