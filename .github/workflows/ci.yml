@@ -159,7 +159,10 @@ jobs:
           - "3.11"
     name: Test on Python version ${{ matrix.python-version }}
     steps:
+      - uses: actions/checkout@v3
+
       - uses: ./.github/workflows/server.yml
+
       - name: Install Python
         uses: actions/setup-python@v4
         # see details (matrix, python-version, python-version-file, etc.)
