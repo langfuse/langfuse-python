@@ -12,7 +12,6 @@ except ImportError:
     import pydantic  # type: ignore
 
 import pytest
-import pytz
 
 from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
@@ -598,7 +597,7 @@ def test_update_generation():
     assert retrieved_generation.trace_id == generation.trace_id
     assert retrieved_generation.metadata == {"dict": "value"}
     assert start.replace(
-        microsecond=0, tzinfo=pytz.UTC
+        microsecond=0, tzinfo=timezone.utc
     ) == retrieved_generation.start_time.replace(microsecond=0)
 
 
