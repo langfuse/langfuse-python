@@ -132,15 +132,6 @@ jobs:
           key: |
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
-      - name: Install the project dependencies
-        run: poetry install --without dev --remove-untracked
-
-      - name: Run the automated tests
-        run: |
-          python --version
-          poetry run pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py
-          poetry run pytest -s -v --log-cli-level=INFO tests/test_task_manager.py
-
       - name: Install extra dependencies
         run: poetry install --all-extras
 
@@ -149,10 +140,127 @@ jobs:
           python --version
           poetry run pytest -s -v --log-cli-level=INFO
 
+  integration-tests:
+    runs-on: ubuntu-latest
+    env:
+      LANGFUSE_HOST: "http://localhost:3000"
+      LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
+      LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      # HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+    name: Test on Python version ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Clone langfuse server
+        run: |
+          git clone https://github.com/langfuse/langfuse.git ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
+
+      - name: Setup node (for langfuse server)
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Cache langfuse server dependencies
+        uses: actions/cache@v3
+        with:
+          path: ./langfuse-server/node_modules
+          key: |
+            langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
+            langfuse-server-
+
+      - name: Run langfuse server
+        run: |
+          cd ./langfuse-server
+
+          echo "::group::Run langfuse server"
+          TELEMETRY_ENABLED=false docker-compose up -d db
+          echo "::endgroup::"
+
+          echo "::group::Logs from langfuse server"
+          TELEMETRY_ENABLED=false docker-compose logs
+          echo "::endgroup::"
+
+          echo "::group::Install dependencies (necessary to run seeder)"
+          npm ci
+          echo "::endgroup::"
+
+          echo "::group::Seed db"
+          cp .env.dev.example .env
+          npx --yes prisma migrate deploy
+          npx --yes prisma db seed
+          echo "::endgroup::"
+
+          echo "::group::Run server"
+          TELEMETRY_ENABLED=false docker-compose up -d langfuse-server
+          echo "::endgroup::"
+
+      # Add this step to check the health of the container
+      - name: Health check for langfuse server
+        run: |
+          echo "Checking if the langfuse server is up..."
+          retry_count=0
+          max_retries=5
+          until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health
+          do
+            retry_count=`expr $retry_count + 1`
+            echo "Attempt $retry_count of $max_retries..."
+            if [ $retry_count -ge $max_retries ]; then
+              echo "Langfuse server did not respond in time. Printing logs..."
+              docker logs langfuse-server_langfuse-server_1
+              echo "Failing the step..."
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "Langfuse server is up and running!"
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        # see details (matrix, python-version, python-version-file, etc.)
+        # https://github.com/actions/setup-python
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Check python version
+        run: python --version
+
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+
+      - name: Set poetry python version
+        run: |
+          poetry env use ${{ matrix.python-version }}
+          poetry env info
+
+      - name: Setup a local virtual environment (if no poetry.toml file)
+        run: |
+          poetry config virtualenvs.create true --local
+          poetry config virtualenvs.in-project true --local
+
+      - name: Install the project dependencies
+        run: |
+          cd integration
+          poetry install
+
+      - name: Run the automated tests
+        run: |
+          python --version
+          poetry run main
+
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
     runs-on: ubuntu-latest
-    needs: [ci, linting]
+    needs: [ci, linting, integration-tests]
     if: always()
     steps:
       - name: Successful deploy
