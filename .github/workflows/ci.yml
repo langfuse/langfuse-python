@@ -255,6 +255,7 @@ jobs:
       - name: Run the automated tests
         run: |
           python --version
+          cd integration
           poetry run main
 
   all-tests-passed:
