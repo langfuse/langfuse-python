@@ -133,6 +133,15 @@ jobs:
             venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
 
       - name: Install the project dependencies
+        run: poetry install
+
+      - name: Run the automated tests
+        run: |
+          python --version
+          poetry run pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py
+          poetry run pytest -s -v --log-cli-level=INFO tests/test_task_manager.py
+
+      - name: Install extra dependencies
         run: poetry install --all-extras
 
       - name: Run the automated tests

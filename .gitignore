@@ -23,3 +23,5 @@ dmypy.json
 /.coverage
 
 .DS_Store
+
+.ruff_cache
