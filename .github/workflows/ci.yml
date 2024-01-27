@@ -142,6 +142,9 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shared-models
     env:
       LANGFUSE_HOST: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
@@ -249,13 +252,11 @@ jobs:
 
       - name: Install the project dependencies
         run: |
-          cd integration
           poetry install
 
       - name: Run the automated tests
         run: |
           python --version
-          cd integration
           poetry run main
 
   all-tests-passed:
