@@ -157,7 +157,7 @@ jobs:
           - "3.9"
           - "3.10"
           - "3.11"
-    name: Test on Python version ${{ matrix.python-version }}
+    name: Integration Test on Python version ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
 
