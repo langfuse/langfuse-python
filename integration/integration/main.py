@@ -18,7 +18,7 @@ def main():
 
     returned_trace = langfuse.get_trace(trace.id)
 
-    assert returned_trace.id != trace.id
+    assert returned_trace.id == trace.id
     assert returned_trace.name == "trace-name"
 
 
