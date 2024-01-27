@@ -17,7 +17,7 @@ run:
       with:
         path: ./langfuse-server/node_modules
         key: |
-          langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
+          ${{ runner.os }}-langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
           langfuse-server-
 
     - name: Run langfuse server
