@@ -2,7 +2,7 @@
 name = "integration"
 version = "0.1.0"
 description = ""
-authors = ["Max Deichmann <m.deichmann@tum.de>"]
+authors = ["Max Deichmann <max@langfuse.com>"]
 license = "MIT"
 readme = "README.md"
 packages = [{ include = "langfuse", from = ".."}]
