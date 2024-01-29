@@ -32,7 +32,7 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
         usage = usage.dict()
 
     # validate that usage object has input, output, total, usage
-    is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "usage"))
+    is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "unit"))
     is_openai_usage = any(
         k in usage
         for k in (
@@ -47,7 +47,7 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
 
     if not is_langfuse_usage and not is_openai_usage:
         raise ValueError(
-            "Usage object must have either {input, output, total, usage} or {promptTokens, completionTokens, totalTokens}"
+            "Usage object must have either {input, output, total, unit} or {promptTokens, completionTokens, totalTokens}"
         )
 
     def extract_by_priority(

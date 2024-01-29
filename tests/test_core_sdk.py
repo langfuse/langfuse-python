@@ -243,23 +243,38 @@ def test_create_generation():
 
 
 @pytest.mark.parametrize(
-    "usage",
+    "usage, expected_usage",
     [
-        LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
-        LlmUsage(promptTokens=51, totalTokens=100),
-        {
-            "input": 51,
-            "output": 0,
-            "total": 100,
-            "unit": "TOKENS",
-            "input_cost": 100,
-            "output_cost": 200,
-            "total_cost": 300,
-        },
-        {"input": 51, "total": 100},
+        (LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100), "TOKENS"),
+        (LlmUsage(promptTokens=51, totalTokens=100), "TOKENS"),
+        (
+            {
+                "input": 51,
+                "output": 0,
+                "total": 100,
+                "unit": "TOKENS",
+                "input_cost": 100,
+                "output_cost": 200,
+                "total_cost": 300,
+            },
+            "TOKENS",
+        ),
+        (
+            {
+                "input": 51,
+                "output": 0,
+                "total": 100,
+                "unit": "CHARACTERS",
+                "input_cost": 100,
+                "output_cost": 200,
+                "total_cost": 300,
+            },
+            "CHARACTERS",
+        ),
+        ({"input": 51, "total": 100}, "TOKENS"),
     ],
 )
-def test_create_generation_complex(usage):
+def test_create_generation_complex(usage, expected_usage):
     langfuse = Langfuse(debug=False)
     api = get_api()
 
@@ -308,7 +323,7 @@ def test_create_generation_complex(usage):
     assert generation.usage.input == 51
     assert generation.usage.output == 0
     assert generation.usage.total == 100
-    assert generation.usage.unit == "TOKENS"
+    assert generation.usage.unit == expected_usage
 
 
 def test_create_span():
