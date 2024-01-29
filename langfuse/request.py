@@ -1,15 +1,13 @@
 import json
 import logging
 from base64 import b64encode
-from gzip import GzipFile
-from io import BytesIO
 from typing import Any, List, Union
 
-import requests
+import httpx
 
 from langfuse.serializer import EventSerializer
 
-_session = requests.sessions.Session()
+_session = httpx.Client()
 
 
 class LangfuseClient:
@@ -45,49 +43,38 @@ class LangfuseClient:
             "x_langfuse_public_key": self._public_key,
         }
 
-    def batch_post(self, gzip: bool = False, **kwargs) -> requests.Response:
+    def batch_post(self, **kwargs) -> httpx.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
 
         logging.debug("uploading data: %s", kwargs)
-        res = self.post(gzip, **kwargs)
+        res = self.post(**kwargs)
         return self._process_response(
             res, success_message="data uploaded successfully", return_json=False
         )
 
-    def post(self, gzip: bool = False, **kwargs) -> requests.Response:
+    def post(self, **kwargs) -> httpx.Response:
         """Post the `kwargs` to the API"""
         log = logging.getLogger("langfuse")
-        body = kwargs
-
-        url = self.remove_trailing_slash(self._base_url) + "/api/public/ingestion"
-        data = json.dumps(body, cls=EventSerializer)
+        url = self._remove_trailing_slash(self._base_url) + "/api/public/ingestion"
+        data = json.dumps(kwargs, cls=EventSerializer)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
-        if gzip:
-            headers["Content-Encoding"] = "gzip"
-            buf = BytesIO()
-            with GzipFile(fileobj=buf, mode="w") as gz:
-                # 'data' was produced by json.dumps(),
-                # whose default encoding is utf-8.
-                gz.write(data.encode("utf-8"))
-            data = buf.getvalue()
-
-        res = _session.post(url, data=data, headers=headers, timeout=self._timeout)
+        res = _session.post(url, content=data, headers=headers, timeout=self._timeout)
 
         if res.status_code == 200:
             log.debug("data uploaded successfully")
 
         return res
 
-    def remove_trailing_slash(self, url: str) -> str:
+    def _remove_trailing_slash(self, url: str) -> str:
         """Removes the trailing slash from a URL"""
         if url.endswith("/"):
             return url[:-1]
         return url
 
     def _process_response(
-        self, res: requests.Response, success_message: str, *, return_json: bool = True
-    ) -> Union[requests.Response, Any]:
+        self, res: httpx.Response, success_message: str, *, return_json: bool = True
+    ) -> Union[httpx.Response, Any]:
         log = logging.getLogger("langfuse")
         log.debug("received response: %s", res.text)
         if res.status_code == 200 or res.status_code == 201:
