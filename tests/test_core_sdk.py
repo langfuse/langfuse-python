@@ -1,49 +1,16 @@
 import os
 import time
-import typing
 from asyncio import gather
 from datetime import datetime, timezone
 
 from langfuse.utils import _get_timestamp
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
 import pytest
 
 from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid, get_api
-
-
-class LlmUsage(pydantic.BaseModel):
-    prompt_tokens: typing.Optional[int] = pydantic.Field(
-        alias="promptTokens", default=None
-    )
-    completion_tokens: typing.Optional[int] = pydantic.Field(
-        alias="completionTokens", default=None
-    )
-    total_tokens: typing.Optional[int] = pydantic.Field(
-        alias="totalTokens", default=None
-    )
-
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
-
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().dict(**kwargs_with_defaults)
+from tests.utils import LlmUsage, LlmUsageWithCost, create_uuid, get_api
 
 
 @pytest.mark.asyncio
@@ -272,6 +239,17 @@ def test_create_generation():
             "CHARACTERS",
         ),
         ({"input": 51, "total": 100}, "TOKENS"),
+        (
+            LlmUsageWithCost(
+                promptTokens=51,
+                completionTokens=0,
+                totalTokens=100,
+                inputCost=100,
+                outputCost=200,
+                totalCost=300,
+            ),
+            "TOKENS",
+        ),
     ],
 )
 def test_create_generation_complex(usage, expected_usage):
