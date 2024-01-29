@@ -6,9 +6,9 @@ import threading
 from queue import Empty, Queue
 import time
 from typing import List, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import typing
-from dateutil.tz import tzutc
+
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -233,7 +233,7 @@ class TaskManager(object):
         try:
             self._log.debug(f"adding task {event}")
             json.dumps(event, cls=EventSerializer)
-            event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
+            event["timestamp"] = datetime.utcnow().replace(tzinfo=timezone.utc)
 
             self._queue.put(event, block=False)
         except queue.Full:
