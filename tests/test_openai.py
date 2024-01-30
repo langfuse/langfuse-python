@@ -918,8 +918,14 @@ def test_openai_thread_creation():
 
 
 def test_openai_message_creation():
-    # TODO: Decide if thread creation should create it's own trace
     api = get_api()
-    event_name = create_uuid()
-    langfuse = Langfuse()
+    observation_name = create_uuid()
+
+    # in case thread_id is not a trace_id
+    message = openai.beta.threads.messages.create(
+        thread_id=observation_name,
+        role="user",
+        content="You are a hello world bot. You say hello world.",
+    )
+
     pass  # TODO
