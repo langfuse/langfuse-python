@@ -738,6 +738,36 @@ def test_image_data_filtered():
     assert "data:image/jpeg;base64" not in generation.data[0].input
 
 
+def test_image_data_filtered_png():
+    api = get_api()
+    generation_name = create_uuid()
+
+    openai.chat.completions.create(
+        name=generation_name,
+        model="gpt-4-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/png;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
+                        },
+                    },
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) == 1
+    assert "data:image/jpeg;base64" not in generation.data[0].input
+
+
 def test_image_filter_base64():
     messages = [
         {
