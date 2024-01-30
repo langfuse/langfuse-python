@@ -11,7 +11,7 @@ from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
-from langfuse.utils import _get_timestamp
+from langfuse.utils import _get_timestamp, get_api
 
 log = logging.getLogger("langfuse")
 
@@ -373,6 +373,19 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
             "created_at": response.get("created_at"),
             "metadata": response.get("metadata", {}),
         }
+    elif resource.type == "message":
+        # based on https://platform.openai.com/docs/api-reference/messages/object
+        completion = {
+            "id": response.get("id"),
+            "object": response.get("object"),
+            "created_at": response.get("created_at"),
+            "thread_id": response.get("thread_id"),
+            "role": response.get("role"),
+            "content": response.get("content", []),
+            "assistant_id": response.get("assistant_id"),
+            "run_id": response.get("run_id"),
+            "file_ids": response.get("file_ids", []),
+        }
     usage = response.get("usage", None)
 
     return (
@@ -407,7 +420,29 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     if open_ai_resource.type == "assistant":
         observation = new_langfuse.event(**parsed_kwargs)
     elif open_ai_resource.type == "thread":
-        observation = new_langfuse.trace(id=parsed_kwargs["trace_id"], **parsed_kwargs)
+        observation = new_langfuse.event(**parsed_kwargs)
+    elif open_ai_resource.type == "message":
+        # messages can only be created in the context of a thread, i.e. an existing trace
+        if parsed_kwargs.get("trace_id", None) is None:
+            # look if there exists a trace with the thread_id
+            thread_id = parsed_kwargs.get("input", {}).get("thread_id", None)
+            if thread_id is None:
+                # TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not
+                msg = "A message can only be created in the context of a thread, i.e. an existing trace. Please provide a thread_id."
+                raise NotImplementedError(
+                    "# TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not "
+                )
+            else:
+                # get the trace with event of thread creation
+                api = get_api()
+                observations = api.observations.get_many(name=thread_id, type="EVENT")
+                observation = observations.data[
+                    0
+                ]  # TODO: what in case observation does not exist?
+                parsed_kwargs["trace_id"] = observation.trace_id
+
+        observation = new_langfuse.event(**parsed_kwargs)
+
     else:
         observation = new_langfuse.generation(**parsed_kwargs)
     try:
@@ -423,7 +458,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
             if open_ai_resource.type == "thread":
-                observation.update(session_id=openai_response.id)
+                observation.update(name=openai_response.id, output=completion)
             else:
                 observation.update(
                     model=model,

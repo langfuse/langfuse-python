@@ -904,28 +904,64 @@ def test_openai_assistant_creation_all_attributes():
 
 
 def test_openai_thread_creation():
-    # TODO: Decide if thread creation should create it's own trace
     api = get_api()
     trace_id = create_uuid()
 
     thread = openai.beta.threads.create(trace_id=trace_id)
     openai.flush_langfuse()
 
-    trace = api.trace.get(trace_id)
+    observation = api.observations.get_many(name=thread.id)
 
-    assert trace.id == trace_id
-    assert trace.session_id == thread.id
+    assert len(observation.data) == 1
+    observation = observation.data[0]
+    assert observation.name == thread.id
 
 
-def test_openai_message_creation():
+@pytest.fixture(scope="session")
+def thread_and_observation():
+    api = get_api()
+    trace_id = create_uuid()
+
+    thread = openai.beta.threads.create(trace_id=trace_id)
+    openai.flush_langfuse()
+
+    observations = api.observations.get_many(name=thread.id, type="EVENT")
+
+    assert len(observations.data) == 1
+    observation = observations.data[0]
+    assert observation.trace_id == trace_id
+
+    yield thread, observation
+
+
+# test creation only possible if a thread exists
+def test_openai_message_creation(thread_and_observation):
+    thread, thread_creation_event = thread_and_observation
     api = get_api()
     observation_name = create_uuid()
 
-    # in case thread_id is not a trace_id
+    msg_content = "You are a hello world bot. You say hello world."
+    msg_role = "user"
     message = openai.beta.threads.messages.create(
-        thread_id=observation_name,
-        role="user",
-        content="You are a hello world bot. You say hello world.",
+        thread_id=thread.id,  # needs to be created beforehand
+        role=msg_role,
+        content=msg_content,
+        name=observation_name,
     )
 
-    pass  # TODO
+    openai.flush_langfuse()
+    observations = api.observations.get_many(name=observation_name, type="EVENT")
+
+    assert len(observations.data) != 0
+
+    observation = observations.data[0]
+    assert observation.trace_id == thread_creation_event.trace_id
+    assert observation.name == observation_name
+    assert observation.type == "EVENT"
+    assert observation.input["content"] == msg_content
+    assert observation.input["role"] == msg_role
+    assert (
+        observation.input["thread_id"] == thread.id == observation.output["thread_id"]
+    )
+    assert observation.output["object"] == "thread.message"
+    assert observation.output["id"] is not None

@@ -1,5 +1,6 @@
 import logging
 import typing
+import os
 from datetime import datetime, timezone
 
 try:
@@ -8,6 +9,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.model import ModelUsage, PromptClient
+from langfuse.api.client import FernLangfuse
 
 log = logging.getLogger("langfuse")
 
@@ -71,3 +73,11 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
         }
 
     return usage
+
+
+def get_api():
+    return FernLangfuse(
+        username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
+        password=os.environ.get("LANGFUSE_SECRET_KEY"),
+        base_url=os.environ.get("LANGFUSE_HOST"),
+    )
