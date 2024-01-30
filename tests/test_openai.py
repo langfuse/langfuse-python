@@ -959,9 +959,36 @@ def test_openai_message_creation(thread_and_observation):
     assert observation.name == observation_name
     assert observation.type == "EVENT"
     assert observation.input["content"] == msg_content
-    assert observation.input["role"] == msg_role
+    assert observation.input["role"] == msg_role == message.role
     assert (
         observation.input["thread_id"] == thread.id == observation.output["thread_id"]
     )
     assert observation.output["object"] == "thread.message"
-    assert observation.output["id"] is not None
+    assert observation.output["id"] == message.id
+    # TODO: test for full message object
+
+
+def test_openai_run_creation():
+    api = get_api()
+    event_name = create_uuid()
+    assistant_description = "Hello world, I am a test assistant"
+    trace_id = create_uuid()
+
+    assistant = openai.beta.assistants.create(
+        name=event_name,  # TODO: Assistent name is meant here, not event name
+        model="gpt-3.5-turbo",
+        description=assistant_description,
+        trace_id=trace_id,
+    )
+
+    thread = openai.beta.threads.create(trace_id=trace_id)
+
+    run = openai.beta.threads.runs.create(
+        thread_id=thread.id,
+        assistant_id=assistant.id,
+        instructions="Say hello world.",
+    )
+
+    openai.flush_langfuse()
+
+    # TODO: Continue here
