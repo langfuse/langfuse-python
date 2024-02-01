@@ -29,6 +29,7 @@ from .commons import (
     NotFoundError,
     Observation,
     ObservationLevel,
+    ObservationsView,
     Score,
     Session,
     SessionWithTraces,
@@ -83,7 +84,7 @@ from .ingestion import (
     UpdateSpanBody,
     UpdateSpanEvent,
 )
-from .observations import Observations
+from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
 from .prompts import CreatePromptRequest, Prompt
 from .score import CreateScoreRequest, Scores
@@ -135,6 +136,8 @@ __all__ = [
     "ObservationLevel",
     "ObservationType",
     "Observations",
+    "ObservationsView",
+    "ObservationsViews",
     "OpenAiUsage",
     "OptionalObservationBody",
     "Project",

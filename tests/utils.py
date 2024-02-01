@@ -32,9 +32,11 @@ class LlmUsageWithCost(pydantic.BaseModel):
     total_tokens: typing.Optional[int] = pydantic.Field(
         alias="totalTokens", default=None
     )
-    input_cost: typing.Optional[int] = pydantic.Field(alias="inputCost", default=None)
-    output_cost: typing.Optional[int] = pydantic.Field(alias="outputCost", default=None)
-    total_cost: typing.Optional[int] = pydantic.Field(alias="totalCost", default=None)
+    input_cost: typing.Optional[float] = pydantic.Field(alias="inputCost", default=None)
+    output_cost: typing.Optional[float] = pydantic.Field(
+        alias="outputCost", default=None
+    )
+    total_cost: typing.Optional[float] = pydantic.Field(alias="totalCost", default=None)
 
 
 class LlmUsage(pydantic.BaseModel):

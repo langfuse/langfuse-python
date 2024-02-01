@@ -12,8 +12,8 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.observation import Observation
-from .types.observations import Observations
+from ..commons.types.observations_view import ObservationsView
+from .types.observations_views import ObservationsViews
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -25,7 +25,7 @@ class ObservationsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(self, observation_id: str) -> Observation:
+    def get(self, observation_id: str) -> ObservationsView:
         """
         Get a specific observation
 
@@ -42,7 +42,7 @@ class ObservationsClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ObservationsView, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -71,7 +71,7 @@ class ObservationsClient:
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
-    ) -> Observations:
+    ) -> ObservationsViews:
         """
         Get a list of observations
 
@@ -110,7 +110,7 @@ class ObservationsClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Observations, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ObservationsViews, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -134,7 +134,7 @@ class AsyncObservationsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(self, observation_id: str) -> Observation:
+    async def get(self, observation_id: str) -> ObservationsView:
         """
         Get a specific observation
 
@@ -151,7 +151,7 @@ class AsyncObservationsClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Observation, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ObservationsView, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -180,7 +180,7 @@ class AsyncObservationsClient:
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
-    ) -> Observations:
+    ) -> ObservationsViews:
         """
         Get a list of observations
 
@@ -219,7 +219,7 @@ class AsyncObservationsClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Observations, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ObservationsViews, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

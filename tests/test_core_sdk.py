@@ -210,10 +210,16 @@ def test_create_generation():
 
 
 @pytest.mark.parametrize(
-    "usage, expected_usage",
+    "usage, expected_usage, expected_input_cost, expected_output_cost, expected_total_cost",
     [
-        (LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100), "TOKENS"),
-        (LlmUsage(promptTokens=51, totalTokens=100), "TOKENS"),
+        (
+            LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
+            "TOKENS",
+            None,
+            None,
+            None,
+        ),
+        (LlmUsage(promptTokens=51, totalTokens=100), "TOKENS", None, None, None),
         (
             {
                 "input": 51,
@@ -225,6 +231,9 @@ def test_create_generation():
                 "total_cost": 300,
             },
             "TOKENS",
+            100,
+            200,
+            300,
         ),
         (
             {
@@ -237,8 +246,17 @@ def test_create_generation():
                 "total_cost": 300,
             },
             "CHARACTERS",
+            100,
+            200,
+            300,
         ),
-        ({"input": 51, "total": 100}, "TOKENS"),
+        (
+            {"input": 51, "total": 100},
+            None,
+            None,
+            None,
+            None,
+        ),
         (
             LlmUsageWithCost(
                 promptTokens=51,
@@ -249,11 +267,34 @@ def test_create_generation():
                 totalCost=300,
             ),
             "TOKENS",
+            100,
+            200,
+            300,
+        ),
+        (
+            LlmUsageWithCost(
+                promptTokens=51,
+                completionTokens=0,
+                totalTokens=100,
+                inputCost=0.0021,
+                outputCost=0.00000000000021,
+                totalCost=300,
+            ),
+            "TOKENS",
+            0.0021,
+            0.00000000000021,
+            300,
         ),
     ],
 )
-def test_create_generation_complex(usage, expected_usage):
-    langfuse = Langfuse(debug=False)
+def test_create_generation_complex(
+    usage,
+    expected_usage,
+    expected_input_cost,
+    expected_output_cost,
+    expected_total_cost,
+):
+    langfuse = Langfuse(debug=True)
     api = get_api()
 
     generation_id = create_uuid()
@@ -301,6 +342,9 @@ def test_create_generation_complex(usage, expected_usage):
     assert generation.usage.input == 51
     assert generation.usage.output == 0
     assert generation.usage.total == 100
+    assert generation.calculated_input_cost == expected_input_cost
+    assert generation.calculated_output_cost == expected_output_cost
+    assert generation.calculated_total_cost == expected_total_cost
     assert generation.usage.unit == expected_usage
 
 

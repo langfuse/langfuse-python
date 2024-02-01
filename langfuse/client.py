@@ -638,6 +638,7 @@ class Langfuse(object):
 
                 self.task_manager.add_task(event)
 
+            self.log.debug(f"Creating generation max {generation_body} {usage}...")
             request = CreateGenerationBody(**generation_body)
 
             event = {
