@@ -211,6 +211,7 @@ def test_create_generation():
 
 @pytest.mark.parametrize(
     "usage, expected_usage, expected_input_cost, expected_output_cost, expected_total_cost",
+    "usage, expected_usage, expected_input_cost, expected_output_cost, expected_total_cost",
     [
         # (
         #     LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
