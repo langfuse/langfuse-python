@@ -36,8 +36,10 @@ def extract_by_priority(
         if key in usage:
             value = usage[key]
             try:
+                if value is None:
+                    return None
                 return target_type(value)
-            except ValueError:
+            except Exception:
                 continue
     return None
 
