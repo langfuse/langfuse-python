@@ -5,6 +5,7 @@ import types
 from typing import List, Optional
 
 import openai
+import asyncio
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 from packaging.version import Version
 from wrapt import wrap_function_wrapper
@@ -99,6 +100,13 @@ OPENAI_METHODS_V1 = [
         type="message",
         sync=True,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="create",
+        type="run",
+        sync=True,
+    ),
 ]
 
 
@@ -107,7 +115,7 @@ class OpenAiArgsExtractor:
         self, name=None, metadata=None, trace_id=None, session_id=None, **kwargs
     ):
         self.args = {}
-        self.args["name"] = name
+        self.args["name"] = name  # TODO: assistent name!!
         self.args["metadata"] = metadata
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
@@ -133,7 +141,11 @@ def _langfuse_wrapper(func):
 def _get_langfuse_data_from_kwargs(
     resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs
 ):
-    name = kwargs.get("name", "OpenAI-generation")
+    default_names = {
+        "run": "OpenAI-run",
+    }
+
+    name = kwargs.get("name") or default_names.get(resource.type, "OpenAI-generation")
 
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
@@ -190,6 +202,16 @@ def _get_langfuse_data_from_kwargs(
             "content": kwargs.get("content"),
             "file_ids": kwargs.get("file_ids", []),
             # "metadata": kwargs.get("metadata"), # TODO: extract here?
+        }
+    elif resource.type == "run":
+        prompt = {
+            "thread_id": kwargs.get("thread_id"),
+            "assistant_id": kwargs.get("assistant_id"),
+            "model": kwargs.get("model"),
+            "instructions": kwargs.get("instructions"),
+            "additional_instructions": kwargs.get("additional_instructions"),
+            "tools": kwargs.get("tools", []),
+            "metadata": kwargs.get("metadata", {}),
         }
 
     modelParameters = {
@@ -386,6 +408,10 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
             "run_id": response.get("run_id"),
             "file_ids": response.get("file_ids", []),
         }
+
+    elif resource.type == "run":
+        # based on https://platform.openai.com/docs/api-reference/messages/object
+        completion = {**response}
     usage = response.get("usage", None)
 
     return (
@@ -442,9 +468,9 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 parsed_kwargs["trace_id"] = observation.trace_id
 
         observation = new_langfuse.event(**parsed_kwargs)
-
     else:
         observation = new_langfuse.generation(**parsed_kwargs)
+
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
@@ -492,7 +518,11 @@ async def _wrap_async(
         open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
     )
     generation = new_langfuse.generation(**generation)
+
     try:
+        if open_ai_resource.type == "run":
+            pass
+
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):

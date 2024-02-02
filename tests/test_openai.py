@@ -969,6 +969,7 @@ def test_openai_message_creation(thread_and_observation):
 
 
 def test_openai_run_creation():
+    os.environ["PYTHONASYNCIODEBUG"] = "1"
     api = get_api()
     event_name = create_uuid()
     assistant_description = "Hello world, I am a test assistant"
@@ -983,10 +984,12 @@ def test_openai_run_creation():
 
     thread = openai.beta.threads.create(trace_id=trace_id)
 
+    # this should immediately return
     run = openai.beta.threads.runs.create(
         thread_id=thread.id,
         assistant_id=assistant.id,
         instructions="Say hello world.",
+        trace_id=trace_id,
     )
 
     openai.flush_langfuse()
