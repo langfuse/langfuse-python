@@ -48,10 +48,6 @@ from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_ti
 from .version import __version__ as version
 
 
-class GetPromptOptions(typing.TypedDict, total=False):
-    cache_ttl_seconds: int
-
-
 class Langfuse(object):
     log = logging.getLogger("langfuse")
 
@@ -316,22 +312,22 @@ class Langfuse(object):
         self,
         name: str,
         version: Optional[int] = None,
-        options: Optional[GetPromptOptions] = None,
+        *,
+        cache_ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
         """
         Retrieves a prompt by its name and optionally its version, with support for additional options.
 
-        This method attempts to fetch the requested prompt from the cache. If the prompt is not found
-        in the cache or if the cached prompt has expired, it will try to fetch the prompt again and update
-        the cache. If fetching the new prompt fails, and there is an expired prompt in the cache, it will
+        This method attempts to fetch the requested prompt from the local cache. If the prompt is not found
+        in the cache or if the cached prompt has expired, it will try to fetch the prompt from the server again
+        and update the cache. If fetching the new prompt fails, and there is an expired prompt in the cache, it will
         return the expired prompt as a fallback.
 
         Parameters:
         - name (str): The name of the prompt to retrieve.
         - version (Optional[int]): The version of the prompt. If not specified, the latest version is assumed.
-        - options (Optional[GetPromptOptions]): A dictionary of additional options for retrieving the prompt.
-        Currently supports 'cache_ttl_seconds' to specify the TTL of the cache entry. If 'cache_ttl_seconds' is not
-        specified in the options, a default TTL of 60 seconds is used.
+        - cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
+        keyword argument. If 'cache_ttl_seconds' is not specified, a default TTL of 60 seconds is used.
 
         Returns:
         - PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
@@ -343,16 +339,20 @@ class Langfuse(object):
 
         self.log.debug(f"Getting prompt {name}, version {version or 'latest'}")
 
-        ttl_seconds = options.get("cache_ttl_seconds", None) if options else None
+        if not name:
+            raise ValueError("Prompt name cannot be empty.")
+
         cache_key = PromptCache.generate_cache_key(name, version)
         cached_prompt = self.prompt_cache.get(cache_key)
 
         if cached_prompt is None:
-            return self._fetch_prompt_and_update_cache(name, version, ttl_seconds)
+            return self._fetch_prompt_and_update_cache(name, version, cache_ttl_seconds)
 
         if cached_prompt.is_expired():
             try:
-                return self._fetch_prompt_and_update_cache(name, version, ttl_seconds)
+                return self._fetch_prompt_and_update_cache(
+                    name, version, cache_ttl_seconds
+                )
 
             except Exception as e:
                 self.log.warn(

@@ -100,6 +100,16 @@ def test_get_fresh_prompt(langfuse):
     assert result == PromptClient(prompt)
 
 
+# Should throw an error if prompt name is unspecified
+def test_throw_if_name_unspecified(langfuse):
+    prompt_name = ""
+
+    with pytest.raises(ValueError) as exc_info:
+        langfuse.get_prompt(prompt_name)
+
+    assert "Prompt name cannot be empty" in str(exc_info.value)
+
+
 # Should throw an error if nothing in cache and fetch fails
 def test_throw_when_failing_fetch_and_no_cache(langfuse):
     prompt_name = "test"
@@ -112,6 +122,18 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
 
     assert "Prompt not found" in str(exc_info.value)
     langfuse.log.exception.assert_called_once()
+
+
+# Should throw an error if cache_ttl_seconds is passed as positional rather than keyword argument
+def test_throw_if_cache_ttl_seconds_positional_argument(langfuse):
+    prompt_name = "test"
+    version = 1
+    ttl_seconds = 20
+
+    with pytest.raises(TypeError) as exc_info:
+        langfuse.get_prompt(prompt_name, version, ttl_seconds)
+
+    assert "positional arguments" in str(exc_info.value)
 
 
 # Should return cached prompt if not expired
@@ -145,9 +167,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
     mock_server_call = langfuse.client.prompts.get
     mock_server_call.return_value = prompt
 
-    result_call_1 = langfuse.get_prompt(
-        prompt_name, options={"cache_ttl_seconds": ttl_seconds}
-    )
+    result_call_1 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=ttl_seconds)
     assert mock_server_call.call_count == 1
     assert result_call_1 == prompt_client
 
