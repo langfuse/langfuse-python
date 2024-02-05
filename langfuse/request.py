@@ -7,8 +7,6 @@ import httpx
 
 from langfuse.serializer import EventSerializer
 
-_session = httpx.Client()
-
 
 class LangfuseClient:
     _public_key: str
@@ -16,6 +14,7 @@ class LangfuseClient:
     _base_url: str
     _version: str
     _timeout: int
+    _session: httpx.Client
 
     def __init__(
         self,
@@ -24,12 +23,14 @@ class LangfuseClient:
         base_url: str,
         version: str,
         timeout: int,
+        session: httpx.Client
     ):
         self._public_key = public_key
         self._secret_key = secret_key
         self._base_url = base_url
         self._version = version
         self._timeout = timeout
+        self._session = session
 
     def generate_headers(self):
         return {
@@ -59,7 +60,7 @@ class LangfuseClient:
         data = json.dumps(kwargs, cls=EventSerializer)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
-        res = _session.post(url, content=data, headers=headers, timeout=self._timeout)
+        res = self._session.post(url, content=data, headers=headers, timeout=self._timeout)
 
         if res.status_code == 200:
             log.debug("data uploaded successfully")
