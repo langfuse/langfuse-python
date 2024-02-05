@@ -65,7 +65,7 @@ class Langfuse(object):
         max_retries=3,
         timeout=15,
         sdk_integration: str = "default",
-        session: Optional[httpx.Client] = None
+        httpx_client: Optional[httpx.Client] = None,
     ):
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
