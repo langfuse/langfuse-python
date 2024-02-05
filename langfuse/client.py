@@ -65,7 +65,7 @@ class Langfuse(object):
         max_retries=3,
         timeout=15,
         sdk_integration: str = "default",
-        session: httpx.Client = None
+        httpx_client: httpx.Client = None,
     ):
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
@@ -100,9 +100,11 @@ class Langfuse(object):
             raise ValueError(
                 "secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'"
             )
-        
-        self.session = httpx.Client(timeout=timeout) if session is None else session
-        
+
+        self.httpx_client = (
+            httpx.Client(timeout=timeout) if httpx_client is None else httpx_client
+        )
+
         self.client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
@@ -110,7 +112,7 @@ class Langfuse(object):
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=version,
             x_langfuse_public_key=public_key,
-            httpx_client=self.session
+            httpx_client=self.httpx_client,
         )
 
         langfuse_client = LangfuseClient(
@@ -119,7 +121,7 @@ class Langfuse(object):
             base_url=self.base_url,
             version=version,
             timeout=timeout,
-            session=self.session
+            session=self.httpx_client,
         )
 
         args = {

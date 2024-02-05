@@ -125,7 +125,7 @@ def test_sdk_custom_xhttp_client():
 
     client = httpx.Client(timeout=9999)
 
-    langfuse = Langfuse(session=client)
+    langfuse = Langfuse(httpx_client=client)
 
     langfuse.auth_check()
 
