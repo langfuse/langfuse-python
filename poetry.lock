@@ -126,13 +126,13 @@ typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.9\""}
 
 [[package]]
 name = "anthropic"
-version = "0.8.1"
+version = "0.15.0"
 description = "The official Python library for the anthropic API"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "anthropic-0.8.1-py3-none-any.whl", hash = "sha256:4578b99d6e140c84ad5f409e460aabc85acffc6e189dfd91378b9277b4c158b7"},
-    {file = "anthropic-0.8.1.tar.gz", hash = "sha256:736cf85681b8ed066014b0485d8d5be1f2aae65f86e6a25c76a5d5ebb970eee5"},
+    {file = "anthropic-0.15.0-py3-none-any.whl", hash = "sha256:e864c447f5368a78169d694c2dd48f745f18ff4024b7497659b5259a6451e669"},
+    {file = "anthropic-0.15.0.tar.gz", hash = "sha256:c8d8b119a02416c8e0658afce44dc9d42fba8b6227f35b7d2ccc422ec881e3b4"},
 ]
 
 [package.dependencies]
@@ -143,6 +143,10 @@ pydantic = ">=1.9.0,<3"
 sniffio = "*"
 tokenizers = ">=0.13.0"
 typing-extensions = ">=4.7,<5"
+
+[package.extras]
+bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
+vertex = ["google-auth (>=2,<3)"]
 
 [[package]]
 name = "anyio"
@@ -4233,4 +4237,4 @@ langchain = ["langchain"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "7e4b147daa1fbbaf487b75b66658951f74cd0e3723bce2356a22e3814a8d3114"
+content-hash = "0590de384a77c09bd39d51711a629b055db8815ff0ed6ec29bf0e8128c088c47"
