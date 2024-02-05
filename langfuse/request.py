@@ -23,7 +23,7 @@ class LangfuseClient:
         base_url: str,
         version: str,
         timeout: int,
-        session: httpx.Client
+        session: httpx.Client,
     ):
         self._public_key = public_key
         self._secret_key = secret_key
@@ -60,7 +60,9 @@ class LangfuseClient:
         data = json.dumps(kwargs, cls=EventSerializer)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
-        res = self._session.post(url, content=data, headers=headers, timeout=self._timeout)
+        res = self._session.post(
+            url, content=data, headers=headers, timeout=self._timeout
+        )
 
         if res.status_code == 200:
             log.debug("data uploaded successfully")

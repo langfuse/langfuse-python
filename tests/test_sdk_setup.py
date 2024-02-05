@@ -120,6 +120,32 @@ def test_sdk_default():
     assert langfuse.client._client_wrapper._base_url == host
 
 
+def test_sdk_custom_xhttp_client():
+    public_key, secret_key, host = get_env_variables()
+
+    client = httpx.Client(timeout=9999)
+
+    langfuse = Langfuse(session=client)
+
+    langfuse.auth_check()
+
+    assert langfuse.client._client_wrapper._username == public_key
+    assert langfuse.client._client_wrapper._password == secret_key
+    assert langfuse.client._client_wrapper._base_url == host
+    assert langfuse.task_manager._client._session._timeout.as_dict() == {
+        "connect": 9999,
+        "pool": 9999,
+        "read": 9999,
+        "write": 9999,
+    }
+    assert langfuse.client._client_wrapper.httpx_client._timeout.as_dict() == {
+        "connect": 9999,
+        "pool": 9999,
+        "read": 9999,
+        "write": 9999,
+    }
+
+
 # callback
 def test_callback_setup_without_keys():
     public_key, secret_key, host = get_env_variables()
