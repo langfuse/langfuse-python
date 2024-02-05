@@ -33,7 +33,7 @@ pytest-asyncio = ">=0.21.1,<0.24.0"
 pytest-httpserver = "^1.0.8"
 boto3 = "^1.28.59"
 ruff = "^0.1.8"
-langchain-mistralai = "^0.0.1"
+langchain-mistralai = ">=0.0.1,<0.0.4"
 google-cloud-aiplatform = "^1.38.1"
 
 [tool.poetry.extras]
