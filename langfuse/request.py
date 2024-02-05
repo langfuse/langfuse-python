@@ -23,7 +23,7 @@ class LangfuseClient:
         base_url: str,
         version: str,
         timeout: int,
-        session: httpx.Client = httpx.Client(),
+        session: httpx.Client,
     ):
         self._public_key = public_key
         self._secret_key = secret_key
