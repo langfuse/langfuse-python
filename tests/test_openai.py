@@ -1,6 +1,7 @@
 import os
 
 import pytest
+import time
 from openai import APIConnectionError
 
 from langfuse.client import Langfuse
@@ -25,6 +26,16 @@ expected_err = openai.APIError if _is_openai_v1() else openai.error.Authenticati
 expected_err_msg = (
     "Connection error." if _is_openai_v1() else "You didn't provide an API key."
 )
+
+
+# def _wait_on_run(run, thread, openai):
+#     while run.status == "queued" or run.status == "in_progress":
+#         run = client.beta.threads.runs.retrieve(
+#             thread_id=thread.id,
+#             run_id=run.id,
+#         )
+#         time.sleep(0.5)
+#     return run
 
 
 def test_openai_chat_completion():
@@ -969,7 +980,6 @@ def test_openai_message_creation(thread_and_observation):
 
 
 def test_openai_run_creation():
-    os.environ["PYTHONASYNCIODEBUG"] = "1"
     api = get_api()
     event_name = create_uuid()
     assistant_description = "Hello world, I am a test assistant"
@@ -984,7 +994,7 @@ def test_openai_run_creation():
 
     thread = openai.beta.threads.create(trace_id=trace_id)
 
-    # this should immediately return
+    # this return immediately
     run = openai.beta.threads.runs.create(
         thread_id=thread.id,
         assistant_id=assistant.id,
@@ -993,5 +1003,14 @@ def test_openai_run_creation():
     )
 
     openai.flush_langfuse()
+    # user polling the status of the run
+    while run.status == "queued" or run.status == "in_progress":
+        run = openai.beta.threads.runs.retrieve(
+            thread_id=thread.id,
+            run_id=run.id,
+            trace_id=trace_id,
+        )
+        time.sleep(0.05)
 
+    openai.flush_langfuse()
     # TODO: Continue here

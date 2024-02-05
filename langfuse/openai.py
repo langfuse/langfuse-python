@@ -107,6 +107,13 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="retrieve",
+        type="run",
+        sync=True,
+    ),
 ]
 
 
@@ -141,11 +148,9 @@ def _langfuse_wrapper(func):
 def _get_langfuse_data_from_kwargs(
     resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs
 ):
-    default_names = {
-        "run": "OpenAI-run",
-    }
+    default_names = lambda resource: f"OpenAI-{resource.type}-{resource.method}"
 
-    name = kwargs.get("name") or default_names.get(resource.type, "OpenAI-generation")
+    name = kwargs.get("name") or default_names(resource)
 
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
@@ -412,6 +417,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
     elif resource.type == "run":
         # based on https://platform.openai.com/docs/api-reference/messages/object
         completion = {**response}
+
     usage = response.get("usage", None)
 
     return (
@@ -433,6 +439,83 @@ def _is_streaming_response(response):
     )
 
 
+def _setup_run_create(langfuse: Langfuse, parsed_kwargs):
+    generation = langfuse.generation(**parsed_kwargs)
+    sub_span = langfuse.span(
+        **{**parsed_kwargs, "name": "Run: queued"}, parent_observation_id=generation.id
+    )  # overwrite name
+
+    return generation, sub_span
+
+
+def _setup_run_retrieve(langfuse: Langfuse, parsed_kwargs):
+    # TODO: what in case no trace_id is given?
+    api = get_api()
+    trace_id = parsed_kwargs.get("trace_id")
+
+    generations = api.observations.get_many(
+        trace_id=trace_id, name="OpenAI-run-create", type="GENERATION"
+    )
+
+    # assume last generation is the one corresponding to "run create"
+    if len(generations.data) > 0:
+        generation = generations.data[-1]
+        parent_observation_id = generation.id
+    else:
+        log.warning(
+            f"No Generation found for trace_id {trace_id}. There should be one corresponding the Run create"
+        )
+        parent_observation_id = None
+
+    event = langfuse.event(**parsed_kwargs, parent_observation_id=parent_observation_id)
+    event.parent_observation_id = (
+        parent_observation_id  # TODO: is this information somewhere else?
+    )
+    return event
+
+
+def _post_run_retrieve(langfuse, openai_response, event, trace_id, output):
+    # get spans of the parent observation
+    api = get_api()
+
+    spans = api.observations.get_many(
+        trace_id=trace_id,
+        type="SPAN",
+        parent_observation_id=event.parent_observation_id,
+    )
+
+    run_status_spans = [
+        span for span in spans.data if span.name.startswith("Run: ")
+    ]  # TODO: use other fields
+    run_status_spans.sort(key=lambda x: x.start_time)
+
+    # again assume last one is the one corresponding to the run
+    if run_status_spans:
+        last_run_status_span = run_status_spans[-1]
+        last_status = last_run_status_span.name.split(": ")[1]
+
+        if last_status != openai_response.status:
+            # TODO: end old status
+            # last_run_status_span.update(
+            #     end_time = _get_timestamp()
+            # )
+            status_span = langfuse.span(
+                **{
+                    "name": f"Run: {openai_response.status}",
+                    "parent_observation_id": event.parent_observation_id,
+                    "trace_id": trace_id,
+                }
+            )
+        else:
+            status_span = last_run_status_span
+
+        event.update(parent_observation_id=status_span.id, output=output)
+
+
+def _post_run_create(langfuse: Langfuse):
+    pass
+
+
 @_langfuse_wrapper
 def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
     new_langfuse: Langfuse = initialize()
@@ -447,6 +530,13 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         observation = new_langfuse.event(**parsed_kwargs)
     elif open_ai_resource.type == "thread":
         observation = new_langfuse.event(**parsed_kwargs)
+
+    elif open_ai_resource.type == "run" and open_ai_resource.method == "retrieve":
+        # get parent observation id
+        observation = _setup_run_retrieve(new_langfuse, parsed_kwargs)
+    elif open_ai_resource.type == "run" and open_ai_resource.method == "create":
+        observation, sub_span = _setup_run_create(new_langfuse, parsed_kwargs)
+
     elif open_ai_resource.type == "message":
         # messages can only be created in the context of a thread, i.e. an existing trace
         if parsed_kwargs.get("trace_id", None) is None:
@@ -485,6 +575,18 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             )
             if open_ai_resource.type == "thread":
                 observation.update(name=openai_response.id, output=completion)
+
+            elif (
+                open_ai_resource.type == "run" and open_ai_resource.method == "retrieve"
+            ):
+                _post_run_retrieve(
+                    new_langfuse,
+                    openai_response,
+                    observation,
+                    parsed_kwargs.get("trace_id"),
+                    output=completion,
+                )
+
             else:
                 observation.update(
                     model=model,
