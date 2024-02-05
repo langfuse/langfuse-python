@@ -31,6 +31,7 @@ from langfuse.model import (
     ModelUsage,
     PromptClient,
 )
+from langfuse.prompt_cache import PromptCache
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -141,6 +142,8 @@ class Langfuse(object):
         self.trace_id = None
 
         self.release = self.get_release_value(release)
+
+        self.prompt_cache = PromptCache()
 
     def get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
@@ -311,13 +314,85 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def get_prompt(self, name: str, version: Optional[int] = None) -> PromptClient:
+    def get_prompt(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        *,
+        cache_ttl_seconds: Optional[int] = None,
+    ) -> PromptClient:
+        """
+        Retrieves a prompt by its name and optionally its version, with support for additional options.
+
+        This method attempts to fetch the requested prompt from the local cache. If the prompt is not found
+        in the cache or if the cached prompt has expired, it will try to fetch the prompt from the server again
+        and update the cache. If fetching the new prompt fails, and there is an expired prompt in the cache, it will
+        return the expired prompt as a fallback.
+
+        Parameters:
+        - name (str): The name of the prompt to retrieve.
+        - version (Optional[int]): The version of the prompt. If not specified, the latest version is assumed.
+        - cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
+        keyword argument. If 'cache_ttl_seconds' is not specified, a default TTL of 60 seconds is used.
+
+        Returns:
+        - PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
+
+        Raises:
+        - Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
+        expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
+        """
+
+        self.log.debug(f"Getting prompt {name}, version {version or 'latest'}")
+
+        if not name:
+            raise ValueError("Prompt name cannot be empty.")
+
+        cache_key = PromptCache.generate_cache_key(name, version)
+        cached_prompt = self.prompt_cache.get(cache_key)
+
+        if cached_prompt is None:
+            return self._fetch_prompt_and_update_cache(name, version, cache_ttl_seconds)
+
+        if cached_prompt.is_expired():
+            try:
+                return self._fetch_prompt_and_update_cache(
+                    name, version, cache_ttl_seconds
+                )
+
+            except Exception as e:
+                self.log.warn(
+                    f"Returning expired prompt cache for '${name}-${version or 'latest'}' due to fetch error: {e}"
+                )
+
+                return cached_prompt.value
+
+        return cached_prompt.value
+
+    def _fetch_prompt_and_update_cache(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        ttl_seconds: Optional[int] = None,
+    ) -> PromptClient:
         try:
-            self.log.debug(f"Getting prompt {name}, version {version}")
-            prompt = self.client.prompts.get(name=name, version=version)
-            return PromptClient(prompt=prompt)
+            self.log.debug(
+                f"Fetching prompt {name}-{version or 'latest'}' from server..."
+            )
+
+            promptResponse = self.client.prompts.get(name=name, version=version)
+            cache_key = PromptCache.generate_cache_key(name, version)
+            prompt = PromptClient(promptResponse)
+
+            self.prompt_cache.set(cache_key, prompt, ttl_seconds)
+
+            return prompt
+
         except Exception as e:
-            self.log.exception(e)
+            self.log.exception(
+                f"Error while fetching prompt '{name}-{version or 'latest'}': {e}"
+            )
+
             raise e
 
     def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
