@@ -17,7 +17,7 @@ langchain = { version = ">=0.0.309", optional = true }
 chevron = "^0.14.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
+pytest = ">=7.4,<9.0"
 chromadb = "^0.4.2"
 tiktoken = "0.5.1"
 pytest-timeout = "^2.1.0"
