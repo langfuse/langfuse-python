@@ -1002,7 +1002,7 @@ def test_openai_run_creation():
         trace_id=trace_id,
     )
 
-    openai.flush_langfuse()
+    openai.flush_langfuse()  # TODO: this should not be necessary
     # user polling the status of the run
     while run.status == "queued" or run.status == "in_progress":
         run = openai.beta.threads.runs.retrieve(
@@ -1012,5 +1012,17 @@ def test_openai_run_creation():
         )
         time.sleep(0.05)
 
+    run_steps = openai.beta.threads.runs.steps.list(
+        thread_id=thread.id,
+        run_id=run.id,
+        trace_id=trace_id,
+    )
+
+    messages = openai.beta.threads.messages.list(
+        thread_id=thread.id,
+        trace_id=trace_id,
+    )
+
     openai.flush_langfuse()
+    assert run.status == "completed"
     # TODO: Continue here

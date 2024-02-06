@@ -114,6 +114,20 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs.steps",
+        object="Steps",
+        method="list",
+        type="run_step",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.messages",
+        object="Messages",
+        method="list",
+        type="message",
+        sync=True,
+    ),
 ]
 
 
@@ -217,6 +231,32 @@ def _get_langfuse_data_from_kwargs(
             "additional_instructions": kwargs.get("additional_instructions"),
             "tools": kwargs.get("tools", []),
             "metadata": kwargs.get("metadata", {}),
+        }
+    elif resource.type == "run_step":
+        prompt = {
+            "thread_id": kwargs.get("thread_id"),
+            "run_id": kwargs.get("run_id"),
+            "limit": kwargs.get("limit", 20),
+            "order": kwargs.get("order", "desc"),
+            "after": kwargs.get(
+                "after",
+            ),
+            "before": kwargs.get(
+                "before",
+            ),
+        }
+
+    elif resource.type == "message":
+        prompt = {
+            "thread_id": kwargs.get("thread_id"),
+            "limit": kwargs.get("limit", 20),
+            "order": kwargs.get("order", "desc"),
+            "after": kwargs.get(
+                "after",
+            ),
+            "before": kwargs.get(
+                "before",
+            ),
         }
 
     modelParameters = {
@@ -400,7 +440,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
             "created_at": response.get("created_at"),
             "metadata": response.get("metadata", {}),
         }
-    elif resource.type == "message":
+    elif resource.type == "message" and resource.method == "create":
         # based on https://platform.openai.com/docs/api-reference/messages/object
         completion = {
             "id": response.get("id"),
@@ -414,9 +454,17 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
             "file_ids": response.get("file_ids", []),
         }
 
+    elif resource.type == "message" and resource.method == "list":
+        messages = response.get("data", [])
+        completion = [dict(message) for message in messages]
+
     elif resource.type == "run":
         # based on https://platform.openai.com/docs/api-reference/messages/object
         completion = {**response}
+
+    elif resource.type == "run_step":
+        run_steps = response.get("data", [])
+        completion = [dict(step) for step in run_steps]
 
     usage = response.get("usage", None)
 
@@ -439,6 +487,16 @@ def _is_streaming_response(response):
     )
 
 
+def _setup_message_list(langfuse: Langfuse, parsed_kwargs):
+    span = langfuse.span(**parsed_kwargs)
+    return span
+
+
+def _setup_runstep_list(langfuse: Langfuse, parsed_kwargs):
+    span = langfuse.span(**parsed_kwargs)
+    return span
+
+
 def _setup_run_create(langfuse: Langfuse, parsed_kwargs):
     generation = langfuse.generation(**parsed_kwargs)
     sub_span = langfuse.span(
@@ -454,7 +512,9 @@ def _setup_run_retrieve(langfuse: Langfuse, parsed_kwargs):
     trace_id = parsed_kwargs.get("trace_id")
 
     generations = api.observations.get_many(
-        trace_id=trace_id, name="OpenAI-run-create", type="GENERATION"
+        trace_id=trace_id,
+        name="OpenAI-run-create",
+        type="GENERATION",  # TODO: should not depend on name
     )
 
     # assume last generation is the one corresponding to "run create"
@@ -512,6 +572,10 @@ def _post_run_retrieve(langfuse, openai_response, event, trace_id, output):
         event.update(parent_observation_id=status_span.id, output=output)
 
 
+def _pre_messages_list(langfuse: Langfuse, parsed_kwargs):
+    pass
+
+
 def _post_run_create(langfuse: Langfuse):
     pass
 
@@ -538,26 +602,33 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         observation, sub_span = _setup_run_create(new_langfuse, parsed_kwargs)
 
     elif open_ai_resource.type == "message":
-        # messages can only be created in the context of a thread, i.e. an existing trace
-        if parsed_kwargs.get("trace_id", None) is None:
-            # look if there exists a trace with the thread_id
-            thread_id = parsed_kwargs.get("input", {}).get("thread_id", None)
-            if thread_id is None:
-                # TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not
-                msg = "A message can only be created in the context of a thread, i.e. an existing trace. Please provide a thread_id."
-                raise NotImplementedError(
-                    "# TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not "
-                )
-            else:
-                # get the trace with event of thread creation
-                api = get_api()
-                observations = api.observations.get_many(name=thread_id, type="EVENT")
-                observation = observations.data[
-                    0
-                ]  # TODO: what in case observation does not exist?
-                parsed_kwargs["trace_id"] = observation.trace_id
+        if open_ai_resource.method == "create":
+            # messages can only be created in the context of a thread, i.e. an existing trace
+            if parsed_kwargs.get("trace_id", None) is None:
+                # look if there exists a trace with the thread_id
+                thread_id = parsed_kwargs.get("input", {}).get("thread_id", None)
+                if thread_id is None:
+                    # TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not
+                    msg = "A message can only be created in the context of a thread, i.e. an existing trace. Please provide a thread_id."
+                    raise NotImplementedError(
+                        "# TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not "
+                    )
+                else:
+                    # get the trace with event of thread creation
+                    api = get_api()
+                    observations = api.observations.get_many(
+                        name=thread_id, type="EVENT"
+                    )
+                    observation = observations.data[
+                        0
+                    ]  # TODO: what in case observation does not exist?
+                    parsed_kwargs["trace_id"] = observation.trace_id
 
-        observation = new_langfuse.event(**parsed_kwargs)
+            observation = new_langfuse.event(**parsed_kwargs)
+        elif open_ai_resource.method == "list":
+            observation = _setup_message_list(new_langfuse, parsed_kwargs)
+    elif open_ai_resource.type == "run_step":
+        observation = _setup_runstep_list(new_langfuse, parsed_kwargs)
     else:
         observation = new_langfuse.generation(**parsed_kwargs)
 
