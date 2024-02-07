@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Any, List, Mapping, Optional
 
 import pytest
 from langchain import Anthropic, ConversationChain, HuggingFaceHub
@@ -27,6 +27,8 @@ from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
 
 
 def test_callback_init():
@@ -1204,3 +1206,70 @@ def test_aws_bedrock_chain():
             assert observation["output"] != ""
             assert observation["name"] == "Bedrock"
             assert observation["model"] == "claude"
+
+
+def test_unimplemented_model():
+    callback = CallbackHandler(debug=False)
+
+    class CustomLLM(LLM):
+        n: int
+
+        @property
+        def _llm_type(self) -> str:
+            return "custom"
+
+        def _call(
+            self,
+            prompt: str,
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            if stop is not None:
+                raise ValueError("stop kwargs are not permitted.")
+            return "This is a great text, which i can take characters from "[: self.n]
+
+    @property
+    def _identifying_params(self) -> Mapping[str, Any]:
+        """Get the identifying parameters."""
+        return {"n": self.n}
+
+    custom_llm = CustomLLM(n=10)
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    template = """You are a play critic from the New York Times.
+    Given the synopsis of play, it is your job to write a review for that play.
+
+        Play Synopsis:
+        {synopsis}
+        Review from a New York Times play critic of the above play:"""
+    prompt_template = PromptTemplate(input_variables=["synopsis"], template=template)
+    custom_llm_chain = LLMChain(llm=custom_llm, prompt=prompt_template)
+
+    sequential_chain = SimpleSequentialChain(chains=[custom_llm_chain, synopsis_chain])
+    sequential_chain.run("This is a foobar thing", callbacks=[callback])
+
+    callback.flush()
+
+    api = get_api()
+
+    trace = api.trace.get(callback.get_trace_id())
+
+    assert len(trace.observations) == 5
+
+    custom_generation = list(
+        filter(
+            lambda x: x.type == "GENERATION" and x.name == "CustomLLM",
+            trace.observations,
+        )
+    )[0]
+
+    assert custom_generation.output == "This is a "
+    assert custom_generation.model is None

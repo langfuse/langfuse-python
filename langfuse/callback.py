@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.api.resources.ingestion.types.sdk_log_event import SdkLogEvent
+from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
     Langfuse,
     StatefulSpanClient,
@@ -815,5 +815,13 @@ class CallbackHandler(BaseCallbackHandler):
             return metadata
 
     def _report_error(self, error: dict):
-        event = SdkLogEvent(id=str(uuid4()), data=error, timestamp=_get_timestamp())
-        self._task_manager.add_task(event)
+        event = SdkLogBody(log=error)
+
+        self._task_manager.add_task(
+            {
+                "id": str(uuid4()),
+                "type": "sdk-log",
+                "timestamp": _get_timestamp(),
+                "body": event.dict(),
+            }
+        )
