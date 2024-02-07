@@ -326,6 +326,7 @@ def _is_openai_v1():
 def _is_streaming_response(response):
     return (
         isinstance(response, types.GeneratorType)
+        or isinstance(response, types.AsyncGeneratorType)
         or (_is_openai_v1() and isinstance(response, openai.Stream))
         or (_is_openai_v1() and isinstance(response, openai.AsyncStream))
     )
