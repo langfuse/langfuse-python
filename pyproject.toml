@@ -36,6 +36,9 @@ ruff = "^0.1.8"
 langchain-mistralai = ">=0.0.1,<0.0.4"
 google-cloud-aiplatform = "^1.38.1"
 
+[tool.poetry.group.docs.dependencies]
+pdoc = "^14.4.0"
+
 [tool.poetry.extras]
 langchain = ["langchain"]
 
