@@ -8,7 +8,6 @@ from langchain.callbacks.base import BaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
-from langfuse.api.resources.ingestion.types.sdk_log_event import SdkLogEvent
 from langfuse.client import (
     Langfuse,
     StatefulSpanClient,
