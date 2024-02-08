@@ -5,7 +5,7 @@ from langfuse.callback import CallbackHandler
 
 from langfuse.extract_model import _extract_model_name
 
-from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI, AzureOpenAI
+from langchain_openai import ChatOpenAI, OpenAI
 
 from langchain_core.load import loads, dumps
 from langchain_core.load.dump import default
@@ -23,9 +23,7 @@ from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
 from langchain_community.llms.cohere import Cohere
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
-from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_community.llms.textgen import TextGen
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mistralai.chat_models import ChatMistralAI
 
 
