@@ -166,7 +166,33 @@ def test_callback_generated_from_trace_chat():
     assert langchain_generation_span.output is not None
     assert langchain_generation_span.output != ""
 
+def test_callback_generated_from_lcel_chain():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
 
+    run_name_override = "This is a custom Run Name"
+    handler = CallbackHandler()
+
+    prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
+    model = ChatOpenAI(temperature=0)
+
+    chain = prompt | model
+
+    chain.invoke({"topic": "ice cream"},
+                 config={
+                    "callbacks": [handler],
+                    "run_name": run_name_override,
+                }
+    )
+    
+    langfuse.flush()
+    trace_id = handler.get_trace_id()
+    trace = api.trace.get(trace_id)
+
+    assert trace.name == run_name_override
+
+
+    
 def test_callback_generated_from_span_chain():
     api = get_api()
     langfuse = Langfuse(debug=False)
