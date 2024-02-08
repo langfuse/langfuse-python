@@ -84,6 +84,12 @@ poetry run pre-commit install
 
 The SDK reference is generated via pdoc. To update the reference, run the following command:
 
-```
+```sh
 poetry run pdoc -o docs/ langfuse
+```
+
+You need to have all extra dependencies installed to generate the reference.
+
+```sh
+poetry install --all-extras
 ```
