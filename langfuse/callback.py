@@ -182,7 +182,7 @@ class CallbackHandler(BaseCallbackHandler):
         self.log.debug(
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
-    
+
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
         """Langchain convention to change the display name of entities during tracing is "run_name" property.
         This "override" reaches callbacks event as "name" key in kwargs.

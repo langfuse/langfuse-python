@@ -166,6 +166,7 @@ def test_callback_generated_from_trace_chat():
     assert langchain_generation_span.output is not None
     assert langchain_generation_span.output != ""
 
+
 def test_callback_generated_from_lcel_chain():
     api = get_api()
     langfuse = Langfuse(debug=False)
@@ -178,13 +179,14 @@ def test_callback_generated_from_lcel_chain():
 
     chain = prompt | model
 
-    chain.invoke({"topic": "ice cream"},
-                 config={
-                    "callbacks": [handler],
-                    "run_name": run_name_override,
-                }
+    chain.invoke(
+        {"topic": "ice cream"},
+        config={
+            "callbacks": [handler],
+            "run_name": run_name_override,
+        },
     )
-    
+
     langfuse.flush()
     trace_id = handler.get_trace_id()
     trace = api.trace.get(trace_id)
@@ -192,7 +194,6 @@ def test_callback_generated_from_lcel_chain():
     assert trace.name == run_name_override
 
 
-    
 def test_callback_generated_from_span_chain():
     api = get_api()
     langfuse = Langfuse(debug=False)
