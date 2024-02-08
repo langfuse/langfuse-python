@@ -1846,24 +1846,6 @@ langchain-core = ">=0.1,<0.2"
 images = ["pillow (>=10.1.0,<11.0.0)"]
 
 [[package]]
-name = "langchain-google-vertexai"
-version = "0.0.3"
-description = "An integration package connecting GoogleVertexAI and LangChain"
-optional = false
-python-versions = ">=3.8.1,<4.0"
-files = [
-    {file = "langchain_google_vertexai-0.0.3-py3-none-any.whl", hash = "sha256:6090d9f925e579b553a3f3fe30c715d45f5201398c863c71a3ed783ced9f6943"},
-    {file = "langchain_google_vertexai-0.0.3.tar.gz", hash = "sha256:74ba72274057e1d384a867754513471e8361dbce438cc604df5514807d0ae9d6"},
-]
-
-[package.dependencies]
-google-cloud-aiplatform = ">=1.39.0,<2.0.0"
-google-cloud-storage = ">=2.14.0,<3.0.0"
-langchain-core = ">=0.1.7,<0.2"
-types-protobuf = ">=4.24.0.4,<5.0.0.0"
-types-requests = ">=2.31.0,<3.0.0"
-
-[[package]]
 name = "langchain-mistralai"
 version = "0.0.3"
 description = "An integration package connecting Mistral and LangChain"
@@ -3810,56 +3792,6 @@ doc = ["cairosvg (>=2.5.2,<3.0.0)", "mdx-include (>=1.4.1,<2.0.0)", "mkdocs (>=1
 test = ["black (>=22.3.0,<23.0.0)", "coverage (>=6.2,<7.0)", "isort (>=5.0.6,<6.0.0)", "mypy (==0.910)", "pytest (>=4.4.0,<8.0.0)", "pytest-cov (>=2.10.0,<5.0.0)", "pytest-sugar (>=0.9.4,<0.10.0)", "pytest-xdist (>=1.32.0,<4.0.0)", "rich (>=10.11.0,<14.0.0)", "shellingham (>=1.3.0,<2.0.0)"]
 
 [[package]]
-name = "types-protobuf"
-version = "4.24.0.20240129"
-description = "Typing stubs for protobuf"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-protobuf-4.24.0.20240129.tar.gz", hash = "sha256:8a83dd3b9b76a33e08d8636c5daa212ace1396418ed91837635fcd564a624891"},
-    {file = "types_protobuf-4.24.0.20240129-py3-none-any.whl", hash = "sha256:23be68cc29f3f5213b5c5878ac0151706182874040e220cfb11336f9ee642ead"},
-]
-
-[[package]]
-name = "types-requests"
-version = "2.31.0.6"
-description = "Typing stubs for requests"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "types-requests-2.31.0.6.tar.gz", hash = "sha256:cd74ce3b53c461f1228a9b783929ac73a666658f223e28ed29753771477b3bd0"},
-    {file = "types_requests-2.31.0.6-py3-none-any.whl", hash = "sha256:a2db9cb228a81da8348b49ad6db3f5519452dd20a9c1e1a868c83c5fe88fd1a9"},
-]
-
-[package.dependencies]
-types-urllib3 = "*"
-
-[[package]]
-name = "types-requests"
-version = "2.31.0.20240125"
-description = "Typing stubs for requests"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-requests-2.31.0.20240125.tar.gz", hash = "sha256:03a28ce1d7cd54199148e043b2079cdded22d6795d19a2c2a6791a4b2b5e2eb5"},
-    {file = "types_requests-2.31.0.20240125-py3-none-any.whl", hash = "sha256:9592a9a4cb92d6d75d9b491a41477272b710e021011a2a3061157e2fb1f1a5d1"},
-]
-
-[package.dependencies]
-urllib3 = ">=2"
-
-[[package]]
-name = "types-urllib3"
-version = "1.26.25.14"
-description = "Typing stubs for urllib3"
-optional = false
-python-versions = "*"
-files = [
-    {file = "types-urllib3-1.26.25.14.tar.gz", hash = "sha256:229b7f577c951b8c1b92c1bc2b2fdb0b49847bd2af6d1cc2a2e3dd340f3bda8f"},
-    {file = "types_urllib3-1.26.25.14-py3-none-any.whl", hash = "sha256:9683bbb7fb72e32bfe9d2be6e04875fbe1b3eeec3cbb4ea231435aa7fd6b4f0e"},
-]
-
-[[package]]
 name = "typing-extensions"
 version = "4.9.0"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -4406,4 +4338,4 @@ langchain = ["langchain"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "3bbb9045092a11ff62e7edc2a661628f7b7f9ab0d206efda6dc4d74bf27f2e27"
+content-hash = "a5090fa498759e135a8c2d5f4f47168edf055cdfd9dd497e260a83bdefb95a7e"
