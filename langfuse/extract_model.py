@@ -47,7 +47,16 @@ def _extract_model_name(
     serialized: Dict[str, Any],
     **kwargs: Any,
 ):
-    print(serialized)
+    # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
+    # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
+    if serialized.get("id")[-1] == "ChatGoogleGenerativeAI":
+        if serialized.get("kwargs").get("model"):
+            return serialized.get("kwargs").get("model")
+
+    if serialized.get("id")[-1] == "ChatMistralAI":
+        if serialized.get("kwargs").get("model"):
+            return serialized.get("kwargs").get("model")
+
     # checks if serializations is implemented. Otherwise, this will throw
     if serialized.get("type") != "not_implemented":
         # try to deserialize the model name from the serialized object
@@ -89,11 +98,9 @@ def _extract_model_name(
             return llm.model
 
         if isinstance(llm, BedrockChat):
-            print("bedrock", llm.model_id)
             return llm.model_id
 
         if isinstance(llm, Bedrock):
-            print("bedrock", llm.model_id)
             return llm.model_id
 
         if isinstance(llm, ChatDatabricks):
@@ -182,7 +189,6 @@ def _extract_model_name(
             return None
 
         if isinstance(llm, ChatVertexAI):
-            print("huhu")
             return llm.model_name
 
         if isinstance(llm, VolcEngineMaasChat):
@@ -198,16 +204,11 @@ def _extract_model_name(
 
     def _extract_model(id: str, pattern: str, default: Optional[str] = None):
         if serialized.get("id")[-1] == id:
-            print("extracting", pattern, serialized["repr"])
             extracted = _extract_model_by_pattern(pattern, serialized["repr"])
-            print("extracted", extracted)
             return extracted if extracted else default if default else None
 
     if serialized.get("id")[-1] == "ChatVertexAI":
         if serialized.get("kwargs").get("model_name"):
-            print(
-                "extracting", "model_name", serialized.get("kwargs").get("model_name")
-            )
             return serialized.get("kwargs").get("model_name")
 
     # anthropic
@@ -233,12 +234,21 @@ def _extract_model_name(
     if model:
         return model
 
+    if serialized.get("id")[-1] == "HuggingFacePipeline":
+        if kwargs.get("invocation_params")["model_id"]:
+            return kwargs.get("invocation_params")["model_id"]
+
     # azure
     deployment_name = _extract_model("AzureOpenAI", "deployment_name")
     openai_api_version = _extract_model("AzureOpenAI", "openai_api_version")
 
     if deployment_name:
         return deployment_name + "-" + openai_api_version
+
+    # textgen
+    model = _extract_model("TextGen", "model", "text-gen")
+    if model:
+        return model
 
     return None
 

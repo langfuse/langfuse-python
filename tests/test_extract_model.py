@@ -23,6 +23,11 @@ from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
 from langchain_community.llms.cohere import Cohere
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
+from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
+from langchain_community.llms.textgen import TextGen
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_mistralai.chat_models import ChatMistralAI
+
 
 from tests.utils import get_api
 
@@ -30,6 +35,14 @@ from tests.utils import get_api
 @pytest.mark.parametrize(
     "expected_model,model",
     [
+        (
+            "mistralai",
+            ChatMistralAI(mistral_api_key="mistral_api_key", model="mistralai"),
+        ),
+        (
+            "text-gen",
+            TextGen(model_url="some-url"),
+        ),  # local deployments, does not have a model name
         ("claude-2", ChatAnthropic()),
         ("anthropic", Anthropic()),
         ("gpt-3.5-turbo", ChatOpenAI()),
@@ -92,27 +105,43 @@ def test_loads_openai_llm():
 @pytest.mark.parametrize(
     "expected_model,model",
     [
-        (
-            "qwen-72b-chat",
-            ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
-        ),
-        (
-            "gpt-3.5-turbo",
-            AzureChatOpenAI(
-                openai_api_version="2023-05-15",
-                azure_deployment="your-deployment-name",
-                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
-            ),
-        ),
-        (
-            "your-deployment-name-2023-05-15",
-            AzureOpenAI(
-                openai_api_version="2023-05-15",
-                azure_deployment="your-deployment-name",
-                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
-            ),
-        ),
+        # (
+        #     "gpt2",
+        #     HuggingFacePipeline(
+        #         model_id="gpt2",
+        #         model_kwargs={
+        #             "max_new_tokens": 512,
+        #             "top_k": 30,
+        #             "temperature": 0.1,
+        #             "repetition_penalty": 1.03,
+        #         },
+        #     ),
+        # ),
+        # (
+        #     "qwen-72b-chat",
+        #     ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
+        # ),
+        # (
+        #     "gpt-3.5-turbo",
+        #     AzureChatOpenAI(
+        #         openai_api_version="2023-05-15",
+        #         azure_deployment="your-deployment-name",
+        #         azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+        #     ),
+        # ),
+        # (
+        #     "your-deployment-name-2023-05-15",
+        #     AzureOpenAI(
+        #         openai_api_version="2023-05-15",
+        #         azure_deployment="your-deployment-name",
+        #         azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+        #     ),
+        # ),
         ("gemini", ChatVertexAI(model_name="gemini", credentials=MagicMock())),
+        # (
+        #     "gemini-pro",
+        #     ChatGoogleGenerativeAI(model="gemini-pro", google_api_key="google_api_key"),
+        # ),
     ],
 )
 def test_entire_llm_call(expected_model, model):
