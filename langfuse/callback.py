@@ -14,6 +14,7 @@ from langfuse.client import (
     StatefulTraceClient,
     StateType,
 )
+from langfuse.extract_model import _extract_model_name
 from langfuse.task_manager import TaskManager
 from langfuse.utils import _get_timestamp
 
@@ -614,89 +615,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             model_name = None
 
-            try:
-                if kwargs["invocation_params"]["_type"] in [
-                    "anthropic-llm",
-                    "anthropic-chat",
-                ]:
-                    model_name = "anthropic"  # unfortunately no model info by anthropic provided.
-                elif kwargs["invocation_params"]["_type"] in [
-                    "amazon_bedrock",
-                    "amazon_bedrock_chat",
-                ]:
-                    # langchain only provides string representation of the model class. Hence have to parse it out.
-
-                    if serialized.get("kwargs") and serialized["kwargs"].get(
-                        "model_id"
-                    ):
-                        model_name = self.extract_second_part(
-                            serialized["kwargs"]["model_id"]
-                        )
-                    else:
-                        model_name = self.extract_second_part(
-                            self.extract_model_id("model_id", serialized["repr"])
-                        )
-
-                elif kwargs["invocation_params"]["_type"] == "cohere-chat":
-                    model_name = self.extract_model_id("model", serialized["repr"])
-                elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
-                    model_name = kwargs["invocation_params"]["repo_id"]
-                elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
-                    if kwargs.get("invocation_params").get("model") and serialized[
-                        "kwargs"
-                    ].get("model_version"):
-                        model_name = (
-                            kwargs.get("invocation_params").get("model")
-                            + "-"
-                            + serialized["kwargs"]["model_version"]
-                        )
-                    elif serialized["kwargs"].get("deployment_name") and serialized[
-                        "kwargs"
-                    ].get("model_version"):
-                        model_name = (
-                            serialized["kwargs"]["deployment_name"]
-                            + "-"
-                            + serialized["kwargs"]["model_version"]
-                        )
-                    elif kwargs.get("invocation_params").get("model"):
-                        model_name = kwargs.get("invocation_params").get("model")
-                    else:
-                        model_name = kwargs["invocation_params"]["engine"]
-                elif kwargs["invocation_params"]["_type"] == "llamacpp":
-                    model_name = kwargs["invocation_params"]["model_path"]
-
-                else:
-                    if "model_name" in kwargs["invocation_params"]:
-                        model_name = kwargs["invocation_params"]["model_name"]
-
-                    # model used by mistral
-                    elif "model" in kwargs["invocation_params"]:
-                        model_name = kwargs["invocation_params"]["model"]
-
-                    else:
-                        self.log.warning(
-                            "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-                        )
-                        self._report_error(
-                            {
-                                "log": "unable to parse model name",
-                                "kwargs": str(kwargs),
-                                "serialized": str(serialized),
-                            }
-                        )
-            except Exception as e:
-                self.log.exception(e)
-                self.log.warning(
-                    "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-                )
-                self._report_error(
-                    {
-                        "log": "unable to parse model name",
-                        "kwargs": str(kwargs),
-                        "serialized": str(serialized),
-                        "exception": str(e),
-                    }
-                )
+            model_name = self._parse_model_and_log_errors(serialized, kwargs)
 
             content = {
                 "name": serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
@@ -734,14 +653,39 @@ class CallbackHandler(BaseCallbackHandler):
         except Exception as e:
             self.log.exception(e)
 
-    def extract_model_id(self, pattern: str, text: str):
-        match = re.search(rf"{pattern}='(.*?)'", text)
-        if match:
-            return match.group(1)
-        return None
+    def _parse_model_and_log_errors(self, serialized, kwargs):
+        """Parse the model name from the serialized object or kwargs."""
 
-    def extract_second_part(selg, text: str):
-        return text.split(".")[-1]
+        model_name = None
+        try:
+            model_name = _extract_model_name(serialized, **kwargs)
+        except Exception as e:
+            self.log.exception(e)
+            self.log.warning(
+                "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+            )
+            self._report_error(
+                {
+                    "log": "unable to parse model name",
+                    "kwargs": str(kwargs),
+                    "serialized": str(serialized),
+                    "exception": str(e),
+                }
+            )
+
+        if model_name is None:
+            self.log.warning(
+                "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+            )
+            self._report_error(
+                {
+                    "log": "unable to parse model name",
+                    "kwargs": str(kwargs),
+                    "serialized": str(serialized),
+                }
+            )
+
+        return model_name
 
     def on_llm_end(
         self,

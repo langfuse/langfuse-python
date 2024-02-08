@@ -391,7 +391,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
-@pytest.mark.skip(reason="inference cost")
+# @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
@@ -1273,3 +1273,39 @@ def test_unimplemented_model():
 
     assert custom_generation.output == "This is a "
     assert custom_generation.model is None
+
+
+def test_maxmaxmax():
+    from langfuse.callback import CallbackHandler
+
+    handler = CallbackHandler(trace_name="test1", user_id="huangbin")
+
+    from langchain.chat_models.tongyi import ChatTongyi
+
+    tongyillm = ChatTongyi(
+        name="tongyi", model="qwen-72b-chat", dashscope_api_key="dashscope"
+    )
+
+    from langchain_core.prompts import ChatPromptTemplate
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are world class technical documentation writer."),
+            ("user", "{input}"),
+        ]
+    )
+
+    from langchain_core.output_parsers import StrOutputParser
+
+    output_parser = StrOutputParser()
+
+    chain = prompt | tongyillm | output_parser
+
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", "You are an enthusiastic assistant."), ("user", "{input}")]
+    )
+
+    chain = prompt | tongyillm | output_parser
+    chain.invoke({"input": "hello"}, config={"callbacks": [handler]})
+
+    handler.flush()
