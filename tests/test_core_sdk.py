@@ -1011,6 +1011,3 @@ def test_timezone_awareness_setting_timestamps():
         if observation.type != "EVENT":
             delta = utc_now - observation.end_time
             assert delta.seconds < 5
-
-    os.environ["TZ"] = "UTC"
-    time.tzset()

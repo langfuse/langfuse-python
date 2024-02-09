@@ -1,7 +1,6 @@
 import json
 import logging
 from base64 import b64encode
-import sys
 from typing import Any, List, Union
 
 import httpx
