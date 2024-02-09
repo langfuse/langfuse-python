@@ -183,6 +183,27 @@ class CallbackHandler(BaseCallbackHandler):
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
 
+    def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
+        """
+        Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
+        key in 'kwargs' or falling back to the 'name' or 'id' in 'serialized'. Defaults to "<unknown>"
+        if none are available.
+
+        Args:
+            serialized (Dict[str, Any]): A dictionary containing the entity's serialized data.
+            **kwargs (Any): Additional keyword arguments, potentially including the 'name' override.
+
+        Returns:
+            str: The determined Langchain run name for the entity.
+        """
+
+        # Check if 'name' is in kwargs and not None, otherwise use default fallback logic
+        if "name" in kwargs and kwargs["name"] is not None:
+            return kwargs["name"]
+
+        # Fallback to serialized 'name', 'id', or "<unknown>"
+        return serialized.get("name", serialized.get("id", ["<unknown>"]))[-1]
+
     def on_retriever_error(
         self,
         error: Union[Exception, KeyboardInterrupt],
@@ -230,14 +251,14 @@ class CallbackHandler(BaseCallbackHandler):
                 parent_run_id=parent_run_id,
                 tags=tags,
                 metadata=metadata,
-                kwargs=kwargs,
                 version=self.version,
+                **kwargs,
             )
 
             content = {
                 "id": self.next_span_id,
                 "trace_id": self.trace.id,
-                "name": serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                "name": self.get_langchain_run_name(serialized, **kwargs),
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
                 "version": self.version,
@@ -272,7 +293,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
+            class_name = self.get_langchain_run_name(serialized, **kwargs)
 
             # on a new invocation, and not user provided root, we want to initialise a new trace
             # parent_run_id is None when we are at the root of a langchain execution
@@ -484,7 +505,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id] = self.runs[parent_run_id].span(
                 id=self.next_span_id,
-                name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                name=self.get_langchain_run_name(serialized, **kwargs),
                 input=input_str,
                 metadata=meta,
                 version=self.version,
@@ -514,7 +535,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id] = self.runs[parent_run_id].span(
                 id=self.next_span_id,
-                name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                name=self.get_langchain_run_name(serialized, **kwargs),
                 input=query,
                 metadata=self.__join_tags_and_metadata(tags, metadata),
                 version=self.version,
@@ -699,7 +720,7 @@ class CallbackHandler(BaseCallbackHandler):
                 )
 
             content = {
-                "name": serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "model": model_name,
