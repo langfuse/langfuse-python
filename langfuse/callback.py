@@ -184,11 +184,25 @@ class CallbackHandler(BaseCallbackHandler):
         )
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
-        """Langchain convention to change the display name of entities during tracing is "run_name" property.
-        This "override" reaches callbacks event as "name" key in kwargs.
         """
-        default_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
-        return kwargs.get("name", default_name)
+        Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
+        key in 'kwargs' or falling back to the 'name' or 'id' in 'serialized'. Defaults to "<unknown>"
+        if none are available.
+
+        Args:
+            serialized (Dict[str, Any]): A dictionary containing the entity's serialized data.
+            **kwargs (Any): Additional keyword arguments, potentially including the 'name' override.
+
+        Returns:
+            str: The determined Langchain run name for the entity.
+        """
+
+        # Check if 'name' is in kwargs and not None, otherwise use default fallback logic
+        if "name" in kwargs and kwargs["name"] is not None:
+            return kwargs["name"]
+
+        # Fallback to serialized 'name', 'id', or "<unknown>"
+        return serialized.get("name", serialized.get("id", ["<unknown>"]))[-1]
 
     def on_retriever_error(
         self,
