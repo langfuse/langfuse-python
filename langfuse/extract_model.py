@@ -322,10 +322,6 @@ def _extract_model_with_regex(pattern: str, text: str):
     return None
 
 
-def _extract_second_part(text: str):
-    return text.split(".")[-1]
-
-
 def _extract_model_by_pattern(
     id: str, serialized: dict, pattern: str, default: Optional[str] = None
 ):
