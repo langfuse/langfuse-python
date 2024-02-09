@@ -676,9 +676,22 @@ class CallbackHandler(BaseCallbackHandler):
     def _parse_model_and_log_errors(self, serialized, kwargs):
         """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
 
-        model_name = None
         try:
             model_name = _extract_model_name(serialized, **kwargs)
+            if model_name:
+                return model_name
+
+            if model_name is None:
+                self.log.warning(
+                    "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+                )
+                self._report_error(
+                    {
+                        "log": "unable to parse model name",
+                        "kwargs": str(kwargs),
+                        "serialized": str(serialized),
+                    }
+                )
         except Exception as e:
             self.log.exception(e)
             self.log.warning(
@@ -693,19 +706,7 @@ class CallbackHandler(BaseCallbackHandler):
                 }
             )
 
-        if model_name is None:
-            self.log.warning(
-                "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-            )
-            self._report_error(
-                {
-                    "log": "unable to parse model name",
-                    "kwargs": str(kwargs),
-                    "serialized": str(serialized),
-                }
-            )
-
-        return model_name
+            return None
 
     def on_llm_end(
         self,
