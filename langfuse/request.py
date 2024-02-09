@@ -1,6 +1,7 @@
 import json
 import logging
 from base64 import b64encode
+import sys
 from typing import Any, List, Union
 
 import httpx
@@ -41,6 +42,7 @@ class LangfuseClient:
             "Content-Type": "application/json",
             "x_langfuse_sdk_name": "python",
             "x_langfuse_sdk_version": self._version,
+            "x_langfuse_python_version": sys.version,
             "x_langfuse_public_key": self._public_key,
         }
 
