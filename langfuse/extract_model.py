@@ -226,6 +226,7 @@ def _extract_model_name(
     model = _extract_model_by_key(
         "ChatVertexAI",
         serialized,
+        serialized,
         ["kwargs", "model_name"],
     )
     if model:
@@ -308,7 +309,7 @@ def _extract_model_name(
         return model
 
     # textgen
-    model = _extract_model_by_pattern("TextGen", "model", "text-gen")
+    model = _extract_model_by_pattern("TextGen", serialized, "model", "text-gen")
     if model:
         return model
 
