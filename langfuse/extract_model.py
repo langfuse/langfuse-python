@@ -59,13 +59,24 @@ def _extract_model_name(
     """
     # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
     # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
-    if serialized.get("id")[-1] == "ChatGoogleGenerativeAI":
-        if serialized.get("kwargs").get("model"):
-            return serialized.get("kwargs").get("model")
 
-    if serialized.get("id")[-1] == "ChatMistralAI":
-        if serialized.get("kwargs").get("model"):
-            return serialized.get("kwargs").get("model")
+    model = _extract_model_by_key(
+        "ChatGoogleGenerativeAI",
+        serialized,
+        serialized,
+        ["kwargs", "model"],
+    )
+    if model:
+        return model
+
+    model = _extract_model_by_key(
+        "ChatMistralAI",
+        serialized,
+        serialized,
+        ["kwargs", "model"],
+    )
+    if model:
+        return model
 
     # checks if serializations is implemented. Otherwise, this will throw
     if serialized.get("type") != "not_implemented":
@@ -211,23 +222,6 @@ def _extract_model_name(
             return llm.model
 
     # try to extract the model manually
-    def _extract_model_by_pattern(id: str, pattern: str, default: Optional[str] = None):
-        if serialized.get("id")[-1] == id:
-            print(id, pattern, default, serialized)
-            extracted = _extract_model_with_regex(pattern, serialized["repr"])
-            return extracted if extracted else default if default else None
-
-    def _extract_model_by_key(
-        id: str, object: dict, keys: List[str], default: Optional[str] = None
-    ):
-        if serialized.get("id")[-1] == id:
-            current_obj = object
-            for key in keys:
-                current_obj = current_obj.get(key)
-                if not current_obj:
-                    raise ValueError(f"Key {key} not found in {object}")
-
-            return current_obj if current_obj else default if default else None
 
     model = _extract_model_by_key(
         "ChatVertexAI",
@@ -240,6 +234,7 @@ def _extract_model_name(
     # openai new langchain-openai package
     model = _extract_model_by_key(
         "OpenAI",
+        serialized,
         kwargs,
         ["invocation_params", "model_name"],
     )
@@ -248,6 +243,7 @@ def _extract_model_name(
 
     model = _extract_model_by_key(
         "ChatOpenAI",
+        serialized,
         kwargs,
         ["invocation_params", "model_name"],
     )
@@ -256,6 +252,7 @@ def _extract_model_name(
 
     model = _extract_model_by_key(
         "AzureChatOpenAI",
+        serialized,
         kwargs,
         ["invocation_params", "model"],
     )
@@ -279,32 +276,36 @@ def _extract_model_name(
         return deployment_name + "-" + deployment_version
 
     # anthropic
-    model = _extract_model_by_pattern("Anthropic", "model", "anthropic")
+    model = _extract_model_by_pattern("Anthropic", serialized, "model", "anthropic")
     if model:
         return model
 
     # chatongyi
-    model = _extract_model_by_pattern("ChatTongyi", "model_name")
+    model = _extract_model_by_pattern("ChatTongyi", serialized, "model_name")
     if model:
         return model
 
     # Cohere
-    print("cohere")
-    model = _extract_model_by_pattern("ChatCohere", "model")
+    model = _extract_model_by_pattern("ChatCohere", serialized, "model")
     if model:
         return model
-    model = _extract_model_by_pattern("Cohere", "model")
+    model = _extract_model_by_pattern("Cohere", serialized, "model")
     if model:
         return model
 
     # huggingface
-    model = _extract_model_by_pattern("HuggingFaceHub", "model")
+    model = _extract_model_by_pattern("HuggingFaceHub", serialized, "model")
     if model:
         return model
 
-    if serialized.get("id")[-1] == "HuggingFacePipeline":
-        if kwargs.get("invocation_params")["model_id"]:
-            return kwargs.get("invocation_params")["model_id"]
+    model = _extract_model_by_key(
+        "HuggingFacePipeline",
+        serialized,
+        kwargs,
+        ["invocation_params", "model_id"],
+    )
+    if model:
+        return model
 
     # textgen
     model = _extract_model_by_pattern("TextGen", "model", "text-gen")
@@ -323,3 +324,29 @@ def _extract_model_with_regex(pattern: str, text: str):
 
 def _extract_second_part(text: str):
     return text.split(".")[-1]
+
+
+def _extract_model_by_pattern(
+    id: str, serialized: dict, pattern: str, default: Optional[str] = None
+):
+    if serialized.get("id")[-1] == id:
+        print(id, pattern, default, serialized)
+        extracted = _extract_model_with_regex(pattern, serialized["repr"])
+        return extracted if extracted else default if default else None
+
+
+def _extract_model_by_key(
+    id: str,
+    serialized: dict,
+    object: dict,
+    keys: List[str],
+    default: Optional[str] = None,
+):
+    if serialized.get("id")[-1] == id:
+        current_obj = object
+        for key in keys:
+            current_obj = current_obj.get(key)
+            if not current_obj:
+                raise ValueError(f"Key {key} not found in {object}")
+
+        return current_obj if current_obj else default if default else None
