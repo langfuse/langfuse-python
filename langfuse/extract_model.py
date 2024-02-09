@@ -54,7 +54,9 @@ def _extract_model_name(
     serialized: Dict[str, Any],
     **kwargs: Any,
 ):
-    print(serialized, kwargs)
+    """
+    Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse.
+    """
     # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
     # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
     if serialized.get("id")[-1] == "ChatGoogleGenerativeAI":

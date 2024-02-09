@@ -2,13 +2,15 @@ import os
 from typing import Any, List, Mapping, Optional
 
 import pytest
-from langchain import Anthropic, ConversationChain, HuggingFaceHub
+from langchain_community.llms.anthropic import Anthropic
+from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
     RetrievalQA,
     SimpleSequentialChain,
+    ConversationChain,
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
@@ -418,9 +420,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
-# @pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
-    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -429,7 +429,7 @@ def test_callback_generated_from_trace_anthropic():
     handler = trace.getNewHandler()
 
     llm = Anthropic(
-        anthropic_api_key=os.environ.get("OPENAI_API_KEY"), model="Claude-v1"
+        model="claude-instant-1.2",
     )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
@@ -442,20 +442,22 @@ def test_callback_generated_from_trace_anthropic():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace_id)
+    api = get_api()
+    trace = api.trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
-    assert len(trace["observations"]) == 2
-    assert trace["id"] == trace_id
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.output is not None
+            assert observation.output != ""
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.model == "claude-instant-1.2"
 
 
 def test_basic_chat_openai():

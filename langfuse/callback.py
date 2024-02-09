@@ -674,7 +674,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.log.exception(e)
 
     def _parse_model_and_log_errors(self, serialized, kwargs):
-        """Parse the model name from the serialized object or kwargs."""
+        """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
 
         model_name = None
         try:
