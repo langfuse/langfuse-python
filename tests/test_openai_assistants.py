@@ -95,8 +95,8 @@ def test_openai_assistant(
 
     openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
+
     trace_id = openai_kwargs["assistant_id"]
-    trace = api.trace.get(trace_id)
     observations = api.observations.get_many(
         trace_id=trace_id,
     )
@@ -106,4 +106,4 @@ def test_openai_assistant(
     for key, value in openai_kwargs.items():
         assert observation.input[key] == value
 
-    # assert observation.output == dict(openai_response_object)
+    assert observation.output == dict(openai_response)

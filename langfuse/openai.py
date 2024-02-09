@@ -721,16 +721,26 @@ def postprocess(
     observation,
     parsed_kwargs,
 ):
+    model, output, usage = _get_langfuse_data_from_default_response(
+        openai_resource, openai_response.__dict__
+    )
+
     if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
         trace_id = getattr(openai_response, openai_resource.arg_trace_id)
         langfuse.trace(id=trace_id)
-        _, output, usage = _get_langfuse_data_from_default_response(
-            openai_resource, openai_response.__dict__
-        )
         kwargs = {**parsed_kwargs}
         kwargs["trace_id"] = trace_id
         kwargs["output"] = output
+        kwargs["end_time"] = end_time = _get_timestamp()
         observation = _create_observation(langfuse, openai_resource, kwargs)
+
+    else:
+        observation.update(
+            model=model,
+            output=output,
+            end_time=_get_timestamp(),
+            usage=usage,
+        )
 
 
 @_langfuse_wrapper
