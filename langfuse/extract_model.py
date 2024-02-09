@@ -1,7 +1,6 @@
 import re
 from typing import Any, Dict, Optional
 from langchain_core.load import loads, dumps
-from langchain_openai import ChatOpenAI, OpenAI, AzureChatOpenAI
 from langchain_community.chat_models import (
     ChatAnthropic,
     ChatAnyscale,
@@ -30,7 +29,8 @@ from langchain_community.chat_models import (
     ChatMlflow,
     ChatMLflowAIGateway,
     ChatOllama,
-    ChatOpenAI as ChatOpenAICommunity,
+    ChatOpenAI,
+    AzureChatOpenAI,
     PaiEasChatEndpoint,
     PromptLayerChatOpenAI,
     ChatSparkLLM,
@@ -41,12 +41,20 @@ from langchain_community.chat_models import (
 )
 from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
+from langchain_community.llms.openai import OpenAI
+from langchain_community.llms.openai import AzureOpenAI
+
+# NOTE ON DEPENDENCIES:
+# - since Jan 2024, there is https://pypi.org/project/langchain-openai/ which is a separate package and imports openai models.
+#   Decided to not make this a dependency of langfuse as few people will have this. Need to match these models manually
+# - langchain_community is loaded as a dependency of langchain, so we can use it here
 
 
 def _extract_model_name(
     serialized: Dict[str, Any],
     **kwargs: Any,
 ):
+    print(serialized, kwargs)
     # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
     # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
     if serialized.get("id")[-1] == "ChatGoogleGenerativeAI":
@@ -65,14 +73,6 @@ def _extract_model_name(
         llm = loads(dumps(serialized))
 
         # openai models from langchain_openai, separate package, not installed with langchain
-        if isinstance(llm, ChatOpenAI):
-            return llm.model_name
-
-        if isinstance(llm, ChatOpenAICommunity):
-            return llm.model_name
-
-        if isinstance(llm, OpenAI):
-            return llm.model_name
 
         # community models from langchain_community, separate package, installed with langchain
         if isinstance(llm, ChatAnthropic):
@@ -84,7 +84,18 @@ def _extract_model_name(
         if isinstance(llm, ChatAnyscale):
             return llm.model_name
 
+        # openai community models
         if isinstance(llm, AzureChatOpenAI):
+            return llm.model_name
+
+        if isinstance(llm, ChatOpenAI):
+            return llm.model_name
+
+        if isinstance(llm, OpenAI):
+            return llm.model_name
+
+        if isinstance(llm, AzureOpenAI):
+            print("AzureOpenAI", kwargs.get("invocation_params"))
             return (
                 kwargs.get("invocation_params").get("model")
                 + "-"
@@ -176,9 +187,6 @@ def _extract_model_name(
         if isinstance(llm, ChatOllama):
             return llm.model
 
-        if isinstance(llm, ChatOpenAI):
-            return llm.model_name
-
         if isinstance(llm, PaiEasChatEndpoint):
             return None
 
@@ -204,12 +212,39 @@ def _extract_model_name(
 
     def _extract_model(id: str, pattern: str, default: Optional[str] = None):
         if serialized.get("id")[-1] == id:
+            print(serialized, kwargs)
             extracted = _extract_model_by_pattern(pattern, serialized["repr"])
             return extracted if extracted else default if default else None
 
     if serialized.get("id")[-1] == "ChatVertexAI":
         if serialized.get("kwargs").get("model_name"):
             return serialized.get("kwargs").get("model_name")
+
+    # openai new langchain-openai package
+    print("OPENAI")
+    if serialized.get("id")[-1] == "OpenAI":
+        if kwargs.get("invocation_params").get("model_name"):
+            return kwargs.get("invocation_params").get("model_name")
+
+    if serialized.get("id")[-1] == "ChatOpenAI":
+        if kwargs.get("invocation_params").get("model_name"):
+            return kwargs.get("invocation_params").get("model_name")
+
+    if serialized.get("id")[-1] == "AzureChatOpenAI":
+        if kwargs.get("invocation_params").get("model"):
+            return kwargs.get("invocation_params").get("model")
+
+    if serialized.get("id")[-1] == "AzureOpenAI":
+        if kwargs.get("invocation_params").get("model_name"):
+            return kwargs.get("invocation_params").get("model_name")
+
+        deployment_name = None
+        if serialized.get("kwargs").get("openai_api_version"):
+            deployment_name = serialized.get("kwargs").get("deployment_version")
+        deployment_version = None
+        if serialized.get("kwargs").get("deployment_name"):
+            deployment_name = serialized.get("kwargs").get("deployment_name")
+        return deployment_name + "-" + deployment_version
 
     # anthropic
     model = _extract_model("Anthropic", "model", "anthropic")
@@ -237,13 +272,6 @@ def _extract_model_name(
     if serialized.get("id")[-1] == "HuggingFacePipeline":
         if kwargs.get("invocation_params")["model_id"]:
             return kwargs.get("invocation_params")["model_id"]
-
-    # azure
-    deployment_name = _extract_model("AzureOpenAI", "deployment_name")
-    openai_api_version = _extract_model("AzureOpenAI", "openai_api_version")
-
-    if deployment_name:
-        return deployment_name + "-" + openai_api_version
 
     # textgen
     model = _extract_model("TextGen", "model", "text-gen")

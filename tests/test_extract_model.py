@@ -6,7 +6,6 @@ from langfuse.callback import CallbackHandler
 
 from langfuse.extract_model import _extract_model_name
 
-from langchain_openai import AzureChatOpenAI, AzureOpenAI, ChatOpenAI, OpenAI
 
 from langchain_core.load import loads, dumps
 from langchain_core.load.dump import default
@@ -14,7 +13,8 @@ from langchain_core.load.dump import default
 
 from langchain_community.chat_models import (
     ChatAnthropic,
-    ChatOpenAI as ChatOpenAICommunity,
+    ChatOpenAI,
+    AzureChatOpenAI,
     ChatTongyi,
     ChatCohere,
     BedrockChat,
@@ -26,6 +26,10 @@ from langchain_community.llms.cohere import Cohere
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_community.llms.textgen import TextGen
+from langchain_community.llms.openai import (
+    AzureOpenAI,
+    OpenAI,
+)
 from langchain_mistralai.chat_models import ChatMistralAI
 
 
@@ -45,10 +49,6 @@ from tests.utils import get_api
         ),  # local deployments, does not have a model name
         ("claude-2", ChatAnthropic()),
         ("anthropic", Anthropic()),
-        ("gpt-3.5-turbo", ChatOpenAI()),
-        ("gpt-3.5-turbo-instruct", OpenAI()),
-        ("gpt-3.5-turbo", ChatOpenAICommunity()),
-        ("gpt-3.5-turbo", ChatOpenAICommunity()),
         ("command", ChatCohere(model="command", cohere_api_key="command")),
         ("command", Cohere(model="command", cohere_api_key="command")),
         (None, ChatTongyi(dashscope_api_key="dash")),
@@ -102,9 +102,28 @@ def test_loads_openai_llm():
     assert isinstance(llm2, OpenAI)
 
 
+# all models here need to be tested here because we take the model from the kwargs / invocation_params or we need to make an actual call for setup
 @pytest.mark.parametrize(
     "expected_model,model",
     [
+        ("gpt-3.5-turbo", ChatOpenAI()),
+        ("gpt-3.5-turbo-instruct", OpenAI()),
+        (
+            "gpt-3.5-turbo",
+            AzureChatOpenAI(
+                openai_api_version="2023-05-15",
+                azure_deployment="your-deployment-name",
+                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+            ),
+        ),
+        (
+            "gpt-3.5-turbo-instruct",
+            AzureOpenAI(
+                openai_api_version="2023-05-15",
+                azure_deployment="your-deployment-name",
+                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+            ),
+        ),
         (
             "gpt2",
             HuggingFacePipeline(
@@ -120,22 +139,6 @@ def test_loads_openai_llm():
         (
             "qwen-72b-chat",
             ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
-        ),
-        (
-            "gpt-3.5-turbo",
-            AzureChatOpenAI(
-                openai_api_version="2023-05-15",
-                azure_deployment="your-deployment-name",
-                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
-            ),
-        ),
-        (
-            "your-deployment-name-2023-05-15",
-            AzureOpenAI(
-                openai_api_version="2023-05-15",
-                azure_deployment="your-deployment-name",
-                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
-            ),
         ),
         ("gemini", ChatVertexAI(model_name="gemini", credentials=MagicMock())),
         (
