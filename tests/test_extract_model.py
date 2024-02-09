@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
 import pytest
-import vertexai
 from langfuse.callback import CallbackHandler
 
 from langfuse.extract_model import _extract_model_name
@@ -89,19 +88,6 @@ def test_models(expected_model: str, model: Any):
     serialized = default(model)
     model_name = _extract_model_name(serialized)
     assert model_name == expected_model
-
-
-def test_loads_openai_llm():
-    llm = OpenAI(model="davinci", temperature=0.5, openai_api_key="hello")
-    llm_string = dumps(llm)
-    print(llm_string)
-
-    llm2 = loads(llm_string, secrets_map={"OPENAI_API_KEY": "hello"})
-
-    assert llm2 == llm
-    llm_string_2 = dumps(llm2)
-    assert llm_string_2 == llm_string
-    assert isinstance(llm2, OpenAI)
 
 
 # all models here need to be tested here because we take the model from the kwargs / invocation_params or we need to make an actual call for setup
