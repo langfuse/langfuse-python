@@ -618,7 +618,7 @@ def test_create_span_and_get_observation():
 def test_update_generation():
     langfuse = Langfuse(debug=False)
     api = get_api()
-    start = datetime.utcnow()
+    start = _get_timestamp()
 
     generation = langfuse.generation(name="generation")
     generation.update(start_time=start, metadata={"dict": "value"})
