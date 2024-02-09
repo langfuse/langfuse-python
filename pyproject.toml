@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "2.9.0"
+version = "2.10.2a0"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -19,7 +19,7 @@ chevron = "^0.14.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
 chromadb = "^0.4.2"
-tiktoken = "0.5.1"
+tiktoken = "0.5.2"
 pytest-timeout = "^2.1.0"
 pytest-xdist = "^3.3.1"
 respx = "^0.20.2"
@@ -35,6 +35,10 @@ boto3 = "^1.28.59"
 ruff = "^0.1.8"
 langchain-mistralai = ">=0.0.1,<0.0.4"
 google-cloud-aiplatform = "^1.38.1"
+cohere = "^4.46"
+langchain-google-vertexai = "^0.0.5"
+langchain-openai = "^0.0.5"
+dashscope = "^1.14.1"
 
 [tool.poetry.extras]
 langchain = ["langchain"]
