@@ -229,9 +229,13 @@ def _extract_model_name(
 
             return current_obj if current_obj else default if default else None
 
-    if serialized.get("id")[-1] == "ChatVertexAI":
-        if serialized.get("kwargs").get("model_name"):
-            return serialized.get("kwargs").get("model_name")
+    model = _extract_model_by_key(
+        "ChatVertexAI",
+        serialized,
+        ["kwargs", "model_name"],
+    )
+    if model:
+        return model
 
     # openai new langchain-openai package
     model = _extract_model_by_key(
