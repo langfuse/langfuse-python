@@ -6,9 +6,6 @@ import pytest
 from langfuse.callback import CallbackHandler
 
 from langfuse.extract_model import _extract_model_name
-
-
-from langchain_core.load import loads, dumps
 from langchain_core.load.dump import default
 
 
