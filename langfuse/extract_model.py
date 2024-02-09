@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from langchain_core.load import loads, dumps
 from langchain_community.chat_models import (
     ChatAnthropic,
@@ -211,26 +211,52 @@ def _extract_model_name(
             return llm.model
 
     # try to extract the model manually
-
-    def _extract_model(id: str, pattern: str, default: Optional[str] = None):
+    def _extract_model_by_pattern(id: str, pattern: str, default: Optional[str] = None):
         if serialized.get("id")[-1] == id:
-            print(serialized, kwargs)
-            extracted = _extract_model_by_pattern(pattern, serialized["repr"])
+            print(id, pattern, default, serialized)
+            extracted = _extract_model_with_regex(pattern, serialized["repr"])
             return extracted if extracted else default if default else None
+
+    def _extract_model_by_key(
+        id: str, object: dict, keys: List[str], default: Optional[str] = None
+    ):
+        if serialized.get("id")[-1] == id:
+            current_obj = object
+            for key in keys:
+                current_obj = current_obj.get(key)
+                if not current_obj:
+                    raise ValueError(f"Key {key} not found in {object}")
+
+            return current_obj if current_obj else default if default else None
 
     if serialized.get("id")[-1] == "ChatVertexAI":
         if serialized.get("kwargs").get("model_name"):
             return serialized.get("kwargs").get("model_name")
 
     # openai new langchain-openai package
-    print("OPENAI")
-    if serialized.get("id")[-1] == "OpenAI":
-        if kwargs.get("invocation_params").get("model_name"):
-            return kwargs.get("invocation_params").get("model_name")
+    model = _extract_model_by_key(
+        "OpenAI",
+        kwargs,
+        ["invocation_params", "model_name"],
+    )
+    if model:
+        return model
 
-    if serialized.get("id")[-1] == "ChatOpenAI":
-        if kwargs.get("invocation_params").get("model_name"):
-            return kwargs.get("invocation_params").get("model_name")
+    model = _extract_model_by_key(
+        "ChatOpenAI",
+        kwargs,
+        ["invocation_params", "model_name"],
+    )
+    if model:
+        return model
+
+    model = _extract_model_by_key(
+        "AzureChatOpenAI",
+        kwargs,
+        ["invocation_params", "model"],
+    )
+    if model:
+        return model
 
     if serialized.get("id")[-1] == "AzureChatOpenAI":
         if kwargs.get("invocation_params").get("model"):
@@ -249,25 +275,26 @@ def _extract_model_name(
         return deployment_name + "-" + deployment_version
 
     # anthropic
-    model = _extract_model("Anthropic", "model", "anthropic")
+    model = _extract_model_by_pattern("Anthropic", "model", "anthropic")
     if model:
         return model
 
     # chatongyi
-    model = _extract_model("ChatTongyi", "model_name")
+    model = _extract_model_by_pattern("ChatTongyi", "model_name")
     if model:
         return model
 
     # Cohere
-    model = _extract_model("ChatCohere", "model")
+    print("cohere")
+    model = _extract_model_by_pattern("ChatCohere", "model")
     if model:
         return model
-    model = _extract_model("Cohere", "model")
+    model = _extract_model_by_pattern("Cohere", "model")
     if model:
         return model
 
     # huggingface
-    model = _extract_model("HuggingFaceHub", "model")
+    model = _extract_model_by_pattern("HuggingFaceHub", "model")
     if model:
         return model
 
@@ -276,14 +303,14 @@ def _extract_model_name(
             return kwargs.get("invocation_params")["model_id"]
 
     # textgen
-    model = _extract_model("TextGen", "model", "text-gen")
+    model = _extract_model_by_pattern("TextGen", "model", "text-gen")
     if model:
         return model
 
     return None
 
 
-def _extract_model_by_pattern(pattern: str, text: str):
+def _extract_model_with_regex(pattern: str, text: str):
     match = re.search(rf"{pattern}='(.*?)'", text)
     if match:
         return match.group(1)
