@@ -16,7 +16,7 @@ from langchain_community.chat_models import (
     ChatTongyi,
     ChatCohere,
     BedrockChat,
-    ChatVertexAI,
+    # ChatVertexAI,
 )
 from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
