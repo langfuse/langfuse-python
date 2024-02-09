@@ -29,6 +29,8 @@ class OpenAiDefinition:
     sync: bool
     observation_type: str
     default_arguments: dict
+    arg_trace_id: str
+    look_for_existing_trace: bool
 
     def __init__(
         self,
@@ -39,6 +41,8 @@ class OpenAiDefinition:
         sync: bool,
         observation_type: str = "generation",
         default_arguments: dict = {},
+        arg_trace_id: str = None,
+        look_for_existing_trace: bool = False,
     ):
         self.module = module
         self.object = object
@@ -47,6 +51,8 @@ class OpenAiDefinition:
         self.sync = sync
         self.observation_type = observation_type
         self.default_arguments = default_arguments
+        self.arg_trace_id = arg_trace_id
+        self.look_for_existing_trace = look_for_existing_trace
 
     def _get_callable(self):
         callable_path = f"{self.module}.{self.object}.{self.method}"
@@ -131,6 +137,8 @@ OPENAI_METHODS_V1 = [
             "tools": [],
             "file_ids": [],
         },
+        arg_trace_id="id",
+        look_for_existing_trace=False,
     ),
     OpenAiDefinition(
         module="openai.resources.beta.assistants",
@@ -140,6 +148,37 @@ OPENAI_METHODS_V1 = [
         sync=True,
         observation_type="span",
         default_arguments={},
+        arg_trace_id="assistant_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.assistants",
+        object="Assistants",
+        method="retrieve",
+        type="assistant",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="assistant_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.assistants",
+        object="Assistants",
+        method="update",
+        type="assistant",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            # TODO: name
+            # TODO: metadata
+            "description": None,
+            "instructions": None,
+            "tools": [],
+            "file_ids": [],
+        },
+        arg_trace_id="assistant_id",
+        look_for_existing_trace=True,
     ),
 ]
 #     OpenAiDefinition(
@@ -236,14 +275,14 @@ def _get_langfuse_data_from_kwargs(
     if session_id is not None and not isinstance(session_id, str):
         raise TypeError("session_id must be a string")
 
-    if trace_id:
+    # TODO: Move
+    if trace_id:  # TODO Move
         langfuse.trace(id=trace_id, session_id=session_id)
     elif session_id:
         # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
         trace_id = langfuse.trace(session_id=session_id).id
 
     metadata = kwargs.get("metadata", {})
-
     if metadata is not None and not isinstance(metadata, dict):
         raise TypeError("metadata must be a dictionary")
 
@@ -624,11 +663,17 @@ def _post_run_create(langfuse: Langfuse):
     pass
 
 
-def preprocess(langfuse: Langfuse, openai_resource, parsed_kwargs):
+def _create_observation(langfuse, openai_resource, parsed_kwargs):
     observation_fn = getattr(langfuse, openai_resource.observation_type)
+    return observation_fn(**parsed_kwargs)
+
+
+def preprocess(langfuse: Langfuse, openai_resource: OpenAiDefinition, parsed_kwargs):
+    if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
+        return None  # trace get's created in postprocessing
 
     if openai_resource.type in ["assistant", "thread"]:
-        observation = observation_fn(**parsed_kwargs)
+        observation = _create_observation(langfuse, openai_resource, parsed_kwargs)
 
     elif openai_resource.type == "run" and openai_resource.method == "retrieve":
         # get parent observation id
@@ -669,8 +714,23 @@ def preprocess(langfuse: Langfuse, openai_resource, parsed_kwargs):
     return observation
 
 
-def postprocess(openai_resource, observation):
-    pass
+def postprocess(
+    langfuse: Langfuse,
+    openai_resource: OpenAiDefinition,
+    openai_response,
+    observation,
+    parsed_kwargs,
+):
+    if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
+        trace_id = getattr(openai_response, openai_resource.arg_trace_id)
+        langfuse.trace(id=trace_id)
+        _, output, usage = _get_langfuse_data_from_default_response(
+            openai_resource, openai_response.__dict__
+        )
+        kwargs = {**parsed_kwargs}
+        kwargs["trace_id"] = trace_id
+        kwargs["output"] = output
+        observation = _create_observation(langfuse, openai_resource, kwargs)
 
 
 @_langfuse_wrapper
@@ -683,8 +743,11 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
     parsed_kwargs = _get_langfuse_data_from_kwargs(
         openai_resource, new_langfuse, start_time, arg_extractor
     )
+    if openai_resource.arg_trace_id and openai_resource.look_for_existing_trace:
+        parsed_kwargs["trace_id"] = kwargs.get(openai_resource.arg_trace_id)
 
     observation = preprocess(new_langfuse, openai_resource, parsed_kwargs)
+
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
@@ -697,7 +760,17 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
                 openai_resource,
                 openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
-            if openai_resource.type == "thread":
+
+            if openai_resource.type == "assistant":
+                postprocess(
+                    new_langfuse,
+                    openai_resource,
+                    openai_response,
+                    observation,
+                    parsed_kwargs,
+                )
+
+            elif openai_resource.type == "thread":
                 observation.update(name=openai_response.id, output=completion)
 
             elif openai_resource.type == "run" and openai_resource.method == "retrieve":
@@ -721,6 +794,7 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
     except Exception as ex:
         log.warning(ex)
         model = kwargs.get("model", None)
+
         observation.update(
             end_time=_get_timestamp(),
             status_message=str(ex),

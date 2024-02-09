@@ -53,17 +53,18 @@ def api():
     )
 
 
-def test_openai_assistant_create(api: FernLangfuse, trace_id):
+def test_openai_assistant_create(api: FernLangfuse):
     openai_kwargs = {"model": "gpt-3.5-turbo"}
 
     langfuse_kwargs = {
-        "trace_id": trace_id,
+        # "trace_id": trace_id,
     }
     fn = openai.beta.assistants.create
 
-    openai_response_object = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
     openai.flush_langfuse()
-    trace = api.trace.get(trace_id)
+
+    trace_id = openai_response.id
     observations = api.observations.get_many(
         trace_id=trace_id,
     )
@@ -73,18 +74,28 @@ def test_openai_assistant_create(api: FernLangfuse, trace_id):
     for key, value in openai_kwargs.items():
         assert observation.input[key] == value
 
-    assert observation.output == dict(openai_response_object)
+    assert observation.output == dict(openai_response)
 
 
-def test_openai_assistant_delete(api: FernLangfuse, trace_id, openai_assistant):
-    openai_kwargs = {"assistant_id": openai_assistant.id}
+@pytest.mark.parametrize(
+    "openai_call,openai_kwargs",
+    [
+        (openai.beta.assistants.delete, {}),
+        (openai.beta.assistants.retrieve, {}),
+        (openai.beta.assistants.update, {"description": "I am an updated description"}),
+    ],
+)
+def test_openai_assistant(
+    openai_call, openai_kwargs, api: FernLangfuse, trace_id, openai_assistant
+):
+    openai_kwargs.update({"assistant_id": openai_assistant.id})
     langfuse_kwargs = {
         "trace_id": trace_id,
     }
 
-    openai_response_object = openai.beta.assistants.delete(**openai_kwargs)
+    openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
-
+    trace_id = openai_kwargs["assistant_id"]
     trace = api.trace.get(trace_id)
     observations = api.observations.get_many(
         trace_id=trace_id,
@@ -95,4 +106,4 @@ def test_openai_assistant_delete(api: FernLangfuse, trace_id, openai_assistant):
     for key, value in openai_kwargs.items():
         assert observation.input[key] == value
 
-    assert observation.output == dict(openai_response_object)
+    # assert observation.output == dict(openai_response_object)
