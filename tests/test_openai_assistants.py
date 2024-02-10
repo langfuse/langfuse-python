@@ -45,6 +45,17 @@ def openai_assistant():
 
 
 @pytest.fixture
+def openai_thread():
+    # TODO: Ideally this call should not be wrapped
+    thread = openai.beta.threads.create()
+    yield thread
+    try:
+        openai.beta.threads.delete(thread_id=thread.id)
+    except:
+        pass
+
+
+@pytest.fixture
 def api():
     return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
@@ -86,9 +97,9 @@ def test_openai_assistant_create(api: FernLangfuse):
     ],
 )
 def test_openai_assistant(
-    openai_call, openai_kwargs, api: FernLangfuse, trace_id, openai_assistant
+    openai_call, openai_kwargs, api: FernLangfuse, trace_id, openai_thread
 ):
-    openai_kwargs.update({"assistant_id": openai_assistant.id})
+    openai_kwargs.update({"assistant_id": openai_thread.id})
     langfuse_kwargs = {
         "trace_id": trace_id,
     }
@@ -97,6 +108,90 @@ def test_openai_assistant(
     openai.flush_langfuse()
 
     trace_id = openai_kwargs["assistant_id"]
+    observations = api.observations.get_many(
+        trace_id=trace_id,
+    )
+
+    assert observations.data
+    observation = observations.data[0]
+    for key, value in openai_kwargs.items():
+        assert observation.input[key] == value
+
+    assert observation.output == dict(openai_response)
+
+
+def test_openai_thread_create(api: FernLangfuse):
+    openai_kwargs = {}
+
+    langfuse_kwargs = {
+        # "trace_id": trace_id,
+    }
+    fn = openai.beta.threads.create
+
+    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai.flush_langfuse()
+
+    trace_id = openai_response.id
+    observations = api.observations.get_many(
+        trace_id=trace_id,
+    )
+
+    assert observations.data
+    observation = observations.data[0]
+    for key, value in openai_kwargs.items():
+        assert observation.input[key] == value
+
+    assert observation.output == dict(openai_response)
+
+
+@pytest.mark.parametrize(
+    "openai_call,openai_kwargs",
+    [
+        (openai.beta.threads.delete, {}),
+        (openai.beta.threads.retrieve, {}),
+        (openai.beta.threads.update, {"metadata": {"info": "I am now updated!"}}),
+    ],
+)
+def test_openai_thread(
+    openai_call, openai_kwargs, api: FernLangfuse, trace_id, openai_thread
+):
+    openai_kwargs.update({"thread_id": openai_thread.id})
+    langfuse_kwargs = {
+        "trace_id": trace_id,
+    }
+
+    openai_response = openai_call(**openai_kwargs)
+    openai.flush_langfuse()
+
+    trace_id = openai_kwargs["thread_id"]
+    observations = api.observations.get_many(
+        trace_id=trace_id,
+    )
+
+    assert observations.data
+    observation = observations.data[0]
+    for key, value in openai_kwargs.items():
+        assert observation.input[key] == value
+
+    assert observation.output == dict(openai_response)
+
+
+def test_openai_message_create(api: FernLangfuse, openai_thread):
+    openai_kwargs = {
+        "thread_id": openai_thread.id,
+        "role": "user",
+        "content": "Alles ist gut :)",
+    }
+
+    langfuse_kwargs = {
+        # "trace_id": trace_id,
+    }
+    fn = openai.beta.threads.messages.create
+
+    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai.flush_langfuse()
+
+    trace_id = openai_thread.id
     observations = api.observations.get_many(
         trace_id=trace_id,
     )

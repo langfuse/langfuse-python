@@ -180,14 +180,68 @@ OPENAI_METHODS_V1 = [
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads",
+        object="Threads",
+        method="create",
+        type="thread",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            "messages": [],
+            # TODO: metadata
+        },
+        arg_trace_id="id",
+        look_for_existing_trace=False,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads",
+        object="Threads",
+        method="delete",
+        type="thread",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads",
+        object="Threads",
+        method="retrieve",
+        type="thread",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads",
+        object="Threads",
+        method="update",
+        type="thread",
+        sync=True,
+        observation_type="span",
+        default_arguments={"metadata": {}},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.messages",
+        object="Messages",
+        method="create",
+        type="message",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            "file_ids": [],
+            # "metadata": {}
+        },
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
 ]
-#     OpenAiDefinition(
-#         module="openai.resources.beta.threads",
-#         object="Threads",
-#         method="create",
-#         type="thread",
-#         sync=True,
-#     ),
 #     OpenAiDefinition(
 #         module="openai.resources.beta.threads.messages",
 #         object="Messages",
@@ -301,7 +355,7 @@ def _get_langfuse_data_from_kwargs(
             if kwargs.get("functions", None) is not None
             else filter_image_data(kwargs.get("messages", []))
         )
-    elif resource.type == "assistant":
+    elif resource.type in ["assistant", "thread", "message"]:
         _lf_input = {**resource.default_arguments, **arg_extractor.get_openai_args()}
         prompt = _lf_input
 
@@ -511,7 +565,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
                 if _is_openai_v1()
                 else choice.get("message", None)
             )
-    elif resource.type == "assistant":
+    elif resource.type in ["assistant", "thread", "message"]:
         # based on https://platform.openai.com/docs/api-reference/assistants/object
         completion = dict(response)
         # TODO: non-serializable tools?
@@ -672,7 +726,7 @@ def preprocess(langfuse: Langfuse, openai_resource: OpenAiDefinition, parsed_kwa
     if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
         return None  # trace get's created in postprocessing
 
-    if openai_resource.type in ["assistant", "thread"]:
+    if openai_resource.type in ["assistant", "thread", "message"]:
         observation = _create_observation(langfuse, openai_resource, parsed_kwargs)
 
     elif openai_resource.type == "run" and openai_resource.method == "retrieve":
@@ -771,7 +825,7 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
                 openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
 
-            if openai_resource.type == "assistant":
+            if openai_resource.type in ["assistant", "thread", "message"]:
                 postprocess(
                     new_langfuse,
                     openai_resource,
@@ -780,8 +834,8 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
                     parsed_kwargs,
                 )
 
-            elif openai_resource.type == "thread":
-                observation.update(name=openai_response.id, output=completion)
+            # elif openai_resource.type == "thread":
+            #     observation.update(name=openai_response.id, output=completion)
 
             elif openai_resource.type == "run" and openai_resource.method == "retrieve":
                 _post_run_retrieve(
@@ -811,32 +865,6 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
             level="ERROR",
             model=model,
         )
-        raise ex
-
-
-@_langfuse_wrapper
-def _wrap_beta(
-    openai_resource: OpenAiBetaDefinition, initialize, wrapped, args, kwargs
-):
-    new_langfuse: Langfuse = initialize()
-
-    start_time = _get_timestamp()
-    arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
-
-    parsed_kwargs = _get_langfuse_data_from_kwargs(
-        openai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
-    )
-
-    openai_resource.preprocess(new_langfuse, parsed_kwargs)
-
-    try:
-        openai_response = wrapped(**arg_extractor.get_openai_args())
-        openai_resource.postprocess()
-        return openai_response
-
-    except Exception as ex:
-        log.warning(ex)
-        openai_resource.handle_exception(ex)
         raise ex
 
 
