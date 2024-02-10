@@ -197,6 +197,17 @@ OPENAI_METHODS_V1 = [
     OpenAiDefinition(
         module="openai.resources.beta.threads",
         object="Threads",
+        method="create_and_run",
+        type="run",
+        sync=True,
+        observation_type="generation",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=False,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads",
+        object="Threads",
         method="delete",
         type="thread",
         sync=True,
@@ -241,43 +252,134 @@ OPENAI_METHODS_V1 = [
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.messages",
+        object="Messages",
+        method="retrieve",
+        type="message",
+        sync=True,
+        observation_type="span",
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.messages",
+        object="Messages",
+        method="update",
+        type="message",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            "metadata": {},
+        },
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.messages",
+        object="Messages",
+        method="list",
+        type="message",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            "limit": 20,
+            "order": "desc",
+            "after": None,
+            "before": None,
+        },
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="create",
+        type="run",
+        sync=True,
+        observation_type="generation",
+        default_arguments={
+            # "model": None,
+            "tools": [],
+            "metadata": {},
+        },
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="retrieve",
+        type="run",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            # "model": None,
+            "tools": [],
+            "metadata": {},
+        },
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="update",
+        type="run",
+        sync=True,
+        observation_type="span",
+        default_arguments={
+            # "model": None,
+            "metadata": {}
+        },
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="cancel",
+        type="run",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs",
+        object="Runs",
+        method="list",
+        type="run",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs.steps",
+        object="Steps",
+        method="list",
+        type="run",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.threads.runs.steps",
+        object="Steps",
+        method="retrieve",
+        type="run",
+        sync=True,
+        observation_type="span",
+        default_arguments={},
+        arg_trace_id="thread_id",
+        look_for_existing_trace=True,
+    ),
 ]
-#     OpenAiDefinition(
-#         module="openai.resources.beta.threads.messages",
-#         object="Messages",
-#         method="create",
-#         type="message",
-#         sync=True,
-#     ),
-#     OpenAiDefinition(
-#         module="openai.resources.beta.threads.runs",
-#         object="Runs",
-#         method="create",
-#         type="run",
-#         sync=True,
-#     ),
-#     OpenAiDefinition(
-#         module="openai.resources.beta.threads.runs",
-#         object="Runs",
-#         method="retrieve",
-#         type="run",
-#         sync=True,
-#     ),
-#     OpenAiDefinition(
-#         module="openai.resources.beta.threads.runs.steps",
-#         object="Steps",
-#         method="list",
-#         type="run_step",
-#         sync=True,
-#     ),
-#     OpenAiDefinition(
-#         module="openai.resources.beta.threads.messages",
-#         object="Messages",
-#         method="list",
-#         type="message",
-#         sync=True,
-#     ),
-# ]
 
 
 class OpenAiArgsExtractor:
@@ -355,55 +457,9 @@ def _get_langfuse_data_from_kwargs(
             if kwargs.get("functions", None) is not None
             else filter_image_data(kwargs.get("messages", []))
         )
-    elif resource.type in ["assistant", "thread", "message"]:
+    elif resource.type in ["assistant", "thread", "message", "run"]:
         _lf_input = {**resource.default_arguments, **arg_extractor.get_openai_args()}
         prompt = _lf_input
-
-    elif resource.type == "message":
-        # based on https://platform.openai.com/docs/api-reference/messages/createMessage
-        prompt = {
-            "thread_id": kwargs.get("thread_id"),
-            "role": kwargs.get("role"),
-            "content": kwargs.get("content"),
-            "file_ids": kwargs.get("file_ids", []),
-            # "metadata": kwargs.get("metadata"), # TODO: extract here?
-        }
-    elif resource.type == "run":
-        prompt = {
-            "thread_id": kwargs.get("thread_id"),
-            "assistant_id": kwargs.get("assistant_id"),
-            "model": kwargs.get("model"),
-            "instructions": kwargs.get("instructions"),
-            "additional_instructions": kwargs.get("additional_instructions"),
-            "tools": kwargs.get("tools", []),
-            "metadata": kwargs.get("metadata", {}),
-        }
-    elif resource.type == "run_step":
-        prompt = {
-            "thread_id": kwargs.get("thread_id"),
-            "run_id": kwargs.get("run_id"),
-            "limit": kwargs.get("limit", 20),
-            "order": kwargs.get("order", "desc"),
-            "after": kwargs.get(
-                "after",
-            ),
-            "before": kwargs.get(
-                "before",
-            ),
-        }
-
-    elif resource.type == "message":
-        prompt = {
-            "thread_id": kwargs.get("thread_id"),
-            "limit": kwargs.get("limit", 20),
-            "order": kwargs.get("order", "desc"),
-            "after": kwargs.get(
-                "after",
-            ),
-            "before": kwargs.get(
-                "before",
-            ),
-        }
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
@@ -565,43 +621,12 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
                 if _is_openai_v1()
                 else choice.get("message", None)
             )
-    elif resource.type in ["assistant", "thread", "message"]:
-        # based on https://platform.openai.com/docs/api-reference/assistants/object
+    elif resource.type in ["assistant", "thread", "message", "run"]:
         completion = dict(response)
-        # TODO: non-serializable tools?
-    elif resource.type == "thread":
-        # based on https://platform.openai.com/docs/api-reference/threads/object
-        completion = {
-            "id": response.get("id"),
-            "object": response.get("object"),  # always "thread"
-            "created_at": response.get("created_at"),
-            "metadata": response.get("metadata", {}),
-        }
-    elif resource.type == "message" and resource.method == "create":
-        # based on https://platform.openai.com/docs/api-reference/messages/object
-        completion = {
-            "id": response.get("id"),
-            "object": response.get("object"),
-            "created_at": response.get("created_at"),
-            "thread_id": response.get("thread_id"),
-            "role": response.get("role"),
-            "content": response.get("content", []),
-            "assistant_id": response.get("assistant_id"),
-            "run_id": response.get("run_id"),
-            "file_ids": response.get("file_ids", []),
-        }
 
-    elif resource.type == "message" and resource.method == "list":
-        messages = response.get("data", [])
-        completion = [dict(message) for message in messages]
-
-    elif resource.type == "run":
-        # based on https://platform.openai.com/docs/api-reference/messages/object
-        completion = {**response}
-
-    elif resource.type == "run_step":
-        run_steps = response.get("data", [])
-        completion = [dict(step) for step in run_steps]
+        # filter out private keys since contain non-serializable objects
+        # TODO: non-serializable fields in response
+        completion = {k: v for k, v in completion.items() if not str(k).startswith("_")}
 
     usage = response.get("usage", None)
 
@@ -624,99 +649,6 @@ def _is_streaming_response(response):
     )
 
 
-def _setup_message_list(langfuse: Langfuse, parsed_kwargs):
-    span = langfuse.span(**parsed_kwargs)
-    return span
-
-
-def _setup_runstep_list(langfuse: Langfuse, parsed_kwargs):
-    span = langfuse.span(**parsed_kwargs)
-    return span
-
-
-def _setup_run_create(langfuse: Langfuse, parsed_kwargs):
-    generation = langfuse.generation(**parsed_kwargs)
-    sub_span = langfuse.span(
-        **{**parsed_kwargs, "name": "Run: queued"}, parent_observation_id=generation.id
-    )  # overwrite name
-
-    return generation, sub_span
-
-
-def _setup_run_retrieve(langfuse: Langfuse, parsed_kwargs):
-    # TODO: what in case no trace_id is given?
-    api = get_api()
-    trace_id = parsed_kwargs.get("trace_id")
-
-    generations = api.observations.get_many(
-        trace_id=trace_id,
-        name="OpenAI-run-create",
-        type="GENERATION",  # TODO: should not depend on name
-    )
-
-    # assume last generation is the one corresponding to "run create"
-    if len(generations.data) > 0:
-        generation = generations.data[-1]
-        parent_observation_id = generation.id
-    else:
-        log.warning(
-            f"No Generation found for trace_id {trace_id}. There should be one corresponding the Run create"
-        )
-        parent_observation_id = None
-
-    event = langfuse.event(**parsed_kwargs, parent_observation_id=parent_observation_id)
-    event.parent_observation_id = (
-        parent_observation_id  # TODO: is this information somewhere else?
-    )
-    return event
-
-
-def _post_run_retrieve(langfuse, openai_response, event, trace_id, output):
-    # get spans of the parent observation
-    api = get_api()
-
-    spans = api.observations.get_many(
-        trace_id=trace_id,
-        type="SPAN",
-        parent_observation_id=event.parent_observation_id,
-    )
-
-    run_status_spans = [
-        span for span in spans.data if span.name.startswith("Run: ")
-    ]  # TODO: use other fields
-    run_status_spans.sort(key=lambda x: x.start_time)
-
-    # again assume last one is the one corresponding to the run
-    if run_status_spans:
-        last_run_status_span = run_status_spans[-1]
-        last_status = last_run_status_span.name.split(": ")[1]
-
-        if last_status != openai_response.status:
-            # TODO: end old status
-            # last_run_status_span.update(
-            #     end_time = _get_timestamp()
-            # )
-            status_span = langfuse.span(
-                **{
-                    "name": f"Run: {openai_response.status}",
-                    "parent_observation_id": event.parent_observation_id,
-                    "trace_id": trace_id,
-                }
-            )
-        else:
-            status_span = last_run_status_span
-
-        event.update(parent_observation_id=status_span.id, output=output)
-
-
-def _pre_messages_list(langfuse: Langfuse, parsed_kwargs):
-    pass
-
-
-def _post_run_create(langfuse: Langfuse):
-    pass
-
-
 def _create_observation(langfuse, openai_resource, parsed_kwargs):
     observation_fn = getattr(langfuse, openai_resource.observation_type)
     return observation_fn(**parsed_kwargs)
@@ -726,43 +658,8 @@ def preprocess(langfuse: Langfuse, openai_resource: OpenAiDefinition, parsed_kwa
     if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
         return None  # trace get's created in postprocessing
 
-    if openai_resource.type in ["assistant", "thread", "message"]:
+    if openai_resource.type in ["assistant", "thread", "message", "run"]:
         observation = _create_observation(langfuse, openai_resource, parsed_kwargs)
-
-    elif openai_resource.type == "run" and openai_resource.method == "retrieve":
-        # get parent observation id
-        observation = _setup_run_retrieve(langfuse, parsed_kwargs)
-    elif openai_resource.type == "run" and openai_resource.method == "create":
-        observation, sub_span = _setup_run_create(langfuse, parsed_kwargs)
-
-    elif openai_resource.type == "message":
-        if openai_resource.method == "create":
-            # messages can only be created in the context of a thread, i.e. an existing trace
-            if parsed_kwargs.get("trace_id", None) is None:
-                # look if there exists a trace with the thread_id
-                thread_id = parsed_kwargs.get("input", {}).get("thread_id", None)
-                if thread_id is None:
-                    # TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not
-                    msg = "A message can only be created in the context of a thread, i.e. an existing trace. Please provide a thread_id."
-                    raise NotImplementedError(
-                        "# TODO: Decide, if we want to capture the exception that will be raised by the openai.messages.create call in an observation in a new trace or not "
-                    )
-                else:
-                    # get the trace with event of thread creation
-                    api = get_api()
-                    observations = api.observations.get_many(
-                        name=thread_id, type="EVENT"
-                    )
-                    observation = observations.data[
-                        0
-                    ]  # TODO: what in case observation does not exist?
-                    parsed_kwargs["trace_id"] = observation.trace_id
-
-            observation = langfuse.event(**parsed_kwargs)
-        elif openai_resource.method == "list":
-            observation = _setup_message_list(langfuse, parsed_kwargs)
-    elif openai_resource.type == "run_step":
-        observation = _setup_runstep_list(langfuse, parsed_kwargs)
     else:
         observation = langfuse.generation(**parsed_kwargs)
     return observation
@@ -785,7 +682,16 @@ def postprocess(
         kwargs = {**parsed_kwargs}
         kwargs["trace_id"] = trace_id
         kwargs["output"] = output
-        kwargs["end_time"] = end_time = _get_timestamp()
+        kwargs["end_time"] = _get_timestamp()
+        kwargs["usage"] = usage
+        kwargs["model"] = model
+        if (
+            openai_resource.object == "Threads"
+            and openai_resource.method == "create_and_run"
+        ):
+            kwargs["output"].update(
+                {"usage": usage}
+            )  # TODO: Decide if this needs to be kept
         observation = _create_observation(langfuse, openai_resource, kwargs)
 
     else:
@@ -825,7 +731,7 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
                 openai_response.__dict__ if _is_openai_v1() else openai_response,
             )
 
-            if openai_resource.type in ["assistant", "thread", "message"]:
+            if openai_resource.type in ["assistant", "thread", "message", "run"]:
                 postprocess(
                     new_langfuse,
                     openai_resource,
@@ -833,9 +739,6 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
                     observation,
                     parsed_kwargs,
                 )
-
-            # elif openai_resource.type == "thread":
-            #     observation.update(name=openai_response.id, output=completion)
 
             elif openai_resource.type == "run" and openai_resource.method == "retrieve":
                 _post_run_retrieve(
@@ -882,9 +785,6 @@ async def _wrap_async(
     generation = new_langfuse.generation(**generation)
 
     try:
-        if open_ai_resource.type == "run":
-            pass
-
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
@@ -954,14 +854,6 @@ class OpenAILangfuse:
                 if resource.sync
                 else _wrap_async(resource, self.initialize),
             )
-
-        # beta_resources = OPENAI_BETA_RESOURCES
-        # for resource in beta_resources:
-        #     wrap_function_wrapper(
-        #         resource.module,
-        #         f"{resource.object}.{resource.method}",
-        #         _wrap_beta(resource, self.initialize)
-        #     )
 
         setattr(openai, "langfuse_public_key", None)
         setattr(openai, "langfuse_secret_key", None)
