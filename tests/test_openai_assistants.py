@@ -673,7 +673,7 @@ def test_openai_run_steps_retrieve(api: FernLangfuse, trace_id, openai_run_step)
 def test_full_example(api, openai_assistant_with_tools, openai_file):
     # this is a full end2end test to simulate possible user behavior
 
-    openai_thread = openai.beta.threads.create(name="test full example")
+    openai_thread = openai.beta.threads.create()
     openai_message = openai.beta.threads.messages.create(
         thread_id=openai_thread.id,
         content="You are a test thread",
