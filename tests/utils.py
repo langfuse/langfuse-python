@@ -1,5 +1,11 @@
 import os
+import typing
 from uuid import uuid4
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 from langfuse.api.client import FernLangfuse
 
@@ -14,3 +20,48 @@ def get_api():
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
         base_url=os.environ.get("LANGFUSE_HOST"),
     )
+
+
+class LlmUsageWithCost(pydantic.BaseModel):
+    prompt_tokens: typing.Optional[int] = pydantic.Field(
+        alias="promptTokens", default=None
+    )
+    completion_tokens: typing.Optional[int] = pydantic.Field(
+        alias="completionTokens", default=None
+    )
+    total_tokens: typing.Optional[int] = pydantic.Field(
+        alias="totalTokens", default=None
+    )
+    input_cost: typing.Optional[float] = pydantic.Field(alias="inputCost", default=None)
+    output_cost: typing.Optional[float] = pydantic.Field(
+        alias="outputCost", default=None
+    )
+    total_cost: typing.Optional[float] = pydantic.Field(alias="totalCost", default=None)
+
+
+class LlmUsage(pydantic.BaseModel):
+    prompt_tokens: typing.Optional[int] = pydantic.Field(
+        alias="promptTokens", default=None
+    )
+    completion_tokens: typing.Optional[int] = pydantic.Field(
+        alias="completionTokens", default=None
+    )
+    total_tokens: typing.Optional[int] = pydantic.Field(
+        alias="totalTokens", default=None
+    )
+
+    def json(self, **kwargs: typing.Any) -> str:
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        return super().json(**kwargs_with_defaults)
+
+    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        return super().dict(**kwargs_with_defaults)

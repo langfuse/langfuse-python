@@ -1,14 +1,16 @@
 import os
-from typing import Optional
+from typing import Any, List, Mapping, Optional
 
 import pytest
-from langchain import Anthropic, ConversationChain, HuggingFaceHub
+from langchain_community.llms.anthropic import Anthropic
+from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
     RetrievalQA,
     SimpleSequentialChain,
+    ConversationChain,
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
@@ -22,11 +24,13 @@ from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
 from pydantic import BaseModel, Field
-
+from langchain.schema import HumanMessage, SystemMessage
 from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
 
 
 def test_callback_init():
@@ -52,14 +56,15 @@ def test_langfuse_span():
     assert handler._task_manager is not None
 
 
-def test_callback_generated_from_trace():
+def test_callback_generated_from_trace_chain():
     api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
 
-    handler = trace.getNewHandler()
+    trace = langfuse.trace(id=trace_id, name=trace_id)
+
+    handler = trace.get_langchain_handler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
@@ -75,20 +80,259 @@ def test_callback_generated_from_trace():
 
     trace = api.trace.get(trace_id)
 
+    assert trace.input is None
+    assert trace.output is None
     assert handler.get_trace_id() == trace_id
 
     assert len(trace.observations) == 2
     assert trace.id == trace_id
 
-    for observation in trace.observations:
-        if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
-            assert observation.input is not None
-            assert observation.input != ""
-            assert observation.output is not None
-            assert observation.output != ""
+    assert trace.input is None
+    assert trace.output is None
+
+    langchain_span = list(
+        filter(
+            lambda o: o.type == "SPAN" and o.name == "LLMChain",
+            trace.observations,
+        )
+    )[0]
+
+    assert langchain_span.parent_observation_id is None
+    assert langchain_span.input is not None
+    assert langchain_span.output is not None
+
+    langchain_generation_span = list(
+        filter(
+            lambda o: o.type == "GENERATION" and o.name == "OpenAI",
+            trace.observations,
+        )
+    )[0]
+
+    assert langchain_generation_span.parent_observation_id == langchain_span.id
+    assert langchain_generation_span.usage.input > 0
+    assert langchain_generation_span.usage.output > 0
+    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.input is not None
+    assert langchain_generation_span.input != ""
+    assert langchain_generation_span.output is not None
+    assert langchain_generation_span.output != ""
+
+
+def test_callback_generated_from_trace_chat():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
+
+    trace_id = create_uuid()
+
+    trace = langfuse.trace(id=trace_id, name=trace_id)
+    handler = trace.get_langchain_handler()
+
+    chat = ChatOpenAI(temperature=0)
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to French."
+        ),
+        HumanMessage(
+            content="Translate this sentence from English to French. I love programming."
+        ),
+    ]
+
+    chat(messages, callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.input is None
+    assert trace.output is None
+
+    assert handler.get_trace_id() == trace_id
+    assert trace.id == trace_id
+
+    assert len(trace.observations) == 1
+
+    langchain_generation_span = list(
+        filter(
+            lambda o: o.type == "GENERATION" and o.name == "ChatOpenAI",
+            trace.observations,
+        )
+    )[0]
+
+    assert langchain_generation_span.parent_observation_id is None
+    assert langchain_generation_span.usage.input > 0
+    assert langchain_generation_span.usage.output > 0
+    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.input is not None
+    assert langchain_generation_span.input != ""
+    assert langchain_generation_span.output is not None
+    assert langchain_generation_span.output != ""
+
+
+def test_callback_generated_from_lcel_chain():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
+
+    run_name_override = "This is a custom Run Name"
+    handler = CallbackHandler()
+
+    prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
+    model = ChatOpenAI(temperature=0)
+
+    chain = prompt | model
+
+    chain.invoke(
+        {"topic": "ice cream"},
+        config={
+            "callbacks": [handler],
+            "run_name": run_name_override,
+        },
+    )
+
+    langfuse.flush()
+    trace_id = handler.get_trace_id()
+    trace = api.trace.get(trace_id)
+
+    assert trace.name == run_name_override
+
+
+def test_callback_generated_from_span_chain():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
+
+    trace_id = create_uuid()
+    span_id = create_uuid()
+
+    trace = langfuse.trace(id=trace_id, name=trace_id)
+    span = trace.span(id=span_id, name=span_id)
+
+    handler = span.get_langchain_handler()
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.input is None
+    assert trace.output is None
+    assert handler.get_trace_id() == trace_id
+
+    assert len(trace.observations) == 3
+    assert trace.id == trace_id
+
+    assert trace.input is None
+    assert trace.output is None
+
+    user_span = list(
+        filter(
+            lambda o: o.id == span_id,
+            trace.observations,
+        )
+    )[0]
+
+    assert user_span.input is None
+    assert user_span.output is None
+
+    assert user_span.input is None
+    assert user_span.output is None
+
+    langchain_span = list(
+        filter(
+            lambda o: o.type == "SPAN" and o.name == "LLMChain",
+            trace.observations,
+        )
+    )[0]
+
+    assert langchain_span.parent_observation_id == user_span.id
+
+    langchain_generation_span = list(
+        filter(
+            lambda o: o.type == "GENERATION" and o.name == "OpenAI",
+            trace.observations,
+        )
+    )[0]
+
+    assert langchain_generation_span.parent_observation_id == langchain_span.id
+    assert langchain_generation_span.usage.input > 0
+    assert langchain_generation_span.usage.output > 0
+    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.input is not None
+    assert langchain_generation_span.input != ""
+    assert langchain_generation_span.output is not None
+    assert langchain_generation_span.output != ""
+
+
+def test_callback_generated_from_span_chat():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
+
+    trace_id = create_uuid()
+    span_id = create_uuid()
+
+    trace = langfuse.trace(id=trace_id, name=trace_id)
+    span = trace.span(id=span_id, name=span_id)
+
+    handler = span.get_langchain_handler()
+
+    chat = ChatOpenAI(temperature=0)
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to French."
+        ),
+        HumanMessage(
+            content="Translate this sentence from English to French. I love programming."
+        ),
+    ]
+
+    chat(messages, callbacks=[handler])
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace_id)
+
+    assert trace.input is None
+    assert trace.output is None
+
+    assert handler.get_trace_id() == trace_id
+    assert trace.id == trace_id
+
+    assert len(trace.observations) == 2
+
+    user_span = list(
+        filter(
+            lambda o: o.id == span_id,
+            trace.observations,
+        )
+    )[0]
+
+    assert user_span.input is None
+    assert user_span.output is None
+
+    langchain_generation_span = list(
+        filter(
+            lambda o: o.type == "GENERATION" and o.name == "ChatOpenAI",
+            trace.observations,
+        )
+    )[0]
+
+    assert langchain_generation_span.parent_observation_id == user_span.id
+    assert langchain_generation_span.usage.input > 0
+    assert langchain_generation_span.usage.output > 0
+    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.input is not None
+    assert langchain_generation_span.input != ""
+    assert langchain_generation_span.output is not None
+    assert langchain_generation_span.output != ""
 
 
 @pytest.mark.skip(reason="missing api key")
@@ -176,9 +420,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
-    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -187,7 +429,7 @@ def test_callback_generated_from_trace_anthropic():
     handler = trace.getNewHandler()
 
     llm = Anthropic(
-        anthropic_api_key=os.environ.get("OPENAI_API_KEY"), model="Claude-v1"
+        model="claude-instant-1.2",
     )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
@@ -200,25 +442,25 @@ def test_callback_generated_from_trace_anthropic():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace_id)
+    api = get_api()
+    trace = api.trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
-    assert len(trace["observations"]) == 2
-    assert trace["id"] == trace_id
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.output is not None
+            assert observation.output != ""
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.model == "claude-instant-1.2"
 
 
 def test_basic_chat_openai():
-    from langchain.schema import HumanMessage, SystemMessage
-
     callback = CallbackHandler(debug=False)
 
     chat = ChatOpenAI(temperature=0)
@@ -364,50 +606,6 @@ def test_next_span_id_from_trace_simple_chain():
             assert observation["output"] != ""
 
 
-def test_callback_simple_chain():
-    api = get_api()
-    handler = CallbackHandler(
-        debug=False, trace_name="test-trace-name", session_id="100", user_id="200"
-    )
-
-    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title. It should be as long as possible.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = api.trace.get(trace_id)
-
-    assert len(trace.observations) == 2
-    assert trace.id == trace_id
-    root_observation = list(
-        filter(lambda x: x.parent_observation_id is None, trace.observations)
-    )[0]
-    assert trace.input == root_observation.input
-    assert trace.output == root_observation.output
-    assert trace.name == "test-trace-name"
-    assert trace.session_id == "100"
-    assert trace.user_id == "200"
-
-    for observation in trace.observations:
-        if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
-            assert observation.input is not None
-            assert observation.input != ""
-            assert observation.output is not None
-            assert observation.output != ""
-
-
 def test_callback_sequential_chain():
     api = get_api()
     handler = CallbackHandler(debug=False)
@@ -442,11 +640,6 @@ def test_callback_sequential_chain():
 
     assert len(trace.observations) == 5
     assert trace.id == trace_id
-    root_observation = list(
-        filter(lambda x: x.parent_observation_id is None, trace.observations)
-    )[0]
-    assert str(trace.input) == str(root_observation.input)
-    assert str(trace.output) == str(root_observation.output)
 
     for observation in trace.observations:
         if observation.type == "GENERATION":
@@ -665,7 +858,7 @@ def test_callback_simple_openai():
     trace = api.trace.get(trace_id)
 
     assert len(trace.observations) == 1
-    assert trace.input == trace.observations[0].input
+
     for observation in trace.observations:
         if observation.type == "GENERATION":
             assert observation.usage.input > 0
@@ -1042,3 +1235,70 @@ def test_aws_bedrock_chain():
             assert observation["output"] != ""
             assert observation["name"] == "Bedrock"
             assert observation["model"] == "claude"
+
+
+def test_unimplemented_model():
+    callback = CallbackHandler(debug=False)
+
+    class CustomLLM(LLM):
+        n: int
+
+        @property
+        def _llm_type(self) -> str:
+            return "custom"
+
+        def _call(
+            self,
+            prompt: str,
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            if stop is not None:
+                raise ValueError("stop kwargs are not permitted.")
+            return "This is a great text, which i can take characters from "[: self.n]
+
+    @property
+    def _identifying_params(self) -> Mapping[str, Any]:
+        """Get the identifying parameters."""
+        return {"n": self.n}
+
+    custom_llm = CustomLLM(n=10)
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    template = """You are a play critic from the New York Times.
+    Given the synopsis of play, it is your job to write a review for that play.
+
+        Play Synopsis:
+        {synopsis}
+        Review from a New York Times play critic of the above play:"""
+    prompt_template = PromptTemplate(input_variables=["synopsis"], template=template)
+    custom_llm_chain = LLMChain(llm=custom_llm, prompt=prompt_template)
+
+    sequential_chain = SimpleSequentialChain(chains=[custom_llm_chain, synopsis_chain])
+    sequential_chain.run("This is a foobar thing", callbacks=[callback])
+
+    callback.flush()
+
+    api = get_api()
+
+    trace = api.trace.get(callback.get_trace_id())
+
+    assert len(trace.observations) == 5
+
+    custom_generation = list(
+        filter(
+            lambda x: x.type == "GENERATION" and x.name == "CustomLLM",
+            trace.observations,
+        )
+    )[0]
+
+    assert custom_generation.output == "This is a "
+    assert custom_generation.model is None

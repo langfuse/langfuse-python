@@ -28,16 +28,6 @@ expected_err_msg = (
 )
 
 
-# def _wait_on_run(run, thread, openai):
-#     while run.status == "queued" or run.status == "in_progress":
-#         run = client.beta.threads.runs.retrieve(
-#             thread_id=thread.id,
-#             run_id=run.id,
-#         )
-#         time.sleep(0.5)
-#     return run
-
-
 def test_openai_chat_completion():
     api = get_api()
     generation_name = create_uuid()
@@ -716,6 +706,36 @@ def test_image_data_filtered():
                         "type": "image_url",
                         "image_url": {
                             "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
+                        },
+                    },
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) == 1
+    assert "data:image/jpeg;base64" not in generation.data[0].input
+
+
+def test_image_data_filtered_png():
+    api = get_api()
+    generation_name = create_uuid()
+
+    openai.chat.completions.create(
+        name=generation_name,
+        model="gpt-4-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/png;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
                         },
                     },
                 ],

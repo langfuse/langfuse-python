@@ -42,6 +42,9 @@ class ModelUsage(TypedDict):
     input: Optional[int]
     output: Optional[int]
     total: Optional[int]
+    input_cost: Optional[float]
+    output_cost: Optional[float]
+    total_cost: Optional[float]
 
 
 class PromptClient:
@@ -56,3 +59,13 @@ class PromptClient:
 
     def compile(self, **kwargs) -> str:
         return chevron.render(self.prompt, kwargs)
+
+    def __eq__(self, other):
+        if isinstance(self, other.__class__):
+            return (
+                self.name == other.name
+                and self.version == other.version
+                and self.prompt == other.prompt
+            )
+
+        return False

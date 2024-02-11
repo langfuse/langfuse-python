@@ -3,13 +3,12 @@ import json
 import logging
 import queue
 import threading
-import typing
-from datetime import datetime
 from queue import Empty, Queue
-from typing import List
+import time
+from typing import List, Any
+from datetime import datetime, timezone
+import typing
 
-import monotonic
-from dateutil.tz import tzutc
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -94,11 +93,11 @@ class Consumer(threading.Thread):
         queue = self._queue
         items = []
 
-        start_time = monotonic.monotonic()
+        start_time = time.monotonic()
         total_size = 0
 
         while len(items) < self._flush_at:
-            elapsed = monotonic.monotonic() - start_time
+            elapsed = time.monotonic() - start_time
             if elapsed >= self._flush_interval:
                 break
             try:
@@ -148,7 +147,7 @@ class Consumer(threading.Thread):
         """Pause the consumer."""
         self.running = False
 
-    def _upload_batch(self, batch: List[any]):
+    def _upload_batch(self, batch: List[Any]):
         self._log.debug("uploading batch of %d items", len(batch))
 
         metadata = LangfuseMetadata(
@@ -160,8 +159,8 @@ class Consumer(threading.Thread):
         ).dict()
 
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
-        def execute_task_with_backoff(batch: [any]):
-            return self._client.batch_post(gzip=False, batch=batch, metadata=metadata)
+        def execute_task_with_backoff(batch: List[Any]):
+            return self._client.batch_post(batch=batch, metadata=metadata)
 
         execute_task_with_backoff(batch)
         self._log.debug("successfully uploaded batch of %d items", len(batch))
@@ -234,7 +233,7 @@ class TaskManager(object):
         try:
             self._log.debug(f"adding task {event}")
             json.dumps(event, cls=EventSerializer)
-            event["timestamp"] = datetime.utcnow().replace(tzinfo=tzutc())
+            event["timestamp"] = datetime.utcnow().replace(tzinfo=timezone.utc)
 
             self._queue.put(event, block=False)
         except queue.Full:

@@ -29,6 +29,7 @@ from .commons import (
     NotFoundError,
     Observation,
     ObservationLevel,
+    ObservationsView,
     Score,
     Session,
     SessionWithTraces,
@@ -83,11 +84,11 @@ from .ingestion import (
     UpdateSpanBody,
     UpdateSpanEvent,
 )
-from .observations import Observations
+from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
 from .prompts import CreatePromptRequest, Prompt
 from .score import CreateScoreRequest, Scores
-from .trace import Traces
+from .trace import Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
@@ -135,6 +136,8 @@ __all__ = [
     "ObservationLevel",
     "ObservationType",
     "Observations",
+    "ObservationsView",
+    "ObservationsViews",
     "OpenAiUsage",
     "OptionalObservationBody",
     "Project",
@@ -149,6 +152,7 @@ __all__ = [
     "ServiceUnavailableError",
     "Session",
     "SessionWithTraces",
+    "Sort",
     "Trace",
     "TraceBody",
     "TraceEvent",

@@ -2,6 +2,7 @@ import logging
 import subprocess
 import threading
 from urllib.parse import urlparse, urlunparse
+import httpx
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -22,7 +23,9 @@ def setup_server(httpserver, expected_body: dict):
 
 
 def setup_langfuse_client(server: str):
-    return LangfuseClient("public_key", "secret_key", server, "1.0.0", 15)
+    return LangfuseClient(
+        "public_key", "secret_key", server, "1.0.0", 15, httpx.Client()
+    )
 
 
 def get_host(url):
@@ -172,8 +175,9 @@ import time
 import logging
 from langfuse.task_manager import TaskManager  # assuming task_manager is the module name
 from langfuse.request import LangfuseClient
+import httpx
 
-langfuse_client = LangfuseClient("public_key", "secret_key", "http://localhost:3000", "1.0.0", 15)
+langfuse_client = LangfuseClient("public_key", "secret_key", "http://localhost:3000", "1.0.0", 15, httpx.Client())
 
 logging.basicConfig(
     level=logging.DEBUG,
