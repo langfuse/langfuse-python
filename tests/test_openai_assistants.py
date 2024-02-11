@@ -11,6 +11,9 @@ from langfuse.openai import openai
 from tests.utils import create_uuid
 
 
+# TODO: There is a lot of code duplication between the tests, refactor
+
+
 def _convert_to_dict(obj):
     if isinstance(obj, dict):
         for key, value in obj.items():
