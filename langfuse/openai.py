@@ -13,10 +13,7 @@ from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
-from langfuse.utils import _get_timestamp, get_api
-
-from langfuse.openai_beta import OPENAI_BETA_RESOURCES
-from langfuse.openai_beta import OpenAiDefinition as OpenAiBetaDefinition
+from langfuse.utils import _get_timestamp
 
 log = logging.getLogger("langfuse")
 
@@ -28,9 +25,8 @@ class OpenAiDefinition:
     type: str
     sync: bool
     observation_type: str
-    default_arguments: dict
-    arg_trace_id: str
-    look_for_existing_trace: bool
+    arg_trace_id: str  # whether the langfuse trace_id should be taken / linked to an id in the input argument, used to set a trace_id to thread_id or assistand_id
+    look_for_existing_trace: bool  # whether we expect a langfuse to already be created previously
 
     def __init__(
         self,
@@ -40,7 +36,6 @@ class OpenAiDefinition:
         type: str,
         sync: bool,
         observation_type: str = "generation",
-        default_arguments: dict = {},
         arg_trace_id: str = None,
         look_for_existing_trace: bool = False,
     ):
@@ -50,10 +45,11 @@ class OpenAiDefinition:
         self.type = type
         self.sync = sync
         self.observation_type = observation_type
-        self.default_arguments = default_arguments
         self.arg_trace_id = arg_trace_id
         self.look_for_existing_trace = look_for_existing_trace
 
+    # these are solely for debugging pruproses
+    # TODO: remove
     def _get_callable(self):
         callable_path = f"{self.module}.{self.object}.{self.method}"
         callable_path_list = callable_path.split(".")
@@ -129,14 +125,6 @@ OPENAI_METHODS_V1 = [
         type="assistant",
         sync=True,
         observation_type="span",
-        default_arguments={
-            # TODO: name
-            # TODO: metadata
-            "description": None,
-            "instructions": None,
-            "tools": [],
-            "file_ids": [],
-        },
         arg_trace_id="id",
         look_for_existing_trace=False,
     ),
@@ -147,7 +135,6 @@ OPENAI_METHODS_V1 = [
         type="assistant",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -158,7 +145,6 @@ OPENAI_METHODS_V1 = [
         type="assistant",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -169,14 +155,6 @@ OPENAI_METHODS_V1 = [
         type="assistant",
         sync=True,
         observation_type="span",
-        default_arguments={
-            # TODO: name
-            # TODO: metadata
-            "description": None,
-            "instructions": None,
-            "tools": [],
-            "file_ids": [],
-        },
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -187,7 +165,6 @@ OPENAI_METHODS_V1 = [
         type="assistant",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id=None,
         look_for_existing_trace=False,
     ),
@@ -198,7 +175,6 @@ OPENAI_METHODS_V1 = [
         type="assistant_file",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -209,7 +185,6 @@ OPENAI_METHODS_V1 = [
         type="assistant_file",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -220,7 +195,6 @@ OPENAI_METHODS_V1 = [
         type="assistant_file",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -231,7 +205,6 @@ OPENAI_METHODS_V1 = [
         type="assistant_file",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="assistant_id",
         look_for_existing_trace=True,
     ),
@@ -242,10 +215,6 @@ OPENAI_METHODS_V1 = [
         type="thread",
         sync=True,
         observation_type="span",
-        default_arguments={
-            "messages": [],
-            # TODO: metadata
-        },
         arg_trace_id="id",
         look_for_existing_trace=False,
     ),
@@ -256,7 +225,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="generation",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=False,
     ),
@@ -267,7 +235,6 @@ OPENAI_METHODS_V1 = [
         type="thread",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -278,7 +245,6 @@ OPENAI_METHODS_V1 = [
         type="thread",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -289,7 +255,6 @@ OPENAI_METHODS_V1 = [
         type="thread",
         sync=True,
         observation_type="span",
-        default_arguments={"metadata": {}},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -300,10 +265,6 @@ OPENAI_METHODS_V1 = [
         type="message",
         sync=True,
         observation_type="span",
-        default_arguments={
-            "file_ids": [],
-            # "metadata": {}
-        },
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -324,9 +285,6 @@ OPENAI_METHODS_V1 = [
         type="message",
         sync=True,
         observation_type="span",
-        default_arguments={
-            "metadata": {},
-        },
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -337,12 +295,6 @@ OPENAI_METHODS_V1 = [
         type="message",
         sync=True,
         observation_type="span",
-        default_arguments={
-            "limit": 20,
-            "order": "desc",
-            "after": None,
-            "before": None,
-        },
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -353,7 +305,6 @@ OPENAI_METHODS_V1 = [
         type="message",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -364,7 +315,6 @@ OPENAI_METHODS_V1 = [
         type="message",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -375,11 +325,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="generation",
-        default_arguments={
-            # "model": None,
-            "tools": [],
-            "metadata": {},
-        },
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -390,11 +335,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="span",
-        default_arguments={
-            # "model": None,
-            "tools": [],
-            "metadata": {},
-        },
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -405,10 +345,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="span",
-        default_arguments={
-            # "model": None,
-            "metadata": {}
-        },
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -419,7 +355,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -430,7 +365,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -441,7 +375,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -452,7 +385,6 @@ OPENAI_METHODS_V1 = [
         type="run",
         sync=True,
         observation_type="span",
-        default_arguments={},
         arg_trace_id="thread_id",
         look_for_existing_trace=True,
     ),
@@ -542,8 +474,8 @@ def _get_langfuse_data_from_kwargs(
             if kwargs.get("functions", None) is not None
             else filter_image_data(kwargs.get("messages", []))
         )
-    elif resource.type in ["assistant", "thread", "message", "run", "assistant_file"]:
-        _lf_input = {**resource.default_arguments, **arg_extractor.get_openai_args()}
+    else:
+        _lf_input = {**arg_extractor.get_openai_args()}
         if "metadata" in kwargs:
             _lf_input["metadata"] = kwargs["metadata"]
         prompt = _lf_input
@@ -708,7 +640,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
                 if _is_openai_v1()
                 else choice.get("message", None)
             )
-    elif resource.type in ["assistant", "thread", "message", "run", "assistant_file"]:
+    else:
         completion = dict(response)
 
         # filter out private keys since contain non-serializable objects
@@ -744,18 +676,8 @@ def _create_observation(langfuse, openai_resource, parsed_kwargs):
 def preprocess(langfuse: Langfuse, openai_resource: OpenAiDefinition, parsed_kwargs):
     if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
         return None  # trace get's created in postprocessing
-
-    if openai_resource.type in [
-        "assistant",
-        "thread",
-        "message",
-        "run",
-        "assistant_file",
-    ]:
-        observation = _create_observation(langfuse, openai_resource, parsed_kwargs)
     else:
-        observation = langfuse.generation(**parsed_kwargs)
-    return observation
+        return _create_observation(langfuse, openai_resource, parsed_kwargs)
 
 
 def postprocess(
@@ -820,33 +742,13 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
                 openai_resource, openai_response, observation, new_langfuse
             )
         else:
-            model, completion, usage = _get_langfuse_data_from_default_response(
+            postprocess(
+                new_langfuse,
                 openai_resource,
-                openai_response.__dict__ if _is_openai_v1() else openai_response,
+                openai_response,
+                observation,
+                parsed_kwargs,
             )
-
-            if openai_resource.type in [
-                "assistant",
-                "thread",
-                "message",
-                "run",
-                "assistant_file",
-            ]:
-                postprocess(
-                    new_langfuse,
-                    openai_resource,
-                    openai_response,
-                    observation,
-                    parsed_kwargs,
-                )
-
-            else:
-                observation.update(
-                    model=model,
-                    output=completion,
-                    end_time=_get_timestamp(),
-                    usage=usage,
-                )
 
         return openai_response
     except Exception as ex:
@@ -875,7 +777,7 @@ async def _wrap_async(
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
     generation = _get_langfuse_data_from_kwargs(
-        open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
+        open_ai_resource, new_langfuse, start_time, arg_extractor
     )
     generation = new_langfuse.generation(**generation)
 
