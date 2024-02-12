@@ -226,6 +226,7 @@ def test_openai_chat_completion_fail():
 def test_openai_chat_completion_with_user_id():
     api = get_api()
     user_id = create_uuid()
+    trace_id = create_uuid()
     completion = chat_func(
         name="user-creation",
         model="gpt-3.5-turbo",
@@ -233,13 +234,13 @@ def test_openai_chat_completion_with_user_id():
         temperature=0,
         metadata={"someKey": "someResponse"},
         user_id=user_id,
+        trace_id=trace_id,
     )
 
     assert len(completion.choices) != 0
-    traces = api.trace.list(limit=10, page=1, user_id=user_id)
+    traces = api.trace.get(trace_id)
 
-    assert len(traces.data) == 1
-    assert traces.data[0].user_id == user_id
+    assert traces.user_id == user_id
 
 
 def test_openai_chat_completion_without_extra_param():
