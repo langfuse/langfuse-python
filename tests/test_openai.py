@@ -237,6 +237,8 @@ def test_openai_chat_completion_with_user_id():
         trace_id=trace_id,
     )
 
+    openai.flush_langfuse()
+
     assert len(completion.choices) != 0
     traces = api.trace.get(trace_id)
 
