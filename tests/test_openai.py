@@ -223,6 +223,25 @@ def test_openai_chat_completion_fail():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
+def test_openai_chat_completion_with_user_id():
+    api = get_api()
+    user_id = create_uuid()
+    completion = chat_func(
+        name="user-creation",
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+        user_id=user_id,
+    )
+
+    assert len(completion.choices) != 0
+    traces = api.trace.list(limit=10, page=1, user_id=user_id)
+
+    assert len(traces.data) == 1
+    assert traces.data[0].user_id == user_id
+
+
 def test_openai_chat_completion_without_extra_param():
     completion = chat_func(
         model="gpt-3.5-turbo",
