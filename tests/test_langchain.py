@@ -712,20 +712,8 @@ def test_callback_retriever():
         llm,
         retriever=docsearch.as_retriever(),
     )
-    from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
-    retriever = docsearch.with_config(run_name="Docs")
-
-    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY")).with_config(
-        configurable={"run_name": "Hello World"}
-    )
-    chain2 = (
-        {"context": retriever.as_retriever(), "question": RunnablePassthrough()}
-        | "Hello"
-        | llm
-    )
-
-    chain2.run(query, callbacks=[handler])
+    chain.run(query, callbacks=[handler])
     handler.flush()
 
     trace_id = handler.get_trace_id()
