@@ -1,7 +1,6 @@
 import os
 
 import pytest
-import time
 from openai import APIConnectionError
 
 from langfuse.client import Langfuse
