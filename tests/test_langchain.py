@@ -1347,10 +1347,11 @@ def test_names_on_spans_lcel():
         },
     )
 
+    callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
 
-    assert len(trace.observations) == 6
+    assert len(trace.observations) == 7
 
     assert (
         len(
