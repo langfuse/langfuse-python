@@ -14,7 +14,7 @@ from langchain.chains import (
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
@@ -1302,3 +1302,77 @@ def test_unimplemented_model():
 
     assert custom_generation.output == "This is a "
     assert custom_generation.model is None
+
+
+def test_names_on_spans_lcel():
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.runnables import RunnablePassthrough
+    from langchain_openai import OpenAIEmbeddings
+
+    callback = CallbackHandler(debug=False)
+    model = ChatOpenAI(temperature=0)
+
+    template = """Answer the question based only on the following context:
+    {context}
+
+    Question: {question}
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    retriever = docsearch.as_retriever()
+
+    retrieval_chain = (
+        {
+            "context": retriever.with_config(run_name="Docs"),
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | model.with_config(run_name="my_llm")
+        | StrOutputParser()
+    )
+
+    retrieval_chain.invoke(
+        "What did the president say about Ketanji Brown Jackson?",
+        config={
+            "callbacks": [callback],
+        },
+    )
+
+    callback.flush()
+    api = get_api()
+    trace = api.trace.get(callback.get_trace_id())
+
+    assert len(trace.observations) == 7
+
+    assert (
+        len(
+            list(
+                filter(
+                    lambda x: x.type == "GENERATION" and x.name == "my_llm",
+                    trace.observations,
+                )
+            )
+        )
+        == 1
+    )
+
+    assert (
+        len(
+            list(
+                filter(
+                    lambda x: x.type == "SPAN" and x.name == "Docs",
+                    trace.observations,
+                )
+            )
+        )
+        == 1
+    )
