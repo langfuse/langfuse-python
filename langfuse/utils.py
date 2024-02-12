@@ -1,6 +1,5 @@
 import logging
 import typing
-import os
 from datetime import datetime, timezone
 
 try:
@@ -9,7 +8,6 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.model import ModelUsage, PromptClient
-from langfuse.api.client import FernLangfuse
 
 log = logging.getLogger("langfuse")
 
