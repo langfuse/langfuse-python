@@ -25,11 +25,22 @@ def _create_prompt_context(
     return {"prompt_version": None, "prompt_name": None}
 
 
-def extract_by_priority(usage: dict, keys: typing.List[str]) -> typing.Optional[int]:
-    """Extracts the first key that exists in usage"""
+T = typing.TypeVar("T")
+
+
+def extract_by_priority(
+    usage: dict, keys: typing.List[str], target_type: typing.Type[T]
+) -> typing.Optional[T]:
+    """Extracts the first key that exists in usage and converts its value to target_type"""
     for key in keys:
         if key in usage:
-            return int(usage[key])
+            value = usage[key]
+            try:
+                if value is None:
+                    return None
+                return target_type(value)
+            except Exception:
+                continue
     return None
 
 
@@ -66,15 +77,17 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
     if is_openai_usage:
         # convert to langfuse usage
         usage = {
-            "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"]),
+            "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"], int),
             "output": extract_by_priority(
-                usage, ["completionTokens", "completion_tokens"]
+                usage, ["completionTokens", "completion_tokens"], int
             ),
-            "total": extract_by_priority(usage, ["totalTokens", "total_tokens"]),
+            "total": extract_by_priority(usage, ["totalTokens", "total_tokens"], int),
             "unit": "TOKENS",
-            "inputCost": extract_by_priority(usage, ["inputCost", "input_cost"]),
-            "outputCost": extract_by_priority(usage, ["outputCost", "output_cost"]),
-            "totalCost": extract_by_priority(usage, ["totalCost", "total_cost"]),
+            "inputCost": extract_by_priority(usage, ["inputCost", "input_cost"], float),
+            "outputCost": extract_by_priority(
+                usage, ["outputCost", "output_cost"], float
+            ),
+            "totalCost": extract_by_priority(usage, ["totalCost", "total_cost"], float),
         }
         return usage
 
