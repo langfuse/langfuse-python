@@ -15,6 +15,7 @@ openai = ">=0.27.8"
 wrapt = "1.14"
 langchain = { version = ">=0.0.309", optional = true }
 chevron = "^0.14.0"
+types-chevron = "^0.14.2.20240106"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
@@ -40,8 +41,8 @@ langchain-google-vertexai = "^0.0.5"
 langchain-openai = "^0.0.5"
 dashscope = "^1.14.1"
 pymongo = "^4.6.1"
-langchain-google-genai = "^0.0.8"
 mypy = "^1.8.0"
+types-chevron = "^0.14.2.20240106"
 
 [tool.poetry.extras]
 langchain = ["langchain"]
