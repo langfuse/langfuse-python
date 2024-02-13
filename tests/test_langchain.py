@@ -1300,7 +1300,7 @@ def test_unimplemented_model():
         )
     )[0]
 
-    assert custom_generation.output == "This is a "
+    assert custom_generation.output == "This is a"
     assert custom_generation.model is None
 
 
