@@ -1,6 +1,8 @@
 from datetime import date, datetime
+from dataclasses import is_dataclass, asdict
 from json import JSONEncoder
 from typing import Any
+from uuid import UUID
 
 from langfuse.api.core import serialize_datetime
 
@@ -19,6 +21,12 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, (datetime)):
             # Timezone-awareness check
             return serialize_datetime(obj)
+        if is_dataclass(obj):
+            return asdict(obj)
+        if isinstance(obj, UUID):
+            return str(obj)
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8")
         if isinstance(obj, (date)):
             return obj.isoformat()
         if isinstance(obj, BaseModel):
