@@ -20,7 +20,7 @@ def test_create_prompt():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
-
+    assert prompt_client.config == second_prompt_client.config
 
 def test_compiling_prompt():
     langfuse = Langfuse()
@@ -50,12 +50,14 @@ def test_prompt_end_to_end():
         name="test",
         prompt="Hello, {{target}}! I hope you are {{state}}.",
         is_active=True,
+        config={"temperature": 0.5},
     )
 
     prompt = langfuse.get_prompt("test")
 
     prompt_str = prompt.compile(target="world", state="great")
     assert prompt_str == "Hello, world! I hope you are great."
+    assert prompt.config == {"temperature": 0.5}
 
     langfuse.generation(input=prompt_str, prompt=prompt)
 
@@ -161,7 +163,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
     ttl_seconds = 20
 
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh", config={"temperature": 0.9})
     prompt_client = PromptClient(prompt)
 
     mock_server_call = langfuse.client.prompts.get
