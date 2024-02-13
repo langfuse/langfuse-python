@@ -87,9 +87,6 @@ def test_callback_generated_from_trace_chain():
     assert len(trace.observations) == 2
     assert trace.id == trace_id
 
-    assert trace.input is None
-    assert trace.output is None
-
     langchain_span = list(
         filter(
             lambda o: o.type == "SPAN" and o.name == "LLMChain",
@@ -228,9 +225,6 @@ def test_callback_generated_from_span_chain():
 
     assert len(trace.observations) == 3
     assert trace.id == trace_id
-
-    assert trace.input is None
-    assert trace.output is None
 
     user_span = list(
         filter(
@@ -486,6 +480,9 @@ def test_basic_chat_openai():
     assert trace.id == trace_id
     assert len(trace.observations) == 1
 
+    assert trace.output == trace.observations[0].output
+    assert trace.input == trace.observations[0].input
+
 
 def test_basic_chat_openai_based_on_trace():
     from langchain.schema import HumanMessage, SystemMessage
@@ -544,6 +541,8 @@ def test_callback_from_trace_simple_chain():
 
     api = get_api()
     trace = api.trace.get(trace_id)
+    assert trace.input is None
+    assert trace.output is None
 
     assert len(trace.observations) == 2
     assert handler.get_trace_id() == trace_id
