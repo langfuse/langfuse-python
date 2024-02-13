@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone, date
 from unittest.mock import patch
 import uuid
+from bson import ObjectId
 
 import pytest
 from langchain.schema.messages import HumanMessage
@@ -123,3 +124,11 @@ def test_data_uuid():
     result = json.dumps(test_id, cls=EventSerializer)
 
     assert result == f'"{str(test_id)}"'
+
+
+def test_mongo_cursor():
+    test_id = ObjectId("5f3e3e3e3e3e3e3e3e3e3e3e")
+
+    result = json.dumps(test_id, cls=EventSerializer)
+
+    assert result == '{"__id": null}'
