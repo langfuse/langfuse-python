@@ -12,8 +12,8 @@ from pydantic import BaseModel
 try:
     from langchain.load.serializable import Serializable
 except ImportError:
-    # If Serializable is not available, set it to NoneType
-    Serializable = type(None)
+    # if not available, dont import anything
+    pass
 
 
 class EventSerializer(JSONEncoder):

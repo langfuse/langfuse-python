@@ -28,17 +28,16 @@ def _create_prompt_context(
 T = typing.TypeVar("T")
 
 
-def extract_by_priority(
-    usage: dict, keys: typing.List[str], target_type: typing.Type[T]
-) -> typing.Optional[T]:
+def extract_by_priority(usage: dict, keys: typing.List[str]) -> typing.Optional[T]:
     """Extracts the first key that exists in usage and converts its value to target_type"""
+
     for key in keys:
         if key in usage:
             value = usage[key]
             try:
                 if value is None:
                     return None
-                return target_type(value)
+                return value  # Remove the type argument from the return statement
             except Exception:
                 continue
     return None
@@ -47,11 +46,15 @@ def extract_by_priority(
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
     """Converts any usage input to a usage object"""
 
-    if isinstance(usage, pydantic.BaseModel):
-        usage = usage.dict()
+    # converts usage to dict if it is a pydantic model
+    usage_dict = (
+        usage.dict() if isinstance(usage, pydantic.BaseModel) else usage.__dict__
+    )
 
     # validate that usage object has input, output, total, usage
-    is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "unit"))
+    is_langfuse_usage = any(
+        k in usage_dict for k in ("input", "output", "total", "unit")
+    )
 
     if is_langfuse_usage:
         return usage
@@ -76,20 +79,17 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
 
     if is_openai_usage:
         # convert to langfuse usage
-        usage = {
-            "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"], int),
-            "output": extract_by_priority(
-                usage, ["completionTokens", "completion_tokens"], int
+        return ModelUsage(
+            unit="TOKENS",
+            input=extract_by_priority(usage_dict, ["promptTokens", "prompt_tokens"]),
+            output=extract_by_priority(
+                usage_dict, ["completionTokens", "completion_tokens"]
             ),
-            "total": extract_by_priority(usage, ["totalTokens", "total_tokens"], int),
-            "unit": "TOKENS",
-            "inputCost": extract_by_priority(usage, ["inputCost", "input_cost"], float),
-            "outputCost": extract_by_priority(
-                usage, ["outputCost", "output_cost"], float
-            ),
-            "totalCost": extract_by_priority(usage, ["totalCost", "total_cost"], float),
-        }
-        return usage
+            total=extract_by_priority(usage_dict, ["totalTokens", "total_tokens"]),
+            input_cost=extract_by_priority(usage_dict, ["inputCost", "input_cost"]),
+            output_cost=extract_by_priority(usage_dict, ["outputCost", "output_cost"]),
+            total_cost=extract_by_priority(usage_dict, ["totalCost", "total_cost"]),
+        )
 
     if not is_langfuse_usage and not is_openai_usage:
         raise ValueError(

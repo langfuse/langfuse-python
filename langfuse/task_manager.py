@@ -5,7 +5,7 @@ import queue
 import threading
 from queue import Empty, Queue
 import time
-from typing import List, Any
+from typing import List, Any, Optional
 from datetime import datetime, timezone
 import typing
 
@@ -35,9 +35,9 @@ BATCH_SIZE_LIMIT = 2_500_000
 class LangfuseMetadata(pydantic.BaseModel):
     batch_size: int
     sdk_integration: typing.Optional[str] = None
-    sdk_name: str = None
-    sdk_version: str = None
-    public_key: str = None
+    sdk_name: Optional[str] = None
+    sdk_version: Optional[str] = None
+    public_key: Optional[str] = None
 
 
 class Consumer(threading.Thread):
