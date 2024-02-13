@@ -52,7 +52,7 @@ def test_langfuse_span():
     handler = span.get_langchain_handler()
 
     assert handler.get_trace_id() == trace_id
-    assert handler.root_span.id == span_id
+    assert handler.root_span.state_id == span_id
     assert handler._task_manager is not None
 
 

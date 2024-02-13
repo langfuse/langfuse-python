@@ -5,7 +5,8 @@ import typing
 import uuid
 import httpx
 from enum import Enum
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
+from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
@@ -51,6 +52,7 @@ from .version import __version__ as version
 
 class Langfuse(object):
     log = logging.getLogger("langfuse")
+    trace_id: Optional[str]
 
     def __init__(
         self,
@@ -226,8 +228,8 @@ class Langfuse(object):
     def create_dataset_item(
         self,
         dataset_name: str,
-        input: any,
-        expected_output: Optional[any] = None,
+        input: Any,
+        expected_output: Optional[Any] = None,
         id: Optional[str] = None,
     ) -> DatasetItem:
         """
@@ -403,11 +405,11 @@ class Langfuse(object):
 
             request = CreatePromptRequest(
                 name=name,
+                isActive=is_active,
                 prompt=prompt,
-                is_active=is_active,
             )
-            prompt = self.client.prompts.create(request=request)
-            return PromptClient(prompt=prompt)
+            created_prompt = self.client.prompts.create(request=request)
+            return PromptClient(prompt=created_prompt)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -472,25 +474,22 @@ class Langfuse(object):
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
-        kwargs=None,
     ):
         try:
             new_id = str(uuid.uuid4()) if id is None else id
 
-            new_dict = {
-                "id": new_id,
-                "trace_id": self.trace_id if trace_id is None else trace_id,
-                "observation_id": observation_id,
-                "name": name,
-                "value": value,
-                "comment": comment,
-            }
+            passed_trace_id = self.trace_id if trace_id is None else trace_id
+            if passed_trace_id is None:
+                raise ValueError("Trace id is required for scoring")
 
-            if kwargs is not None:
-                new_dict.update(kwargs)
-
-            self.log.debug(f"Creating score {new_dict}...")
-            new_body = ScoreBody(**new_dict)
+            new_body = ScoreBody(
+                id=new_id,
+                traceId=passed_trace_id,
+                observationId=observation_id,
+                name=name,
+                value=value,
+                comment=comment,
+            )
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -502,15 +501,19 @@ class Langfuse(object):
 
             if observation_id is not None:
                 return StatefulClient(
-                    self.client,
-                    observation_id,
-                    StateType.OBSERVATION,
-                    trace_id,
-                    self.task_manager,
+                    client=self.client,
+                    state_id=observation_id,
+                    state_type=StateType.OBSERVATION,
+                    trace_id=passed_trace_id,
+                    task_manager=self.task_manager,
                 )
             else:
                 return StatefulClient(
-                    self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                    client=self.client,
+                    state_id=passed_trace_id,
+                    state_type=StateType.TRACE,
+                    trace_id=passed_trace_id,
+                    task_manager=self.task_manager,
                 )
 
         except Exception as e:
@@ -531,39 +534,29 @@ class Langfuse(object):
         status_message: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        **kwargs,
     ):
         try:
             new_span_id = str(uuid.uuid4()) if id is None else id
             new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
             self.trace_id = new_trace_id
 
-            span_body = {
-                "id": new_span_id,
-                "trace_id": new_trace_id,
-                "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
-                "metadata": metadata,
-                "input": input,
-                "output": output,
-                "level": level,
-                "status_message": status_message,
-                "parent_observation_id": parent_observation_id,
-                "version": version,
-                "end_time": end_time,
-                "trace": {"release": self.release},
-            }
-            if kwargs is not None:
-                span_body.update(kwargs)
-
             if trace_id is None:
                 self._generate_trace(new_trace_id, name)
 
-            self.log.debug(f"Creating span {span_body}...")
-
-            span_body = CreateSpanBody(**span_body)
+            span_body = CreateSpanBody(
+                id=new_span_id,
+                traceId=new_trace_id,
+                name=name,
+                startTime=start_time if start_time is not None else _get_timestamp(),
+                metadata=metadata,
+                input=input,
+                output=output,
+                level=ObservationLevel(level) if level is not None else None,
+                statusMessage=status_message,
+                parentObservationId=parent_observation_id,
+                version=version,
+                endTime=end_time,
+            )
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -620,7 +613,6 @@ class Langfuse(object):
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,
                 "version": version,
-                "trace": {"release": self.release},
             }
 
             if kwargs is not None:
@@ -670,87 +662,76 @@ class Langfuse(object):
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         prompt: typing.Optional[PromptClient] = None,
-        **kwargs,
     ):
         try:
             new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
             new_generation_id = str(uuid.uuid4()) if id is None else id
             self.trace_id = new_trace_id
 
-            generation_body = {
-                "id": new_generation_id,
-                "trace_id": new_trace_id,
-                "release": self.release,
-                "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
-                "metadata": metadata,
-                "input": input,
-                "output": output,
-                "level": level,
-                "status_message": status_message,
-                "parent_observation_id": parent_observation_id,
-                "version": version,
-                "end_time": end_time,
-                "completion_start_time": completion_start_time,
-                "model": model,
-                "model_parameters": model_parameters,
-                "usage": _convert_usage_input(usage) if usage is not None else None,
-                "trace": {"release": self.release},
-                **_create_prompt_context(prompt),
-            }
-            if kwargs is not None:
-                generation_body.update(kwargs)
-
             if trace_id is None:
-                trace = {
-                    "id": new_trace_id,
-                    "release": self.release,
-                    "name": name,
-                }
-                request = TraceBody(**trace)
+                trace_request = TraceBody(
+                    id=new_trace_id,
+                    release=self.release,
+                    name=name,
+                )
 
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": request.dict(exclude_none=True),
+                    "body": trace_request.dict(exclude_none=True),
                 }
 
                 self.log.debug(f"Creating trace {event}...")
 
                 self.task_manager.add_task(event)
 
-            self.log.debug(f"Creating generation max {generation_body} {usage}...")
-            request = CreateGenerationBody(**generation_body)
+            prompt_context = _create_prompt_context(prompt)
+            generation_request = CreateGenerationBody(
+                id=new_generation_id,
+                traceId=new_trace_id,
+                name=name,
+                startTime=start_time if start_time is not None else _get_timestamp(),
+                metadata=metadata,
+                input=input,
+                output=output,
+                level=ObservationLevel(level) if level is not None else None,
+                statusMessage=status_message,
+                parentObservationId=parent_observation_id,
+                version=version,
+                endTime=end_time,
+                completionStartTime=completion_start_time,
+                model=model,
+                modelParameters=model_parameters,
+                usage=_convert_usage_input(usage) if usage is not None else None,
+                promptName=prompt_context["prompt_name"],
+                promptVersion=prompt_context["prompt_version"],
+            )
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "generation-create",
-                "body": request.dict(exclude_none=True),
+                "body": generation_request.dict(exclude_none=True),
             }
 
             self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
 
             return StatefulGenerationClient(
-                self.client,
-                new_generation_id,
-                StateType.OBSERVATION,
-                new_trace_id,
-                self.task_manager,
+                client=self.client,
+                state_id=new_generation_id,
+                state_type=StateType.OBSERVATION,
+                trace_id=new_trace_id,
+                task_manager=self.task_manager,
             )
         except Exception as e:
             self.log.exception(e)
 
-    def _generate_trace(self, trace_id: str, name: str):
-        trace_dict = {
-            "id": trace_id,
-            "release": self.release,
-            "name": name,
-        }
-
-        trace_body = TraceBody(**trace_dict)
+    def _generate_trace(self, trace_id: str, name: Optional[str]):
+        trace_body = TraceBody(
+            id=trace_id,
+            release=self.release,
+            name=name,
+        )
 
         event = {
             "id": str(uuid.uuid4()),
@@ -792,27 +773,32 @@ class StateType(Enum):
 
 class StatefulClient(object):
     log = logging.getLogger("langfuse")
+    client: FernLangfuse
+    state_id: str
+    state_type: StateType
+    trace_id: str
+    task_manager: TaskManager
 
     def __init__(
         self,
         client: FernLangfuse,
-        id: str,
+        state_id: str,
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
     ):
         self.client = client
         self.trace_id = trace_id
-        self.id = id
+        self.state_id = state_id
         self.state_type = state_type
         self.task_manager = task_manager
 
     def _add_state_to_event(self, body: dict):
         if self.state_type == StateType.OBSERVATION:
-            body["parent_observation_id"] = self.id
+            body["parent_observation_id"] = self.state_id
             body["trace_id"] = self.trace_id
         else:
-            body["trace_id"] = self.id
+            body["trace_id"] = self.state_id
         return body
 
     def _add_default_values(self, body: dict):
@@ -931,20 +917,21 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
 
-            event = CreateSpanBody(**new_body)
+            create_body = CreateSpanBody(**new_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-create",
-                "body": event.dict(exclude_none=True),
+                "body": create_body.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(event)
+
             return StatefulSpanClient(
-                self.client,
-                span_id,
-                StateType.OBSERVATION,
-                self.trace_id,
+                client=self.client,
+                state_id=span_id,
+                state_type=StateType.OBSERVATION,
+                trace_id=self.trace_id,
                 task_manager=self.task_manager,
             )
         except Exception as e:
@@ -978,7 +965,7 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(new_score)
 
             if self.state_type == StateType.OBSERVATION:
-                new_dict["observationId"] = self.id
+                new_dict["observationId"] = self.state_id
 
             request = ScoreBody(**new_dict)
 
@@ -991,7 +978,7 @@ class StatefulClient(object):
             self.task_manager.add_task(event)
             return StatefulClient(
                 self.client,
-                self.id,
+                self.state_id,
                 StateType.OBSERVATION,
                 self.trace_id,
                 task_manager=self.task_manager,
@@ -1063,12 +1050,12 @@ class StatefulGenerationClient(StatefulClient):
     def __init__(
         self,
         client: FernLangfuse,
-        id: str,
+        state_id: str,
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
     ):
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, state_id, state_type, trace_id, task_manager)
 
     def update(
         self,
@@ -1091,7 +1078,7 @@ class StatefulGenerationClient(StatefulClient):
     ):
         try:
             generation_body = {
-                "id": self.id,
+                "id": self.state_id,
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
@@ -1125,7 +1112,7 @@ class StatefulGenerationClient(StatefulClient):
 
             return StatefulGenerationClient(
                 self.client,
-                self.id,
+                self.state_id,
                 StateType.OBSERVATION,
                 self.trace_id,
                 task_manager=self.task_manager,
@@ -1186,12 +1173,12 @@ class StatefulSpanClient(StatefulClient):
     def __init__(
         self,
         client: FernLangfuse,
-        id: str,
+        state_id: str,
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
     ):
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, state_id, state_type, trace_id, task_manager)
 
     def update(
         self,
@@ -1205,26 +1192,20 @@ class StatefulSpanClient(StatefulClient):
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        **kwargs,
     ):
         try:
-            span_body = {
-                "id": self.id,
-                "name": name,
-                "start_time": start_time,
-                "metadata": metadata,
-                "input": input,
-                "output": output,
-                "level": level,
-                "status_message": status_message,
-                "version": version,
-                "end_time": end_time,
-            }
-            if kwargs is not None:
-                span_body.update(kwargs)
-            self.log.debug(f"Update span {span_body}...")
-
-            request = UpdateSpanBody(**span_body)
+            request = UpdateSpanBody(
+                id=self.state_id,
+                name=name,
+                startTime=start_time,
+                metadata=metadata,
+                input=input,
+                output=output,
+                level=ObservationLevel(level) if level is not None else None,
+                statusMessage=status_message,
+                version=version,
+                endTime=end_time,
+            )
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -1235,7 +1216,7 @@ class StatefulSpanClient(StatefulClient):
             self.task_manager.add_task(event)
             return StatefulSpanClient(
                 self.client,
-                self.id,
+                self.state_id,
                 StateType.OBSERVATION,
                 self.trace_id,
                 task_manager=self.task_manager,
@@ -1289,12 +1270,12 @@ class StatefulTraceClient(StatefulClient):
     def __init__(
         self,
         client: FernLangfuse,
-        id: str,
+        state_id: str,
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
     ):
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, state_id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
     def update(
@@ -1307,24 +1288,18 @@ class StatefulTraceClient(StatefulClient):
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
-        **kwargs,
     ):
         try:
-            trace_body = {
-                "id": self.id,
-                "name": name,
-                "userId": user_id,
-                "version": version,
-                "input": input,
-                "output": output,
-                "metadata": metadata,
-                "tags": tags,
-            }
-            if kwargs is not None:
-                trace_body.update(kwargs)
-            self.log.debug(f"Update trace {trace_body}...")
-
-            request = TraceBody(**trace_body)
+            request = TraceBody(
+                id=self.state_id,
+                name=name,
+                userId=user_id,
+                version=version,
+                input=input,
+                output=output,
+                metadata=metadata,
+                tags=tags,
+            )
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -1334,10 +1309,10 @@ class StatefulTraceClient(StatefulClient):
 
             self.task_manager.add_task(event)
             return StatefulTraceClient(
-                self.client,
-                self.id,
-                StateType.TRACE,
-                self.trace_id,
+                client=self.client,
+                state_id=self.state_id,
+                state_type=StateType.TRACE,
+                trace_id=self.trace_id,
                 task_manager=self.task_manager,
             )
         except Exception as e:
@@ -1350,7 +1325,7 @@ class StatefulTraceClient(StatefulClient):
 
             from langfuse.callback import CallbackHandler
 
-            self.log.debug(f"Creating new handler for trace {self.id}")
+            self.log.debug(f"Creating new handler for trace {self.state_id}")
 
             return CallbackHandler(
                 stateful_client=self, debug=self.log.level == logging.DEBUG
@@ -1403,7 +1378,7 @@ class DatasetItemClient:
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
             observation.task_manager.flush()
-            observation_id = observation.id
+            observation_id = observation.state_id
         elif isinstance(observation, str):
             self.langfuse.flush()
             observation_id = observation

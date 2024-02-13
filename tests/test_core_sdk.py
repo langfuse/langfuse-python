@@ -83,7 +83,7 @@ def test_create_score():
 
     langfuse.score(
         id=score_id,
-        trace_id=trace.id,
+        trace_id=trace.state_id,
         name="this-is-a-score",
         value=1,
     )
@@ -94,7 +94,7 @@ def test_create_score():
 
     assert langfuse.task_manager._queue.qsize() == 0
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = api_wrapper.get_trace(trace.state_id)
 
     assert trace["scores"][0]["id"] == score_id
 
@@ -113,7 +113,7 @@ def test_create_trace():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = api_wrapper.get_trace(trace.state_id)
 
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
@@ -136,7 +136,7 @@ def test_create_update_trace():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = api.trace.get(trace.state_id)
 
     assert trace.name == trace_name
     assert trace.user_id == "test"
@@ -481,7 +481,7 @@ def test_score_trace_nested_observation():
     assert score.name == "valuation"
     assert score.value == 0.5
     assert score.comment == "This is a comment"
-    assert score.observation_id == span.id
+    assert score.observation_id == span.state_id
 
 
 def test_score_span():
@@ -537,7 +537,7 @@ def test_create_trace_and_span():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = api.trace.get(trace.state_id)
 
     assert trace.name == trace_name
     assert len(trace.observations) == 1
@@ -565,8 +565,8 @@ def test_create_trace_and_generation():
 
     langfuse.flush()
 
-    getTrace = langfuse.get_trace(trace.id)
-    dbTrace = api.trace.get(trace.id)
+    getTrace = langfuse.get_trace(trace.state_id)
+    dbTrace = api.trace.get(trace.state_id)
 
     assert dbTrace.name == trace_name
     assert len(dbTrace.observations) == 1
@@ -665,7 +665,7 @@ def test_create_event():
 
     langfuse.flush()
 
-    observation = api.observations.get(event.id)
+    observation = api.observations.get(event.state_id)
 
     assert observation.type == "EVENT"
     assert observation.name == "event"
@@ -683,7 +683,7 @@ def test_create_trace_and_event():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = api.trace.get(trace.state_id)
 
     assert trace.name == trace_name
     assert len(trace.observations) == 1
@@ -938,7 +938,7 @@ def test_kwargs():
 
     langfuse.flush()
 
-    observation = api.observations.get(span.id)
+    observation = api.observations.get(span.state_id)
     assert observation.start_time is not None
     assert observation.input == {"key": "value"}
     assert observation.output == {"key": "value"}
@@ -964,7 +964,7 @@ def test_timezone_awareness():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = api.trace.get(trace.state_id)
 
     assert len(trace.observations) == 3
     for observation in trace.observations:
@@ -1000,7 +1000,7 @@ def test_timezone_awareness_setting_timestamps():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = api.trace.get(trace.state_id)
 
     assert len(trace.observations) == 3
     for observation in trace.observations:

@@ -83,7 +83,13 @@ OPENAI_METHODS_V1 = [
 
 class OpenAiArgsExtractor:
     def __init__(
-        self, name=None, metadata=None, trace_id=None, session_id=None, user_id=None, **kwargs
+        self,
+        name=None,
+        metadata=None,
+        trace_id=None,
+        session_id=None,
+        user_id=None,
+        **kwargs,
     ):
         self.args = {}
         self.args["name"] = name
@@ -134,7 +140,7 @@ def _get_langfuse_data_from_kwargs(
         langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id)
     elif session_id:
         # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
-        trace_id = langfuse.trace(session_id=session_id, user_id=user_id).id
+        trace_id = langfuse.trace(session_id=session_id, user_id=user_id).state_id
 
     metadata = kwargs.get("metadata", {})
 
