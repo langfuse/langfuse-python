@@ -2,6 +2,7 @@
 
 import datetime as dt
 import typing
+from pydantic import Field
 
 from ....core.datetime_utils import serialize_datetime
 
@@ -15,7 +16,7 @@ class Prompt(pydantic.BaseModel):
     name: str
     version: int
     prompt: str
-    config: typing.Any
+    config: typing.Dict[str, typing.Any] = Field(default=dict)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -31,7 +32,7 @@ class Prompt(pydantic.BaseModel):
             "exclude_unset": True,
             **kwargs,
         }
-        return super().dict(**kwargs_with_defaults)
+        return super().dict(**kwargs_with_defaults)    
 
     class Config:
         frozen = True
