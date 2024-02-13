@@ -730,7 +730,7 @@ class CallbackHandler(BaseCallbackHandler):
                     else response.llm_output["token_usage"]
                 )
 
-                extracted_response = self._extract_response(last_response)
+                extracted_response = _extract_response(last_response)
 
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
