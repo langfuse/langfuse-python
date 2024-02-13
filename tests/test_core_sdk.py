@@ -122,7 +122,7 @@ def test_create_trace():
     assert True if not trace["externalId"] else False
 
 
-def test_create_update_trace():
+def test_createself._update_trace():
     langfuse = Langfuse(debug=False)
     api = get_api()
     trace_name = create_uuid()
