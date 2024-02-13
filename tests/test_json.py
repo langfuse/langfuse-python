@@ -1,8 +1,10 @@
 import builtins
+from dataclasses import dataclass
 import importlib
 import json
 from datetime import datetime, timezone, date
 from unittest.mock import patch
+import uuid
 
 import pytest
 from langchain.schema.messages import HumanMessage
@@ -97,3 +99,27 @@ def test_json_decoder_without_langchain_serializer_with_none():
     default = json.dumps(None)
     assert result == "null"
     assert result == default
+
+
+def test_data_class():
+    @dataclass
+    class InventoryItem:
+        """Class for keeping track of an item in inventory."""
+
+        name: str
+        unit_price: float
+        quantity_on_hand: int = 0
+
+    item = InventoryItem("widget", 3.0, 10)
+
+    result = json.dumps(item, cls=EventSerializer)
+
+    assert result == '{"name": "widget", "unit_price": 3.0, "quantity_on_hand": 10}'
+
+
+def test_data_uuid():
+    test_id = uuid.uuid4()
+
+    result = json.dumps(test_id, cls=EventSerializer)
+
+    assert result == f'"{str(test_id)}"'
