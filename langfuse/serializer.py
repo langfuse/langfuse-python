@@ -39,4 +39,11 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, (dict, list, str, int, float, type(None))):
             return obj
 
-        return JSONEncoder.default(self, obj)
+        if hasattr(obj, "__slots__"):
+            return self.default(
+                {slot: getattr(obj, slot, None) for slot in obj.__slots__}
+            )
+        elif hasattr(obj, "__dict__"):
+            return self.default(vars(obj))
+        else:
+            return JSONEncoder.default(self, obj)
