@@ -729,12 +729,8 @@ class CallbackHandler(BaseCallbackHandler):
                     if response.llm_output is None
                     else response.llm_output["token_usage"]
                 )
-                
-                extracted_response = (
-                    last_response.text.strip()
-                    if last_response.text is not None and last_response.text.strip() != ""
-                    else last_response.message.additional_kwargs
-                )
+
+                extracted_response = self._extract_response(last_response)
 
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
@@ -790,3 +786,15 @@ class CallbackHandler(BaseCallbackHandler):
                 "body": event.dict(),
             }
         )
+
+
+def _extract_response(last_response):
+    """Extract the response from the last response of the LLM call."""
+
+    # We return the text of the response if not empty, otherwise the additional_kwargs
+    # Additional kwargs contains the response in case of tool usage
+    return (
+        last_response.text.strip()
+        if last_response.text is not None and last_response.text.strip() != ""
+        else last_response.message.additional_kwargs
+    )
