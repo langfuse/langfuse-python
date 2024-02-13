@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-# from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 import pytest
 from langfuse.callback import CallbackHandler
 
@@ -16,7 +16,7 @@ from langchain_community.chat_models import (
     ChatTongyi,
     ChatCohere,
     BedrockChat,
-    # ChatVertexAI,
+    ChatVertexAI,
 )
 from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
@@ -125,11 +125,11 @@ def test_models(expected_model: str, model: Any):
             "qwen-72b-chat",
             ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
         ),
-        # ("gemini", ChatVertexAI(model_name="gemini", credentials=MagicMock())),
-        # (
-        #     "gemini-pro",
-        #     ChatGoogleGenerativeAI(model="gemini-pro", google_api_key="google_api_key"),
-        # ),
+        ("gemini", ChatVertexAI(model_name="gemini", credentials=MagicMock())),
+        (
+            "gemini-pro",
+            ChatGoogleGenerativeAI(model="gemini-pro", google_api_key="google_api_key"),
+        ),
     ],
 )
 def test_entire_llm_call(expected_model, model):

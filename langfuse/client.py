@@ -61,7 +61,7 @@ class Langfuse(object):
         debug: bool = False,
         threads: int = 1,
         flush_at: int = 50,
-        flush_interval: int = 0.5,
+        flush_interval: float = 0.5,
         max_retries=3,
         timeout=15,
         sdk_integration: str = "default",
