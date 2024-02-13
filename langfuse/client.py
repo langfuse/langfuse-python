@@ -3,6 +3,7 @@ import logging
 import os
 import typing
 import uuid
+import httpx
 from enum import Enum
 from typing import Literal, Optional
 
@@ -30,6 +31,7 @@ from langfuse.model import (
     ModelUsage,
     PromptClient,
 )
+from langfuse.prompt_cache import PromptCache
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -47,12 +49,6 @@ from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_ti
 from .version import __version__ as version
 
 
-class SDKIntegrationTypes(Enum):
-    LANGCHAIN = "langchain"
-    DEFAULT = "default"
-    OPENAI = "openai"
-
-
 class Langfuse(object):
     log = logging.getLogger("langfuse")
 
@@ -68,7 +64,8 @@ class Langfuse(object):
         flush_interval: int = 0.5,
         max_retries=3,
         timeout=15,
-        sdk_integration: SDKIntegrationTypes = SDKIntegrationTypes.DEFAULT,
+        sdk_integration: str = "default",
+        httpx_client: Optional[httpx.Client] = None,
     ):
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
@@ -104,6 +101,10 @@ class Langfuse(object):
                 "secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'"
             )
 
+        self.httpx_client = (
+            httpx.Client(timeout=timeout) if httpx_client is None else httpx_client
+        )
+
         self.client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
@@ -111,6 +112,7 @@ class Langfuse(object):
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=version,
             x_langfuse_public_key=public_key,
+            httpx_client=self.httpx_client,
         )
 
         langfuse_client = LangfuseClient(
@@ -119,6 +121,7 @@ class Langfuse(object):
             base_url=self.base_url,
             version=version,
             timeout=timeout,
+            session=self.httpx_client,
         )
 
         args = {
@@ -130,7 +133,7 @@ class Langfuse(object):
             "public_key": public_key,
             "sdk_name": "python",
             "sdk_version": version,
-            "sdk_integration": sdk_integration.value,
+            "sdk_integration": sdk_integration,
         }
 
         if threads is not None:
@@ -141,6 +144,8 @@ class Langfuse(object):
         self.trace_id = None
 
         self.release = self.get_release_value(release)
+
+        self.prompt_cache = PromptCache()
 
     def get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
@@ -311,13 +316,85 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def get_prompt(self, name: str, version: Optional[int] = None) -> PromptClient:
+    def get_prompt(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        *,
+        cache_ttl_seconds: Optional[int] = None,
+    ) -> PromptClient:
+        """
+        Retrieves a prompt by its name and optionally its version, with support for additional options.
+
+        This method attempts to fetch the requested prompt from the local cache. If the prompt is not found
+        in the cache or if the cached prompt has expired, it will try to fetch the prompt from the server again
+        and update the cache. If fetching the new prompt fails, and there is an expired prompt in the cache, it will
+        return the expired prompt as a fallback.
+
+        Parameters:
+        - name (str): The name of the prompt to retrieve.
+        - version (Optional[int]): The version of the prompt. If not specified, the latest version is assumed.
+        - cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
+        keyword argument. If 'cache_ttl_seconds' is not specified, a default TTL of 60 seconds is used.
+
+        Returns:
+        - PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
+
+        Raises:
+        - Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
+        expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
+        """
+
+        self.log.debug(f"Getting prompt {name}, version {version or 'latest'}")
+
+        if not name:
+            raise ValueError("Prompt name cannot be empty.")
+
+        cache_key = PromptCache.generate_cache_key(name, version)
+        cached_prompt = self.prompt_cache.get(cache_key)
+
+        if cached_prompt is None:
+            return self._fetch_prompt_and_update_cache(name, version, cache_ttl_seconds)
+
+        if cached_prompt.is_expired():
+            try:
+                return self._fetch_prompt_and_update_cache(
+                    name, version, cache_ttl_seconds
+                )
+
+            except Exception as e:
+                self.log.warn(
+                    f"Returning expired prompt cache for '${name}-${version or 'latest'}' due to fetch error: {e}"
+                )
+
+                return cached_prompt.value
+
+        return cached_prompt.value
+
+    def _fetch_prompt_and_update_cache(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        ttl_seconds: Optional[int] = None,
+    ) -> PromptClient:
         try:
-            self.log.debug(f"Getting prompt {name}, version {version}")
-            prompt = self.client.prompts.get(name=name, version=version)
-            return PromptClient(prompt=prompt)
+            self.log.debug(
+                f"Fetching prompt {name}-{version or 'latest'}' from server..."
+            )
+
+            promptResponse = self.client.prompts.get(name=name, version=version)
+            cache_key = PromptCache.generate_cache_key(name, version)
+            prompt = PromptClient(promptResponse)
+
+            self.prompt_cache.set(cache_key, prompt, ttl_seconds)
+
+            return prompt
+
         except Exception as e:
-            self.log.exception(e)
+            self.log.exception(
+                f"Error while fetching prompt '{name}-{version or 'latest'}': {e}"
+            )
+
             raise e
 
     def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
@@ -345,6 +422,7 @@ class Langfuse(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
+        tags: typing.Optional[typing.List[str]] = None,
         **kwargs,
     ):
         try:
@@ -360,6 +438,7 @@ class Langfuse(object):
                 "metadata": metadata,
                 "input": input,
                 "output": output,
+                "tags": tags,
                 "timestamp": _get_timestamp(),
             }
             if kwargs is not None:
@@ -642,6 +721,7 @@ class Langfuse(object):
 
                 self.task_manager.add_task(event)
 
+            self.log.debug(f"Creating generation max {generation_body} {usage}...")
             request = CreateGenerationBody(**generation_body)
 
             event = {
@@ -1226,6 +1306,7 @@ class StatefulTraceClient(StatefulClient):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
+        tags: typing.Optional[typing.List[str]] = None,
         **kwargs,
     ):
         try:
@@ -1237,6 +1318,7 @@ class StatefulTraceClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "metadata": metadata,
+                "tags": tags,
             }
             if kwargs is not None:
                 trace_body.update(kwargs)
@@ -1360,7 +1442,6 @@ class DatasetItemClient:
 class DatasetClient:
     id: str
     name: str
-    status: DatasetStatus
     project_id: str
     dataset_name: str
     created_at: dt.datetime
@@ -1371,7 +1452,6 @@ class DatasetClient:
     def __init__(self, dataset: Dataset, items: typing.List[DatasetItemClient]):
         self.id = dataset.id
         self.name = dataset.name
-        self.status = dataset.status
         self.project_id = dataset.project_id
         self.dataset_name = dataset.name
         self.created_at = dataset.created_at

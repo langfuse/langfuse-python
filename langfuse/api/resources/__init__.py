@@ -29,6 +29,7 @@ from .commons import (
     NotFoundError,
     Observation,
     ObservationLevel,
+    ObservationsView,
     Score,
     Session,
     SessionWithTraces,
@@ -41,7 +42,7 @@ from .commons import (
 from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest
-from .health import ServiceUnavailableError
+from .health import HealthResponse, ServiceUnavailableError
 from .ingestion import (
     BaseEvent,
     CreateEventBody,
@@ -83,11 +84,11 @@ from .ingestion import (
     UpdateSpanBody,
     UpdateSpanEvent,
 )
-from .observations import Observations
+from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
 from .prompts import CreatePromptRequest, Prompt
 from .score import CreateScoreRequest, Scores
-from .trace import Traces
+from .trace import Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
@@ -110,6 +111,7 @@ __all__ = [
     "DatasetRunItem",
     "DatasetStatus",
     "Error",
+    "HealthResponse",
     "IngestionError",
     "IngestionEvent",
     "IngestionEvent_EventCreate",
@@ -134,6 +136,8 @@ __all__ = [
     "ObservationLevel",
     "ObservationType",
     "Observations",
+    "ObservationsView",
+    "ObservationsViews",
     "OpenAiUsage",
     "OptionalObservationBody",
     "Project",
@@ -148,6 +152,7 @@ __all__ = [
     "ServiceUnavailableError",
     "Session",
     "SessionWithTraces",
+    "Sort",
     "Trace",
     "TraceBody",
     "TraceEvent",

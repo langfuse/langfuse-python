@@ -17,6 +17,11 @@ class Usage(pydantic.BaseModel):
     output: typing.Optional[int] = None
     total: typing.Optional[int] = None
     unit: typing.Optional[ModelUsageUnit] = None
+    input_cost: typing.Optional[float] = pydantic.Field(alias="inputCost", default=None)
+    output_cost: typing.Optional[float] = pydantic.Field(
+        alias="outputCost", default=None
+    )
+    total_cost: typing.Optional[float] = pydantic.Field(alias="totalCost", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -37,4 +42,5 @@ class Usage(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

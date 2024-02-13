@@ -1,50 +1,16 @@
 import os
 import time
-import typing
 from asyncio import gather
 from datetime import datetime, timezone
 
 from langfuse.utils import _get_timestamp
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
 import pytest
-import pytz
 
 from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid, get_api
-
-
-class LlmUsage(pydantic.BaseModel):
-    prompt_tokens: typing.Optional[int] = pydantic.Field(
-        alias="promptTokens", default=None
-    )
-    completion_tokens: typing.Optional[int] = pydantic.Field(
-        alias="completionTokens", default=None
-    )
-    total_tokens: typing.Optional[int] = pydantic.Field(
-        alias="totalTokens", default=None
-    )
-
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
-
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().dict(**kwargs_with_defaults)
+from tests.utils import LlmUsage, LlmUsageWithCost, create_uuid, get_api
 
 
 @pytest.mark.asyncio
@@ -142,6 +108,7 @@ def test_create_trace():
         name=trace_name,
         user_id="test",
         metadata={"key": "value"},
+        tags=["tag1", "tag2"],
     )
 
     langfuse.flush()
@@ -151,6 +118,7 @@ def test_create_trace():
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
     assert trace["metadata"] == {"key": "value"}
+    assert trace["tags"] == ["tag1", "tag2"]
     assert True if not trace["externalId"] else False
 
 
@@ -187,7 +155,11 @@ def test_create_generation():
         start_time=timestamp,
         end_time=timestamp,
         model="gpt-3.5-turbo",
-        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
+        model_parameters={
+            "max_tokens": "1000",
+            "temperature": "0.9",
+            "stop": ["user-1", "user-2"],
+        },
         input=[
             {"role": "system", "content": "You are a helpful assistant."},
             {
@@ -220,7 +192,11 @@ def test_create_generation():
     assert generation.start_time is not None
     assert generation.end_time is not None
     assert generation.model == "gpt-3.5-turbo"
-    assert generation.model_parameters == {"max_tokens": "1000", "temperature": "0.9"}
+    assert generation.model_parameters == {
+        "max_tokens": "1000",
+        "temperature": "0.9",
+        "stop": ["user-1", "user-2"],
+    }
     assert generation.input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {
@@ -233,16 +209,91 @@ def test_create_generation():
 
 
 @pytest.mark.parametrize(
-    "usage",
+    "usage, expected_usage, expected_input_cost, expected_output_cost, expected_total_cost",
     [
-        LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
-        LlmUsage(promptTokens=51, totalTokens=100),
-        {"input": 51, "output": 0, "total": 100, "unit": "TOKENS"},
-        {"input": 51, "total": 100},
+        (
+            LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
+            "TOKENS",
+            None,
+            None,
+            None,
+        ),
+        (LlmUsage(promptTokens=51, totalTokens=100), "TOKENS", None, None, None),
+        (
+            {
+                "input": 51,
+                "output": 0,
+                "total": 100,
+                "unit": "TOKENS",
+                "input_cost": 100,
+                "output_cost": 200,
+                "total_cost": 300,
+            },
+            "TOKENS",
+            100,
+            200,
+            300,
+        ),
+        (
+            {
+                "input": 51,
+                "output": 0,
+                "total": 100,
+                "unit": "CHARACTERS",
+                "input_cost": 100,
+                "output_cost": 200,
+                "total_cost": 300,
+            },
+            "CHARACTERS",
+            100,
+            200,
+            300,
+        ),
+        (
+            {"input": 51, "total": 100},
+            None,
+            None,
+            None,
+            None,
+        ),
+        (
+            LlmUsageWithCost(
+                promptTokens=51,
+                completionTokens=0,
+                totalTokens=100,
+                inputCost=100,
+                outputCost=200,
+                totalCost=300,
+            ),
+            "TOKENS",
+            100,
+            200,
+            300,
+        ),
+        (
+            LlmUsageWithCost(
+                promptTokens=51,
+                completionTokens=0,
+                totalTokens=100,
+                inputCost=0.0021,
+                outputCost=0.00000000000021,
+                totalCost=None,
+            ),
+            "TOKENS",
+            0.0021,
+            0.00000000000021,
+            None,
+        ),
     ],
 )
-def test_create_generation_complex(usage):
-    langfuse = Langfuse(debug=False)
+def test_create_generation_complex(
+    usage,
+    expected_usage,
+    expected_input_cost,
+    expected_output_cost,
+    expected_total_cost,
+):
+    langfuse = Langfuse(debug=True)
     api = get_api()
 
     generation_id = create_uuid()
@@ -290,7 +341,10 @@ def test_create_generation_complex(usage):
     assert generation.usage.input == 51
     assert generation.usage.output == 0
     assert generation.usage.total == 100
-    assert generation.usage.unit == "TOKENS"
+    assert generation.calculated_input_cost == expected_input_cost
+    assert generation.calculated_output_cost == expected_output_cost
+    assert generation.calculated_total_cost == expected_total_cost
+    assert generation.usage.unit == expected_usage
 
 
 def test_create_span():
@@ -563,7 +617,7 @@ def test_create_span_and_get_observation():
 def test_update_generation():
     langfuse = Langfuse(debug=False)
     api = get_api()
-    start = datetime.utcnow()
+    start = _get_timestamp()
 
     generation = langfuse.generation(name="generation")
     generation.update(start_time=start, metadata={"dict": "value"})
@@ -579,7 +633,7 @@ def test_update_generation():
     assert retrieved_generation.trace_id == generation.trace_id
     assert retrieved_generation.metadata == {"dict": "value"}
     assert start.replace(
-        microsecond=0, tzinfo=pytz.UTC
+        microsecond=0, tzinfo=timezone.utc
     ) == retrieved_generation.start_time.replace(microsecond=0)
 
 
@@ -956,6 +1010,3 @@ def test_timezone_awareness_setting_timestamps():
         if observation.type != "EVENT":
             delta = utc_now - observation.end_time
             assert delta.seconds < 5
-
-    os.environ["TZ"] = "UTC"
-    time.tzset()

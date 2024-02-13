@@ -11,20 +11,8 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class TraceBody(pydantic.BaseModel):
-    id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
-    input: typing.Optional[typing.Any] = None
-    output: typing.Optional[typing.Any] = None
-    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
-    release: typing.Optional[str] = None
-    version: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    tags: typing.Optional[typing.List[str]] = None
-    public: typing.Optional[bool] = pydantic.Field(
-        default=None, description="Make trace publicly accessible via url"
-    )
+class Sort(pydantic.BaseModel):
+    id: str
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -45,5 +33,4 @@ class TraceBody(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

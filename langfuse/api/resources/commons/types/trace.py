@@ -22,6 +22,7 @@ class Trace(pydantic.BaseModel):
     version: typing.Optional[str] = None
     user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
     metadata: typing.Optional[typing.Any] = None
+    tags: typing.Optional[typing.List[str]] = None
     public: typing.Optional[bool] = pydantic.Field(
         default=None, description="Public traces are accessible via url without login"
     )

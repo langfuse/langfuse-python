@@ -1,7 +1,8 @@
+import copy
 import logging
 import threading
 import types
-from typing import Optional
+from typing import List, Optional
 
 import openai
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
@@ -9,7 +10,7 @@ from packaging.version import Version
 from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
-from langfuse.client import SDKIntegrationTypes, StatefulGenerationClient
+from langfuse.client import StatefulGenerationClient
 from langfuse.utils import _get_timestamp
 
 log = logging.getLogger("langfuse")
@@ -82,13 +83,14 @@ OPENAI_METHODS_V1 = [
 
 class OpenAiArgsExtractor:
     def __init__(
-        self, name=None, metadata=None, trace_id=None, session_id=None, **kwargs
+        self, name=None, metadata=None, trace_id=None, session_id=None, user_id=None, **kwargs
     ):
         self.args = {}
         self.args["name"] = name
         self.args["metadata"] = metadata
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
+        self.args["user_id"] = user_id
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -124,11 +126,15 @@ def _get_langfuse_data_from_kwargs(
     if session_id is not None and not isinstance(session_id, str):
         raise TypeError("session_id must be a string")
 
+    user_id = kwargs.get("user_id", None)
+    if user_id is not None and not isinstance(user_id, str):
+        raise TypeError("user_id must be a string")
+
     if trace_id:
-        langfuse.trace(id=trace_id, session_id=session_id)
+        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id)
     elif session_id:
         # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
-        trace_id = langfuse.trace(session_id=session_id).id
+        trace_id = langfuse.trace(session_id=session_id, user_id=user_id).id
 
     metadata = kwargs.get("metadata", {})
 
@@ -144,12 +150,12 @@ def _get_langfuse_data_from_kwargs(
     elif resource.type == "chat":
         prompt = (
             {
-                "messages": kwargs.get("messages", [{}]),
-                "functions": kwargs.get("functions", [{}]),
+                "messages": filter_image_data(kwargs.get("messages", [])),
+                "functions": kwargs.get("functions", []),
                 "function_call": kwargs.get("function_call", {}),
             }
             if kwargs.get("functions", None) is not None
-            else kwargs.get("messages", [{}])
+            else filter_image_data(kwargs.get("messages", []))
         )
 
     modelParameters = {
@@ -164,6 +170,7 @@ def _get_langfuse_data_from_kwargs(
         "name": name,
         "metadata": metadata,
         "trace_id": trace_id,
+        "user_id": user_id,
         "start_time": start_time,
         "input": prompt,
         "model_parameters": modelParameters,
@@ -325,6 +332,7 @@ def _is_openai_v1():
 def _is_streaming_response(response):
     return (
         isinstance(response, types.GeneratorType)
+        or isinstance(response, types.AsyncGeneratorType)
         or (_is_openai_v1() and isinstance(response, openai.Stream))
         or (_is_openai_v1() and isinstance(response, openai.AsyncStream))
     )
@@ -435,7 +443,7 @@ class OpenAILangfuse:
                         secret_key=openai.langfuse_secret_key,
                         host=openai.langfuse_host,
                         debug=openai.langfuse_debug,
-                        sdk_integration=SDKIntegrationTypes.OPENAI,
+                        sdk_integration="openai",
                     )
         return self._langfuse
 
@@ -470,3 +478,26 @@ def auth_check():
         modifier.initialize()
 
     return modifier._langfuse.auth_check()
+
+
+def filter_image_data(messages: List[dict]):
+    """
+    https://platform.openai.com/docs/guides/vision?lang=python
+
+    The messages array remains the same, but the 'image_url' is removed from the 'content' array.
+    It should only be removed if the value starts with 'data:image/jpeg;base64,'
+
+    """
+
+    output_messages = copy.deepcopy(messages)
+
+    for message in output_messages:
+        if message.get("content", None) is not None:
+            content = message["content"]
+            for index, item in enumerate(content):
+                if isinstance(item, dict) and item.get("image_url", None) is not None:
+                    url = item["image_url"]["url"]
+                    if url.startswith("data:image/"):
+                        del content[index]["image_url"]
+
+    return output_messages

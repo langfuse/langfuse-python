@@ -9,6 +9,7 @@ from .map_value import MapValue
 from .model_usage_unit import ModelUsageUnit
 from .observation import Observation
 from .observation_level import ObservationLevel
+from .observations_view import ObservationsView
 from .score import Score
 from .session import Session
 from .session_with_traces import SessionWithTraces
@@ -27,6 +28,7 @@ __all__ = [
     "ModelUsageUnit",
     "Observation",
     "ObservationLevel",
+    "ObservationsView",
     "Score",
     "Session",
     "SessionWithTraces",

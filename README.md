@@ -62,7 +62,8 @@ poetry run pre-commit install
 ### Update openapi spec
 
 1. Generate Fern Python SDK in [langfuse](https://github.com/langfuse/langfuse) and copy the files generated in `generated/python` into the `langfuse/api` folder in this repo.
-2. Rebuild and deploy the package to PyPi.
+2. Execute the linter by running `poetry run ruff format .`
+3. Rebuild and deploy the package to PyPi.
 
 ### Publish release
 

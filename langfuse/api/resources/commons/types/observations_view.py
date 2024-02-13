@@ -4,6 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from .observation import Observation
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -11,19 +12,25 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class TraceBody(pydantic.BaseModel):
-    id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
-    input: typing.Optional[typing.Any] = None
-    output: typing.Optional[typing.Any] = None
-    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
-    release: typing.Optional[str] = None
-    version: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    tags: typing.Optional[typing.List[str]] = None
-    public: typing.Optional[bool] = pydantic.Field(
-        default=None, description="Make trace publicly accessible via url"
+class ObservationsView(Observation):
+    model_id: typing.Optional[str] = pydantic.Field(alias="modelId", default=None)
+    input_price: typing.Optional[float] = pydantic.Field(
+        alias="inputPrice", default=None
+    )
+    output_price: typing.Optional[float] = pydantic.Field(
+        alias="outputPrice", default=None
+    )
+    total_price: typing.Optional[float] = pydantic.Field(
+        alias="totalPrice", default=None
+    )
+    calculated_input_cost: typing.Optional[float] = pydantic.Field(
+        alias="calculatedInputCost", default=None
+    )
+    calculated_output_cost: typing.Optional[float] = pydantic.Field(
+        alias="calculatedOutputCost", default=None
+    )
+    calculated_total_cost: typing.Optional[float] = pydantic.Field(
+        alias="calculatedTotalCost", default=None
     )
 
     def json(self, **kwargs: typing.Any) -> str:

@@ -4,13 +4,13 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .observation import Observation
+from .observations_view import ObservationsView
 from .score import Score
 from .trace import Trace
 
 
 class TraceWithFullDetails(Trace):
-    observations: typing.List[Observation]
+    observations: typing.List[ObservationsView]
     scores: typing.List[Score]
 
     def json(self, **kwargs: typing.Any) -> str:
