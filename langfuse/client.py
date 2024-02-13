@@ -5,7 +5,7 @@ import typing
 import uuid
 import httpx
 from enum import Enum
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
@@ -397,7 +397,9 @@ class Langfuse(object):
 
             raise e
 
-    def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
+    def create_prompt(
+        self, *, name: str, prompt: str, is_active: bool, config: Optional[Any] = {}
+    ) -> PromptClient:
         try:
             self.log.debug(f"Creating prompt {name}, version {version}")
 
@@ -405,6 +407,7 @@ class Langfuse(object):
                 name=name,
                 prompt=prompt,
                 is_active=is_active,
+                config=config,
             )
             prompt = self.client.prompts.create(request=request)
             return PromptClient(prompt=prompt)

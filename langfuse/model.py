@@ -1,5 +1,4 @@
-from typing import Optional, TypedDict
-
+from typing import Optional, TypedDict, Any
 import chevron
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -51,11 +50,13 @@ class PromptClient:
     name: str
     version: int
     prompt: str
+    config: Any
 
     def __init__(self, prompt: Prompt):
         self.name = prompt.name
         self.version = prompt.version
         self.prompt = prompt.prompt
+        self.config = prompt.config
 
     def compile(self, **kwargs) -> str:
         return chevron.render(self.prompt, kwargs)
@@ -66,6 +67,7 @@ class PromptClient:
                 self.name == other.name
                 and self.version == other.version
                 and self.prompt == other.prompt
+                and self.config == other.config
             )
 
         return False
