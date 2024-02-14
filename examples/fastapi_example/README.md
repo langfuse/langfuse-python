@@ -2,7 +2,7 @@
 
 This is an example FastAPI application showcasing integration with Langfuse for event tracing and response generation.
 
-1. **Startup and Shutdown Behavior**: The application defines startup and shutdown logic using FastAPI's lifespan feature [[1](https://fastapi.tiangolo.com/fa/advanced/events/)]. On startup, it initializes Langfuse for event tracing. On shutdown, it flushes all events to Langfuse, ensuring data integrity and completeness.
+1. **Startup and Shutdown Behavior**: The application defines startup and shutdown logic using FastAPI's lifespan feature. On startup, it initializes Langfuse for event tracing. On shutdown, it flushes all events to Langfuse, ensuring data integrity and completeness.
 
 2. **Endpoints**:
    - `/`: Returns a simple message demonstrating the usage of Langfuse with FastAPI.
