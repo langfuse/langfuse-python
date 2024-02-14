@@ -498,29 +498,35 @@ def test_fails_wrong_trace_id():
 
 
 @pytest.mark.asyncio
-async def test_async_chat():
+async def test_async_chat_azure():
     api = get_api()
-    client = AsyncOpenAI()
+    client = AzureOpenAI(
+        api_key="missing",
+        api_version="2020-07-01-preview",
+        base_url="https://api.labs.azure.com",
+    )
     generation_name = create_uuid()
 
-    completion = await client.chat.completions.create(
-        messages=[{"role": "user", "content": "1 + 1 = "}],
-        model="gpt-3.5-turbo",
-        name=generation_name,
-    )
+    try:
+        await client.chat.completions.create(
+            messages=[{"role": "user", "content": "azure stuff "}],
+            model="gpt-3.5-turbo",
+            name=generation_name,
+            stream=True,
+        )
+    except Exception as e:
+        pass
 
     openai.flush_langfuse()
-    print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
-    assert len(completion.choices) != 0
 
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].input == [{"content": "azure stuff ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -532,9 +538,9 @@ async def test_async_chat():
         "presence_penalty": 0,
     }
     assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.output == 0
     assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output
+    assert generation.data[0].level == "ERROR"
 
 
 @pytest.mark.asyncio
