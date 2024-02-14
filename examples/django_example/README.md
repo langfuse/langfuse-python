@@ -20,7 +20,7 @@ This Django application demonstrates integrating Langfuse for event tracing and 
 5.1 Preparation: Ensure `langfuse` is installed and configured in the `myapp/langfuse_integration.py` file.<br>
 5.2 Starting the Server:<br>
 - Navigate to the root directory of the project `langfuse-python/examples/django_examples`.
-- Run `poetry run python manage.py runserver 0.0.0.0:8000` to start the server.
+- Run `poetry run python manage.py runserver 0.0.0.0:8000` to start the server.<br>
 5.3. Accessing Endpoints: The application's endpoints can be accessed at `http://localhost:8000`.
 
 Refer to Django and Langfuse documentation for more detailed information.
