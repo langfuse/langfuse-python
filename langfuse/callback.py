@@ -449,7 +449,7 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         try:
             self.log.debug(
-                f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id} messages: {messages}"
+                f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}"
             )
 
             self.__on_llm_action(
@@ -751,7 +751,7 @@ class CallbackHandler(BaseCallbackHandler):
                 extracted_response = (
                     self._convert_message_to_dict(generation.message)
                     if isinstance(generation, ChatGeneration)
-                    else resp
+                    else _extract_response(generation)
                 )
 
                 llm_usage = (
@@ -855,3 +855,15 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> List[Dict[str, Any]]:
         message_dicts = [self._convert_message_to_dict(m) for m in messages]
         return message_dicts
+
+
+def _extract_response(last_response):
+    """Extract the response from the last response of the LLM call."""
+
+    # We return the text of the response if not empty, otherwise the additional_kwargs
+    # Additional kwargs contains the response in case of tool usage
+    return (
+        last_response.text.strip()
+        if last_response.text is not None and last_response.text.strip() != ""
+        else last_response.message.additional_kwargs
+    )
