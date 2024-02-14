@@ -398,10 +398,13 @@ class Langfuse(object):
             raise e
 
     def create_prompt(
-        self, *, name: str, prompt: str, is_active: bool, config: Optional[Any] = {}
+        self, *, name: str, prompt: str, is_active: bool, config: Optional[Any] = None
     ) -> PromptClient:
         try:
             self.log.debug(f"Creating prompt {name}, version {version}")
+
+            if config is None:
+                config = {}
 
             request = CreatePromptRequest(
                 name=name,
