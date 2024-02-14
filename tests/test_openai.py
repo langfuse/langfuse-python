@@ -515,6 +515,7 @@ async def test_async_chat_azure():
             stream=True,
         )
     except Exception as e:
+        print(e)
         pass
 
     openai.flush_langfuse()
