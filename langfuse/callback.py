@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import UUID, uuid4
 
 from langchain.callbacks.base import BaseCallbackHandler
@@ -20,17 +20,22 @@ from langfuse.utils import _get_timestamp
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
-    from langchain.schema.messages import BaseMessage
-    from langchain.schema.output import LLMResult
+    from langchain_core.outputs import (
+        ChatGeneration,
+        LLMResult,
+    )
+    from langchain_core.messages import (
+        AIMessage,
+        BaseMessage,
+        ChatMessage,
+        HumanMessage,
+        SystemMessage,
+    )
 except ImportError:
     logging.getLogger("langfuse").warning(
         "Could not import langchain. Some functionality may be missing."
     )
-    LLMResult = Any
-    BaseMessage = Any
-    Document = Any
-    AgentAction = Any
-    AgentFinish = Any
+    pass
 
 
 class CallbackHandler(BaseCallbackHandler):
@@ -444,12 +449,13 @@ class CallbackHandler(BaseCallbackHandler):
     ) -> Any:
         try:
             self.log.debug(
-                f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}"
+                f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id} messages: {messages}"
             )
+
             self.__on_llm_action(
                 serialized,
                 run_id,
-                messages,
+                [self._create_message_dicts(m)[0] for m in messages],
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -735,14 +741,24 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
-                last_response = response.generations[-1][-1]
+                generation = response.generations[-1][-1]
+
+                resp = {
+                    "text": generation.text,
+                    "llm_output": response.llm_output,
+                }
+
+                extracted_response = (
+                    self._convert_message_to_dict(generation.message)
+                    if isinstance(generation, ChatGeneration)
+                    else resp.strip()
+                )
+
                 llm_usage = (
                     None
                     if response.llm_output is None
                     else response.llm_output["token_usage"]
                 )
-
-                extracted_response = _extract_response(last_response)
 
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
@@ -814,14 +830,24 @@ class CallbackHandler(BaseCallbackHandler):
         ):
             self.trace = self.trace.update(output=output)
 
+    def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
+        if isinstance(message, HumanMessage):
+            message_dict = {"role": "user", "content": message.content}
+        elif isinstance(message, AIMessage):
+            message_dict = {"role": "assistant", "content": message.content}
+        elif isinstance(message, SystemMessage):
+            message_dict = {"role": "system", "content": message.content}
+        elif isinstance(message, ChatMessage):
+            message_dict = {"role": message.role, "content": message.content}
+        else:
+            raise ValueError(f"Got unknown type {message}")
+        if "name" in message.additional_kwargs:
+            message_dict["name"] = message.additional_kwargs["name"]
+        return message_dict
 
-def _extract_response(last_response):
-    """Extract the response from the last response of the LLM call."""
-
-    # We return the text of the response if not empty, otherwise the additional_kwargs
-    # Additional kwargs contains the response in case of tool usage
-    return (
-        last_response.text.strip()
-        if last_response.text is not None and last_response.text.strip() != ""
-        else last_response.message.additional_kwargs
-    )
+    def _create_message_dicts(
+        self, messages: List[BaseMessage]
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        params: Dict[str, Any] = {}
+        message_dicts = [self._convert_message_to_dict(m) for m in messages]
+        return message_dicts, params

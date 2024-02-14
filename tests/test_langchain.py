@@ -168,10 +168,10 @@ def test_callback_generated_from_trace_chat():
 
 def test_callback_generated_from_lcel_chain():
     api = get_api()
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
 
     run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler()
+    handler = CallbackHandler(debug=True)
 
     prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     model = ChatOpenAI(temperature=0)
