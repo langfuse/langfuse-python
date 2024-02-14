@@ -182,7 +182,7 @@ def test_openai_assistant_create(api: FernLangfuse):
     assert observation.output == dict(openai_response)
 
 
-def test_openai_assistant_create_with_trace_id(api: FernLangfuse, trace_id):
+def test_openai_assistant_create_with_trace(api: FernLangfuse, trace_id):
     openai_kwargs = {"model": "gpt-3.5-turbo"}
 
     langfuse_kwargs = {"trace_id": trace_id}
