@@ -2,11 +2,9 @@ import copy
 import logging
 import threading
 import types
-import inspect
 from typing import List, Optional
 
 import openai
-import asyncio
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 from packaging.version import Version
 from wrapt import wrap_function_wrapper
@@ -26,7 +24,7 @@ class OpenAiDefinition:
     sync: bool
     observation_type: str
     arg_trace_id: str  # whether the langfuse trace_id should be taken / linked to an id in the input argument, used to set a trace_id to thread_id or assistand_id
-    look_for_existing_trace: bool  # whether we expect a langfuse to already be created previously
+    look_for_existing_trace: bool  # whether we expect a langfuse trace to already be created previously
 
     def __init__(
         self,
@@ -47,28 +45,6 @@ class OpenAiDefinition:
         self.observation_type = observation_type
         self.arg_trace_id = arg_trace_id
         self.look_for_existing_trace = look_for_existing_trace
-
-    # these are solely for debugging pruproses
-    # TODO: remove
-    def _get_callable(self):
-        callable_path = f"{self.module}.{self.object}.{self.method}"
-        callable_path_list = callable_path.split(".")
-        callable = openai
-        for x in callable_path_list[1:]:
-            callable = getattr(callable, x)
-        return callable
-
-    def _get_signature(self):
-        _callable = self._get_callable()
-        return inspect.signature(_callable, follow_wrapped=False)
-
-    def _get_default_args(self):
-        signature = inspect.signature(self._get_callable())
-        return {
-            k: v.default
-            for k, v in signature.parameters.items()
-            if v.default is not inspect.Parameter.empty
-        }
 
 
 OPENAI_METHODS_V0 = [
@@ -396,8 +372,12 @@ class OpenAiArgsExtractor:
         self, name=None, metadata=None, trace_id=None, session_id=None, **kwargs
     ):
         self.args = {}
-        self.args["name"] = name  # TODO: assistant name!!
-        self.args["metadata"] = metadata  # TODO: openai parameter
+        self.args[
+            "name"
+        ] = name  # TODO: conflict with openai function parameter in case of assistant.create
+        self.args[
+            "metadata"
+        ] = metadata  # TODO: conflict with openai function parameters for many assistant, thread and run methods
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
         self.kwargs = kwargs
@@ -430,7 +410,7 @@ def _get_langfuse_data_from_kwargs(
     def default_name(resource):
         if resource.object == "Files":
             parent_object = resource.module.split(".")[-2].capitalize()
-            name = f"OpenAI-{parent_object}-{resource.object}-{resource.method}"  # TODO: Decide if necessary to distinguish
+            name = f"OpenAI-{parent_object}-{resource.object}-{resource.method}"  # TODO: Decide if necessary to distinguish, there are two types of Files: Assistant and Message Files, so the default name is Assistants.Files.list (or Message.Files.list)
         else:
             name = f"OpenAI-{resource.object}-{resource.method}"
         return name
@@ -448,8 +428,8 @@ def _get_langfuse_data_from_kwargs(
     if session_id is not None and not isinstance(session_id, str):
         raise TypeError("session_id must be a string")
 
-    # TODO: Move
-    if trace_id:  # TODO Move
+    # TODO: IMO a function called "get_langfuse_data_from_kwargs" should not create a trace as a byproduct, move outside of function call
+    if trace_id:
         langfuse.trace(id=trace_id, session_id=session_id)
     elif session_id:
         # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
@@ -461,7 +441,7 @@ def _get_langfuse_data_from_kwargs(
 
     model = kwargs.get("model", None)
 
-    prompt = None  # TODO: rename, not always prompt
+    prompt = None
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
@@ -642,9 +622,8 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
             )
     else:
         completion = dict(response)
-
         # filter out private keys since contain non-serializable objects
-        # TODO: non-serializable fields in response
+        # TODO: non-serializable fields in response with a proper check
         completion = {k: v for k, v in completion.items() if not str(k).startswith("_")}
 
     usage = response.get("usage", None)
@@ -693,7 +672,9 @@ def postprocess(
     )
 
     if openai_resource.arg_trace_id and not openai_resource.look_for_existing_trace:
-        trace_id = getattr(openai_response, openai_resource.arg_trace_id)
+        trace_id = parsed_kwargs.get("trace_id") or getattr(
+            openai_response, openai_resource.arg_trace_id
+        )
         langfuse.trace(id=trace_id)
         kwargs = {**parsed_kwargs}
         kwargs["trace_id"] = trace_id
@@ -730,7 +711,12 @@ def _wrap(openai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
     parsed_kwargs = _get_langfuse_data_from_kwargs(
         openai_resource, new_langfuse, start_time, arg_extractor
     )
-    if openai_resource.arg_trace_id and openai_resource.look_for_existing_trace:
+
+    if (
+        not parsed_kwargs.get("trace_id")
+        and openai_resource.arg_trace_id
+        and openai_resource.look_for_existing_trace
+    ):
         parsed_kwargs["trace_id"] = kwargs.get(openai_resource.arg_trace_id)
 
     observation = preprocess(new_langfuse, openai_resource, parsed_kwargs)

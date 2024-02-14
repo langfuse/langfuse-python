@@ -1,17 +1,16 @@
-import os
 import pytest
 import time
-import inspect
 import io
 
 from openai import BadRequestError
 
 from langfuse.client import FernLangfuse
 from langfuse.openai import openai
-from tests.utils import create_uuid
+from tests.utils import create_uuid, get_api
 
 
-# TODO: There is a lot of code duplication between the tests, refactor
+# TODO: There is a lot of code duplication between the tests, lots of potential for refactoring
+# TODO: Since some of these calls block until openai returns, we should use timeouts to not have any tests "hanging"
 
 
 def _convert_to_dict(obj):
@@ -53,8 +52,20 @@ def openai_assistant():
         pass
 
 
+@pytest.fixture(scope="function")
+def openai_assistant_with_trace(trace_id):
+    assistant = openai.beta.assistants.create(model="gpt-3.5-turbo", trace_id=trace_id)
+    assistant.trace_id = trace_id
+    yield assistant
+    try:
+        openai.beta.assistants.delete(assistant_id=assistant.id)
+    except:
+        pass
+
+
 @pytest.fixture(scope="module")
 def openai_assistant_with_tools():
+    # gpt-4 models required for assistants that use tools
     assistant = openai.beta.assistants.create(
         model="gpt-4-turbo-preview", tools=[{"type": "retrieval"}]
     )
@@ -105,7 +116,7 @@ def openai_run(openai_thread, openai_assistant_scope_module):
 
 @pytest.fixture(scope="function")
 def openai_run_step(openai_run):
-    # TODO: wait for openai_run to really change it's status
+    # TODO: Here we use time.sleep() to wait for the openai to complete, so there are runsteps to retrieve
     time.sleep(2)
     run_step = openai.beta.threads.runs.steps.list(
         thread_id=openai_run.thread_id, run_id=openai_run.id
@@ -152,28 +163,34 @@ def openai_message_file(openai_message_with_file):
 
 @pytest.fixture
 def api():
-    return FernLangfuse(
-        username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
-        password=os.environ.get("LANGFUSE_SECRET_KEY"),
-        base_url=os.environ.get("LANGFUSE_HOST"),
-    )
+    return get_api()
 
 
 def test_openai_assistant_create(api: FernLangfuse):
     openai_kwargs = {"model": "gpt-3.5-turbo"}
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-    fn = openai.beta.assistants.create
-
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.assistants.create(**openai_kwargs)
     openai.flush_langfuse()
 
-    trace_id = openai_response.id
-    observations = api.observations.get_many(
-        trace_id=trace_id,
-    )
+    observations = api.observations.get_many(trace_id=openai_response.id)
+
+    assert observations.data
+    observation = observations.data[0]
+    for key, value in openai_kwargs.items():
+        assert observation.input[key] == value
+
+    assert observation.output == dict(openai_response)
+
+
+def test_openai_assistant_create_with_trace_id(api: FernLangfuse, trace_id):
+    openai_kwargs = {"model": "gpt-3.5-turbo"}
+
+    langfuse_kwargs = {"trace_id": trace_id}
+
+    openai_response = openai.beta.assistants.create(**openai_kwargs, **langfuse_kwargs)
+    openai.flush_langfuse()
+
+    observations = api.observations.get_many(trace_id=trace_id)
 
     assert observations.data
     observation = observations.data[0]
@@ -184,15 +201,13 @@ def test_openai_assistant_create(api: FernLangfuse):
 
 
 def test_openai_assistant_list(api: FernLangfuse, trace_id):
-    # TODO: include openai_assistant
     openai_kwargs = {}
 
     langfuse_kwargs = {
         "trace_id": trace_id,
     }
-    fn = openai.beta.assistants.list
 
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.assistants.list(**openai_kwargs, **langfuse_kwargs)
     openai.flush_langfuse()
 
     observations = api.observations.get_many(
@@ -216,13 +231,9 @@ def test_openai_assistant_list(api: FernLangfuse, trace_id):
     ],
 )
 def test_openai_assistant(
-    openai_call, openai_kwargs, api: FernLangfuse, trace_id, openai_assistant
+    openai_call, openai_kwargs, api: FernLangfuse, openai_assistant
 ):
     openai_kwargs["assistant_id"] = openai_assistant.id
-
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
 
     openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
@@ -230,6 +241,40 @@ def test_openai_assistant(
     trace_id = openai_kwargs["assistant_id"]
     observations = api.observations.get_many(
         trace_id=trace_id,
+    )
+
+    assert observations.data
+    observation = observations.data[0]
+    for key, value in openai_kwargs.items():
+        assert observation.input[key] == value
+
+    assert observation.output == _convert_to_dict(openai_response)
+
+
+@pytest.mark.parametrize(
+    "openai_call,openai_kwargs",
+    [
+        (openai.beta.assistants.retrieve, {}),
+        (openai.beta.assistants.update, {"description": "I am an updated description"}),
+        (openai.beta.assistants.delete, {}),
+    ],
+)
+def test_openai_assistant_with_trace(
+    openai_call,
+    openai_kwargs,
+    api: FernLangfuse,
+    openai_assistant_with_trace,
+):
+    # this test is to check that a manually passed trace_id overwrites setting the trace_id by assistant_id
+    # this also serves as a proxy test that setting trace_id works for other openai.beta.* wrapped methods
+    openai_kwargs["assistant_id"] = openai_assistant_with_trace.id
+    langfuse_kwargs = {"trace_id": openai_assistant_with_trace.trace_id}
+
+    openai_response = openai_call(**openai_kwargs, **langfuse_kwargs)
+    openai.flush_langfuse()
+
+    observations = api.observations.get_many(
+        trace_id=openai_assistant_with_trace.trace_id
     )
 
     assert observations.data
@@ -248,12 +293,7 @@ def test_openai_assistant_file_create(
         "file_id": openai_file.id,
     }
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-    fn = openai.beta.assistants.files.create
-
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.assistants.files.create(**openai_kwargs)
     openai.flush_langfuse()
 
     trace_id = openai_assistant_with_tools.id
@@ -287,11 +327,7 @@ def test_openai_assistant_file(
     if "file_id" in openai_kwargs:
         openai_kwargs["file_id"] = openai_assistant_file.id
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-
-    openai_response = openai_call(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
 
     trace_id = openai_assistant_file.assistant_id
@@ -313,12 +349,7 @@ def test_openai_assistant_file(
 def test_openai_thread_create(api: FernLangfuse):
     openai_kwargs = {}
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-    fn = openai.beta.threads.create
-
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.threads.create(**openai_kwargs)
     openai.flush_langfuse()
 
     trace_id = openai_response.id
@@ -346,10 +377,6 @@ def test_openai_thread(
     openai_call, openai_kwargs, api: FernLangfuse, trace_id, openai_thread
 ):
     openai_kwargs.update({"thread_id": openai_thread.id})
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
-
     openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
 
@@ -369,12 +396,7 @@ def test_openai_thread(
 def test_openai_thread_create_and_run(api: FernLangfuse, openai_assistant):
     openai_kwargs = {"assistant_id": openai_assistant.id}
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-    fn = openai.beta.threads.create_and_run
-
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.threads.create_and_run(**openai_kwargs)
     openai.flush_langfuse()
 
     trace_id = openai_response.thread_id
@@ -397,12 +419,7 @@ def test_openai_message_create(api: FernLangfuse, openai_thread):
         "content": "Alles ist gut :)",
     }
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-    fn = openai.beta.threads.messages.create
-
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.threads.messages.create(**openai_kwargs)
     openai.flush_langfuse()
 
     trace_id = openai_thread.id
@@ -442,9 +459,6 @@ def test_openai_message(
     openai_kwargs["thread_id"] = openai_message.thread_id
     if "message_id" in openai_kwargs:
         openai_kwargs["message_id"] = openai_message.id
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
 
     openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
@@ -486,10 +500,6 @@ def test_openai_message_files(
     if "file_id" in openai_kwargs:
         openai_kwargs["file_id"] = openai_message_with_file.file_ids[0]
 
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
-
     openai_response = openai_call(**openai_kwargs)
     openai.flush_langfuse()
 
@@ -512,12 +522,7 @@ def test_openai_message_files(
 def test_openai_run_create(api: FernLangfuse, openai_thread, openai_assistant):
     openai_kwargs = {"thread_id": openai_thread.id, "assistant_id": openai_assistant.id}
 
-    langfuse_kwargs = {
-        # "trace_id": trace_id,
-    }
-    fn = openai.beta.threads.runs.create
-
-    openai_response = fn(**openai_kwargs, **langfuse_kwargs)
+    openai_response = openai.beta.threads.runs.create(**openai_kwargs)
     openai.flush_langfuse()
 
     trace_id = openai_thread.id
@@ -555,10 +560,6 @@ def test_openai_run(
     openai_kwargs["thread_id"] = openai_run.thread_id
     if "run_id" in openai_kwargs:
         openai_kwargs["run_id"] = openai_run.id
-
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
 
     if openai_call.__name__ in ["cancel", "update"]:
         # we have no control over if we actually can cancel or update the run, since depended on the run status the openai_client throws an error
@@ -607,10 +608,6 @@ def test_openai_run(
 def test_openai_run_steps_list(api: FernLangfuse, trace_id, openai_run):
     openai_kwargs = {"thread_id": openai_run.thread_id, "run_id": openai_run.id}
 
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
-
     time.sleep(1)  # TODO: this is only so that the openai_run is already in progress
     openai_response = openai.beta.threads.runs.steps.list(**openai_kwargs)
 
@@ -645,10 +642,6 @@ def test_openai_run_steps_retrieve(api: FernLangfuse, trace_id, openai_run_step)
         "step_id": openai_run_step.id,
     }
 
-    langfuse_kwargs = {
-        "trace_id": trace_id,
-    }
-
     openai_response = openai.beta.threads.runs.steps.retrieve(**openai_kwargs)
 
     openai.flush_langfuse()
@@ -672,6 +665,7 @@ def test_openai_run_steps_retrieve(api: FernLangfuse, trace_id, openai_run_step)
 
 def test_full_example(api, openai_assistant_with_tools, openai_file):
     # this is a full end2end test to simulate possible user behavior
+    # TODO: Decide if this test is necessary
 
     openai_thread = openai.beta.threads.create()
     openai_message = openai.beta.threads.messages.create(
@@ -707,5 +701,5 @@ def test_full_example(api, openai_assistant_with_tools, openai_file):
 
     assert (
         len(observations.data) >= 7
-    )  # we do not know in advance how many time run.retrieve is called
+    )  # we do not know in advance how many times run.retrieve is called and therefore how many observations are generated
     # TODO: better check
