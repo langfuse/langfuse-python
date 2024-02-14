@@ -751,7 +751,7 @@ class CallbackHandler(BaseCallbackHandler):
                 extracted_response = (
                     self._convert_message_to_dict(generation.message)
                     if isinstance(generation, ChatGeneration)
-                    else resp.strip()
+                    else resp
                 )
 
                 llm_usage = (
@@ -831,14 +831,19 @@ class CallbackHandler(BaseCallbackHandler):
             self.trace = self.trace.update(output=output)
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
+        content = (
+            message.content.strip()
+            if isinstance(message.content, str)
+            else message.content
+        )
         if isinstance(message, HumanMessage):
-            message_dict = {"role": "user", "content": message.content}
+            message_dict = {"role": "user", "content": content}
         elif isinstance(message, AIMessage):
-            message_dict = {"role": "assistant", "content": message.content}
+            message_dict = {"role": "assistant", "content": content}
         elif isinstance(message, SystemMessage):
-            message_dict = {"role": "system", "content": message.content}
+            message_dict = {"role": "system", "content": content}
         elif isinstance(message, ChatMessage):
-            message_dict = {"role": message.role, "content": message.content}
+            message_dict = {"role": message.role, "content": content}
         else:
             raise ValueError(f"Got unknown type {message}")
         if "name" in message.additional_kwargs:
