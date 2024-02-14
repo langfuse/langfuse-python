@@ -852,7 +852,6 @@ class CallbackHandler(BaseCallbackHandler):
 
     def _create_message_dicts(
         self, messages: List[BaseMessage]
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        params: Dict[str, Any] = {}
+    ) -> List[Dict[str, Any]]:
         message_dicts = [self._convert_message_to_dict(m) for m in messages]
-        return message_dicts, params
+        return message_dicts
