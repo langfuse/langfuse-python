@@ -17,7 +17,8 @@ This is an example FastAPI application showcasing integration with Langfuse for 
    - OpenAI: AI platform for natural language processing.
 
 5. **Usage**:
-   - Start the application using `poetry run start` at the root level.
+   - Preparation: Ensure langfuse is installed and configured in the `fastapi_example/main.py` file.
+   - Starting the Server: Navigate to the root directory of the project `langfuse-python/examples/fastapi_examples`. Run the application using `poetry run start`.
    - Access endpoints at `http://localhost:8000`.
 
 For more details on FastAPI and Langfuse refer to their respective documentation.
