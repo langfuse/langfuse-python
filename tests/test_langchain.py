@@ -168,10 +168,10 @@ def test_callback_generated_from_trace_chat():
 
 def test_callback_generated_from_lcel_chain():
     api = get_api()
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
 
     run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler(debug=True)
+    handler = CallbackHandler(debug=False)
 
     prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     model = ChatOpenAI(temperature=0)
@@ -946,7 +946,7 @@ def test_callback_simple_openai_streaming():
 
 @pytest.mark.skip(reason="no serpapi setup in CI")
 def test_tools():
-    handler = CallbackHandler(debug=True)
+    handler = CallbackHandler(debug=False)
 
     llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
