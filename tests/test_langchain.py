@@ -171,7 +171,7 @@ def test_callback_generated_from_lcel_chain():
     langfuse = Langfuse(debug=False)
 
     run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler()
+    handler = CallbackHandler(debug=False)
 
     prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     model = ChatOpenAI(temperature=0)
@@ -481,7 +481,7 @@ def test_basic_chat_openai():
     assert len(trace.observations) == 1
 
     assert trace.output == trace.observations[0].output
-    assert trace.input == trace.observations[0].input
+    assert [trace.input] == trace.observations[0].input
 
 
 def test_basic_chat_openai_based_on_trace():
@@ -945,10 +945,10 @@ def test_callback_simple_openai_streaming():
 
 
 @pytest.mark.skip(reason="no serpapi setup in CI")
-def test_callback_simple_llm_chat():
-    handler = CallbackHandler()
+def test_tools():
+    handler = CallbackHandler(debug=False)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 

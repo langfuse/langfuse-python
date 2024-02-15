@@ -20,14 +20,28 @@ from langfuse.utils import _get_timestamp
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
-    from langchain.schema.messages import BaseMessage
-    from langchain.schema.output import LLMResult
+    from langchain_core.outputs import (
+        ChatGeneration,
+        LLMResult,
+    )
+    from langchain_core.messages import (
+        AIMessage,
+        BaseMessage,
+        ChatMessage,
+        HumanMessage,
+        SystemMessage,
+    )
 except ImportError:
     logging.getLogger("langfuse").warning(
         "Could not import langchain. Some functionality may be missing."
     )
     LLMResult = Any
+    AIMessage = Any
     BaseMessage = Any
+    ChatMessage = Any
+    HumanMessage = Any
+    SystemMessage = Any
+    ChatGeneration = Any
     Document = Any
     AgentAction = Any
     AgentFinish = Any
@@ -284,7 +298,7 @@ class CallbackHandler(BaseCallbackHandler):
     def __generate_trace_and_parent(
         self,
         serialized: Dict[str, Any],
-        inputs: Dict[str, Any],
+        inputs: Union[Dict[str, Any], List[str], str, None],
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -446,10 +460,11 @@ class CallbackHandler(BaseCallbackHandler):
             self.log.debug(
                 f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}"
             )
+
             self.__on_llm_action(
                 serialized,
                 run_id,
-                messages,
+                [self._create_message_dicts(m) for m in messages],
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -476,7 +491,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.__on_llm_action(
                 serialized,
                 run_id,
-                prompts,
+                prompts[0] if len(prompts) == 1 else prompts,
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -615,7 +630,9 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                status_message=error, level=ObservationLevel.ERROR, version=self.version
+                status_message=str(error),
+                level=ObservationLevel.ERROR,
+                version=self.version,
             )
 
             self._update_trace(run_id, parent_run_id, error)
@@ -636,7 +653,7 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             self.__generate_trace_and_parent(
                 serialized,
-                inputs=prompts,
+                inputs=prompts[0] if len(prompts) == 1 else prompts,
                 run_id=run_id,
                 parent_run_id=parent_run_id,
                 tags=tags,
@@ -735,14 +752,17 @@ class CallbackHandler(BaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
-                last_response = response.generations[-1][-1]
+                generation = response.generations[-1][-1]
+                extracted_response = (
+                    self._convert_message_to_dict(generation.message)
+                    if isinstance(generation, ChatGeneration)
+                    else _extract_raw_esponse(generation)
+                )
                 llm_usage = (
                     None
                     if response.llm_output is None
                     else response.llm_output["token_usage"]
                 )
-
-                extracted_response = _extract_response(last_response)
 
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
@@ -814,10 +834,34 @@ class CallbackHandler(BaseCallbackHandler):
         ):
             self.trace = self.trace.update(output=output)
 
+    def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
+        # assistant message
+        if isinstance(message, HumanMessage):
+            message_dict = {"role": "user", "content": message.content}
+        elif isinstance(message, AIMessage):
+            message_dict = {"role": "assistant", "content": message.content}
+        elif isinstance(message, SystemMessage):
+            message_dict = {"role": "system", "content": message.content}
+        elif isinstance(message, ChatMessage):
+            message_dict = {"role": message.role, "content": message.content}
+        else:
+            raise ValueError(f"Got unknown type {message}")
+        if "name" in message.additional_kwargs:
+            message_dict["name"] = message.additional_kwargs["name"]
 
-def _extract_response(last_response):
+        if message.additional_kwargs:
+            message_dict["additional_kwargs"] = message.additional_kwargs
+
+        return message_dict
+
+    def _create_message_dicts(
+        self, messages: List[BaseMessage]
+    ) -> List[Dict[str, Any]]:
+        return [self._convert_message_to_dict(m) for m in messages]
+
+
+def _extract_raw_esponse(last_response):
     """Extract the response from the last response of the LLM call."""
-
     # We return the text of the response if not empty, otherwise the additional_kwargs
     # Additional kwargs contains the response in case of tool usage
     return (
