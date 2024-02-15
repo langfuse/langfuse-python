@@ -62,7 +62,8 @@ def test_openai_chat_completion():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output
+    assert "2" in generation.data[0].output["content"]
+    assert generation.data[0].output["role"] == "assistant"
 
 
 def test_openai_chat_completion_stream():
@@ -534,7 +535,8 @@ async def test_async_chat():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output
+    assert "2" in generation.data[0].output["content"]
+    assert generation.data[0].output["role"] == "assistant"
 
 
 @pytest.mark.asyncio
