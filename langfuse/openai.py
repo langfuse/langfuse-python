@@ -83,7 +83,13 @@ OPENAI_METHODS_V1 = [
 
 class OpenAiArgsExtractor:
     def __init__(
-        self, name=None, metadata=None, trace_id=None, session_id=None, user_id=None, **kwargs
+        self,
+        name=None,
+        metadata=None,
+        trace_id=None,
+        session_id=None,
+        user_id=None,
+        **kwargs,
     ):
         self.args = {}
         self.args["name"] = name
@@ -108,6 +114,49 @@ def _langfuse_wrapper(func):
         return wrapper
 
     return _with_langfuse
+
+
+def _extract_chat_prompt(kwargs: any):
+    """extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
+    response = {}
+
+    if kwargs.get("functions") is not None:
+        response.update({"functions": kwargs["functions"]})
+
+    if kwargs.get("function_call") is not None:
+        response.update({"function_call": kwargs["function_call"]})
+
+    if response is not None:
+        # uf user provided functions, we need to send these together with messages to langfuse
+        response.update(
+            {
+                "messages": filter_image_data(kwargs.get("messages", [])),
+            }
+        )
+        return response
+    else:
+        # vanilla case, only send messages in openai format to langfuse
+        return filter_image_data(kwargs.get("messages", []))
+
+
+def _extract_chat_response(kwargs: any):
+    """extracts the llm output from the response."""
+    response = {
+        "role": kwargs.get("role", None),
+    }
+
+    if kwargs.get("function_call") is not None:
+        response.update({"function_call": kwargs["function_call"]})
+
+    if kwargs.get("tool_calls") is not None:
+        response.update({"tool_calls": kwargs["tool_calls"]})
+
+    response.update(
+        {
+            "content": kwargs.get("content", None),
+        }
+    )
+    return response
 
 
 def _get_langfuse_data_from_kwargs(
@@ -149,11 +198,7 @@ def _get_langfuse_data_from_kwargs(
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
         prompt = (
-            {
-                "messages": filter_image_data(kwargs.get("messages", [])),
-                "functions": kwargs.get("functions", []),
-                "function_call": kwargs.get("function_call", {}),
-            }
+            _extract_chat_prompt(kwargs)
             if kwargs.get("functions", None) is not None
             else filter_image_data(kwargs.get("messages", []))
         )
@@ -189,7 +234,9 @@ def _get_langfuse_data_from_sync_streaming_response(
         responses.append(i)
         yield i
 
-    model, completion_start_time, completion = _extract_data(resource, responses)
+    model, completion_start_time, completion = _extract_openai_response(
+        resource, responses
+    )
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
@@ -205,7 +252,9 @@ async def _get_langfuse_data_from_async_streaming_response(
         responses.append(i)
         yield i
 
-    model, completion_start_time, completion = _extract_data(resource, responses)
+    model, completion_start_time, completion = _extract_openai_response(
+        resource, responses
+    )
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
@@ -224,7 +273,7 @@ def _create_langfuse_update(
     generation.update(**update)
 
 
-def _extract_data(resource, responses):
+def _extract_openai_response(resource, responses):
     completion = [] if resource.type == "chat" else ""
     model = None
     completion_start_time = None
@@ -315,7 +364,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
         if len(choices) > 0:
             choice = choices[-1]
             completion = (
-                choice.message.json()
+                _extract_chat_response(choice.message.__dict__)
                 if _is_openai_v1()
                 else choice.get("message", None)
             )
