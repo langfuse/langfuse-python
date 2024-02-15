@@ -1,3 +1,6 @@
 {
-  "recommendations": ["njpwerner.autodocstring"]
+  "recommendations": [
+    "njpwerner.autodocstring",
+    "charliermarsh.ruff"
+  ]
 }
