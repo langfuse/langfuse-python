@@ -1,7 +1,7 @@
 from langfuse import Langfuse
 
 # Initialize Langfuse
-langfuse = Langfuse(public_key="pk-lf-1234567890", secret_key="sk-lf-1234567890", host="http://localhost:3000")
+langfuse = Langfuse(public_key="pk-lf-1234567890", secret_key="sk-lf-1234567890")
 
 def get_response_openai(prompt):
     """

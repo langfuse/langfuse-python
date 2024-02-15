@@ -1,9 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, BackgroundTasks
-import os
-import sys
 from langfuse import Langfuse
-from langfuse.openai import openai
 import uvicorn
 
 
@@ -25,7 +22,7 @@ async def main_route():
     return {"message": "Hey, this is an example showing how to use Langfuse with FastAPI."}
 
 # Initialize Langfuse
-langfuse = Langfuse(public_key="pk-lf-1234567890", secret_key="sk-lf-1234567890", host="http://localhost:3000")
+langfuse = Langfuse(public_key="pk-lf-1234567890", secret_key="sk-lf-1234567890")
 
 async def get_response_openai(prompt, background_tasks: BackgroundTasks):
     """

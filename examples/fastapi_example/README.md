@@ -14,7 +14,6 @@ This is an example FastAPI application showcasing integration with Langfuse for 
 4. **Dependencies**:
    - FastAPI: Web framework for building APIs.
    - Langfuse: Library for event tracing and management.
-   - OpenAI: AI platform for natural language processing.
 
 5. **Usage**:
    - Preparation: Ensure langfuse is installed and configured in the `fastapi_example/main.py` file.

@@ -1,9 +1,8 @@
-import os  
 import signal  
 import sys 
 from .langfuse_integration import langfuse_flush
 
-def shutdwon_handler(*args):  
+def shutdown_handler(*args):  
     """
     This function handles the shutdown process.
     
@@ -13,4 +12,8 @@ def shutdwon_handler(*args):
     langfuse_flush()
     sys.exit(0)
 
-signal.signal(signal.SIGINT, shutdwon_handler)  
+# Register the shutdown_handler for SIGINT (Ctrl+C)
+signal.signal(signal.SIGINT, shutdown_handler)
+
+# Register the same shutdown_handler for SIGTERM
+signal.signal(signal.SIGTERM, shutdown_handler)
