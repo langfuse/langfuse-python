@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
 
 from langchain.callbacks.base import BaseCallbackHandler
@@ -289,7 +289,7 @@ class CallbackHandler(BaseCallbackHandler):
     def __generate_trace_and_parent(
         self,
         serialized: Dict[str, Any],
-        inputs: Dict[str, Any],
+        inputs: Union[Dict[str, Any], List[str], str, None],
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -482,7 +482,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.__on_llm_action(
                 serialized,
                 run_id,
-                prompts,
+                prompts[0] if len(prompts) == 1 else prompts,
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -621,7 +621,9 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                status_message=error, level=ObservationLevel.ERROR, version=self.version
+                status_message=str(error),
+                level=ObservationLevel.ERROR,
+                version=self.version,
             )
 
             self._update_trace(run_id, parent_run_id, error)
@@ -642,7 +644,7 @@ class CallbackHandler(BaseCallbackHandler):
         try:
             self.__generate_trace_and_parent(
                 serialized,
-                inputs=prompts,
+                inputs=prompts[0] if len(prompts) == 1 else prompts,
                 run_id=run_id,
                 parent_run_id=parent_run_id,
                 tags=tags,
@@ -744,10 +746,7 @@ class CallbackHandler(BaseCallbackHandler):
                 generation = response.generations[-1][-1]
                 print(generation)
                 extracted_response = (
-                    {
-                        **self._convert_message_to_dict(generation.message),
-                        **self._extract_function_call(generation),
-                    }
+                    self._convert_message_to_dict(generation.message)
                     if isinstance(generation, ChatGeneration)
                     else _extract_raw_esponse(generation)
                 )
@@ -829,7 +828,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.trace = self.trace.update(output=output)
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
-        print("_convert_message_to_dict")
+        print("_convert_message_to_dict", message)
 
         # assistant message
         if isinstance(message, HumanMessage):
@@ -845,13 +844,10 @@ class CallbackHandler(BaseCallbackHandler):
         if "name" in message.additional_kwargs:
             message_dict["name"] = message.additional_kwargs["name"]
 
-        return message_dict
+        if message.additional_kwargs:
+            message_dict["additional_kwargs"] = message.additional_kwargs
 
-    def _extract_function_call(self, message: BaseMessage):
-        """Extract the function call from the last response of the LLM call."""
-        if "additional_kwargs" in message and message.additional_kwargs is not None:
-            return {"tool_calls": message.additional_kwargs.get("function_call")}
-        return {}
+        return message_dict
 
     def _create_message_dicts(
         self, messages: List[BaseMessage]

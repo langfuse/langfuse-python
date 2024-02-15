@@ -945,10 +945,10 @@ def test_callback_simple_openai_streaming():
 
 
 @pytest.mark.skip(reason="no serpapi setup in CI")
-def test_callback_simple_llm_chat():
-    handler = CallbackHandler()
+def test_tools():
+    handler = CallbackHandler(debug=True)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 
