@@ -455,7 +455,7 @@ class CallbackHandler(BaseCallbackHandler):
             self.__on_llm_action(
                 serialized,
                 run_id,
-                [self._create_message_dicts(m)[0] for m in messages],
+                [self._create_message_dicts(m) for m in messages],
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -742,18 +742,16 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
                 generation = response.generations[-1][-1]
-
-                resp = {
-                    "text": generation.text,
-                    "llm_output": response.llm_output,
-                }
-
+                print(generation)
                 extracted_response = (
-                    self._convert_message_to_dict(generation.message)
+                    {
+                        **self._convert_message_to_dict(generation.message),
+                        **self._extract_function_call(generation),
+                    }
                     if isinstance(generation, ChatGeneration)
-                    else _extract_response(generation)
+                    else _extract_raw_esponse(generation)
                 )
-
+                print(extracted_response)
                 llm_usage = (
                     None
                     if response.llm_output is None
@@ -831,35 +829,40 @@ class CallbackHandler(BaseCallbackHandler):
             self.trace = self.trace.update(output=output)
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
-        content = (
-            message.content.strip()
-            if isinstance(message.content, str)
-            else message.content
-        )
+        print("_convert_message_to_dict")
+
+        # assistant message
         if isinstance(message, HumanMessage):
-            message_dict = {"role": "user", "content": content}
+            message_dict = {"role": "user", "content": message.content}
         elif isinstance(message, AIMessage):
-            message_dict = {"role": "assistant", "content": content}
+            message_dict = {"role": "assistant", "content": message.content}
         elif isinstance(message, SystemMessage):
-            message_dict = {"role": "system", "content": content}
+            message_dict = {"role": "system", "content": message.content}
         elif isinstance(message, ChatMessage):
-            message_dict = {"role": message.role, "content": content}
+            message_dict = {"role": message.role, "content": message.content}
         else:
             raise ValueError(f"Got unknown type {message}")
         if "name" in message.additional_kwargs:
             message_dict["name"] = message.additional_kwargs["name"]
+
         return message_dict
+
+    def _extract_function_call(self, message: BaseMessage):
+        """Extract the function call from the last response of the LLM call."""
+        if "additional_kwargs" in message and message.additional_kwargs is not None:
+            return {"tool_calls": message.additional_kwargs.get("function_call")}
+        return {}
 
     def _create_message_dicts(
         self, messages: List[BaseMessage]
     ) -> List[Dict[str, Any]]:
-        message_dicts = [self._convert_message_to_dict(m) for m in messages]
-        return message_dicts
+        print("_create_message_dicts", messages)
+        return [self._convert_message_to_dict(m) for m in messages]
 
 
-def _extract_response(last_response):
+def _extract_raw_esponse(last_response):
     """Extract the response from the last response of the LLM call."""
-
+    print(last_response)
     # We return the text of the response if not empty, otherwise the additional_kwargs
     # Additional kwargs contains the response in case of tool usage
     return (
