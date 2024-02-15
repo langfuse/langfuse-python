@@ -184,6 +184,7 @@ class Langfuse(object):
         return self.trace_id
 
     def get_trace_url(self):
+        """Return the URL to see the current trace in the Langfuse UI."""
         return f"{self.base_url}/trace/{self.trace_id}"
 
     def get_dataset(self, name: str):
