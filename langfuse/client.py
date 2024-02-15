@@ -167,11 +167,11 @@ class Langfuse(object):
 
         self.trace_id = None
 
-        self.release = self.__get_release_value(release)
+        self.release = self._get_release_value(release)
 
         self.prompt_cache = PromptCache()
 
-    def __get_release_value(self, release: Optional[str] = None) -> Optional[str]:
+    def _get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
             return release
         elif "LANGFUSE_RELEASE" in os.environ:
