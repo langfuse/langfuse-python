@@ -14,7 +14,6 @@ This Django application demonstrates integrating Langfuse for event tracing and 
 4. **Dependencies**:
 - Django: The primary framework for building the application.
 - Langfuse: Library for event tracing and management.
-- OpenAI: Mentioned as an AI platform, not actively used here.
 
 5. **Usage**:<br>
 - Preparation: Ensure `langfuse` is installed and configured in the `myapp/langfuse_integration.py` file.<br>
