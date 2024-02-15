@@ -579,8 +579,7 @@ async def test_async_chat_stream():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output["content"]
-    assert generation.data[0].output["role"] == "assistant"
+    assert "2" in generation.data[0].output
 
 
 def test_openai_function_call():
