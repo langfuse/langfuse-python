@@ -744,13 +744,11 @@ class CallbackHandler(BaseCallbackHandler):
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
                 generation = response.generations[-1][-1]
-                print(generation)
                 extracted_response = (
                     self._convert_message_to_dict(generation.message)
                     if isinstance(generation, ChatGeneration)
                     else _extract_raw_esponse(generation)
                 )
-                print(extracted_response)
                 llm_usage = (
                     None
                     if response.llm_output is None
@@ -828,8 +826,6 @@ class CallbackHandler(BaseCallbackHandler):
             self.trace = self.trace.update(output=output)
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
-        print("_convert_message_to_dict", message)
-
         # assistant message
         if isinstance(message, HumanMessage):
             message_dict = {"role": "user", "content": message.content}
@@ -852,13 +848,11 @@ class CallbackHandler(BaseCallbackHandler):
     def _create_message_dicts(
         self, messages: List[BaseMessage]
     ) -> List[Dict[str, Any]]:
-        print("_create_message_dicts", messages)
         return [self._convert_message_to_dict(m) for m in messages]
 
 
 def _extract_raw_esponse(last_response):
     """Extract the response from the last response of the LLM call."""
-    print(last_response)
     # We return the text of the response if not empty, otherwise the additional_kwargs
     # Additional kwargs contains the response in case of tool usage
     return (
