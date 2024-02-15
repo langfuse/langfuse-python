@@ -55,6 +55,17 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 target-version = 'py38'
 
+[tool.ruff.lint]
+select = [
+    # Enforce the use of Google-style docstrings.
+    "D",
+    # Augment the convention by requiring an imperative mood for all docstrings.
+    "D401",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.pytest.ini_options]
 log_cli = true
 
