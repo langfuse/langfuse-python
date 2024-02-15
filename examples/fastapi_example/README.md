@@ -6,7 +6,7 @@ This is an example FastAPI application showcasing integration with Langfuse for 
 
 2. **Endpoints**:
    - `/`: Returns a simple message demonstrating the usage of Langfuse with FastAPI.
-   - `/campaign/`: Accepts a prompt query parameter and utilizes OpenAI to generate a response. It also traces events using Langfuse.
+   - `"/campaign/"`: Accepts a `prompt` and employs Langfuse for event tracing. (Note: OpenAI is referenced for context but not used in this example).
 
 3. **Integration**:
    - Langfuse: Utilized for event tracing with `trace`, `score`, `generation`, and `span` operations. (Note that OpenAI is not actually used here to generate an answer to the prompt. This example is just to show how to use FastAPI with the Langfuse SDK)
