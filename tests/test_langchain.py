@@ -481,7 +481,7 @@ def test_basic_chat_openai():
     assert len(trace.observations) == 1
 
     assert trace.output == trace.observations[0].output
-    assert trace.input == trace.observations[0].input
+    assert [trace.input] == trace.observations[0].input
 
 
 def test_basic_chat_openai_based_on_trace():
