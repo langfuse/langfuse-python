@@ -50,7 +50,8 @@ class PromptClient:
     name: str
     version: int
     prompt: str
-    config: Any
+    # same to input/output of the observations, this is typed to Any.
+    config: dict[str, Any]
 
     def __init__(self, prompt: Prompt):
         self.name = prompt.name
