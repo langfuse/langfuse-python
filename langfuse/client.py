@@ -50,7 +50,12 @@ from .version import __version__ as version
 
 
 class Langfuse(object):
+    """Langfuse Python client."""
+
     log = logging.getLogger("langfuse")
+
+    host: str
+    """Host of Langfuse API."""
 
     def __init__(
         self,
@@ -67,6 +72,25 @@ class Langfuse(object):
         sdk_integration: str = "default",
         httpx_client: Optional[httpx.Client] = None,
     ):
+        """Initialize the Langfuse client.
+
+        Args:
+            public_key (str, optional): Public API key of Langfuse project. Can be set via `LANGFUSE_PUBLIC_KEY` environment variable.
+            secret_key (str, optional): Secret API key of Langfuse project. Can be set via `LANGFUSE_SECRET_KEY` environment variable.
+            host (str, optional): Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable. Defaults to `https://cloud.langfuse.com`.
+            release (str, optional): Release number/hash of the application to provide analytics grouped by release. Can be set via `LANGFUSE_RELEASE` environment variable.
+            debug (bool, optional): Enables debug mode for more verbose logging. Can be set via `LANGFUSE_DEBUG` environment variable.
+            threads (int, optional): Number of consumer threads to execute network requests. Helps scaling the SDK for high load. Only increase this if you run into scaling issues.
+            flush_at (int, optional): Max batch size that's sent to the API.
+            flush_interval (int, optional): Max delay until a new batch is sent to the API.
+            max_retries (int, optional): Max number of retries in case of API/network errors.
+            timeout (int, optional): Timeout of API requests in seconds.
+            httpx_client (httpx.Client, optional): Pass your own httpx client for more customizability of requests.
+            sdk_integration (str, optional): Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
+
+        Raises:
+            ValueError: If public_key or secret_key is not set and not found in environment variables.
+        """
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
         if set_debug is True:
