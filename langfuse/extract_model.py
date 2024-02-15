@@ -327,7 +327,6 @@ def _extract_model_by_pattern(
     id: str, serialized: dict, pattern: str, default: Optional[str] = None
 ):
     if serialized.get("id")[-1] == id:
-        print(id, pattern, default, serialized)
         extracted = _extract_model_with_regex(pattern, serialized["repr"])
         return extracted if extracted else default if default else None
 
