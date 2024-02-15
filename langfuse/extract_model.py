@@ -80,146 +80,149 @@ def _extract_model_name(
 
     # checks if serializations is implemented. Otherwise, this will throw
     if serialized.get("type") != "not_implemented":
-        # try to deserialize the model name from the serialized object
-        # https://github.com/langchain-ai/langchain/blob/00a09e1b7117f3bde14a44748510fcccc95f9de5/libs/core/langchain_core/load/load.py#L112
+        try:
+            # try to deserialize the model name from the serialized object
+            # https://github.com/langchain-ai/langchain/blob/00a09e1b7117f3bde14a44748510fcccc95f9de5/libs/core/langchain_core/load/load.py#L112
 
-        llm = loads(dumps(serialized))
+            llm = loads(dumps(serialized))
 
-        # openai models from langchain_openai, separate package, not installed with langchain
+            # openai models from langchain_openai, separate package, not installed with langchain
 
-        # community models from langchain_community, separate package, installed with langchain
-        if isinstance(llm, ChatAnthropic):
-            return llm.model
+            # community models from langchain_community, separate package, installed with langchain
+            if isinstance(llm, ChatAnthropic):
+                return llm.model
 
-        if isinstance(llm, Anthropic):
-            return llm.model
+            if isinstance(llm, Anthropic):
+                return llm.model
 
-        if isinstance(llm, ChatAnyscale):
-            return llm.model_name
+            if isinstance(llm, ChatAnyscale):
+                return llm.model_name
 
-        # openai community models
-        if isinstance(llm, AzureChatOpenAI):
-            return llm.model_name
+            # openai community models
+            if isinstance(llm, AzureChatOpenAI):
+                return llm.model_name
 
-        if isinstance(llm, ChatOpenAI):
-            return llm.model_name
+            if isinstance(llm, ChatOpenAI):
+                return llm.model_name
 
-        if isinstance(llm, OpenAI):
-            return llm.model_name
+            if isinstance(llm, OpenAI):
+                return llm.model_name
 
-        if isinstance(llm, AzureOpenAI):
-            return (
-                kwargs.get("invocation_params").get("model")
-                + "-"
-                + llm.serialized["kwargs"]["model_version"]
-            )
+            if isinstance(llm, AzureOpenAI):
+                return (
+                    kwargs.get("invocation_params").get("model")
+                    + "-"
+                    + llm.serialized["kwargs"]["model_version"]
+                )
 
-        if isinstance(llm, ChatBaichuan):
-            return llm.model
+            if isinstance(llm, ChatBaichuan):
+                return llm.model
 
-        if isinstance(llm, QianfanChatEndpoint):
-            return llm.model
+            if isinstance(llm, QianfanChatEndpoint):
+                return llm.model
 
-        if isinstance(llm, BedrockChat):
-            return llm.model_id
+            if isinstance(llm, BedrockChat):
+                return llm.model_id
 
-        if isinstance(llm, Bedrock):
-            return llm.model_id
+            if isinstance(llm, Bedrock):
+                return llm.model_id
 
-        if isinstance(llm, ChatDatabricks):
-            return llm.name
+            if isinstance(llm, ChatDatabricks):
+                return llm.name
 
-        if isinstance(llm, ChatDeepInfra):
-            return llm.model_name
+            if isinstance(llm, ChatDeepInfra):
+                return llm.model_name
 
-        if isinstance(llm, ErnieBotChat):
-            return llm.model_name
+            if isinstance(llm, ErnieBotChat):
+                return llm.model_name
 
-        if isinstance(llm, ChatEverlyAI):
-            return llm.model_name
+            if isinstance(llm, ChatEverlyAI):
+                return llm.model_name
 
-        if isinstance(llm, FakeListChatModel):
-            return None
+            if isinstance(llm, FakeListChatModel):
+                return None
 
-        if isinstance(llm, ChatFireworks):
-            return llm.model
+            if isinstance(llm, ChatFireworks):
+                return llm.model
 
-        if isinstance(llm, GigaChat):
-            return llm.model
+            if isinstance(llm, GigaChat):
+                return llm.model
 
-        if isinstance(llm, ChatGooglePalm):
-            return llm.model_name
+            if isinstance(llm, ChatGooglePalm):
+                return llm.model_name
 
-        if isinstance(llm, GPTRouter):
-            # taking the last model from the priority list
-            # https://python.langchain.com/docs/integrations/chat/gpt_router
+            if isinstance(llm, GPTRouter):
+                # taking the last model from the priority list
+                # https://python.langchain.com/docs/integrations/chat/gpt_router
 
-            return (
-                llm.models_priority_list[-1].name
-                if len(llm.models_priority_list) > 0
-                else None
-            )
+                return (
+                    llm.models_priority_list[-1].name
+                    if len(llm.models_priority_list) > 0
+                    else None
+                )
 
-        if isinstance(llm, ChatHuggingFace):
-            return llm.model_id
+            if isinstance(llm, ChatHuggingFace):
+                return llm.model_id
 
-        if isinstance(llm, HumanInputChatModel):
-            return llm.name
+            if isinstance(llm, HumanInputChatModel):
+                return llm.name
 
-        if isinstance(llm, ChatHunyuan):
-            return llm.name
+            if isinstance(llm, ChatHunyuan):
+                return llm.name
 
-        if isinstance(llm, ChatJavelinAIGateway):
-            return llm.name
+            if isinstance(llm, ChatJavelinAIGateway):
+                return llm.name
 
-        if isinstance(llm, JinaChat):
-            return None
+            if isinstance(llm, JinaChat):
+                return None
 
-        if isinstance(llm, ChatKonko):
-            return llm.model
+            if isinstance(llm, ChatKonko):
+                return llm.model
 
-        if isinstance(llm, ChatLiteLLM):
-            return llm.model_name
+            if isinstance(llm, ChatLiteLLM):
+                return llm.model_name
 
-        if isinstance(llm, ChatLiteLLMRouter):
-            return llm.model_name
+            if isinstance(llm, ChatLiteLLMRouter):
+                return llm.model_name
 
-        if isinstance(llm, LlamaEdgeChatService):
-            return llm.model
+            if isinstance(llm, LlamaEdgeChatService):
+                return llm.model
 
-        if isinstance(llm, MiniMaxChat):
-            return llm.model
+            if isinstance(llm, MiniMaxChat):
+                return llm.model
 
-        if isinstance(llm, ChatMlflow):
-            return None
+            if isinstance(llm, ChatMlflow):
+                return None
 
-        if isinstance(llm, ChatMLflowAIGateway):
-            return None
+            if isinstance(llm, ChatMLflowAIGateway):
+                return None
 
-        if isinstance(llm, ChatOllama):
-            return llm.model
+            if isinstance(llm, ChatOllama):
+                return llm.model
 
-        if isinstance(llm, PaiEasChatEndpoint):
-            return None
+            if isinstance(llm, PaiEasChatEndpoint):
+                return None
 
-        if isinstance(llm, PromptLayerChatOpenAI):
-            return None
+            if isinstance(llm, PromptLayerChatOpenAI):
+                return None
 
-        if isinstance(llm, ChatSparkLLM):
-            return None
+            if isinstance(llm, ChatSparkLLM):
+                return None
 
-        if isinstance(llm, ChatVertexAI):
-            return llm.model_name
+            if isinstance(llm, ChatVertexAI):
+                return llm.model_name
 
-        if isinstance(llm, VolcEngineMaasChat):
-            return llm.model
+            if isinstance(llm, VolcEngineMaasChat):
+                return llm.model
 
-        if isinstance(llm, ChatYandexGPT):
-            return llm.model_name
+            if isinstance(llm, ChatYandexGPT):
+                return llm.model_name
 
-        if isinstance(llm, ChatZhipuAI):
-            return llm.model
-
+            if isinstance(llm, ChatZhipuAI):
+                return llm.model
+        except Exception:
+            # using a try .. except block to catch exceptions if the model load above fails as some library is not installed for example
+            pass
     # try to extract the model manually
 
     model = _extract_model_by_key(
