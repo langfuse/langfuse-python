@@ -108,7 +108,6 @@ def _extract_model_name(
             return llm.model_name
 
         if isinstance(llm, AzureOpenAI):
-            print("AzureOpenAI", kwargs.get("invocation_params"))
             return (
                 kwargs.get("invocation_params").get("model")
                 + "-"
