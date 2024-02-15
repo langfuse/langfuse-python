@@ -149,7 +149,6 @@ def test_create_generation():
 
     timestamp = _get_timestamp()
     generation_id = create_uuid()
-
     langfuse.generation(
         id=generation_id,
         name="query-generation",
@@ -618,7 +617,7 @@ def test_create_span_and_get_observation():
 def test_update_generation():
     langfuse = Langfuse(debug=False)
     api = get_api()
-    start = datetime.utcnow()
+    start = _get_timestamp()
 
     generation = langfuse.generation(name="generation")
     generation.update(start_time=start, metadata={"dict": "value"})
@@ -1011,6 +1010,3 @@ def test_timezone_awareness_setting_timestamps():
         if observation.type != "EVENT":
             delta = utc_now - observation.end_time
             assert delta.seconds < 5
-
-    os.environ["TZ"] = "UTC"
-    time.tzset()

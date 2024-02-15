@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
 
@@ -14,6 +13,7 @@ from langfuse.client import (
     StatefulTraceClient,
     StateType,
 )
+from langfuse.extract_model import _extract_model_name
 from langfuse.task_manager import TaskManager
 from langfuse.utils import _get_timestamp
 
@@ -183,6 +183,27 @@ class CallbackHandler(BaseCallbackHandler):
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
 
+    def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
+        """
+        Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
+        key in 'kwargs' or falling back to the 'name' or 'id' in 'serialized'. Defaults to "<unknown>"
+        if none are available.
+
+        Args:
+            serialized (Dict[str, Any]): A dictionary containing the entity's serialized data.
+            **kwargs (Any): Additional keyword arguments, potentially including the 'name' override.
+
+        Returns:
+            str: The determined Langchain run name for the entity.
+        """
+
+        # Check if 'name' is in kwargs and not None, otherwise use default fallback logic
+        if "name" in kwargs and kwargs["name"] is not None:
+            return kwargs["name"]
+
+        # Fallback to serialized 'name', 'id', or "<unknown>"
+        return serialized.get("name", serialized.get("id", ["<unknown>"]))[-1]
+
     def on_retriever_error(
         self,
         error: Union[Exception, KeyboardInterrupt],
@@ -230,14 +251,14 @@ class CallbackHandler(BaseCallbackHandler):
                 parent_run_id=parent_run_id,
                 tags=tags,
                 metadata=metadata,
-                kwargs=kwargs,
                 version=self.version,
+                **kwargs,
             )
 
             content = {
                 "id": self.next_span_id,
                 "trace_id": self.trace.id,
-                "name": serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                "name": self.get_langchain_run_name(serialized, **kwargs),
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
                 "version": self.version,
@@ -272,7 +293,7 @@ class CallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ):
         try:
-            class_name = serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
+            class_name = self.get_langchain_run_name(serialized, **kwargs)
 
             # on a new invocation, and not user provided root, we want to initialise a new trace
             # parent_run_id is None when we are at the root of a langchain execution
@@ -294,6 +315,7 @@ class CallbackHandler(BaseCallbackHandler):
                     version=self.version,
                     session_id=self.session_id,
                     user_id=self.user_id,
+                    input=inputs,
                 )
 
                 self.trace = trace
@@ -356,6 +378,8 @@ class CallbackHandler(BaseCallbackHandler):
                 output=finish, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, finish)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -379,6 +403,7 @@ class CallbackHandler(BaseCallbackHandler):
                 output=outputs, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, outputs)
         except Exception as e:
             self.log.exception(e)
 
@@ -400,6 +425,8 @@ class CallbackHandler(BaseCallbackHandler):
                 status_message=str(error),
                 version=self.version,
             )
+
+            self._update_trace(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -484,7 +511,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id] = self.runs[parent_run_id].span(
                 id=self.next_span_id,
-                name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                name=self.get_langchain_run_name(serialized, **kwargs),
                 input=input_str,
                 metadata=meta,
                 version=self.version,
@@ -514,7 +541,7 @@ class CallbackHandler(BaseCallbackHandler):
 
             self.runs[run_id] = self.runs[parent_run_id].span(
                 id=self.next_span_id,
-                name=serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                name=self.get_langchain_run_name(serialized, **kwargs),
                 input=query,
                 metadata=self.__join_tags_and_metadata(tags, metadata),
                 version=self.version,
@@ -543,6 +570,8 @@ class CallbackHandler(BaseCallbackHandler):
                 output=documents, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, documents)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -565,6 +594,8 @@ class CallbackHandler(BaseCallbackHandler):
                 output=output, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, output)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -586,6 +617,8 @@ class CallbackHandler(BaseCallbackHandler):
             self.runs[run_id] = self.runs[run_id].end(
                 status_message=error, level=ObservationLevel.ERROR, version=self.version
             )
+
+            self._update_trace(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -614,92 +647,10 @@ class CallbackHandler(BaseCallbackHandler):
 
             model_name = None
 
-            try:
-                if kwargs["invocation_params"]["_type"] in [
-                    "anthropic-llm",
-                    "anthropic-chat",
-                ]:
-                    model_name = "anthropic"  # unfortunately no model info by anthropic provided.
-                elif kwargs["invocation_params"]["_type"] in [
-                    "amazon_bedrock",
-                    "amazon_bedrock_chat",
-                ]:
-                    # langchain only provides string representation of the model class. Hence have to parse it out.
-
-                    if serialized.get("kwargs") and serialized["kwargs"].get(
-                        "model_id"
-                    ):
-                        model_name = self.extract_second_part(
-                            serialized["kwargs"]["model_id"]
-                        )
-                    else:
-                        model_name = self.extract_second_part(
-                            self.extract_model_id("model_id", serialized["repr"])
-                        )
-
-                elif kwargs["invocation_params"]["_type"] == "cohere-chat":
-                    model_name = self.extract_model_id("model", serialized["repr"])
-                elif kwargs["invocation_params"]["_type"] == "huggingface_hub":
-                    model_name = kwargs["invocation_params"]["repo_id"]
-                elif kwargs["invocation_params"]["_type"] == "azure-openai-chat":
-                    if kwargs.get("invocation_params").get("model") and serialized[
-                        "kwargs"
-                    ].get("model_version"):
-                        model_name = (
-                            kwargs.get("invocation_params").get("model")
-                            + "-"
-                            + serialized["kwargs"]["model_version"]
-                        )
-                    elif serialized["kwargs"].get("deployment_name") and serialized[
-                        "kwargs"
-                    ].get("model_version"):
-                        model_name = (
-                            serialized["kwargs"]["deployment_name"]
-                            + "-"
-                            + serialized["kwargs"]["model_version"]
-                        )
-                    elif kwargs.get("invocation_params").get("model"):
-                        model_name = kwargs.get("invocation_params").get("model")
-                    else:
-                        model_name = kwargs["invocation_params"]["engine"]
-                elif kwargs["invocation_params"]["_type"] == "llamacpp":
-                    model_name = kwargs["invocation_params"]["model_path"]
-
-                else:
-                    if "model_name" in kwargs["invocation_params"]:
-                        model_name = kwargs["invocation_params"]["model_name"]
-
-                    # model used by mistral
-                    elif "model" in kwargs["invocation_params"]:
-                        model_name = kwargs["invocation_params"]["model"]
-
-                    else:
-                        self.log.warning(
-                            "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-                        )
-                        self._report_error(
-                            {
-                                "log": "unable to parse model name",
-                                "kwargs": str(kwargs),
-                                "serialized": str(serialized),
-                            }
-                        )
-            except Exception as e:
-                self.log.exception(e)
-                self.log.warning(
-                    "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-                )
-                self._report_error(
-                    {
-                        "log": "unable to parse model name",
-                        "kwargs": str(kwargs),
-                        "serialized": str(serialized),
-                        "exception": str(e),
-                    }
-                )
+            model_name = self._parse_model_and_log_errors(serialized, kwargs)
 
             content = {
-                "name": serialized.get("name", serialized.get("id", ["<unknown>"])[-1]),
+                "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "model": model_name,
@@ -734,14 +685,40 @@ class CallbackHandler(BaseCallbackHandler):
         except Exception as e:
             self.log.exception(e)
 
-    def extract_model_id(self, pattern: str, text: str):
-        match = re.search(rf"{pattern}='(.*?)'", text)
-        if match:
-            return match.group(1)
-        return None
+    def _parse_model_and_log_errors(self, serialized, kwargs):
+        """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
 
-    def extract_second_part(selg, text: str):
-        return text.split(".")[-1]
+        try:
+            model_name = _extract_model_name(serialized, **kwargs)
+            if model_name:
+                return model_name
+
+            if model_name is None:
+                self.log.warning(
+                    "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+                )
+                self._report_error(
+                    {
+                        "log": "unable to parse model name",
+                        "kwargs": str(kwargs),
+                        "serialized": str(serialized),
+                    }
+                )
+        except Exception as e:
+            self.log.exception(e)
+            self.log.warning(
+                "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
+            )
+            self._report_error(
+                {
+                    "log": "unable to parse model name",
+                    "kwargs": str(kwargs),
+                    "serialized": str(serialized),
+                    "exception": str(e),
+                }
+            )
+
+            return None
 
     def on_llm_end(
         self,
@@ -765,15 +742,13 @@ class CallbackHandler(BaseCallbackHandler):
                     else response.llm_output["token_usage"]
                 )
 
-                extracted_response = (
-                    last_response.text
-                    if last_response.text is not None and last_response.text != ""
-                    else last_response.message.additional_kwargs
-                )
+                extracted_response = _extract_response(last_response)
 
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
                 )
+
+                self._update_trace(run_id, parent_run_id, extracted_response)
 
         except Exception as e:
             self.log.exception(e)
@@ -795,6 +770,7 @@ class CallbackHandler(BaseCallbackHandler):
                 level=ObservationLevel.ERROR,
                 version=self.version,
             )
+            self._update_trace(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -825,3 +801,27 @@ class CallbackHandler(BaseCallbackHandler):
                 "body": event.dict(),
             }
         )
+
+    def _update_trace(self, run_id: str, parent_run_id: Optional[str], output: any):
+        """Update the trace with the output of the current run. Called at every finish callback event."""
+
+        if (
+            parent_run_id
+            is None  # If we are at the root of the langchain execution -> reached the end of the root
+            and self.trace is not None  # We do have a trace available
+            and self.trace.id
+            == str(run_id)  # The trace was generated by langchain and not by the user
+        ):
+            self.trace = self.trace.update(output=output)
+
+
+def _extract_response(last_response):
+    """Extract the response from the last response of the LLM call."""
+
+    # We return the text of the response if not empty, otherwise the additional_kwargs
+    # Additional kwargs contains the response in case of tool usage
+    return (
+        last_response.text.strip()
+        if last_response.text is not None and last_response.text.strip() != ""
+        else last_response.message.additional_kwargs
+    )

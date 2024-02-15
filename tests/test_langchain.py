@@ -2,17 +2,19 @@ import os
 from typing import Any, List, Mapping, Optional
 
 import pytest
-from langchain import Anthropic, ConversationChain, HuggingFaceHub
+from langchain_community.llms.anthropic import Anthropic
+from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
     RetrievalQA,
     SimpleSequentialChain,
+    ConversationChain,
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
@@ -84,9 +86,6 @@ def test_callback_generated_from_trace_chain():
 
     assert len(trace.observations) == 2
     assert trace.id == trace_id
-
-    assert trace.input is None
-    assert trace.output is None
 
     langchain_span = list(
         filter(
@@ -167,6 +166,33 @@ def test_callback_generated_from_trace_chat():
     assert langchain_generation_span.output != ""
 
 
+def test_callback_generated_from_lcel_chain():
+    api = get_api()
+    langfuse = Langfuse(debug=False)
+
+    run_name_override = "This is a custom Run Name"
+    handler = CallbackHandler()
+
+    prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
+    model = ChatOpenAI(temperature=0)
+
+    chain = prompt | model
+
+    chain.invoke(
+        {"topic": "ice cream"},
+        config={
+            "callbacks": [handler],
+            "run_name": run_name_override,
+        },
+    )
+
+    langfuse.flush()
+    trace_id = handler.get_trace_id()
+    trace = api.trace.get(trace_id)
+
+    assert trace.name == run_name_override
+
+
 def test_callback_generated_from_span_chain():
     api = get_api()
     langfuse = Langfuse(debug=False)
@@ -199,9 +225,6 @@ def test_callback_generated_from_span_chain():
 
     assert len(trace.observations) == 3
     assert trace.id == trace_id
-
-    assert trace.input is None
-    assert trace.output is None
 
     user_span = list(
         filter(
@@ -391,9 +414,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
-@pytest.mark.skip(reason="inference cost")
 def test_callback_generated_from_trace_anthropic():
-    api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -402,7 +423,7 @@ def test_callback_generated_from_trace_anthropic():
     handler = trace.getNewHandler()
 
     llm = Anthropic(
-        anthropic_api_key=os.environ.get("OPENAI_API_KEY"), model="Claude-v1"
+        model="claude-instant-1.2",
     )
     template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
         Title: {title}
@@ -415,20 +436,22 @@ def test_callback_generated_from_trace_anthropic():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace_id)
+    api = get_api()
+    trace = api.trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
-    assert len(trace["observations"]) == 2
-    assert trace["id"] == trace_id
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 2
+    assert trace.id == trace_id
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage.input > 0
+            assert observation.usage.output > 0
+            assert observation.usage.total > 0
+            assert observation.output is not None
+            assert observation.output != ""
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.model == "claude-instant-1.2"
 
 
 def test_basic_chat_openai():
@@ -456,6 +479,9 @@ def test_basic_chat_openai():
 
     assert trace.id == trace_id
     assert len(trace.observations) == 1
+
+    assert trace.output == trace.observations[0].output
+    assert trace.input == trace.observations[0].input
 
 
 def test_basic_chat_openai_based_on_trace():
@@ -515,6 +541,8 @@ def test_callback_from_trace_simple_chain():
 
     api = get_api()
     trace = api.trace.get(trace_id)
+    assert trace.input is None
+    assert trace.output is None
 
     assert len(trace.observations) == 2
     assert handler.get_trace_id() == trace_id
@@ -1271,5 +1299,79 @@ def test_unimplemented_model():
         )
     )[0]
 
-    assert custom_generation.output == "This is a "
+    assert custom_generation.output == "This is a"
     assert custom_generation.model is None
+
+
+def test_names_on_spans_lcel():
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.runnables import RunnablePassthrough
+    from langchain_openai import OpenAIEmbeddings
+
+    callback = CallbackHandler(debug=False)
+    model = ChatOpenAI(temperature=0)
+
+    template = """Answer the question based only on the following context:
+    {context}
+
+    Question: {question}
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+
+    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    retriever = docsearch.as_retriever()
+
+    retrieval_chain = (
+        {
+            "context": retriever.with_config(run_name="Docs"),
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | model.with_config(run_name="my_llm")
+        | StrOutputParser()
+    )
+
+    retrieval_chain.invoke(
+        "What did the president say about Ketanji Brown Jackson?",
+        config={
+            "callbacks": [callback],
+        },
+    )
+
+    callback.flush()
+    api = get_api()
+    trace = api.trace.get(callback.get_trace_id())
+
+    assert len(trace.observations) == 7
+
+    assert (
+        len(
+            list(
+                filter(
+                    lambda x: x.type == "GENERATION" and x.name == "my_llm",
+                    trace.observations,
+                )
+            )
+        )
+        == 1
+    )
+
+    assert (
+        len(
+            list(
+                filter(
+                    lambda x: x.type == "SPAN" and x.name == "Docs",
+                    trace.observations,
+                )
+            )
+        )
+        == 1
+    )
