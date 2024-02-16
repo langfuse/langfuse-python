@@ -329,7 +329,7 @@ def test_callback_generated_from_span_chat():
     assert langchain_generation_span.output != ""
 
 
-@pytest.mark.skip(reason="missing api key")
+# @pytest.mark.skip(reason="missing api key")
 def test_callback_generated_from_trace_azure_chat():
     api_wrapper = LangfuseAPI()
     langfuse = Langfuse(debug=False)
@@ -1375,3 +1375,48 @@ def test_names_on_spans_lcel():
         )
         == 1
     )
+
+
+def test_test_test():
+    from langchain_openai import AzureChatOpenAI
+
+    from langfuse.callback import CallbackHandler
+    from langchain.prompts import PromptTemplate
+    from langchain.prompts.chat import (
+        ChatPromptTemplate,
+        SystemMessagePromptTemplate,
+        AIMessagePromptTemplate,
+        HumanMessagePromptTemplate,
+    )
+
+    handler = CallbackHandler(
+        public_key="pk-lf-1234567890",
+        secret_key="sk-lf-1234567890",
+    )
+
+    llm = AzureChatOpenAI(
+        azure_endpoint="https://AZURE_OPENAI_API_BASE.com",
+        azure_deployment="gpt35-turbo",
+        openai_api_version="2023-03-15-preview",
+        openai_api_key="AZURE_OPENAI_API_KEY",
+        callbacks=[handler],
+    )
+
+    system_message_prompt = SystemMessagePromptTemplate.from_template(
+        "you are a helpful assistant"
+    )
+    prompt = PromptTemplate(
+        template="tell me a joke",
+        input_variables=[],
+    )
+    human_message_prompt = HumanMessagePromptTemplate(prompt=prompt)
+    chat_prompt = ChatPromptTemplate.from_messages(
+        [system_message_prompt, human_message_prompt]
+    )
+
+    formatted_prompt = chat_prompt.format_prompt().to_messages()
+    try:
+        resp = llm.invoke(formatted_prompt)
+    except Exception as e:
+        print(e)
+    handler.flush()
