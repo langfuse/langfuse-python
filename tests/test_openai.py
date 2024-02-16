@@ -10,7 +10,7 @@ from langfuse.openai import (
     AzureOpenAI,
     _is_openai_v1,
     _is_streaming_response,
-    filter_image_data,
+    _filter_image_data,
     openai,
 )
 from tests.utils import create_uuid, get_api
@@ -624,6 +624,58 @@ def test_openai_function_call():
     assert output["title"] is not None
 
 
+def test_openai_tool_call():
+    api = get_api()
+    generation_name = create_uuid()
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_weather",
+                "description": "Get the current weather in a given location",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "The city and state, e.g. San Francisco, CA",
+                        },
+                        "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                    },
+                    "required": ["location"],
+                },
+            },
+        }
+    ]
+    messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
+    completion = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        tools=tools,
+        tool_choice="auto",
+        name=generation_name,
+    )
+
+    print(completion)
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert (
+        generation.data[0].output["tool_calls"][0]["function"]["name"]
+        == "get_current_weather"
+    )
+    assert (
+        generation.data[0].output["tool_calls"][0]["function"]["arguments"] is not None
+    )
+    assert generation.data[0].input["tools"] == tools
+    assert generation.data[0].input["messages"] == messages
+
+
 def test_azure():
     api = get_api()
     generation_name = create_uuid()
@@ -786,7 +838,7 @@ def test_image_filter_base64():
             ],
         }
     ]
-    result = filter_image_data(messages)
+    result = _filter_image_data(messages)
 
     print(result)
 
@@ -802,7 +854,7 @@ def test_image_filter_base64():
 
 
 def test_image_filter_url():
-    result = filter_image_data(
+    result = _filter_image_data(
         [
             {
                 "role": "user",

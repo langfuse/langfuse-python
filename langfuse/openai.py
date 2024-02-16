@@ -118,25 +118,28 @@ def _langfuse_wrapper(func):
 
 def _extract_chat_prompt(kwargs: any):
     """extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
-    response = {}
+    prompt = {}
 
     if kwargs.get("functions") is not None:
-        response.update({"functions": kwargs["functions"]})
+        prompt.update({"functions": kwargs["functions"]})
 
     if kwargs.get("function_call") is not None:
-        response.update({"function_call": kwargs["function_call"]})
+        prompt.update({"function_call": kwargs["function_call"]})
 
-    if response is not None:
+    if kwargs.get("tools") is not None:
+        prompt.update({"tools": kwargs["tools"]})
+
+    if prompt:
         # uf user provided functions, we need to send these together with messages to langfuse
-        response.update(
+        prompt.update(
             {
-                "messages": filter_image_data(kwargs.get("messages", [])),
+                "messages": _filter_image_data(kwargs.get("messages", [])),
             }
         )
-        return response
+        return prompt
     else:
         # vanilla case, only send messages in openai format to langfuse
-        return filter_image_data(kwargs.get("messages", []))
+        return _filter_image_data(kwargs.get("messages", []))
 
 
 def _extract_chat_response(kwargs: any):
@@ -197,11 +200,7 @@ def _get_langfuse_data_from_kwargs(
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
-        prompt = (
-            _extract_chat_prompt(kwargs)
-            if kwargs.get("functions", None) is not None
-            else filter_image_data(kwargs.get("messages", []))
-        )
+        prompt = _extract_chat_prompt(kwargs)
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
@@ -529,7 +528,7 @@ def auth_check():
     return modifier._langfuse.auth_check()
 
 
-def filter_image_data(messages: List[dict]):
+def _filter_image_data(messages: List[dict]):
     """
     https://platform.openai.com/docs/guides/vision?lang=python
 
