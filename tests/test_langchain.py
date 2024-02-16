@@ -15,14 +15,14 @@ from langchain.chains import (
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
 from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
-from langchain.document_loaders import TextLoader
+from langchain_community.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.llms import OpenAI
+from langchain_community.llms.openai import OpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores.chroma import Chroma
 from pydantic import BaseModel, Field
 from langchain.schema import HumanMessage, SystemMessage
 from langfuse.callback import CallbackHandler
