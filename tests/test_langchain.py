@@ -449,7 +449,8 @@ def test_callback_generated_from_trace_anthropic():
             assert observation.usage.total > 0
             assert observation.output is not None
             assert observation.output != ""
-            assert observation.input is not None
+            assert isinstance(observation.input, str) is True
+            assert isinstance(observation.output, str) is True
             assert observation.input != ""
             assert observation.model == "claude-instant-1.2"
 
@@ -481,7 +482,19 @@ def test_basic_chat_openai():
     assert len(trace.observations) == 1
 
     assert trace.output == trace.observations[0].output
-    assert [trace.input] == trace.observations[0].input
+    assert trace.input == trace.observations[0].input
+
+    assert trace.observations[0].input == [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that translates English to French.",
+        },
+        {
+            "role": "user",
+            "content": "Translate this sentence from English to French. I love programming.",
+        },
+    ]
+    assert trace.observations[0].output["role"] == "assistant"
 
 
 def test_basic_chat_openai_based_on_trace():
@@ -1096,8 +1109,30 @@ def test_callback_openai_functions_python():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.input != ""
-        assert generation.output != ""
+        assert generation.input == [
+            {
+                "role": "system",
+                "content": "You are a world class algorithm for extracting information in structured formats.",
+            },
+            {
+                "role": "user",
+                "content": "Use the given format to extract information from the following input: I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+            },
+            {
+                "role": "user",
+                "content": "Tip: Make sure to answer in the correct format",
+            },
+        ]
+        assert generation.output == {
+            "role": "assistant",
+            "content": "",
+            "additional_kwargs": {
+                "function_call": {
+                    "name": "record_dog",
+                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": null\n}',
+                }
+            },
+        }
         assert generation.usage.total is not None
         assert generation.usage.input is not None
         assert generation.usage.output is not None
