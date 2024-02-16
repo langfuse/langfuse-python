@@ -35,16 +35,16 @@ except ImportError:
     logging.getLogger("langfuse").warning(
         "Could not import langchain. Some functionality may be missing."
     )
-    LLMResult = Any
-    AIMessage = Any
-    BaseMessage = Any
-    ChatMessage = Any
-    HumanMessage = Any
-    SystemMessage = Any
-    ChatGeneration = Any
-    Document = Any
-    AgentAction = Any
-    AgentFinish = Any
+    # LLMResult = Any
+    # AIMessage = Any
+    # BaseMessage = Any
+    # ChatMessage = Any
+    # HumanMessage = Any
+    # SystemMessage = Any
+    # ChatGeneration = Any
+    # Document = Any
+    # AgentAction = Any
+    # AgentFinish = Any
 
 
 class CallbackHandler(BaseCallbackHandler):
@@ -464,7 +464,9 @@ class CallbackHandler(BaseCallbackHandler):
             self.__on_llm_action(
                 serialized,
                 run_id,
-                [self._create_message_dicts(m) for m in messages],
+                _flatten_comprehension(
+                    [self._create_message_dicts(m) for m in messages]
+                ),
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -869,3 +871,7 @@ def _extract_raw_esponse(last_response):
         if last_response.text is not None and last_response.text.strip() != ""
         else last_response.message.additional_kwargs
     )
+
+
+def _flatten_comprehension(matrix):
+    return [item for row in matrix for item in row]
