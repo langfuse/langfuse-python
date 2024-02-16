@@ -31,7 +31,7 @@ def test_openai_chat_completion():
     api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
-        name=generation_name,
+        # name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
