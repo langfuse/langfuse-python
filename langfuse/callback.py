@@ -35,16 +35,16 @@ except ImportError:
     logging.getLogger("langfuse").warning(
         "Could not import langchain. Some functionality may be missing."
     )
-    # LLMResult = Any
-    # AIMessage = Any
-    # BaseMessage = Any
-    # ChatMessage = Any
-    # HumanMessage = Any
-    # SystemMessage = Any
-    # ChatGeneration = Any
-    # Document = Any
-    # AgentAction = Any
-    # AgentFinish = Any
+    LLMResult = Any
+    AIMessage = Any
+    BaseMessage = Any
+    ChatMessage = Any
+    HumanMessage = Any
+    SystemMessage = Any
+    ChatGeneration = Any
+    Document = Any
+    AgentAction = Any
+    AgentFinish = Any
 
 
 class CallbackHandler(BaseCallbackHandler):
