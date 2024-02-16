@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any, Dict, List, Optional
 from langchain_core.load import loads, dumps
@@ -85,7 +86,7 @@ def _extract_model_name(
             # https://github.com/langchain-ai/langchain/blob/00a09e1b7117f3bde14a44748510fcccc95f9de5/libs/core/langchain_core/load/load.py#L112
 
             llm = loads(dumps(serialized))
-
+            logging.warn(f"llm: {llm}")
             # openai models from langchain_openai, separate package, not installed with langchain
 
             # community models from langchain_community, separate package, installed with langchain
@@ -100,6 +101,7 @@ def _extract_model_name(
 
             # openai community models
             if isinstance(llm, AzureChatOpenAI):
+                logging.warn("AzureChatOpenAI")
                 return llm.model_name
 
             if isinstance(llm, ChatOpenAI):
@@ -109,6 +111,7 @@ def _extract_model_name(
                 return llm.model_name
 
             if isinstance(llm, AzureOpenAI):
+                logging.warn("AzureOpenAI")
                 return (
                     kwargs.get("invocation_params").get("model")
                     + "-"
@@ -253,6 +256,7 @@ def _extract_model_name(
     if model:
         return model
 
+    print(serialized.get("id"))
     model = _extract_model_by_key(
         "AzureChatOpenAI",
         serialized,
@@ -260,6 +264,7 @@ def _extract_model_name(
         ["invocation_params", "model"],
     )
     if model:
+        print("AzureChatOpenAI", model)
         return model
 
     if serialized.get("id")[-1] == "AzureChatOpenAI":

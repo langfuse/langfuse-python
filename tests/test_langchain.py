@@ -1389,6 +1389,10 @@ def test_test_test():
         HumanMessagePromptTemplate,
     )
 
+    del os.environ["OPENAI_API_KEY"]
+
+    print(os.environ.get("OPENAI_API_KEY"))
+
     handler = CallbackHandler(
         public_key="pk-lf-1234567890",
         secret_key="sk-lf-1234567890",
