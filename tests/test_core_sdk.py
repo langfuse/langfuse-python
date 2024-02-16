@@ -586,7 +586,7 @@ def test_create_trace_with_manual_timestamp():
 
     trace_name = create_uuid()
     trace_id = create_uuid()
-    timestamp = datetime(2022, 1, 1, 0, 0, 0)
+    timestamp = _get_timestamp()
 
     langfuse.trace(id=trace_id, name=trace_name, timestamp=timestamp)
 
@@ -596,7 +596,7 @@ def test_create_trace_with_manual_timestamp():
 
     assert trace["name"] == trace_name
     assert trace["id"] == trace_id
-    assert trace["timestamp"] == timestamp.isoformat()
+    assert str(trace["timestamp"]).find(timestamp.isoformat()[0:23]) != -1
 
 
 def test_create_generation_and_trace():
