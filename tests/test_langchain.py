@@ -1109,8 +1109,30 @@ def test_callback_openai_functions_python():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.input != ""
-        assert generation.output != ""
+        assert generation.input == [
+            {
+                "role": "system",
+                "content": "You are a world class algorithm for extracting information in structured formats.",
+            },
+            {
+                "role": "user",
+                "content": "Use the given format to extract information from the following input: I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+            },
+            {
+                "role": "user",
+                "content": "Tip: Make sure to answer in the correct format",
+            },
+        ]
+        assert generation.output == {
+            "role": "assistant",
+            "content": "",
+            "additional_kwargs": {
+                "function_call": {
+                    "name": "record_dog",
+                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": null\n}',
+                }
+            },
+        }
         assert generation.usage.total is not None
         assert generation.usage.input is not None
         assert generation.usage.output is not None
