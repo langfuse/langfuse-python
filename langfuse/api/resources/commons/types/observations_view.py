@@ -32,6 +32,7 @@ class ObservationsView(Observation):
     calculated_total_cost: typing.Optional[float] = pydantic.Field(
         alias="calculatedTotalCost", default=None
     )
+    latency: typing.Optional[float] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
