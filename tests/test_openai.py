@@ -183,6 +183,36 @@ def test_openai_chat_completion_with_trace():
     assert generation.data[0].trace_id == trace_id
 
 
+def test_openai_chat_completion_with_parent_observation_id():
+    api = get_api()
+    generation_name = create_uuid()
+    trace_id = create_uuid()
+    span_id = create_uuid()
+    langfuse = Langfuse()
+
+    trace = langfuse.trace(id=trace_id)
+    trace.span(id=span_id)
+
+    chat_func(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        trace_id=trace_id,
+        parent_observation_id=span_id,
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].trace_id == trace_id
+    assert generation.data[0].parent_observation_id == span_id
+
+
 def test_openai_chat_completion_fail():
     api = get_api()
     generation_name = create_uuid()

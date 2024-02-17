@@ -89,6 +89,7 @@ class OpenAiArgsExtractor:
         trace_id=None,
         session_id=None,
         user_id=None,
+        parent_observation_id=None,
         **kwargs,
     ):
         self.args = {}
@@ -97,6 +98,7 @@ class OpenAiArgsExtractor:
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
         self.args["user_id"] = user_id
+        self.args["parent_observation_id"] = parent_observation_id
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -182,6 +184,12 @@ def _get_langfuse_data_from_kwargs(
     if user_id is not None and not isinstance(user_id, str):
         raise TypeError("user_id must be a string")
 
+    parent_observation_id = kwargs.get("parent_observation_id", None)
+    if parent_observation_id is not None and not isinstance(parent_observation_id, str):
+        raise TypeError("parent_observation_id must be a string")
+    if parent_observation_id is not None and trace_id is None:
+        raise ValueError("parent_observation_id requires trace_id to be set")
+
     if trace_id:
         langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id)
     elif session_id:
@@ -214,6 +222,7 @@ def _get_langfuse_data_from_kwargs(
         "name": name,
         "metadata": metadata,
         "trace_id": trace_id,
+        "parent_observation_id": parent_observation_id,
         "user_id": user_id,
         "start_time": start_time,
         "input": prompt,
