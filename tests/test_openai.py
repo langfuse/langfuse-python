@@ -48,7 +48,7 @@ def test_openai_chat_completion():
     assert len(completion.choices) != 0
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -92,7 +92,7 @@ def test_openai_chat_completion_stream():
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -522,7 +522,7 @@ async def test_async_chat():
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -566,7 +566,7 @@ async def test_async_chat_stream():
     assert generation.data[0].name == generation_name
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -599,7 +599,7 @@ def test_openai_function_call():
 
     response = openai.chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-0613",
+        model="gpt-3.5-turbo-0125",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
