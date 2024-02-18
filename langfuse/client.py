@@ -982,6 +982,7 @@ class Langfuse(object):
             self.log.exception(e)
 
     def _generate_trace(self, trace_id: str, name: str):
+        """Create a trace with the specified trace ID and name."""
         trace_dict = {
             "id": trace_id,
             "release": self.release,
@@ -1005,18 +1006,27 @@ class Langfuse(object):
     # execution. However, it is *not* the same as flushing the queue!
     # To guarantee all messages have been delivered, you'll still need to call flush().
     def join(self):
+        """End the consumer threads once the queue is empty and blocks execution until finished."""
         try:
             return self.task_manager.join()
         except Exception as e:
             self.log.exception(e)
 
     def flush(self):
+        """Force a flush from the internal queue to the server.
+
+        This method should be used every time to exit Langfuse cleanly to ensure all queued events are processed.
+        This method waits for all events in the queue to be processed and sent to the server. It blocks
+        until the queue is empty. The method logs the total number of items approximately flushed due
+        to potential variations caused by threading.
+        """
         try:
             return self.task_manager.flush()
         except Exception as e:
             self.log.exception(e)
 
     def shutdown(self):
+        """Initiate a graceful shutdown of the task manager, ensuring all tasks are flushed and processed."""
         try:
             return self.task_manager.shutdown()
         except Exception as e:
@@ -1024,6 +1034,12 @@ class Langfuse(object):
 
 
 class StateType(Enum):
+    """Enumeration to distinguish observation and trace states.
+
+    Attributes:
+        OBSERVATION (int): Identifier for state type observation.
+        TRACE (int): Identifier for state type trace.
+    """
     OBSERVATION = 1
     TRACE = 0
 
