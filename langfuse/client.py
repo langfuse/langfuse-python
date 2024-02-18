@@ -50,7 +50,19 @@ from .version import __version__ as version
 
 
 class Langfuse(object):
-    """Langfuse Python client."""
+    """Langfuse Python client that needs to be initialized to use Langfuse.
+
+    Attributes:
+        log (logging.Logger): Logger for the Langfuse client.
+        host (str): Host address for the Langfuse API, defining the destination for API requests.
+        base_url (str): Base URL of the Langfuse API, serving as the root address for API endpoint construction.
+        httpx_client (httpx.Client): HTTPX client utilized for executing requests to the Langfuse API.
+        client (FernLangfuse): Core interface for Langfuse API interaction.
+        task_manager (TaskManager): Task Manager dedicated to handling asynchronous tasks.
+        trace_id (str): Identifier of currently used trace.
+        release (str): Identifies the release number or hash of the application.
+        prompt_cache (PromptCache): A cache for efficiently storing and retrieving PromptClient instances.
+    """
 
     log = logging.getLogger("langfuse")
 
@@ -172,6 +184,16 @@ class Langfuse(object):
         self.prompt_cache = PromptCache()
 
     def __get_release_value(self, release: Optional[str] = None) -> Optional[str]:
+        """Retrieve the release value of Langfuse.
+
+        If 'release' is not provided, searches for a release identifier in a predefined set of environment variables.
+
+        Args:
+            release (Optional[str]): The explicit release identifier, if available.
+
+        Returns:
+            Optional[str]: The resolved release identifier, or None if not found.
+        """
         if release:
             return release
         elif "LANGFUSE_RELEASE" in os.environ:
@@ -179,15 +201,16 @@ class Langfuse(object):
         else:
             return get_common_release_envs()
 
-    def get_trace_id(self):
+    def get_trace_id(self) -> str:
         """Get the current trace id."""
         return self.trace_id
 
-    def get_trace_url(self):
-        """Return the URL to see the current trace in the Langfuse UI."""
+    def get_trace_url(self) -> str:
+        """Get the URL to see the current trace in the Langfuse UI."""
         return f"{self.base_url}/trace/{self.trace_id}"
 
-    def get_dataset(self, name: str):
+    def get_dataset(self, name: str) -> DatasetClient:
+        """Get the dataset client of the dataset with the given name."""
         try:
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
@@ -199,7 +222,8 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def get_dataset_item(self, id: str):
+    def get_dataset_item(self, id: str) -> DatasetItemClient:
+        """Get the dataset item with the given id."""
         try:
             self.log.debug(f"Getting dataset item {id}")
             dataset_item = self.client.dataset_items.get(id=id)
@@ -209,6 +233,11 @@ class Langfuse(object):
             raise e
 
     def auth_check(self) -> bool:
+        """Check if the provided credentials (public and secret key)are valid.
+
+        Raises:
+            Exception: If no projects were found for the provided credentials.
+        """
         try:
             projects = self.client.projects.get()
             self.log.debug(
@@ -229,6 +258,7 @@ class Langfuse(object):
         dataset_name: str,
         dataset_run_name: str,
     ) -> DatasetRun:
+        """Get the dataset run of a given dataset with a given name."""
         try:
             self.log.debug(
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
@@ -241,6 +271,7 @@ class Langfuse(object):
             raise e
 
     def create_dataset(self, name: str) -> Dataset:
+        """Create a dataset with the given name on Langfuse."""
         try:
             body = CreateDatasetRequest(name=name)
             self.log.debug(f"Creating datasets {body}")
@@ -256,8 +287,16 @@ class Langfuse(object):
         expected_output: Optional[any] = None,
         id: Optional[str] = None,
     ) -> DatasetItem:
-        """
-        Creates a dataset item. Upserts if an item with id already exists.
+        """Create a dataset item. Upserts if an item with id already exists.
+
+        Args:
+            dataset_name (str): Name of the dataset in which the dataset item should be created.
+            input (any): Input data. Can contain any python object or value.
+            expected_output (Optional[any]): Expected output data. Defaults to None.
+            id (Optional[str]): Id of the dataset item. Defaults to None.
+
+        Returns:
+            DatasetItem: The created dataset item.
         """
         try:
             body = CreateDatasetItemRequest(
@@ -276,6 +315,7 @@ class Langfuse(object):
         self,
         id: str,
     ) -> TraceWithFullDetails:
+        """Get a trace with the given identifier."""
         try:
             self.log.debug(f"Getting trace {id}")
             return self.client.trace.get(id)
@@ -294,6 +334,20 @@ class Langfuse(object):
         parent_observation_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
     ):
+        """Get a list of observations in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number of the observations to return. Defaults to None.
+            limit (Optional[int]): Maximum number of observations to return. Defaults to None.
+            name (Optional[str]): Name of the observations to return. Defaults to None.
+            user_id (Optional[str]): User identifier. Defaults to None.
+            trace_id (Optional[str]): Trace identifier. Defaults to None.
+            parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
+            type (Optional[str]): Type of the observation. Defaults to None.
+
+        Returns:
+            List of ObservationsViews: List of observations in the project matching the given parameters.
+        """
         try:
             self.log.debug(
                 f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
@@ -321,6 +375,19 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
     ):
+        """Get a list of generations in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number of the generations to return. Defaults to None.
+            limit (Optional[int]): Maximum number of generations to return. Defaults to None.
+            name (Optional[str]): Name of the generations to return. Defaults to None.
+            user_id (Optional[str]): User identifier of the generations to return. Defaults to None.
+            trace_id (Optional[str]): Trace identifier of the generations to return. Defaults to None.
+            parent_observation_id (Optional[str]): Parent observation identifier of the generations to return. Defaults to None.
+
+        Returns:
+            List of ObservationsViews: List of geneations in the project matching the given parameters.
+        """
         return self.get_observations(
             page=page,
             limit=limit,
@@ -335,6 +402,7 @@ class Langfuse(object):
         self,
         id: str,
     ) -> Observation:
+        """Get an observation in the current project with the given identifier."""
         try:
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
@@ -349,28 +417,26 @@ class Langfuse(object):
         *,
         cache_ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
-        """
-        Retrieves a prompt by its name and optionally its version, with support for additional options.
+        """Get a prompt by its name and optionally its version, with support for additional options.
 
         This method attempts to fetch the requested prompt from the local cache. If the prompt is not found
         in the cache or if the cached prompt has expired, it will try to fetch the prompt from the server again
         and update the cache. If fetching the new prompt fails, and there is an expired prompt in the cache, it will
         return the expired prompt as a fallback.
 
-        Parameters:
-        - name (str): The name of the prompt to retrieve.
-        - version (Optional[int]): The version of the prompt. If not specified, the latest version is assumed.
-        - cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
-        keyword argument. If 'cache_ttl_seconds' is not specified, a default TTL of 60 seconds is used.
+        Args:
+            name (str): The name of the prompt to retrieve.
+            version (Optional[int]): The version of the prompt. If not specified, the latest version is assumed.
+            cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
+            keyword argument. If specified, a default of 60 seconds is used.
 
         Returns:
-        - PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
+            PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
 
         Raises:
-        - Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
-        expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
+            Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
+            expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
         """
-
         self.log.debug(f"Getting prompt {name}, version {version or 'latest'}")
 
         if not name:
@@ -403,6 +469,21 @@ class Langfuse(object):
         version: Optional[int] = None,
         ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
+        """Fetch a prompt from the server based on its name and version, and update the prompt cache.
+
+        Args:
+            name (str): The name of the prompt to retrieve.
+            version (Optional[int]): The version of the prompt to retrieve.
+            If not specified, the latest version is assumed. Defaults to None.
+            ttl_seconds (Optional[int]): The time-to-live in seconds for the prompt in the cache.
+            If not specified, the prompt will not have an expiration in the cache. Defaults to None.
+
+        Raises:
+            Exception: Propagates any exceptions raised during the fetching of the prompt from the server.
+
+        Returns:
+            PromptClient: The prompt object fetched from the server.
+        """
         try:
             self.log.debug(
                 f"Fetching prompt {name}-{version or 'latest'}' from server..."
@@ -424,6 +505,17 @@ class Langfuse(object):
             raise e
 
     def create_prompt(self, *, name: str, prompt: str, is_active: bool) -> PromptClient:
+        """Create a new prompt with the specified name, prompt content, and active status.
+
+        Args:
+            name (str): The name of the prompt to be created.
+            prompt (str): The content of the prompt to be created.
+            is_active (bool): A flag indicating whether the prompt is active or not.
+            Active prompts are can be retrieved via the SDK and monitored during usage.
+
+        Returns:
+            PromptClient: Prompt client representing the prompt.
+        """
         try:
             self.log.debug(f"Creating prompt {name}, version {version}")
 
@@ -451,6 +543,26 @@ class Langfuse(object):
         tags: typing.Optional[typing.List[str]] = None,
         **kwargs,
     ):
+        """Create a trace with the provided details.
+
+        This method is used to create a new trace record, which includes various optional details like name, user ID,
+        version, input, output, metadata, and tags. It generates a unique identifier for the trace if not provided,
+        timestamps it, and queues it for processing by the task manager.
+
+        Args:
+            id (Optional[str]): A unique identifier for the trace. If not provided, a new UUID is generated.
+            name (Optional[str]): The name of the trace.
+            user_id (Optional[str]): The user ID of the trace.
+            version (Optional[str]): The version of the trace.
+            input (Optional[Any]): The input data of the trace.
+            output (Optional[Any]): The output data of the trace.
+            metadata (Optional[Any]): Additional metadata of the trace.
+            tags (Optional[List[str]]): A list of tags for categorizing or labeling the trace.
+            **kwargs: Additional keyword arguments that can be included in the trace record.
+
+        Returns:
+            StatefulTraceClient: Trace client representing the trace record.
+        """
         try:
             new_id = str(uuid.uuid4()) if id is None else id
             self.trace_id = new_id
@@ -500,6 +612,26 @@ class Langfuse(object):
         observation_id: typing.Optional[str] = None,
         kwargs=None,
     ):
+        """Create a score with the provided parameters.
+
+        This function is used to create a score that can be associated with an observation or a trace.
+        If a trace ID is provided, the score is linked to that trace. If not, it defaults to using
+        the instance's trace ID (self.trace_id). The function also supports linking the score to an
+        observation. If no observation ID is provided, the score is associated with a trace.
+
+        Args:
+            name (str): The name of the score.
+            value (float): The numerical value of the score.
+            trace_id (Optional[str]): The trace ID to associate with the score. Defaults to the instance's trace ID.
+            id (Optional[str]): The unique identifier of the score. If not provided, a new UUID is generated.
+            comment (Optional[str]): An optional comment associated with the score.
+            observation_id (Optional[str]): The id of the observation associated with the score.
+            kwargs (Optional[dict]): Additional keyword arguments that can be included in the score.
+
+        Returns:
+            StatefulClient: A stateful client representing either the associated observation (if observation_id is provided)
+            or the trace (if observation_id is not provided).
+        """
         try:
             new_id = str(uuid.uuid4()) if id is None else id
 
@@ -559,6 +691,32 @@ class Langfuse(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
+        """Create a span with the provided parameters.
+
+        A span represents durations of units of work in a trace.
+        If no trace_id is provided, a new unique trace identifier is generated for the span.
+        If a parent_observation_id is provided, the span is linked to this existing observation.
+
+        Args:
+            id (Optional[str]): Unique identifier of the span.
+            If not provided, a new UUID is generated.
+            trace_id (Optional[str]): The trace ID associated with the span.
+            If not provided, a new UUID is generated.
+            name (Optional[str]): The name of the span.
+            start_time (Optional[datetime]): The start time of the span. Defaults to the current time if not provided.
+            end_time (Optional[datetime]): The end time of the span.
+            metadata (Optional[Any]): Additional metadata associated with the span.
+            input (Optional[Any]): Input data of the span.
+            output (Optional[Any]): Output data of the span.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
+            status_message (Optional[str]): A status message associated with the span.
+            parent_observation_id (Optional[str]): The ID of the parent observation, if any.
+            version (Optional[str]): Version of the span.
+            **kwargs: Additional keyword arguments to include in the span.
+
+        Returns:
+            StatefulSpanClient: An stateful client representing the created span.
+        """
         try:
             new_span_id = str(uuid.uuid4()) if id is None else id
             new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
@@ -626,6 +784,29 @@ class Langfuse(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
+        """Create a event with the provided parameters.
+
+        An event represents a discrete event in a trace.
+        If no trace_id is provided, a new unique trace identifier is generated for the event.
+        If a parent_observation_id is provided, the event is linked to this existing observation.
+
+        Args:
+            id (Optional[str]): Unique identifier for the event. If not provided, a new UUID is generated.
+            trace_id (Optional[str]): The trace ID associated with this event. If not provided, a new UUID is generated.
+            name (Optional[str]): The name of the event.
+            start_time (Optional[datetime]): The start time of the event. Defaults to the current time if not provided.
+            metadata (Optional[Any]): Additional metadata associated with the event.
+            input (Optional[Any]): Input data of the event.
+            output (Optional[Any]): Output data of the event.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize event.
+            status_message (Optional[str]): A status message associated with the event.
+            parent_observation_id (Optional[str]): The ID of the parent observation, if applicable.
+            version (Optional[str]): Version information for the event.
+            **kwargs: Additional keyword arguments to include in the event.
+
+        Returns:
+            StatefulSpanClient: An stateful client representing the created event.
+        """
         try:
             event_id = str(uuid.uuid4()) if id is None else id
 
@@ -698,6 +879,37 @@ class Langfuse(object):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
+        """Create a generation with the provided parameters.
+
+        A generation is a span which is used to log generations of AI models.
+        If no trace_id is provided, a new unique trace identifier is generated for the generation record.
+        If a parent_observation_id is provided, the generation is linked to this existing observation.
+
+        Args:
+            id (Optional[str]): Unique identifier for the generation. If not provided, a new UUID is generated.
+            trace_id (Optional[str]): The trace ID associated with this generation.
+            If not provided, a new UUID is generated and used.
+            name (Optional[str]): The name of the generation.
+            start_time (Optional[datetime]): The start time of the generation.
+            Defaults to the current time if not provided.
+            end_time (Optional[datetime]): The end time of the generation.
+            metadata (Optional[Any]): Additional metadata associated with the generation.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize generation.
+            status_message (Optional[str]): A status message associated with the generation.
+            parent_observation_id (Optional[str]): The id of the parent observation, if applicable.
+            version (Optional[str]): Version information of the generation.
+            completion_start_time (Optional[datetime]): The time when the generation was completed.
+            model (Optional[str]): The model used for the generation process.
+            model_parameters (Optional[Dict[str, MapValue]]): Parameters of the model used for the generation.
+            input (Optional[Any]): Input data of the generation.
+            output (Optional[Any]): Output data of the generation.
+            usage (Optional[Union[BaseModel, ModelUsage]]): Usage information on the generation.
+            prompt (Optional[PromptClient]): Associated prompt template used for the generation.
+            **kwargs: Additional keyword arguments to include in the generation.
+
+        Returns:
+            StatefulGenerationClient: An object representing the created generation, allowing for further interactions and state management.
+        """
         try:
             new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
             new_generation_id = str(uuid.uuid4()) if id is None else id
