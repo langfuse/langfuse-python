@@ -31,6 +31,10 @@ class BaseCallbackHandler:
         sdk_integration: str,
     ) -> None:
         self.version = version
+        self.session_id = session_id
+        self.user_id = user_id
+        self.trace_name = trace_name
+
         self.root_span = None
         self.langfuse = None
 
@@ -80,9 +84,6 @@ class BaseCallbackHandler:
 
             self.langfuse = Langfuse(**args)
             self.trace: Optional[StatefulTraceClient] = None
-            self.session_id = session_id
-            self.user_id = user_id
-            self.trace_name = trace_name
             self._task_manager = self.langfuse.task_manager
 
         else:

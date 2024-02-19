@@ -1,20 +1,17 @@
 import logging
-import os
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
 
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler as LangchainBaseCallbackHandler
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
+from langfuse.callback.base import BaseCallbackHandler as LangfuseBaseCallbackHandler
 from langfuse.client import (
-    Langfuse,
     StatefulSpanClient,
     StatefulTraceClient,
-    StateType,
 )
 from langfuse.extract_model import _extract_model_name
-from langfuse.task_manager import TaskManager
 from langfuse.utils import _get_timestamp
 
 try:
@@ -33,17 +30,11 @@ except ImportError:
     AgentFinish = Any
 
 
-class LangchainCallbackHandler(BaseCallbackHandler):
+class LangchainCallbackHandler(
+    LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
+):
     log = logging.getLogger("langfuse")
     next_span_id: Optional[str] = None
-    trace: Optional[StatefulTraceClient]
-    root_span: Optional[StatefulSpanClient]
-    langfuse: Optional[Langfuse]
-    version: Optional[str] = None
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
-    trace_name: Optional[str] = None
-    _task_manager: TaskManager
 
     def __init__(
         self,
@@ -65,106 +56,30 @@ class LangchainCallbackHandler(BaseCallbackHandler):
         max_retries: Optional[int] = None,
         timeout: Optional[int] = None,
     ) -> None:
-        # If we're provided a stateful trace client directly
-        prioritized_public_key = (
-            public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
-        )
-        prioritized_secret_key = (
-            secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
-        )
-        prioritized_host = (
-            host
-            if host
-            else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        LangfuseBaseCallbackHandler.__init__(
+            self,
+            public_key=public_key,
+            secret_key=secret_key,
+            host=host,
+            debug=debug,
+            stateful_client=stateful_client,
+            session_id=session_id,
+            user_id=user_id,
+            trace_name=trace_name,
+            release=release,
+            version=version,
+            threads=threads,
+            flush_at=flush_at,
+            flush_interval=flush_interval,
+            max_retries=max_retries,
+            timeout=timeout,
+            sdk_integration="langchain",
         )
 
-        self.version = version
+        self.runs = {}
 
-        if stateful_client and isinstance(stateful_client, StatefulTraceClient):
-            self.trace = stateful_client
-            self.runs = {}
-            self.root_span = None
-            self.langfuse = None
-            self._task_manager = stateful_client.task_manager
-
-        elif stateful_client and isinstance(stateful_client, StatefulSpanClient):
-            self.runs = {}
-            self.root_span = stateful_client
-            self.langfuse = None
-            self.trace = StatefulTraceClient(
-                stateful_client.client,
-                stateful_client.trace_id,
-                StateType.TRACE,
-                stateful_client.trace_id,
-                stateful_client.task_manager,
-            )
+        if stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs[stateful_client.id] = stateful_client
-            self._task_manager = stateful_client.task_manager
-
-        # Otherwise, initialize stateless using the provided keys
-        elif prioritized_public_key and prioritized_secret_key:
-            args = {
-                "public_key": prioritized_public_key,
-                "secret_key": prioritized_secret_key,
-                "host": prioritized_host,
-                "debug": debug,
-            }
-
-            if release is not None:
-                args["release"] = release
-            if threads is not None:
-                args["threads"] = threads
-            if flush_at is not None:
-                args["flush_at"] = flush_at
-            if flush_interval is not None:
-                args["flush_interval"] = flush_interval
-            if max_retries is not None:
-                args["max_retries"] = max_retries
-            if timeout is not None:
-                args["timeout"] = timeout
-
-            args["sdk_integration"] = "langchain"
-
-            self.langfuse = Langfuse(**args)
-            self.trace = None
-            self.root_span = None
-            self.runs = {}
-            self.session_id = session_id
-            self.user_id = user_id
-            self.trace_name = trace_name
-            self._task_manager = self.langfuse.task_manager
-
-        else:
-            self.log.error(
-                "Either provide a stateful langfuse object or both public_key and secret_key."
-            )
-            raise ValueError(
-                "Either provide a stateful langfuse object or both public_key and secret_key."
-            )
-
-    def flush(self):
-        if self.trace is not None:
-            self.trace.task_manager.flush()
-        elif self.root_span is not None:
-            self.root_span.task_manager.flush()
-        else:
-            self.log.debug("There was no trace yet, hence no flushing possible.")
-
-    def auth_check(self):
-        if self.langfuse is not None:
-            return self.langfuse.auth_check()
-        elif self.trace is not None:
-            projects = self.trace.client.projects.get()
-            if len(projects.data) == 0:
-                raise Exception("No projects found for the keys.")
-            return True
-        elif self.root_span is not None:
-            projects = self.root_span.client.projects.get()
-            if len(projects) == 0:
-                raise Exception("No projects found for the keys.")
-            return True
-
-        return False
 
     def setNextSpan(self, id: str):
         self.next_span_id = id
@@ -274,12 +189,6 @@ class LangchainCallbackHandler(BaseCallbackHandler):
 
         except Exception as e:
             self.log.exception(e)
-
-    def get_trace_id(self) -> str:
-        return self.trace.id
-
-    def get_trace_url(self) -> str:
-        return self.trace.get_trace_url()
 
     def __generate_trace_and_parent(
         self,

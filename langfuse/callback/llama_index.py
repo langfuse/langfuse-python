@@ -5,7 +5,6 @@ from uuid import uuid4
 import logging
 
 from langfuse.client import (
-    Langfuse,
     StatefulSpanClient,
     StatefulTraceClient,
     StatefulGenerationClient,
@@ -14,7 +13,6 @@ from langfuse.decorators.error_logging import (
     auto_decorate_methods_with,
     catch_and_log_errors,
 )
-from langfuse.task_manager import TaskManager
 from langfuse.callback.base import BaseCallbackHandler as LangfuseBaseCallbackHandler
 from langfuse.callback.utils import CallbackEvent
 
@@ -39,15 +37,6 @@ class LLamaIndexCallbackHandler(
     LLamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
     log = logging.getLogger("langfuse")
-    next_span_id: Optional[str] = None
-    trace: Optional[StatefulTraceClient]
-    root_span: Optional[StatefulSpanClient]
-    langfuse: Optional[Langfuse]
-    version: Optional[str] = None
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
-    trace_name: Optional[str] = None
-    _task_manager: TaskManager
 
     def __init__(
         self,
