@@ -33,7 +33,7 @@ except ImportError:
     AgentFinish = Any
 
 
-class CallbackHandler(BaseCallbackHandler):
+class LangchainCallbackHandler(BaseCallbackHandler):
     log = logging.getLogger("langfuse")
     next_span_id: Optional[str] = None
     trace: Optional[StatefulTraceClient]
