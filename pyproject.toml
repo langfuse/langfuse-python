@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "2.13.2"
+version = "2.13.4"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -16,6 +16,7 @@ wrapt = "1.14"
 langchain = { version = ">=0.0.309", optional = true }
 chevron = "^0.14.0"
 llama-index = {version = "^0.10.6", optional = true}
+packaging = "^23.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

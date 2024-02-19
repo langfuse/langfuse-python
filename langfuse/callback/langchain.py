@@ -17,14 +17,28 @@ from langfuse.utils import _get_timestamp
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
-    from langchain.schema.messages import BaseMessage
-    from langchain.schema.output import LLMResult
+    from langchain_core.outputs import (
+        ChatGeneration,
+        LLMResult,
+    )
+    from langchain_core.messages import (
+        AIMessage,
+        BaseMessage,
+        ChatMessage,
+        HumanMessage,
+        SystemMessage,
+    )
 except ImportError:
     logging.getLogger("langfuse").warning(
         "Could not import langchain. Some functionality may be missing."
     )
     LLMResult = Any
+    AIMessage = Any
     BaseMessage = Any
+    ChatMessage = Any
+    HumanMessage = Any
+    SystemMessage = Any
+    ChatGeneration = Any
     Document = Any
     AgentAction = Any
     AgentFinish = Any
@@ -193,7 +207,7 @@ class LangchainCallbackHandler(
     def __generate_trace_and_parent(
         self,
         serialized: Dict[str, Any],
-        inputs: Dict[str, Any],
+        inputs: Union[Dict[str, Any], List[str], str, None],
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -224,6 +238,7 @@ class LangchainCallbackHandler(
                     version=self.version,
                     session_id=self.session_id,
                     user_id=self.user_id,
+                    input=inputs,
                 )
 
                 self.trace = trace
@@ -286,6 +301,8 @@ class LangchainCallbackHandler(
                 output=finish, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, finish)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -309,6 +326,7 @@ class LangchainCallbackHandler(
                 output=outputs, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, outputs)
         except Exception as e:
             self.log.exception(e)
 
@@ -331,6 +349,8 @@ class LangchainCallbackHandler(
                 version=self.version,
             )
 
+            self._update_trace(run_id, parent_run_id, error)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -349,10 +369,13 @@ class LangchainCallbackHandler(
             self.log.debug(
                 f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}"
             )
+
             self.__on_llm_action(
                 serialized,
                 run_id,
-                messages,
+                _flatten_comprehension(
+                    [self._create_message_dicts(m) for m in messages]
+                ),
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -379,7 +402,7 @@ class LangchainCallbackHandler(
             self.__on_llm_action(
                 serialized,
                 run_id,
-                prompts,
+                prompts[0] if len(prompts) == 1 else prompts,
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
@@ -473,6 +496,8 @@ class LangchainCallbackHandler(
                 output=documents, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, documents)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -495,6 +520,8 @@ class LangchainCallbackHandler(
                 output=output, version=self.version
             )
 
+            self._update_trace(run_id, parent_run_id, output)
+
         except Exception as e:
             self.log.exception(e)
 
@@ -514,8 +541,12 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                status_message=error, level=ObservationLevel.ERROR, version=self.version
+                status_message=str(error),
+                level=ObservationLevel.ERROR,
+                version=self.version,
             )
+
+            self._update_trace(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -533,7 +564,7 @@ class LangchainCallbackHandler(
         try:
             self.__generate_trace_and_parent(
                 serialized,
-                inputs=prompts,
+                inputs=prompts[0] if len(prompts) == 1 else prompts,
                 run_id=run_id,
                 parent_run_id=parent_run_id,
                 tags=tags,
@@ -632,18 +663,23 @@ class LangchainCallbackHandler(
             if run_id not in self.runs:
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
-                last_response = response.generations[-1][-1]
+                generation = response.generations[-1][-1]
+                extracted_response = (
+                    self._convert_message_to_dict(generation.message)
+                    if isinstance(generation, ChatGeneration)
+                    else _extract_raw_esponse(generation)
+                )
                 llm_usage = (
                     None
                     if response.llm_output is None
                     else response.llm_output["token_usage"]
                 )
 
-                extracted_response = _extract_response(last_response)
-
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
                 )
+
+                self._update_trace(run_id, parent_run_id, extracted_response)
 
         except Exception as e:
             self.log.exception(e)
@@ -665,6 +701,7 @@ class LangchainCallbackHandler(
                 level=ObservationLevel.ERROR,
                 version=self.version,
             )
+            self._update_trace(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -696,10 +733,46 @@ class LangchainCallbackHandler(
             }
         )
 
+    def _update_trace(self, run_id: str, parent_run_id: Optional[str], output: any):
+        """Update the trace with the output of the current run. Called at every finish callback event."""
 
-def _extract_response(last_response):
+        if (
+            parent_run_id
+            is None  # If we are at the root of the langchain execution -> reached the end of the root
+            and self.trace is not None  # We do have a trace available
+            and self.trace.id
+            == str(run_id)  # The trace was generated by langchain and not by the user
+        ):
+            self.trace = self.trace.update(output=output)
+
+    def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
+        # assistant message
+        if isinstance(message, HumanMessage):
+            message_dict = {"role": "user", "content": message.content}
+        elif isinstance(message, AIMessage):
+            message_dict = {"role": "assistant", "content": message.content}
+        elif isinstance(message, SystemMessage):
+            message_dict = {"role": "system", "content": message.content}
+        elif isinstance(message, ChatMessage):
+            message_dict = {"role": message.role, "content": message.content}
+        else:
+            raise ValueError(f"Got unknown type {message}")
+        if "name" in message.additional_kwargs:
+            message_dict["name"] = message.additional_kwargs["name"]
+
+        if message.additional_kwargs:
+            message_dict["additional_kwargs"] = message.additional_kwargs
+
+        return message_dict
+
+    def _create_message_dicts(
+        self, messages: List[BaseMessage]
+    ) -> List[Dict[str, Any]]:
+        return [self._convert_message_to_dict(m) for m in messages]
+
+
+def _extract_raw_esponse(last_response):
     """Extract the response from the last response of the LLM call."""
-
     # We return the text of the response if not empty, otherwise the additional_kwargs
     # Additional kwargs contains the response in case of tool usage
     return (
@@ -707,3 +780,7 @@ def _extract_response(last_response):
         if last_response.text is not None and last_response.text.strip() != ""
         else last_response.message.additional_kwargs
     )
+
+
+def _flatten_comprehension(matrix):
+    return [item for row in matrix for item in row]

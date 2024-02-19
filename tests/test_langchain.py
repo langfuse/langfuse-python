@@ -87,9 +87,6 @@ def test_callback_generated_from_trace_chain():
     assert len(trace.observations) == 2
     assert trace.id == trace_id
 
-    assert trace.input is None
-    assert trace.output is None
-
     langchain_span = list(
         filter(
             lambda o: o.type == "SPAN" and o.name == "LLMChain",
@@ -174,7 +171,7 @@ def test_callback_generated_from_lcel_chain():
     langfuse = Langfuse(debug=False)
 
     run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler()
+    handler = CallbackHandler(debug=False)
 
     prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     model = ChatOpenAI(temperature=0)
@@ -228,9 +225,6 @@ def test_callback_generated_from_span_chain():
 
     assert len(trace.observations) == 3
     assert trace.id == trace_id
-
-    assert trace.input is None
-    assert trace.output is None
 
     user_span = list(
         filter(
@@ -455,7 +449,8 @@ def test_callback_generated_from_trace_anthropic():
             assert observation.usage.total > 0
             assert observation.output is not None
             assert observation.output != ""
-            assert observation.input is not None
+            assert isinstance(observation.input, str) is True
+            assert isinstance(observation.output, str) is True
             assert observation.input != ""
             assert observation.model == "claude-instant-1.2"
 
@@ -485,6 +480,21 @@ def test_basic_chat_openai():
 
     assert trace.id == trace_id
     assert len(trace.observations) == 1
+
+    assert trace.output == trace.observations[0].output
+    assert trace.input == trace.observations[0].input
+
+    assert trace.observations[0].input == [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that translates English to French.",
+        },
+        {
+            "role": "user",
+            "content": "Translate this sentence from English to French. I love programming.",
+        },
+    ]
+    assert trace.observations[0].output["role"] == "assistant"
 
 
 def test_basic_chat_openai_based_on_trace():
@@ -544,6 +554,8 @@ def test_callback_from_trace_simple_chain():
 
     api = get_api()
     trace = api.trace.get(trace_id)
+    assert trace.input is None
+    assert trace.output is None
 
     assert len(trace.observations) == 2
     assert handler.get_trace_id() == trace_id
@@ -946,10 +958,10 @@ def test_callback_simple_openai_streaming():
 
 
 @pytest.mark.skip(reason="no serpapi setup in CI")
-def test_callback_simple_llm_chat():
-    handler = CallbackHandler()
+def test_tools():
+    handler = CallbackHandler(debug=False)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 
@@ -1097,8 +1109,30 @@ def test_callback_openai_functions_python():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.input != ""
-        assert generation.output != ""
+        assert generation.input == [
+            {
+                "role": "system",
+                "content": "You are a world class algorithm for extracting information in structured formats.",
+            },
+            {
+                "role": "user",
+                "content": "Use the given format to extract information from the following input: I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+            },
+            {
+                "role": "user",
+                "content": "Tip: Make sure to answer in the correct format",
+            },
+        ]
+        assert generation.output == {
+            "role": "assistant",
+            "content": "",
+            "additional_kwargs": {
+                "function_call": {
+                    "name": "record_dog",
+                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": null\n}',
+                }
+            },
+        }
         assert generation.usage.total is not None
         assert generation.usage.input is not None
         assert generation.usage.output is not None
