@@ -448,6 +448,7 @@ class Langfuse(object):
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ):
         try:
@@ -464,7 +465,7 @@ class Langfuse(object):
                 "input": input,
                 "output": output,
                 "tags": tags,
-                "timestamp": _get_timestamp(),
+                "timestamp": timestamp if timestamp is not None else _get_timestamp(),
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
