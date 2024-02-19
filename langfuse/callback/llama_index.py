@@ -1,5 +1,4 @@
 from collections import defaultdict
-from pprint import pprint
 from typing import Any, Dict, List, Optional, Union, Tuple, Callable
 from uuid import uuid4
 import logging
@@ -94,7 +93,6 @@ class LLamaIndexCallbackHandler(
 
     def start_trace(self, trace_id: Optional[str] = None) -> None:
         """Run when an overall trace is launched."""
-        print("Trace started with trace_id: ", trace_id)
         self._cur_trace_id = trace_id
 
     def end_trace(
@@ -103,18 +101,9 @@ class LLamaIndexCallbackHandler(
         trace_map: Optional[Dict[str, List[str]]] = None,
     ) -> None:
         """Run when an overall trace is exited."""
-        print("Trace ended with trace_id: ", trace_id)
         if not trace_map:
             self.log.debug("No events in trace map to create the observation tree.")
             return
-
-        print("Trace map: ")
-        pprint(dict(trace_map), width=100)
-
-        print("Event map: ")
-        pprint(
-            {key: len(value) for key, value in dict(self.event_map).items()}, width=100
-        )
 
         self._create_observations_from_trace_map(
             event_id=BASE_TRACE_EVENT, trace_map=trace_map
@@ -130,9 +119,6 @@ class LLamaIndexCallbackHandler(
         **kwargs: Any,
     ) -> str:
         """Run when an event starts and return id of event."""
-        print(
-            f"Event {event_type} started with id 🚨 {event_id[:8]} and parent 🚨 {parent_id[:8]}"
-        )
         start_event = CallbackEvent(
             event_id=event_id, event_type=event_type, payload=payload
         )
@@ -148,7 +134,6 @@ class LLamaIndexCallbackHandler(
         **kwargs: Any,
     ) -> None:
         """Run when an event ends."""
-        print(f"Event {event_type.upper()} ended with event_id 🚨 {event_id[:8]}")
         end_event = CallbackEvent(
             event_id=event_id, event_type=event_type, payload=payload
         )
