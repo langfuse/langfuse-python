@@ -1045,6 +1045,18 @@ class StateType(Enum):
 
 
 class StatefulClient(object):
+    """Base class for handling stateful operations in the Langfuse system.
+
+    This client is capable of creating different Lagnfuse objects like spans, generations, scores, and events,
+    associating them with either an observation or a trace based on the specified state type.
+
+    Attributes:
+        client (FernLangfuse): Core interface for Langfuse API interactions.
+        id (str): Unique identifier of the stateful client (either observation or trace).
+        state_type (StateType): Enum indicating whether the client is an observation or a trace.
+        trace_id (str): Id of the trace associated with the stateful client.
+        task_manager (TaskManager): Manager handling asynchronous tasks for the client.
+    """
     log = logging.getLogger("langfuse")
 
     def __init__(
@@ -1062,6 +1074,11 @@ class StatefulClient(object):
         self.task_manager = task_manager
 
     def _add_state_to_event(self, body: dict):
+        """Add state information to an event body based on the state type of the client.
+
+        If the state type is an observation, it adds the parent observation ID and trace ID.
+        If the state type is a trace, it adds only the trace ID.
+        """
         if self.state_type == StateType.OBSERVATION:
             body["parent_observation_id"] = self.id
             body["trace_id"] = self.trace_id
@@ -1070,6 +1087,7 @@ class StatefulClient(object):
         return body
 
     def _add_default_values(self, body: dict):
+        """If not already set, add default values (start time) to the event body."""
         if body.get("start_time") is None:
             body["start_time"] = _get_timestamp()
         return body
@@ -1094,6 +1112,18 @@ class StatefulClient(object):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
+        """Create a generation.
+
+        Constructs the body of the generation, adding default values and state information,
+        and then queues it for asynchronous processing.
+
+        Args:
+            id (str, optional): Unique identifier for the generation. Defaults to None, which generates a new UUID.
+            Additional arguments are passed to the generation body.
+
+        Returns:
+            StatefulGenerationClient: The created generation.
+        """
         try:
             generation_id = str(uuid.uuid4()) if id is None else id
 
@@ -1159,6 +1189,18 @@ class StatefulClient(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
+        """Create a span.
+
+        Constructs the body of the span, adding default values and state information,
+        and then queues it for asynchronous processing.
+
+        Args:
+            id (str, optional): Unique identifier for the span. Defaults to None, which generates a new UUID.
+            Additional arguments are passed to the span body.
+
+        Returns:
+            StatefulSpanClient: The created span.
+        """
         try:
             span_id = str(uuid.uuid4()) if id is None else id
 
@@ -1213,6 +1255,18 @@ class StatefulClient(object):
         comment: typing.Optional[str] = None,
         kwargs=None,
     ):
+        """Create a score.
+
+        Constructs the body of the score, adding state information,
+        and then queues it for asynchronous processing.
+
+        Args:
+            id (str, optional): Unique identifier for the score. Defaults to None, which generates a new UUID.
+            Additional arguments are passed to the score body.
+
+        Returns:
+            StatefulClient: The created score.
+        """
         try:
             score_id = str(uuid.uuid4()) if id is None else id
 
@@ -1267,6 +1321,18 @@ class StatefulClient(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
+        """Create an event.
+
+        Constructs the body of the event, adding default values and state information,
+        and then queues it for asynchronous processing.
+
+        Args:
+            id (str, optional): Unique identifier for the event. Defaults to None, which generates a new UUID.
+            Additional arguments are passed to the event body.
+
+        Returns:
+            StatefulClient: The created event.
+        """
         try:
             event_id = str(uuid.uuid4()) if id is None else id
 
@@ -1308,10 +1374,23 @@ class StatefulClient(object):
             self.log.exception(e)
 
     def get_trace_url(self):
+        """Get the URL to see the current trace in the Langfuse UI."""
         return f"{self.client._client_wrapper._base_url}/trace/{self.trace_id}"
 
 
 class StatefulGenerationClient(StatefulClient):
+    """Class for handling stateful operations of generations in the Langfuse system. Inherits from StatefulClient.
+
+    This client extends the capabilities of the StatefulClient to specifically handle generation,
+    allowing for the creation, update, and termination of generation processes in Langfuse.
+
+    Args:
+        client (FernLangfuse): Core interface for Langfuse API interaction.
+        id (str): Unique identifier of the generation.
+        state_type (StateType): Type of the stateful entity (observation or trace).
+        trace_id (str): Id of trace associated with the generation.
+        task_manager (TaskManager): Manager for handling asynchronous tasks.
+    """
     log = logging.getLogger("langfuse")
 
     def __init__(
@@ -1343,6 +1422,31 @@ class StatefulGenerationClient(StatefulClient):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
+        """Update the properties of an existing generation and schedules the updated generation for asynchronous processing.
+
+        This method allows for the modification of various attributes related to a generation. The changes 
+        are serialized and scheduled for processing. Attributes that can be updated include the generation's name, 
+        start and end times, metadata, model details, and prompt information (template name and version).
+
+        Args:
+            name (Optional[str]): The name of the generation.
+            start_time (Optional[datetime]): The start time of the generation.
+            end_time (Optional[datetime]): The end time of the generation.
+            metadata (Optional[Any]): Additional metadata associated with the generation.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize generation.
+            status_message (Optional[str]): Status message for the generation.
+            version (Optional[str]): Version of the generation.
+            completion_start_time (Optional[datetime]): Start time of the completion phase of the generation.
+            model (Optional[str]): Model used in the generation.
+            model_parameters (Optional[Dict[str, MapValue]]): Parameters of the model used.
+            usage (Optional[Union[BaseModel, ModelUsage]]): Usage information of the generation.
+            prompt_name (Optional[str]): Name of the prompt template in the generation.
+            prompt_version (Optional[int]): Version of the prompt template.
+            Additional keyword arguments (kwargs) for other optional updates.
+
+        Returns:
+            StatefulGenerationClient: The updated generation.
+        """
         try:
             generation_body = {
                 "id": self.id,
@@ -1407,6 +1511,34 @@ class StatefulGenerationClient(StatefulClient):
         total_tokens: typing.Optional[int] = None,
         **kwargs,
     ):
+        """Conclude a generation by marking its end time and updating all relevant properties.
+
+        This method is designed to finalize a generation. It sets the end time of the 
+        generation to the current time if not explicitly provided and updates other attributes as needed. 
+        The method essentially acts as a wrapper around the `update` method, providing a convenient way to 
+        signal the completion of a generation.
+
+        Args:
+            name (Optional[str]): The name of the generation.
+            start_time (Optional[datetime]): The start time of the generation .
+            end_time (Optional[datetime]): The end time of the generation. Defaults to the current time.
+            metadata (Optional[Any]): Additional metadata associated with the generation.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize generation.
+            status_message (Optional[str]): Status message for the generation.
+            version (Optional[str]): Version information of the generation.
+            completion_start_time (Optional[datetime]): Start time of the completion phase of the generation.
+            model (Optional[str]): Model used in the generation.
+            model_parameters (Optional[Dict[str, MapValue]]): Parameters of the model used.
+            input (Optional[Any]): Input data of the generation.
+            output (Optional[Any]): Output data of the generation.
+            prompt_tokens (Optional[int]): Number of tokens used in the prompt template.
+            completion_tokens (Optional[int]): Tokens generated during the completion phase.
+            total_tokens (Optional[int]): Total number of tokens used in the generation.
+            Additional keyword arguments (kwargs) for other optional updates.
+
+        Returns:
+            StatefulGenerationClient: An instance representing the concluded generation.
+        """
         try:
             generation_body = {
                 "name": name,
@@ -1435,6 +1567,18 @@ class StatefulGenerationClient(StatefulClient):
 
 
 class StatefulSpanClient(StatefulClient):
+    """Class for handling stateful operations of spans in the Langfuse system. Inherits from StatefulClient.
+
+    This client extends the functionality of the StatefulClient to specifically handle spans,
+    allowing for creating, updating, and concluding span processes in the Langfuse environment.
+
+    Args:
+        client (FernLangfuse): Core interface for Langfuse API interaction.
+        id (str): Unique identifier of the span.
+        state_type (StateType): Type of the stateful entity (observation or trace).
+        trace_id (str): Id of trace associated with the span.
+        task_manager (TaskManager): Manager for handling asynchronous tasks.
+    """
     log = logging.getLogger("langfuse")
 
     def __init__(
@@ -1461,6 +1605,26 @@ class StatefulSpanClient(StatefulClient):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
+        """Update the properties of an existing generation and schedules the updated generation for asynchronous processing.
+
+        This method allows modification of various attributes of a span, such as name, time frames, metadata,
+        input, output, and more. The changes are serialized and scheduled for processing.
+
+        Args:
+            name (Optional[str]): The name of the span.
+            start_time (Optional[datetime]): The start time of the span.
+            end_time (Optional[datetime]): The end time of the span.
+            metadata (Optional[Any]): Additional metadata for the span.
+            input (Optional[Any]): Input data of the span.
+            output (Optional[Any]): Output data of the span.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
+            status_message (Optional[str]): Status message associated with the span.
+            version (Optional[str]): Version of the span.
+            Additional keyword arguments (kwargs) for further updates.
+
+        Returns:
+            StatefulSpanClient: An updated span.
+        """
         try:
             span_body = {
                 "id": self.id,
@@ -1511,6 +1675,28 @@ class StatefulSpanClient(StatefulClient):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
+        """Conclude a span by marking its end time and updating all relevant properties.
+
+        This method is designed to finalize a span. It sets the end time of the 
+        span to the current time if not explicitly provided and updates other attributes as needed. 
+        The method essentially acts as a wrapper around the `update` method, providing a convenient way to 
+        signal the completion of a span.
+
+        Args:
+            name (Optional[str]): The name of the span.
+            start_time (Optional[datetime]): The start time of the span.
+            end_time (Optional[datetime]): The end time of the span. Defaults to current time if not provided.
+            metadata (Optional[Any]): Additional metadata for the span.
+            input (Optional[Any]): Input data of the span.
+            output (Optional[Any]): Output data of the span.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
+            status_message (Optional[str]): Status message associated with the span.
+            version (Optional[str]): Version of the span.
+            Additional keyword arguments (kwargs) for further updates.
+
+        Returns:
+            StatefulSpanClient: The concluded span.
+        """
         try:
             span_body = {
                 "name": name,
@@ -1532,12 +1718,29 @@ class StatefulSpanClient(StatefulClient):
             self.log.warning(e)
 
     def get_langchain_handler(self):
+        """Get langchain callback handler associated with the current span.
+
+        Returns:
+            CallbackHandler: An instance of CallbackHandler linked to this StatefulSpanClient.
+        """
         from langfuse.callback import CallbackHandler
 
         return CallbackHandler(stateful_client=self)
 
 
 class StatefulTraceClient(StatefulClient):
+    """Class for handling stateful operations of traces in the Langfuse system. Inherits from StatefulClient.
+
+    This client extends the StatefulClient's capabilities to handle traces, enabling the creation and
+    updating of trace processes in the Langfuse environment.
+
+    Args:
+        client (FernLangfuse): Core interface for Langfuse API interaction.
+        id (str): Unique identifier of the trace.
+        state_type (StateType): Type of the stateful entity (observation or trace).
+        trace_id (str): The trace ID associated with this client.
+        task_manager (TaskManager): Manager for handling asynchronous tasks.
+    """
     log = logging.getLogger("langfuse")
 
     def __init__(
@@ -1563,6 +1766,24 @@ class StatefulTraceClient(StatefulClient):
         tags: typing.Optional[typing.List[str]] = None,
         **kwargs,
     ):
+        """Update the properties of an existing trace and schedules the updated trace for asynchronous processing.
+
+        This method allows for the modification of various attributes of a trace, such as name, user ID,
+        version, input, output, metadata, and tags. The updated trace is queued in the task manager for later execution.
+
+        Args:
+            name (Optional[str]): The name of the trace.
+            user_id (Optional[str]): The user ID associated with the trace.
+            version (Optional[str]): The version of the trace.
+            input (Optional[Any]): Input data of the trace.
+            output (Optional[Any]): Output data of the trace.
+            metadata (Optional[Any]): Additional metadata for the trace.
+            tags (Optional[List[str]]): Tags associated with the trace.
+            Additional keyword arguments (kwargs) for further updates.
+
+        Returns:
+            StatefulTraceClient: The updated trace.
+        """
         try:
             trace_body = {
                 "id": self.id,
@@ -1598,6 +1819,17 @@ class StatefulTraceClient(StatefulClient):
             self.log.exception(e)
 
     def get_langchain_handler(self):
+        """Get langchain callback handler associated with the current trace.
+
+        This method creates and returns a CallbackHandler instance, linking it with the current
+        trace, enabling automatic tracing in Langfuse
+
+        Raises:
+            ImportError: If the 'langchain' module is not installed, indicating missing functionality.
+
+        Returns:
+            CallbackHandler: An instance of CallbackHandler linked to this trace.
+        """
         try:
             # adding this to ensure langchain is installed
             import langchain  # noqa
@@ -1618,10 +1850,24 @@ class StatefulTraceClient(StatefulClient):
             self.log.exception(e)
 
     def getNewHandler(self):
+        """Alias for the `get_langchain_handler` method. Retrieves a callback handler for the trace."""
         return self.get_langchain_handler()
 
 
 class DatasetItemClient:
+    """Client class for managing dataset items in Langfuse.
+
+    Args:
+        id (str): Unique identifier of the dataset item.
+        status (DatasetStatus): The status of the dataset item.
+        input (Any): Input data associated with the dataset item.
+        expected_output (Optional[Any]): Expected output for the dataset item.
+        source_observation_id (Optional[str]): Identifier of the source observation.
+        dataset_id (str): Identifier of the dataset to which this item belongs.
+        created_at (datetime): Timestamp of dataset item creation.
+        updated_at (datetime): Timestamp of the last update to the dataset item.
+        langfuse (Langfuse): Instance of Langfuse client for API interactions.
+    """
     id: str
     status: DatasetStatus
     input: typing.Any
@@ -1646,11 +1892,23 @@ class DatasetItemClient:
         self.langfuse = langfuse
 
     def flush(self, observation: StatefulClient, run_name: str):
+        """Flush the task manager's queue before creating a dataset run item to ensure persistence.
+
+        Args:
+            observation (StatefulClient): The observation client associated with the dataset item.
+            run_name (str): The name of the dataset run.
+        """
         # flush the queue before creating the dataset run item
         # to ensure that all events are persistet.
         observation.task_manager.flush()
 
     def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
+        """Link the dataset item to an observation within a specific dataset run.
+
+        Args:
+            observation (Union[StatefulClient, str]): The observation to link, either as a client or as an ID.
+            run_name (str): The name of the dataset run to which the item is linked.
+        """
         observation_id = None
 
         if isinstance(observation, StatefulClient):
@@ -1676,6 +1934,14 @@ class DatasetItemClient:
         )
 
     def get_langchain_handler(self, *, run_name: str):
+        """Create and get a callback handler linked to this dataset item client.
+
+        Args:
+            run_name (str): The name of the dataset run to be used in the callback handler.
+
+        Returns:
+            CallbackHandler: An instance of CallbackHandler linked to this dataset item client.
+        """
         from langfuse.callback import CallbackHandler
 
         metadata = {
@@ -1694,6 +1960,18 @@ class DatasetItemClient:
 
 
 class DatasetClient:
+    """Client class for managing datasets in the Langfuse system.
+
+    Args:
+        id (str): Unique identifier of the dataset.
+        name (str): Name of the dataset.
+        project_id (str): Identifier of the project to which the dataset belongs.
+        dataset_name (str): Name of the dataset.
+        created_at (datetime): Timestamp of dataset creation.
+        updated_at (datetime): Timestamp of the last update to the dataset.
+        items (List[DatasetItemClient]): List of dataset item clients associated with the dataset.
+        runs (List[str]): List of dataset run identifiers associated with the dataset.
+    """
     id: str
     name: str
     project_id: str
