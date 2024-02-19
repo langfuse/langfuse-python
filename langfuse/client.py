@@ -62,7 +62,7 @@ class Langfuse(object):
         flush_interval (int, optional): Max delay until a new batch is sent to the API. Defaults to 0.5.
         max_retries (int, optional): Max number of retries in case of API/network errors. Defaults to 3.
         timeout (int, optional): Timeout of API requests in seconds. Defaults to 15.
-        sdk_integration (str, optional): Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly. Defaults to "default".
+        sdk_integration (str, optional): Used by integrations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly. Defaults to "default".
         httpx_client (httpx.Client, optional): Pass your own httpx client for more customizability of requests. Defaults to None.
 
     Attributes:
@@ -135,7 +135,7 @@ class Langfuse(object):
         if not public_key:
             self.log.warning("public_key is not set.")
             raise ValueError(
-                "public_key is required, set as parameter or environment variable 'LANGFUSE_PUBLIC_KEY'"
+                "public_key is required, set as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'"
             )
 
         if not secret_key:
@@ -193,7 +193,7 @@ class Langfuse(object):
     def __get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         """Retrieve the release value of Langfuse.
 
-        If 'release' is not provided, searches for a release identifier in a predefined set of environment variables.
+        If 'release' is not provided, search for a release identifier in a predefined set of environment variables.
 
         Args:
             release (Optional[str]): The explicit release identifier, if available.
@@ -408,7 +408,7 @@ class Langfuse(object):
             parent_observation_id (Optional[str]): Parent observation identifier of the generations to return. Defaults to None.
 
         Returns:
-            List of ObservationsViews: List of geneations in the project matching the given parameters.
+            List of ObservationsViews: List of generations in the project matching the given parameters.
         """
         return self.get_observations(
             page=page,
@@ -533,7 +533,7 @@ class Langfuse(object):
             name (str): The name of the prompt to be created.
             prompt (str): The content of the prompt to be created.
             is_active (bool): A flag indicating whether the prompt is active or not.
-            Active prompts are can be retrieved via the SDK and monitored during usage.
+            Active prompts can be retrieved via the SDK and monitored during usage.
 
         Returns:
             PromptClient: Prompt client representing the prompt.
@@ -580,7 +580,7 @@ class Langfuse(object):
             output (Optional[Any]): The output data of the trace.
             metadata (Optional[Any]): Additional metadata of the trace.
             tags (Optional[List[str]]): A list of tags for categorizing or labeling the trace.
-            **kwargs: Additional keyword arguments that can be included in the trace .
+            **kwargs: Additional keyword arguments that can be included in the trace.
 
         Returns:
             StatefulTraceClient: The created trace.
@@ -664,8 +664,7 @@ class Langfuse(object):
             kwargs (Optional[dict]): Additional keyword arguments that can be included in the score.
 
         Returns:
-            StatefulClient: A stateful client representing either the associated observation (if observation_id is provided)
-            or the trace (if observation_id is not provided).
+            StatefulClient: Either the associated observation (if observation_id is provided) or the trace (if observation_id is not provided).
 
         Example:
             ```python
@@ -767,7 +766,7 @@ class Langfuse(object):
             **kwargs: Additional keyword arguments to include in the span.
 
         Returns:
-            StatefulSpanClient: An stateful client representing the created span.
+            StatefulSpanClient: The created span.
 
         Example:
             ```python
@@ -850,7 +849,7 @@ class Langfuse(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ):
-        """Create a event with the provided parameters.
+        """Create an event with the provided parameters.
 
         An event represents a discrete event in a trace.
         If no trace_id is provided, a new unique trace identifier is generated for the event.
@@ -871,7 +870,7 @@ class Langfuse(object):
             **kwargs: Additional keyword arguments to include in the event.
 
         Returns:
-            StatefulSpanClient: An stateful client representing the created event.
+            StatefulSpanClient: The created event.
         """
         try:
             event_id = str(uuid.uuid4()) if id is None else id
@@ -947,7 +946,7 @@ class Langfuse(object):
     ):
         """Create a generation with the provided parameters.
 
-        A generation is a span which is used to log generations of AI models.
+        A generation is a span that is used to log generations of AI models.
         If no trace_id is provided, a new unique trace identifier is generated for the generation record.
         If a parent_observation_id is provided, the generation is linked to this existing observation.
 
@@ -2047,7 +2046,7 @@ class DatasetItemClient:
     Args:
         id (str): Unique identifier of the dataset item.
         status (DatasetStatus): The status of the dataset item. Can be either 'ACTIVE' or 'ARCHIVED'.
-        input (Any): Input data associated of the dataset item.
+        input (Any): Input data of the dataset item.
         expected_output (Optional[Any]): Expected output of the dataset item.
         source_observation_id (Optional[str]): Identifier of the source observation.
         dataset_id (str): Identifier of the dataset to which this item belongs.
@@ -2109,7 +2108,7 @@ class DatasetItemClient:
         observation.task_manager.flush()
 
     def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
-        """Link the dataset item to an observation within a specific dataset run.
+        """Link the dataset item to observation within a specific dataset run.
 
         Flushes the observations's task manager queue before creating the dataset run item.
 
