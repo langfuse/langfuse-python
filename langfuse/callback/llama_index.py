@@ -31,7 +31,7 @@ except ImportError:
     )
 
 
-@auto_decorate_methods_with(catch_and_log_errors)
+@auto_decorate_methods_with(catch_and_log_errors, exclude=["__init__"])
 class LLamaIndexCallbackHandler(
     LLamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
@@ -108,7 +108,6 @@ class LLamaIndexCallbackHandler(
         self._create_observations_from_trace_map(
             event_id=BASE_TRACE_EVENT, trace_map=trace_map
         )
-        self.flush()
 
     def on_event_start(
         self,
@@ -221,14 +220,16 @@ class LLamaIndexCallbackHandler(
                 input = end_event.payload.get(EventPayload.MESSAGES)
                 response = end_event.payload.get(EventPayload.RESPONSE, {})
                 output = response.message
+                if hasattr(output, "additional_kwargs"):
+                    delattr(output, "additional_kwargs")
                 model = response.raw.get("model", None)
                 token_usage = dict(response.raw.get("usage", {}))
                 usage = None
                 if token_usage:
                     usage = {
-                        "prompt_tokens": token_usage.get("prompt_tokens"),
-                        "completion_tokens": token_usage.get("completion_tokens"),
-                        "total_tokens": token_usage.get("total_tokens"),
+                        "input": token_usage.get("prompt_tokens"),
+                        "output": token_usage.get("completion_tokens"),
+                        "total": token_usage.get("total_tokens"),
                     }
 
         generation = parent.generation(
@@ -270,16 +271,19 @@ class LLamaIndexCallbackHandler(
 
         if end_event.payload:
             chunks = end_event.payload.get(EventPayload.CHUNKS, [])
+            input = {"num_chunks": len(chunks)}
             embeddings = end_event.payload.get(EventPayload.EMBEDDINGS, [])
-            metadata = {"num_embeddings": len(embeddings)}
+            output = {"num_embeddings": len(embeddings)}
 
-            usage = None
-            token_count = 0
-            for chunk in chunks:
-                token_count += self._token_counter.get_string_tokens(chunk)
+            # usage = None
+            token_count = sum(
+                self._token_counter.get_string_tokens(chunk) for chunk in chunks
+            )
 
             usage = {
-                "prompt_tokens": token_count or None,
+                "input": 0,
+                "output": 0,
+                "total": token_count or None,
             }
 
         generation = parent.generation(
@@ -290,9 +294,9 @@ class LLamaIndexCallbackHandler(
             end_time=end_event.time,
             version=self.version,
             model=model,
-            input=chunks,
+            input=input,
+            output=output,
             usage=usage or None,
-            metadata=metadata,
             model_parameters={
                 "request_timeout": timeout,
             },
@@ -325,7 +329,6 @@ class LLamaIndexCallbackHandler(
             name=start_event.event_type.value,
             version=self.version,
             session_id=self.session_id,
-            user_id=self.user_id,
             input=input,
             output=output,
         )

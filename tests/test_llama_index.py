@@ -1,4 +1,3 @@
-from typing import Literal
 import os
 
 from llama_index.core import (
@@ -43,12 +42,11 @@ def validate_embedding_generation(generation):
     return all(
         [
             generation.name == "OpenAIEmbedding",
-            generation.usage.input > 0,
-            generation.usage.output
-            == 0,  # For embeddings, no output tokens are charged
-            generation.usage.total > 0,
+            generation.usage.input == 0,
+            generation.usage.output == 0,
+            generation.usage.total > 0,  # For embeddings, only total tokens are logged
             bool(generation.input),
-            generation.output is None,  # Resulting embedding vectors are not logged
+            bool(generation.output),
         ]
     )
 
@@ -90,6 +88,7 @@ def test_callback_from_index_construction():
     trace_id = callback.trace.id
     assert trace_id is not None
 
+    callback.flush()
     trace_data = get_api().trace.get(trace_id)
     assert trace_data is not None
 
@@ -99,7 +98,10 @@ def test_callback_from_index_construction():
     assert any(o.name == CBEventType.CHUNKING for o in observations)
 
     # Test embedding generation
-    generations = list(filter(lambda o: o.type == "GENERATION", observations))
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
     assert len(generations) == 1  # Only one generation event for all embedded chunks
 
     generation = generations[0]
@@ -113,12 +115,14 @@ def test_callback_from_query_engine():
         "What did the speaker achieve in the past twelve months?"
     )
 
-    trace_id = callback.trace.id
-    trace_data = get_api().trace.get(trace_id)
-    observations = trace_data.observations
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
 
     # Test LLM generation
-    generations = list(filter(lambda o: o.type == "GENERATION", observations))
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
     assert (
         len(generations) == 2
     )  # One generation event for embedding call of query, one for LLM call
@@ -135,12 +139,14 @@ def test_callback_from_chat_engine():
         "What did the speaker achieve in the past twelve months?"
     )
 
-    trace_id = callback.trace.id
-    trace_data = get_api().trace.get(trace_id)
-    observations = trace_data.observations
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
 
     # Test LLM generation
-    generations = list(filter(lambda o: o.type == "GENERATION", observations))
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
     embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
     llm_generations = [g for g in generations if g.name == "openai_llm"]
 
@@ -170,6 +176,7 @@ def test_callback_from_query_pipeline():
         )
         pipeline.run(movie_name="The Matrix")
 
+        callback.flush()
         trace_data = get_api().trace.get(callback.trace.id)
         observations = trace_data.observations
         llm_generations = list(
@@ -196,12 +203,15 @@ def test_callback_with_root_trace():
 
     assert handler.get_trace_id() == trace_id
 
+    handler.flush()
     trace_data = get_api().trace.get(handler.trace.id)
     assert trace_data is not None
-    observations = trace_data.observations
 
     # Test LLM generation
-    generations = list(filter(lambda o: o.type == "GENERATION", observations))
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
     assert (
         len(generations) == 2
     )  # One generation event for embedding call of query, one for LLM call
@@ -213,6 +223,7 @@ def test_callback_with_root_trace():
     # Test that more observations are appended to the root trace
     index.as_query_engine().query("How did the speaker achieve those goals?")
 
+    handler.flush()
     trace_data = get_api().trace.get(handler.trace.id)
     generations = sorted(
         [o for o in trace_data.observations if o.type == "GENERATION"],
@@ -240,6 +251,7 @@ def test_callback_with_root_span():
 
     assert handler.get_trace_id() == trace_id
 
+    handler.flush()
     trace_data = get_api().trace.get(trace_id)
 
     assert trace_data is not None
@@ -260,6 +272,7 @@ def test_callback_with_root_span():
     # Test that more observations are appended to the root trace
     index.as_query_engine().query("How did the speaker achieve those goals?")
 
+    handler.flush()
     trace_data = get_api().trace.get(trace_id)
     generations = sorted(
         [o for o in trace_data.observations if o.type == "GENERATION"],
