@@ -536,7 +536,7 @@ class Langfuse(object):
             Active prompts can be retrieved via the SDK and monitored during usage.
 
         Returns:
-            PromptClient: Prompt client representing the prompt.
+            PromptClient: The prompt.
         """
         try:
             self.log.debug(f"Creating prompt {name}, version {version}")
@@ -973,7 +973,7 @@ class Langfuse(object):
             **kwargs: Additional keyword arguments to include in the generation.
 
         Returns:
-            StatefulGenerationClient: An object representing the created generation, allowing for further interactions and state management.
+            StatefulGenerationClient: The created generation.
 
         Example:
             ```python
@@ -1723,7 +1723,7 @@ class StatefulGenerationClient(StatefulClient):
             **kwargs: Additional keyword arguments for custom parameters.
 
         Returns:
-            StatefulGenerationClient: An instance representing the concluded generation.
+            StatefulGenerationClient: The concluded generation.
         """
         try:
             generation_body = {
