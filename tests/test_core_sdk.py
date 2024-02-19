@@ -580,6 +580,25 @@ def test_create_trace_and_generation():
     assert getTrace.input == {"key": "value"}
 
 
+def test_create_trace_with_manual_timestamp():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace_name = create_uuid()
+    trace_id = create_uuid()
+    timestamp = _get_timestamp()
+
+    langfuse.trace(id=trace_id, name=trace_name, timestamp=timestamp)
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert trace["name"] == trace_name
+    assert trace["id"] == trace_id
+    assert str(trace["timestamp"]).find(timestamp.isoformat()[0:23]) != -1
+
+
 def test_create_generation_and_trace():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
