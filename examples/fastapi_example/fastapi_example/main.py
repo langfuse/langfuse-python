@@ -19,10 +19,14 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def main_route():
-    return {"message": "Hey, this is an example showing how to use Langfuse with FastAPI."}
+    return {
+        "message": "Hey, this is an example showing how to use Langfuse with FastAPI."
+    }
+
 
 # Initialize Langfuse
 langfuse = Langfuse(public_key="pk-lf-1234567890", secret_key="sk-lf-1234567890")
+
 
 async def get_response_openai(prompt, background_tasks: BackgroundTasks):
     """
@@ -37,36 +41,31 @@ async def get_response_openai(prompt, background_tasks: BackgroundTasks):
     """
     try:
         trace = langfuse.trace(
-                name="this-is-a-trace",
-                user_id="test",
-                metadata="test",
+            name="this-is-a-trace",
+            user_id="test",
+            metadata="test",
         )
 
         trace = trace.score(
-                name="user-feedback",
-                value=1,
-                comment="Some user feedback",
+            name="user-feedback",
+            value=1,
+            comment="Some user feedback",
         )
 
-        generation = trace.generation(
-            name="this-is-a-generation", 
-            metadata="test"
-        )
+        generation = trace.generation(name="this-is-a-generation", metadata="test")
 
         sub_generation = generation.generation(
-            name="this-is-a-sub-generation",
-            metadata="test"
+            name="this-is-a-sub-generation", metadata="test"
         )
 
         sub_sub_span = sub_generation.span(
-            name="this-is-a-sub-sub-span", 
-            metadata="test"
+            name="this-is-a-sub-sub-span", metadata="test"
         )
 
         sub_sub_span = sub_sub_span.score(
-                name="user-feedback-o",
-                value=1,
-                comment="Some more user feedback",
+            name="user-feedback-o",
+            value=1,
+            comment="Some more user feedback",
         )
 
         response = {"status": "success", "message": "This is a test message"}

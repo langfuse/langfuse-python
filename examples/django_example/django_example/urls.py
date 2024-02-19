@@ -18,6 +18,6 @@ from django.urls import path
 from myapp import views
 
 urlpatterns = [
-    path('', views.main_route, name='main_route'),
-    path('campaign/', views.campaign, name='campaign'),
+    path("", views.main_route, name="main_route"),
+    path("campaign/", views.campaign, name="campaign"),
 ]
