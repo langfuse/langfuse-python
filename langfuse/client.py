@@ -92,9 +92,7 @@ class Langfuse(object):
         langfuse = Langfuse()
         ```
     """
-
     log = logging.getLogger("langfuse")
-
     host: str #Host of Langfuse API
 
     def __init__(
