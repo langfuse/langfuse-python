@@ -48,7 +48,7 @@ def test_openai_chat_completion():
     assert len(completion.choices) != 0
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -92,7 +92,7 @@ def test_openai_chat_completion_stream():
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -181,6 +181,36 @@ def test_openai_chat_completion_with_trace():
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
     assert generation.data[0].trace_id == trace_id
+
+
+def test_openai_chat_completion_with_parent_observation_id():
+    api = get_api()
+    generation_name = create_uuid()
+    trace_id = create_uuid()
+    span_id = create_uuid()
+    langfuse = Langfuse()
+
+    trace = langfuse.trace(id=trace_id)
+    trace.span(id=span_id)
+
+    chat_func(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        trace_id=trace_id,
+        parent_observation_id=span_id,
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].trace_id == trace_id
+    assert generation.data[0].parent_observation_id == span_id
 
 
 def test_openai_chat_completion_fail():
@@ -522,7 +552,7 @@ async def test_async_chat():
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -566,7 +596,7 @@ async def test_async_chat_stream():
     assert generation.data[0].name == generation_name
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0613"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
