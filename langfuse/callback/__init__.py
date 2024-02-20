@@ -1,6 +1,6 @@
 from .langchain import (
     LangchainCallbackHandler as CallbackHandler,
 )  # For backward compatibility
-from .llama_index import LLamaIndexCallbackHandler
+from .llama_index import LlamaIndexCallbackHandler
 
-__all__ = ["CallbackHandler", "LLamaIndexCallbackHandler"]
+__all__ = ["CallbackHandler", "LlamaIndexCallbackHandler"]
