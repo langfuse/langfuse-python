@@ -15,6 +15,7 @@ class Prompt(pydantic.BaseModel):
     name: str
     version: int
     prompt: str
+    config: typing.Any
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

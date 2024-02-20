@@ -10,7 +10,7 @@ import pytest
 
 from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import LlmUsage, LlmUsageWithCost, create_uuid, get_api
+from tests.utils import CompletionUsage, LlmUsage, LlmUsageWithCost, create_uuid, get_api
 
 
 @pytest.mark.asyncio
@@ -212,6 +212,13 @@ def test_create_generation():
     "usage, expected_usage, expected_input_cost, expected_output_cost, expected_total_cost",
     [
         (
+            CompletionUsage(prompt_tokens=51, completion_tokens=0, total_tokens=100),
+            "TOKENS",
+            None,
+            None,
+            None,
+        ),
+        (
             LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
             "TOKENS",
             None,
@@ -293,7 +300,7 @@ def test_create_generation_complex(
     expected_output_cost,
     expected_total_cost,
 ):
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     generation_id = create_uuid()
