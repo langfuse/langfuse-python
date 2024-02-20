@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict, Any
+from typing import Optional, TypedDict, Any, Dict
 import chevron
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -51,7 +51,7 @@ class PromptClient:
     version: int
     prompt: str
     # same to input/output of the observations, this is typed to Any.
-    config: dict[str, Any]
+    config: Dict[str, Any]
 
     def __init__(self, prompt: Prompt):
         self.name = prompt.name
