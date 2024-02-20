@@ -13,7 +13,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
 
-from langfuse.callback import LlamaIndexCallbackHandler
+from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.client import Langfuse
 
 from tests.utils import create_uuid, get_api
