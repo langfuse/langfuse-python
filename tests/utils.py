@@ -7,11 +7,6 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
-
 from langfuse.api.client import FernLangfuse
 
 
