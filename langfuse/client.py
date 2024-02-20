@@ -1283,6 +1283,11 @@ class StatefulSpanClient(StatefulClient):
 
         return CallbackHandler(stateful_client=self)
 
+    def get_llama_index_handler(self):
+        from langfuse.callback import LLamaIndexCallbackHandler
+
+        return LLamaIndexCallbackHandler(stateful_client=self)
+
 
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
@@ -1366,6 +1371,13 @@ class StatefulTraceClient(StatefulClient):
 
     def getNewHandler(self):
         return self.get_langchain_handler()
+
+    def get_llama_index_handler(self):
+        from langfuse.callback import LLamaIndexCallbackHandler
+
+        return LLamaIndexCallbackHandler(
+            stateful_client=self, debug=self.log.level == logging.DEBUG
+        )
 
 
 class DatasetItemClient:
