@@ -55,7 +55,7 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
 
     if is_langfuse_usage:
         return usage
-
+    
     is_openai_usage = any(
         k in usage
         for k in (

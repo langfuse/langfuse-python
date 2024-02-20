@@ -7,6 +7,11 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
+
 from langfuse.api.client import FernLangfuse
 
 
@@ -38,6 +43,15 @@ class LlmUsageWithCost(pydantic.BaseModel):
     )
     total_cost: typing.Optional[float] = pydantic.Field(alias="totalCost", default=None)
 
+class CompletionUsage(pydantic.BaseModel):
+    completion_tokens: int
+    """Number of tokens in the generated completion."""
+
+    prompt_tokens: int
+    """Number of tokens in the prompt."""
+
+    total_tokens: int
+    """Total number of tokens used in the request (prompt + completion)."""
 
 class LlmUsage(pydantic.BaseModel):
     prompt_tokens: typing.Optional[int] = pydantic.Field(
