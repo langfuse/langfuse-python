@@ -6,13 +6,13 @@ from langchain.callbacks.base import BaseCallbackHandler as LangchainBaseCallbac
 
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
-from langfuse.callback.base import BaseCallbackHandler as LangfuseBaseCallbackHandler
 from langfuse.client import (
     StatefulSpanClient,
     StatefulTraceClient,
 )
 from langfuse.extract_model import _extract_model_name
 from langfuse.utils import _get_timestamp
+from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
@@ -29,19 +29,9 @@ try:
         SystemMessage,
     )
 except ImportError:
-    logging.getLogger("langfuse").warning(
-        "Could not import langchain. Some functionality may be missing."
+    raise ModuleNotFoundError(
+        "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
     )
-    LLMResult = Any
-    AIMessage = Any
-    BaseMessage = Any
-    ChatMessage = Any
-    HumanMessage = Any
-    SystemMessage = Any
-    ChatGeneration = Any
-    Document = Any
-    AgentAction = Any
-    AgentFinish = Any
 
 
 class LangchainCallbackHandler(

@@ -5,7 +5,7 @@ import os
 from langfuse.client import Langfuse, StatefulTraceClient, StatefulSpanClient, StateType
 
 
-class BaseCallbackHandler:
+class LangfuseBaseCallbackHandler:
     log = logging.getLogger("langfuse")
 
     def __init__(

@@ -12,8 +12,8 @@ from langfuse.decorators.error_logging import (
     auto_decorate_methods_with,
     catch_and_log_errors,
 )
-from langfuse.callback.base import BaseCallbackHandler as LangfuseBaseCallbackHandler
-from langfuse.callback.utils import CallbackEvent
+from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
+from .utils import CallbackEvent
 
 try:
     from llama_index.core.callbacks.base_handler import (
