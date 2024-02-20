@@ -169,6 +169,9 @@ def _get_langfuse_data_from_kwargs(
 ):
     name = kwargs.get("name", "OpenAI-generation")
 
+    if name is None:
+        name = "OpenAI-generation"
+
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
 
