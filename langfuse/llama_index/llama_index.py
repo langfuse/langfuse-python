@@ -36,6 +36,7 @@ class LlamaIndexCallbackHandler(
     LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
     """[Alpha] LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
+
     log = logging.getLogger("langfuse")
 
     def __init__(
@@ -235,6 +236,7 @@ class LlamaIndexCallbackHandler(
                         "input": token_usage.get("prompt_tokens"),
                         "output": token_usage.get("completion_tokens"),
                         "total": token_usage.get("total_tokens"),
+                        "unit": "TOKENS",
                     }
 
         generation = parent.generation(
