@@ -88,12 +88,12 @@ class LLamaIndexCallbackHandler(
 
         self.root = stateful_client
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
-        self._cur_trace_id: Optional[str] = None
+        self._llama_index_trace_name: Optional[str] = None
         self._token_counter = TokenCounter(tokenizer)
 
     def start_trace(self, trace_id: Optional[str] = None) -> None:
         """Run when an overall trace is launched."""
-        self._cur_trace_id = trace_id
+        self._llama_index_trace_name = trace_id
 
     def end_trace(
         self,
@@ -105,6 +105,9 @@ class LLamaIndexCallbackHandler(
             self.log.debug("No events in trace map to create the observation tree.")
             return
 
+        # Generate Langfuse observations after trace has ended and full trace_map is available.
+        # For long-running traces this leads to events only being sent to Langfuse after the trace has ended.
+        # Timestamps remain accurate as they are set at the time of the event.
         self._create_observations_from_trace_map(
             event_id=BASE_TRACE_EVENT, trace_map=trace_map
         )
@@ -169,7 +172,7 @@ class LLamaIndexCallbackHandler(
         else:
             self.trace = self.langfuse.trace(
                 id=str(uuid4()),
-                name=self.trace_name or f"LlamaIndex_{self._cur_trace_id}",
+                name=self.trace_name or f"LlamaIndex_{self._llama_index_trace_name}",
                 version=self.version,
                 session_id=self.session_id,
                 user_id=self.user_id,
@@ -219,7 +222,7 @@ class LLamaIndexCallbackHandler(
             elif EventPayload.MESSAGES in end_event.payload:
                 input = end_event.payload.get(EventPayload.MESSAGES)
                 response = end_event.payload.get(EventPayload.RESPONSE, {})
-                output = response.message
+                output = response.message.copy()
                 if hasattr(output, "additional_kwargs"):
                     delattr(output, "additional_kwargs")
                 model = response.raw.get("model", None)
