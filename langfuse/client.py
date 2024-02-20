@@ -412,8 +412,8 @@ class Langfuse(object):
                 is_active=is_active,
                 config=config,
             )
-            prompt = self.client.prompts.create(request=request)
-            return PromptClient(prompt=prompt)
+            server_prompt = self.client.prompts.create(request=request)
+            return PromptClient(prompt=server_prompt)
         except Exception as e:
             self.log.exception(e)
             raise e

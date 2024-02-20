@@ -22,7 +22,7 @@ def test_create_prompt():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
     print(prompt_client.config, second_prompt_client.config)
-    assert prompt_client.config is None
+    assert prompt_client.config == {}
 
 
 def test_compiling_prompt():
