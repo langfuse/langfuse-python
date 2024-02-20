@@ -213,7 +213,6 @@ def _get_langfuse_data_from_kwargs(
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
-    print("name", name, kwargs)
     return {
         "name": name,
         "metadata": metadata,
