@@ -111,6 +111,7 @@ class LlamaIndexCallbackHandler(
         self._create_observations_from_trace_map(
             event_id=BASE_TRACE_EVENT, trace_map=trace_map
         )
+        self._update_trace_data(trace_map=trace_map)
 
     def on_event_start(
         self,
@@ -323,7 +324,7 @@ class LlamaIndexCallbackHandler(
             input, output = self._handle_node_parsing_payload(self.event_map[event_id])
 
         elif start_event.event_type == CBEventType.CHUNKING:
-            input, output = self.handle_chunking_payload(self.event_map[event_id])
+            input, output = self._handle_chunking_payload(self.event_map[event_id])
 
         span = parent.span(
             id=event_id,
@@ -358,7 +359,7 @@ class LlamaIndexCallbackHandler(
 
         return inputs, outputs
 
-    def handle_chunking_payload(
+    def _handle_chunking_payload(
         self, events: List[CallbackEvent]
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """Handle the payload of a NODE_PARSING event."""
@@ -370,3 +371,41 @@ class LlamaIndexCallbackHandler(
             outputs["num_chunks"] = len(chunks)
 
         return inputs, outputs
+
+    def _update_trace_data(self, trace_map):
+        if self.root:  # Exit early if root is user-provided.
+            return
+
+        child_event_ids = trace_map.get(BASE_TRACE_EVENT, [])
+        if not child_event_ids:
+            return
+
+        event_pair = self.event_map.get(child_event_ids[0])
+        if not event_pair or len(event_pair) < 2:
+            return
+
+        start_event, end_event = event_pair
+        input = self._extract_payload_trace_input(start_event)
+        output = self._extract_payload_trace_output(end_event)
+
+        if input or output:
+            self.trace.update(input=input, output=output)
+
+    def _extract_payload_trace_input(self, event):
+        if event.payload:
+            for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR]:
+                if key in event.payload:
+                    return event.payload.get(key)
+
+        return None
+
+    def _extract_payload_trace_output(self, event):
+        if event.payload and EventPayload.RESPONSE in event.payload:
+            output = (
+                getattr(event.payload.get(EventPayload.RESPONSE, {}), "response", None)
+                or event.payload
+            )
+
+            return output
+
+        return None
