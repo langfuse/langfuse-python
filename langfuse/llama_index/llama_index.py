@@ -35,6 +35,7 @@ except ImportError:
 class LlamaIndexCallbackHandler(
     LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
+    """[Alpha] LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
     log = logging.getLogger("langfuse")
 
     def __init__(
