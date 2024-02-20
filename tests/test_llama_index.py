@@ -13,7 +13,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
 
-from langfuse.callback import LLamaIndexCallbackHandler
+from langfuse.callback import LlamaIndexCallbackHandler
 from langfuse.client import Langfuse
 
 from tests.utils import create_uuid, get_api
@@ -65,7 +65,7 @@ def validate_llm_generation(generation, model_name="openai_llm"):
 
 
 def test_callback_init():
-    callback = LLamaIndexCallbackHandler(
+    callback = LlamaIndexCallbackHandler(
         release="something",
         session_id="session-id",
         user_id="user-id",
@@ -80,7 +80,7 @@ def test_callback_init():
 
 
 def test_callback_from_index_construction():
-    callback = LLamaIndexCallbackHandler()
+    callback = LlamaIndexCallbackHandler()
     get_index(callback, force_rebuild=True)
 
     assert callback.trace is not None
@@ -109,7 +109,7 @@ def test_callback_from_index_construction():
 
 
 def test_callback_from_query_engine():
-    callback = LLamaIndexCallbackHandler()
+    callback = LlamaIndexCallbackHandler()
     index = get_index(callback)
     index.as_query_engine().query(
         "What did the speaker achieve in the past twelve months?"
@@ -133,7 +133,7 @@ def test_callback_from_query_engine():
 
 
 def test_callback_from_chat_engine():
-    callback = LLamaIndexCallbackHandler()
+    callback = LlamaIndexCallbackHandler()
     index = get_index(callback)
     index.as_chat_engine().chat(
         "What did the speaker achieve in the past twelve months?"
@@ -158,7 +158,7 @@ def test_callback_from_chat_engine():
 
 
 def test_callback_from_query_pipeline():
-    callback = LLamaIndexCallbackHandler()
+    callback = LlamaIndexCallbackHandler()
     Settings.callback_manager = CallbackManager([callback])
 
     prompt_str = "Please generate related movies to {movie_name}"
