@@ -23,3 +23,6 @@ dmypy.json
 /.coverage
 
 .DS_Store
+
+playground
+tests/mocks/llama-index-storage

@@ -83,7 +83,14 @@ OPENAI_METHODS_V1 = [
 
 class OpenAiArgsExtractor:
     def __init__(
-        self, name=None, metadata=None, trace_id=None, session_id=None, user_id=None, **kwargs
+        self,
+        name=None,
+        metadata=None,
+        trace_id=None,
+        session_id=None,
+        user_id=None,
+        parent_observation_id=None,
+        **kwargs,
     ):
         self.args = {}
         self.args["name"] = name
@@ -91,6 +98,7 @@ class OpenAiArgsExtractor:
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
         self.args["user_id"] = user_id
+        self.args["parent_observation_id"] = parent_observation_id
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -108,6 +116,52 @@ def _langfuse_wrapper(func):
         return wrapper
 
     return _with_langfuse
+
+
+def _extract_chat_prompt(kwargs: any):
+    """extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
+    prompt = {}
+
+    if kwargs.get("functions") is not None:
+        prompt.update({"functions": kwargs["functions"]})
+
+    if kwargs.get("function_call") is not None:
+        prompt.update({"function_call": kwargs["function_call"]})
+
+    if kwargs.get("tools") is not None:
+        prompt.update({"tools": kwargs["tools"]})
+
+    if prompt:
+        # uf user provided functions, we need to send these together with messages to langfuse
+        prompt.update(
+            {
+                "messages": _filter_image_data(kwargs.get("messages", [])),
+            }
+        )
+        return prompt
+    else:
+        # vanilla case, only send messages in openai format to langfuse
+        return _filter_image_data(kwargs.get("messages", []))
+
+
+def _extract_chat_response(kwargs: any):
+    """extracts the llm output from the response."""
+    response = {
+        "role": kwargs.get("role", None),
+    }
+
+    if kwargs.get("function_call") is not None:
+        response.update({"function_call": kwargs["function_call"]})
+
+    if kwargs.get("tool_calls") is not None:
+        response.update({"tool_calls": kwargs["tool_calls"]})
+
+    response.update(
+        {
+            "content": kwargs.get("content", None),
+        }
+    )
+    return response
 
 
 def _get_langfuse_data_from_kwargs(
@@ -130,6 +184,12 @@ def _get_langfuse_data_from_kwargs(
     if user_id is not None and not isinstance(user_id, str):
         raise TypeError("user_id must be a string")
 
+    parent_observation_id = kwargs.get("parent_observation_id", None)
+    if parent_observation_id is not None and not isinstance(parent_observation_id, str):
+        raise TypeError("parent_observation_id must be a string")
+    if parent_observation_id is not None and trace_id is None:
+        raise ValueError("parent_observation_id requires trace_id to be set")
+
     if trace_id:
         langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id)
     elif session_id:
@@ -148,15 +208,7 @@ def _get_langfuse_data_from_kwargs(
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
-        prompt = (
-            {
-                "messages": filter_image_data(kwargs.get("messages", [])),
-                "functions": kwargs.get("functions", []),
-                "function_call": kwargs.get("function_call", {}),
-            }
-            if kwargs.get("functions", None) is not None
-            else filter_image_data(kwargs.get("messages", []))
-        )
+        prompt = _extract_chat_prompt(kwargs)
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
@@ -170,6 +222,7 @@ def _get_langfuse_data_from_kwargs(
         "name": name,
         "metadata": metadata,
         "trace_id": trace_id,
+        "parent_observation_id": parent_observation_id,
         "user_id": user_id,
         "start_time": start_time,
         "input": prompt,
@@ -189,7 +242,9 @@ def _get_langfuse_data_from_sync_streaming_response(
         responses.append(i)
         yield i
 
-    model, completion_start_time, completion = _extract_data(resource, responses)
+    model, completion_start_time, completion = _extract_openai_response(
+        resource, responses
+    )
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
@@ -205,7 +260,9 @@ async def _get_langfuse_data_from_async_streaming_response(
         responses.append(i)
         yield i
 
-    model, completion_start_time, completion = _extract_data(resource, responses)
+    model, completion_start_time, completion = _extract_openai_response(
+        resource, responses
+    )
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
@@ -224,7 +281,7 @@ def _create_langfuse_update(
     generation.update(**update)
 
 
-def _extract_data(resource, responses):
+def _extract_openai_response(resource, responses):
     completion = [] if resource.type == "chat" else ""
     model = None
     completion_start_time = None
@@ -315,7 +372,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
         if len(choices) > 0:
             choice = choices[-1]
             completion = (
-                choice.message.json()
+                _extract_chat_response(choice.message.__dict__)
                 if _is_openai_v1()
                 else choice.get("message", None)
             )
@@ -480,7 +537,7 @@ def auth_check():
     return modifier._langfuse.auth_check()
 
 
-def filter_image_data(messages: List[dict]):
+def _filter_image_data(messages: List[dict]):
     """
     https://platform.openai.com/docs/guides/vision?lang=python
 

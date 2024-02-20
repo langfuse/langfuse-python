@@ -429,6 +429,7 @@ class Langfuse(object):
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ):
         try:
@@ -445,7 +446,7 @@ class Langfuse(object):
                 "input": input,
                 "output": output,
                 "tags": tags,
-                "timestamp": _get_timestamp(),
+                "timestamp": timestamp if timestamp is not None else _get_timestamp(),
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
@@ -1288,6 +1289,11 @@ class StatefulSpanClient(StatefulClient):
 
         return CallbackHandler(stateful_client=self)
 
+    def get_llama_index_handler(self):
+        from langfuse.callback import LLamaIndexCallbackHandler
+
+        return LLamaIndexCallbackHandler(stateful_client=self)
+
 
 class StatefulTraceClient(StatefulClient):
     log = logging.getLogger("langfuse")
@@ -1371,6 +1377,13 @@ class StatefulTraceClient(StatefulClient):
 
     def getNewHandler(self):
         return self.get_langchain_handler()
+
+    def get_llama_index_handler(self):
+        from langfuse.callback import LLamaIndexCallbackHandler
+
+        return LLamaIndexCallbackHandler(
+            stateful_client=self, debug=self.log.level == logging.DEBUG
+        )
 
 
 class DatasetItemClient:
