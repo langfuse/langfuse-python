@@ -21,8 +21,8 @@ def test_create_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
-    print(prompt_client.config, prompt_client)
-    assert prompt_client.config == {}
+    print(prompt_client.config, second_prompt_client.config)
+    assert prompt_client.config is None
 
 
 def test_compiling_prompt():
