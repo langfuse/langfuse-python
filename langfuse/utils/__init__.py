@@ -49,13 +49,18 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
 
     if isinstance(usage, pydantic.BaseModel):
         usage = usage.dict()
+    
+    # sometimes we do not match the pydantic usage object
+    # in these cases, we convert to dict manually
+    if hasattr(usage, "__dict__"):
+        usage = usage.__dict__
 
     # validate that usage object has input, output, total, usage
     is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "unit"))
 
     if is_langfuse_usage:
         return usage
-
+    
     is_openai_usage = any(
         k in usage
         for k in (
