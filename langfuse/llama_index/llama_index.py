@@ -12,12 +12,12 @@ from langfuse.decorators.error_logging import (
     auto_decorate_methods_with,
     catch_and_log_errors,
 )
-from langfuse.callback.base import BaseCallbackHandler as LangfuseBaseCallbackHandler
-from langfuse.callback.utils import CallbackEvent
+from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
+from .utils import CallbackEvent
 
 try:
     from llama_index.core.callbacks.base_handler import (
-        BaseCallbackHandler as LLamaIndexBaseCallbackHandler,
+        BaseCallbackHandler as LlamaIndexBaseCallbackHandler,
     )
     from llama_index.core.callbacks.schema import (
         CBEventType,
@@ -32,8 +32,8 @@ except ImportError:
 
 
 @auto_decorate_methods_with(catch_and_log_errors, exclude=["__init__"])
-class LLamaIndexCallbackHandler(
-    LLamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
+class LlamaIndexCallbackHandler(
+    LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
     log = logging.getLogger("langfuse")
 
@@ -61,7 +61,7 @@ class LLamaIndexCallbackHandler(
         event_ends_to_ignore: Optional[List[CBEventType]] = None,
         tokenizer: Optional[Callable[[str], list]] = None,
     ) -> None:
-        LLamaIndexBaseCallbackHandler.__init__(
+        LlamaIndexBaseCallbackHandler.__init__(
             self,
             event_starts_to_ignore=event_starts_to_ignore or [],
             event_ends_to_ignore=event_ends_to_ignore or [],
