@@ -414,6 +414,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
+@pytest.mark.skip(reason="rate limits")
 def test_callback_generated_from_trace_anthropic():
     langfuse = Langfuse(debug=False)
 
