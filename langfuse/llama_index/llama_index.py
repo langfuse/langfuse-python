@@ -291,6 +291,7 @@ class LlamaIndexCallbackHandler(
                 "input": 0,
                 "output": 0,
                 "total": token_count or None,
+                "unit": "TOKENS",
             }
 
         generation = parent.generation(
