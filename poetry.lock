@@ -604,13 +604,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cohere"
-version = "4.46"
+version = "4.48"
 description = "Python SDK for the Cohere API"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "cohere-4.46-py3-none-any.whl", hash = "sha256:6448795ee0425b4445c216aa578d9eac1d1b59295c9277053a110248582b7172"},
-    {file = "cohere-4.46.tar.gz", hash = "sha256:f91d59f8dc51b9d13caf9f509378c5482ae3f82ef7579a4379fc43dbb74a6f07"},
+    {file = "cohere-4.48-py3-none-any.whl", hash = "sha256:d8a84900533725e62c536a73426e367cd97cde464e34d39bd2cf7fd18f3e319d"},
+    {file = "cohere-4.48.tar.gz", hash = "sha256:874578aad8c67d5b73f4705cf03341d94f302012288190613a6b1ed2fac3e010"},
 ]
 
 [package.dependencies]
@@ -3556,6 +3556,7 @@ python-versions = ">=3.8"
 files = [
     {file = "PyMuPDFb-1.23.22-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:9085a1e2fbf16f2820f9f7ad3d25e85f81d9b9eb0409110c1670d4cf5a27a678"},
     {file = "PyMuPDFb-1.23.22-py3-none-macosx_11_0_arm64.whl", hash = "sha256:01016dd33220cef4ecaf929d09fd27a584dc3ec3e5c9f4112dfe63613ea35135"},
+    {file = "PyMuPDFb-1.23.22-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:cf50e814db91f2a2325219302fbac229a23682c372cf8232aabd51ea3f18210e"},
     {file = "PyMuPDFb-1.23.22-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:3ffa713ad18e816e584c8a5f569995c32d22f8ac76ab6e4a61f2d2983c4b73d9"},
     {file = "PyMuPDFb-1.23.22-py3-none-win32.whl", hash = "sha256:d00e372452845aea624659c302d25e935052269fd3aafe26948301576d6f2ee8"},
     {file = "PyMuPDFb-1.23.22-py3-none-win_amd64.whl", hash = "sha256:7c9c157281fdee9f296e666a323307dbf74cb38f017921bb131fa7bfcd39c2bd"},
