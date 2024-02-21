@@ -43,6 +43,7 @@ langchain-openai = "^0.0.5"
 dashscope = "^1.14.1"
 pymongo = "^4.6.1"
 llama-index-llms-anthropic = "^0.1.1"
+bson = "^0.5.10"
 
 [tool.poetry.extras]
 langchain = ["langchain"]
