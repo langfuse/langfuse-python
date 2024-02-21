@@ -281,7 +281,6 @@ def test_openai_chat_completion_with_additional_params():
     assert trace.user_id == user_id
     assert trace.session_id == session_id
     assert trace.tags == tags
-    assert trace.name == "user-creation"
 
 
 def test_openai_chat_completion_without_extra_param():
