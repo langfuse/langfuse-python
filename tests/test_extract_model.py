@@ -16,7 +16,7 @@ from langchain_community.chat_models import (
     ChatTongyi,
     ChatCohere,
     BedrockChat,
-    ChatAnyscale,
+    # ChatAnyscale,
     # ChatVertexAI,
 )
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
