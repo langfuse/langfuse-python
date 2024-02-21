@@ -45,6 +45,7 @@ def test_compiling_prompt():
         == "Hello, world! I hope you are great."
     )
 
+
 def test_create_prompt_with_null_config():
     langfuse = Langfuse(debug=False)
 

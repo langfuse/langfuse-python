@@ -301,6 +301,11 @@ def _extract_model_name(
     if model:
         return model
 
+    # anyscale
+    model = _extract_model_by_pattern("ChatAnyscale", serialized, "model_name")
+    if model:
+        return model
+
     model = _extract_model_by_key(
         "HuggingFacePipeline",
         serialized,
