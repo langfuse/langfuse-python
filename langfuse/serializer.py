@@ -21,6 +21,12 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, (datetime)):
             # Timezone-awareness check
             return serialize_datetime(obj)
+
+        # LlamaIndex StreamingAgentChatResponse is not serializable by default as it is a generator
+        # Attention: StreamingAgentChatResponse is a also a dataclass, so check for it first
+        if type(obj).__name__ == "StreamingAgentChatResponse":
+            return str(obj)
+
         if is_dataclass(obj):
             return asdict(obj)
         if isinstance(obj, UUID):
