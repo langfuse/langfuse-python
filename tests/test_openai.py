@@ -255,9 +255,11 @@ def test_openai_chat_completion_fail():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def test_openai_chat_completion_with_user_id():
+def test_openai_chat_completion_with_additional_params():
     api = get_api()
     user_id = create_uuid()
+    session_id = create_uuid()
+    tags = ["tag1", "tag2"]
     trace_id = create_uuid()
     completion = chat_func(
         name="user-creation",
@@ -267,6 +269,8 @@ def test_openai_chat_completion_with_user_id():
         metadata={"someKey": "someResponse"},
         user_id=user_id,
         trace_id=trace_id,
+        session_id=session_id,
+        tags=tags,
     )
 
     openai.flush_langfuse()
@@ -275,6 +279,8 @@ def test_openai_chat_completion_with_user_id():
     traces = api.trace.get(trace_id)
 
     assert traces.user_id == user_id
+    assert traces.session_id == session_id
+    assert traces.tags == tags
 
 
 def test_openai_chat_completion_without_extra_param():
