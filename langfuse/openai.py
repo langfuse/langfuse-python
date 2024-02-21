@@ -202,9 +202,7 @@ def _get_langfuse_data_from_kwargs(
         raise ValueError("parent_observation_id requires trace_id to be set")
 
     if trace_id:
-        langfuse.trace(
-            id=trace_id, session_id=session_id, user_id=user_id, tags=tags, name=name
-        )
+        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
     else:
         trace_id = langfuse.trace(
             session_id=session_id, user_id=user_id, tags=tags, name=name
