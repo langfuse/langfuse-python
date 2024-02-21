@@ -464,7 +464,6 @@ class Langfuse(object):
                 event,
             )
 
-            
         except Exception as e:
             self.log.exception(e)
         finally:
@@ -507,10 +506,10 @@ class Langfuse(object):
                 "type": "score-create",
                 "body": new_body.dict(exclude_none=True),
             }
-
             self.task_manager.add_task(event)
 
         except Exception as e:
+            print(f"exception {e}...")
             self.log.exception(e)
         finally:
             if observation_id is not None:
@@ -745,7 +744,6 @@ class Langfuse(object):
             self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
 
-
         except Exception as e:
             self.log.exception(e)
         finally:
@@ -756,7 +754,7 @@ class Langfuse(object):
                 new_trace_id,
                 self.task_manager,
             )
-        
+
     def _generate_trace(self, trace_id: str, name: str):
         trace_dict = {
             "id": trace_id,
@@ -904,7 +902,7 @@ class StatefulClient(object):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        
+
     def span(
         self,
         *,
@@ -1142,7 +1140,6 @@ class StatefulGenerationClient(StatefulClient):
             self.log.debug(f"Update generation {event}...")
             self.task_manager.add_task(event)
 
-
         except Exception as e:
             self.log.exception(e)
         finally:
@@ -1200,13 +1197,12 @@ class StatefulGenerationClient(StatefulClient):
         except Exception as e:
             self.log.warning(e)
         return StatefulGenerationClient(
-                self.client,
-                self.id,
-                StateType.OBSERVATION,
-                self.trace_id,
-                task_manager=self.task_manager,
-            )
-
+            self.client,
+            self.id,
+            StateType.OBSERVATION,
+            self.trace_id,
+            task_manager=self.task_manager,
+        )
 
 
 class StatefulSpanClient(StatefulClient):
@@ -1387,7 +1383,7 @@ class StatefulTraceClient(StatefulClient):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        
+
     def get_langchain_handler(self):
         try:
             # adding this to ensure langchain is installed

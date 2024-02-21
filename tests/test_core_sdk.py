@@ -10,7 +10,13 @@ import pytest
 
 from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import CompletionUsage, LlmUsage, LlmUsageWithCost, create_uuid, get_api
+from tests.utils import (
+    CompletionUsage,
+    LlmUsage,
+    LlmUsageWithCost,
+    create_uuid,
+    get_api,
+)
 
 
 @pytest.mark.asyncio
