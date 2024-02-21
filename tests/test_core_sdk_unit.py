@@ -54,7 +54,6 @@ def test_langfuse_returning_if_taskmanager_fails(
     mock_task_manager = langfuse.task_manager.add_task
     mock_task_manager.return_value = Exception("Task manager unable to process event")
 
-
     body = {
         "name": trace_name,
         **kwargs,
