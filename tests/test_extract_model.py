@@ -16,8 +16,10 @@ from langchain_community.chat_models import (
     ChatTongyi,
     ChatCohere,
     BedrockChat,
+    ChatAnyscale,
     # ChatVertexAI,
 )
+from langchain_community.chat_models.fake import FakeMessagesListChatModel
 from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
 from langchain_community.llms.cohere import Cohere
@@ -29,7 +31,7 @@ from langchain_community.llms.openai import (
     OpenAI,
 )
 from langchain_mistralai.chat_models import ChatMistralAI
-
+from langchain.schema.messages import HumanMessage
 
 from tests.utils import get_api
 
@@ -37,6 +39,19 @@ from tests.utils import get_api
 @pytest.mark.parametrize(
     "expected_model,model",
     [
+        # exclueded as this is doing an API call upon initialisation
+        # (
+        #     "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        #     ChatAnyscale(
+        #         anyscale_api_key="esecret_fabc8pj1e5wj5kb74vliwks2kv",
+        #         model_name="mistralai/Mixtral-8x7B-Instruct-v0.1",
+        #         temperature=1.0,
+        #     ),
+        # ),
+        (
+            None,
+            FakeMessagesListChatModel(responses=[HumanMessage("Hello, how are you?")]),
+        ),
         (
             "mistralai",
             ChatMistralAI(mistral_api_key="mistral_api_key", model="mistralai"),

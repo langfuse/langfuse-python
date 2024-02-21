@@ -59,7 +59,7 @@ def _extract_model_name(
     """
     # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
     # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
-
+    print("huhu", serialized, kwargs)
     model = _extract_model_by_key(
         "ChatGoogleGenerativeAI",
         serialized,
@@ -298,6 +298,11 @@ def _extract_model_name(
 
     # huggingface
     model = _extract_model_by_pattern("HuggingFaceHub", serialized, "model")
+    if model:
+        return model
+
+    # anyscale
+    model = _extract_model_by_pattern("ChatAnyscale", serialized, "model_name")
     if model:
         return model
 
