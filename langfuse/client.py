@@ -464,11 +464,12 @@ class Langfuse(object):
                 event,
             )
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulTraceClient(
                 self.client, new_id, StateType.TRACE, new_id, self.task_manager
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def score(
         self,
@@ -481,12 +482,13 @@ class Langfuse(object):
         observation_id: typing.Optional[str] = None,
         kwargs=None,
     ):
+        trace_id = self.trace_id if trace_id is None else trace_id
         try:
             new_id = str(uuid.uuid4()) if id is None else id
 
             new_dict = {
                 "id": new_id,
-                "trace_id": self.trace_id if trace_id is None else trace_id,
+                "trace_id": trace_id,
                 "observation_id": observation_id,
                 "name": name,
                 "value": value,
@@ -504,9 +506,12 @@ class Langfuse(object):
                 "type": "score-create",
                 "body": new_body.dict(exclude_none=True),
             }
-
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            print(f"exception {e}...")
+            self.log.exception(e)
+        finally:
             if observation_id is not None:
                 return StatefulClient(
                     self.client,
@@ -519,9 +524,6 @@ class Langfuse(object):
                 return StatefulClient(
                     self.client, new_id, StateType.TRACE, new_id, self.task_manager
                 )
-
-        except Exception as e:
-            self.log.exception(e)
 
     def span(
         self,
@@ -581,6 +583,9 @@ class Langfuse(object):
             self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulSpanClient(
                 self.client,
                 new_span_id,
@@ -588,8 +593,6 @@ class Langfuse(object):
                 new_trace_id,
                 self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def event(
         self,
@@ -647,6 +650,9 @@ class Langfuse(object):
             self.log.debug(f"Creating event {event}...")
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulSpanClient(
                 self.client,
                 event_id,
@@ -654,8 +660,6 @@ class Langfuse(object):
                 new_trace_id,
                 self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def generation(
         self,
@@ -740,6 +744,9 @@ class Langfuse(object):
             self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulGenerationClient(
                 self.client,
                 new_generation_id,
@@ -747,8 +754,6 @@ class Langfuse(object):
                 new_trace_id,
                 self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def _generate_trace(self, trace_id: str, name: str):
         trace_dict = {
@@ -887,6 +892,9 @@ class StatefulClient(object):
             self.log.debug(f"Creating generation {new_body}...")
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulGenerationClient(
                 self.client,
                 generation_id,
@@ -894,8 +902,6 @@ class StatefulClient(object):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def span(
         self,
@@ -947,6 +953,9 @@ class StatefulClient(object):
             }
 
             self.task_manager.add_task(event)
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulSpanClient(
                 self.client,
                 span_id,
@@ -954,8 +963,6 @@ class StatefulClient(object):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def score(
         self,
@@ -996,6 +1003,10 @@ class StatefulClient(object):
             }
 
             self.task_manager.add_task(event)
+
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulClient(
                 self.client,
                 self.id,
@@ -1003,8 +1014,6 @@ class StatefulClient(object):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def event(
         self,
@@ -1054,11 +1063,12 @@ class StatefulClient(object):
             self.log.debug(f"Creating event {event}...")
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulClient(
                 self.client, event_id, self.state_type, self.trace_id, self.task_manager
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def get_trace_url(self):
         return f"{self.client._client_wrapper._base_url}/trace/{self.trace_id}"
@@ -1130,6 +1140,9 @@ class StatefulGenerationClient(StatefulClient):
             self.log.debug(f"Update generation {event}...")
             self.task_manager.add_task(event)
 
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulGenerationClient(
                 self.client,
                 self.id,
@@ -1137,8 +1150,6 @@ class StatefulGenerationClient(StatefulClient):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def end(
         self,
@@ -1185,6 +1196,13 @@ class StatefulGenerationClient(StatefulClient):
 
         except Exception as e:
             self.log.warning(e)
+        return StatefulGenerationClient(
+            self.client,
+            self.id,
+            StateType.OBSERVATION,
+            self.trace_id,
+            task_manager=self.task_manager,
+        )
 
 
 class StatefulSpanClient(StatefulClient):
@@ -1240,6 +1258,9 @@ class StatefulSpanClient(StatefulClient):
             }
 
             self.task_manager.add_task(event)
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulSpanClient(
                 self.client,
                 self.id,
@@ -1247,8 +1268,6 @@ class StatefulSpanClient(StatefulClient):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def end(
         self,
@@ -1283,6 +1302,14 @@ class StatefulSpanClient(StatefulClient):
 
         except Exception as e:
             self.log.warning(e)
+        finally:
+            return StatefulSpanClient(
+                self.client,
+                self.id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
 
     def get_langchain_handler(self):
         from langfuse.callback import CallbackHandler
@@ -1345,6 +1372,10 @@ class StatefulTraceClient(StatefulClient):
             }
 
             self.task_manager.add_task(event)
+
+        except Exception as e:
+            self.log.exception(e)
+        finally:
             return StatefulTraceClient(
                 self.client,
                 self.id,
@@ -1352,8 +1383,6 @@ class StatefulTraceClient(StatefulClient):
                 self.trace_id,
                 task_manager=self.task_manager,
             )
-        except Exception as e:
-            self.log.exception(e)
 
     def get_langchain_handler(self):
         try:
