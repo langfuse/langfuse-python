@@ -43,7 +43,7 @@ from tests.utils import get_api
         # (
         #     "mistralai/Mixtral-8x7B-Instruct-v0.1",
         #     ChatAnyscale(
-        #         anyscale_api_key="esecret_fabc8pj1e5wj5kb74vliwks2kv",
+        #         anyscale_api_key="anyscale_api_key",
         #         model_name="mistralai/Mixtral-8x7B-Instruct-v0.1",
         #         temperature=1.0,
         #     ),
