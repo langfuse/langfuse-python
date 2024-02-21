@@ -6,14 +6,8 @@ from langfuse.client import (
     StatefulSpanClient,
     StatefulTraceClient,
 )
-
-from langfuse.utils import _get_timestamp
-
-
 import pytest
-
 from langfuse import Langfuse
-from tests.api_wrapper import LangfuseAPI
 
 
 @pytest.fixture
