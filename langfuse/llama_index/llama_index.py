@@ -13,7 +13,7 @@ from langfuse.decorators.error_logging import (
     catch_and_log_errors,
 )
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from .utils import CallbackEvent
+from .utils import CallbackEvent, ParsedLLMEndPayload
 
 try:
     from llama_index.core.callbacks.base_handler import (
@@ -231,31 +231,7 @@ class LlamaIndexCallbackHandler(
             max_tokens = serialized.get("max_tokens", None)
             timeout = serialized.get("timeout", None)
 
-        input = output = usage = model = None
-
-        if end_event.payload:
-            if EventPayload.PROMPT in end_event.payload:
-                input = end_event.payload.get(EventPayload.PROMPT)
-                output = end_event.payload.get(EventPayload.COMPLETION)
-
-            elif EventPayload.MESSAGES in end_event.payload:
-                input = end_event.payload.get(EventPayload.MESSAGES)
-                response = end_event.payload.get(EventPayload.RESPONSE, {})
-
-                if hasattr(response, "message"):
-                    output = response.message.copy()
-                    if hasattr(output, "additional_kwargs"):
-                        delattr(output, "additional_kwargs")
-
-                if hasattr(response, "raw"):
-                    model = response.raw.get("model", None)
-                    token_usage = dict(response.raw.get("usage", {}))
-                    if token_usage:
-                        usage = {
-                            "input": token_usage.get("prompt_tokens"),
-                            "output": token_usage.get("completion_tokens"),
-                            "total": token_usage.get("total_tokens"),
-                        }
+        parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
 
         generation = parent.generation(
             id=event_id,
@@ -263,17 +239,13 @@ class LlamaIndexCallbackHandler(
             version=self.version,
             name=name,
             start_time=start_event.time,
-            end_time=end_event.time,
-            usage=usage or None,
-            model=model,
-            input=input,
-            output=output,
             metadata=end_event.payload,
             model_parameters={
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "request_timeout": timeout,
             },
+            **parsed_end_payload,
         )
 
         # Register orphaned LLM event (only start event, no end event) to be later upserted with the correct trace_id
@@ -288,38 +260,10 @@ class LlamaIndexCallbackHandler(
         generation: StatefulGenerationClient,
         trace: StatefulTraceClient,
     ) -> None:
-        input = output = usage = model = None
-
-        if end_event.payload:
-            if EventPayload.PROMPT in end_event.payload:
-                input = end_event.payload.get(EventPayload.PROMPT)
-                output = end_event.payload.get(EventPayload.COMPLETION)
-
-            elif EventPayload.MESSAGES in end_event.payload:
-                input = end_event.payload.get(EventPayload.MESSAGES)
-                response = end_event.payload.get(EventPayload.RESPONSE, {})
-
-                if hasattr(response, "message"):
-                    output = response.message.copy()
-                    if hasattr(output, "additional_kwargs"):
-                        delattr(output, "additional_kwargs")
-
-                if hasattr(response, "raw"):
-                    model = response.raw.get("model", None)
-                    token_usage = dict(response.raw.get("usage", {}))
-                    if token_usage:
-                        usage = {
-                            "input": token_usage.get("prompt_tokens"),
-                            "output": token_usage.get("completion_tokens"),
-                            "total": token_usage.get("total_tokens"),
-                        }
+        parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
 
         generation.update(
-            input=input,
-            output=output,
-            usage=usage,
-            model=model,
-            end_time=end_event.time,
+            **parsed_end_payload,
         )
 
         if generation.trace_id != trace.id:
@@ -327,7 +271,47 @@ class LlamaIndexCallbackHandler(
                 f"Generation trace_id {generation.trace_id} does not match trace.id {trace.id}"
             )
 
-        trace.update(output=output)
+        trace.update(output=parsed_end_payload["output"])
+
+    def _parse_LLM_end_event_payload(
+        self, end_event: CallbackEvent
+    ) -> ParsedLLMEndPayload:
+        result: ParsedLLMEndPayload = {
+            "input": None,
+            "output": None,
+            "usage": None,
+            "model": None,
+            "end_time": end_event.time,
+        }
+
+        if not end_event.payload:
+            return result
+
+        if EventPayload.PROMPT in end_event.payload:
+            result["input"] = end_event.payload.get(EventPayload.PROMPT)
+            result["output"] = end_event.payload.get(EventPayload.COMPLETION)
+
+        elif EventPayload.MESSAGES in end_event.payload:
+            result["input"] = end_event.payload.get(EventPayload.MESSAGES)
+            response = end_event.payload.get(EventPayload.RESPONSE, {})
+
+            if hasattr(response, "message"):
+                output = response.message.copy()
+                if hasattr(output, "additional_kwargs"):
+                    delattr(output, "additional_kwargs")
+                result["output"] = output
+
+            if hasattr(response, "raw"):
+                result["model"] = response.raw.get("model")
+                token_usage = response.raw.get("usage", {})
+                if token_usage:
+                    result["usage"] = {
+                        "input": getattr(token_usage, "prompt_tokens", None),
+                        "output": getattr(token_usage, "completion_tokens", None),
+                        "total": getattr(token_usage, "total_tokens", None),
+                    }
+
+        return result
 
     def _handle_embedding_events(
         self,
