@@ -77,7 +77,8 @@ jobs:
           cp .env.dev.example .env
           pwd
           cd ./web
-          npx --yes prisma migrate deploy
+          pwd
+          npm run DISABLE_ERD=false dotenv -e ../.env -- npx prisma migrate dev
           npm run db:seed
           cd ..
           echo "::endgroup::"
