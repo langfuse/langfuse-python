@@ -78,7 +78,7 @@ jobs:
           pwd
           cd ./web
           pwd
-          npm run DISABLE_ERD=false dotenv -e ../.env -- npx prisma migrate dev
+          npm run db:migrate
           npm run db:seed
           cd ..
           echo "::endgroup::"
