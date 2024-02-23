@@ -84,7 +84,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false docker-compose up -d server
+          TELEMETRY_ENABLED=false docker-compose up -d langfuse-server
           echo "::endgroup::"
 
       # Add this step to check the health of the container
