@@ -45,7 +45,7 @@ poetry run pre-commit install
 
 #### Setup
 
-- Add .env based on .env.example
+- Add .env based on .env.template
 
 #### Run
 
