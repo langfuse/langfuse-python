@@ -78,7 +78,7 @@ jobs:
           pwd
           cd ./web
           npx --yes prisma migrate deploy
-          npx --yes prisma db seed
+          nom run db:seed
           cd ..
           echo "::endgroup::"
 
