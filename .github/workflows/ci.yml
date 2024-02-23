@@ -75,12 +75,12 @@ jobs:
 
           echo "::group::Seed db"
           cp .env.dev.example .env
-          npx --yes prisma migrate deploy
+          npx --yes prisma migrate deploy --schema=./web/prisma/schema.prisma
           npx --yes prisma db seed
           echo "::endgroup::"
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false docker-compose up -d langfuse-server
+          TELEMETRY_ENABLED=false docker-compose up -d server
           echo "::endgroup::"
 
       # Add this step to check the health of the container
