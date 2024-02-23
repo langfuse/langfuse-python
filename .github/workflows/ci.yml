@@ -75,7 +75,7 @@ jobs:
 
           echo "::group::Seed db"
           cp .env.dev.example .env
-          cd /web
+          cd ./web
           npx --yes prisma migrate deploy
           npx --yes prisma db seed
           cd ..
