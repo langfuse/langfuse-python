@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, Dict, Any
-
+from typing import Optional, Dict, Any, TypedDict
+from langfuse.model import ModelUsage
 from langfuse.utils import _get_timestamp
 
 try:
@@ -25,3 +25,11 @@ class CallbackEvent(CBEvent):
     ):
         super().__init__(event_type, payload=payload, id_=event_id)
         self.time = _get_timestamp()
+
+
+class ParsedLLMEndPayload(TypedDict):
+    end_time: datetime
+    input: Optional[str]
+    output: Optional[dict]
+    usage: Optional[ModelUsage]
+    model: Optional[str]

@@ -13,7 +13,7 @@ from langfuse.decorators.error_logging import (
     catch_and_log_errors,
 )
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from .utils import CallbackEvent
+from .utils import CallbackEvent, ParsedLLMEndPayload
 
 try:
     from llama_index.core.callbacks.base_handler import (
@@ -93,6 +93,12 @@ class LlamaIndexCallbackHandler(
         self._llama_index_trace_name: Optional[str] = None
         self._token_counter = TokenCounter(tokenizer)
 
+        # For stream-chat, the last LLM end_event arrives after the trace has ended
+        # Keep track of these orphans to upsert them with the correct trace_id after the trace has ended
+        self._orphaned_LLM_generations: Dict[
+            str, Tuple[StatefulGenerationClient, StatefulTraceClient]
+        ] = {}
+
     def start_trace(self, trace_id: Optional[str] = None) -> None:
         """Run when an overall trace is launched."""
         self._llama_index_trace_name = trace_id
@@ -143,6 +149,13 @@ class LlamaIndexCallbackHandler(
             event_id=event_id, event_type=event_type, payload=payload
         )
         self.event_map[event_id].append(end_event)
+
+        if event_type == CBEventType.LLM and event_id in self._orphaned_LLM_generations:
+            generation, trace = self._orphaned_LLM_generations[event_id]
+            self._handle_orphaned_LLM_end_event(
+                end_event, generation=generation, trace=trace
+            )
+            del self._orphaned_LLM_generations[event_id]
 
     def _create_observations_from_trace_map(
         self,
@@ -208,7 +221,8 @@ class LlamaIndexCallbackHandler(
         ],
         trace_id: str,
     ) -> StatefulGenerationClient:
-        start_event, end_event = self.event_map[event_id]
+        events = self.event_map[event_id]
+        start_event, end_event = events[0], events[-1]
 
         if start_event.payload and EventPayload.SERIALIZED in start_event.payload:
             serialized = start_event.payload.get(EventPayload.SERIALIZED, {})
@@ -217,26 +231,7 @@ class LlamaIndexCallbackHandler(
             max_tokens = serialized.get("max_tokens", None)
             timeout = serialized.get("timeout", None)
 
-        if end_event.payload:
-            if EventPayload.PROMPT in end_event.payload:
-                input = end_event.payload.get(EventPayload.PROMPT)
-                output = end_event.payload.get(EventPayload.COMPLETION)
-
-            elif EventPayload.MESSAGES in end_event.payload:
-                input = end_event.payload.get(EventPayload.MESSAGES)
-                response = end_event.payload.get(EventPayload.RESPONSE, {})
-                output = response.message.copy()
-                if hasattr(output, "additional_kwargs"):
-                    delattr(output, "additional_kwargs")
-                model = response.raw.get("model", None)
-                token_usage = dict(response.raw.get("usage", {}))
-                usage = None
-                if token_usage:
-                    usage = {
-                        "input": token_usage.get("prompt_tokens"),
-                        "output": token_usage.get("completion_tokens"),
-                        "total": token_usage.get("total_tokens"),
-                    }
+        parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
 
         generation = parent.generation(
             id=event_id,
@@ -244,20 +239,79 @@ class LlamaIndexCallbackHandler(
             version=self.version,
             name=name,
             start_time=start_event.time,
-            end_time=end_event.time,
-            usage=usage or None,
-            model=model,
-            input=input,
-            output=output,
             metadata=end_event.payload,
             model_parameters={
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "request_timeout": timeout,
             },
+            **parsed_end_payload,
         )
 
+        # Register orphaned LLM event (only start event, no end event) to be later upserted with the correct trace_id
+        if len(events) == 1:
+            self._orphaned_LLM_generations[event_id] = (generation, self.trace)
+
         return generation
+
+    def _handle_orphaned_LLM_end_event(
+        self,
+        end_event: CallbackEvent,
+        generation: StatefulGenerationClient,
+        trace: StatefulTraceClient,
+    ) -> None:
+        parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
+
+        generation.update(
+            **parsed_end_payload,
+        )
+
+        if generation.trace_id != trace.id:
+            raise ValueError(
+                f"Generation trace_id {generation.trace_id} does not match trace.id {trace.id}"
+            )
+
+        trace.update(output=parsed_end_payload["output"])
+
+    def _parse_LLM_end_event_payload(
+        self, end_event: CallbackEvent
+    ) -> ParsedLLMEndPayload:
+        result: ParsedLLMEndPayload = {
+            "input": None,
+            "output": None,
+            "usage": None,
+            "model": None,
+            "end_time": end_event.time,
+        }
+
+        if not end_event.payload:
+            return result
+
+        if EventPayload.PROMPT in end_event.payload:
+            result["input"] = end_event.payload.get(EventPayload.PROMPT)
+            result["output"] = end_event.payload.get(EventPayload.COMPLETION)
+
+        elif EventPayload.MESSAGES in end_event.payload:
+            result["input"] = end_event.payload.get(EventPayload.MESSAGES)
+            response = end_event.payload.get(EventPayload.RESPONSE, {})
+
+            if hasattr(response, "message"):
+                output = response.message.copy()
+                if hasattr(output, "additional_kwargs"):
+                    delattr(output, "additional_kwargs")
+                result["output"] = output
+
+            if hasattr(response, "raw"):
+                result["model"] = response.raw.get("model")
+                token_usage = response.raw.get("usage", {})
+                if token_usage:
+                    result["usage"] = {
+                        "input": getattr(token_usage, "prompt_tokens", None),
+                        "output": getattr(token_usage, "completion_tokens", None),
+                        "total": getattr(token_usage, "total_tokens", None),
+                    }
+
+        return result
 
     def _handle_embedding_events(
         self,
@@ -267,7 +321,8 @@ class LlamaIndexCallbackHandler(
         ],
         trace_id: str,
     ) -> StatefulGenerationClient:
-        start_event, end_event = self.event_map[event_id]
+        events = self.event_map[event_id]
+        start_event, end_event = events[0], events[-1]
 
         if start_event.payload and EventPayload.SERIALIZED in start_event.payload:
             serialized = start_event.payload.get(EventPayload.SERIALIZED, {})
