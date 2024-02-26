@@ -430,6 +430,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
         timestamp: typing.Optional[dt.datetime] = None,
+        public: typing.Optional[bool] = None,
         **kwargs,
     ):
         try:
@@ -446,6 +447,7 @@ class Langfuse(object):
                 "input": input,
                 "output": output,
                 "tags": tags,
+                "public": public,
                 "timestamp": timestamp if timestamp is not None else _get_timestamp(),
             }
             if kwargs is not None:
@@ -1332,6 +1334,7 @@ class StatefulTraceClient(StatefulClient):
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
+        public: typing.Optional[bool] = None,
         **kwargs,
     ):
         try:
@@ -1343,6 +1346,7 @@ class StatefulTraceClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "metadata": metadata,
+                "public": public,
                 "tags": tags,
             }
             if kwargs is not None:
