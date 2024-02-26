@@ -8,6 +8,7 @@ from langfuse.client import (
     StatefulSpanClient,
     StatefulTraceClient,
     StatefulGenerationClient,
+    StateType,
 )
 from langfuse.decorators.error_logging import (
     auto_decorate_methods_with,
@@ -31,6 +32,9 @@ except ImportError:
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
 
+context_root: ContextVar[
+    Optional[Union[StatefulTraceClient, StatefulSpanClient]]
+] = ContextVar("root", default=None)
 context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
     "trace_metadata",
     default={
@@ -59,9 +63,6 @@ class LlamaIndexCallbackHandler(
         secret_key: Optional[str] = None,
         host: Optional[str] = None,
         debug: bool = False,
-        stateful_client: Optional[
-            Union[StatefulTraceClient, StatefulSpanClient]
-        ] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         trace_name: Optional[str] = None,
@@ -88,7 +89,6 @@ class LlamaIndexCallbackHandler(
             secret_key=secret_key,
             host=host,
             debug=debug,
-            stateful_client=stateful_client,
             session_id=session_id,
             user_id=user_id,
             trace_name=trace_name,
@@ -102,7 +102,6 @@ class LlamaIndexCallbackHandler(
             sdk_integration="llama-index",
         )
 
-        self.root = stateful_client
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
         self._llama_index_trace_name: Optional[str] = None
         self._token_counter = TokenCounter(tokenizer)
@@ -114,7 +113,34 @@ class LlamaIndexCallbackHandler(
             str, Tuple[StatefulGenerationClient, StatefulTraceClient]
         ] = {}
 
-    def set_trace_metadata(
+    def set_root(
+        self, root: Optional[Union[StatefulTraceClient, StatefulSpanClient]]
+    ) -> None:
+        context_root.set(root)
+
+        if root is None:
+            self.trace = None
+            self.root_span = None
+            self._task_manager = self.langfuse.task_manager if self.langfuse else None
+
+            return
+
+        if isinstance(root, StatefulTraceClient):
+            self.trace = root
+
+        elif isinstance(root, StatefulSpanClient):
+            self.root_span = root
+            self.trace = StatefulTraceClient(
+                root.client,
+                root.trace_id,
+                StateType.TRACE,
+                root.trace_id,
+                root.task_manager,
+            )
+
+        self._task_manager = root.task_manager
+
+    def set_trace_params(
         self,
         name: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -124,8 +150,8 @@ class LlamaIndexCallbackHandler(
         tags: Optional[List[str]] = None,
     ):
         """
-        Sets the trace metadata that will be used for all following operations. Allows setting metadata of subsequent traces at any point in the code.
-        Overwrites the default metadata set in the callback constructor.
+        Sets the trace params that will be used for all following operations. Allows setting params of subsequent traces at any point in the code.
+        Overwrites the default params set in the callback constructor.
 
         Parameters:
         - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
@@ -232,8 +258,9 @@ class LlamaIndexCallbackHandler(
             )
 
     def _get_root_observation(self) -> Union[StatefulTraceClient, StatefulSpanClient]:
-        if self.root is not None:
-            return self.root  # return user-provided root trace or span
+        user_provided_root = context_root.get()
+        if user_provided_root is not None:
+            return user_provided_root
 
         else:
             trace_metadata = context_trace_metadata.get()
@@ -447,6 +474,10 @@ class LlamaIndexCallbackHandler(
         elif start_event.event_type == CBEventType.CHUNKING:
             input, output = self._handle_chunking_payload(self.event_map[event_id])
 
+        extracted_input = self._extract_payload_input(start_event)
+        extracted_output = self._extract_payload_output(end_event)
+        metadata = end_event.payload if extracted_output else None
+
         span = parent.span(
             id=event_id,
             trace_id=trace_id,
@@ -454,8 +485,9 @@ class LlamaIndexCallbackHandler(
             name=start_event.event_type.value,
             version=self.version,
             session_id=self.session_id,
-            input=input,
-            output=output,
+            input=extracted_input or input,
+            output=extracted_output or output,
+            metadata=metadata,
         )
 
         if end_event:
@@ -494,7 +526,7 @@ class LlamaIndexCallbackHandler(
         return inputs, outputs
 
     def _update_trace_data(self, trace_map):
-        if self.root:  # Exit early if root is user-provided.
+        if context_root.get():  # Exit early if root is user-provided.
             return
 
         child_event_ids = trace_map.get(BASE_TRACE_EVENT, [])
@@ -506,13 +538,13 @@ class LlamaIndexCallbackHandler(
             return
 
         start_event, end_event = event_pair
-        input = self._extract_payload_trace_input(start_event)
-        output = self._extract_payload_trace_output(end_event)
+        input = self._extract_payload_input(start_event)
+        output = self._extract_payload_output(end_event)
 
         if input or output:
             self.trace.update(input=input, output=output)
 
-    def _extract_payload_trace_input(self, event):
+    def _extract_payload_input(self, event):
         if event.payload:
             for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR]:
                 if key in event.payload:
@@ -520,7 +552,7 @@ class LlamaIndexCallbackHandler(
 
         return None
 
-    def _extract_payload_trace_output(self, event):
+    def _extract_payload_output(self, event):
         if event.payload and EventPayload.RESPONSE in event.payload:
             output = (
                 getattr(event.payload.get(EventPayload.RESPONSE, {}), "response", None)
