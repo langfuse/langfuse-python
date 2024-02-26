@@ -62,6 +62,7 @@ class LlamaIndexCallbackHandler(
         event_starts_to_ignore: Optional[List[CBEventType]] = None,
         event_ends_to_ignore: Optional[List[CBEventType]] = None,
         tokenizer: Optional[Callable[[str], list]] = None,
+        sdk_integration: Optional[str] = None,
     ) -> None:
         LlamaIndexBaseCallbackHandler.__init__(
             self,
@@ -85,7 +86,7 @@ class LlamaIndexCallbackHandler(
             flush_interval=flush_interval,
             max_retries=max_retries,
             timeout=timeout,
-            sdk_integration="llama-index",
+            sdk_integration=sdk_integration or "llama-index_callback",
         )
 
         self.root = stateful_client
