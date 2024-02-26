@@ -1430,7 +1430,7 @@ def test_openai_instruct_usage():
             """
         )
         | OpenAI(
-            model="davinci-002",
+            model="gpt-3.5-turbo-instruct",
             temperature=0,
             callbacks=[lf_handler],
             max_retries=3,
