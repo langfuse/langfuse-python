@@ -1413,7 +1413,7 @@ def test_names_on_spans_lcel():
     )
 
 
-def test_test():
+def test_openai_instruct_usage():
     from langchain_core.output_parsers.string import StrOutputParser
     from langchain_core.runnables import Runnable
     from langchain_openai import OpenAI
