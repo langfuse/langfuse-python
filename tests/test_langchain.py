@@ -1411,3 +1411,34 @@ def test_names_on_spans_lcel():
         )
         == 1
     )
+
+
+def test_test():
+    from langchain_core.output_parsers.string import StrOutputParser
+    from langchain_core.runnables import Runnable
+    from langchain_openai import OpenAI
+
+    lf_handler = CallbackHandler()
+
+    runnable_chain: Runnable = (
+        PromptTemplate.from_template(
+            """Answer the question based only on the following context:
+
+            Question: {question}
+
+            Answer in the following language: {language}
+            """
+        )
+        | OpenAI(
+            model="davinci-002",
+            temperature=0,
+            callbacks=[lf_handler],
+            max_retries=3,
+            timeout=30,
+        )
+        | StrOutputParser()
+    )
+
+    runnable_chain.invoke(
+        {"question": "where did harrison work", "language": "italian"}
+    )
