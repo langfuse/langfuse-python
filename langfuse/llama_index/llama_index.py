@@ -1,4 +1,5 @@
 from collections import defaultdict
+from contextvars import ContextVar
 from typing import Any, Dict, List, Optional, Union, Tuple, Callable
 from uuid import uuid4
 import logging
@@ -13,7 +14,7 @@ from langfuse.decorators.error_logging import (
     catch_and_log_errors,
 )
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from .utils import CallbackEvent, ParsedLLMEndPayload
+from .utils import CallbackEvent, ParsedLLMEndPayload, TraceMetadata
 
 try:
     from llama_index.core.callbacks.base_handler import (
@@ -29,6 +30,18 @@ except ImportError:
     raise ModuleNotFoundError(
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
+
+context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
+    "trace_metadata",
+    default={
+        "name": None,
+        "user_id": None,
+        "session_id": None,
+        "version": None,
+        "metadata": None,
+        "tags": None,
+    },
+)
 
 
 @auto_decorate_methods_with(catch_and_log_errors, exclude=["__init__"])
@@ -54,6 +67,7 @@ class LlamaIndexCallbackHandler(
         trace_name: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         threads: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[int] = None,
@@ -92,12 +106,48 @@ class LlamaIndexCallbackHandler(
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
         self._llama_index_trace_name: Optional[str] = None
         self._token_counter = TokenCounter(tokenizer)
+        self.tags = tags
 
         # For stream-chat, the last LLM end_event arrives after the trace has ended
         # Keep track of these orphans to upsert them with the correct trace_id after the trace has ended
         self._orphaned_LLM_generations: Dict[
             str, Tuple[StatefulGenerationClient, StatefulTraceClient]
         ] = {}
+
+    def set_trace_metadata(
+        self,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        version: Optional[str] = None,
+        metadata: Optional[Any] = None,
+        tags: Optional[List[str]] = None,
+    ):
+        """
+        Sets the trace metadata that will be used for all following operations. Allows setting metadata of subsequent traces at any point in the code.
+        Overwrites the default metadata set in the callback constructor.
+
+        Parameters:
+        - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
+        - user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
+        - session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+        - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+        - metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+        - tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+
+        Returns:
+        None
+        """
+        context_trace_metadata.set(
+            {
+                "name": name,
+                "user_id": user_id,
+                "session_id": session_id,
+                "version": version,
+                "metadata": metadata,
+                "tags": tags,
+            }
+        )
 
     def start_trace(self, trace_id: Optional[str] = None) -> None:
         """Run when an overall trace is launched."""
@@ -186,12 +236,26 @@ class LlamaIndexCallbackHandler(
             return self.root  # return user-provided root trace or span
 
         else:
+            trace_metadata = context_trace_metadata.get()
+            name = (
+                trace_metadata["name"]
+                or self.trace_name
+                or f"LlamaIndex_{self._llama_index_trace_name}"
+            )
+            version = trace_metadata["version"] or self.version
+            session_id = trace_metadata["session_id"] or self.session_id
+            user_id = trace_metadata["user_id"] or self.user_id
+            metadata = trace_metadata["metadata"]
+            tags = trace_metadata["tags"] or self.tags
+
             self.trace = self.langfuse.trace(
                 id=str(uuid4()),
-                name=self.trace_name or f"LlamaIndex_{self._llama_index_trace_name}",
-                version=self.version,
-                session_id=self.session_id,
-                user_id=self.user_id,
+                name=name,
+                version=version,
+                session_id=session_id,
+                user_id=user_id,
+                metadata=metadata,
+                tags=tags,
             )
 
             return self.trace

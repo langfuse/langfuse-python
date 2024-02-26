@@ -311,3 +311,54 @@ def test_callback_with_root_span():
     second_embedding_generation, second_llm_generation = generations[-2:]
     assert validate_embedding_generation(second_embedding_generation)
     assert validate_llm_generation(second_llm_generation)
+
+
+def test_callback_with_custom_trace_metadata():
+    initial_name = "initial-name"
+    initial_user_id = "initial-user-id"
+    initial_session_id = "initial-session-id"
+    initial_tags = ["initial_value1", "initial_value2"]
+
+    callback = LlamaIndexCallbackHandler(
+        trace_name=initial_name,
+        user_id=initial_user_id,
+        session_id=initial_session_id,
+        tags=initial_tags,
+    )
+
+    index = get_index(callback)
+    index.as_query_engine().query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
+
+    assert trace_data.name == initial_name
+    assert trace_data.user_id == initial_user_id
+    assert trace_data.session_id == initial_session_id
+    assert trace_data.tags == initial_tags
+
+    # Update trace metadata on existing handler
+    updated_name = "updated-name"
+    updated_user_id = "updated-user-id"
+    updated_session_id = "updated-session-id"
+    updated_tags = ["updated_value1", "updated_value2"]
+
+    callback.set_trace_metadata(
+        name=updated_name,
+        user_id=updated_user_id,
+        session_id=updated_session_id,
+        tags=updated_tags,
+    )
+
+    index.as_query_engine().query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
+
+    assert trace_data.name == updated_name
+    assert trace_data.user_id == updated_user_id
+    assert trace_data.session_id == updated_session_id
+    assert trace_data.tags == updated_tags
