@@ -40,5 +40,6 @@ class TraceMetadata(TypedDict):
     user_id: Optional[str]
     session_id: Optional[str]
     version: Optional[str]
+    release: Optional[str]
     metadata: Optional[Any]
     tags: Optional[List[str]]

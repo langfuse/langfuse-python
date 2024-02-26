@@ -42,6 +42,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
         "user_id": None,
         "session_id": None,
         "version": None,
+        "release": None,
         "metadata": None,
         "tags": None,
     },
@@ -146,12 +147,15 @@ class LlamaIndexCallbackHandler(
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         version: Optional[str] = None,
+        release: Optional[str] = None,
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
     ):
         """
         Sets the trace params that will be used for all following operations. Allows setting params of subsequent traces at any point in the code.
         Overwrites the default params set in the callback constructor.
+
+        Attention: If a root trace or span is set on the callback handler, those trace params will be used and NOT those set through this method.
 
         Parameters:
         - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
@@ -170,6 +174,7 @@ class LlamaIndexCallbackHandler(
                 "user_id": user_id,
                 "session_id": session_id,
                 "version": version,
+                "release": release,
                 "metadata": metadata,
                 "tags": tags,
             }
@@ -270,6 +275,7 @@ class LlamaIndexCallbackHandler(
                 or f"LlamaIndex_{self._llama_index_trace_name}"
             )
             version = trace_metadata["version"] or self.version
+            release = trace_metadata["release"] or self.release
             session_id = trace_metadata["session_id"] or self.session_id
             user_id = trace_metadata["user_id"] or self.user_id
             metadata = trace_metadata["metadata"]
@@ -283,6 +289,7 @@ class LlamaIndexCallbackHandler(
                 user_id=user_id,
                 metadata=metadata,
                 tags=tags,
+                release=release,
             )
 
             return self.trace
