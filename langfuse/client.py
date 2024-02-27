@@ -476,7 +476,7 @@ class Langfuse(object):
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
-        kwargs: typing.Optional[typing.Dict[str, Any]] = None,
+        **kwargs,
     ) -> "StatefulClient":
         trace_id = trace_id or self.trace_id or str(uuid.uuid4())
         new_id = id or str(uuid.uuid4())
@@ -488,7 +488,7 @@ class Langfuse(object):
                 "name": name,
                 "value": value,
                 "comment": comment,
-                **(kwargs or {}),
+                **kwargs,
             }
 
             self.log.debug(f"Creating score {new_dict}...")
@@ -939,7 +939,7 @@ class StatefulClient(object):
         name: str,
         value: float,
         comment: typing.Optional[str] = None,
-        kwargs: typing.Optional[typing.Dict[str, Any]] = None,
+        **kwargs,
     ) -> "StatefulClient":
         score_id = id or str(uuid.uuid4())
         try:
@@ -949,7 +949,7 @@ class StatefulClient(object):
                 "name": name,
                 "value": value,
                 "comment": comment,
-                **(kwargs or {}),
+                **kwargs,
             }
 
             self.log.debug(f"Creating score {new_score}...")
