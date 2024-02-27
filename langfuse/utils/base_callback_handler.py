@@ -34,6 +34,7 @@ class LangfuseBaseCallbackHandler:
         self.session_id = session_id
         self.user_id = user_id
         self.trace_name = trace_name
+        self.release = release
 
         self.root_span = None
         self.langfuse = None
