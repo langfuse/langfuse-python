@@ -1902,18 +1902,19 @@ types-requests = ">=2.31.0,<3.0.0"
 
 [[package]]
 name = "langchain-mistralai"
-version = "0.0.3"
+version = "0.0.4"
 description = "An integration package connecting Mistral and LangChain"
 optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
-    {file = "langchain_mistralai-0.0.3-py3-none-any.whl", hash = "sha256:ebb8ba3d7978b5ee16f7e09512ffa434e00bc9863f1537f1a5f5203882d99619"},
-    {file = "langchain_mistralai-0.0.3.tar.gz", hash = "sha256:2e45ee0118df8e4b5577ce8c4f89743059801e473f40a8b7c89cb99dd715f423"},
+    {file = "langchain_mistralai-0.0.4-py3-none-any.whl", hash = "sha256:595f78338778cc9846a3d338e24fb0a21092150c3aa0684d007129a13b938a0e"},
+    {file = "langchain_mistralai-0.0.4.tar.gz", hash = "sha256:5c17671e30a6cee0059a0e0c725e2a137941877b058ce57569f73f5cf37b72ad"},
 ]
 
 [package.dependencies]
 langchain-core = ">=0.1,<0.2"
 mistralai = ">=0.0.11,<0.0.12"
+tokenizers = ">=0.15.1,<0.16.0"
 
 [[package]]
 name = "langchain-openai"
@@ -5192,4 +5193,4 @@ llama-index = ["llama-index"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "3237ced2646c911dfddc2e6c60f25c91ede980e6378ee1db7bfa41f1f0627fbc"
+content-hash = "456a54871c0c2c1f5e7a1f07874838ebb2cef8c6910278a8b8da4b1753befc25"
