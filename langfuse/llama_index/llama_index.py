@@ -10,12 +10,13 @@ from langfuse.client import (
     StatefulGenerationClient,
     StateType,
 )
-from langfuse.decorators.error_logging import (
+from langfuse.utils.error_logging import (
     auto_decorate_methods_with,
     catch_and_log_errors,
 )
+from langfuse.types import TraceMetadata
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from .utils import CallbackEvent, ParsedLLMEndPayload, TraceMetadata
+from .utils import CallbackEvent, ParsedLLMEndPayload
 
 try:
     from llama_index.core.callbacks.base_handler import (
