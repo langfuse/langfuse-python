@@ -573,7 +573,7 @@ def test_create_trace_and_generation():
     generationId = create_uuid()
 
     trace = langfuse.trace(
-        name=trace_name, input={"key": "value"}, session_id="test-session"
+        name=trace_name, input={"key": "value"}, session_id="test-session-id"
     )
     trace.generation(
         id=generationId,
@@ -591,7 +591,7 @@ def test_create_trace_and_generation():
     assert len(dbTrace.observations) == 1
     assert getTrace.name == trace_name
     assert len(getTrace.observations) == 1
-    assert getTrace.session_id == "test"
+    assert getTrace.session_id == "test-session-id"
 
     generation = getTrace.observations[0]
     assert generation.name == "generation"
@@ -604,14 +604,14 @@ def backwards_compatibility_sessionId():
     langfuse = Langfuse(debug=False)
     api = get_api()
 
-    trace = langfuse.trace(name="test", sessionId="test-session")
+    trace = langfuse.trace(name="test", sessionId="test-sessionId")
 
     langfuse.flush()
 
     trace = api.trace.get(trace.id)
 
     assert trace.name == "test"
-    assert trace.session_id == "test-session"
+    assert trace.session_id == "test-sessionId"
 
 
 def test_create_trace_with_manual_timestamp():
