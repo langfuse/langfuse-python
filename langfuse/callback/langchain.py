@@ -2,6 +2,7 @@ import logging
 try:  # Test that langchain is installed before proceeding
     import langchain
 except ImportError as e:
+    log = logging.getLogger("langfuse")
     log.error(
         f"Could not import langchain. The langchain integration will not work. {e}"
     )
@@ -37,7 +38,6 @@ except ImportError:
         "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
     )
 
-log = logging.getLogger("langfuse")
 
 
 class LangchainCallbackHandler(
