@@ -115,6 +115,7 @@ def test_create_trace():
         user_id="test",
         metadata={"key": "value"},
         tags=["tag1", "tag2"],
+        public=True,
     )
 
     langfuse.flush()
@@ -125,6 +126,7 @@ def test_create_trace():
     assert trace["userId"] == "test"
     assert trace["metadata"] == {"key": "value"}
     assert trace["tags"] == ["tag1", "tag2"]
+    assert trace["public"] is True
     assert True if not trace["externalId"] else False
 
 
@@ -137,8 +139,9 @@ def test_create_update_trace():
         name=trace_name,
         user_id="test",
         metadata={"key": "value"},
+        public=True,
     )
-    trace.update(metadata={"key": "value2"})
+    trace.update(metadata={"key": "value2"}, public=False)
 
     langfuse.flush()
 
@@ -147,6 +150,7 @@ def test_create_update_trace():
     assert trace.name == trace_name
     assert trace.user_id == "test"
     assert trace.metadata == {"key": "value2"}
+    assert trace.public is False
 
 
 def test_create_generation():
