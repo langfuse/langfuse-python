@@ -1393,13 +1393,6 @@ class StatefulTraceClient(StatefulClient):
     def getNewHandler(self):
         return self.get_langchain_handler()
 
-    def get_llama_index_handler(self):
-        from langfuse.llama_index import LlamaIndexCallbackHandler
-
-        return LlamaIndexCallbackHandler(
-            stateful_client=self, debug=self.log.level == logging.DEBUG
-        )
-
 
 class DatasetItemClient:
     id: str
