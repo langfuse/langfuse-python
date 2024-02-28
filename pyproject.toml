@@ -12,7 +12,7 @@ httpx = ">=0.15.4,<0.26.0"
 pydantic = ">=1.10.7, <3.0"
 backoff = "^2.2.1"
 openai = ">=0.27.8"
-wrapt = "1.14"
+wrapt = "^1.14"
 langchain = { version = ">=0.0.309", optional = true }
 chevron = "^0.14.0"
 llama-index = {version = "^0.10.12", optional = true}
