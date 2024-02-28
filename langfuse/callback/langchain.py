@@ -1,6 +1,6 @@
 import logging
 try:  # Test that langchain is installed before proceeding
-    import langchain
+    import langchain # noqa
 except ImportError as e:
     log = logging.getLogger("langfuse")
     log.error(
