@@ -121,7 +121,7 @@ class LangchainCallbackHandler(
             return kwargs["name"]
 
         # Fallback to serialized 'name', 'id', or "<unknown>"
-        return serialized.get("name", serialized.get("id", ["<unknown>"]))[-1]
+        return serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
     def on_retriever_error(
         self,
