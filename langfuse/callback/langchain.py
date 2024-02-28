@@ -5,7 +5,9 @@ log = logging.getLogger("langfuse")
 try:  # Test that langchain is installed before proceeding
     import langchain
 except ImportError as e:
-    log.error(f"Could not import langchain. The langchain integration will not work. {e}")
+    log.error(
+        f"Could not import langchain. The langchain integration will not work. {e}"
+    )
 
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
