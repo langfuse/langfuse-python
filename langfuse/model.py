@@ -1,5 +1,6 @@
 from typing import Optional, TypedDict, Any, Dict
 import chevron
+import re
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -72,3 +73,12 @@ class PromptClient:
             )
 
         return False
+
+    def get_langchain_prompt(self) -> str:
+        """
+        Converts double-bracketed variables in the prompt to single-bracketed variables.
+
+        Returns:
+            str: The prompt with variables in single brackets.
+        """
+        return re.sub(r"\{\{(.*?)\}\}", r"{\1}", self.prompt)

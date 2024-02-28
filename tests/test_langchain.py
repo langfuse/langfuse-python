@@ -1411,3 +1411,46 @@ def test_names_on_spans_lcel():
         )
         == 1
     )
+
+
+def test_get_langchain_prompt():
+    langfuse = Langfuse()
+    langfuse_handler = CallbackHandler()
+
+    test_prompts = ["This is a {{test}}", "This is a {{test}}. And this is a {{test2}}"]
+
+    for i, test_prompt in enumerate(test_prompts):
+        langfuse.create_prompt(
+            name=f"test_{i}",
+            prompt=test_prompt,
+            config={
+                "model": "gpt-3.5-turbo-1106",
+                "temperature": 0,
+            },
+            is_active=True,
+        )
+
+        langfuse_prompt = langfuse.get_prompt(f"test_{i}")
+
+        model = langfuse_prompt.config["model"]
+        temperature = str(langfuse_prompt.config["temperature"])
+
+        langchain_prompt = ChatPromptTemplate.from_template(
+            langfuse_prompt.get_langchain_prompt()
+        )
+        model = ChatOpenAI(model=model, temperature=temperature)
+
+        chain = langchain_prompt | model
+
+        if i == 0:
+            chain.invoke(
+                input={
+                    "test": "test",
+                },
+                config={"callbacks": [langfuse_handler]},
+            )
+        else:
+            chain.invoke(
+                input={"test": "test", "test2": "test2"},
+                config={"callbacks": [langfuse_handler]},
+            )
