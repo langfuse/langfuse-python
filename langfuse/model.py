@@ -76,9 +76,9 @@ class PromptClient:
 
     def get_langchain_prompt(self) -> str:
         """
-        Converts double-bracketed variables in the prompt to single-bracketed variables.
+        Converts string of Langfuse prompte template prompt into Lanchain PromptTemplate.
 
         Returns:
-            str: The prompt with variables in single brackets.
+            str: The string that can be plugged into Langchain's PromptTemplate.
         """
         return re.sub(r"\{\{(.*?)\}\}", r"{\1}", self.prompt)
