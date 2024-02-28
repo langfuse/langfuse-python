@@ -427,6 +427,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
         timestamp: typing.Optional[dt.datetime] = None,
+        public: typing.Optional[bool] = None,
         **kwargs,
     ) -> "StatefulTraceClient":
         new_id = id or str(uuid.uuid4())
@@ -443,6 +444,7 @@ class Langfuse(object):
                 "output": output,
                 "tags": tags,
                 "timestamp": timestamp or _get_timestamp(),
+                "public": public,
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
@@ -1288,6 +1290,7 @@ class StatefulTraceClient(StatefulClient):
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
+        public: typing.Optional[bool] = None,
         **kwargs,
     ) -> "StatefulTraceClient":
         try:
@@ -1299,6 +1302,7 @@ class StatefulTraceClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "metadata": metadata,
+                "public": public,
                 "tags": tags,
                 **kwargs,
             }
@@ -1339,13 +1343,6 @@ class StatefulTraceClient(StatefulClient):
 
     def getNewHandler(self):
         return self.get_langchain_handler()
-
-    def get_llama_index_handler(self):
-        from langfuse.llama_index import LlamaIndexCallbackHandler
-
-        return LlamaIndexCallbackHandler(
-            stateful_client=self, debug=self.log.level == logging.DEBUG
-        )
 
 
 class DatasetItemClient:
