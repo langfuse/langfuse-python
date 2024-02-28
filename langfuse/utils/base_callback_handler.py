@@ -34,6 +34,7 @@ class LangfuseBaseCallbackHandler:
         self.session_id = session_id
         self.user_id = user_id
         self.trace_name = trace_name
+        self.release = release
 
         self.root_span = None
         self.langfuse = None
@@ -95,9 +96,23 @@ class LangfuseBaseCallbackHandler:
             )
 
     def get_trace_id(self):
+        """
+        This method is deprecated and will be removed in a future version as it is not concurrency-safe.
+        Please refer to the [documentation](https://langfuse.com/docs/integrations/langchain/get-started#interoperability) on how to use interop with the Langfuse SDK to get the id of a trace.
+
+        Returns:
+            The ID of the current/last trace or None if no trace is available.
+        """
         return self.trace.id if self.trace else None
 
     def get_trace_url(self):
+        """
+        This method is deprecated and will be removed in a future version as it is not concurrency-safe.
+        Please refer to the [documentation](https://langfuse.com/docs/tracing/url) for more information.
+
+        Returns:
+            The URL of the current/last trace or None if no trace is available.
+        """
         return self.trace.get_trace_url() if self.trace else None
 
     def flush(self):

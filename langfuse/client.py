@@ -1087,6 +1087,7 @@ class StatefulGenerationClient(StatefulClient):
     ):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
+    # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
         self,
         *,
@@ -1166,42 +1167,26 @@ class StatefulGenerationClient(StatefulClient):
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        prompt_tokens: typing.Optional[int] = None,
-        completion_tokens: typing.Optional[int] = None,
-        total_tokens: typing.Optional[int] = None,
+        usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ):
-        try:
-            generation_body = {
-                "name": name,
-                "start_time": start_time,
-                "metadata": metadata,
-                "level": level,
-                "status_message": status_message,
-                "version": version,
-                "end_time": end_time if end_time is not None else _get_timestamp(),
-                "completion_start_time": completion_start_time,
-                "model": model,
-                "model_parameters": model_parameters,
-                "input": input,
-                "output": output,
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-            }
-            if kwargs is not None:
-                generation_body.update(kwargs)
-
-            return self.update(**generation_body)
-
-        except Exception as e:
-            self.log.warning(e)
-        return StatefulGenerationClient(
-            self.client,
-            self.id,
-            StateType.OBSERVATION,
-            self.trace_id,
-            task_manager=self.task_manager,
+        return self.update(
+            name=name,
+            start_time=start_time,
+            end_time=end_time if end_time is not None else _get_timestamp(),
+            metadata=metadata,
+            level=level,
+            status_message=status_message,
+            version=version,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            input=input,
+            output=output,
+            usage=usage,
+            prompt=prompt,
+            **kwargs,
         )
 
 
@@ -1218,6 +1203,7 @@ class StatefulSpanClient(StatefulClient):
     ):
         super().__init__(client, id, state_type, trace_id, task_manager)
 
+    # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
         self,
         *,
@@ -1406,13 +1392,6 @@ class StatefulTraceClient(StatefulClient):
 
     def getNewHandler(self):
         return self.get_langchain_handler()
-
-    def get_llama_index_handler(self):
-        from langfuse.llama_index import LlamaIndexCallbackHandler
-
-        return LlamaIndexCallbackHandler(
-            stateful_client=self, debug=self.log.level == logging.DEBUG
-        )
 
 
 class DatasetItemClient:

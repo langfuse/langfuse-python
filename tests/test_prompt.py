@@ -77,7 +77,11 @@ def test_prompt_end_to_end():
     assert prompt_str == "Hello, world! I hope you are great."
     assert prompt.config == {"temperature": 0.5}
 
-    langfuse.generation(input=prompt_str, prompt=prompt)
+    generation = langfuse.generation(input=prompt_str, prompt=prompt)
+
+    # to check that these do not error
+    generation.update(prompt=prompt)
+    generation.end(prompt=prompt)
 
     langfuse.flush()
 
