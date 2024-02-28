@@ -1,9 +1,14 @@
 import logging
+try:  # Test that langchain is installed before proceeding
+    import langchain # noqa
+except ImportError as e:
+    log = logging.getLogger("langfuse")
+    log.error(
+        f"Could not import langchain. The langchain integration will not work. {e}"
+    )
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
-
 from langchain.callbacks.base import BaseCallbackHandler as LangchainBaseCallbackHandler
-
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
@@ -32,6 +37,7 @@ except ImportError:
     raise ModuleNotFoundError(
         "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
     )
+
 
 
 class LangchainCallbackHandler(
