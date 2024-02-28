@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Any, TypedDict
+from typing import Optional, Dict, Any, TypedDict, List
 from langfuse.model import ModelUsage
 from langfuse.utils import _get_timestamp
 
@@ -33,3 +33,13 @@ class ParsedLLMEndPayload(TypedDict):
     output: Optional[dict]
     usage: Optional[ModelUsage]
     model: Optional[str]
+
+
+class TraceMetadata(TypedDict):
+    name: Optional[str]
+    user_id: Optional[str]
+    session_id: Optional[str]
+    version: Optional[str]
+    release: Optional[str]
+    metadata: Optional[Any]
+    tags: Optional[List[str]]

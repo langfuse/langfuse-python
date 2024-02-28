@@ -18,6 +18,9 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.observations.types.observations_views import (
+    ObservationsViews,
+)
 from langfuse.api.resources.prompts.types.create_prompt_request import (
     CreatePromptRequest,
 )
@@ -61,7 +64,7 @@ class Langfuse(object):
         debug: bool = False,
         threads: int = 1,
         flush_at: int = 50,
-        flush_interval: int = 0.5,
+        flush_interval: float = 0.5,
         max_retries=3,
         timeout=15,
         sdk_integration: str = "default",
@@ -81,8 +84,8 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        public_key = public_key if public_key else os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key if secret_key else os.environ.get("LANGFUSE_SECRET_KEY")
+        public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
+        secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         self.base_url = (
             host
             if host
@@ -101,9 +104,7 @@ class Langfuse(object):
                 "secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'"
             )
 
-        self.httpx_client = (
-            httpx.Client(timeout=timeout) if httpx_client is None else httpx_client
-        )
+        self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
         self.client = FernLangfuse(
             base_url=self.base_url,
@@ -136,9 +137,6 @@ class Langfuse(object):
             "sdk_integration": sdk_integration,
         }
 
-        if threads is not None:
-            args["threads"] = threads
-
         self.task_manager = TaskManager(**args)
 
         self.trace_id = None
@@ -161,7 +159,7 @@ class Langfuse(object):
     def get_trace_url(self):
         return f"{self.base_url}/trace/{self.trace_id}"
 
-    def get_dataset(self, name: str):
+    def get_dataset(self, name: str) -> "DatasetClient":
         try:
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
@@ -173,7 +171,7 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def get_dataset_item(self, id: str):
+    def get_dataset_item(self, id: str) -> "DatasetItemClient":
         try:
             self.log.debug(f"Getting dataset item {id}")
             dataset_item = self.client.dataset_items.get(id=id)
@@ -226,8 +224,8 @@ class Langfuse(object):
     def create_dataset_item(
         self,
         dataset_name: str,
-        input: any,
-        expected_output: Optional[any] = None,
+        input: Any,
+        expected_output: Optional[Any] = None,
         id: Optional[str] = None,
     ) -> DatasetItem:
         """
@@ -267,7 +265,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
-    ):
+    ) -> ObservationsViews:
         try:
             self.log.debug(
                 f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
@@ -294,7 +292,7 @@ class Langfuse(object):
         user_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
-    ):
+    ) -> ObservationsViews:
         return self.get_observations(
             page=page,
             limit=limit,
@@ -394,7 +392,6 @@ class Langfuse(object):
             self.log.exception(
                 f"Error while fetching prompt '{name}-{version or 'latest'}': {e}"
             )
-
             raise e
 
     def create_prompt(
@@ -409,7 +406,7 @@ class Langfuse(object):
             request = CreatePromptRequest(
                 name=name,
                 prompt=prompt,
-                is_active=is_active,
+                isActive=is_active,
                 config=config,
             )
             server_prompt = self.client.prompts.create(request=request)
@@ -430,12 +427,12 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
         timestamp: typing.Optional[dt.datetime] = None,
+        public: typing.Optional[bool] = None,
         **kwargs,
-    ):
+    ) -> "StatefulTraceClient":
+        new_id = id or str(uuid.uuid4())
+        self.trace_id = new_id
         try:
-            new_id = str(uuid.uuid4()) if id is None else id
-            self.trace_id = new_id
-
             new_dict = {
                 "id": new_id,
                 "name": name,
@@ -446,7 +443,8 @@ class Langfuse(object):
                 "input": input,
                 "output": output,
                 "tags": tags,
-                "timestamp": timestamp if timestamp is not None else _get_timestamp(),
+                "timestamp": timestamp or _get_timestamp(),
+                "public": public,
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
@@ -480,12 +478,11 @@ class Langfuse(object):
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
-        kwargs=None,
-    ):
-        trace_id = self.trace_id if trace_id is None else trace_id
+        **kwargs,
+    ) -> "StatefulClient":
+        trace_id = trace_id or self.trace_id or str(uuid.uuid4())
+        new_id = id or str(uuid.uuid4())
         try:
-            new_id = str(uuid.uuid4()) if id is None else id
-
             new_dict = {
                 "id": new_id,
                 "trace_id": trace_id,
@@ -493,10 +490,8 @@ class Langfuse(object):
                 "name": name,
                 "value": value,
                 "comment": comment,
+                **kwargs,
             }
-
-            if kwargs is not None:
-                new_dict.update(kwargs)
 
             self.log.debug(f"Creating score {new_dict}...")
             new_body = ScoreBody(**new_dict)
@@ -509,7 +504,6 @@ class Langfuse(object):
             self.task_manager.add_task(event)
 
         except Exception as e:
-            print(f"exception {e}...")
             self.log.exception(e)
         finally:
             if observation_id is not None:
@@ -541,19 +535,16 @@ class Langfuse(object):
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "StatefulSpanClient":
+        new_span_id = id or str(uuid.uuid4())
+        new_trace_id = trace_id or str(uuid.uuid4())
+        self.trace_id = new_trace_id
         try:
-            new_span_id = str(uuid.uuid4()) if id is None else id
-            new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
-            self.trace_id = new_trace_id
-
             span_body = {
                 "id": new_span_id,
                 "trace_id": new_trace_id,
                 "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
+                "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -563,12 +554,11 @@ class Langfuse(object):
                 "version": version,
                 "end_time": end_time,
                 "trace": {"release": self.release},
+                **kwargs,
             }
-            if kwargs is not None:
-                span_body.update(kwargs)
 
             if trace_id is None:
-                self._generate_trace(new_trace_id, name)
+                self._generate_trace(new_trace_id, name or new_trace_id)
 
             self.log.debug(f"Creating span {span_body}...")
 
@@ -609,20 +599,16 @@ class Langfuse(object):
         parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "StatefulSpanClient":
+        event_id = id or str(uuid.uuid4())
+        new_trace_id = trace_id or str(uuid.uuid4())
+        self.trace_id = new_trace_id
         try:
-            event_id = str(uuid.uuid4()) if id is None else id
-
-            new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
-            self.trace_id = new_trace_id
-
             event_body = {
                 "id": event_id,
                 "trace_id": new_trace_id,
                 "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
+                "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -631,13 +617,11 @@ class Langfuse(object):
                 "parent_observation_id": parent_observation_id,
                 "version": version,
                 "trace": {"release": self.release},
+                **kwargs,
             }
 
-            if kwargs is not None:
-                event_body.update(kwargs)
-
             if trace_id is None:
-                self._generate_trace(new_trace_id, name)
+                self._generate_trace(new_trace_id, name or new_trace_id)
 
             request = CreateEventBody(**event_body)
 
@@ -682,20 +666,17 @@ class Langfuse(object):
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
-    ):
+    ) -> "StatefulGenerationClient":
+        new_trace_id = trace_id or str(uuid.uuid4())
+        new_generation_id = id or str(uuid.uuid4())
+        self.trace_id = new_trace_id
         try:
-            new_trace_id = str(uuid.uuid4()) if trace_id is None else trace_id
-            new_generation_id = str(uuid.uuid4()) if id is None else id
-            self.trace_id = new_trace_id
-
             generation_body = {
                 "id": new_generation_id,
                 "trace_id": new_trace_id,
                 "release": self.release,
                 "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
+                "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -710,9 +691,8 @@ class Langfuse(object):
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 "trace": {"release": self.release},
                 **_create_prompt_context(prompt),
+                **kwargs,
             }
-            if kwargs is not None:
-                generation_body.update(kwargs)
 
             if trace_id is None:
                 trace = {
@@ -851,16 +831,13 @@ class StatefulClient(object):
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
-    ):
+    ) -> "StatefulGenerationClient":
+        generation_id = id or str(uuid.uuid4())
         try:
-            generation_id = str(uuid.uuid4()) if id is None else id
-
             generation_body = {
                 "id": generation_id,
                 "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
+                "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
                 "level": level,
                 "status_message": status_message,
@@ -873,10 +850,8 @@ class StatefulClient(object):
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 **_create_prompt_context(prompt),
+                **kwargs,
             }
-
-            if kwargs is not None:
-                generation_body.update(kwargs)
 
             generation_body = self._add_state_to_event(generation_body)
             new_body = self._add_default_values(generation_body)
@@ -917,16 +892,13 @@ class StatefulClient(object):
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "StatefulSpanClient":
+        span_id = id or str(uuid.uuid4())
         try:
-            span_id = str(uuid.uuid4()) if id is None else id
-
             span_body = {
                 "id": span_id,
                 "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
+                "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -934,10 +906,8 @@ class StatefulClient(object):
                 "status_message": status_message,
                 "version": version,
                 "end_time": end_time,
+                **kwargs,
             }
-
-            if kwargs is not None:
-                span_body.update(kwargs)
 
             self.log.debug(f"Creating span {span_body}...")
 
@@ -971,21 +941,18 @@ class StatefulClient(object):
         name: str,
         value: float,
         comment: typing.Optional[str] = None,
-        kwargs=None,
-    ):
+        **kwargs,
+    ) -> "StatefulClient":
+        score_id = id or str(uuid.uuid4())
         try:
-            score_id = str(uuid.uuid4()) if id is None else id
-
             new_score = {
                 "id": score_id,
                 "trace_id": self.trace_id,
                 "name": name,
                 "value": value,
                 "comment": comment,
+                **kwargs,
             }
-
-            if kwargs is not None:
-                new_score.update(kwargs)
 
             self.log.debug(f"Creating score {new_score}...")
 
@@ -1028,26 +995,21 @@ class StatefulClient(object):
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "StatefulClient":
+        event_id = id or str(uuid.uuid4())
         try:
-            event_id = str(uuid.uuid4()) if id is None else id
-
             event_body = {
                 "id": event_id,
                 "name": name,
-                "start_time": start_time
-                if start_time is not None
-                else _get_timestamp(),
+                "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
                 "input": input,
                 "output": output,
                 "level": level,
                 "status_message": status_message,
                 "version": version,
+                **kwargs,
             }
-
-            if kwargs is not None:
-                event_body.update(kwargs)
 
             new_dict = self._add_state_to_event(event_body)
             new_body = self._add_default_values(new_dict)
@@ -1106,7 +1068,7 @@ class StatefulGenerationClient(StatefulClient):
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
-    ):
+    ) -> "StatefulGenerationClient":
         try:
             generation_body = {
                 "id": self.id,
@@ -1124,10 +1086,9 @@ class StatefulGenerationClient(StatefulClient):
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 **_create_prompt_context(prompt),
+                **kwargs,
             }
 
-            if kwargs is not None:
-                generation_body.update(kwargs)
             self.log.debug(f"Update generation {generation_body}...")
 
             request = UpdateGenerationBody(**generation_body)
@@ -1170,11 +1131,11 @@ class StatefulGenerationClient(StatefulClient):
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
-    ):
+    ) -> "StatefulGenerationClient":
         return self.update(
             name=name,
             start_time=start_time,
-            end_time=end_time if end_time is not None else _get_timestamp(),
+            end_time=end_time or _get_timestamp(),
             metadata=metadata,
             level=level,
             status_message=status_message,
@@ -1217,7 +1178,7 @@ class StatefulSpanClient(StatefulClient):
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "StatefulSpanClient":
         try:
             span_body = {
                 "id": self.id,
@@ -1230,9 +1191,8 @@ class StatefulSpanClient(StatefulClient):
                 "status_message": status_message,
                 "version": version,
                 "end_time": end_time,
+                **kwargs,
             }
-            if kwargs is not None:
-                span_body.update(kwargs)
             self.log.debug(f"Update span {span_body}...")
 
             request = UpdateSpanBody(**span_body)
@@ -1268,7 +1228,7 @@ class StatefulSpanClient(StatefulClient):
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "StatefulSpanClient":
         try:
             span_body = {
                 "name": name,
@@ -1279,11 +1239,9 @@ class StatefulSpanClient(StatefulClient):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
-                "end_time": end_time if end_time is not None else _get_timestamp(),
+                "end_time": end_time or _get_timestamp(),
+                **kwargs,
             }
-            if kwargs is not None:
-                span_body.update(kwargs)
-
             return self.update(**span_body)
 
         except Exception as e:
@@ -1332,8 +1290,9 @@ class StatefulTraceClient(StatefulClient):
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
         tags: typing.Optional[typing.List[str]] = None,
+        public: typing.Optional[bool] = None,
         **kwargs,
-    ):
+    ) -> "StatefulTraceClient":
         try:
             trace_body = {
                 "id": self.id,
@@ -1343,10 +1302,10 @@ class StatefulTraceClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "metadata": metadata,
+                "public": public,
                 "tags": tags,
+                **kwargs,
             }
-            if kwargs is not None:
-                trace_body.update(kwargs)
             self.log.debug(f"Update trace {trace_body}...")
 
             request = TraceBody(**trace_body)
@@ -1372,9 +1331,6 @@ class StatefulTraceClient(StatefulClient):
 
     def get_langchain_handler(self):
         try:
-            # adding this to ensure langchain is installed
-            import langchain  # noqa
-
             from langfuse.callback import CallbackHandler
 
             self.log.debug(f"Creating new handler for trace {self.id}")
@@ -1382,23 +1338,11 @@ class StatefulTraceClient(StatefulClient):
             return CallbackHandler(
                 stateful_client=self, debug=self.log.level == logging.DEBUG
             )
-        except ImportError as e:
-            self.log.exception(
-                f"Could not import langchain. Some functionality may be missing. {e.message}"
-            )
-
         except Exception as e:
             self.log.exception(e)
 
     def getNewHandler(self):
         return self.get_langchain_handler()
-
-    def get_llama_index_handler(self):
-        from langfuse.llama_index import LlamaIndexCallbackHandler
-
-        return LlamaIndexCallbackHandler(
-            stateful_client=self, debug=self.log.level == logging.DEBUG
-        )
 
 
 class DatasetItemClient:
