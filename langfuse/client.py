@@ -66,7 +66,7 @@ class Langfuse(object):
         flush_at: int = 15,
         flush_interval: float = 0.5,
         max_retries=3,
-        timeout=15,
+        timeout=10, # seconds
         sdk_integration: str = "default",
         httpx_client: Optional[httpx.Client] = None,
     ):
