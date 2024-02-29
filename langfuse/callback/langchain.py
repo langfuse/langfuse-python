@@ -669,7 +669,7 @@ class LangchainCallbackHandler(
                 )
                 llm_usage = (
                     None
-                    if response.llm_output is None
+                    if response.llm_output is None or not response.llm_output["token_usage"]
                     else response.llm_output["token_usage"]
                 )
 

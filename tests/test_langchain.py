@@ -1418,7 +1418,7 @@ def test_openai_instruct_usage():
     from langchain_core.runnables import Runnable
     from langchain_openai import OpenAI
 
-    lf_handler = CallbackHandler()
+    lf_handler = CallbackHandler(debug=True)
 
     runnable_chain: Runnable = (
         PromptTemplate.from_template(
@@ -1438,10 +1438,15 @@ def test_openai_instruct_usage():
         )
         | StrOutputParser()
     )
+    input_list = [
+        {"question": "where did harrison work", "language": "english"},
+        {"question": "how is your day", "language": "english"},
+    ]
+    runnable_chain.batch(input_list)
 
-    runnable_chain.invoke(
-        {"question": "where did harrison work", "language": "italian"}
-    )
+    lf_handler.flush()
+
+    
 
 
 def test_get_langchain_prompt():
