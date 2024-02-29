@@ -668,9 +668,6 @@ class LangchainCallbackHandler(
                     else _extract_raw_esponse(generation)
                 )
 
-                # the last condition where we set 0 is best guess for batches: https://github.com/langfuse/langfuse/issues/1249
-                # For batches, Langchain sends the sum for all tokens in the first event. All succeeding events send an empty dict.
-                # This hack ensures that we do not calculate tokens on our end for all the empty dicts which would result in wrong numbers for our users.
                 llm_usage = (
                     None
                     if response.llm_output is None  or not response.llm_output["token_usage"]
