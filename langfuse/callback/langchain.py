@@ -669,8 +669,8 @@ class LangchainCallbackHandler(
                 )
                 llm_usage = (
                     None
-                    if response.llm_output is None or not response.llm_output["token_usage"]
-                    else response.llm_output["token_usage"]
+                    if response.llm_output is None 
+                    else response.llm_output["token_usage"] if not response.llm_output["token_usage"] else {"promptTokens": 0, "completionTokens": 0}
                 )
 
                 self.runs[run_id] = self.runs[run_id].end(
