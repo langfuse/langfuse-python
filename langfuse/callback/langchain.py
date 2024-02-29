@@ -673,8 +673,8 @@ class LangchainCallbackHandler(
                 # This hack ensures that we do not calculate tokens on our end for all the empty dicts which would result in wrong numbers for our users.
                 llm_usage = (
                     None
-                    if response.llm_output is None 
-                    else response.llm_output["token_usage"] if not response.llm_output["token_usage"] else {"promptTokens": 0, "completionTokens": 0}
+                    if response.llm_output is None  or not response.llm_output["token_usage"]
+                    else response.llm_output["token_usage"]
                 )
 
                 self.runs[run_id] = self.runs[run_id].end(
