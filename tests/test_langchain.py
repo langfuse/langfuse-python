@@ -1411,3 +1411,34 @@ def test_names_on_spans_lcel():
         )
         == 1
     )
+
+
+def test_get_langchain_prompt():
+    langfuse = Langfuse()
+
+    test_prompts = ["This is a {{test}}", "This is a {{test}}. And this is a {{test2}}"]
+
+    for i, test_prompt in enumerate(test_prompts):
+        langfuse.create_prompt(
+            name=f"test_{i}",
+            prompt=test_prompt,
+            config={
+                "model": "gpt-3.5-turbo-1106",
+                "temperature": 0,
+            },
+            is_active=True,
+        )
+
+        langfuse_prompt = langfuse.get_prompt(f"test_{i}")
+
+        langchain_prompt = ChatPromptTemplate.from_template(
+            langfuse_prompt.get_langchain_prompt()
+        )
+
+        if i == 0:
+            assert langchain_prompt.format(test="test") == "Human: This is a test"
+        else:
+            assert (
+                langchain_prompt.format(test="test", test2="test2")
+                == "Human: This is a test. And this is a test2"
+            )

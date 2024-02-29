@@ -1,5 +1,6 @@
 from typing import Optional, TypedDict, Any, Dict
 import chevron
+import re
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -72,3 +73,12 @@ class PromptClient:
             )
 
         return False
+
+    def get_langchain_prompt(self) -> str:
+        """Converts string of Langfuse prompt template prompt into string compatible
+        with Lanchain PromptTemplate.
+
+        Returns:
+            str: The string that can be plugged into Langchain's PromptTemplate.
+        """
+        return re.sub(r"\{\{(.*?)\}\}", r"{\1}", self.prompt)
