@@ -1450,10 +1450,16 @@ def test_openai_instruct_usage():
 
     assert len(observations) == 2
 
-
-
-    
-
+    for observation in observations:
+        assert observation.type == "GENERATION"
+        assert observation.output is not None
+        assert observation.output != ""
+        assert observation.input is not None
+        assert observation.input != ""
+        assert observation.usage is not None
+        assert observation.usage.input is not None
+        assert observation.usage.output is not None
+        assert observation.usage.total is not None
 
 def test_get_langchain_prompt():
     langfuse = Langfuse()
