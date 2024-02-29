@@ -1,9 +1,14 @@
 import logging
+try:  # Test that langchain is installed before proceeding
+    import langchain # noqa
+except ImportError as e:
+    log = logging.getLogger("langfuse")
+    log.error(
+        f"Could not import langchain. The langchain integration will not work. {e}"
+    )
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
-
 from langchain.callbacks.base import BaseCallbackHandler as LangchainBaseCallbackHandler
-
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
@@ -27,11 +32,14 @@ try:
         ChatMessage,
         HumanMessage,
         SystemMessage,
+        ToolMessage,
+        FunctionMessage
     )
 except ImportError:
     raise ModuleNotFoundError(
         "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
     )
+
 
 
 class LangchainCallbackHandler(
@@ -121,7 +129,7 @@ class LangchainCallbackHandler(
             return kwargs["name"]
 
         # Fallback to serialized 'name', 'id', or "<unknown>"
-        return serialized.get("name", serialized.get("id", ["<unknown>"]))[-1]
+        return serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
 
     def on_retriever_error(
         self,
@@ -743,6 +751,10 @@ class LangchainCallbackHandler(
             message_dict = {"role": "assistant", "content": message.content}
         elif isinstance(message, SystemMessage):
             message_dict = {"role": "system", "content": message.content}
+        elif isinstance(message, ToolMessage):
+            message_dict = {"role": "tool", "content": message.content}
+        elif isinstance(message, FunctionMessage):
+            message_dict = {"role": "function", "content": message.content}
         elif isinstance(message, ChatMessage):
             message_dict = {"role": message.role, "content": message.content}
         else:
