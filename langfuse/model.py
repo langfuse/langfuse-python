@@ -75,8 +75,10 @@ class PromptClient:
         return False
 
     def get_langchain_prompt(self) -> str:
-        """Converts string of Langfuse prompt template prompt into string compatible
-        with Lanchain PromptTemplate.
+        """Converts Langfuse prompt into string compatible with Langchain PromptTemplate.
+
+        It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
+        to the single curly brace {variable} format expected by Langchain.
 
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
