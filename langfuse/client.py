@@ -421,6 +421,7 @@ class Langfuse(object):
         id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
@@ -437,6 +438,8 @@ class Langfuse(object):
                 "id": new_id,
                 "name": name,
                 "userId": user_id,
+                "sessionId": session_id
+                or kwargs.get("sessionId", None),  # backward compatibility
                 "release": self.release,
                 "version": version,
                 "metadata": metadata,
@@ -1285,6 +1288,7 @@ class StatefulTraceClient(StatefulClient):
         *,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
@@ -1298,6 +1302,8 @@ class StatefulTraceClient(StatefulClient):
                 "id": self.id,
                 "name": name,
                 "userId": user_id,
+                "sessionId": session_id
+                or kwargs.get("sessionId", None),  # backward compatibility
                 "version": version,
                 "input": input,
                 "output": output,
