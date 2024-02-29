@@ -32,6 +32,8 @@ try:
         ChatMessage,
         HumanMessage,
         SystemMessage,
+        ToolMessage,
+        FunctionMessage
     )
 except ImportError:
     raise ModuleNotFoundError(
@@ -749,6 +751,10 @@ class LangchainCallbackHandler(
             message_dict = {"role": "assistant", "content": message.content}
         elif isinstance(message, SystemMessage):
             message_dict = {"role": "system", "content": message.content}
+        elif isinstance(message, ToolMessage):
+            message_dict = {"role": "tool", "content": message.content}
+        elif isinstance(message, FunctionMessage):
+            message_dict = {"role": "function", "content": message.content}
         elif isinstance(message, ChatMessage):
             message_dict = {"role": message.role, "content": message.content}
         else:
