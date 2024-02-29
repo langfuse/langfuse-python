@@ -1442,9 +1442,26 @@ def test_openai_instruct_usage():
         {"question": "where did harrison work", "language": "english"},
         {"question": "how is your day", "language": "english"},
     ]
-    runnable_chain.batch(input_list)
+    res = runnable_chain.batch(input_list)
+    import logging
+    logging.warning(res)
 
     lf_handler.flush()
+
+    observations = get_api().trace.get(lf_handler.get_trace_id()).observations
+
+    assert len(observations) == 2
+
+    for observation in observations:
+        assert observation.type == "GENERATION"
+        assert observation.output is not None
+        assert observation.output != ""
+        assert observation.input is not None
+        assert observation.input != ""
+        assert observation.usage is not None
+        assert observation.usage.input is not None
+        assert observation.usage.output is not None
+        assert observation.usage.total is not None
 
     
 
