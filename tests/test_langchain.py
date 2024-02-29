@@ -1443,8 +1443,6 @@ def test_openai_instruct_usage():
         {"question": "how is your day", "language": "english"},
     ]
     res = runnable_chain.batch(input_list)
-    import logging
-    logging.warning(res)
 
     lf_handler.flush()
 

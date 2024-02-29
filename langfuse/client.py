@@ -1072,7 +1072,6 @@ class StatefulGenerationClient(StatefulClient):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
-        print(usage)
         try:
             generation_body = {
                 "id": self.id,
