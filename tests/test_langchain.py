@@ -1442,7 +1442,7 @@ def test_openai_instruct_usage():
         {"question": "where did harrison work", "language": "english"},
         {"question": "how is your day", "language": "english"},
     ]
-    res = runnable_chain.batch(input_list)
+    runnable_chain.batch(input_list)
 
     lf_handler.flush()
 
