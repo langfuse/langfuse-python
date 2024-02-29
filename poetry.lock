@@ -1884,19 +1884,19 @@ extended-testing = ["jinja2 (>=3,<4)"]
 
 [[package]]
 name = "langchain-google-vertexai"
-version = "0.0.7"
+version = "0.1.0"
 description = "An integration package connecting GoogleVertexAI and LangChain"
 optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
-    {file = "langchain_google_vertexai-0.0.7-py3-none-any.whl", hash = "sha256:da2570233eae36d5c86f36da8ab760901ad510e433b28d398fb014ac50712381"},
-    {file = "langchain_google_vertexai-0.0.7.tar.gz", hash = "sha256:c9aa0191ee94cb1dd7b5f9ed54dcab60d2b1186353ffc99e21413790210a7e73"},
+    {file = "langchain_google_vertexai-0.1.0-py3-none-any.whl", hash = "sha256:2e6be101a6a48ba7a8300dbd9fbb039f6eac8bb678fab7e13471ec0487d6db02"},
+    {file = "langchain_google_vertexai-0.1.0.tar.gz", hash = "sha256:4d4b34b5f0b3486c92de078d3ef7a972301b22cd5c2008b1b6b997708ea74cd7"},
 ]
 
 [package.dependencies]
 google-cloud-aiplatform = ">=1.42.1,<2.0.0"
 google-cloud-storage = ">=2.14.0,<3.0.0"
-langchain-core = ">=0.1.23,<0.2"
+langchain-core = ">=0.1.27,<0.2"
 types-protobuf = ">=4.24.0.4,<5.0.0.0"
 types-requests = ">=2.31.0,<3.0.0"
 
@@ -5194,4 +5194,4 @@ llama-index = ["llama-index"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "d3580e79205766bb22c19e9c4c6785d00bcb6a5dc414fc9bd4f5935c5a9388ca"
+content-hash = "b3d0df9e70b3374cea0a4de6e3e802933048db0aa5ff8e8178fca3c8177baeb1"
