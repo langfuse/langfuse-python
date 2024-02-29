@@ -5194,4 +5194,4 @@ llama-index = ["llama-index"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "0842af538d2e23d03faf149064f0aa28af7e064d08f5cbceed4a7c5cb4d0ecc6"
+content-hash = "962aa33447c8d93a97f781965ab00befad10e89fca854ba48f60e2065955e17a"
