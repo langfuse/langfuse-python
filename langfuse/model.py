@@ -1,5 +1,6 @@
 from typing import Optional, TypedDict, Any, Dict
 import chevron
+import re
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -72,3 +73,14 @@ class PromptClient:
             )
 
         return False
+
+    def get_langchain_prompt(self) -> str:
+        """Converts Langfuse prompt into string compatible with Langchain PromptTemplate.
+
+        It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
+        to the single curly brace {variable} format expected by Langchain.
+
+        Returns:
+            str: The string that can be plugged into Langchain's PromptTemplate.
+        """
+        return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", self.prompt)
