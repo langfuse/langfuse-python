@@ -83,4 +83,4 @@ class PromptClient:
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        return re.sub(r"\{\{(.*?)\}\}", r"{\1}", self.prompt)
+        return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", self.prompt)
