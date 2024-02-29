@@ -75,8 +75,8 @@ class PromptClient:
         return False
 
     def get_langchain_prompt(self) -> str:
-        """
-        Converts string of Langfuse prompte template prompt into Lanchain PromptTemplate.
+        """Converts string of Langfuse prompt template prompt into string compatible
+        with Lanchain PromptTemplate.
 
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
