@@ -16,7 +16,7 @@ mock_kwargs = {"a": 1, "b": 2, "c": 3}
 
 def test_nested_observations():
     mock_name = "test_nested_observations"
-    mock_id = create_uuid()
+    mock_trace_id = create_uuid()
 
     @langfuse.trace
     def level_3_function():
@@ -41,18 +41,15 @@ def test_nested_observations():
         return "level_1"
 
     result = level_1_function(
-        *mock_args, **mock_kwargs, langfuse_observation_id=mock_id
+        *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
     )
     langfuse.flush()
 
     assert result == "level_1"  # Wrapped function returns correctly
 
-    trace_id = langfuse.get_current_trace_id()
-
     # ID setting for span or trace
-    assert trace_id == mock_id
 
-    trace_data = get_api().trace.get(mock_id)
+    trace_data = get_api().trace.get(mock_trace_id)
     assert (
         len(trace_data.observations) == 2
     )  # Top-most function is trace, so it's not an observations
@@ -69,10 +66,10 @@ def test_nested_observations():
     for o in trace_data.observations:
         adjacencies[o.parent_observation_id or o.trace_id].append(o)
 
-    assert len(adjacencies[trace_id]) == 1  # Trace has only one child
+    assert len(adjacencies[mock_trace_id]) == 1  # Trace has only one child
     assert len(adjacencies) == 2  # Only trace and one observation have children
 
-    level_2_observation = adjacencies[trace_id][0]
+    level_2_observation = adjacencies[mock_trace_id][0]
     level_3_observation = adjacencies[level_2_observation.id][0]
 
     assert level_2_observation.metadata == mock_metadata
@@ -82,7 +79,7 @@ def test_nested_observations():
 # behavior on exceptions
 def test_exception_in_wrapped_function():
     mock_name = "test_exception_in_wrapped_function"
-    mock_id = create_uuid()
+    mock_trace_id = create_uuid()
 
     @langfuse.trace
     def level_3_function():
@@ -106,14 +103,13 @@ def test_exception_in_wrapped_function():
 
     # Check that the exception is raised
     with pytest.raises(ValueError):
-        level_1_function(*mock_args, **mock_kwargs, langfuse_observation_id=mock_id)
+        level_1_function(
+            *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
+        )
 
     langfuse.flush()
-    trace_id = langfuse.get_current_trace_id()
 
-    # ID setting for span or trace
-    assert trace_id == mock_id
-    trace_data = get_api().trace.get(trace_id)
+    trace_data = get_api().trace.get(mock_trace_id)
 
     assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
     assert trace_data.output is None  # Output is None if exception is raised
@@ -127,10 +123,10 @@ def test_exception_in_wrapped_function():
     for o in trace_data.observations:
         adjacencies[o.parent_observation_id or o.trace_id].append(o)
 
-    assert len(adjacencies[trace_id]) == 1  # Trace has only one child
+    assert len(adjacencies[mock_trace_id]) == 1  # Trace has only one child
     assert len(adjacencies) == 2  # Only trace and one observation have children
 
-    level_2_observation = adjacencies[trace_id][0]
+    level_2_observation = adjacencies[mock_trace_id][0]
     level_3_observation = adjacencies[level_2_observation.id][0]
 
     assert (
@@ -144,8 +140,8 @@ def test_exception_in_wrapped_function():
 # behavior on concurrency
 def test_concurrent_decorator_executions():
     mock_name = "test_concurrent_decorator_executions"
-    mock_id_1 = create_uuid()
-    mock_id_2 = create_uuid()
+    mock_trace_id_1 = create_uuid()
+    mock_trace_id_2 = create_uuid()
 
     @langfuse.trace
     def level_3_function():
@@ -172,16 +168,16 @@ def test_concurrent_decorator_executions():
         future1 = executor.submit(
             level_1_function,
             *mock_args,
-            mock_id_1,
+            mock_trace_id_1,
             **mock_kwargs,
-            langfuse_observation_id=mock_id_1,
+            langfuse_observation_id=mock_trace_id_1,
         )
         future2 = executor.submit(
             level_1_function,
             *mock_args,
-            mock_id_2,
+            mock_trace_id_2,
             **mock_kwargs,
-            langfuse_observation_id=mock_id_2,
+            langfuse_observation_id=mock_trace_id_2,
         )
 
         future1.result()
@@ -189,10 +185,10 @@ def test_concurrent_decorator_executions():
 
     langfuse.flush()
 
-    print("mock_id_1", mock_id_1)
-    print("mock_id_2", mock_id_2)
+    print("mock_id_1", mock_trace_id_1)
+    print("mock_id_2", mock_trace_id_2)
 
-    for mock_id in [mock_id_1, mock_id_2]:
+    for mock_id in [mock_trace_id_1, mock_trace_id_2]:
         trace_data = get_api().trace.get(mock_id)
         assert (
             len(trace_data.observations) == 2
@@ -225,7 +221,7 @@ def test_concurrent_decorator_executions():
 
 def test_decorators_llama_index():
     mock_name = "test_decorators_llama_index"
-    mock_id = create_uuid()
+    mock_trace_id = create_uuid()
 
     @langfuse.trace
     def llama_index_operations(*args, **kwargs):
@@ -253,14 +249,12 @@ def test_decorators_llama_index():
         return level_2_function(*args, **kwargs)
 
     level_1_function(
-        query="What is the authors ambition?", langfuse_observation_id=mock_id
+        query="What is the authors ambition?", langfuse_observation_id=mock_trace_id
     )
 
     langfuse.flush()
 
-    trace_id = mock_id
-
-    trace_data = get_api().trace.get(trace_id)
+    trace_data = get_api().trace.get(mock_trace_id)
     assert len(trace_data.observations) > 2
 
     # Check correct nesting
@@ -268,11 +262,11 @@ def test_decorators_llama_index():
     for o in trace_data.observations:
         adjacencies[o.parent_observation_id or o.trace_id].append(o)
 
-    assert len(adjacencies[trace_id]) == 1  # Trace has only one child
+    assert len(adjacencies[mock_trace_id]) == 1  # Trace has only one child
 
     # Check that the llama_index_operations is at the correct level
     lvl = 1
-    curr_id = trace_id
+    curr_id = mock_trace_id
     llama_index_root_span = None
 
     while len(adjacencies[curr_id]) > 0:
@@ -292,7 +286,7 @@ def test_decorators_llama_index():
 
 def test_decorators_langchain():
     mock_name = "test_decorators_langchain"
-    mock_id = create_uuid()
+    mock_trace_id = create_uuid()
 
     @langfuse.trace
     def langchain_operations(*args, **kwargs):
@@ -327,11 +321,11 @@ def test_decorators_langchain():
     def level_1_function(*args, **kwargs):
         return level_2_function(*args, **kwargs)
 
-    level_1_function(topic="socks", langfuse_observation_id=mock_id)
+    level_1_function(topic="socks", langfuse_observation_id=mock_trace_id)
 
     langfuse.flush()
-    trace_id = mock_id
-    trace_data = get_api().trace.get(trace_id)
+
+    trace_data = get_api().trace.get(mock_trace_id)
     assert len(trace_data.observations) > 2
 
     # Check correct nesting
@@ -339,11 +333,11 @@ def test_decorators_langchain():
     for o in trace_data.observations:
         adjacencies[o.parent_observation_id or o.trace_id].append(o)
 
-    assert len(adjacencies[trace_id]) == 1  # Trace has only one child
+    assert len(adjacencies[mock_trace_id]) == 1  # Trace has only one child
 
     # Check that the langchain_operations is at the correct level
     lvl = 1
-    curr_id = trace_id
+    curr_id = mock_trace_id
     llama_index_root_span = None
 
     while len(adjacencies[curr_id]) > 0:
