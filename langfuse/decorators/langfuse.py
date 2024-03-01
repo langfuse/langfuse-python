@@ -124,9 +124,10 @@ class LangfuseDecorator:
             try:
                 result = await func(*args, **kwargs)
             except Exception as e:
-                observation_params_context.get()[observation.id].update(
-                    level="ERROR", status_message=str(e)
-                )
+                if observation:
+                    observation_params_context.get()[observation.id].update(
+                        level="ERROR", status_message=str(e)
+                    )
                 raise e
 
             finally:
@@ -147,9 +148,10 @@ class LangfuseDecorator:
             try:
                 result = func(*args, **kwargs)
             except Exception as e:
-                observation_params_context.get()[observation.id].update(
-                    level="ERROR", status_message=str(e)
-                )
+                if observation:
+                    observation_params_context.get()[observation.id].update(
+                        level="ERROR", status_message=str(e)
+                    )
                 raise e
             finally:
                 self._finalize_call(observation, result)
@@ -164,61 +166,72 @@ class LangfuseDecorator:
         as_type: Optional[Literal["generation"]],
         func_args: Tuple = (),
         func_kwargs: Dict = {},
-    ) -> Union[StatefulSpanClient, StatefulTraceClient, StatefulGenerationClient]:
-        langfuse = self._get_langfuse()
-        stack = observation_stack_context.get().copy()
-        parent = stack[-1] if stack else None
+    ) -> Optional[
+        Union[StatefulSpanClient, StatefulTraceClient, StatefulGenerationClient]
+    ]:
+        try:
+            langfuse = self._get_langfuse()
+            stack = observation_stack_context.get().copy()
+            parent = stack[-1] if stack else None
 
-        # Collect default observation data
-        name = func_name
-        observation_id = func_kwargs.pop("langfuse_observation_id", None)
-        id = str(observation_id) if observation_id else None
-        input = {"args": func_args, "kwargs": func_kwargs}
-        start_time = _get_timestamp()
+            # Collect default observation data
+            name = func_name
+            observation_id = func_kwargs.pop("langfuse_observation_id", None)
+            id = str(observation_id) if observation_id else None
+            input = {"args": func_args, "kwargs": func_kwargs}
+            start_time = _get_timestamp()
 
-        # Create observation
-        if parent and as_type == "generation":
-            observation = parent.generation(
-                id=id, name=name, start_time=start_time, input=input
-            )
-        elif parent:
-            observation = parent.span(
-                id=id, name=name, start_time=start_time, input=input
-            )
-        else:
-            observation = langfuse.trace(
-                id=id, name=name, start_time=start_time, input=input
-            )
+            # Create observation
+            if parent and as_type == "generation":
+                observation = parent.generation(
+                    id=id, name=name, start_time=start_time, input=input
+                )
+            elif parent:
+                observation = parent.span(
+                    id=id, name=name, start_time=start_time, input=input
+                )
+            else:
+                observation = langfuse.trace(
+                    id=id, name=name, start_time=start_time, input=input
+                )
 
-        observation_stack_context.set(stack + [observation])
+            observation_stack_context.set(stack + [observation])
 
-        return observation
+            return observation
+        except Exception as e:
+            self.log.error(f"Failed to prepare observation: {e}")
 
     def _finalize_call(
         self,
-        observation: Union[
-            StatefulSpanClient,
-            StatefulTraceClient,
-            StatefulGenerationClient,
+        observation: Optional[
+            Union[
+                StatefulSpanClient,
+                StatefulTraceClient,
+                StatefulGenerationClient,
+            ]
         ],
         result: Any,
     ):
-        # TODO add try catch also around the finally block, and the first block
+        try:
+            if observation is None:
+                raise ValueError("No observation found in the current context")
 
-        # Collect final observation data
-        observation_params = observation_params_context.get()[observation.id]
-        end_time = observation_params["end_time"] or _get_timestamp()
-        output = observation_params["output"] or str(result) if result else None
-        observation_params.update(end_time=end_time, output=output)
+            # Collect final observation data
+            observation_params = observation_params_context.get()[observation.id]
+            end_time = observation_params["end_time"] or _get_timestamp()
+            output = observation_params["output"] or str(result) if result else None
+            observation_params.update(end_time=end_time, output=output)
 
-        if isinstance(observation, (StatefulSpanClient, StatefulGenerationClient)):
-            observation.end(**observation_params)
-        elif isinstance(observation, StatefulTraceClient):
-            observation.update(**observation_params)
+            if isinstance(observation, (StatefulSpanClient, StatefulGenerationClient)):
+                observation.end(**observation_params)
+            elif isinstance(observation, StatefulTraceClient):
+                observation.update(**observation_params)
 
-        # Remove observation from top of stack
-        stack = observation_stack_context.get()
-        observation_stack_context.set(stack[:-1])
+            # Remove observation from top of stack
+            stack = observation_stack_context.get()
+            observation_stack_context.set(stack[:-1])
+        except Exception as e:
+            self.log.error(f"Failed to finalize observation: {e}")
 
     def get_current_llama_index_handler(self):
         """
