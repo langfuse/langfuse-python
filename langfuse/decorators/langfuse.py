@@ -29,6 +29,8 @@ from langfuse.client import (
 from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
+from langfuse.utils.langfuse_singleton import LangfuseSingleton
+from langfuse.utils.error_logging import catch_and_log_errors
 
 from pydantic import BaseModel
 
@@ -476,6 +478,7 @@ class LangfuseDecorator:
             prompt=prompt,
         )
 
+    @catch_and_log_errors
     def flush(self):
         """
         Forces the immediate flush of all buffered observations to the Langfuse backend.
@@ -498,7 +501,6 @@ class LangfuseDecorator:
             - In long-running applications, it's often sufficient to rely on the automatic flushing mechanism provided by the Langfuse client.
             However, explicit calls to `flush` can be beneficial in certain edge cases or for debugging purposes.
         """
-
         langfuse = self._get_langfuse()
         if langfuse:
             langfuse.flush()
@@ -506,24 +508,7 @@ class LangfuseDecorator:
             self.log.warn("No langfuse object found in the current context")
 
     def _get_langfuse(self) -> Langfuse:
-        if self._langfuse:
-            return self._langfuse
-
-        public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
-        host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
-
-        if public_key and secret_key:
-            self._langfuse = Langfuse(
-                public_key=public_key, secret_key=secret_key, host=host
-            )
-
-            return self._langfuse
-
-        else:
-            raise ValueError(
-                "Missing LANGFUSE_SECRET_KEY or LANGFUSE_PUBLIC_KEY environment variables"
-            )
+        return LangfuseSingleton().get()
 
 
 langfuse = LangfuseDecorator()
