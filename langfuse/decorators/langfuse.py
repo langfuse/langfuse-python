@@ -1,22 +1,42 @@
+import asyncio
 from collections import defaultdict
 from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
 import logging
 import os
-from typing import Any, Callable, DefaultDict, List, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    DefaultDict,
+    List,
+    Optional,
+    Union,
+    Literal,
+    Dict,
+    Tuple,
+)
 
-from langfuse.client import Langfuse, StatefulSpanClient, StatefulTraceClient
+from langfuse.client import (
+    Langfuse,
+    StatefulSpanClient,
+    StatefulTraceClient,
+    StatefulGenerationClient,
+    PromptClient,
+    ModelUsage,
+    MapValue,
+)
 from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
 
+from pydantic import BaseModel
 
 langfuse_context: ContextVar[Optional[Langfuse]] = ContextVar(
     "langfuse_context", default=None
 )
 observation_stack_context: ContextVar[
-    List[Union[StatefulTraceClient, StatefulSpanClient]]
+    List[Union[StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient]]
 ] = ContextVar("observation_stack_context", default=[])
 observation_params_context: ContextVar[
     DefaultDict[str, ObservationParams]
@@ -37,6 +57,11 @@ observation_params_context: ContextVar[
             "status_message": None,
             "start_time": None,
             "end_time": None,
+            "completion_start_time": None,
+            "model": None,
+            "model_parameters": None,
+            "usage": None,
+            "prompt": None,
         },
     ),
 )
@@ -48,9 +73,12 @@ class LangfuseDecorator:
     def __init__(self):
         self._langfuse: Optional[Langfuse] = None
 
-    def trace(self, func: Callable) -> Callable:
+    def trace(
+        self,
+        as_type: Optional[Literal["generation"]] = None,
+    ) -> Callable:
         """
-        Wraps a function to automatically create and manage Langfuse tracing around its execution.
+        Wraps a function to automatically create and manage Langfuse tracing around its execution. Handles both synchronous and asynchronous functions.
 
         This decorator captures the start and end times of the function, along with input parameters and output results, and automatically updates the observation context.
         It creates traces for top-level function calls and spans for nested function calls, ensuring that each observation is correctly associated with its parent observation.
@@ -75,32 +103,46 @@ class LangfuseDecorator:
             - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.set_current_trace_params` within the wrapped function.
         """
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            langfuse = self._get_langfuse()
-            stack = observation_stack_context.get().copy()
-            parent = stack[-1] if stack else None
-
-            # Collect default observation data
-            name = func.__name__
-            observation_id = kwargs.pop("langfuse_observation_id", None)
-            id = str(observation_id) if observation_id else None
-            input = {"args": args, "kwargs": kwargs}
-            start_time = _get_timestamp()
-
-            # Create observation
-            observation = (
-                parent.span(id=id, name=name, start_time=start_time, input=input)
-                if parent
-                else langfuse.trace(
-                    id=id, name=name, start_time=start_time, input=input
-                )
+        def decorator(func: Callable) -> Callable:
+            return (
+                self.async_trace(func, as_type=as_type)
+                if asyncio.iscoroutinefunction(func)
+                else self.sync_trace(func, as_type=as_type)
             )
 
-            # Add observation to top of stack
-            observation_stack_context.set(stack + [observation])
+        return decorator
+
+    def async_trace(
+        self, func: Callable, as_type: Optional[Literal["generation"]]
+    ) -> Callable:
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            observation = self._prepare_call(func.__name__, as_type, args, kwargs)
 
             # Call the wrapped function
+            result = None
+            try:
+                result = await func(*args, **kwargs)
+            except Exception as e:
+                observation_params_context.get()[observation.id].update(
+                    level="ERROR", status_message=str(e)
+                )
+                raise e
+
+            finally:
+                self._finalize_call(observation, result)
+
+            return result
+
+        return async_wrapper
+
+    def sync_trace(
+        self, func: Callable, as_type: Optional[Literal["generation"]]
+    ) -> Callable:
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            observation = self._prepare_call(func.__name__, as_type, args, kwargs)
+
             result = None
             try:
                 result = func(*args, **kwargs)
@@ -110,23 +152,73 @@ class LangfuseDecorator:
                 )
                 raise e
             finally:
-                # Collect final observation data
-                observation_params = observation_params_context.get()[observation.id]
-                end_time = observation_params["end_time"] or _get_timestamp()
-                output = observation_params["output"] or str(result) if result else None
-                observation_params.update(end_time=end_time, output=output)
-
-                if isinstance(observation, StatefulSpanClient):
-                    observation.end(**observation_params)
-                elif isinstance(observation, StatefulTraceClient):
-                    observation.update(**observation_params)
-
-                # Remove observation from top of stack by resetting to initial stack
-                observation_stack_context.set(stack)
+                self._finalize_call(observation, result)
 
             return result
 
-        return wrapper
+        return sync_wrapper
+
+    def _prepare_call(
+        self,
+        func_name: str,
+        as_type: Optional[Literal["generation"]],
+        func_args: Tuple = (),
+        func_kwargs: Dict = {},
+    ) -> Union[StatefulSpanClient, StatefulTraceClient, StatefulGenerationClient]:
+        langfuse = self._get_langfuse()
+        stack = observation_stack_context.get().copy()
+        parent = stack[-1] if stack else None
+
+        # Collect default observation data
+        name = func_name
+        observation_id = func_kwargs.pop("langfuse_observation_id", None)
+        id = str(observation_id) if observation_id else None
+        input = {"args": func_args, "kwargs": func_kwargs}
+        start_time = _get_timestamp()
+
+        # Create observation
+        if parent and as_type == "generation":
+            observation = parent.generation(
+                id=id, name=name, start_time=start_time, input=input
+            )
+        elif parent:
+            observation = parent.span(
+                id=id, name=name, start_time=start_time, input=input
+            )
+        else:
+            observation = langfuse.trace(
+                id=id, name=name, start_time=start_time, input=input
+            )
+
+        observation_stack_context.set(stack + [observation])
+
+        return observation
+
+    def _finalize_call(
+        self,
+        observation: Union[
+            StatefulSpanClient,
+            StatefulTraceClient,
+            StatefulGenerationClient,
+        ],
+        result: Any,
+    ):
+        # TODO add try catch also around the finally block, and the first block
+
+        # Collect final observation data
+        observation_params = observation_params_context.get()[observation.id]
+        end_time = observation_params["end_time"] or _get_timestamp()
+        output = observation_params["output"] or str(result) if result else None
+        observation_params.update(end_time=end_time, output=output)
+
+        if isinstance(observation, (StatefulSpanClient, StatefulGenerationClient)):
+            observation.end(**observation_params)
+        elif isinstance(observation, StatefulTraceClient):
+            observation.update(**observation_params)
+
+        # Remove observation from top of stack
+        stack = observation_stack_context.get()
+        observation_stack_context.set(stack[:-1])
 
     def get_current_llama_index_handler(self):
         """
@@ -149,6 +241,13 @@ class LangfuseDecorator:
 
         if observation is None:
             self.log.warn("No observation found in the current context")
+
+            return None
+
+        if isinstance(observation, StatefulGenerationClient):
+            self.log.warn(
+                "Current observation is of type GENERATION, LlamaIndex handler is not supported for this type of observation"
+            )
 
             return None
 
@@ -177,6 +276,13 @@ class LangfuseDecorator:
 
         if observation is None:
             self.log.warn("No observation found in the current context")
+
+            return None
+
+        if isinstance(observation, StatefulGenerationClient):
+            self.log.warn(
+                "Current observation is of type GENERATION, Langchain handler is not supported for this type of observation"
+            )
 
             return None
 
@@ -277,6 +383,11 @@ class LangfuseDecorator:
         session_id: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage: Optional[Union[BaseModel, ModelUsage]] = None,
+        prompt: Optional[PromptClient] = None,
     ):
         """
         Updates parameters for the current observation within an active trace context.
@@ -285,20 +396,32 @@ class LangfuseDecorator:
         It allows for the enrichment of observation data with additional details such as input parameters, output results, metadata, and more,
         enhancing the observability and traceability of the execution context.
 
-        Parameters:
-            - input (Optional[Any]): The input parameters of the observation, providing context about the observed operation or function call.
-            - output (Optional[Any]): The output or result of the observation
-            - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
-            - user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
-            - session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
-            - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
-            - release (Optional[str]): The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
-            - metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
-            - tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
-            - start_time (Optional[datetime]): The start time of the observation, allowing for custom time range specification.
-            - end_time (Optional[datetime]): The end time of the observation, enabling precise control over the observation duration.
-            - level (Optional[SpanLevel]): The severity or importance level of the observation, such as "INFO", "WARNING", or "ERROR".
-            - status_message (Optional[str]): A message or description associated with the observation's status, particularly useful for error reporting.
+        Note that if a param is not available on a specific observation type, it will be ignored.
+
+        Shared params:
+            - `input` (Optional[Any]): The input parameters of the trace or observation, providing context about the observed operation or function call.
+            - `output` (Optional[Any]): The output or result of the trace or observation
+            - `name` (Optional[str]): Identifier of the trace or observation. Useful for sorting/filtering in the UI.
+            - `metadata` (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+            - `start_time` (Optional[datetime]): The start time of the observation, allowing for custom time range specification.
+            - `end_time` (Optional[datetime]): The end time of the observation, enabling precise control over the observation duration.
+            - `version` (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+
+        Trace-specific params:
+            - `user_id` (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
+            - `session_id` (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+            - `release` (Optional[str]): The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
+            - `tags` (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+
+        Span-specific params:
+            - `level` (Optional[SpanLevel]): The severity or importance level of the observation, such as "INFO", "WARNING", or "ERROR".
+            - `status_message` (Optional[str]): A message or description associated with the observation's status, particularly useful for error reporting.
+
+        Generation-specific params:
+            - `completion_start_time` (Optional[datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
+            - `model_parameters` (Optional[Dict[str, MapValue]]): The parameters of the model used for the generation; can be any key-value pairs.
+            - `usage` (Optional[Union[BaseModel, ModelUsage]]): The usage object supports the OpenAi structure with {promptTokens, completionTokens, totalTokens} and a more generic version {input, output, total, unit, inputCost, outputCost, totalCost} where unit can be of value "TOKENS", "CHARACTERS", "MILLISECONDS", "SECONDS", or "IMAGES". Refer to the docs on how to automatically infer token usage and costs in Langfuse.
+            - `prompt`(Optional[PromptClient]): The prompt object used for the generation.
 
         Returns:
             None
@@ -333,6 +456,11 @@ class LangfuseDecorator:
             session_id=session_id,
             level=level,
             status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage=usage,
+            prompt=prompt,
         )
 
     def flush(self):

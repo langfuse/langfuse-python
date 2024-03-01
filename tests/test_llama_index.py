@@ -2,7 +2,7 @@ from llama_index.core import (
     Settings,
     PromptTemplate,
 )
-from llama_index.core.callbacks import CallbackManager, CBEventType
+from llama_index.core.callbacks import CallbackManager
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
@@ -69,8 +69,7 @@ def test_callback_from_index_construction():
 
     observations = trace_data.observations
 
-    assert any(o.name == CBEventType.NODE_PARSING for o in observations)
-    assert any(o.name == CBEventType.CHUNKING for o in observations)
+    assert any(o.name == "OpenAIEmbedding" for o in observations)
 
     # Test embedding generation
     generations = sorted(

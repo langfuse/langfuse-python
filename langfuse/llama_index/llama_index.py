@@ -267,7 +267,14 @@ class LlamaIndexCallbackHandler(
 
     def _get_root_observation(self) -> Union[StatefulTraceClient, StatefulSpanClient]:
         user_provided_root = context_root.get()
-        if user_provided_root is not None:
+
+        # Make sure that if a user-provided root is set, it has been set in the same trace
+        # and it's not a root from a different trace
+        if (
+            user_provided_root is not None
+            and self.trace
+            and self.trace.id == user_provided_root.trace_id
+        ):
             return user_provided_root
 
         else:

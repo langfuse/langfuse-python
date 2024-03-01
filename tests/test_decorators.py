@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 import pytest
@@ -18,23 +19,27 @@ def test_nested_observations():
     mock_name = "test_nested_observations"
     mock_trace_id = create_uuid()
 
-    @langfuse.trace
+    @langfuse.trace(as_type="generation")
     def level_3_function():
         langfuse.update_current_observation(metadata=mock_metadata)
-        langfuse.update_current_observation(metadata=mock_deep_metadata)
+        langfuse.update_current_observation(
+            metadata=mock_deep_metadata,
+            usage={"input": 150, "output": 50, "total": 300},
+            model="gpt-3.5-turbo",
+        )
 
         langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
 
         return "level_3"
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_2_function():
         level_3_function()
         langfuse.update_current_observation(metadata=mock_metadata)
 
         return "level_2"
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_1_function(*args, **kwargs):
         level_2_function()
 
@@ -74,6 +79,8 @@ def test_nested_observations():
 
     assert level_2_observation.metadata == mock_metadata
     assert level_3_observation.metadata == mock_deep_metadata
+    assert level_3_observation.type == "GENERATION"
+    assert level_3_observation.calculated_total_cost > 0
 
 
 # behavior on exceptions
@@ -81,21 +88,26 @@ def test_exception_in_wrapped_function():
     mock_name = "test_exception_in_wrapped_function"
     mock_trace_id = create_uuid()
 
-    @langfuse.trace
+    @langfuse.trace(as_type="generation")
     def level_3_function():
         langfuse.update_current_observation(metadata=mock_metadata)
+        langfuse.update_current_observation(
+            metadata=mock_deep_metadata,
+            usage={"input": 150, "output": 50, "total": 300},
+            model="gpt-3.5-turbo",
+        )
         langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
 
         raise ValueError("Mock exception")
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_2_function():
         level_3_function()
         langfuse.update_current_observation(metadata=mock_metadata)
 
         return "level_2"
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_1_function(*args, **kwargs):
         level_2_function()
 
@@ -132,7 +144,7 @@ def test_exception_in_wrapped_function():
     assert (
         level_2_observation.metadata is None
     )  # Exception is raised before metadata is set
-    assert level_3_observation.metadata == mock_metadata
+    assert level_3_observation.metadata == mock_deep_metadata
     assert level_3_observation.status_message == "Mock exception"
     assert level_3_observation.level == "ERROR"
 
@@ -143,22 +155,27 @@ def test_concurrent_decorator_executions():
     mock_trace_id_1 = create_uuid()
     mock_trace_id_2 = create_uuid()
 
-    @langfuse.trace
+    @langfuse.trace(as_type="generation")
     def level_3_function():
         langfuse.update_current_observation(metadata=mock_metadata)
         langfuse.update_current_observation(metadata=mock_deep_metadata)
+        langfuse.update_current_observation(
+            metadata=mock_deep_metadata,
+            usage={"input": 150, "output": 50, "total": 300},
+            model="gpt-3.5-turbo",
+        )
         langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
 
         return "level_3"
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_2_function():
         level_3_function()
         langfuse.update_current_observation(metadata=mock_metadata)
 
         return "level_2"
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_1_function(*args, **kwargs):
         level_2_function()
 
@@ -217,20 +234,22 @@ def test_concurrent_decorator_executions():
 
         assert level_2_observation.metadata == mock_metadata
         assert level_3_observation.metadata == mock_deep_metadata
+        assert level_3_observation.type == "GENERATION"
+        assert level_3_observation.calculated_total_cost > 0
 
 
 def test_decorators_llama_index():
     mock_name = "test_decorators_llama_index"
     mock_trace_id = create_uuid()
 
-    @langfuse.trace
+    @langfuse.trace()
     def llama_index_operations(*args, **kwargs):
         callback = langfuse.get_current_llama_index_handler()
         index = get_llama_index_index(callback, force_rebuild=True)
 
         return index.as_query_engine().query(kwargs["query"])
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_3_function(*args, **kwargs):
         langfuse.update_current_observation(metadata=mock_metadata)
         langfuse.update_current_observation(metadata=mock_deep_metadata)
@@ -238,13 +257,13 @@ def test_decorators_llama_index():
 
         return llama_index_operations(*args, **kwargs)
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_2_function(*args, **kwargs):
         langfuse.update_current_observation(metadata=mock_metadata)
 
         return level_3_function(*args, **kwargs)
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_1_function(*args, **kwargs):
         return level_2_function(*args, **kwargs)
 
@@ -288,7 +307,7 @@ def test_decorators_langchain():
     mock_name = "test_decorators_langchain"
     mock_trace_id = create_uuid()
 
-    @langfuse.trace
+    @langfuse.trace()
     def langchain_operations(*args, **kwargs):
         handler = langfuse.get_current_langchain_handler()
         prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
@@ -303,7 +322,7 @@ def test_decorators_langchain():
             },
         )
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_3_function(*args, **kwargs):
         langfuse.update_current_observation(metadata=mock_metadata)
         langfuse.update_current_observation(metadata=mock_deep_metadata)
@@ -311,13 +330,13 @@ def test_decorators_langchain():
 
         return langchain_operations(*args, **kwargs)
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_2_function(*args, **kwargs):
         langfuse.update_current_observation(metadata=mock_metadata)
 
         return level_3_function(*args, **kwargs)
 
-    @langfuse.trace
+    @langfuse.trace()
     def level_1_function(*args, **kwargs):
         return level_2_function(*args, **kwargs)
 
@@ -353,3 +372,79 @@ def test_decorators_langchain():
 
     assert llama_index_root_span is not None
     assert any([o.name == "ChatPromptTemplate" for o in trace_data.observations])
+
+
+@pytest.mark.asyncio
+async def test_asyncio_concurrency_inside_nested_span():
+    mock_name = "test_asyncio_concurrency_inside_nested_span"
+    mock_trace_id = create_uuid()
+    mock_observation_id_1 = create_uuid()
+    mock_observation_id_2 = create_uuid()
+
+    @langfuse.trace(as_type="generation")
+    async def level_3_function():
+        langfuse.update_current_observation(metadata=mock_metadata)
+        langfuse.update_current_observation(
+            metadata=mock_deep_metadata,
+            usage={"input": 150, "output": 50, "total": 300},
+            model="gpt-3.5-turbo",
+        )
+        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+
+        return "level_3"
+
+    @langfuse.trace()
+    async def level_2_function(*args, **kwargs):
+        await level_3_function()
+        langfuse.update_current_observation(metadata=mock_metadata)
+
+        return "level_2"
+
+    @langfuse.trace()
+    async def level_1_function(*args, **kwargs):
+        print("Executing level 1")
+        await asyncio.gather(
+            level_2_function(
+                *mock_args,
+                mock_observation_id_1,
+                **mock_kwargs,
+                langfuse_observation_id=mock_observation_id_1,
+            ),
+            level_2_function(
+                *mock_args,
+                mock_observation_id_2,
+                **mock_kwargs,
+                langfuse_observation_id=mock_observation_id_2,
+            ),
+        )
+
+        return "level_1"
+
+    await level_1_function(langfuse_observation_id=mock_trace_id)
+    langfuse.flush()
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert (
+        len(trace_data.observations) == 4
+    )  # Top-most function is trace, so it's not an observations
+
+    # trace parameters if set anywhere in the call stack
+    assert trace_data.name == mock_name
+    assert trace_data.session_id == mock_session_id
+    assert trace_data.output == "level_1"
+
+    # Check correct nesting
+    adjacencies = defaultdict(list)
+    for o in trace_data.observations:
+        adjacencies[o.parent_observation_id or o.trace_id].append(o)
+
+    # Trace has two children
+    assert len(adjacencies[mock_trace_id]) == 2
+
+    # Each async call has one child
+    for mock_id in [mock_observation_id_1, mock_observation_id_2]:
+        assert len(adjacencies[mock_id]) == 1
+
+    assert (
+        len(adjacencies) == 3
+    )  # Only trace and the two lvl-2 observation have children
