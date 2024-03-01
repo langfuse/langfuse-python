@@ -328,6 +328,28 @@ class LangfuseDecorator:
 
         return stack[0].id
 
+    def get_current_observation_id(self):
+        """
+        Retrieves the ID of the current observation in context.
+
+        Returns:
+            str or None: The ID of the current observation if available; otherwise, None. A return value of None indicates that there is no active trace or observation in the current context,
+            possibly due to the method being called outside of any @langfuse.trace-decorated function execution.
+
+        Note:
+            - This method should be called within the context of a trace or observation (i.e., inside a function wrapped with the @langfuse.trace decorator) to ensure that a current observation is indeed present and its ID can be retrieved.
+            - If called outside of a trace or observation context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
+            - If called at the top level of a trace, it will return the trace ID.
+        """
+        stack = observation_stack_context.get()
+
+        if not stack:
+            self.log.warn("No trace found in the current context")
+
+            return None
+
+        return stack[-1].id
+
     def set_current_trace_params(
         self,
         name: Optional[str] = None,

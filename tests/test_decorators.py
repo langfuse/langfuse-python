@@ -1,4 +1,5 @@
 import asyncio
+from contextvars import ContextVar
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 import pytest
@@ -7,6 +8,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langfuse.decorators import langfuse
 from tests.utils import create_uuid, get_api, get_llama_index_index
+from typing import Optional
 
 mock_metadata = "mock_metadata"
 mock_deep_metadata = "mock_deep_metadata"
@@ -448,3 +450,48 @@ async def test_asyncio_concurrency_inside_nested_span():
     assert (
         len(adjacencies) == 3
     )  # Only trace and the two lvl-2 observation have children
+
+
+def test_get_current_ids():
+    mock_trace_id = create_uuid()
+    mock_deep_observation_id = create_uuid()
+
+    retrieved_trace_id: ContextVar[Optional[str]] = ContextVar(
+        "retrieved_trace_id", default=None
+    )
+    retrieved_observation_id: ContextVar[Optional[str]] = ContextVar(
+        "retrieved_observation_id", default=None
+    )
+
+    @langfuse.trace()
+    def level_3_function(*args, **kwargs):
+        retrieved_trace_id.set(langfuse.get_current_trace_id())
+        retrieved_observation_id.set(langfuse.get_current_observation_id())
+
+        return "level_3"
+
+    @langfuse.trace()
+    def level_2_function():
+        return level_3_function(langfuse_observation_id=mock_deep_observation_id)
+
+    @langfuse.trace()
+    def level_1_function(*args, **kwargs):
+        level_2_function()
+
+        return "level_1"
+
+    result = level_1_function(
+        *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
+    )
+    langfuse.flush()
+
+    assert result == "level_1"  # Wrapped function returns correctly
+
+    # ID setting for span or trace
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert retrieved_trace_id.get() == mock_trace_id
+    assert retrieved_observation_id.get() == mock_deep_observation_id
+    assert any(
+        [o.id == retrieved_observation_id.get() for o in trace_data.observations]
+    )
