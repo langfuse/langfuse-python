@@ -1,4 +1,4 @@
-name: Availability/compatibility of partner packages
+name: Check availability of packages
 
 on:
   schedule:
