@@ -2,7 +2,7 @@ name: Check availability of packages
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
   pull_request:
 
