@@ -61,7 +61,6 @@ class Langfuse(object):
         httpx_client (httpx.Client): HTTPX client utilized for executing requests to the Langfuse API.
         client (FernLangfuse): Core interface for Langfuse API interaction.
         task_manager (TaskManager): Task Manager dedicated to handling asynchronous tasks.
-        trace_id (str): Identifier of currently used trace.
         release (str): Identifies the release number or hash of the application.
         prompt_cache (PromptCache): A cache for efficiently storing and retrieving PromptClient instances.
 
@@ -205,16 +204,6 @@ class Langfuse(object):
         self.prompt_cache = PromptCache()
 
     def __get_release_value(self, release: Optional[str] = None) -> Optional[str]:
-        """Retrieve the release value of Langfuse.
-
-        If 'release' is not provided, search for a release identifier in a predefined set of environment variables.
-
-        Args:
-            release (Optional[str]): The explicit release identifier, if available.
-
-        Returns:
-            Optional[str]: The resolved release identifier, or None if not found.
-        """
         if release:
             return release
         elif "LANGFUSE_RELEASE" in os.environ:
@@ -227,11 +216,18 @@ class Langfuse(object):
         return self.trace_id
 
     def get_trace_url(self) -> str:
-        """Get the URL to see the current trace in the Langfuse UI."""
+        """Get the URL of the current trace to view it in the Langfuse UI."""
         return f"{self.base_url}/trace/{self.trace_id}"
 
     def get_dataset(self, name: str) -> "DatasetClient":
-        """Get the dataset client of the dataset with the given name."""
+        """Fetch a dataset by its name.
+
+        Args:
+            name (str): The name of the dataset to fetch.
+
+        Returns:
+            DatasetClient: The dataset with the given name.
+        """
         try:
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
@@ -258,6 +254,9 @@ class Langfuse(object):
 
         Raises:
             Exception: If no projects were found for the provided credentials.
+
+        Note:
+            This method is blocking. It is discouraged to use it in production code.
         """
         try:
             projects = self.client.projects.get()
@@ -279,7 +278,15 @@ class Langfuse(object):
         dataset_name: str,
         dataset_run_name: str,
     ) -> DatasetRun:
-        """Get the dataset run of a given dataset with a given name."""
+        """Get a dataset run.
+
+        Args:
+            dataset_name: Name of the dataset.
+            dataset_run_name: Name of the dataset run.
+
+        Returns:
+            DatasetRun: The dataset run.
+        """
         try:
             self.log.debug(
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
@@ -292,7 +299,14 @@ class Langfuse(object):
             raise e
 
     def create_dataset(self, name: str) -> Dataset:
-        """Create a dataset with the given name on Langfuse."""
+        """Create a dataset with the given name on Langfuse.
+
+        Args:
+            name: Name of the dataset to create.
+
+        Returns:
+            Dataset: The created dataset as returned by the Langfuse API.
+        """
         try:
             body = CreateDatasetRequest(name=name)
             self.log.debug(f"Creating datasets {body}")
@@ -319,7 +333,7 @@ class Langfuse(object):
             id: Id of the dataset item. Defaults to None.
 
         Returns:
-            DatasetItem: The created dataset item.
+            DatasetItem: The created dataset item as returned by the Langfuse API.
 
         Example:
             ```python
@@ -351,7 +365,17 @@ class Langfuse(object):
         self,
         id: str,
     ) -> TraceWithFullDetails:
-        """Get a trace in the current project with the given identifier."""
+        """Get a trace via the Langfuse API by its id.
+
+        Args:
+            id: The id of the trace to fetch.
+
+        Returns:
+            TraceWithFullDetails: The trace with full details as returned by the Langfuse API.
+
+        Raises:
+            Exception: If the trace with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
         try:
             self.log.debug(f"Getting trace {id}")
             return self.client.trace.get(id)
@@ -383,6 +407,9 @@ class Langfuse(object):
 
         Returns:
             List of ObservationsViews: List of observations in the project matching the given parameters.
+
+        Raises:
+            Exception: If an error occurred during the request.
         """
         try:
             self.log.debug(
@@ -423,6 +450,9 @@ class Langfuse(object):
 
         Returns:
             List of ObservationsViews: List of generations in the project matching the given parameters.
+
+        Raises:
+            Exception: If an error occurred during the request.
         """
         return self.get_observations(
             page=page,
@@ -438,7 +468,14 @@ class Langfuse(object):
         self,
         id: str,
     ) -> Observation:
-        """Get an observation in the current project with the given identifier."""
+        """Get an observation in the current project with the given identifier.
+
+        Args:
+            id: The identifier of the observation to fetch.
+
+        Raises:
+            Exception: If the observation with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
         try:
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
@@ -453,7 +490,7 @@ class Langfuse(object):
         *,
         cache_ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
-        """Get a prompt by its name and optionally its version, with support for additional options.
+        """Get a prompt.
 
         This method attempts to fetch the requested prompt from the local cache. If the prompt is not found
         in the cache or if the cached prompt has expired, it will try to fetch the prompt from the server again
@@ -462,9 +499,9 @@ class Langfuse(object):
 
         Args:
             name (str): The name of the prompt to retrieve.
-            version (Optional[int]): The version of the prompt. If not specified, the latest version is assumed.
+            version (Optional[int]): The version of the prompt. If not specified, the `active` version is returned.
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
-            keyword argument. If specified, a default of 60 seconds is used.
+            keyword argument. If not set, defaults to 60 seconds.
 
         Returns:
             PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
@@ -505,21 +542,6 @@ class Langfuse(object):
         version: Optional[int] = None,
         ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
-        """Fetch a prompt from the server based on its name and version, and update the prompt cache.
-
-        Args:
-            name (str): The name of the prompt to retrieve.
-            version (Optional[int]): The version of the prompt to retrieve.
-            If not specified, the latest version is assumed. Defaults to None.
-            ttl_seconds (Optional[int]): The time-to-live in seconds for the prompt in the cache.
-            If not specified, the prompt will not have an expiration in the cache. Defaults to None.
-
-        Raises:
-            Exception: Propagates any exceptions raised during the fetching of the prompt from the server.
-
-        Returns:
-            PromptClient: The prompt object fetched from the server.
-        """
         try:
             self.log.debug(
                 f"Fetching prompt {name}-{version or 'latest'}' from server..."
@@ -542,7 +564,7 @@ class Langfuse(object):
     def create_prompt(
         self, *, name: str, prompt: str, is_active: bool, config: Optional[Any] = None
     ) -> PromptClient:
-        """Create a new prompt with the specified name, prompt content, and active status.
+        """Create a new prompt in Langfuse.
 
         Args:
             name : The name of the prompt to be created.
@@ -587,24 +609,21 @@ class Langfuse(object):
         public: typing.Optional[bool] = None,
         **kwargs,
     ) -> "StatefulTraceClient":
-        """Create a trace with the provided details.
-
-        This method is used to create a new trace, which includes various optional details like name, user ID,
-        version, input, output, metadata, and tags. It generates a unique identifier for the trace if not provided,
-        timestamps it, and queues it for processing by the task manager.
+        """Create a trace.
 
         Args:
-            id (Optional[str]): A unique identifier for the trace. If not provided, a new UUID is generated.
-            name (Optional[str]): The name of the trace.
-            user_id (Optional[str]): The user ID of the trace.
-            session_id (Optional[str]): The session ID of the trace.
-            version (Optional[str]): The version of the trace.
-            input (Optional[Any]): The input data of the trace.
-            output (Optional[Any]): The output data of the trace.
-            metadata (Optional[Any]): Additional metadata of the trace.
-            tags (Optional[List[str]]): A list of tags for categorizing or labeling the trace.
-            timestamp (Optional[datetime]): The timestamp of the trace. Defaults to the current time if not provided.
-            public (Optional[bool]): A flag indicating whether the trace shall be publicly accessible.
+            id: The id of the trace can be set, defaults to a random id. Set it to link traces to external systems or when creating a distributed trace. Traces are upserted on id.
+            name: Identifier of the trace. Useful for sorting/filtering in the UI.
+            input: The input of the trace. Can be any JSON object.
+            output: The output of the trace. Can be any JSON object.
+            metadata: Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+            user_id: The id of the user that triggered the execution. Used to provide user-level analytics.
+            session_id: Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+            version: The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+            release: The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
+            tags: Tags are used to categorize or label traces. Traces can be filtered by tags in the UI and GET API. Tags can also be changed in the UI. Tags are merged and never deleted via the API.
+            timestamp: The timestamp of the trace. Defaults to the current time if not provided.
+            public: You can make a trace `public` to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
             **kwargs: Additional keyword arguments that can be included in the trace.
 
         Returns:
@@ -616,7 +635,6 @@ class Langfuse(object):
 
             langfuse = Langfuse()
 
-            # Creating a trace for a text summarization generation
             trace = langfuse.trace(
                 name="example-application",
                 user_id="user-1234")
@@ -675,20 +693,16 @@ class Langfuse(object):
         observation_id: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient":
-        """Create a score with the provided parameters.
-
-        This function is used to create a score that can be associated with an observation or a trace.
-        If a trace ID is provided, the score is linked to that trace. If not, it defaults to using
-        the instance's trace ID (self.trace_id). The function also supports linking the score to an
-        observation. If no observation ID is provided, the score is associated with a trace.
+        """Create a score attached to a trace (and optionally an observation).
 
         Args:
-            name (str): The name of the score.
-            value (float): The numerical value of the score.
-            trace_id (Optional[str]): The trace ID to associate with the score. Defaults to the instance's trace ID.
-            id (Optional[str]): The unique identifier of the score. If not provided, a new UUID is generated.
-            comment (Optional[str]): An optional comment associated with the score.
-            observation_id (Optional[str]): The id of the observation associated with the score.
+            name (str): Identifier of the score.
+            value (float): The value of the score. Can be any number, often standardized to 0..1
+            trace_id (str): The id of the trace to which the score should be attached.
+            comment (Optional[str]): Additional context/explanation of the score.
+            observation_id (Optional[str]): The id of the observation to which the score should be attached.
+            id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
             StatefulClient: Either the associated observation (if observation_id is provided) or the trace (if observation_id is not provided).
@@ -699,11 +713,13 @@ class Langfuse(object):
 
                 langfuse = Langfuse()
 
-                # Get id of created trace
-                trace_id = handler.get_trace_id()
+                # Create a trace
+                trace = langfuse.trace(name="example-application")
 
-                # Add score, e.g. via the Python SDK
-                langfuse = Langfuse()
+                # Get id of created trace
+                trace_id = trace.id
+
+                # Add score to the trace
                 trace = langfuse.score(
                     trace_id=trace_id,
                     name="user-explicit-feedback",
@@ -756,37 +772,38 @@ class Langfuse(object):
         *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        input: typing.Optional[typing.Any] = None,
-        output: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
-        parent_observation_id: typing.Optional[str] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
         version: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulSpanClient":
-        """Create a span with the provided parameters.
+        """Create a span.
 
         A span represents durations of units of work in a trace.
-        If no trace_id is provided, a new unique trace identifier is generated for the span.
-        If a parent_observation_id is provided, the span is linked to this existing observation.
+        Usually, you want to add a span nested within a trace. Optionally you can nest it within another observation by providing a parent_observation_id.
+
+        If no trace_id is provided, a new trace is created just for this span.
 
         Args:
-            id (Optional[str]): Unique identifier of the span. If not provided, a new UUID is generated.
-            trace_id (Optional[str]): The trace ID associated with the span. If not provided, a new UUID is generated.
-            name (Optional[str]): The name of the span.
-            start_time (Optional[datetime]): The start time of the span. Defaults to the current time if not provided.
-            end_time (Optional[datetime]): The end time of the span.
-            metadata (Optional[Any]): Additional metadata associated with the span.
-            input (Optional[Any]): Input data of the span.
-            output (Optional[Any]): Output data of the span.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
-            status_message (Optional[str]): A status message associated with the span.
-            parent_observation_id (Optional[str]): The ID of the parent observation, if any.
-            version (Optional[str]): Version of the span.
+            id (Optional[str]): The id of the span can be set, otherwise a random id is generated. Spans are upserted on id.
+            trace_id (Optional[str]): The trace ID associated with this span. If not provided, a new UUID is generated.
+            parent_observation_id (Optional[str]): The ID of the parent observation, if applicable.
+            name (Optional[str]): Identifier of the span. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the span started, defaults to the current time.
+            end_time (Optional[datetime]): The time at which the span ended. Automatically set by `span.end()`.
+            metadata (Optional[dict]): Additional metadata of the span. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the span. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the span. Additional field for context of the event. E.g. the error message of an error event.
+            input (Optional[dict]): The input to the span. Can be any JSON object.
+            output (Optional[dict]): The output to the span. Can be any JSON object.
+            version (Optional[str]): The version of the span type. Used to understand how changes to the span type affect metrics. Useful in debugging.
             **kwargs: Additional keyword arguments to include in the span.
 
         Returns:
@@ -799,10 +816,12 @@ class Langfuse(object):
                 langfuse = Langfuse()
 
                 trace = langfuse.trace(name = "llm-feature")
+
+                # Create a span
                 retrieval = langfuse.span(name = "retrieval", trace_id = trace.id)
-                retrieval.event(
-                    name = "db-summary"
-                )
+
+                # Create a nested span
+                nested_span = langfuse.span(name = "retrieval", trace_id = trace.id, parent_observation_id = retrieval.id)
             ```
         retrieval = trace.span(name = "retrieval")
         """
@@ -859,6 +878,7 @@ class Langfuse(object):
         *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
@@ -866,32 +886,43 @@ class Langfuse(object):
         output: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
-        parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulSpanClient":
-        """Create an event with the provided parameters.
+        """Create an event.
 
         An event represents a discrete event in a trace.
-        If no trace_id is provided, a new unique trace identifier is generated for the event.
-        If a parent_observation_id is provided, the event is linked to this existing observation.
+        Usually, you want to add a event nested within a trace. Optionally you can nest it within another observation by providing a parent_observation_id.
+
+        If no trace_id is provided, a new trace is created just for this event.
 
         Args:
-            id (Optional[str]): Unique identifier for the event. If not provided, a new UUID is generated.
-            trace_id (Optional[str]): The trace ID associated with this event. If not provided, a new UUID is generated.
-            name (Optional[str]): The name of the event.
-            start_time (Optional[datetime]): The start time of the event. Defaults to the current time if not provided.
-            metadata (Optional[Any]): Additional metadata associated with the event.
-            input (Optional[Any]): Input data of the event.
-            output (Optional[Any]): Output data of the event.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize event.
-            status_message (Optional[str]): A status message associated with the event.
+            id (Optional[str]): The id of the event can be set, otherwise a random id is generated.
+            trace_id (Optional[str]): The trace ID associated with this event. If not provided, a new trace is created just for this event.
             parent_observation_id (Optional[str]): The ID of the parent observation, if applicable.
-            version (Optional[str]): Version information for the event.
+            name (Optional[str]): Identifier of the event. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the event started, defaults to the current time.
+            metadata (Optional[Any]): Additional metadata of the event. Can be any JSON object. Metadata is merged when being updated via the API.
+            input (Optional[Any]): The input to the event. Can be any JSON object.
+            output (Optional[Any]): The output to the event. Can be any JSON object.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the event. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the event. Additional field for context of the event. E.g. the error message of an error event.
+            version (Optional[str]): The version of the event type. Used to understand how changes to the event type affect metrics. Useful in debugging.
             **kwargs: Additional keyword arguments to include in the event.
 
         Returns:
             StatefulSpanClient: The created event.
+
+        Example:
+            ```python
+                from langfuse import Langfuse
+
+                langfuse = Langfuse()
+
+                trace = langfuse.trace(name = "llm-feature")
+
+                # Create an event
+                retrieval = langfuse.event(name = "retrieval", trace_id = trace.id)
         """
         event_id = id or str(uuid.uuid4())
         new_trace_id = trace_id or str(uuid.uuid4())
@@ -943,15 +974,15 @@ class Langfuse(object):
         *,
         id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
-        parent_observation_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        completion_start_time: typing.Optional[dt.datetime] = None,
         model: typing.Optional[str] = None,
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         input: typing.Optional[typing.Any] = None,
@@ -960,32 +991,32 @@ class Langfuse(object):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
-        """Create a generation with the provided parameters.
+        """Create a generation.
 
-        A generation is a span that is used to log generations of AI models.
-        If no trace_id is provided, a new unique trace identifier is generated for the generation record.
-        If a parent_observation_id is provided, the generation is linked to this existing observation.
+        A generation is a span that is used to log generations of AI models. They contain additional metadata about the model, the prompt/completion, the cost of executing the model and are specifically rendered in the langfuse UI.
+
+        Usually, you want to add a generation nested within a trace. Optionally you can nest it within another observation by providing a parent_observation_id.
+
+        If no trace_id is provided, a new trace is created just for this generation.
 
         Args:
-            id (Optional[str]): Unique identifier for the generation. If not provided, a new UUID is generated.
-            trace_id (Optional[str]): The trace ID associated with this generation.
-            If not provided, a new UUID is generated and used.
-            name (Optional[str]): The name of the generation.
-            start_time (Optional[datetime]): The start time of the generation.
-            Defaults to the current time if not provided.
-            end_time (Optional[datetime]): The end time of the generation.
-            metadata (Optional[Any]): Additional metadata associated with the generation.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize generation.
-            status_message (Optional[str]): A status message associated with the generation.
-            parent_observation_id (Optional[str]): The id of the parent observation, if applicable.
-            version (Optional[str]): Version information of the generation.
-            completion_start_time (Optional[datetime]): The time when the generation was completed.
-            model (Optional[str]): The model used for the generation process.
-            model_parameters (Optional[Dict[str, MapValue]]): Parameters of the model used for the generation.
-            input (Optional[Any]): Input data of the generation.
-            output (Optional[Any]): Output data of the generation.
-            usage (Optional[Union[BaseModel, ModelUsage]]): Usage information on the generation.
-            prompt (Optional[PromptClient]): Associated prompt template used for the generation.
+            id (Optional[str]): The id of the generation can be set, defaults to random id.
+            trace_id (Optional[str]): The trace ID associated with this generation. If not provided, a new trace is created
+            parent_observation_id (Optional[str]): The ID of the parent observation, if applicable.
+            name (Optional[str]): Identifier of the generation. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time.
+            end_time (Optional[datetime.datetime]): The time at which the generation ended. Automatically set by `generation.end()`.
+            completion_start_time (Optional[datetime.datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
+            metadata (Optional[dict]): Additional metadata of the generation. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[str]): The level of the generation. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the generation. Additional field for context of the event. E.g. the error message of an error event.
+            version (Optional[str]): The version of the generation type. Used to understand how changes to the span type affect metrics. Useful in debugging.
+            model (Optional[str]): The name of the model used for the generation.
+            model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
+            input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
+            output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
+            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
         Returns:
@@ -1077,7 +1108,6 @@ class Langfuse(object):
             )
 
     def _generate_trace(self, trace_id: str, name: str):
-        """Create a trace with the specified trace ID and name."""
         trace_dict = {
             "id": trace_id,
             "release": self.release,
@@ -1095,13 +1125,15 @@ class Langfuse(object):
         self.log.debug(f"Creating trace {event}...")
         self.task_manager.add_task(event)
 
-    # On program exit, allow the consumer thread to exit cleanly.
-    # This prevents exceptions and a messy shutdown when the
-    # interpreter is destroyed before the daemon thread finishes
-    # execution. However, it is *not* the same as flushing the queue!
-    # To guarantee all messages have been delivered, you'll still need to call flush().
     def join(self):
-        """End the consumer threads once the queue is empty and blocks execution until finished."""
+        """End the consumer threads once the queue is empty and blocks execution until finished.
+
+        On program exit, allow the consumer thread to exit cleanly.
+
+        This prevents exceptions and a messy shutdown when the interpreter is destroyed before the daemon thread finishes execution. However, it is *not* the same as flushing the queue!
+
+        To guarantee all messages have been delivered, you'll still need to call flush().
+        """
         try:
             return self.task_manager.join()
         except Exception as e:
@@ -1110,10 +1142,7 @@ class Langfuse(object):
     def flush(self):
         """Force a flush from the internal queue to the server.
 
-        This method should be used every time to exit Langfuse cleanly to ensure all queued events are processed.
-        This method waits for all events in the queue to be processed and sent to the server. It blocks
-        until the queue is empty. The method logs the total number of items approximately flushed due
-        to potential variations caused by threading.
+        This method should be used when exiting the program to ensure all queued events are. It blocks until the queue is empty. The method logs the total number of items approximately flushed due to potential variations caused by threading.
 
         Example:
             ```python
@@ -1141,11 +1170,11 @@ class Langfuse(object):
 
 
 class StateType(Enum):
-    """Enumeration to distinguish observation and trace states.
+    """Enum to distinguish observation and trace states.
 
     Attributes:
-        OBSERVATION (int): Identifier for state type observation.
-        TRACE (int): Identifier for state type trace.
+        OBSERVATION (int): Observation state.
+        TRACE (int): Trace state.
     """
 
     OBSERVATION = 1
@@ -1155,7 +1184,7 @@ class StateType(Enum):
 class StatefulClient(object):
     """Base class for handling stateful operations in the Langfuse system.
 
-    This client is capable of creating different Lagnfuse objects like spans, generations, scores, and events,
+    This client is capable of creating different nested Langfuse objects like spans, generations, scores, and events,
     associating them with either an observation or a trace based on the specified state type.
 
     Attributes:
@@ -1176,6 +1205,15 @@ class StatefulClient(object):
         trace_id: str,
         task_manager: TaskManager,
     ):
+        """Initialize the StatefulClient.
+
+        Args:
+            client (FernLangfuse): Core interface for Langfuse API interactions.
+            id (str): Unique identifier of the stateful client (either observation or trace).
+            state_type (StateType): Enum indicating whether the client is an observation or a trace.
+            trace_id (str): Id of the trace associated with the stateful client.
+            task_manager (TaskManager): Manager handling asynchronous tasks for the client.
+        """
         self.client = client
         self.trace_id = trace_id
         self.id = id
@@ -1183,11 +1221,6 @@ class StatefulClient(object):
         self.task_manager = task_manager
 
     def _add_state_to_event(self, body: dict):
-        """Add state information to an event body based on the state type of the client.
-
-        If the state type is an observation, it adds the parent observation ID and trace ID.
-        If the state type is a trace, it adds only the trace ID.
-        """
         if self.state_type == StateType.OBSERVATION:
             body["parent_observation_id"] = self.id
             body["trace_id"] = self.trace_id
@@ -1196,7 +1229,6 @@ class StatefulClient(object):
         return body
 
     def _add_default_values(self, body: dict):
-        """If not already set, add default values (start time) to the event body."""
         if body.get("start_time") is None:
             body["start_time"] = _get_timestamp()
         return body
@@ -1221,44 +1253,48 @@ class StatefulClient(object):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
-        """Create a generation.
+        """Create a generation nested within the current observation or trace.
 
-        Constructs the body of the generation, adding default values and state information,
-        and then queues it for asynchronous processing.
+        A generation is a span that is used to log generations of AI models. They contain additional metadata about the model, the prompt/completion, the cost of executing the model and are specifically rendered in the langfuse UI.
 
         Args:
-            id (str, optional): Unique identifier for the generation. Defaults to None, which generates a new UUID.
-            name (Optional[str]): The name of the generation.
-            start_time (Optional[datetime]): The start time of the generation. Defaults to the current time if not provided.
-            end_time (Optional[datetime]): The end time of the generation.
-            metadata (Optional[Any]): Additional metadata associated with the generation.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize generation.
-            status_message (Optional[str]): A status message associated with the generation.
-            version (Optional[str]): Version information of the generation.
-            completion_start_time (Optional[datetime]): The time when the generation was completed.
-            model (Optional[str]): The model used for the generation process.
-            model_parameters (Optional[Dict[str, MapValue]]): Parameters of the model used for the generation.
-            input (Optional[Any]): Input data of the generation.
-            output (Optional[Any]): Output data of the generation.
-            usage (Optional[Union[BaseModel, ModelUsage]]): Usage information on the generation.
-            prompt (Optional[PromptClient]): Prompt template used for the generation.
+            id (Optional[str]): The id of the generation can be set, defaults to random id.
+            name (Optional[str]): Identifier of the generation. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time.
+            end_time (Optional[datetime.datetime]): The time at which the generation ended. Automatically set by `generation.end()`.
+            completion_start_time (Optional[datetime.datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
+            metadata (Optional[dict]): Additional metadata of the generation. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[str]): The level of the generation. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the generation. Additional field for context of the event. E.g. the error message of an error event.
+            version (Optional[str]): The version of the generation type. Used to understand how changes to the span type affect metrics. Useful in debugging.
+            model (Optional[str]): The name of the model used for the generation.
+            model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
+            input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
+            output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
+            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
         Returns:
-            StatefulGenerationClient: The created generation.
+            StatefulGenerationClient: The created generation. Use this client to update the generation or create additional nested observations.
 
-        Example: Using StatefulTraceClient to create a generation
+        Example:
             ```python
             from langfuse import Langfuse
 
             langfuse = Langfuse()
 
-            trace = langfuse.trace(name="capital-guesser")
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create a nested generation in Langfuse
             generation = trace.generation(
-                name="generate-text",
+                name="summary-generation",
                 model="gpt-3.5-turbo",
-                input="What is the capital of France?",
-                model_parameters={"temperature": 0.5}
+                model_parameters={"maxTokens": "1000", "temperature": "0.9"},
+                input=[{"role": "system", "content": "You are a helpful assistant."},
+                       {"role": "user", "content": "Please generate a summary of the following documents ..."}],
+                metadata={"interface": "whatsapp"}
             )
             ```
         """
@@ -1323,40 +1359,39 @@ class StatefulClient(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulSpanClient":
-        """Create a span.
+        """Create a span nested within the current observation or trace.
 
-        Constructs the body of the span, adding default values and state information,
-        and then queues it for asynchronous processing.
+        A span represents durations of units of work in a trace.
 
         Args:
-            id (str, optional): Unique identifier for the span. Defaults to None, which generates a new UUID.
-            name (Optional[str]): The name of the span.
-            start_time (Optional[datetime]): The start time of the span. Defaults to the current time if not provided.
-            end_time (Optional[datetime]): The end time of the span.
-            metadata (Optional[Any]): Additional metadata associated with the span.
-            input (Optional[Any]): Input data of the span.
-            output (Optional[Any]): Output data of the span.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
-            status_message (Optional[str]): A status message associated with the span.
-            version (Optional[str]): Version of the span.
+            id (Optional[str]): The id of the span can be set, otherwise a random id is generated. Spans are upserted on id.
+            name (Optional[str]): Identifier of the span. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the span started, defaults to the current time.
+            end_time (Optional[datetime]): The time at which the span ended. Automatically set by `span.end()`.
+            metadata (Optional[dict]): Additional metadata of the span. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the span. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the span. Additional field for context of the event. E.g. the error message of an error event.
+            input (Optional[dict]): The input to the span. Can be any JSON object.
+            output (Optional[dict]): The output to the span. Can be any JSON object.
+            version (Optional[str]): The version of the span type. Used to understand how changes to the span type affect metrics. Useful in debugging.
             **kwargs: Additional keyword arguments to include in the span.
 
         Returns:
-            StatefulSpanClient: The created span.
+            StatefulSpanClient: The created span. Use this client to update the span or create additional nested observations.
 
-        Example: Using StatefulTraceClient to create a span
+        Example:
             ```python
-            from langfuse import Langfuse
+                from langfuse import Langfuse
 
-            langfuse = Langfuse()
+                langfuse = Langfuse()
 
-            trace = langfuse.trace(name="RAG")
-            span = trace.span(
-                name="embedding-search",
-                metadata={"database": "example-database"},
-                input = {'query': 'This document entails ...'},
-            )
+                # Create a trace
+                trace = langfuse.trace(name = "llm-feature")
+
+                # Create a span
+                retrieval = langfuse.span(name = "retrieval")
             ```
+        retrieval = trace.span(name = "retrieval")
         """
         span_id = id or str(uuid.uuid4())
         try:
@@ -1408,33 +1443,33 @@ class StatefulClient(object):
         comment: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient":
-        """Create a score.
-
-        Constructs the body of the score, adding state information,
-        and then queues it for asynchronous processing.
+        """Create a score attached for the current observation or trace.
 
         Args:
-            id (str, optional): Unique identifier for the score. Defaults to None, which generates a new UUID.
-            name (str): The name of the score.
-            value (float): The numerical value of the score.
-            comment (Optional[str]): An optional comment associated with the score.
-            kwargs (Optional[dict]): Additional keyword arguments that can be included in the score.
+            name (str): Identifier of the score.
+            value (float): The value of the score. Can be any number, often standardized to 0..1
+            comment (Optional[str]): Additional context/explanation of the score.
+            id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
-            StatefulClient: The created score.
+            StatefulClient: The current observation or trace for which the score was created. Passthrough for chaining.
 
-        Example: Using StatefulSpanClient to create a score
+        Example:
             ```python
-            from langfuse import Langfuse
+                from langfuse import Langfuse
 
-            langfuse = Langfuse()
+                langfuse = Langfuse()
 
-            trace = langfuse.trace(name="example-trace")
-            trace.score(
-                name="user-explicit-feedback",
-                value=1,
-                comment="I like this example."
-            )
+                # Create a trace
+                trace = langfuse.trace(name="example-application")
+
+                # Add score to the trace
+                trace = trace.score(
+                    name="user-explicit-feedback",
+                    value=1,
+                    comment="I like how personalized the response is"
+                )
             ```
         """
         score_id = id or str(uuid.uuid4())
@@ -1490,39 +1525,38 @@ class StatefulClient(object):
         version: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient":
-        """Create an event.
+        """Create an event nested within the current observation or trace.
 
-        Constructs the body of the event, adding default values and state information,
-        and then queues it for asynchronous processing.
+        An event represents a discrete event in a trace.
 
         Args:
-            id (str, optional): Unique identifier for the event. Defaults to None, which generates a new UUID.
-            name (Optional[str]): The name of the event.
-            start_time (Optional[datetime]): The start time of the event. Defaults to the current time if not provided.
-            metadata (Optional[Any]): Additional metadata associated with the event.
-            input (Optional[Any]): Input data of the event.
-            output (Optional[Any]): Output data of the event.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize the event.
-            status_message (Optional[str]): A status message associated with the event.
-            version (Optional[str]): Version information for the event.
+            id (Optional[str]): The id of the event can be set, otherwise a random id is generated.
+            name (Optional[str]): Identifier of the event. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the event started, defaults to the current time.
+            metadata (Optional[Any]): Additional metadata of the event. Can be any JSON object. Metadata is merged when being updated via the API.
+            input (Optional[Any]): The input to the event. Can be any JSON object.
+            output (Optional[Any]): The output to the event. Can be any JSON object.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the event. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the event. Additional field for context of the event. E.g. the error message of an error event.
+            version (Optional[str]): The version of the event type. Used to understand how changes to the event type affect metrics. Useful in debugging.
             **kwargs: Additional keyword arguments to include in the event.
 
         Returns:
-            StatefulClient: The created event.
+            StatefulSpanClient: The created event. Use this client to update the event or create additional nested observations.
 
-        Example: (Span)
+        Example:
             ```python
             from langfuse import Langfuse
 
             langfuse = Langfuse()
 
-            trace = langfuse.trace(name="example-trace")
-            span = trace.span(name="example-span")
-            span.event(
-                name="example-event",
-                input={"text": "This is an event."},
-            )
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create an event
+            retrieval = trace.event(name = "retrieval")
             ```
+
         """
         event_id = id or str(uuid.uuid4())
         try:
@@ -1589,6 +1623,7 @@ class StatefulGenerationClient(StatefulClient):
         trace_id: str,
         task_manager: TaskManager,
     ):
+        """Initialize the StatefulGenerationClient."""
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
@@ -1598,11 +1633,11 @@ class StatefulGenerationClient(StatefulClient):
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        completion_start_time: typing.Optional[dt.datetime] = None,
         model: typing.Optional[str] = None,
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         input: typing.Optional[typing.Any] = None,
@@ -1611,31 +1646,42 @@ class StatefulGenerationClient(StatefulClient):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
-        """Update the properties of an existing generation and schedules the updated generation for asynchronous processing.
-
-        This method allows for the modification of various attributes related to a generation. The changes
-        are serialized and scheduled for processing. Attributes that can be updated include the generation's name,
-        start and end times, metadata, model details, and prompt information (template name and version).
+        """Update the generation.
 
         Args:
-        name (Optional[str]): The name of the generation to update.
-        start_time (Optional[dt.datetime]): The start time for the generation.
-        end_time (Optional[dt.datetime]): The end time for the generation.
-        metadata (Optional[typing.Any]): Additional metadata for the generation.
-        level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize the generation.
-        status_message (Optional[str]): A status message for the generation.
-        version (Optional[str]): The version of the generation.
-        completion_start_time (Optional[dt.datetime]): Start time of the completion phase of the generation.
-        model (Optional[str]): The AI model used in the generation.
-        model_parameters (Optional[typing.Dict[str, MapValue]]): Parameters for the model used in the generation.
-        input (Optional[typing.Any]): Input data for the generation.
-        output (Optional[typing.Any]): Output data from the generation.
-        usage (Optional[typing.Union[pydantic.BaseModel, ModelUsage]]): Usage information for the generation.
-        prompt (Optional[PromptClient]): The prompt template used in the generation.
-        **kwargs: Additional keyword arguments for custom parameters.
+            name (Optional[str]): Identifier of the generation. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time.
+            end_time (Optional[datetime.datetime]): The time at which the generation ended. Automatically set by `generation.end()`.
+            completion_start_time (Optional[datetime.datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
+            metadata (Optional[dict]): Additional metadata of the generation. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[str]): The level of the generation. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the generation. Additional field for context of the event. E.g. the error message of an error event.
+            version (Optional[str]): The version of the generation type. Used to understand how changes to the span type affect metrics. Useful in debugging.
+            model (Optional[str]): The name of the model used for the generation.
+            model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
+            input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
+            output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
+            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
+            **kwargs: Additional keyword arguments to include in the generation.
 
         Returns:
-            StatefulGenerationClient: The updated generation.
+            StatefulGenerationClient: The updated generation. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create a nested generation in Langfuse
+            generation = trace.generation(name="summary-generation")
+
+            # Update the generation
+            generation = generation.update(metadata={"interface": "whatsapp"})
         """
         try:
             generation_body = {
@@ -1687,11 +1733,11 @@ class StatefulGenerationClient(StatefulClient):
         name: typing.Optional[str] = None,
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
+        completion_start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
         level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
-        completion_start_time: typing.Optional[dt.datetime] = None,
         model: typing.Optional[str] = None,
         model_parameters: typing.Optional[typing.Dict[str, MapValue]] = None,
         input: typing.Optional[typing.Any] = None,
@@ -1700,33 +1746,43 @@ class StatefulGenerationClient(StatefulClient):
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
-        """Conclude a generation by marking its end time and updating all relevant properties.
-
-        This method is designed to finalize a generation. It sets the end time of the
-        generation to the current time if not explicitly provided and updates other attributes as needed.
-        The method essentially acts as a wrapper around the `update` method, providing a convenient way to
-        signal the completion of a generation.
+        """End the generation, optionally updating its properties.
 
         Args:
-            name (Optional[str]): The name of the generation to conclude.
-            start_time (Optional[dt.datetime]): The start time of the generation.
-            end_time (Optional[dt.datetime]): The end time of the generation, defaults to current time.
-            metadata (Optional[typing.Any]): Additional metadata for the generation.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level of the generation.
-            status_message (Optional[str]): A status message for the generation.
-            version (Optional[str]): The version of the generation.
-            completion_start_time (Optional[dt.datetime]): Start time of the completion phase of the generation.
-            model (Optional[str]): The AI model used in the generation.
-            model_parameters (Optional[typing.Dict[str, MapValue]]): Parameters for the model used in the generation.
-            input (Optional[typing.Any]): Input data for the generation.
-            output (Optional[typing.Any]): Output data from the generation.
-            prompt_tokens (Optional[int]): Number of tokens used in the prompt.
-            completion_tokens (Optional[int]): Number of tokens generated in the completion phase.
-            total_tokens (Optional[int]): Total number of tokens used in the generation.
-            **kwargs: Additional keyword arguments for custom parameters.
+            name (Optional[str]): Identifier of the generation. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time.
+            end_time (Optional[datetime.datetime]): Automatically set to the current time. Can be overridden to set a custom end time.
+            completion_start_time (Optional[datetime.datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
+            metadata (Optional[dict]): Additional metadata of the generation. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[str]): The level of the generation. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the generation. Additional field for context of the event. E.g. the error message of an error event.
+            version (Optional[str]): The version of the generation type. Used to understand how changes to the span type affect metrics. Useful in debugging.
+            model (Optional[str]): The name of the model used for the generation.
+            model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
+            input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
+            output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
+            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
+            **kwargs: Additional keyword arguments to include in the generation.
 
         Returns:
-            StatefulGenerationClient: The concluded generation.
+            StatefulGenerationClient: The ended generation. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create a nested generation in Langfuse
+            generation = trace.generation(name="summary-generation")
+
+            # End the generation and update its properties
+            generation = generation.end(metadata={"interface": "whatsapp"})
+            ```
         """
         return self.update(
             name=name,
@@ -1750,9 +1806,6 @@ class StatefulGenerationClient(StatefulClient):
 class StatefulSpanClient(StatefulClient):
     """Class for handling stateful operations of spans in the Langfuse system. Inherits from StatefulClient.
 
-    This client extends the functionality of the StatefulClient to specifically handle spans,
-    allowing for creating, updating, and concluding span processes in the Langfuse environment.
-
     Attributes:
         client (FernLangfuse): Core interface for Langfuse API interaction.
         id (str): Unique identifier of the span.
@@ -1771,6 +1824,7 @@ class StatefulSpanClient(StatefulClient):
         trace_id: str,
         task_manager: TaskManager,
     ):
+        """Initialize the StatefulSpanClient."""
         super().__init__(client, id, state_type, trace_id, task_manager)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
@@ -1788,25 +1842,37 @@ class StatefulSpanClient(StatefulClient):
         version: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulSpanClient":
-        """Update the properties of an existing generation and schedules the updated generation for asynchronous processing.
-
-        This method allows modification of various attributes of a span, such as name, time frames, metadata,
-        input, output, and more. The changes are serialized and scheduled for processing.
+        """Update the span.
 
         Args:
-            name (Optional[str]): The name of the span.
-            start_time (Optional[datetime]): The start time of the span.
-            end_time (Optional[datetime]): The end time of the span.
-            metadata (Optional[Any]): Additional metadata for the span.
-            input (Optional[Any]): Input data of the span.
-            output (Optional[Any]): Output data of the span.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
-            status_message (Optional[str]): Status message associated with the span.
-            version (Optional[str]): Version of the span.
-            **kwargs: Additional keyword arguments for custom parameters.
+            name (Optional[str]): Identifier of the span. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the span started, defaults to the current time.
+            end_time (Optional[datetime]): The time at which the span ended. Automatically set by `span.end()`.
+            metadata (Optional[dict]): Additional metadata of the span. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the span. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the span. Additional field for context of the event. E.g. the error message of an error event.
+            input (Optional[dict]): The input to the span. Can be any JSON object.
+            output (Optional[dict]): The output to the span. Can be any JSON object.
+            version (Optional[str]): The version of the span type. Used to understand how changes to the span type affect metrics. Useful in debugging.
+            **kwargs: Additional keyword arguments to include in the span.
 
         Returns:
-            StatefulSpanClient: An updated span.
+            StatefulSpanClient: The updated span. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create a nested span in Langfuse
+            span = trace.span(name="retrieval")
+
+            # Update the span
+            span = span.update(metadata={"interface": "whatsapp"})
         """
         try:
             span_body = {
@@ -1858,27 +1924,37 @@ class StatefulSpanClient(StatefulClient):
         version: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulSpanClient":
-        """Conclude a span by marking its end time and updating all relevant properties.
-
-        This method is designed to finalize a span. It sets the end time of the
-        span to the current time if not explicitly provided and updates other attributes as needed.
-        The method essentially acts as a wrapper around the `update` method, providing a convenient way to
-        signal the completion of a span.
+        """End the span, optionally updating its properties.
 
         Args:
-            name (Optional[str]): The name of the span.
-            start_time (Optional[datetime]): The start time of the span.
-            end_time (Optional[datetime]): The end time of the span. Defaults to current time if not provided.
-            metadata (Optional[Any]): Additional metadata for the span.
-            input (Optional[Any]): Input data of the span.
-            output (Optional[Any]): Output data of the span.
-            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): Logging level to categorize span.
-            status_message (Optional[str]): Status message associated with the span.
-            version (Optional[str]): Version of the span.
-            **kwargs: Additional keyword arguments for custom parameters.
+            name (Optional[str]): Identifier of the span. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the span started, defaults to the current time.
+            end_time (Optional[datetime]): The time at which the span ended. Automatically set by `span.end()`.
+            metadata (Optional[dict]): Additional metadata of the span. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the span. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the span. Additional field for context of the event. E.g. the error message of an error event.
+            input (Optional[dict]): The input to the span. Can be any JSON object.
+            output (Optional[dict]): The output to the span. Can be any JSON object.
+            version (Optional[str]): The version of the span type. Used to understand how changes to the span type affect metrics. Useful in debugging.
+            **kwargs: Additional keyword arguments to include in the span.
 
         Returns:
-            StatefulSpanClient: The concluded span.
+            StatefulSpanClient: The updated span. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create a nested span in Langfuse
+            span = trace.span(name="retrieval")
+
+            # End the span and update its properties
+            span = span.end(metadata={"interface": "whatsapp"})
         """
         try:
             span_body = {
@@ -1925,9 +2001,6 @@ class StatefulSpanClient(StatefulClient):
 class StatefulTraceClient(StatefulClient):
     """Class for handling stateful operations of traces in the Langfuse system. Inherits from StatefulClient.
 
-    This client extends the StatefulClient's capabilities to handle traces, enabling the creation and
-    updating of trace processes in the Langfuse environment.
-
     Attributes:
         client (FernLangfuse): Core interface for Langfuse API interaction.
         id (str): Unique identifier of the trace.
@@ -1946,6 +2019,7 @@ class StatefulTraceClient(StatefulClient):
         trace_id: str,
         task_manager: TaskManager,
     ):
+        """Initialize the StatefulTraceClient."""
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
 
@@ -1956,6 +2030,7 @@ class StatefulTraceClient(StatefulClient):
         user_id: typing.Optional[str] = None,
         session_id: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
+        release: typing.Optional[str] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         metadata: typing.Optional[typing.Any] = None,
@@ -1963,23 +2038,42 @@ class StatefulTraceClient(StatefulClient):
         public: typing.Optional[bool] = None,
         **kwargs,
     ) -> "StatefulTraceClient":
-        """Update the properties of an existing trace and schedules the updated trace for asynchronous processing.
-
-        This method allows for the modification of various attributes of a trace, such as name, user ID,
-        version, input, output, metadata, and tags. The updated trace is queued in the task manager for later execution.
+        """Update the trace.
 
         Args:
-            name (Optional[str]): The name of the trace.
-            user_id (Optional[str]): The user ID associated with the trace.
-            version (Optional[str]): The version of the trace.
-            input (Optional[Any]): Input data of the trace.
-            output (Optional[Any]): Output data of the trace.
-            metadata (Optional[Any]): Additional metadata for the trace.
-            tags (Optional[List[str]]): Tags associated with the trace.
-            **kwargs: Additional keyword arguments for custom parameters.
+            name: Identifier of the trace. Useful for sorting/filtering in the UI.
+            input: The input of the trace. Can be any JSON object.
+            output: The output of the trace. Can be any JSON object.
+            metadata: Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+            user_id: The id of the user that triggered the execution. Used to provide user-level analytics.
+            session_id: Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+            version: The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+            release: The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
+            tags: Tags are used to categorize or label traces. Traces can be filtered by tags in the UI and GET API. Tags can also be changed in the UI. Tags are merged and never deleted via the API.
+            public: You can make a trace `public` to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
+            **kwargs: Additional keyword arguments that can be included in the trace.
 
         Returns:
-            StatefulTraceClient: The updated trace.
+            StatefulTraceClient: The updated trace. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(
+                name="example-application",
+                user_id="user-1234")
+            )
+
+            # Update the trace
+            trace = trace.update(
+                output={"result": "success"},
+                metadata={"interface": "whatsapp"}
+            )
+            ```
         """
         try:
             trace_body = {
@@ -1989,6 +2083,7 @@ class StatefulTraceClient(StatefulClient):
                 "sessionId": session_id
                 or kwargs.get("sessionId", None),  # backward compatibility
                 "version": version,
+                "release": release,
                 "input": input,
                 "output": output,
                 "metadata": metadata,
@@ -2023,13 +2118,26 @@ class StatefulTraceClient(StatefulClient):
         """Get langchain callback handler associated with the current trace.
 
         This method creates and returns a CallbackHandler instance, linking it with the current
-        trace, enabling automatic tracing in Langfuse
+        trace. Use this if you want to group multiple Langchain runs within a single trace.
 
         Raises:
             ImportError: If the 'langchain' module is not installed, indicating missing functionality.
 
         Returns:
-            CallbackHandler: An instance of CallbackHandler linked to this trace.
+            CallbackHandler: Langchain callback handler linked to the current trace.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Get a langchain callback handler
+            handler = trace.get_langchain_handler()
+            ```
         """
         try:
             from langfuse.callback import CallbackHandler
@@ -2043,7 +2151,7 @@ class StatefulTraceClient(StatefulClient):
             self.log.exception(e)
 
     def getNewHandler(self):
-        """Alias for the `get_langchain_handler` method. Retrieves a callback handler for the trace."""
+        """Alias for the `get_langchain_handler` method. Retrieves a callback handler for the trace. Deprecated."""
         return self.get_langchain_handler()
 
 
@@ -2093,6 +2201,7 @@ class DatasetItemClient:
     langfuse: Langfuse
 
     def __init__(self, dataset_item: DatasetItem, langfuse: Langfuse):
+        """Initialize the DatasetItemClient."""
         self.id = dataset_item.id
         self.status = dataset_item.status
         self.input = dataset_item.input
@@ -2116,13 +2225,11 @@ class DatasetItemClient:
         observation.task_manager.flush()
 
     def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
-        """Link the dataset item to observation within a specific dataset run.
-
-        Flushes the observations's task manager queue before creating the dataset run item.
+        """Link the dataset item to observation within a specific dataset run. Creates a dataset run item.
 
         Args:
             observation (Union[StatefulClient, str]): The observation to link, either as a client or as an ID.
-            run_name (str): The name of the dataset run to which the item is linked.
+            run_name (str): The name of the dataset run.
         """
         observation_id = None
 
@@ -2212,6 +2319,7 @@ class DatasetClient:
     runs: typing.List[str]
 
     def __init__(self, dataset: Dataset, items: typing.List[DatasetItemClient]):
+        """Initialize the DatasetClient."""
         self.id = dataset.id
         self.name = dataset.name
         self.project_id = dataset.project_id
