@@ -64,7 +64,8 @@ class Langfuse(object):
         release (str): Identifies the release number or hash of the application.
         prompt_cache (PromptCache): A cache for efficiently storing and retrieving PromptClient instances.
 
-    Example: Initiating the Langfuse client should always be first step to use Langfuse.
+    Example:
+        Initiating the Langfuse client should always be first step to use Langfuse.
         ```python
         import os
         from langfuse import Langfuse
@@ -118,7 +119,8 @@ class Langfuse(object):
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
 
-        Example: Initiating the Langfuse client should always be first step to use Langfuse.
+        Example:
+            Initiating the Langfuse client should always be first step to use Langfuse.
             ```python
             import os
             from langfuse import Langfuse
@@ -712,23 +714,23 @@ class Langfuse(object):
 
         Example:
             ```python
-                from langfuse import Langfuse
+            from langfuse import Langfuse
 
-                langfuse = Langfuse()
+            langfuse = Langfuse()
 
-                # Create a trace
-                trace = langfuse.trace(name="example-application")
+            # Create a trace
+            trace = langfuse.trace(name="example-application")
 
-                # Get id of created trace
-                trace_id = trace.id
+            # Get id of created trace
+            trace_id = trace.id
 
-                # Add score to the trace
-                trace = langfuse.score(
-                    trace_id=trace_id,
-                    name="user-explicit-feedback",
-                    value=1,
-                    comment="I like how personalized the response is"
-                )
+            # Add score to the trace
+            trace = langfuse.score(
+                trace_id=trace_id,
+                name="user-explicit-feedback",
+                value=1,
+                comment="I like how personalized the response is"
+            )
             ```
         """
         trace_id = trace_id or self.trace_id or str(uuid.uuid4())
@@ -814,19 +816,18 @@ class Langfuse(object):
 
         Example:
             ```python
-                from langfuse import Langfuse
+            from langfuse import Langfuse
 
-                langfuse = Langfuse()
+            langfuse = Langfuse()
 
-                trace = langfuse.trace(name = "llm-feature")
+            trace = langfuse.trace(name = "llm-feature")
 
-                # Create a span
-                retrieval = langfuse.span(name = "retrieval", trace_id = trace.id)
+            # Create a span
+            retrieval = langfuse.span(name = "retrieval", trace_id = trace.id)
 
-                # Create a nested span
-                nested_span = langfuse.span(name = "retrieval", trace_id = trace.id, parent_observation_id = retrieval.id)
+            # Create a nested span
+            nested_span = langfuse.span(name = "retrieval", trace_id = trace.id, parent_observation_id = retrieval.id)
             ```
-        retrieval = trace.span(name = "retrieval")
         """
         new_span_id = id or str(uuid.uuid4())
         new_trace_id = trace_id or str(uuid.uuid4())
@@ -918,14 +919,15 @@ class Langfuse(object):
 
         Example:
             ```python
-                from langfuse import Langfuse
+            from langfuse import Langfuse
 
-                langfuse = Langfuse()
+            langfuse = Langfuse()
 
-                trace = langfuse.trace(name = "llm-feature")
+            trace = langfuse.trace(name = "llm-feature")
 
-                # Create an event
-                retrieval = langfuse.event(name = "retrieval", trace_id = trace.id)
+            # Create an event
+            retrieval = langfuse.event(name = "retrieval", trace_id = trace.id)
+            ```
         """
         event_id = id or str(uuid.uuid4())
         new_trace_id = trace_id or str(uuid.uuid4())
@@ -1384,17 +1386,16 @@ class StatefulClient(object):
 
         Example:
             ```python
-                from langfuse import Langfuse
+            from langfuse import Langfuse
 
-                langfuse = Langfuse()
+            langfuse = Langfuse()
 
-                # Create a trace
-                trace = langfuse.trace(name = "llm-feature")
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
 
-                # Create a span
-                retrieval = langfuse.span(name = "retrieval")
+            # Create a span
+            retrieval = langfuse.span(name = "retrieval")
             ```
-        retrieval = trace.span(name = "retrieval")
         """
         span_id = id or str(uuid.uuid4())
         try:
@@ -1460,19 +1461,19 @@ class StatefulClient(object):
 
         Example:
             ```python
-                from langfuse import Langfuse
+            from langfuse import Langfuse
 
-                langfuse = Langfuse()
+            langfuse = Langfuse()
 
-                # Create a trace
-                trace = langfuse.trace(name="example-application")
+            # Create a trace
+            trace = langfuse.trace(name="example-application")
 
-                # Add score to the trace
-                trace = trace.score(
-                    name="user-explicit-feedback",
-                    value=1,
-                    comment="I like how personalized the response is"
-                )
+            # Add score to the trace
+            trace = trace.score(
+                name="user-explicit-feedback",
+                value=1,
+                comment="I like how personalized the response is"
+            )
             ```
         """
         score_id = id or str(uuid.uuid4())
@@ -1559,7 +1560,6 @@ class StatefulClient(object):
             # Create an event
             retrieval = trace.event(name = "retrieval")
             ```
-
         """
         event_id = id or str(uuid.uuid4())
         try:
@@ -1685,6 +1685,7 @@ class StatefulGenerationClient(StatefulClient):
 
             # Update the generation
             generation = generation.update(metadata={"interface": "whatsapp"})
+            ```
         """
         try:
             generation_body = {
@@ -1876,6 +1877,7 @@ class StatefulSpanClient(StatefulClient):
 
             # Update the span
             span = span.update(metadata={"interface": "whatsapp"})
+            ```
         """
         try:
             span_body = {
@@ -1958,6 +1960,7 @@ class StatefulSpanClient(StatefulClient):
 
             # End the span and update its properties
             span = span.end(metadata={"interface": "whatsapp"})
+            ```
         """
         try:
             span_body = {
@@ -2172,7 +2175,7 @@ class DatasetItemClient:
         updated_at (datetime): Timestamp of the last update to the dataset item.
         langfuse (Langfuse): Instance of Langfuse client for API interactions.
 
-    Example: Print the input of each dataset item in a dataset.
+    Example:
         ```python
         from langfuse import Langfuse
 
@@ -2299,7 +2302,8 @@ class DatasetClient:
         items (List[DatasetItemClient]): List of dataset items associated with the dataset.
         runs (List[str]): List of dataset runs associated with the dataset.
 
-    Example: Print the input of each dataset item in a dataset.
+    Example:
+        Print the input of each dataset item in a dataset.
         ```python
         from langfuse import Langfuse
 
