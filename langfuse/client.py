@@ -81,6 +81,9 @@ class Langfuse(object):
     log = logging.getLogger("langfuse")
     """Logger for the Langfuse client."""
 
+    host: str
+    """Host of Langfuse API."""
+
     def __init__(
         self,
         public_key: Optional[str] = None,
