@@ -414,6 +414,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
+@pytest.mark.skip(reason="rate limits")
 def test_callback_generated_from_trace_anthropic():
     langfuse = Langfuse(debug=False)
 
@@ -1410,3 +1411,82 @@ def test_names_on_spans_lcel():
         )
         == 1
     )
+
+
+def test_openai_instruct_usage():
+    from langchain_core.output_parsers.string import StrOutputParser
+    from langchain_core.runnables import Runnable
+    from langchain_openai import OpenAI
+
+    lf_handler = CallbackHandler(debug=True)
+
+    runnable_chain: Runnable = (
+        PromptTemplate.from_template(
+            """Answer the question based only on the following context:
+
+            Question: {question}
+
+            Answer in the following language: {language}
+            """
+        )
+        | OpenAI(
+            model="gpt-3.5-turbo-instruct",
+            temperature=0,
+            callbacks=[lf_handler],
+            max_retries=3,
+            timeout=30,
+        )
+        | StrOutputParser()
+    )
+    input_list = [
+        {"question": "where did harrison work", "language": "english"},
+        {"question": "how is your day", "language": "english"},
+    ]
+    runnable_chain.batch(input_list)
+
+    lf_handler.flush()
+
+    observations = get_api().trace.get(lf_handler.get_trace_id()).observations
+
+    assert len(observations) == 2
+
+    for observation in observations:
+        assert observation.type == "GENERATION"
+        assert observation.output is not None
+        assert observation.output != ""
+        assert observation.input is not None
+        assert observation.input != ""
+        assert observation.usage is not None
+        assert observation.usage.input is not None
+        assert observation.usage.output is not None
+        assert observation.usage.total is not None
+
+def test_get_langchain_prompt():
+    langfuse = Langfuse()
+
+    test_prompts = ["This is a {{test}}", "This is a {{test}}. And this is a {{test2}}"]
+
+    for i, test_prompt in enumerate(test_prompts):
+        langfuse.create_prompt(
+            name=f"test_{i}",
+            prompt=test_prompt,
+            config={
+                "model": "gpt-3.5-turbo-1106",
+                "temperature": 0,
+            },
+            is_active=True,
+        )
+
+        langfuse_prompt = langfuse.get_prompt(f"test_{i}")
+
+        langchain_prompt = ChatPromptTemplate.from_template(
+            langfuse_prompt.get_langchain_prompt()
+        )
+
+        if i == 0:
+            assert langchain_prompt.format(test="test") == "Human: This is a test"
+        else:
+            assert (
+                langchain_prompt.format(test="test", test2="test2")
+                == "Human: This is a test. And this is a test2"
+            )

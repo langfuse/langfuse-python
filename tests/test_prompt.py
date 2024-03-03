@@ -5,21 +5,24 @@ from unittest.mock import Mock, patch
 from langfuse.api.resources.prompts.types.prompt import Prompt
 from langfuse.client import Langfuse, PromptClient
 from langfuse.prompt_cache import PromptCacheItem, DEFAULT_PROMPT_CACHE_TTL_SECONDS
-from tests.utils import get_api
+from tests.utils import create_uuid, get_api
 
 
 def test_create_prompt():
     langfuse = Langfuse()
-
+    prompt_name = create_uuid()
     prompt_client = langfuse.create_prompt(
-        name="test", prompt="test prompt", is_active=True
+        name=prompt_name, prompt="test prompt", is_active=True
     )
 
-    second_prompt_client = langfuse.get_prompt("test")
+    second_prompt_client = langfuse.get_prompt(prompt_name)
 
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.config == second_prompt_client.config
+    print(prompt_client.config, second_prompt_client.config)
+    assert prompt_client.config == {}
 
 
 def test_compiling_prompt():
@@ -43,6 +46,21 @@ def test_compiling_prompt():
     )
 
 
+def test_create_prompt_with_null_config():
+    langfuse = Langfuse(debug=False)
+
+    langfuse.create_prompt(
+        name="test_null_config",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        config=None,
+    )
+
+    prompt = langfuse.get_prompt("test_null_config")
+
+    assert prompt.config == {}
+
+
 def test_prompt_end_to_end():
     langfuse = Langfuse(debug=False)
 
@@ -50,14 +68,20 @@ def test_prompt_end_to_end():
         name="test",
         prompt="Hello, {{target}}! I hope you are {{state}}.",
         is_active=True,
+        config={"temperature": 0.5},
     )
 
     prompt = langfuse.get_prompt("test")
 
     prompt_str = prompt.compile(target="world", state="great")
     assert prompt_str == "Hello, world! I hope you are great."
+    assert prompt.config == {"temperature": 0.5}
 
-    langfuse.generation(input=prompt_str, prompt=prompt)
+    generation = langfuse.generation(input=prompt_str, prompt=prompt)
+
+    # to check that these do not error
+    generation.update(prompt=prompt)
+    generation.end(prompt=prompt)
 
     langfuse.flush()
 
@@ -161,7 +185,9 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
     ttl_seconds = 20
 
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt(
+        name=prompt_name, version=1, prompt="Make me laugh", config={"temperature": 0.9}
+    )
     prompt_client = PromptClient(prompt)
 
     mock_server_call = langfuse.client.prompts.get

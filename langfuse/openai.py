@@ -89,6 +89,7 @@ class OpenAiArgsExtractor:
         trace_id=None,
         session_id=None,
         user_id=None,
+        tags=None,
         parent_observation_id=None,
         **kwargs,
     ):
@@ -98,6 +99,7 @@ class OpenAiArgsExtractor:
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
         self.args["user_id"] = user_id
+        self.args["tags"] = tags
         self.args["parent_observation_id"] = parent_observation_id
         self.kwargs = kwargs
 
@@ -169,6 +171,9 @@ def _get_langfuse_data_from_kwargs(
 ):
     name = kwargs.get("name", "OpenAI-generation")
 
+    if name is None:
+        name = "OpenAI-generation"
+
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
 
@@ -184,6 +189,12 @@ def _get_langfuse_data_from_kwargs(
     if user_id is not None and not isinstance(user_id, str):
         raise TypeError("user_id must be a string")
 
+    tags = kwargs.get("tags", None)
+    if tags is not None and (
+        not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags)
+    ):
+        raise TypeError("tags must be a list of strings")
+
     parent_observation_id = kwargs.get("parent_observation_id", None)
     if parent_observation_id is not None and not isinstance(parent_observation_id, str):
         raise TypeError("parent_observation_id must be a string")
@@ -191,10 +202,11 @@ def _get_langfuse_data_from_kwargs(
         raise ValueError("parent_observation_id requires trace_id to be set")
 
     if trace_id:
-        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id)
-    elif session_id:
-        # If a session_id is provided but no trace_id, we should create a trace using the SDK and then use its trace_id
-        trace_id = langfuse.trace(session_id=session_id, user_id=user_id).id
+        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
+    else:
+        trace_id = langfuse.trace(
+            session_id=session_id, user_id=user_id, tags=tags, name=name
+        ).id
 
     metadata = kwargs.get("metadata", {})
 

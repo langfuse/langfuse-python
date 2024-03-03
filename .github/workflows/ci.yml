@@ -75,8 +75,12 @@ jobs:
 
           echo "::group::Seed db"
           cp .env.dev.example .env
-          npx --yes prisma migrate deploy
-          npx --yes prisma db seed
+          pwd
+          cd ./web
+          pwd
+          npm run db:migrate
+          npm run db:seed
+          cd ..
           echo "::endgroup::"
 
           echo "::group::Run server"

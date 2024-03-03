@@ -1,6 +1,6 @@
-from typing import Optional, TypedDict
-
+from typing import Optional, TypedDict, Any, Dict
 import chevron
+import re
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -51,11 +51,14 @@ class PromptClient:
     name: str
     version: int
     prompt: str
+    # same to input/output of the observations, this is typed to Any.
+    config: Dict[str, Any]
 
     def __init__(self, prompt: Prompt):
         self.name = prompt.name
         self.version = prompt.version
         self.prompt = prompt.prompt
+        self.config = prompt.config
 
     def compile(self, **kwargs) -> str:
         return chevron.render(self.prompt, kwargs)
@@ -66,6 +69,18 @@ class PromptClient:
                 self.name == other.name
                 and self.version == other.version
                 and self.prompt == other.prompt
+                and self.config == other.config
             )
 
         return False
+
+    def get_langchain_prompt(self) -> str:
+        """Converts Langfuse prompt into string compatible with Langchain PromptTemplate.
+
+        It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
+        to the single curly brace {variable} format expected by Langchain.
+
+        Returns:
+            str: The string that can be plugged into Langchain's PromptTemplate.
+        """
+        return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", self.prompt)

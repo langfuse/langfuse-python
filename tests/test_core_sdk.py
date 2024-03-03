@@ -10,7 +10,13 @@ import pytest
 
 from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import LlmUsage, LlmUsageWithCost, create_uuid, get_api
+from tests.utils import (
+    CompletionUsage,
+    LlmUsage,
+    LlmUsageWithCost,
+    create_uuid,
+    get_api,
+)
 
 
 @pytest.mark.asyncio
@@ -109,6 +115,7 @@ def test_create_trace():
         user_id="test",
         metadata={"key": "value"},
         tags=["tag1", "tag2"],
+        public=True,
     )
 
     langfuse.flush()
@@ -119,6 +126,7 @@ def test_create_trace():
     assert trace["userId"] == "test"
     assert trace["metadata"] == {"key": "value"}
     assert trace["tags"] == ["tag1", "tag2"]
+    assert trace["public"] is True
     assert True if not trace["externalId"] else False
 
 
@@ -131,8 +139,9 @@ def test_create_update_trace():
         name=trace_name,
         user_id="test",
         metadata={"key": "value"},
+        public=True,
     )
-    trace.update(metadata={"key": "value2"})
+    trace.update(metadata={"key": "value2"}, public=False)
 
     langfuse.flush()
 
@@ -141,6 +150,7 @@ def test_create_update_trace():
     assert trace.name == trace_name
     assert trace.user_id == "test"
     assert trace.metadata == {"key": "value2"}
+    assert trace.public is False
 
 
 def test_create_generation():
@@ -211,6 +221,13 @@ def test_create_generation():
 @pytest.mark.parametrize(
     "usage, expected_usage, expected_input_cost, expected_output_cost, expected_total_cost",
     [
+        (
+            CompletionUsage(prompt_tokens=51, completion_tokens=0, total_tokens=100),
+            "TOKENS",
+            None,
+            None,
+            None,
+        ),
         (
             LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
             "TOKENS",
@@ -293,7 +310,7 @@ def test_create_generation_complex(
     expected_output_cost,
     expected_total_cost,
 ):
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api = get_api()
 
     generation_id = create_uuid()
@@ -555,7 +572,9 @@ def test_create_trace_and_generation():
     trace_name = create_uuid()
     generationId = create_uuid()
 
-    trace = langfuse.trace(name=trace_name, input={"key": "value"}, sessionId="test")
+    trace = langfuse.trace(
+        name=trace_name, input={"key": "value"}, session_id="test-session-id"
+    )
     trace.generation(
         id=generationId,
         name="generation",
@@ -572,12 +591,27 @@ def test_create_trace_and_generation():
     assert len(dbTrace.observations) == 1
     assert getTrace.name == trace_name
     assert len(getTrace.observations) == 1
+    assert getTrace.session_id == "test-session-id"
 
     generation = getTrace.observations[0]
     assert generation.name == "generation"
     assert generation.trace_id == getTrace.id
     assert generation.start_time is not None
     assert getTrace.input == {"key": "value"}
+
+
+def backwards_compatibility_sessionId():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    trace = langfuse.trace(name="test", sessionId="test-sessionId")
+
+    langfuse.flush()
+
+    trace = api.trace.get(trace.id)
+
+    assert trace.name == "test"
+    assert trace.session_id == "test-sessionId"
 
 
 def test_create_trace_with_manual_timestamp():
@@ -795,25 +829,33 @@ def test_end_generation_with_data():
     langfuse = Langfuse()
     api = get_api()
 
-    timestamp = _get_timestamp()
     generation = langfuse.generation(
         name="query-generation",
-        start_time=timestamp,
-        model="gpt-3.5-turbo",
-        model_parameters={"max_tokens": "1000", "temperature": "0.9"},
-        input=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "Please generate the start of a company documentation that contains the answer to the questinon: Write a summary of the Q3 OKR goals",
-            },
-        ],
-        output="This document entails the OKR goals for ACME",
-        usage=LlmUsage(promptTokens=50, completionTokens=49),
-        metadata={"interface": "whatsapp"},
     )
 
-    generation.end(metadata={"dict": "value"})
+    generation.end(
+        name="test_generation_end",
+        start_time=datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc),
+        end_time=datetime(2023, 1, 1, 12, 5, tzinfo=timezone.utc),
+        metadata={"dict": "value"},
+        level="ERROR",
+        status_message="Generation ended",
+        version="1.0",
+        completion_start_time=datetime(2023, 1, 1, 12, 3, tzinfo=timezone.utc),
+        model="test-model",
+        model_parameters={"param1": "value1", "param2": "value2"},
+        input=[{"test_input_key": "test_input_value"}],
+        output={"test_output_key": "test_output_value"},
+        usage={
+            "input": 100,
+            "output": 200,
+            "total": 500,
+            "unit": "CHARACTERS",
+            "input_cost": 111,
+            "output_cost": 222,
+            "total_cost": 444,
+        },
+    )
 
     langfuse.flush()
 
@@ -822,8 +864,64 @@ def test_end_generation_with_data():
     trace = api.trace.get(trace_id)
 
     generation = trace.observations[0]
+    assert generation.start_time == datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
+    assert generation.end_time == datetime(2023, 1, 1, 12, 5, tzinfo=timezone.utc)
+    assert generation.completion_start_time == datetime(
+        2023, 1, 1, 12, 3, tzinfo=timezone.utc
+    )
+    assert generation.name == "test_generation_end"
+    assert generation.metadata == {"dict": "value"}
+    assert generation.level == "ERROR"
+    assert generation.status_message == "Generation ended"
+    assert generation.version == "1.0"
+    assert generation.model == "test-model"
+    assert generation.model_parameters == {"param1": "value1", "param2": "value2"}
+    assert generation.input == [{"test_input_key": "test_input_value"}]
+    assert generation.output == {"test_output_key": "test_output_value"}
+    assert generation.usage.input == 100
+    assert generation.usage.output == 200
+    assert generation.usage.total == 500
+    assert generation.usage.unit == "CHARACTERS"
+    assert generation.calculated_input_cost == 111
+    assert generation.calculated_output_cost == 222
+    assert generation.calculated_total_cost == 444
+
+
+def test_end_generation_with_openai_token_format():
+    langfuse = Langfuse()
+    api = get_api()
+
+    generation = langfuse.generation(
+        name="query-generation",
+    )
+
+    generation.end(
+        usage={
+            "prompt_tokens": 100,
+            "completion_tokens": 200,
+            "total_tokens": 500,
+            "input_cost": 111,
+            "output_cost": 222,
+            "total_cost": 444,
+        },
+    )
+
+    langfuse.flush()
+
+    trace_id = langfuse.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+    print(trace.observations[0])
+
+    generation = trace.observations[0]
     assert generation.end_time is not None
-    assert generation.metadata == {"dict": "value", "interface": "whatsapp"}
+    assert generation.usage.input == 100
+    assert generation.usage.output == 200
+    assert generation.usage.total == 500
+    assert generation.usage.unit == "TOKENS"
+    assert generation.calculated_input_cost == 111
+    assert generation.calculated_output_cost == 222
+    assert generation.calculated_total_cost == 444
 
 
 def test_end_span():
