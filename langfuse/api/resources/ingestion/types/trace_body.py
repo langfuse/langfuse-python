@@ -13,6 +13,7 @@ except ImportError:
 
 class TraceBody(pydantic.BaseModel):
     id: typing.Optional[str] = None
+    timestamp: typing.Optional[dt.datetime] = None
     name: typing.Optional[str] = None
     user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
     input: typing.Optional[typing.Any] = None

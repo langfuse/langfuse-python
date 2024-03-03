@@ -171,7 +171,7 @@ def test_callback_generated_from_lcel_chain():
     langfuse = Langfuse(debug=False)
 
     run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler()
+    handler = CallbackHandler(debug=False)
 
     prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     model = ChatOpenAI(temperature=0)
@@ -414,6 +414,7 @@ def test_vertx():
     assert generation.model == "text-bison"
 
 
+@pytest.mark.skip(reason="rate limits")
 def test_callback_generated_from_trace_anthropic():
     langfuse = Langfuse(debug=False)
 
@@ -449,7 +450,8 @@ def test_callback_generated_from_trace_anthropic():
             assert observation.usage.total > 0
             assert observation.output is not None
             assert observation.output != ""
-            assert observation.input is not None
+            assert isinstance(observation.input, str) is True
+            assert isinstance(observation.output, str) is True
             assert observation.input != ""
             assert observation.model == "claude-instant-1.2"
 
@@ -482,6 +484,18 @@ def test_basic_chat_openai():
 
     assert trace.output == trace.observations[0].output
     assert trace.input == trace.observations[0].input
+
+    assert trace.observations[0].input == [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that translates English to French.",
+        },
+        {
+            "role": "user",
+            "content": "Translate this sentence from English to French. I love programming.",
+        },
+    ]
+    assert trace.observations[0].output["role"] == "assistant"
 
 
 def test_basic_chat_openai_based_on_trace():
@@ -945,10 +959,10 @@ def test_callback_simple_openai_streaming():
 
 
 @pytest.mark.skip(reason="no serpapi setup in CI")
-def test_callback_simple_llm_chat():
-    handler = CallbackHandler()
+def test_tools():
+    handler = CallbackHandler(debug=False)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
 
@@ -1096,8 +1110,30 @@ def test_callback_openai_functions_python():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.input != ""
-        assert generation.output != ""
+        assert generation.input == [
+            {
+                "role": "system",
+                "content": "You are a world class algorithm for extracting information in structured formats.",
+            },
+            {
+                "role": "user",
+                "content": "Use the given format to extract information from the following input: I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+            },
+            {
+                "role": "user",
+                "content": "Tip: Make sure to answer in the correct format",
+            },
+        ]
+        assert generation.output == {
+            "role": "assistant",
+            "content": "",
+            "additional_kwargs": {
+                "function_call": {
+                    "name": "record_dog",
+                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": null\n}',
+                }
+            },
+        }
         assert generation.usage.total is not None
         assert generation.usage.input is not None
         assert generation.usage.output is not None
@@ -1375,3 +1411,82 @@ def test_names_on_spans_lcel():
         )
         == 1
     )
+
+
+def test_openai_instruct_usage():
+    from langchain_core.output_parsers.string import StrOutputParser
+    from langchain_core.runnables import Runnable
+    from langchain_openai import OpenAI
+
+    lf_handler = CallbackHandler(debug=True)
+
+    runnable_chain: Runnable = (
+        PromptTemplate.from_template(
+            """Answer the question based only on the following context:
+
+            Question: {question}
+
+            Answer in the following language: {language}
+            """
+        )
+        | OpenAI(
+            model="gpt-3.5-turbo-instruct",
+            temperature=0,
+            callbacks=[lf_handler],
+            max_retries=3,
+            timeout=30,
+        )
+        | StrOutputParser()
+    )
+    input_list = [
+        {"question": "where did harrison work", "language": "english"},
+        {"question": "how is your day", "language": "english"},
+    ]
+    runnable_chain.batch(input_list)
+
+    lf_handler.flush()
+
+    observations = get_api().trace.get(lf_handler.get_trace_id()).observations
+
+    assert len(observations) == 2
+
+    for observation in observations:
+        assert observation.type == "GENERATION"
+        assert observation.output is not None
+        assert observation.output != ""
+        assert observation.input is not None
+        assert observation.input != ""
+        assert observation.usage is not None
+        assert observation.usage.input is not None
+        assert observation.usage.output is not None
+        assert observation.usage.total is not None
+
+def test_get_langchain_prompt():
+    langfuse = Langfuse()
+
+    test_prompts = ["This is a {{test}}", "This is a {{test}}. And this is a {{test2}}"]
+
+    for i, test_prompt in enumerate(test_prompts):
+        langfuse.create_prompt(
+            name=f"test_{i}",
+            prompt=test_prompt,
+            config={
+                "model": "gpt-3.5-turbo-1106",
+                "temperature": 0,
+            },
+            is_active=True,
+        )
+
+        langfuse_prompt = langfuse.get_prompt(f"test_{i}")
+
+        langchain_prompt = ChatPromptTemplate.from_template(
+            langfuse_prompt.get_langchain_prompt()
+        )
+
+        if i == 0:
+            assert langchain_prompt.format(test="test") == "Human: This is a test"
+        else:
+            assert (
+                langchain_prompt.format(test="test", test2="test2")
+                == "Human: This is a test. And this is a test2"
+            )

@@ -15,6 +15,7 @@ class CreatePromptRequest(pydantic.BaseModel):
     name: str
     is_active: bool = pydantic.Field(alias="isActive")
     prompt: str
+    config: typing.Optional[typing.Any] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
