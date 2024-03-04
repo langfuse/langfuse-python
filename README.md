@@ -82,6 +82,8 @@ poetry run pre-commit install
 
 ### SDK Reference
 
+Note: The generated SDK reference is currently work in progress.
+
 The SDK reference is generated via pdoc. To update the reference, run the following command:
 
 ```sh
