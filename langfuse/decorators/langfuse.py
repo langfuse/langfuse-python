@@ -33,9 +33,6 @@ from langfuse.utils.error_logging import catch_and_log_errors
 
 from pydantic import BaseModel
 
-langfuse_context: ContextVar[Optional[Langfuse]] = ContextVar(
-    "langfuse_context", default=None
-)
 observation_stack_context: ContextVar[
     List[Union[StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient]]
 ] = ContextVar("observation_stack_context", default=[])
@@ -119,21 +116,14 @@ class LangfuseDecorator:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             observation = self._prepare_call(func.__name__, as_type, args, kwargs)
-
-            # Call the wrapped function
             result = None
+
             try:
                 result = await func(*args, **kwargs)
             except Exception as e:
-                if observation:
-                    observation_params_context.get()[observation.id].update(
-                        level="ERROR", status_message=str(e)
-                    )
-                raise e
-
+                self._handle_exception(observation, e)
             finally:
                 self._finalize_call(observation, result)
-
             return result
 
         return async_wrapper
@@ -144,16 +134,12 @@ class LangfuseDecorator:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             observation = self._prepare_call(func.__name__, as_type, args, kwargs)
-
             result = None
+
             try:
                 result = func(*args, **kwargs)
             except Exception as e:
-                if observation:
-                    observation_params_context.get()[observation.id].update(
-                        level="ERROR", status_message=str(e)
-                    )
-                raise e
+                self._handle_exception(observation, e)
             finally:
                 self._finalize_call(observation, result)
 
@@ -233,6 +219,19 @@ class LangfuseDecorator:
             observation_stack_context.set(stack[:-1])
         except Exception as e:
             self.log.error(f"Failed to finalize observation: {e}")
+
+    def _handle_exception(
+        self,
+        observation: Optional[
+            Union[StatefulSpanClient, StatefulTraceClient, StatefulGenerationClient]
+        ],
+        e: Exception,
+    ):
+        if observation:
+            observation_params_context.get()[observation.id].update(
+                level="ERROR", status_message=str(e)
+            )
+        raise e
 
     def get_current_llama_index_handler(self):
         """
