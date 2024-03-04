@@ -212,7 +212,7 @@ class LangfuseDecorator:
             # Collect final observation data
             observation_params = observation_params_context.get()[observation.id]
             end_time = observation_params["end_time"] or _get_timestamp()
-            output = observation_params["output"] or str(result) if result else None
+            output = observation_params["output"] or (str(result) if result else None)
             observation_params.update(end_time=end_time, output=output)
 
             if isinstance(observation, (StatefulSpanClient, StatefulGenerationClient)):
