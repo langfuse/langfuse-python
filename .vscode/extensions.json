@@ -1,0 +1,6 @@
+{
+  "recommendations": [
+    "njpwerner.autodocstring",
+    "charliermarsh.ruff"
+  ]
+}

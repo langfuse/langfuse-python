@@ -4,6 +4,8 @@ dist/
 *.egg-info/
 .pytest_cache/
 
+playground
+
 # pyenv
 .python-version
 
@@ -24,5 +26,8 @@ dmypy.json
 
 .DS_Store
 
-playground
+# Docs
+docs
+
+# Llamaindex
 tests/mocks/llama-index-storage

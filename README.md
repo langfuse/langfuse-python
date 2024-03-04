@@ -79,3 +79,19 @@ poetry run pre-commit install
    - Create PyPi API token: https://pypi.org/manage/account/token/
    - Setup: `poetry config pypi-token.pypi your-api-token`
 9. Create a release on GitHub with the changelog
+
+### SDK Reference
+
+Note: The generated SDK reference is currently work in progress.
+
+The SDK reference is generated via pdoc. To update the reference, run the following command:
+
+```sh
+poetry run pdoc -o docs/ --docformat google langfuse
+```
+
+You need to have all extra dependencies installed to generate the reference.
+
+```sh
+poetry install --all-extras
+```

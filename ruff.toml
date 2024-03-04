@@ -1,0 +1,15 @@
+# This is the Ruff config used locally.
+# In CI, ci.ruff.toml is used instead.
+
+target-version = 'py38'
+
+[lint]
+select = [
+    # Enforce the use of Google-style docstrings.
+    "D",
+    # Augment the convention by requiring an imperative mood for all docstrings.
+    "D401",
+]
+
+[lint.pydocstyle]
+convention = "google"
