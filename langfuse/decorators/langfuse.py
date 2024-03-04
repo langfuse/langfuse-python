@@ -75,17 +75,23 @@ class LangfuseDecorator:
         self,
         as_type: Optional[Literal["generation"]] = None,
     ) -> Callable:
-        """
-        Wraps a function to automatically create and manage Langfuse tracing around its execution. Handles both synchronous and asynchronous functions.
+        """Decorate a function to automatically create and manage Langfuse tracing around its execution.
+
+        Handles both synchronous and asynchronous functions.
 
         This decorator captures the start and end times of the function, along with input parameters and output results, and automatically updates the observation context.
         It creates traces for top-level function calls and spans for nested function calls, ensuring that each observation is correctly associated with its parent observation.
         In the event of an exception, the observation is updated with error details.
 
-        Usage:
-            @langfuse.trace\n
+        Usage for traces and spans (top-most decorated function is automatically set as trace):
+            @langfuse.trace()
             def your_function_name(args):
                 # Your function implementation
+
+        Usage for generations:
+            @langfuse.trace(as_type="generation")
+            def your_LLM_call(args):
+                # Your LLM call implementation
 
         Parameters:
             func (Callable): The function to be wrapped by the decorator.
@@ -103,14 +109,14 @@ class LangfuseDecorator:
 
         def decorator(func: Callable) -> Callable:
             return (
-                self.async_trace(func, as_type=as_type)
+                self._async_trace(func, as_type=as_type)
                 if asyncio.iscoroutinefunction(func)
-                else self.sync_trace(func, as_type=as_type)
+                else self._sync_trace(func, as_type=as_type)
             )
 
         return decorator
 
-    def async_trace(
+    def _async_trace(
         self, func: Callable, as_type: Optional[Literal["generation"]]
     ) -> Callable:
         @wraps(func)
@@ -128,7 +134,7 @@ class LangfuseDecorator:
 
         return async_wrapper
 
-    def sync_trace(
+    def _sync_trace(
         self, func: Callable, as_type: Optional[Literal["generation"]]
     ) -> Callable:
         @wraps(func)
@@ -234,8 +240,7 @@ class LangfuseDecorator:
         raise e
 
     def get_current_llama_index_handler(self):
-        """
-        Retrieves the current LlamaIndexCallbackHandler associated with the most recent observation in the observation stack.
+        """Retrieve the current LlamaIndexCallbackHandler associated with the most recent observation in the observation stack.
 
         This method fetches the current observation from the observation stack and returns a LlamaIndexCallbackHandler initialized with this observation.
         It is intended to be used within the context of a trace, allowing access to a callback handler for operations that require interaction with the LlamaIndex API based on the current observation context.
@@ -249,7 +254,6 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., within a function wrapped by @langfuse.trace) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
-
         observation = observation_stack_context.get()[-1]
 
         if observation is None:
@@ -270,8 +274,7 @@ class LangfuseDecorator:
         return callback_handler
 
     def get_current_langchain_handler(self):
-        """
-        Retrieves the current LangchainCallbackHandler associated with the most recent observation in the observation stack.
+        """Retrieve the current LangchainCallbackHandler associated with the most recent observation in the observation stack.
 
         This method fetches the current observation from the observation stack and returns a LangchainCallbackHandler initialized with this observation.
         It is intended to be used within the context of a trace, allowing access to a callback handler for operations that require interaction with Langchain based on the current observation context.
@@ -302,8 +305,7 @@ class LangfuseDecorator:
         return observation.get_langchain_handler()
 
     def get_current_trace_id(self):
-        """
-        Retrieves the ID of the current trace from the observation stack context.
+        """Retrieve the ID of the current trace from the observation stack context.
 
         This method examines the observation stack to find the root trace and returns its ID. It is useful for operations that require the trace ID,
         such as setting trace parameters or querying trace information. The trace ID is typically the ID of the first observation in the stack,
@@ -327,8 +329,7 @@ class LangfuseDecorator:
         return stack[0].id
 
     def get_current_observation_id(self):
-        """
-        Retrieves the ID of the current observation in context.
+        """Retrieve the ID of the current observation in context.
 
         Returns:
             str or None: The ID of the current observation if available; otherwise, None. A return value of None indicates that there is no active trace or observation in the current context,
@@ -358,8 +359,7 @@ class LangfuseDecorator:
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
     ):
-        """
-        Sets parameters for the current trace, updating the trace's metadata and context information.
+        """Set parameters for the current trace, updating the trace's metadata and context information.
 
         This method allows for dynamically updating the trace parameters at any point during the execution of a trace.
         It updates the parameters of the current trace based on the provided arguments. These parameters include metadata, session information,
@@ -424,8 +424,7 @@ class LangfuseDecorator:
         usage: Optional[Union[BaseModel, ModelUsage]] = None,
         prompt: Optional[PromptClient] = None,
     ):
-        """
-        Updates parameters for the current observation within an active trace context.
+        """Update parameters for the current observation within an active trace context.
 
         This method dynamically adjusts the parameters of the most recent observation on the observation stack.
         It allows for the enrichment of observation data with additional details such as input parameters, output results, metadata, and more,
@@ -500,8 +499,7 @@ class LangfuseDecorator:
 
     @catch_and_log_errors
     def flush(self):
-        """
-        Forces the immediate flush of all buffered observations to the Langfuse backend.
+        """Force immediate flush of all buffered observations to the Langfuse backend.
 
         This method triggers the explicit sending of all accumulated trace and observation data that has not yet been sent to Langfuse servers.
         It is typically used to ensure that data is promptly available for analysis, especially at the end of an execution context or before the application exits.
