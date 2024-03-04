@@ -351,6 +351,7 @@ class Langfuse(object):
                 dataset_name="capital_cities",
                 input={"input": {"country": "Italy"}},
                 expected_output={"expected_output": "Rome"}
+            )
             ```
         """
         try:
