@@ -1,4 +1,3 @@
-import os
 import threading
 from typing import Optional
 
@@ -26,18 +25,6 @@ class LangfuseSingleton:
             if self._langfuse:
                 return self._langfuse
 
-            public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
-            secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
-            host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+            self._langfuse = Langfuse()
 
-            if public_key and secret_key:
-                self._langfuse = Langfuse(
-                    public_key=public_key, secret_key=secret_key, host=host
-                )
-
-                return self._langfuse
-
-            else:
-                raise ValueError(
-                    "Missing LANGFUSE_SECRET_KEY or LANGFUSE_PUBLIC_KEY environment variables"
-                )
+            return self._langfuse

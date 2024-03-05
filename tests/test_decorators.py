@@ -28,6 +28,7 @@ def test_nested_observations():
             metadata=mock_deep_metadata,
             usage={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
+            output="mock_output",
         )
 
         langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
@@ -83,6 +84,7 @@ def test_nested_observations():
     assert level_3_observation.metadata == mock_deep_metadata
     assert level_3_observation.type == "GENERATION"
     assert level_3_observation.calculated_total_cost > 0
+    assert level_3_observation.output == "mock_output"
 
 
 # behavior on exceptions

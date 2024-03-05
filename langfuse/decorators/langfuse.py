@@ -33,10 +33,10 @@ from langfuse.utils.error_logging import catch_and_log_errors
 
 from pydantic import BaseModel
 
-observation_stack_context: ContextVar[
+_observation_stack_context: ContextVar[
     List[Union[StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient]]
 ] = ContextVar("observation_stack_context", default=[])
-observation_params_context: ContextVar[
+_observation_params_context: ContextVar[
     DefaultDict[str, ObservationParams]
 ] = ContextVar(
     "observation_params_context",
@@ -66,7 +66,7 @@ observation_params_context: ContextVar[
 
 
 class LangfuseDecorator:
-    log = logging.getLogger("langfuse")
+    _log = logging.getLogger("langfuse")
 
     def __init__(self):
         self._langfuse: Optional[Langfuse] = None
@@ -164,7 +164,7 @@ class LangfuseDecorator:
     ]:
         try:
             langfuse = self._get_langfuse()
-            stack = observation_stack_context.get().copy()
+            stack = _observation_stack_context.get().copy()
             parent = stack[-1] if stack else None
 
             # Collect default observation data
@@ -188,11 +188,11 @@ class LangfuseDecorator:
                     id=id, name=name, start_time=start_time, input=input
                 )
 
-            observation_stack_context.set(stack + [observation])
+            _observation_stack_context.set(stack + [observation])
 
             return observation
         except Exception as e:
-            self.log.error(f"Failed to prepare observation: {e}")
+            self._log.error(f"Failed to prepare observation: {e}")
 
     def _finalize_call(
         self,
@@ -210,7 +210,7 @@ class LangfuseDecorator:
                 raise ValueError("No observation found in the current context")
 
             # Collect final observation data
-            observation_params = observation_params_context.get()[observation.id]
+            observation_params = _observation_params_context.get()[observation.id]
             end_time = observation_params["end_time"] or _get_timestamp()
             output = observation_params["output"] or (str(result) if result else None)
             observation_params.update(end_time=end_time, output=output)
@@ -221,10 +221,10 @@ class LangfuseDecorator:
                 observation.update(**observation_params)
 
             # Remove observation from top of stack
-            stack = observation_stack_context.get()
-            observation_stack_context.set(stack[:-1])
+            stack = _observation_stack_context.get()
+            _observation_stack_context.set(stack[:-1])
         except Exception as e:
-            self.log.error(f"Failed to finalize observation: {e}")
+            self._log.error(f"Failed to finalize observation: {e}")
 
     def _handle_exception(
         self,
@@ -234,7 +234,7 @@ class LangfuseDecorator:
         e: Exception,
     ):
         if observation:
-            observation_params_context.get()[observation.id].update(
+            _observation_params_context.get()[observation.id].update(
                 level="ERROR", status_message=str(e)
             )
         raise e
@@ -254,15 +254,15 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., within a function wrapped by @langfuse.trace) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
-        observation = observation_stack_context.get()[-1]
+        observation = _observation_stack_context.get()[-1]
 
         if observation is None:
-            self.log.warn("No observation found in the current context")
+            self._log.warn("No observation found in the current context")
 
             return None
 
         if isinstance(observation, StatefulGenerationClient):
-            self.log.warn(
+            self._log.warn(
                 "Current observation is of type GENERATION, LlamaIndex handler is not supported for this type of observation"
             )
 
@@ -288,15 +288,15 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., within a function wrapped by @langfuse.trace) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
-        observation = observation_stack_context.get()[-1]
+        observation = _observation_stack_context.get()[-1]
 
         if observation is None:
-            self.log.warn("No observation found in the current context")
+            self._log.warn("No observation found in the current context")
 
             return None
 
         if isinstance(observation, StatefulGenerationClient):
-            self.log.warn(
+            self._log.warn(
                 "Current observation is of type GENERATION, Langchain handler is not supported for this type of observation"
             )
 
@@ -319,10 +319,10 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., inside a function wrapped with the @langfuse.trace decorator) to ensure that a current trace is indeed present and its ID can be retrieved.
             - If called outside of a trace context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
         """
-        stack = observation_stack_context.get()
+        stack = _observation_stack_context.get()
 
         if not stack:
-            self.log.warn("No trace found in the current context")
+            self._log.warn("No trace found in the current context")
 
             return None
 
@@ -340,10 +340,10 @@ class LangfuseDecorator:
             - If called outside of a trace or observation context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
             - If called at the top level of a trace, it will return the trace ID.
         """
-        stack = observation_stack_context.get()
+        stack = _observation_stack_context.get()
 
         if not stack:
-            self.log.warn("No trace found in the current context")
+            self._log.warn("No trace found in the current context")
 
             return None
 
@@ -386,11 +386,11 @@ class LangfuseDecorator:
         trace_id = self.get_current_trace_id()
 
         if trace_id is None:
-            self.log.warn("No trace found in the current context")
+            self._log.warn("No trace found in the current context")
 
             return
 
-        observation_params_context.get()[trace_id].update(
+        _observation_params_context.get()[trace_id].update(
             {
                 "name": name,
                 "user_id": user_id,
@@ -468,15 +468,15 @@ class LangfuseDecorator:
             - It updates the parameters of the most recently created observation on the observation stack. Care should be taken in nested observation contexts to ensure the updates are applied as intended.
             - Parameters set to `None` will not overwrite existing values for those parameters. This behavior allows for selective updates without clearing previously set information.
         """
-        stack = observation_stack_context.get()
+        stack = _observation_stack_context.get()
         observation = stack[-1] if stack else None
 
         if not observation:
-            self.log.warn("No observation found in the current context")
+            self._log.warn("No observation found in the current context")
 
             return
 
-        observation_params_context.get()[observation.id].update(
+        _observation_params_context.get()[observation.id].update(
             input=input,
             output=output,
             name=name,
@@ -523,10 +523,25 @@ class LangfuseDecorator:
         if langfuse:
             langfuse.flush()
         else:
-            self.log.warn("No langfuse object found in the current context")
+            self._log.warn("No langfuse object found in the current context")
 
     def _get_langfuse(self) -> Langfuse:
         return LangfuseSingleton().get()
+
+    def auth_check(self) -> bool:
+        """Check if the current Langfuse client is authenticated.
+
+        Returns:
+            bool: True if the client is authenticated, False otherwise
+        """
+        try:
+            langfuse = self._get_langfuse()
+
+            return langfuse.auth_check()
+        except Exception as e:
+            self._log.error("No Langfuse object found in the current context", e)
+
+            return False
 
 
 langfuse = LangfuseDecorator()
