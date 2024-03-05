@@ -60,6 +60,7 @@ _observation_params_context: ContextVar[
             "model_parameters": None,
             "usage": None,
             "prompt": None,
+            "public": None,
         },
     ),
 )
@@ -68,14 +69,11 @@ _observation_params_context: ContextVar[
 class LangfuseDecorator:
     _log = logging.getLogger("langfuse")
 
-    def __init__(self):
-        self._langfuse: Optional[Langfuse] = None
-
     def observe(
         self,
         as_type: Optional[Literal["generation"]] = None,
     ) -> Callable:
-        """Decorate a function to automatically create and manage Langfuse tracing around its execution.
+        r"""Decorate a function to automatically create and manage Langfuse tracing around its execution.
 
         Handles both synchronous and asynchronous functions.
 
@@ -84,12 +82,12 @@ class LangfuseDecorator:
         In the event of an exception, the observation is updated with error details.
 
         Usage for traces and spans (top-most decorated function is automatically set as trace):
-            @langfuse.trace()
+            @observe()\n
             def your_function_name(args):
                 # Your function implementation
 
         Usage for generations:
-            @langfuse.trace(as_type="generation")
+            @observe(as_type="generation")\n
             def your_LLM_call(args):
                 # Your LLM call implementation
 
@@ -251,7 +249,7 @@ class LangfuseDecorator:
             LlamaIndexCallbackHandler or None: Returns a LlamaIndexCallbackHandler instance if there is an active observation in the current context; otherwise, returns None if no observation is found.
 
         Note:
-            - This method should be called within the context of a trace (i.e., within a function wrapped by @langfuse.trace) to ensure that an observation context exists.
+            - This method should be called within the context of a trace (i.e., within a function wrapped by @observe) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
         observation = _observation_stack_context.get()[-1]
@@ -285,7 +283,7 @@ class LangfuseDecorator:
             LangchainCallbackHandler or None: Returns a LangchainCallbackHandler instance if there is an active observation in the current context; otherwise, returns None if no observation is found.
 
         Note:
-            - This method should be called within the context of a trace (i.e., within a function wrapped by @langfuse.trace) to ensure that an observation context exists.
+            - This method should be called within the context of a trace (i.e., within a function wrapped by @observe) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
         observation = _observation_stack_context.get()[-1]
@@ -313,10 +311,10 @@ class LangfuseDecorator:
 
         Returns:
             str or None: The ID of the current trace if available; otherwise, None. A return value of None indicates that there is no active trace in the current context,
-            possibly due to the method being called outside of any @langfuse.trace-decorated function execution.
+            possibly due to the method being called outside of any @observe-decorated function execution.
 
         Note:
-            - This method should be called within the context of a trace (i.e., inside a function wrapped with the @langfuse.trace decorator) to ensure that a current trace is indeed present and its ID can be retrieved.
+            - This method should be called within the context of a trace (i.e., inside a function wrapped with the @observe decorator) to ensure that a current trace is indeed present and its ID can be retrieved.
             - If called outside of a trace context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
         """
         stack = _observation_stack_context.get()
@@ -328,15 +326,40 @@ class LangfuseDecorator:
 
         return stack[0].id
 
+    def get_current_trace_url(self) -> Optional[str]:
+        """Retrieve the URL of the current trace in context.
+
+        Returns:
+            str or None: The URL of the current trace if available; otherwise, None. A return value of None indicates that there is no active trace in the current context,
+            possibly due to the method being called outside of any @observe-decorated function execution.
+
+        Note:
+            - This method should be called within the context of a trace (i.e., inside a function wrapped with the @observe decorator) to ensure that a current trace is indeed present and its ID can be retrieved.
+            - If called outside of a trace context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
+        """
+        try:
+            trace_id = self.get_current_trace_id()
+            langfuse = self._get_langfuse()
+
+            if not trace_id:
+                raise ValueError("No trace found in the current context")
+
+            return f"{langfuse.client._client_wrapper._base_url}/trace/{trace_id}"
+
+        except Exception as e:
+            self._log.error(f"Failed to get current trace URL: {e}")
+
+            return None
+
     def get_current_observation_id(self):
         """Retrieve the ID of the current observation in context.
 
         Returns:
             str or None: The ID of the current observation if available; otherwise, None. A return value of None indicates that there is no active trace or observation in the current context,
-            possibly due to the method being called outside of any @langfuse.trace-decorated function execution.
+            possibly due to the method being called outside of any @observe-decorated function execution.
 
         Note:
-            - This method should be called within the context of a trace or observation (i.e., inside a function wrapped with the @langfuse.trace decorator) to ensure that a current observation is indeed present and its ID can be retrieved.
+            - This method should be called within the context of a trace or observation (i.e., inside a function wrapped with the @observe decorator) to ensure that a current observation is indeed present and its ID can be retrieved.
             - If called outside of a trace or observation context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
             - If called at the top level of a trace, it will return the trace ID.
         """
@@ -358,6 +381,7 @@ class LangfuseDecorator:
         release: Optional[str] = None,
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
+        public: Optional[bool] = None,
     ):
         """Set parameters for the current trace, updating the trace's metadata and context information.
 
@@ -379,7 +403,7 @@ class LangfuseDecorator:
             None
 
         Note:
-            - This method should be used within the context of an active trace, typically within a function that is being traced using the @langfuse.trace decorator.
+            - This method should be used within the context of an active trace, typically within a function that is being traced using the @observe decorator.
             - The method updates the trace parameters for the currently executing trace. In nested trace scenarios, it affects the most recent trace context.
             - If called outside of an active trace context, a warning is logged, and a ValueError is raised to indicate the absence of a traceable context.
         """
@@ -399,6 +423,7 @@ class LangfuseDecorator:
                 "release": release,
                 "metadata": metadata,
                 "tags": tags,
+                "public": public,
             }
         )
 
@@ -423,6 +448,7 @@ class LangfuseDecorator:
         model_parameters: Optional[Dict[str, MapValue]] = None,
         usage: Optional[Union[BaseModel, ModelUsage]] = None,
         prompt: Optional[PromptClient] = None,
+        public: Optional[bool] = None,
     ):
         """Update parameters for the current observation within an active trace context.
 
@@ -446,6 +472,7 @@ class LangfuseDecorator:
             - `session_id` (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
             - `release` (Optional[str]): The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
             - `tags` (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+            - `public` (Optional[bool]): You can make a trace public to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
 
         Span-specific params:
             - `level` (Optional[SpanLevel]): The severity or importance level of the observation, such as "INFO", "WARNING", or "ERROR".
@@ -464,7 +491,7 @@ class LangfuseDecorator:
             ValueError: If no current observation is found in the context, indicating that this method was called outside of an observation's execution scope.
 
         Note:
-            - This method is intended to be used within the context of an active observation, typically within a function wrapped by the @langfuse.trace decorator.
+            - This method is intended to be used within the context of an active observation, typically within a function wrapped by the @observe decorator.
             - It updates the parameters of the most recently created observation on the observation stack. Care should be taken in nested observation contexts to ensure the updates are applied as intended.
             - Parameters set to `None` will not overwrite existing values for those parameters. This behavior allows for selective updates without clearing previously set information.
         """
@@ -495,6 +522,7 @@ class LangfuseDecorator:
             model_parameters=model_parameters,
             usage=usage,
             prompt=prompt,
+            public=public,
         )
 
     def score_current_observation(

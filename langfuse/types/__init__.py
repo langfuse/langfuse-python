@@ -14,6 +14,7 @@ class TraceMetadata(TypedDict):
     release: Optional[str]
     metadata: Optional[Any]
     tags: Optional[List[str]]
+    public: Optional[bool]
 
 
 class ObservationParams(TraceMetadata, TypedDict):
