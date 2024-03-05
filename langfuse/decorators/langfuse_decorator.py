@@ -25,7 +25,6 @@ from langfuse.client import (
     ModelUsage,
     MapValue,
 )
-from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
@@ -252,6 +251,15 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., within a function wrapped by @observe) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
+        try:
+            from langfuse.llama_index import LlamaIndexCallbackHandler
+        except ImportError:
+            self._log.error(
+                "LlamaIndexCallbackHandler is not available, most likely because llama-index is not installed. pip install llama-index"
+            )
+
+            return None
+
         observation = _observation_stack_context.get()[-1]
 
         if observation is None:
