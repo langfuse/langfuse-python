@@ -1,3 +1,3 @@
-from .langfuse import langfuse
+from .langfuse import langfuse_context, observe
 
-__all__ = ["langfuse"]
+__all__ = ["langfuse_context", "observe"]

@@ -71,7 +71,7 @@ class LangfuseDecorator:
     def __init__(self):
         self._langfuse: Optional[Langfuse] = None
 
-    def trace(
+    def observe(
         self,
         as_type: Optional[Literal["generation"]] = None,
     ) -> Callable:
@@ -109,14 +109,14 @@ class LangfuseDecorator:
 
         def decorator(func: Callable) -> Callable:
             return (
-                self._async_trace(func, as_type=as_type)
+                self._async_observe(func, as_type=as_type)
                 if asyncio.iscoroutinefunction(func)
-                else self._sync_trace(func, as_type=as_type)
+                else self._sync_observe(func, as_type=as_type)
             )
 
         return decorator
 
-    def _async_trace(
+    def _async_observe(
         self, func: Callable, as_type: Optional[Literal["generation"]]
     ) -> Callable:
         @wraps(func)
@@ -134,7 +134,7 @@ class LangfuseDecorator:
 
         return async_wrapper
 
-    def _sync_trace(
+    def _sync_observe(
         self, func: Callable, as_type: Optional[Literal["generation"]]
     ) -> Callable:
         @wraps(func)
@@ -544,4 +544,5 @@ class LangfuseDecorator:
             return False
 
 
-langfuse = LangfuseDecorator()
+langfuse_context = LangfuseDecorator()
+observe = langfuse_context.observe
