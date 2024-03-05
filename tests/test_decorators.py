@@ -509,3 +509,58 @@ def test_get_current_ids():
     assert any(
         [o.id == retrieved_observation_id.get() for o in trace_data.observations]
     )
+
+
+def test_scoring_observations():
+    mock_name = "test_scoring_observations"
+    mock_trace_id = create_uuid()
+
+    @observe(as_type="generation")
+    def level_3_function():
+        langfuse_context.score_current_observation(
+            name="test-observation-score", value=1
+        )
+        langfuse_context.score_current_trace(name="test-trace-score", value=2)
+        return "level_3"
+
+    @observe()
+    def level_2_function():
+        return level_3_function()
+
+    @observe()
+    def level_1_function(*args, **kwargs):
+        langfuse_context.update_current_trace(name=mock_name)
+        return level_2_function()
+
+    result = level_1_function(
+        *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
+    )
+    langfuse_context.flush()
+
+    assert result == "level_3"  # Wrapped function returns correctly
+
+    # ID setting for span or trace
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert (
+        len(trace_data.observations) == 2
+    )  # Top-most function is trace, so it's not an observations
+    assert trace_data.name == mock_name
+
+    # Check for correct scoring
+    scores = trace_data.scores
+
+    assert len(scores) == 2
+
+    trace_score = [
+        s for s in scores if s.trace_id == mock_trace_id and s.observation_id is None
+    ][0]
+    observation_score = [s for s in scores if s.observation_id is not None][0]
+
+    print(trace_score)
+    print(observation_score)
+
+    assert trace_score.name == "test-trace-score"
+    assert trace_score.value == 2
+
+    assert observation_score.name == "test-observation-score"
+    assert observation_score.value == 1

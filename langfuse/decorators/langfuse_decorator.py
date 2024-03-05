@@ -497,6 +497,92 @@ class LangfuseDecorator:
             prompt=prompt,
         )
 
+    def score_current_observation(
+        self,
+        *,
+        name: str,
+        value: float,
+        comment: Optional[str] = None,
+        id: Optional[str] = None,
+    ):
+        """Score the current observation within an active trace. If called on the top level of a trace, it will score the trace.
+
+        Parameters:
+            - name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
+            - value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            - comment (Optional[str]): An optional comment or description providing context or additional details about the score.
+            - id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+
+        Returns:
+            None
+
+        Note:
+            This method is intended to be used within the context of an active trace or observation.
+        """
+        try:
+            langfuse = self._get_langfuse()
+            trace_id = self.get_current_trace_id()
+            current_observation_id = self.get_current_observation_id()
+
+            observation_id = (
+                current_observation_id if current_observation_id != trace_id else None
+            )
+
+            if observation_id:
+                langfuse.score(
+                    trace_id=trace_id,
+                    observation_id=observation_id,
+                    name=name,
+                    value=value,
+                    comment=comment,
+                    id=id,
+                )
+            else:
+                raise ValueError("No observation found in the current context")
+
+        except Exception as e:
+            self._log.error(f"Failed to score observation: {e}")
+
+    def score_current_trace(
+        self,
+        *,
+        name: str,
+        value: float,
+        comment: Optional[str] = None,
+        id: Optional[str] = None,
+    ):
+        """Score the current trace in context. This can be called anywhere in the nested trace to score the trace.
+
+        Parameters:
+            - name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
+            - value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            - comment (Optional[str]): An optional comment or description providing context or additional details about the score.
+            - id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+
+        Returns:
+            None
+
+        Note:
+            This method is intended to be used within the context of an active trace or observation.
+        """
+        try:
+            langfuse = self._get_langfuse()
+            trace_id = self.get_current_trace_id()
+
+            if trace_id:
+                langfuse.score(
+                    trace_id=trace_id,
+                    name=name,
+                    value=value,
+                    comment=comment,
+                    id=id,
+                )
+            else:
+                raise ValueError("No trace found in the current context")
+
+        except Exception as e:
+            self._log.error(f"Failed to score observation: {e}")
+
     @catch_and_log_errors
     def flush(self):
         """Force immediate flush of all buffered observations to the Langfuse backend.
