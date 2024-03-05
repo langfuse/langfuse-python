@@ -7,6 +7,7 @@ from . import (
     datasets,
     health,
     ingestion,
+    metrics,
     observations,
     projects,
     prompts,
@@ -84,6 +85,7 @@ from .ingestion import (
     UpdateSpanBody,
     UpdateSpanEvent,
 )
+from .metrics import DailyMetrics, DailyMetricsDetails, UsageByModel
 from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
 from .prompts import CreatePromptRequest, Prompt
@@ -105,6 +107,8 @@ __all__ = [
     "CreateScoreRequest",
     "CreateSpanBody",
     "CreateSpanEvent",
+    "DailyMetrics",
+    "DailyMetricsDetails",
     "Dataset",
     "DatasetItem",
     "DatasetRun",
@@ -167,12 +171,14 @@ __all__ = [
     "UpdateSpanBody",
     "UpdateSpanEvent",
     "Usage",
+    "UsageByModel",
     "commons",
     "dataset_items",
     "dataset_run_items",
     "datasets",
     "health",
     "ingestion",
+    "metrics",
     "observations",
     "projects",
     "prompts",

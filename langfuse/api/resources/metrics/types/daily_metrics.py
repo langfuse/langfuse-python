@@ -4,9 +4,8 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .observations_view import ObservationsView
-from .score import Score
-from .trace import Trace
+from ...utils.resources.pagination.types.meta_response import MetaResponse
+from .daily_metrics_details import DailyMetricsDetails
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,15 +13,11 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class TraceWithFullDetails(Trace):
-    html_path: str = pydantic.Field(
-        alias="htmlPath", description="Path of trace in Langfuse UI"
+class DailyMetrics(pydantic.BaseModel):
+    data: typing.List[DailyMetricsDetails] = pydantic.Field(
+        description="A list of daily metrics, only days with ingested data are included."
     )
-    total_cost: float = pydantic.Field(
-        alias="totalCost", description="Cost of trace in USD"
-    )
-    observations: typing.List[ObservationsView]
-    scores: typing.List[Score]
+    meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -43,5 +38,4 @@ class TraceWithFullDetails(Trace):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
         json_encoders = {dt.datetime: serialize_datetime}

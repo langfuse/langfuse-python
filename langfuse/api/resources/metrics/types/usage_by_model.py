@@ -4,9 +4,6 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .observations_view import ObservationsView
-from .score import Score
-from .trace import Trace
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -14,15 +11,15 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class TraceWithFullDetails(Trace):
-    html_path: str = pydantic.Field(
-        alias="htmlPath", description="Path of trace in Langfuse UI"
-    )
-    total_cost: float = pydantic.Field(
-        alias="totalCost", description="Cost of trace in USD"
-    )
-    observations: typing.List[ObservationsView]
-    scores: typing.List[Score]
+class UsageByModel(pydantic.BaseModel):
+    """
+    Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
+    """
+
+    model: str
+    input_usage: int = pydantic.Field(alias="inputUsage")
+    output_usage: int = pydantic.Field(alias="outputUsage")
+    total_usage: int = pydantic.Field(alias="totalUsage")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

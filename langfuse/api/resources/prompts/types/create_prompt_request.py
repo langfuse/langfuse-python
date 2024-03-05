@@ -13,7 +13,10 @@ except ImportError:
 
 class CreatePromptRequest(pydantic.BaseModel):
     name: str
-    is_active: bool = pydantic.Field(alias="isActive")
+    is_active: bool = pydantic.Field(
+        alias="isActive",
+        description="Should the prompt be promoted to production immediately?",
+    )
     prompt: str
     config: typing.Optional[typing.Any] = None
 

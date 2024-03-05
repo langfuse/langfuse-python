@@ -1461,6 +1461,7 @@ def test_openai_instruct_usage():
         assert observation.usage.output is not None
         assert observation.usage.total is not None
 
+
 def test_get_langchain_prompt():
     langfuse = Langfuse()
 

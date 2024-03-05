@@ -68,7 +68,7 @@ class TraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
-        order_by: str,
+        order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
         """
@@ -83,7 +83,7 @@ class TraceClient:
 
             - name: typing.Optional[str].
 
-            - order_by: str. Format of the string sort_by=timestamp.asc (id, timestamp, name, userId, release, version, public, bookmarked, sessionId)
+            - order_by: typing.Optional[str]. Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
 
             - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Only traces that include all of these tags will be returned.
         """
@@ -173,7 +173,7 @@ class AsyncTraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
-        order_by: str,
+        order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
         """
@@ -188,7 +188,7 @@ class AsyncTraceClient:
 
             - name: typing.Optional[str].
 
-            - order_by: str. Format of the string sort_by=timestamp.asc (id, timestamp, name, userId, release, version, public, bookmarked, sessionId)
+            - order_by: typing.Optional[str]. Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
 
             - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Only traces that include all of these tags will be returned.
         """

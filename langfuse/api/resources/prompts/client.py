@@ -31,7 +31,7 @@ class PromptsClient:
 
     def get(self, *, name: str, version: typing.Optional[int] = None) -> Prompt:
         """
-        Get a specific prompt
+        Get a prompt
 
         Parameters:
             - name: str.
@@ -69,7 +69,7 @@ class PromptsClient:
 
     def create(self, *, request: CreatePromptRequest) -> Prompt:
         """
-        Create a specific prompt
+        Create a prompt
 
         Parameters:
             - request: CreatePromptRequest.
@@ -110,7 +110,7 @@ class AsyncPromptsClient:
 
     async def get(self, *, name: str, version: typing.Optional[int] = None) -> Prompt:
         """
-        Get a specific prompt
+        Get a prompt
 
         Parameters:
             - name: str.
@@ -148,7 +148,7 @@ class AsyncPromptsClient:
 
     async def create(self, *, request: CreatePromptRequest) -> Prompt:
         """
-        Create a specific prompt
+        Create a prompt
 
         Parameters:
             - request: CreatePromptRequest.

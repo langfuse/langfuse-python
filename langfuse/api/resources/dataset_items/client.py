@@ -30,7 +30,7 @@ class DatasetItemsClient:
 
     def create(self, *, request: CreateDatasetItemRequest) -> DatasetItem:
         """
-        Create a dataset item, upserts on id
+        Create a dataset item
 
         Parameters:
             - request: CreateDatasetItemRequest.
@@ -66,7 +66,7 @@ class DatasetItemsClient:
 
     def get(self, id: str) -> DatasetItem:
         """
-        Get a specific dataset item
+        Get a dataset item
 
         Parameters:
             - id: str.
@@ -107,7 +107,7 @@ class AsyncDatasetItemsClient:
 
     async def create(self, *, request: CreateDatasetItemRequest) -> DatasetItem:
         """
-        Create a dataset item, upserts on id
+        Create a dataset item
 
         Parameters:
             - request: CreateDatasetItemRequest.
@@ -143,7 +143,7 @@ class AsyncDatasetItemsClient:
 
     async def get(self, id: str) -> DatasetItem:
         """
-        Get a specific dataset item
+        Get a dataset item
 
         Parameters:
             - id: str.
