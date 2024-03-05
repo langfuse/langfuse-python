@@ -27,7 +27,7 @@ class ObservationsClient:
 
     def get(self, observation_id: str) -> ObservationsView:
         """
-        Get a specific observation
+        Get a observation
 
         Parameters:
             - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
@@ -136,7 +136,7 @@ class AsyncObservationsClient:
 
     async def get(self, observation_id: str) -> ObservationsView:
         """
-        Get a specific observation
+        Get a observation
 
         Parameters:
             - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation

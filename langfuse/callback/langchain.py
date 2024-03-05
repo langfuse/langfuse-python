@@ -1,6 +1,7 @@
 import logging
+
 try:  # Test that langchain is installed before proceeding
-    import langchain # noqa
+    import langchain  # noqa
 except ImportError as e:
     log = logging.getLogger("langfuse")
     log.error(
@@ -33,13 +34,12 @@ try:
         HumanMessage,
         SystemMessage,
         ToolMessage,
-        FunctionMessage
+        FunctionMessage,
     )
 except ImportError:
     raise ModuleNotFoundError(
         "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
     )
-
 
 
 class LangchainCallbackHandler(
@@ -671,7 +671,8 @@ class LangchainCallbackHandler(
                 llm_usage = (
                     None
                     # we need to check whether the token_usage is None or empty
-                    if response.llm_output is None  or not response.llm_output["token_usage"]
+                    if response.llm_output is None
+                    or not response.llm_output["token_usage"]
                     else response.llm_output["token_usage"]
                 )
 

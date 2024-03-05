@@ -13,15 +13,31 @@ except ImportError:
 
 
 class Usage(pydantic.BaseModel):
-    input: typing.Optional[int] = None
-    output: typing.Optional[int] = None
-    total: typing.Optional[int] = None
-    unit: typing.Optional[ModelUsageUnit] = None
-    input_cost: typing.Optional[float] = pydantic.Field(alias="inputCost", default=None)
-    output_cost: typing.Optional[float] = pydantic.Field(
-        alias="outputCost", default=None
+    """
+    Standard interface for usage and cost
+    """
+
+    input: typing.Optional[int] = pydantic.Field(
+        default=None, description="Number of input units (e.g. tokens)"
     )
-    total_cost: typing.Optional[float] = pydantic.Field(alias="totalCost", default=None)
+    output: typing.Optional[int] = pydantic.Field(
+        default=None, description="Number of output units (e.g. tokens)"
+    )
+    total: typing.Optional[int] = pydantic.Field(
+        default=None, description="Defaults to input+output if not set"
+    )
+    unit: typing.Optional[ModelUsageUnit] = None
+    input_cost: typing.Optional[float] = pydantic.Field(
+        alias="inputCost", default=None, description="USD input cost"
+    )
+    output_cost: typing.Optional[float] = pydantic.Field(
+        alias="outputCost", default=None, description="USD output cost"
+    )
+    total_cost: typing.Optional[float] = pydantic.Field(
+        alias="totalCost",
+        default=None,
+        description="USD total cost, defaults to input+output",
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

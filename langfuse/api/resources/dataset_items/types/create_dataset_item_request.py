@@ -17,7 +17,9 @@ class CreateDatasetItemRequest(pydantic.BaseModel):
     expected_output: typing.Optional[typing.Any] = pydantic.Field(
         alias="expectedOutput", default=None
     )
-    id: typing.Optional[str] = None
+    id: typing.Optional[str] = pydantic.Field(
+        default=None, description="Dataset items are upserted on their id"
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

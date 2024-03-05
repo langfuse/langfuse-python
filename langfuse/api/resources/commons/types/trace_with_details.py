@@ -13,6 +13,13 @@ except ImportError:
 
 
 class TraceWithDetails(Trace):
+    html_path: str = pydantic.Field(
+        alias="htmlPath", description="Path of trace in Langfuse UI"
+    )
+    latency: float = pydantic.Field(description="Latency of trace in seconds")
+    total_cost: float = pydantic.Field(
+        alias="totalCost", description="Cost of trace in USD"
+    )
     observations: typing.List[str] = pydantic.Field(
         description="List of observation ids"
     )

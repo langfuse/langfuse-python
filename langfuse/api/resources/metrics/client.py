@@ -6,12 +6,13 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.remove_none_from_dict import remove_none_from_dict
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from .types.projects import Projects
+from .types.daily_metrics import DailyMetrics
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -19,24 +20,52 @@ except ImportError:
     import pydantic  # type: ignore
 
 
-class ProjectsClient:
+class MetricsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(self) -> Projects:
+    def daily(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        trace_name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
+    ) -> DailyMetrics:
         """
-        Get Project associated with API key
+        Get daily metrics of the Langfuse project
+
+        Parameters:
+            - page: typing.Optional[int].
+
+            - limit: typing.Optional[int].
+
+            - trace_name: typing.Optional[str]. Optional filter by the name of the trace
+
+            - user_id: typing.Optional[str]. Optional filter by the userId associated with the trace
+
+            - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Optional filter for metrics where traces include all of these tags
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/projects"
+                f"{self._client_wrapper.get_base_url()}/", "api/public/metrics/daily"
+            ),
+            params=remove_none_from_dict(
+                {
+                    "page": page,
+                    "limit": limit,
+                    "traceName": trace_name,
+                    "userId": user_id,
+                    "tags": tags,
+                }
             ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Projects, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(DailyMetrics, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -56,24 +85,52 @@ class ProjectsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncProjectsClient:
+class AsyncMetricsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(self) -> Projects:
+    async def daily(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        trace_name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
+    ) -> DailyMetrics:
         """
-        Get Project associated with API key
+        Get daily metrics of the Langfuse project
+
+        Parameters:
+            - page: typing.Optional[int].
+
+            - limit: typing.Optional[int].
+
+            - trace_name: typing.Optional[str]. Optional filter by the name of the trace
+
+            - user_id: typing.Optional[str]. Optional filter by the userId associated with the trace
+
+            - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Optional filter for metrics where traces include all of these tags
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/projects"
+                f"{self._client_wrapper.get_base_url()}/", "api/public/metrics/daily"
+            ),
+            params=remove_none_from_dict(
+                {
+                    "page": page,
+                    "limit": limit,
+                    "traceName": trace_name,
+                    "userId": user_id,
+                    "tags": tags,
+                }
             ),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Projects, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(DailyMetrics, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

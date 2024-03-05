@@ -30,7 +30,7 @@ class IngestionClient:
 
     def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
         """
-        Ingest multiple events to Langfuse
+        Batched ingestion for Langfuse Tracing
 
         Parameters:
             - batch: typing.List[IngestionEvent].
@@ -71,7 +71,7 @@ class AsyncIngestionClient:
 
     async def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
         """
-        Ingest multiple events to Langfuse
+        Batched ingestion for Langfuse Tracing
 
         Parameters:
             - batch: typing.List[IngestionEvent].

@@ -13,6 +13,7 @@ from .resources.dataset_run_items.client import (
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.health.client import AsyncHealthClient, HealthClient
 from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
+from .resources.metrics.client import AsyncMetricsClient, MetricsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.prompts.client import AsyncPromptsClient, PromptsClient
@@ -52,6 +53,7 @@ class FernLangfuse:
         self.datasets = DatasetsClient(client_wrapper=self._client_wrapper)
         self.health = HealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
+        self.metrics = MetricsClient(client_wrapper=self._client_wrapper)
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.prompts = PromptsClient(client_wrapper=self._client_wrapper)
@@ -93,6 +95,7 @@ class AsyncFernLangfuse:
         self.datasets = AsyncDatasetsClient(client_wrapper=self._client_wrapper)
         self.health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
+        self.metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
