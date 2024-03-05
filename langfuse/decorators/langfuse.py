@@ -104,7 +104,7 @@ class LangfuseDecorator:
 
         Note:
             - The decorator automatically manages observation IDs and context, but you can manually specify an observation ID using the `langfuse_observation_id` keyword argument when calling the wrapped function.
-            - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.set_current_trace_params` within the wrapped function.
+            - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.update_current_trace` within the wrapped function.
         """
 
         def decorator(func: Callable) -> Callable:
@@ -349,7 +349,7 @@ class LangfuseDecorator:
 
         return stack[-1].id
 
-    def set_current_trace_params(
+    def update_current_trace(
         self,
         name: Optional[str] = None,
         user_id: Optional[str] = None,

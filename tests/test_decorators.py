@@ -31,7 +31,7 @@ def test_nested_observations():
             output="mock_output",
         )
 
-        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
 
         return "level_3"
 
@@ -100,7 +100,7 @@ def test_exception_in_wrapped_function():
             usage={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
 
         raise ValueError("Mock exception")
 
@@ -168,7 +168,7 @@ def test_concurrent_decorator_executions():
             usage={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
 
         return "level_3"
 
@@ -257,7 +257,7 @@ def test_decorators_llama_index():
     def level_3_function(*args, **kwargs):
         langfuse.update_current_observation(metadata=mock_metadata)
         langfuse.update_current_observation(metadata=mock_deep_metadata)
-        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
 
         return llama_index_operations(*args, **kwargs)
 
@@ -330,7 +330,7 @@ def test_decorators_langchain():
     def level_3_function(*args, **kwargs):
         langfuse.update_current_observation(metadata=mock_metadata)
         langfuse.update_current_observation(metadata=mock_deep_metadata)
-        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
 
         return langchain_operations(*args, **kwargs)
 
@@ -393,7 +393,7 @@ async def test_asyncio_concurrency_inside_nested_span():
             usage={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse.set_current_trace_params(session_id=mock_session_id, name=mock_name)
+        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
 
         return "level_3"
 
