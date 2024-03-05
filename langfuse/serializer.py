@@ -1,12 +1,15 @@
+from collections.abc import Sequence
+from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
-from dataclasses import is_dataclass, asdict
 from json import JSONEncoder
 from typing import Any
 from uuid import UUID
 
-from langfuse.api.core import serialize_datetime
-
+from google.protobuf.json_format import MessageToJson
+from google.protobuf.message import Message
 from pydantic import BaseModel
+
+from langfuse.api.core import serialize_datetime
 
 # Attempt to import Serializable
 try:
@@ -29,6 +32,10 @@ class EventSerializer(JSONEncoder):
 
         if is_dataclass(obj):
             return asdict(obj)
+        if isinstance(obj, Message):
+            return MessageToJson(obj)
+        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes)):
+            return [self.default(item) for item in obj]
         if isinstance(obj, UUID):
             return str(obj)
         if isinstance(obj, bytes):
