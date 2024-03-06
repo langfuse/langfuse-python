@@ -49,6 +49,7 @@ bson = "^0.5.10"
 pdoc = "^14.4.0"
 
 [tool.poetry.extras]
+openai = ["openai"]
 langchain = ["langchain"]
 llama-index = ["llama-index"]
 
