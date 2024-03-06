@@ -623,9 +623,10 @@ class LlamaIndexCallbackHandler(
                                 "message",
                                 "additional_kwargs",
                                 "delta",
+                                "raw",
                             ]
                             and not isinstance(value, Generator)
                         ):
                             metadata[res_key] = value
 
-        return metadata
+        return metadata or None
