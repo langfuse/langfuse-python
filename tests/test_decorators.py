@@ -564,3 +564,36 @@ def test_scoring_observations():
 
     assert observation_score.name == "test-observation-score"
     assert observation_score.value == 1
+
+
+def test_circular_reference_handling():
+    mock_trace_id = create_uuid()
+
+    # Define a class that will contain a circular reference
+    class CircularRefObject:
+        def __init__(self):
+            self.reference: Optional[CircularRefObject] = None
+
+    @observe()
+    def function_with_circular_arg(circular_obj, *args, **kwargs):
+        # This function doesn't need to do anything with circular_obj,
+        # the test is simply to see if it can be called without error.
+        return "function response"
+
+    # Create an instance of the object and establish a circular reference
+    circular_obj = CircularRefObject()
+    circular_obj.reference = circular_obj
+
+    # Call the decorated function, passing the circularly-referenced object
+    result = function_with_circular_arg(
+        circular_obj, langfuse_observation_id=mock_trace_id
+    )
+
+    langfuse_context.flush()
+
+    # Validate that the function executed as expected
+    assert result == "function response"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert trace_data.input["args"][0]["reference"] == "CircularRefObject"
