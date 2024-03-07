@@ -67,6 +67,7 @@ class LangchainCallbackHandler(
         flush_interval: Optional[int] = None,
         max_retries: Optional[int] = None,
         timeout: Optional[int] = None,
+        sdk_integration: Optional[str] = None,
     ) -> None:
         LangfuseBaseCallbackHandler.__init__(
             self,
@@ -85,7 +86,7 @@ class LangchainCallbackHandler(
             flush_interval=flush_interval,
             max_retries=max_retries,
             timeout=timeout,
-            sdk_integration="langchain",
+            sdk_integration=sdk_integration or "langchain",
         )
 
         self.runs = {}
