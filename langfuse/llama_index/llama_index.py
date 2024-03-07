@@ -1,6 +1,6 @@
 from collections import defaultdict
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional, Union, Tuple, Callable
+from typing import Any, Dict, List, Optional, Union, Tuple, Callable, Generator
 from uuid import uuid4
 import logging
 
@@ -53,7 +53,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
 class LlamaIndexCallbackHandler(
     LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
-    """[Alpha] LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
+    """LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
 
     log = logging.getLogger("langfuse")
 
@@ -152,14 +152,15 @@ class LlamaIndexCallbackHandler(
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
     ):
-        """
-        Sets the trace params that will be used for all following operations. Allows setting params of subsequent traces at any point in the code.
+        """Set the trace params that will be used for all following operations.
+
+        Allows setting params of subsequent traces at any point in the code.
         Overwrites the default params set in the callback constructor.
 
         Attention: If a root trace or span is set on the callback handler, those trace params will be used and NOT those set through this method.
 
         Parameters:
-        - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
+        - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI.
         - user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
         - session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
         - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
@@ -331,6 +332,7 @@ class LlamaIndexCallbackHandler(
             timeout = serialized.get("timeout", None)
 
         parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
+        parsed_metadata = self._parse_metadata_from_event_payload(end_event.payload)
 
         generation = parent.generation(
             id=event_id,
@@ -338,7 +340,7 @@ class LlamaIndexCallbackHandler(
             version=self.version,
             name=name,
             start_time=start_event.time,
-            metadata=end_event.payload,
+            metadata=parsed_metadata,
             model_parameters={
                 "temperature": temperature,
                 "max_tokens": max_tokens,
@@ -386,31 +388,37 @@ class LlamaIndexCallbackHandler(
         if not end_event.payload:
             return result
 
-        if EventPayload.PROMPT in end_event.payload:
-            result["input"] = end_event.payload.get(EventPayload.PROMPT)
-            result["output"] = end_event.payload.get(EventPayload.COMPLETION)
-
-        elif EventPayload.MESSAGES in end_event.payload:
-            result["input"] = end_event.payload.get(EventPayload.MESSAGES)
-            response = end_event.payload.get(EventPayload.RESPONSE, {})
-
-            if hasattr(response, "message"):
-                output = response.message.copy()
-                if hasattr(output, "additional_kwargs"):
-                    delattr(output, "additional_kwargs")
-                result["output"] = output
-
-            if hasattr(response, "raw"):
-                result["model"] = response.raw.get("model")
-                token_usage = response.raw.get("usage", {})
-                if token_usage:
-                    result["usage"] = {
-                        "input": getattr(token_usage, "prompt_tokens", None),
-                        "output": getattr(token_usage, "completion_tokens", None),
-                        "total": getattr(token_usage, "total_tokens", None),
-                    }
+        result["input"] = self._parse_input_from_event_payload(end_event.payload)
+        result["output"] = self._parse_output_from_event_payload(end_event.payload)
+        result["model"], result["usage"] = self._parse_usage_from_event_payload(
+            end_event.payload
+        )
 
         return result
+
+    def _parse_usage_from_event_payload(self, event_payload: Dict):
+        model = usage = None
+
+        if not (
+            EventPayload.MESSAGES in event_payload
+            and EventPayload.RESPONSE in event_payload
+        ):
+            return model, usage
+
+        response = event_payload.get(EventPayload.RESPONSE)
+
+        if hasattr(response, "raw"):
+            model = response.raw.get("model")
+            token_usage = response.raw.get("usage", {})
+
+            if token_usage:
+                usage = {
+                    "input": getattr(token_usage, "prompt_tokens", None),
+                    "output": getattr(token_usage, "completion_tokens", None),
+                    "total": getattr(token_usage, "total_tokens", None),
+                }
+
+        return model, usage
 
     def _handle_embedding_events(
         self,
@@ -435,7 +443,6 @@ class LlamaIndexCallbackHandler(
             embeddings = end_event.payload.get(EventPayload.EMBEDDINGS, [])
             output = {"num_embeddings": len(embeddings)}
 
-            # usage = None
             token_count = sum(
                 self._token_counter.get_string_tokens(chunk) for chunk in chunks
             )
@@ -482,9 +489,13 @@ class LlamaIndexCallbackHandler(
         elif start_event.event_type == CBEventType.CHUNKING:
             input, output = self._handle_chunking_payload(self.event_map[event_id])
 
-        extracted_input = self._extract_payload_input(start_event)
-        extracted_output = self._extract_payload_output(end_event)
-        metadata = end_event.payload if extracted_output else None
+        extracted_input = self._parse_input_from_event_payload(start_event.payload)
+        extracted_output = self._parse_output_from_event_payload(end_event.payload)
+        extracted_metadata = self._parse_metadata_from_event_payload(end_event.payload)
+
+        metadata = (
+            extracted_metadata if extracted_output != extracted_metadata else None
+        )
 
         span = parent.span(
             id=event_id,
@@ -546,27 +557,76 @@ class LlamaIndexCallbackHandler(
             return
 
         start_event, end_event = event_pair
-        input = self._extract_payload_input(start_event)
-        output = self._extract_payload_output(end_event)
+        input = self._parse_input_from_event_payload(start_event.payload)
+        output = self._parse_output_from_event_payload(end_event.payload)
 
         if input or output:
             self.trace.update(input=input, output=output)
 
-    def _extract_payload_input(self, event):
-        if event.payload:
-            for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR]:
-                if key in event.payload:
-                    return event.payload.get(key)
+    def _parse_input_from_event_payload(self, event_payload: Optional[Dict]):
+        if event_payload is None:
+            return
 
-        return None
+        for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR, EventPayload.PROMPT]:
+            if key in event_payload:
+                return event_payload.get(key)
 
-    def _extract_payload_output(self, event):
-        if event.payload and EventPayload.RESPONSE in event.payload:
-            output = (
-                getattr(event.payload.get(EventPayload.RESPONSE, {}), "response", None)
-                or event.payload
-            )
+    def _parse_output_from_event_payload(self, event_payload):
+        if event_payload is None:
+            return
 
-            return output
+        if EventPayload.COMPLETION in event_payload:
+            return event_payload.get(EventPayload.COMPLETION)
 
-        return None
+        if EventPayload.RESPONSE in event_payload:
+            response = event_payload.get(EventPayload.RESPONSE)
+
+            if hasattr(response, "response"):
+                return response.response
+
+            if hasattr(response, "message"):
+                output = dict(response.message)
+                if "additional_kwargs" in output:
+                    if "tool_calls" in output["additional_kwargs"]:
+                        output["tool_calls"] = output["additional_kwargs"]["tool_calls"]
+
+                    del output["additional_kwargs"]
+
+                return output
+
+        return event_payload
+
+    def _parse_metadata_from_event_payload(self, event_payload: Optional[Dict]):
+        if event_payload is None:
+            return
+
+        metadata = {}
+
+        for key in event_payload.keys():
+            if key not in [
+                EventPayload.MESSAGES,
+                EventPayload.QUERY_STR,
+                EventPayload.PROMPT,
+                EventPayload.COMPLETION,
+            ]:
+                if key != EventPayload.RESPONSE:
+                    metadata[key] = event_payload[key]
+                else:
+                    response = event_payload.get(EventPayload.RESPONSE)
+
+                    for res_key, value in vars(response).items():
+                        if (
+                            not res_key.startswith("_")
+                            and res_key
+                            not in [
+                                "response",
+                                "message",
+                                "additional_kwargs",
+                                "delta",
+                                "raw",
+                            ]
+                            and not isinstance(value, Generator)
+                        ):
+                            metadata[res_key] = value
+
+        return metadata or None
