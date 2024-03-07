@@ -27,6 +27,10 @@ class EventSerializer(JSONEncoder):
         if type(obj).__name__ == "StreamingAgentChatResponse":
             return str(obj)
 
+        # In case the Object type is `object`
+        if isinstance(obj, object):
+            return str(obj)
+
         if is_dataclass(obj):
             return asdict(obj)
         if isinstance(obj, UUID):
