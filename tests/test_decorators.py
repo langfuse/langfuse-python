@@ -611,17 +611,13 @@ def test_disabled_io_capture():
 
     @observe(capture_io=False)
     def main(*args, **kwargs):
-        # This function doesn't need to do anything with circular_obj,
-        # the test is simply to see if it can be called without error.
         nested(*args, **kwargs)
         return "function response"
 
-    # Call the decorated function, passing the circularly-referenced object
     result = main("Hello, World!", name="John", langfuse_observation_id=mock_trace_id)
 
     langfuse_context.flush()
 
-    # Validate that the function executed as expected
     assert result == "function response"
 
     trace_data = get_api().trace.get(mock_trace_id)
