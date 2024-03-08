@@ -597,3 +597,39 @@ def test_circular_reference_handling():
     trace_data = get_api().trace.get(mock_trace_id)
 
     assert trace_data.input["args"][0]["reference"] == "CircularRefObject"
+
+
+def test_disabled_io_capture():
+    mock_trace_id = create_uuid()
+
+    @observe(capture_io=False)
+    def nested(*args, **kwargs):
+        langfuse_context.update_current_observation(
+            input="manually set input", output="manually set output"
+        )
+        return "nested response"
+
+    @observe(capture_io=False)
+    def main(*args, **kwargs):
+        # This function doesn't need to do anything with circular_obj,
+        # the test is simply to see if it can be called without error.
+        nested(*args, **kwargs)
+        return "function response"
+
+    # Call the decorated function, passing the circularly-referenced object
+    result = main("Hello, World!", name="John", langfuse_observation_id=mock_trace_id)
+
+    langfuse_context.flush()
+
+    # Validate that the function executed as expected
+    assert result == "function response"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert trace_data.input is None
+    assert trace_data.output is None
+
+    # Check that disabled capture_io doesn't capture manually set input/output
+    assert len(trace_data.observations) == 1
+    assert trace_data.observations[0].input == "manually set input"
+    assert trace_data.observations[0].output == "manually set output"
