@@ -49,6 +49,9 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, (dict, list, str, int, float, type(None))):
             return obj
 
+        if isinstance(obj, (tuple, set, frozenset)):
+            return list(obj)
+
         if hasattr(obj, "__slots__"):
             return self.default(
                 {slot: getattr(obj, slot, None) for slot in obj.__slots__}
@@ -67,7 +70,8 @@ class EventSerializer(JSONEncoder):
                 return result
 
         else:
-            return JSONEncoder.default(self, obj)
+            # Return object type rather than JSONEncoder.default(obj) which simply raises a TypeError
+            return type(obj).__name__
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call

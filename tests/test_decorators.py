@@ -602,10 +602,14 @@ def test_circular_reference_handling():
 def test_disabled_io_capture():
     mock_trace_id = create_uuid()
 
+    class Node:
+        def __init__(self, value: tuple):
+            self.value = value
+
     @observe(capture_io=False)
     def nested(*args, **kwargs):
         langfuse_context.update_current_observation(
-            input="manually set input", output="manually set output"
+            input=Node(("manually set tuple", 1)), output="manually set output"
         )
         return "nested response"
 
@@ -627,5 +631,5 @@ def test_disabled_io_capture():
 
     # Check that disabled capture_io doesn't capture manually set input/output
     assert len(trace_data.observations) == 1
-    assert trace_data.observations[0].input == "manually set input"
+    assert trace_data.observations[0].input["value"] == ["manually set tuple", 1]
     assert trace_data.observations[0].output == "manually set output"
