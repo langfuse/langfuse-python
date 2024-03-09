@@ -1132,13 +1132,10 @@ class Langfuse(object):
         self.task_manager.add_task(event)
 
     def join(self):
-        """End the consumer threads once the queue is empty and blocks execution until finished.
+        """Blocks until all consumer Threads are terminated. The SKD calls this upon termination of the Python Interpreter.
 
-        On program exit, allow the consumer thread to exit cleanly.
-
-        This prevents exceptions and a messy shutdown when the interpreter is destroyed before the daemon thread finishes execution. However, it is *not* the same as flushing the queue!
-
-        To guarantee all messages have been delivered, you'll still need to call flush().
+        If called before flushing, consumers might terminate before sending all events to Langfuse API. This method is called at exit of the SKD, right before the Python interpreter closes.
+        To guarantee all messages have been delivered, you still need to call flush().
         """
         try:
             return self.task_manager.join()
@@ -1146,9 +1143,7 @@ class Langfuse(object):
             self.log.exception(e)
 
     def flush(self):
-        """Force a flush from the internal queue to the server.
-
-        This method should be used when exiting the program to ensure all queued events are. It blocks until the queue is empty. The method logs the total number of items approximately flushed due to potential variations caused by threading.
+        """Flush the internal event queue to the Langfuse API. It blocks until the queue is empty. It should be called when the application shuts down.
 
         Example:
             ```python
@@ -1168,7 +1163,11 @@ class Langfuse(object):
             self.log.exception(e)
 
     def shutdown(self):
-        """Initiate a graceful shutdown of the task manager, ensuring all tasks are flushed and processed."""
+        """Initiate a graceful shutdown of the Langfuse SDK, ensuring all events are sent to Langfuse API and all consumer Threads are terminated.
+
+        This function calls flush() and join() consecutively resulting in a complete shutdown of the SDK. On success of this function, no more events will be sent to Langfuse API.
+        As the SDK calls join() already on shutdown, refer to flush() to ensure all events arive at the Langfuse API.
+        """
         try:
             return self.task_manager.shutdown()
         except Exception as e:
