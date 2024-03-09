@@ -157,6 +157,33 @@ def test_callback_from_chat_engine():
     assert all([validate_llm_generation(g) for g in llm_generations])
 
 
+def test_callback_from_query_engine_stream():
+    callback = LlamaIndexCallbackHandler()
+    index = get_index(callback)
+    stream_response = index.as_query_engine(streaming=True).query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+
+    for token in stream_response.response_gen:
+        print("🚨", token, end="")
+
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
+
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
+    llm_generations = [g for g in generations if g.name == "openai_llm"]
+
+    assert len(embedding_generations) == 1
+    assert len(llm_generations) > 0
+
+    assert all([validate_embedding_generation(g) for g in embedding_generations])
+
+
 def test_callback_from_chat_stream():
     callback = LlamaIndexCallbackHandler()
     index = get_index(callback)
