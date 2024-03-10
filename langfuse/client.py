@@ -18,6 +18,7 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.ingestion.types.update_event_body import UpdateEventBody
 from langfuse.api.resources.observations.types.observations_views import (
     ObservationsViews,
 )
@@ -893,7 +894,7 @@ class Langfuse(object):
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ) -> "StatefulSpanClient":
+    ) -> "StatefulEventClient":
         """Create an event.
 
         An event represents a discrete event in a trace.
@@ -916,7 +917,7 @@ class Langfuse(object):
             **kwargs: Additional keyword arguments to include in the event.
 
         Returns:
-            StatefulSpanClient: The created event.
+            StatefulEventClient: The created event.
 
         Example:
             ```python
@@ -967,7 +968,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
         finally:
-            return StatefulSpanClient(
+            return StatefulEventClient(
                 self.client,
                 event_id,
                 StateType.OBSERVATION,
@@ -1528,7 +1529,7 @@ class StatefulClient(object):
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
-    ) -> "StatefulClient":
+    ) -> "StatefulEventClient":
         """Create an event nested within the current observation or trace.
 
         An event represents a discrete event in a trace.
@@ -1546,7 +1547,7 @@ class StatefulClient(object):
             **kwargs: Additional keyword arguments to include in the event.
 
         Returns:
-            StatefulSpanClient: The created event. Use this client to update the event or create additional nested observations.
+            StatefulEventClient: The created event. Use this client to update the event or create additional nested observations.
 
         Example:
             ```python
@@ -1593,7 +1594,7 @@ class StatefulClient(object):
         except Exception as e:
             self.log.exception(e)
         finally:
-            return StatefulClient(
+            return StatefulEventClient(
                 self.client, event_id, self.state_type, self.trace_id, self.task_manager
             )
 
@@ -1999,6 +2000,207 @@ class StatefulSpanClient(StatefulClient):
         return CallbackHandler(stateful_client=self)
 
     def get_llama_index_handler(self):
+        """Get llama_index callback handler associated with the current span.
+
+        Returns:
+            CallbackHandler: An instance of CallbackHandler linked to this StatefulSpanClient.
+        """
+        from langfuse.llama_index import LlamaIndexCallbackHandler
+
+        return LlamaIndexCallbackHandler(stateful_client=self)
+
+
+class StatefulEventClient(StatefulClient):
+    """Class for handling stateful operations of events in the Langfuse system. Inherits from StatefulClient.
+
+    Attributes:
+        client (FernLangfuse): Core interface for Langfuse API interaction.
+        id (str): Unique identifier of the event.
+        state_type (StateType): Type of the stateful entity (observation or trace).
+        trace_id (str): Id of trace associated with the event.
+        task_manager (TaskManager): Manager for handling asynchronous tasks.
+    """
+
+    log = logging.getLogger("langfuse")
+
+    def __init__(
+        self,
+        client: FernLangfuse,
+        id: str,
+        state_type: StateType,
+        trace_id: str,
+        task_manager: TaskManager,
+    ):
+        """Initialize the StatefulEventClient."""
+        super().__init__(client, id, state_type, trace_id, task_manager)
+
+    # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
+    def update(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulEventClient":
+        """Update the event.
+
+        Args:
+            name (Optional[str]): Identifier of the event. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the event started, defaults to the current time.
+            metadata (Optional[dict]): Additional metadata of the event. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the event. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the event. Additional field for context of the event. E.g. the error message of an error event.
+            input (Optional[dict]): The input to the event. Can be any JSON object.
+            output (Optional[dict]): The output to the event. Can be any JSON object.
+            version (Optional[str]): The version of the event type. Used to understand how changes to the event type affect metrics. Useful in debugging.
+            **kwargs: Additional keyword arguments to include in the event.
+
+        Returns:
+            StatefulEventClient: The updated event. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create an event
+            retrieval = trace.event(name = "retrieval")
+
+            # Update the event
+            event = event.update(metadata={"interface": "whatsapp"})
+            ```
+        """
+        try:
+            event_body = {
+                "id": self.id,
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                **kwargs,
+            }
+            self.log.debug(f"Update event {event_body}...")
+
+            request = UpdateEventBody(**event_body)
+
+            event = {
+                "id": str(uuid.uuid4()),
+                "type": "event-update",
+                "body": request.dict(exclude_none=True),
+            }
+
+            self.task_manager.add_task(event)
+        except Exception as e:
+            self.log.exception(e)
+        finally:
+            return StatefulEventClient(
+                self.client,
+                self.id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
+
+    def end(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        start_time: typing.Optional[dt.datetime] = None,
+        metadata: typing.Optional[typing.Any] = None,
+        input: typing.Optional[typing.Any] = None,
+        output: typing.Optional[typing.Any] = None,
+        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        status_message: typing.Optional[str] = None,
+        version: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulEventClient":
+        """End the event, optionally updating its properties.
+
+        Args:
+            name (Optional[str]): Identifier of the event. Useful for sorting/filtering in the UI.
+            start_time (Optional[datetime]): The time at which the event started, defaults to the current time.
+            metadata (Optional[dict]): Additional metadata of the event. Can be any JSON object. Metadata is merged when being updated via the API.
+            level (Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]]): The level of the event. Can be `DEBUG`, `DEFAULT`, `WARNING` or `ERROR`. Used for sorting/filtering of traces with elevated error levels and for highlighting in the UI.
+            status_message (Optional[str]): The status message of the event. Additional field for context of the event. E.g. the error message of an error event.
+            input (Optional[dict]): The input to the event. Can be any JSON object.
+            output (Optional[dict]): The output to the event. Can be any JSON object.
+            version (Optional[str]): The version of the event type. Used to understand how changes to the event type affect metrics. Useful in debugging.
+            **kwargs: Additional keyword arguments to include in the event.
+
+        Returns:
+            StatefulEventClient: The updated event. Passthrough for chaining.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Create a trace
+            trace = langfuse.trace(name = "llm-feature")
+
+            # Create an event
+            retrieval = trace.event(name = "retrieval")
+
+            # End the event and update its properties
+            event = event.end(metadata={"interface": "whatsapp"})
+            ```
+        """
+        try:
+            event_body = {
+                "name": name,
+                "start_time": start_time,
+                "metadata": metadata,
+                "input": input,
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+                "version": version,
+                **kwargs,
+            }
+            return self.update(**event_body)
+
+        except Exception as e:
+            self.log.warning(e)
+        finally:
+            return StatefulEventClient(
+                self.client,
+                self.id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                task_manager=self.task_manager,
+            )
+
+    def get_langchain_handler(self):
+        """Get langchain callback handler associated with the current event.
+
+        Returns:
+            CallbackHandler: An instance of CallbackHandler linked to this StatefulEventClient.
+        """
+        from langfuse.callback import CallbackHandler
+
+        return CallbackHandler(stateful_client=self)
+
+    def get_llama_index_handler(self):
+        """Get llama_index callback handler associated with the current event.
+
+        Returns:
+            CallbackHandler: An instance of CallbackHandler linked to this StatefulEventClient.
+        """
         from langfuse.llama_index import LlamaIndexCallbackHandler
 
         return LlamaIndexCallbackHandler(stateful_client=self)
