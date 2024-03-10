@@ -165,7 +165,7 @@ def test_callback_from_query_engine_stream():
     )
 
     for token in stream_response.response_gen:
-        print("🚨", token, end="")
+        print(token, end="")
 
     callback.flush()
     trace_data = get_api().trace.get(callback.trace.id)
