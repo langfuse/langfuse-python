@@ -7,6 +7,7 @@ import logging
 from langfuse.client import (
     StatefulSpanClient,
     StatefulTraceClient,
+    StatefulEventClient,
     StatefulGenerationClient,
     StateType,
 )
@@ -245,7 +246,10 @@ class LlamaIndexCallbackHandler(
         event_id: str,
         trace_map: Dict[str, List[str]],
         parent: Optional[
-            Union[StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient]
+            Union[
+                StatefulTraceClient, StatefulSpanClient, 
+                StatefulGenerationClient, StatefulEventClient
+            ]
         ] = None,
     ) -> None:
         """Recursively create langfuse observations based on the trace_map."""
@@ -300,10 +304,11 @@ class LlamaIndexCallbackHandler(
         self,
         event_id: str,
         parent: Union[
-            StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient
+            StatefulTraceClient, StatefulSpanClient, 
+            StatefulGenerationClient, StatefulEventClient
         ],
         trace_id: str,
-    ) -> Union[StatefulSpanClient, StatefulGenerationClient]:
+    ) -> Union[StatefulSpanClient, StatefulGenerationClient, StatefulEventClient]:
         event_type = self.event_map[event_id][0].event_type
 
         if event_type == CBEventType.LLM:
@@ -317,7 +322,8 @@ class LlamaIndexCallbackHandler(
         self,
         event_id: str,
         parent: Union[
-            StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient
+            StatefulTraceClient, StatefulSpanClient, 
+            StatefulGenerationClient, StatefulEventClient
         ],
         trace_id: str,
     ) -> StatefulGenerationClient:
@@ -424,7 +430,8 @@ class LlamaIndexCallbackHandler(
         self,
         event_id: str,
         parent: Union[
-            StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient
+            StatefulTraceClient, StatefulSpanClient, 
+            StatefulGenerationClient, StatefulEventClient
         ],
         trace_id: str,
     ) -> StatefulGenerationClient:
@@ -475,7 +482,8 @@ class LlamaIndexCallbackHandler(
         self,
         event_id: str,
         parent: Union[
-            StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient
+            StatefulTraceClient, StatefulSpanClient, 
+            StatefulGenerationClient, StatefulEventClient
         ],
         trace_id: str,
     ) -> StatefulSpanClient:
