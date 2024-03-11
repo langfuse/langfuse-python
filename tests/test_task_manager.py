@@ -13,7 +13,7 @@ from langfuse.task_manager import TaskManager
 
 logging.basicConfig()
 log = logging.getLogger("langfuse")
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 
 def setup_server(httpserver, expected_body: dict):
@@ -239,10 +239,6 @@ def test_flush(httpserver: HTTPServer):
         get_host(httpserver.url_for("/api/public/ingestion"))
     )
 
-    langfuse_client = setup_langfuse_client(
-        get_host(httpserver.url_for("/api/public/ingestion"))
-    )
-
     tm = TaskManager(
         langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
     )
@@ -298,5 +294,44 @@ def test_shutdown(httpserver: HTTPServer):
     assert len(tm._consumers) == 5
     for c in tm._consumers:
         assert not c.is_alive()
+    assert tm._queue.empty()
+    assert not failed
+
+
+def test_large_events(httpserver: HTTPServer):
+    failed = False
+
+    def handler(request: Request):
+        try:
+            if request.json["batch"][0]["foo"] == "bar":
+                return Response(status=200)
+            return Response(status=500)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            nonlocal failed
+            failed = True
+
+    httpserver.expect_request(
+        "/api/public/ingestion",
+        method="POST",
+    ).respond_with_handler(handler)
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
+
+    tm = TaskManager(
+        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
+
+    tm.add_task({"foo": "bar"})
+    # create task with extremely long string for bar
+    long_string = "a" * 1_000_000  # 100,000 characters of 'a'
+    tm.add_task({"foo": long_string})
+
+    # We can't reliably assert that the queue is non-empty here; that's
+    # a race condition. We do our best to load it up though.
+    tm.flush()
+    # Make sure that the client queue is empty after flushing
     assert tm._queue.empty()
     assert not failed
