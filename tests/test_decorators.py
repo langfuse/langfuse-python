@@ -606,14 +606,14 @@ def test_disabled_io_capture():
         def __init__(self, value: tuple):
             self.value = value
 
-    @observe(capture_io=False)
+    @observe(capture_input=False, capture_output=False)
     def nested(*args, **kwargs):
         langfuse_context.update_current_observation(
             input=Node(("manually set tuple", 1)), output="manually set output"
         )
         return "nested response"
 
-    @observe(capture_io=False)
+    @observe(capture_output=False)
     def main(*args, **kwargs):
         nested(*args, **kwargs)
         return "function response"
@@ -626,7 +626,7 @@ def test_disabled_io_capture():
 
     trace_data = get_api().trace.get(mock_trace_id)
 
-    assert trace_data.input is None
+    assert trace_data.input == {"args": ["Hello, World!"], "kwargs": {"name": "John"}}
     assert trace_data.output is None
 
     # Check that disabled capture_io doesn't capture manually set input/output

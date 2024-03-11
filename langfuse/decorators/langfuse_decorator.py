@@ -36,33 +36,33 @@ from pydantic import BaseModel
 _observation_stack_context: ContextVar[
     List[Union[StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient]]
 ] = ContextVar("observation_stack_context", default=[])
-_observation_params_context: ContextVar[
-    DefaultDict[str, ObservationParams]
-] = ContextVar(
-    "observation_params_context",
-    default=defaultdict(
-        lambda: {
-            "name": None,
-            "user_id": None,
-            "session_id": None,
-            "version": None,
-            "release": None,
-            "metadata": None,
-            "tags": None,
-            "input": None,
-            "output": None,
-            "level": None,
-            "status_message": None,
-            "start_time": None,
-            "end_time": None,
-            "completion_start_time": None,
-            "model": None,
-            "model_parameters": None,
-            "usage": None,
-            "prompt": None,
-            "public": None,
-        },
-    ),
+_observation_params_context: ContextVar[DefaultDict[str, ObservationParams]] = (
+    ContextVar(
+        "observation_params_context",
+        default=defaultdict(
+            lambda: {
+                "name": None,
+                "user_id": None,
+                "session_id": None,
+                "version": None,
+                "release": None,
+                "metadata": None,
+                "tags": None,
+                "input": None,
+                "output": None,
+                "level": None,
+                "status_message": None,
+                "start_time": None,
+                "end_time": None,
+                "completion_start_time": None,
+                "model": None,
+                "model_parameters": None,
+                "usage": None,
+                "prompt": None,
+                "public": None,
+            },
+        ),
+    )
 )
 
 
@@ -73,7 +73,8 @@ class LangfuseDecorator:
         self,
         *,
         as_type: Optional[Literal["generation"]] = None,
-        capture_io: bool = True,
+        capture_input: bool = True,
+        capture_output: bool = True,
     ) -> Callable:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
@@ -82,7 +83,8 @@ class LangfuseDecorator:
 
         Parameters:
             as_type (Optional[Literal["generation"]]): Specify "generation" to treat the observation as a generation type, suitable for language model invocations.
-            capture_io (bool): If True, captures the input and output of the function. Default is True.
+            capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
+            capture_output (bool): If True, captures the return value of the function as output. Default is True.
 
         Returns:
             Callable: A wrapped version of the original function that, upon execution, is automatically observed and managed by Langfuse.
@@ -107,22 +109,36 @@ class LangfuseDecorator:
 
         def decorator(func: Callable) -> Callable:
             return (
-                self._async_observe(func, as_type=as_type, capture_io=capture_io)
+                self._async_observe(
+                    func,
+                    as_type=as_type,
+                    capture_input=capture_input,
+                    capture_output=capture_output,
+                )
                 if asyncio.iscoroutinefunction(func)
-                else self._sync_observe(func, as_type=as_type, capture_io=capture_io)
+                else self._sync_observe(
+                    func,
+                    as_type=as_type,
+                    capture_input=capture_input,
+                    capture_output=capture_output,
+                )
             )
 
         return decorator
 
     def _async_observe(
-        self, func: Callable, as_type: Optional[Literal["generation"]], capture_io: bool
+        self,
+        func: Callable,
+        as_type: Optional[Literal["generation"]],
+        capture_input: bool,
+        capture_output: bool,
     ) -> Callable:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             observation = self._prepare_call(
                 func_name=func.__name__,
                 as_type=as_type,
-                capture_io=capture_io,
+                capture_input=capture_input,
                 is_instance_method=self._is_instance_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
@@ -134,20 +150,24 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
-                self._finalize_call(observation, result, capture_io)
+                self._finalize_call(observation, result, capture_output)
             return result
 
         return async_wrapper
 
     def _sync_observe(
-        self, func: Callable, as_type: Optional[Literal["generation"]], capture_io: bool
+        self,
+        func: Callable,
+        as_type: Optional[Literal["generation"]],
+        capture_input: bool,
+        capture_output: bool,
     ) -> Callable:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             observation = self._prepare_call(
                 func_name=func.__name__,
                 as_type=as_type,
-                capture_io=capture_io,
+                capture_input=capture_input,
                 is_instance_method=self._is_instance_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
@@ -159,7 +179,7 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
-                self._finalize_call(observation, result, capture_io)
+                self._finalize_call(observation, result, capture_output)
 
             return result
 
@@ -183,7 +203,7 @@ class LangfuseDecorator:
         *,
         func_name: str,
         as_type: Optional[Literal["generation"]],
-        capture_io: bool,
+        capture_input: bool,
         is_instance_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
@@ -207,7 +227,9 @@ class LangfuseDecorator:
             else:
                 logged_args = func_args
 
-            input = {"args": logged_args, "kwargs": func_kwargs} if capture_io else None
+            input = (
+                {"args": logged_args, "kwargs": func_kwargs} if capture_input else None
+            )
 
             # Create observation
             if parent and as_type == "generation":
@@ -239,7 +261,7 @@ class LangfuseDecorator:
             ]
         ],
         result: Any,
-        capture_io: bool,
+        capture_output: bool,
     ):
         try:
             if observation is None:
@@ -249,7 +271,7 @@ class LangfuseDecorator:
             observation_params = _observation_params_context.get()[observation.id]
             end_time = observation_params["end_time"] or _get_timestamp()
             output = observation_params["output"] or (
-                str(result) if result and capture_io else None
+                str(result) if result and capture_output else None
             )
             observation_params.update(end_time=end_time, output=output)
 
