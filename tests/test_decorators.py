@@ -707,3 +707,77 @@ def test_decorated_instance_methods():
     assert level_3_observation.type == "GENERATION"
     assert level_3_observation.calculated_total_cost > 0
     assert level_3_observation.output == "mock_output"
+
+
+def test_generator_as_return_value():
+    mock_trace_id = create_uuid()
+    mock_output = "Hello, World!"
+    custom_transform_to_string = lambda x: "--".join(x)
+
+    def generator_function():
+        yield "Hello"
+        yield ", "
+        yield "World!"
+
+    @observe(transform_to_string=custom_transform_to_string)
+    def nested():
+        return generator_function()
+
+    @observe()
+    def main(**kwargs):
+        gen = nested()
+
+        result = ""
+        for item in gen:
+            result += item
+
+        return result
+
+    result = main(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == mock_output
+
+    assert trace_data.observations[0].output == "Hello--, --World!"
+
+
+@pytest.mark.asyncio
+async def test_async_generator_as_return_value():
+    mock_trace_id = create_uuid()
+    mock_output = "Hello, async World!"
+    custom_transform_to_string = lambda x: "--".join(x)
+
+    async def async_generator_function():
+        await asyncio.sleep(0.1)  # Simulate async operation
+        yield "Hello"
+        await asyncio.sleep(0.1)
+        yield ", async "
+        await asyncio.sleep(0.1)
+        yield "World!"
+
+    @observe(transform_to_string=custom_transform_to_string)
+    async def nested_async():
+        return async_generator_function()
+
+    @observe()
+    async def main_async(**kwargs):
+        gen = await nested_async()
+
+        result = ""
+        async for item in gen:
+            result += item
+
+        return result
+
+    result = await main_async(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == result
+
+    assert trace_data.observations[0].output == "Hello--, async --World!"

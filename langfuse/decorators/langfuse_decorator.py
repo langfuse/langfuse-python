@@ -15,7 +15,12 @@ from typing import (
     Literal,
     Dict,
     Tuple,
+    Iterable,
+    AsyncGenerator,
+    Generator,
 )
+
+from types import AsyncGeneratorType, GeneratorType
 
 from langfuse.client import (
     Langfuse,
@@ -75,6 +80,7 @@ class LangfuseDecorator:
         as_type: Optional[Literal["generation"]] = None,
         capture_input: bool = True,
         capture_output: bool = True,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Callable:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
@@ -82,9 +88,10 @@ class LangfuseDecorator:
         In case of an exception, the observation is updated with error details. The top-most decorated function is treated as a trace, with nested calls captured as spans or generations.
 
         Parameters:
-            as_type (Optional[Literal["generation"]]): Specify "generation" to treat the observation as a generation type, suitable for language model invocations.
-            capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
-            capture_output (bool): If True, captures the return value of the function as output. Default is True.
+        - as_type (Optional[Literal["generation"]]): Specify "generation" to treat the observation as a generation type, suitable for language model invocations.
+        - capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
+        - capture_output (bool): If True, captures the return value of the function as output. Default is True.
+        - transform_to_string (Optional[Callable[[Iterable], str]]): When the decorated function returns a generator, this function transforms yielded values into a string representation for output capture
 
         Returns:
             Callable: A wrapped version of the original function that, upon execution, is automatically observed and managed by Langfuse.
@@ -114,6 +121,7 @@ class LangfuseDecorator:
                     as_type=as_type,
                     capture_input=capture_input,
                     capture_output=capture_output,
+                    transform_to_string=transform_to_string,
                 )
                 if asyncio.iscoroutinefunction(func)
                 else self._sync_observe(
@@ -121,6 +129,7 @@ class LangfuseDecorator:
                     as_type=as_type,
                     capture_input=capture_input,
                     capture_output=capture_output,
+                    transform_to_string=transform_to_string,
                 )
             )
 
@@ -132,6 +141,7 @@ class LangfuseDecorator:
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Callable:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -150,7 +160,13 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
+                if inspect.isasyncgen(result):
+                    return self._wrap_async_generator_result(
+                        observation, result, capture_output, transform_to_string
+                    )
+
                 self._finalize_call(observation, result, capture_output)
+
             return result
 
         return async_wrapper
@@ -161,6 +177,7 @@ class LangfuseDecorator:
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Callable:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
@@ -179,6 +196,11 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
+                if inspect.isgenerator(result):
+                    return self._wrap_sync_generator_result(
+                        observation, result, capture_output, transform_to_string
+                    )
+
                 self._finalize_call(observation, result, capture_output)
 
             return result
@@ -298,6 +320,70 @@ class LangfuseDecorator:
                 level="ERROR", status_message=str(e)
             )
         raise e
+
+    def _wrap_sync_generator_result(
+        self,
+        observation: Optional[
+            Union[
+                StatefulSpanClient,
+                StatefulTraceClient,
+                StatefulGenerationClient,
+            ]
+        ],
+        generator: Generator,
+        capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ):
+        items = []
+
+        try:
+            for item in generator:
+                items.append(item)
+
+                yield item
+
+        finally:
+            output = items
+
+            if transform_to_string is not None:
+                output = transform_to_string(items)
+
+            elif all(isinstance(item, str) for item in items):
+                output = "".join(items)
+
+            self._finalize_call(observation, output, capture_output)
+
+    async def _wrap_async_generator_result(
+        self,
+        observation: Optional[
+            Union[
+                StatefulSpanClient,
+                StatefulTraceClient,
+                StatefulGenerationClient,
+            ]
+        ],
+        generator: AsyncGenerator,
+        capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ) -> AsyncGenerator:
+        items = []
+
+        try:
+            async for item in generator:
+                items.append(item)
+
+                yield item
+
+        finally:
+            output = items
+
+            if transform_to_string is not None:
+                output = transform_to_string(items)
+
+            elif all(isinstance(item, str) for item in items):
+                output = "".join(items)
+
+            self._finalize_call(observation, output, capture_output)
 
     def get_current_llama_index_handler(self):
         """Retrieve the current LlamaIndexCallbackHandler associated with the most recent observation in the observation stack.
