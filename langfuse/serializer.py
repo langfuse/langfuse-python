@@ -5,8 +5,6 @@ from json import JSONEncoder
 from typing import Any
 from uuid import UUID
 
-from google.protobuf.json_format import MessageToJson
-from google.protobuf.message import Message
 from pydantic import BaseModel
 
 from langfuse.api.core import serialize_datetime
@@ -32,8 +30,6 @@ class EventSerializer(JSONEncoder):
 
         if is_dataclass(obj):
             return asdict(obj)
-        if isinstance(obj, Message):
-            return MessageToJson(obj)
         if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes)):
             return [self.default(item) for item in obj]
         if isinstance(obj, UUID):
