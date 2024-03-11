@@ -2,7 +2,7 @@ import copy
 import logging
 import threading
 import types
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from packaging.version import Version
 from wrapt import wrap_function_wrapper
