@@ -109,6 +109,7 @@ class Consumer(threading.Thread):
                         "Item exceeds size limit (size: %s), dropping item.",
                         item_size,
                     )
+                    self._queue.task_done()
                     continue
                 items.append(item)
                 total_size += item_size

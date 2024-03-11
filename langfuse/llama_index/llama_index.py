@@ -340,7 +340,7 @@ class LlamaIndexCallbackHandler(
             timeout = serialized.get("timeout", None)
 
         parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
-        parsed_metadata = self._parse_metadata_from_event_payload(end_event.payload)
+        parsed_metadata = self._parse_metadata_from_event(end_event)
 
         generation = parent.generation(
             id=event_id,
@@ -396,8 +396,8 @@ class LlamaIndexCallbackHandler(
         if not end_event.payload:
             return result
 
-        result["input"] = self._parse_input_from_event_payload(end_event.payload)
-        result["output"] = self._parse_output_from_event_payload(end_event.payload)
+        result["input"] = self._parse_input_from_event(end_event)
+        result["output"] = self._parse_output_from_event(end_event)
         result["model"], result["usage"] = self._parse_usage_from_event_payload(
             end_event.payload
         )
@@ -488,18 +488,10 @@ class LlamaIndexCallbackHandler(
         trace_id: str,
     ) -> StatefulSpanClient:
         start_event, end_event = self.event_map[event_id]
-        input = start_event.payload
-        output = end_event.payload
 
-        if start_event.event_type == CBEventType.NODE_PARSING:
-            input, output = self._handle_node_parsing_payload(self.event_map[event_id])
-
-        elif start_event.event_type == CBEventType.CHUNKING:
-            input, output = self._handle_chunking_payload(self.event_map[event_id])
-
-        extracted_input = self._parse_input_from_event_payload(start_event.payload)
-        extracted_output = self._parse_output_from_event_payload(end_event.payload)
-        extracted_metadata = self._parse_metadata_from_event_payload(end_event.payload)
+        extracted_input = self._parse_input_from_event(start_event)
+        extracted_output = self._parse_output_from_event(end_event)
+        extracted_metadata = self._parse_metadata_from_event(end_event)
 
         metadata = (
             extracted_metadata if extracted_output != extracted_metadata else None
@@ -512,8 +504,8 @@ class LlamaIndexCallbackHandler(
             name=start_event.event_type.value,
             version=self.version,
             session_id=self.session_id,
-            input=extracted_input or input,
-            output=extracted_output or output,
+            input=extracted_input,
+            output=extracted_output,
             metadata=metadata,
         )
 
@@ -521,36 +513,6 @@ class LlamaIndexCallbackHandler(
             span.end(end_time=end_event.time)
 
         return span
-
-    def _handle_node_parsing_payload(
-        self, events: List[CallbackEvent]
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """Handle the payload of a NODE_PARSING event."""
-        inputs = events[0].payload
-        outputs = events[-1].payload
-
-        if inputs and EventPayload.DOCUMENTS in inputs:
-            documents = inputs.pop(EventPayload.DOCUMENTS)
-            inputs["documents"] = [doc.metadata for doc in documents]
-
-        if outputs and EventPayload.NODES in outputs:
-            nodes = outputs.pop(EventPayload.NODES)
-            outputs["num_nodes"] = len(nodes)
-
-        return inputs, outputs
-
-    def _handle_chunking_payload(
-        self, events: List[CallbackEvent]
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """Handle the payload of a NODE_PARSING event."""
-        inputs = None
-        outputs = events[-1].payload
-
-        if outputs and EventPayload.CHUNKS in outputs:
-            chunks = outputs.pop(EventPayload.CHUNKS)
-            outputs["num_chunks"] = len(chunks)
-
-        return inputs, outputs
 
     def _update_trace_data(self, trace_map):
         if context_root.get():  # Exit early if root is user-provided.
@@ -565,29 +527,58 @@ class LlamaIndexCallbackHandler(
             return
 
         start_event, end_event = event_pair
-        input = self._parse_input_from_event_payload(start_event.payload)
-        output = self._parse_output_from_event_payload(end_event.payload)
+        input = self._parse_input_from_event(start_event)
+        output = self._parse_output_from_event(end_event)
 
         if input or output:
             self.trace.update(input=input, output=output)
 
-    def _parse_input_from_event_payload(self, event_payload: Optional[Dict]):
-        if event_payload is None:
+    def _parse_input_from_event(self, event: CallbackEvent):
+        if event.payload is None:
             return
+
+        if (
+            event.event_type == CBEventType.NODE_PARSING
+            and EventPayload.DOCUMENTS in event.payload
+        ):
+            documents = event.payload.pop(EventPayload.DOCUMENTS)
+            event.payload["documents"] = [doc.metadata for doc in documents]
+            return event.payload
 
         for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR, EventPayload.PROMPT]:
-            if key in event_payload:
-                return event_payload.get(key)
+            if key in event.payload:
+                return event.payload.get(key)
 
-    def _parse_output_from_event_payload(self, event_payload):
-        if event_payload is None:
+        return event.payload
+
+    def _parse_output_from_event(self, event: CallbackEvent):
+        if event.payload is None:
             return
 
-        if EventPayload.COMPLETION in event_payload:
-            return event_payload.get(EventPayload.COMPLETION)
+        if (
+            event.event_type == CBEventType.NODE_PARSING
+            and EventPayload.NODES in event.payload
+        ):
+            nodes = event.payload.pop(EventPayload.NODES)
+            event.payload["num_nodes"] = len(nodes)
+            return event.payload
 
-        if EventPayload.RESPONSE in event_payload:
-            response = event_payload.get(EventPayload.RESPONSE)
+        if (
+            event.event_type == CBEventType.CHUNKING
+            and EventPayload.CHUNKS in event.payload
+        ):
+            chunks = event.payload.pop(EventPayload.CHUNKS)
+            event.payload["num_chunks"] = len(chunks)
+
+        if EventPayload.COMPLETION in event.payload:
+            return event.payload.get(EventPayload.COMPLETION)
+
+        if EventPayload.RESPONSE in event.payload:
+            response = event.payload.get(EventPayload.RESPONSE)
+
+            # Skip streaming responses as consuming them would block the user's execution path
+            if "Streaming" in type(response).__name__:
+                return None
 
             if hasattr(response, "response"):
                 return response.response
@@ -602,25 +593,27 @@ class LlamaIndexCallbackHandler(
 
                 return output
 
-        return event_payload
+        return event.payload
 
-    def _parse_metadata_from_event_payload(self, event_payload: Optional[Dict]):
-        if event_payload is None:
+    def _parse_metadata_from_event(self, event: CallbackEvent):
+        if event.payload is None:
             return
 
         metadata = {}
 
-        for key in event_payload.keys():
+        for key in event.payload.keys():
             if key not in [
                 EventPayload.MESSAGES,
                 EventPayload.QUERY_STR,
                 EventPayload.PROMPT,
                 EventPayload.COMPLETION,
+                EventPayload.SERIALIZED,
+                "additional_kwargs",
             ]:
                 if key != EventPayload.RESPONSE:
-                    metadata[key] = event_payload[key]
+                    metadata[key] = event.payload[key]
                 else:
-                    response = event_payload.get(EventPayload.RESPONSE)
+                    response = event.payload.get(EventPayload.RESPONSE)
 
                     for res_key, value in vars(response).items():
                         if (
@@ -628,6 +621,7 @@ class LlamaIndexCallbackHandler(
                             and res_key
                             not in [
                                 "response",
+                                "response_txt",
                                 "message",
                                 "additional_kwargs",
                                 "delta",
