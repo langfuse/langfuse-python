@@ -3,6 +3,7 @@ from collections import defaultdict
 from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
+import inspect
 import logging
 from typing import (
     Any,
@@ -119,7 +120,12 @@ class LangfuseDecorator:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             observation = self._prepare_call(
-                func.__name__, as_type, capture_io, args, kwargs
+                func_name=func.__name__,
+                as_type=as_type,
+                capture_io=capture_io,
+                is_instance_method=self._is_instance_method(func),
+                func_args=args,
+                func_kwargs=kwargs,
             )
             result = None
 
@@ -139,7 +145,12 @@ class LangfuseDecorator:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             observation = self._prepare_call(
-                func.__name__, as_type, capture_io, args, kwargs
+                func_name=func.__name__,
+                as_type=as_type,
+                capture_io=capture_io,
+                is_instance_method=self._is_instance_method(func),
+                func_args=args,
+                func_kwargs=kwargs,
             )
             result = None
 
@@ -154,11 +165,26 @@ class LangfuseDecorator:
 
         return sync_wrapper
 
+    @staticmethod
+    def _is_instance_method(func: Callable) -> bool:
+        """Check if a callable is likely an instance method based on its signature.
+
+        This method inspects the given callable's signature for the presence of a 'self' parameter, which is conventionally used for instance methods in Python classes. It returns True if 'self' is found among the parameters, suggesting the callable is an instance method.
+
+        Note: This method relies on naming conventions and may not accurately identify instance methods if unconventional parameter names are used or if static or class methods incorrectly include a 'self' parameter. Additionally, during decorator execution, inspect.ismethod does not work as expected because the function has not yet been bound to an instance; it is still a function, not a method. This check attempts to infer method status based on signature, which can be useful in decorator contexts where traditional method identification techniques fail.
+
+        Returns:
+        bool: True if 'self' is in the callable's parameters, False otherwise.
+        """
+        return "self" in inspect.signature(func).parameters
+
     def _prepare_call(
         self,
+        *,
         func_name: str,
         as_type: Optional[Literal["generation"]],
         capture_io: bool,
+        is_instance_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
     ) -> Optional[
@@ -173,8 +199,15 @@ class LangfuseDecorator:
             name = func_name
             observation_id = func_kwargs.pop("langfuse_observation_id", None)
             id = str(observation_id) if observation_id else None
-            input = {"args": func_args, "kwargs": func_kwargs} if capture_io else None
             start_time = _get_timestamp()
+
+            # Remove implicitly passed "self" argument for instance methods
+            if is_instance_method:
+                logged_args = func_args[1:]
+            else:
+                logged_args = func_args
+
+            input = {"args": logged_args, "kwargs": func_kwargs} if capture_io else None
 
             # Create observation
             if parent and as_type == "generation":
