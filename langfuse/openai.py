@@ -4,8 +4,6 @@ import threading
 import types
 from typing import List, Optional
 
-import openai
-from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 from packaging.version import Version
 from wrapt import wrap_function_wrapper
 
@@ -13,8 +11,15 @@ from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
 from langfuse.utils import _get_timestamp
 
-log = logging.getLogger("langfuse")
+try:
+    import openai
+    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
+except ImportError:
+    raise ModuleNotFoundError(
+        "Please install OpenAI to use this feature: 'pip install openai"
+    )
 
+log = logging.getLogger("langfuse")
 
 class OpenAiDefinition:
     module: str
