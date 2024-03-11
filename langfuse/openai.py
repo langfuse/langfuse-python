@@ -13,18 +13,19 @@ from langfuse.utils import _get_timestamp
 
 try:
     import openai
-    from openai import OpenAI  # noqa: F401
 except ImportError:
     raise ModuleNotFoundError(
-        "Please install OpenAI to use this feature: 'pip install openai"
+        "Please install OpenAI to use this feature: 'pip install openai'"
     )
 
 try:
     from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI  # noqa: F401
+    from openai import OpenAI  # noqa: F401
 except ImportError:
     AsyncAzureOpenAI = Any
     AsyncOpenAI = Any
     AzureOpenAI = Any
+    OpenAI = Any
 
 log = logging.getLogger("langfuse")
 
