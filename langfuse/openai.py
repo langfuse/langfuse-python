@@ -19,8 +19,7 @@ except ImportError:
     )
 
 try:
-    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI  # noqa: F401
-    from openai import OpenAI  # noqa: F401
+    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
     AsyncAzureOpenAI = Any
     AsyncOpenAI = Any
