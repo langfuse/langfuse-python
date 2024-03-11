@@ -4,6 +4,7 @@ from langfuse.client import (
     StatefulClient,
     StatefulGenerationClient,
     StatefulSpanClient,
+    StatefulEventClient,
     StatefulTraceClient,
 )
 import pytest
@@ -33,6 +34,7 @@ def stateful_client():
         (Langfuse.trace, StatefulTraceClient, {}),
         (Langfuse.generation, StatefulGenerationClient, {}),
         (Langfuse.span, StatefulSpanClient, {}),
+        (Langfuse.event, StatefulEventClient, {}),
         (Langfuse.score, StatefulClient, {"value": 1, "trace_id": "test_trace"}),
     ],
 )
@@ -60,6 +62,7 @@ def test_langfuse_returning_if_taskmanager_fails(
     [
         (StatefulClient.generation, StatefulGenerationClient, {}),
         (StatefulClient.span, StatefulSpanClient, {}),
+        (StatefulClient.event, StatefulEventClient, {}),
         (StatefulClient.score, StatefulClient, {"value": 1}),
     ],
 )
