@@ -159,9 +159,13 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
-                return self._finalize_call(
+                result = self._finalize_call(
                     observation, result, capture_output, transform_to_string
                 )
+
+                # Returning from finally block may swallow errors, so only return if result is not None
+                if result is not None:
+                    return result
 
         return async_wrapper
 
@@ -190,9 +194,13 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
-                return self._finalize_call(
+                result = self._finalize_call(
                     observation, result, capture_output, transform_to_string
                 )
+
+                # Returning from finally block may swallow errors, so only return if result is not None
+                if result is not None:
+                    return result
 
         return sync_wrapper
 
@@ -477,7 +485,7 @@ class LangfuseDecorator:
 
         return observation.get_langchain_handler()
 
-    def get_current_trace_id(self):
+    def get_current_trace_id(self, log_warnings: bool = True):
         """Retrieve the ID of the current trace from the observation stack context.
 
         This method examines the observation stack to find the root trace and returns its ID. It is useful for operations that require the trace ID,
@@ -495,7 +503,8 @@ class LangfuseDecorator:
         stack = _observation_stack_context.get()
 
         if not stack:
-            self._log.warn("No trace found in the current context")
+            if log_warnings:
+                self._log.warn("No trace found in the current context")
 
             return None
 
@@ -526,7 +535,7 @@ class LangfuseDecorator:
 
             return None
 
-    def get_current_observation_id(self):
+    def get_current_observation_id(self, log_warnings: bool = True):
         """Retrieve the ID of the current observation in context.
 
         Returns:
@@ -541,7 +550,8 @@ class LangfuseDecorator:
         stack = _observation_stack_context.get()
 
         if not stack:
-            self._log.warn("No trace found in the current context")
+            if log_warnings:
+                self._log.warn("No trace found in the current context")
 
             return None
 

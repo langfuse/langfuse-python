@@ -17,7 +17,14 @@ class LangfuseSingleton:
                     cls._instance = super(LangfuseSingleton, cls).__new__(cls)
         return cls._instance
 
-    def get(self) -> Langfuse:
+    def get(
+        self,
+        public_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
+        host: Optional[str] = None,
+        debug: bool = False,
+        sdk_integration: Optional[str] = None,
+    ) -> Langfuse:
         if self._langfuse:
             return self._langfuse
 
@@ -25,6 +32,13 @@ class LangfuseSingleton:
             if self._langfuse:
                 return self._langfuse
 
-            self._langfuse = Langfuse()
+            self._langfuse = Langfuse(
+                public_key=public_key,
+                secret_key=secret_key,
+                host=host,
+                debug=debug,
+                sdk_integration=sdk_integration,
+            )
 
+            print("LangfuseSingleton: Langfuse instance created.")
             return self._langfuse

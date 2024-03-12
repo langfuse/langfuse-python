@@ -6,6 +6,7 @@ import pytest
 
 from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
+from langfuse.openai import AsyncOpenAI
 from langfuse.decorators import langfuse_context, observe
 from tests.utils import create_uuid, get_api, get_llama_index_index
 from typing import Optional
@@ -714,7 +715,7 @@ def test_generator_as_return_value():
     mock_output = "Hello, World!"
 
     def custom_transform_to_string(x):
-        "--".join(x)
+        return "--".join(x)
 
     def generator_function():
         yield "Hello"
@@ -752,7 +753,7 @@ async def test_async_generator_as_return_value():
     mock_output = "Hello, async World!"
 
     def custom_transform_to_string(x):
-        "--".join(x)
+        return "--".join(x)
 
     @observe(transform_to_string=custom_transform_to_string)
     async def async_generator_function():
@@ -791,3 +792,96 @@ async def test_async_generator_as_return_value():
 
     assert trace_data.observations[0].output == "Hello--, async --World!"
     assert trace_data.observations[1].output == "Hello--, async --World!"
+
+
+@pytest.mark.asyncio
+async def test_async_nested_openai_chat_stream():
+    mock_name = "test_async_nested_openai_chat_stream"
+    mock_trace_id = create_uuid()
+    mock_tags = ["tag1", "tag2"]
+    mock_session_id = "session-id-1"
+    mock_user_id = "user-id-1"
+    mock_generation_name = "openai generation"
+
+    @observe()
+    async def level_2_function():
+        gen = await AsyncOpenAI().chat.completions.create(
+            name=mock_generation_name,
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "1 + 1 = "}],
+            temperature=0,
+            metadata={"someKey": "someResponse"},
+            session_id=mock_session_id,
+            user_id=mock_user_id,
+            tags=mock_tags,
+            stream=True,
+        )
+
+        async for c in gen:
+            print(c)
+
+        langfuse_context.update_current_observation(metadata=mock_metadata)
+        langfuse_context.update_current_trace(name=mock_name)
+
+        return "level_2"
+
+    @observe()
+    async def level_1_function(*args, **kwargs):
+        await level_2_function()
+
+        return "level_1"
+
+    result = await level_1_function(
+        *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
+    )
+    langfuse_context.flush()
+
+    assert result == "level_1"  # Wrapped function returns correctly
+
+    # ID setting for span or trace
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert (
+        len(trace_data.observations) == 2
+    )  # Top-most function is trace, so it's not an observations
+
+    assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
+    assert trace_data.output == "level_1"
+
+    # trace parameters if set anywhere in the call stack
+    assert trace_data.session_id == mock_session_id
+    assert trace_data.name == mock_name
+
+    # Check correct nesting
+    adjacencies = defaultdict(list)
+    for o in trace_data.observations:
+        adjacencies[o.parent_observation_id or o.trace_id].append(o)
+
+    assert len(adjacencies[mock_trace_id]) == 1  # Trace has only one child
+    assert len(adjacencies) == 2  # Only trace and one observation have children
+
+    level_2_observation = adjacencies[mock_trace_id][0]
+    level_3_observation = adjacencies[level_2_observation.id][0]
+
+    assert level_2_observation.metadata == mock_metadata
+
+    generation = level_3_observation
+
+    assert generation.name == mock_generation_name
+    assert generation.metadata == {"someKey": "someResponse"}
+    assert generation.input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.type == "GENERATION"
+    assert "gpt-3.5-turbo" in generation.model
+    assert generation.start_time is not None
+    assert generation.end_time is not None
+    assert generation.start_time < generation.end_time
+    assert generation.model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.usage.input is not None
+    assert generation.usage.output is not None
+    assert generation.usage.total is not None
+    assert "2" in generation.output

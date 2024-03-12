@@ -98,7 +98,7 @@ class Langfuse(object):
         flush_interval: float = 0.5,
         max_retries: int = 3,
         timeout: int = 10,  # seconds
-        sdk_integration: str = "default",
+        sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
     ):
         """Initialize the Langfuse client.
