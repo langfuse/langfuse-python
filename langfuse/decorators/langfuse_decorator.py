@@ -485,7 +485,7 @@ class LangfuseDecorator:
 
         return observation.get_langchain_handler()
 
-    def get_current_trace_id(self, log_warnings: bool = True):
+    def get_current_trace_id(self):
         """Retrieve the ID of the current trace from the observation stack context.
 
         This method examines the observation stack to find the root trace and returns its ID. It is useful for operations that require the trace ID,
@@ -501,14 +501,25 @@ class LangfuseDecorator:
             - If called outside of a trace context, or if the observation stack has somehow been corrupted or improperly managed, this method will log a warning and return None, indicating the absence of a traceable context.
         """
         stack = _observation_stack_context.get()
+        should_log_warning = self._get_caller_module_name() != "langfuse.openai"
 
         if not stack:
-            if log_warnings:
+            if should_log_warning:
                 self._log.warn("No trace found in the current context")
 
             return None
 
         return stack[0].id
+
+    def _get_caller_module_name(self):
+        try:
+            caller_module = inspect.getmodule(inspect.stack()[2][0])
+        except Exception as e:
+            self._log.warn(f"Failed to get caller module: {e}")
+
+            return None
+
+        return caller_module.__name__ if caller_module else None
 
     def get_current_trace_url(self) -> Optional[str]:
         """Retrieve the URL of the current trace in context.
@@ -535,7 +546,7 @@ class LangfuseDecorator:
 
             return None
 
-    def get_current_observation_id(self, log_warnings: bool = True):
+    def get_current_observation_id(self):
         """Retrieve the ID of the current observation in context.
 
         Returns:
@@ -548,10 +559,11 @@ class LangfuseDecorator:
             - If called at the top level of a trace, it will return the trace ID.
         """
         stack = _observation_stack_context.get()
+        should_log_warning = self._get_caller_module_name() != "langfuse.openai"
 
         if not stack:
-            if log_warnings:
-                self._log.warn("No trace found in the current context")
+            if should_log_warning:
+                self._log.warn("No observation found in the current context")
 
             return None
 

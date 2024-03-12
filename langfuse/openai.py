@@ -184,12 +184,8 @@ def _get_langfuse_data_from_kwargs(
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
 
-    decorator_context_observation_id = langfuse_context.get_current_observation_id(
-        log_warnings=False
-    )
-    decorator_context_trace_id = langfuse_context.get_current_trace_id(
-        log_warnings=False
-    )
+    decorator_context_observation_id = langfuse_context.get_current_observation_id()
+    decorator_context_trace_id = langfuse_context.get_current_trace_id()
 
     trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
     if trace_id is not None and not isinstance(trace_id, str):
