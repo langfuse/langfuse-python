@@ -20,7 +20,6 @@ from typing import (
     Generator,
 )
 
-from types import AsyncGeneratorType, GeneratorType
 
 from langfuse.client import (
     Langfuse,
@@ -160,14 +159,9 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
-                if inspect.isasyncgen(result):
-                    return self._wrap_async_generator_result(
-                        observation, result, capture_output, transform_to_string
-                    )
-
-                self._finalize_call(observation, result, capture_output)
-
-            return result
+                return self._finalize_call(
+                    observation, result, capture_output, transform_to_string
+                )
 
         return async_wrapper
 
@@ -196,14 +190,9 @@ class LangfuseDecorator:
             except Exception as e:
                 self._handle_exception(observation, e)
             finally:
-                if inspect.isgenerator(result):
-                    return self._wrap_sync_generator_result(
-                        observation, result, capture_output, transform_to_string
-                    )
-
-                self._finalize_call(observation, result, capture_output)
-
-            return result
+                return self._finalize_call(
+                    observation, result, capture_output, transform_to_string
+                )
 
         return sync_wrapper
 
@@ -284,6 +273,31 @@ class LangfuseDecorator:
         ],
         result: Any,
         capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ):
+        if inspect.isgenerator(result):
+            return self._wrap_sync_generator_result(
+                observation, result, capture_output, transform_to_string
+            )
+        elif inspect.isasyncgen(result):
+            return self._wrap_async_generator_result(
+                observation, result, capture_output, transform_to_string
+            )
+
+        else:
+            return self._handle_call_result(observation, result, capture_output)
+
+    def _handle_call_result(
+        self,
+        observation: Optional[
+            Union[
+                StatefulSpanClient,
+                StatefulTraceClient,
+                StatefulGenerationClient,
+            ]
+        ],
+        result: Any,
+        capture_output: bool,
     ):
         try:
             if observation is None:
@@ -305,8 +319,12 @@ class LangfuseDecorator:
             # Remove observation from top of stack
             stack = _observation_stack_context.get()
             _observation_stack_context.set(stack[:-1])
+
         except Exception as e:
             self._log.error(f"Failed to finalize observation: {e}")
+
+        finally:
+            return result
 
     def _handle_exception(
         self,
@@ -351,7 +369,7 @@ class LangfuseDecorator:
             elif all(isinstance(item, str) for item in items):
                 output = "".join(items)
 
-            self._finalize_call(observation, output, capture_output)
+            self._handle_call_result(observation, output, capture_output)
 
     async def _wrap_async_generator_result(
         self,
@@ -383,7 +401,7 @@ class LangfuseDecorator:
             elif all(isinstance(item, str) for item in items):
                 output = "".join(items)
 
-            self._finalize_call(observation, output, capture_output)
+            self._handle_call_result(observation, output, capture_output)
 
     def get_current_llama_index_handler(self):
         """Retrieve the current LlamaIndexCallbackHandler associated with the most recent observation in the observation stack.

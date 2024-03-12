@@ -712,7 +712,9 @@ def test_decorated_instance_methods():
 def test_generator_as_return_value():
     mock_trace_id = create_uuid()
     mock_output = "Hello, World!"
-    custom_transform_to_string = lambda x: "--".join(x)
+
+    def custom_transform_to_string(x):
+        "--".join(x)
 
     def generator_function():
         yield "Hello"
@@ -748,8 +750,11 @@ def test_generator_as_return_value():
 async def test_async_generator_as_return_value():
     mock_trace_id = create_uuid()
     mock_output = "Hello, async World!"
-    custom_transform_to_string = lambda x: "--".join(x)
 
+    def custom_transform_to_string(x):
+        "--".join(x)
+
+    @observe(transform_to_string=custom_transform_to_string)
     async def async_generator_function():
         await asyncio.sleep(0.1)  # Simulate async operation
         yield "Hello"
@@ -760,11 +765,15 @@ async def test_async_generator_as_return_value():
 
     @observe(transform_to_string=custom_transform_to_string)
     async def nested_async():
-        return async_generator_function()
+        gen = async_generator_function()
+        print(type(gen))
+
+        async for item in gen:
+            yield item
 
     @observe()
     async def main_async(**kwargs):
-        gen = await nested_async()
+        gen = nested_async()
 
         result = ""
         async for item in gen:
@@ -781,3 +790,4 @@ async def test_async_generator_as_return_value():
     assert trace_data.output == result
 
     assert trace_data.observations[0].output == "Hello--, async --World!"
+    assert trace_data.observations[1].output == "Hello--, async --World!"
