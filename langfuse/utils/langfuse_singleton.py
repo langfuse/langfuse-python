@@ -42,3 +42,8 @@ class LangfuseSingleton:
 
             print("LangfuseSingleton: Langfuse instance created.")
             return self._langfuse
+
+    def reset(self) -> None:
+        with self._lock:
+            self._langfuse = None
+            print("LangfuseSingleton: Langfuse instance reset.")
