@@ -33,9 +33,9 @@ except ImportError:
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
 
-context_root: ContextVar[
-    Optional[Union[StatefulTraceClient, StatefulSpanClient]]
-] = ContextVar("root", default=None)
+context_root: ContextVar[Optional[Union[StatefulTraceClient, StatefulSpanClient]]] = (
+    ContextVar("root", default=None)
+)
 context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
     "trace_metadata",
     default={
@@ -46,6 +46,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
         "release": None,
         "metadata": None,
         "tags": None,
+        "public": None,
     },
 )
 
@@ -152,6 +153,7 @@ class LlamaIndexCallbackHandler(
         release: Optional[str] = None,
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
+        public: Optional[bool] = None,
     ):
         """Set the trace params that will be used for all following operations.
 
@@ -167,6 +169,8 @@ class LlamaIndexCallbackHandler(
         - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
         - metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
         - tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+        - public (Optional[bool]): You can make a trace public to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
+
 
         Returns:
         None
@@ -180,6 +184,7 @@ class LlamaIndexCallbackHandler(
                 "release": release,
                 "metadata": metadata,
                 "tags": tags,
+                "public": public,
             }
         )
 
@@ -290,6 +295,7 @@ class LlamaIndexCallbackHandler(
             user_id = trace_metadata["user_id"] or self.user_id
             metadata = trace_metadata["metadata"]
             tags = trace_metadata["tags"] or self.tags
+            public = trace_metadata["public"] or None
 
             self.trace = self.langfuse.trace(
                 id=str(uuid4()),
@@ -300,6 +306,7 @@ class LlamaIndexCallbackHandler(
                 metadata=metadata,
                 tags=tags,
                 release=release,
+                public=public,
             )
 
             return self.trace

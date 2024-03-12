@@ -133,7 +133,7 @@ def test_callback_from_chat_engine():
 
 def test_callback_from_query_engine_stream():
     callback = LlamaIndexCallbackHandler()
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
     stream_response = index.as_query_engine(streaming=True).query(
         "What did the speaker achieve in the past twelve months?"
     )
