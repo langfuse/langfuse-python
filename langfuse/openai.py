@@ -21,10 +21,10 @@ except ImportError:
 try:
     from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
-    AsyncAzureOpenAI = Any
-    AsyncOpenAI = Any
-    AzureOpenAI = Any
-    OpenAI = Any
+    AsyncAzureOpenAI = None
+    AsyncOpenAI = None
+    AzureOpenAI = None
+    OpenAI = None
 
 log = logging.getLogger("langfuse")
 
