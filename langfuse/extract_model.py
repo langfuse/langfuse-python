@@ -283,6 +283,11 @@ def _extract_model_name(
     if model:
         return model
 
+    # anthropic
+    model = _extract_model_by_pattern("ChatAnthropic", serialized, "model")
+    if model:
+        return model
+
     # chatongyi
     model = _extract_model_by_pattern("ChatTongyi", serialized, "model_name")
     if model:
