@@ -611,8 +611,9 @@ class LangfuseDecorator:
 
             return
 
-        _observation_params_context.get()[trace_id].update(
-            {
+        params_to_update = {
+            k: v
+            for k, v in {
                 "name": name,
                 "user_id": user_id,
                 "session_id": session_id,
@@ -621,8 +622,11 @@ class LangfuseDecorator:
                 "metadata": metadata,
                 "tags": tags,
                 "public": public,
-            }
-        )
+            }.items()
+            if v is not None
+        }
+
+        _observation_params_context.get()[trace_id].update(params_to_update)
 
     def update_current_observation(
         self,
@@ -700,27 +704,33 @@ class LangfuseDecorator:
 
             return
 
-        _observation_params_context.get()[observation.id].update(
-            input=input,
-            output=output,
-            name=name,
-            version=version,
-            metadata=metadata,
-            start_time=start_time,
-            end_time=end_time,
-            release=release,
-            tags=tags,
-            user_id=user_id,
-            session_id=session_id,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage=usage,
-            prompt=prompt,
-            public=public,
-        )
+        update_params = {
+            k: v
+            for k, v in {
+                "input": input,
+                "output": output,
+                "name": name,
+                "version": version,
+                "metadata": metadata,
+                "start_time": start_time,
+                "end_time": end_time,
+                "release": release,
+                "tags": tags,
+                "user_id": user_id,
+                "session_id": session_id,
+                "level": level,
+                "status_message": status_message,
+                "completion_start_time": completion_start_time,
+                "model": model,
+                "model_parameters": model_parameters,
+                "usage": usage,
+                "prompt": prompt,
+                "public": public,
+            }.items()
+            if v is not None
+        }
+
+        _observation_params_context.get()[observation.id].update(update_params)
 
     def score_current_observation(
         self,

@@ -31,9 +31,14 @@ def test_nested_observations():
             model="gpt-3.5-turbo",
             output="mock_output",
         )
+        langfuse_context.update_current_observation(version="version-1")
 
         langfuse_context.update_current_trace(
             session_id=mock_session_id, name=mock_name
+        )
+
+        langfuse_context.update_current_trace(
+            user_id="user_id",
         )
 
         return "level_3"
@@ -70,6 +75,7 @@ def test_nested_observations():
 
     # trace parameters if set anywhere in the call stack
     assert trace_data.session_id == mock_session_id
+    assert trace_data.user_id == "user_id"
     assert trace_data.name == mock_name
 
     # Check correct nesting
@@ -88,6 +94,7 @@ def test_nested_observations():
     assert level_3_observation.type == "GENERATION"
     assert level_3_observation.calculated_total_cost > 0
     assert level_3_observation.output == "mock_output"
+    assert level_3_observation.version == "version-1"
 
 
 # behavior on exceptions
