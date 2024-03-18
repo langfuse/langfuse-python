@@ -1,4 +1,7 @@
 import logging
+import typing
+
+import pydantic
 
 try:  # Test that langchain is installed before proceeding
     import langchain  # noqa
@@ -669,14 +672,7 @@ class LangchainCallbackHandler(
                     else _extract_raw_esponse(generation)
                 )
 
-                llm_usage = (
-                    None
-                    # we need to check whether the token_usage is None or empty
-                    if response.llm_output is None
-                    or not response.llm_output["token_usage"]
-                    else response.llm_output["token_usage"]
-                )
-
+                llm_usage = _parse_usage(response)
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response, usage=llm_usage, version=self.version
                 )
@@ -790,3 +786,43 @@ def _extract_raw_esponse(last_response):
 
 def _flatten_comprehension(matrix):
     return [item for row in matrix for item in row]
+
+
+def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
+    # maintains a list of key translations. For each key, the usage model is checked
+    # and a new object will be created with the new key if the key exists in the usage model
+
+    if hasattr(usage, "__dict__"):
+        usage = usage.__dict__
+
+    conversion_list = [
+        # default
+        ("promptTokens", "prompt_tokens"),
+        ("completionTokens", "completion_tokens"),
+        ("totalTokens", "total_tokens"),
+        ("inputCost", "input_cost"),
+        ("outputCost", "output_cost"),
+        ("totalCost", "total_cost"),
+        # https://pypi.org/project/langchain-anthropic/
+        ("input_tokens", "input"),
+        ("output_tokens", "output"),
+    ]
+
+    usage_model = {}
+    for key, value in conversion_list:
+        if key in usage:
+            usage_model[value] = usage[key]
+    return usage_model
+
+
+def _parse_usage(response: LLMResult):
+    # langchain-anthropic uses the usage field
+    llm_usage_keys = ["token_usage", "usage"]
+    llm_usage = None
+    if response.llm_output is not None:
+        for key in llm_usage_keys:
+            if key in response.llm_output and response.llm_output[key]:
+                llm_usage = _parse_usage_model(response.llm_output[key])
+                break
+
+    return llm_usage
