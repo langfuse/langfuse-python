@@ -10,3 +10,4 @@ def clean_logger():
     backoff_logger = logging.getLogger("backoff")
     backoff_logger.setLevel(logging.WARNING)  # Set the desired log level
     backoff_logger.addHandler(console_handler)
+    backoff_logger.propagate = False  # Stop propagation to the root logger
