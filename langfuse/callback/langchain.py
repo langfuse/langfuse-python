@@ -791,28 +791,25 @@ def _flatten_comprehension(matrix):
 def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
     # maintains a list of key translations. For each key, the usage model is checked
     # and a new object will be created with the new key if the key exists in the usage model
+    # All non matched keys will remain on the object.
 
     if hasattr(usage, "__dict__"):
         usage = usage.__dict__
 
     conversion_list = [
-        # default
-        ("promptTokens", "prompt_tokens"),
-        ("completionTokens", "completion_tokens"),
-        ("totalTokens", "total_tokens"),
-        ("inputCost", "input_cost"),
-        ("outputCost", "output_cost"),
-        ("totalCost", "total_cost"),
         # https://pypi.org/project/langchain-anthropic/
         ("input_tokens", "input"),
         ("output_tokens", "output"),
     ]
 
-    usage_model = {}
+    usage_model = usage.copy()  # Copy all existing key-value pairs
     for key, value in conversion_list:
-        if key in usage:
-            usage_model[value] = usage[key]
-    return usage_model
+        if key in usage_model:
+            usage_model[value] = usage_model.pop(
+                key
+            )  # Translate key and keep the value
+
+    return usage_model if usage_model else None
 
 
 def _parse_usage(response: LLMResult):
@@ -824,5 +821,6 @@ def _parse_usage(response: LLMResult):
             if key in response.llm_output and response.llm_output[key]:
                 llm_usage = _parse_usage_model(response.llm_output[key])
                 break
-
+    log = logging.getLogger("langfuse")
+    log.warning(f"llm usage: {llm_usage}")
     return llm_usage

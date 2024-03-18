@@ -58,7 +58,7 @@ def test_langfuse_span():
 
 def test_callback_generated_from_trace_chain():
     api = get_api()
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
 
@@ -1494,7 +1494,7 @@ def test_get_langchain_prompt():
 
 
 def test_langchain_anthropic_package():
-    langfuse_handler = CallbackHandler(debug=True)
+    langfuse_handler = CallbackHandler(debug=False)
     from langchain_anthropic import ChatAnthropic
 
     chat = ChatAnthropic(
