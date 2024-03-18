@@ -821,6 +821,5 @@ def _parse_usage(response: LLMResult):
             if key in response.llm_output and response.llm_output[key]:
                 llm_usage = _parse_usage_model(response.llm_output[key])
                 break
-    log = logging.getLogger("langfuse")
-    log.warning(f"llm usage: {llm_usage}")
+
     return llm_usage
