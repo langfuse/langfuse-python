@@ -528,7 +528,7 @@ def test_scoring_observations():
         langfuse_context.score_current_observation(
             name="test-observation-score", value=1
         )
-        langfuse_context.score_current_trace(name="test-trace-score", value=2)
+        langfuse_context.score_current_trace(name="another-test-trace-score", value=2)
         return "level_3"
 
     @observe()
@@ -537,6 +537,7 @@ def test_scoring_observations():
 
     @observe()
     def level_1_function(*args, **kwargs):
+        langfuse_context.score_current_observation(name="test-trace-score", value=3)
         langfuse_context.update_current_trace(name=mock_name)
         return level_2_function()
 
@@ -557,18 +558,17 @@ def test_scoring_observations():
     # Check for correct scoring
     scores = trace_data.scores
 
-    assert len(scores) == 2
+    assert len(scores) == 3
 
-    trace_score = [
+    trace_scores = [
         s for s in scores if s.trace_id == mock_trace_id and s.observation_id is None
-    ][0]
+    ]
     observation_score = [s for s in scores if s.observation_id is not None][0]
 
-    print(trace_score)
-    print(observation_score)
-
-    assert trace_score.name == "test-trace-score"
-    assert trace_score.value == 2
+    assert trace_scores[0].name == "another-test-trace-score"
+    assert trace_scores[0].value == 2
+    assert trace_scores[1].name == "test-trace-score"
+    assert trace_scores[1].value == 3
 
     assert observation_score.name == "test-observation-score"
     assert observation_score.value == 1

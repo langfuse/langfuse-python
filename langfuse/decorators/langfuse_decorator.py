@@ -763,7 +763,7 @@ class LangfuseDecorator:
                 current_observation_id if current_observation_id != trace_id else None
             )
 
-            if observation_id:
+            if trace_id:
                 langfuse.score(
                     trace_id=trace_id,
                     observation_id=observation_id,
@@ -773,7 +773,7 @@ class LangfuseDecorator:
                     id=id,
                 )
             else:
-                raise ValueError("No observation found in the current context")
+                raise ValueError("No trace or observation found in the current context")
 
         except Exception as e:
             self._log.error(f"Failed to score observation: {e}")
