@@ -30,8 +30,6 @@ class EventSerializer(JSONEncoder):
 
         if is_dataclass(obj):
             return asdict(obj)
-        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes)):
-            return [self.default(item) for item in obj]
         if isinstance(obj, UUID):
             return str(obj)
         if isinstance(obj, bytes):
@@ -47,6 +45,8 @@ class EventSerializer(JSONEncoder):
         # Standard JSON-encodable types
         if isinstance(obj, (dict, list, str, int, float, type(None))):
             return obj
+        if isinstance(obj, Sequence):
+            return [self.default(item) for item in obj]
 
         if hasattr(obj, "__slots__"):
             return self.default(
