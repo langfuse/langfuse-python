@@ -14,11 +14,18 @@ from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
 try:
     import openai
-    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
     raise ModuleNotFoundError(
-        "Please install OpenAI to use this feature: 'pip install openai"
+        "Please install OpenAI to use this feature: 'pip install openai'"
     )
+
+try:
+    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
+except ImportError:
+    AsyncAzureOpenAI = None
+    AsyncOpenAI = None
+    AzureOpenAI = None
+    OpenAI = None
 
 log = logging.getLogger("langfuse")
 

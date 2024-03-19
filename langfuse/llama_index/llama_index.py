@@ -454,10 +454,6 @@ class LlamaIndexCallbackHandler(
 
         if end_event.payload:
             chunks = end_event.payload.get(EventPayload.CHUNKS, [])
-            input = {"num_chunks": len(chunks)}
-            embeddings = end_event.payload.get(EventPayload.EMBEDDINGS, [])
-            output = {"num_embeddings": len(embeddings)}
-
             token_count = sum(
                 self._token_counter.get_string_tokens(chunk) for chunk in chunks
             )
@@ -467,6 +463,9 @@ class LlamaIndexCallbackHandler(
                 "output": 0,
                 "total": token_count or None,
             }
+
+        input = self._parse_input_from_event(end_event)
+        output = self._parse_output_from_event(end_event)
 
         generation = parent.generation(
             id=event_id,
@@ -544,44 +543,64 @@ class LlamaIndexCallbackHandler(
         if event.payload is None:
             return
 
+        payload = event.payload.copy()
+
+        if EventPayload.SERIALIZED in payload:
+            # Always pop Serialized from payload as it may contain LLM api keys
+            payload.pop(EventPayload.SERIALIZED)
+
+        if event.event_type == CBEventType.EMBEDDING and EventPayload.CHUNKS in payload:
+            chunks = payload.get(EventPayload.CHUNKS)
+            return {"num_chunks": len(chunks)}
+
         if (
             event.event_type == CBEventType.NODE_PARSING
-            and EventPayload.DOCUMENTS in event.payload
+            and EventPayload.DOCUMENTS in payload
         ):
-            documents = event.payload.pop(EventPayload.DOCUMENTS)
-            event.payload["documents"] = [doc.metadata for doc in documents]
-            return event.payload
+            documents = payload.pop(EventPayload.DOCUMENTS)
+            payload["documents"] = [doc.metadata for doc in documents]
+            return payload
 
         for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR, EventPayload.PROMPT]:
-            if key in event.payload:
-                return event.payload.get(key)
+            if key in payload:
+                return payload.get(key)
 
-        return event.payload
+        return payload or None
 
     def _parse_output_from_event(self, event: CallbackEvent):
         if event.payload is None:
             return
 
+        payload = event.payload.copy()
+
+        if EventPayload.SERIALIZED in payload:
+            # Always pop Serialized from payload as it may contain LLM api keys
+            payload.pop(EventPayload.SERIALIZED)
+
+        if (
+            event.event_type == CBEventType.EMBEDDING
+            and EventPayload.EMBEDDINGS in payload
+        ):
+            embeddings = payload.get(EventPayload.EMBEDDINGS)
+            return {"num_embeddings": len(embeddings)}
+
         if (
             event.event_type == CBEventType.NODE_PARSING
-            and EventPayload.NODES in event.payload
+            and EventPayload.NODES in payload
         ):
-            nodes = event.payload.pop(EventPayload.NODES)
-            event.payload["num_nodes"] = len(nodes)
-            return event.payload
+            nodes = payload.pop(EventPayload.NODES)
+            payload["num_nodes"] = len(nodes)
+            return payload
 
-        if (
-            event.event_type == CBEventType.CHUNKING
-            and EventPayload.CHUNKS in event.payload
-        ):
-            chunks = event.payload.pop(EventPayload.CHUNKS)
-            event.payload["num_chunks"] = len(chunks)
+        if event.event_type == CBEventType.CHUNKING and EventPayload.CHUNKS in payload:
+            chunks = payload.pop(EventPayload.CHUNKS)
+            payload["num_chunks"] = len(chunks)
 
-        if EventPayload.COMPLETION in event.payload:
-            return event.payload.get(EventPayload.COMPLETION)
+        if EventPayload.COMPLETION in payload:
+            return payload.get(EventPayload.COMPLETION)
 
-        if EventPayload.RESPONSE in event.payload:
-            response = event.payload.get(EventPayload.RESPONSE)
+        if EventPayload.RESPONSE in payload:
+            response = payload.get(EventPayload.RESPONSE)
 
             # Skip streaming responses as consuming them would block the user's execution path
             if "Streaming" in type(response).__name__:
@@ -600,7 +619,7 @@ class LlamaIndexCallbackHandler(
 
                 return output
 
-        return event.payload
+        return payload or None
 
     def _parse_metadata_from_event(self, event: CallbackEvent):
         if event.payload is None:

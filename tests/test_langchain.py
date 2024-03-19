@@ -58,7 +58,7 @@ def test_langfuse_span():
 
 def test_callback_generated_from_trace_chain():
     api = get_api()
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
 
@@ -1491,3 +1491,45 @@ def test_get_langchain_prompt():
                 langchain_prompt.format(test="test", test2="test2")
                 == "Human: This is a test. And this is a test2"
             )
+
+
+def test_langchain_anthropic_package():
+    langfuse_handler = CallbackHandler(debug=False)
+    from langchain_anthropic import ChatAnthropic
+
+    chat = ChatAnthropic(
+        model="claude-3-sonnet-20240229",
+        temperature=0.1,
+    )
+
+    system = "You are a helpful assistant that translates {input_language} to {output_language}."
+    human = "{text}"
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+
+    chain = prompt | chat
+    chain.invoke(
+        {
+            "input_language": "English",
+            "output_language": "Korean",
+            "text": "I love Python",
+        },
+        config={"callbacks": [langfuse_handler]},
+    )
+
+    langfuse_handler.flush()
+
+    observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+
+    assert len(observations) == 3
+
+    generation = list(filter(lambda x: x.type == "GENERATION", observations))[0]
+
+    assert generation.output is not None
+    assert generation.output != ""
+    assert generation.input is not None
+    assert generation.input != ""
+    assert generation.usage is not None
+    assert generation.usage.input is not None
+    assert generation.usage.output is not None
+    assert generation.usage.total is not None
+    assert generation.model == "claude-3-sonnet-20240229"

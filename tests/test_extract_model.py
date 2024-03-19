@@ -19,6 +19,7 @@ from langchain_community.chat_models import (
     # ChatAnyscale,
     # ChatVertexAI,
 )
+from langchain_anthropic import ChatAnthropic as SeparateChatAnthropic
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
 from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.bedrock import Bedrock
@@ -61,6 +62,11 @@ from tests.utils import get_api
             TextGen(model_url="some-url"),
         ),  # local deployments, does not have a model name
         ("claude-2", ChatAnthropic()),
+        (
+            "claude-3-sonnet-20240229",
+            SeparateChatAnthropic(model="claude-3-sonnet-20240229"),
+        ),
+        ("anthropic", Anthropic()),
         ("anthropic", Anthropic()),
         ("command", ChatCohere(model="command", cohere_api_key="command")),
         ("command", Cohere(model="command", cohere_api_key="command")),
