@@ -900,3 +900,29 @@ async def test_async_nested_openai_chat_stream():
     assert generation.usage.output is not None
     assert generation.usage.total is not None
     assert "2" in generation.output
+
+
+def test_generation_at_highest_level():
+    mock_trace_id = create_uuid()
+    mock_result = "Hello, World!"
+
+    @observe(as_type="generation")
+    def main():
+        return mock_result
+
+    result = main(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_result
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert (
+        trace_data.output is None
+    )  # output will be attributed to generation observation
+
+    # Check that the generation is wrapped inside a trace
+    assert len(trace_data.observations) == 1
+
+    generation = trace_data.observations[0]
+    assert generation.type == "GENERATION"
+    assert generation.output == result

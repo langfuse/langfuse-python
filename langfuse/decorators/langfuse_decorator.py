@@ -250,19 +250,27 @@ class LangfuseDecorator:
                 {"args": logged_args, "kwargs": func_kwargs} if capture_input else None
             )
 
+            params = {
+                "id": id,
+                "name": name,
+                "start_time": start_time,
+                "input": input,
+            }
+
             # Create observation
             if parent and as_type == "generation":
-                observation = parent.generation(
-                    id=id, name=name, start_time=start_time, input=input
+                observation = parent.generation(**params)
+            elif as_type == "generation":
+                # Create wrapper trace if generation is top-level
+                # Do not add wrapper trace to stack, as it does not have a corresponding end that will pop it off again
+                trace = langfuse.trace(id=id, name=name, start_time=start_time)
+                observation = langfuse.generation(
+                    name=name, start_time=start_time, input=input, trace_id=trace.id
                 )
             elif parent:
-                observation = parent.span(
-                    id=id, name=name, start_time=start_time, input=input
-                )
+                observation = parent.span(**params)
             else:
-                observation = langfuse.trace(
-                    id=id, name=name, start_time=start_time, input=input
-                )
+                observation = langfuse.trace(**params)
 
             _observation_stack_context.set(stack + [observation])
 
