@@ -17,6 +17,10 @@ except ImportError:
 
 
 class EventSerializer(JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seen = set()  # Track seen objects to detect circular references
+
     def default(self, obj: Any):
         if isinstance(obj, (datetime)):
             # Timezone-awareness check
@@ -45,11 +49,30 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, (dict, list, str, int, float, type(None))):
             return obj
 
+        if isinstance(obj, (tuple, set, frozenset)):
+            return list(obj)
+
         if hasattr(obj, "__slots__"):
             return self.default(
                 {slot: getattr(obj, slot, None) for slot in obj.__slots__}
             )
         elif hasattr(obj, "__dict__"):
-            return self.default(vars(obj))
+            obj_id = id(obj)
+
+            if obj_id in self.seen:
+                # Break on circular references
+                return type(obj).__name__
+            else:
+                self.seen.add(obj_id)
+                result = {k: self.default(v) for k, v in vars(obj).items()}
+                self.seen.remove(obj_id)
+
+                return result
+
         else:
-            return JSONEncoder.default(self, obj)
+            # Return object type rather than JSONEncoder.default(obj) which simply raises a TypeError
+            return type(obj).__name__
+
+    def encode(self, obj: Any) -> str:
+        self.seen.clear()  # Clear seen objects before each encode call
+        return super().encode(obj)
