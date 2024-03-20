@@ -565,10 +565,18 @@ def test_scoring_observations():
     ]
     observation_score = [s for s in scores if s.observation_id is not None][0]
 
-    assert trace_scores[0].name == "another-test-trace-score"
-    assert trace_scores[0].value == 2
-    assert trace_scores[1].name == "test-trace-score"
-    assert trace_scores[1].value == 3
+    assert any(
+        [
+            score.name == "another-test-trace-score" and score.value == 2
+            for score in trace_scores
+        ]
+    )
+    assert any(
+        [
+            score.name == "test-trace-score" and score.value == 3
+            for score in trace_scores
+        ]
+    )
 
     assert observation_score.name == "test-observation-score"
     assert observation_score.value == 1
