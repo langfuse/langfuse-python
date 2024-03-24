@@ -1,3 +1,7 @@
+'''
+@private
+'''
+
 from datetime import datetime
 from langfuse.client import PromptClient, ModelUsage, MapValue
 from typing import Any, List, Optional, TypedDict, Literal, Dict, Union
