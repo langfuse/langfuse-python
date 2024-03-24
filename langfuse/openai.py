@@ -1,3 +1,23 @@
+'''
+If you use the OpenAI Python SDK, you can use the Langfuse drop-in replacement to get full logging by changing only the import.
+
+```diff
+- import openai
++ from langfuse.openai import openai
+```
+
+Langfuse automatically tracks:
+
+- All prompts/completions with support for streaming, async and functions
+- Latencies
+- API Errors
+- Model usage (tokens) and cost (USD)
+
+The integration is fully interoperable with the `observe()` decorator and the low-level tracing SDK.
+
+See docs for more details: https://langfuse.com/docs/integrations/openai
+'''
+
 import copy
 import logging
 import types

@@ -162,18 +162,18 @@ class LlamaIndexCallbackHandler(
 
         Attention: If a root trace or span is set on the callback handler, those trace params will be used and NOT those set through this method.
 
-        Parameters:
-        - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI.
-        - user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
-        - session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
-        - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
-        - metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
-        - tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
-        - public (Optional[bool]): You can make a trace public to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
+        Attributes:
+            name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI.
+            user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
+            session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+            version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+            metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+            tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+            public (Optional[bool]): You can make a trace public to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
 
 
         Returns:
-        None
+            None
         """
         context_trace_metadata.set(
             {

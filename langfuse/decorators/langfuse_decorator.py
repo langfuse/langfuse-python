@@ -86,31 +86,35 @@ class LangfuseDecorator:
         It captures the function's execution context, including start/end times, input/output data, and automatically handles trace/span generation within the Langfuse observation context.
         In case of an exception, the observation is updated with error details. The top-most decorated function is treated as a trace, with nested calls captured as spans or generations.
 
-        Parameters:
-        - as_type (Optional[Literal["generation"]]): Specify "generation" to treat the observation as a generation type, suitable for language model invocations.
-        - capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
-        - capture_output (bool): If True, captures the return value of the function as output. Default is True.
-        - transform_to_string (Optional[Callable[[Iterable], str]]): When the decorated function returns a generator, this function transforms yielded values into a string representation for output capture
+        Attributes:
+            as_type (Optional[Literal["generation"]]): Specify "generation" to treat the observation as a generation type, suitable for language model invocations.
+            capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
+            capture_output (bool): If True, captures the return value of the function as output. Default is True.
+            transform_to_string (Optional[Callable[[Iterable], str]]): When the decorated function returns a generator, this function transforms yielded values into a string representation for output capture
 
         Returns:
             Callable: A wrapped version of the original function that, upon execution, is automatically observed and managed by Langfuse.
 
-        Usage:
-            - For general tracing (functions/methods):
-                @observe()
-                def your_function(args):
-                    # Your implementation here
-            - For observing language model generations:
-                @observe(as_type="generation")
-                def your_LLM_function(args):
-                    # Your LLM invocation here
+        Example:
+            For general tracing (functions/methods):
+            ```python
+            @observe()
+            def your_function(args):
+                # Your implementation here
+            ```
+            For observing language model generations:
+            ```python
+            @observe(as_type="generation")
+            def your_LLM_function(args):
+                # Your LLM invocation here
+            ```
 
         Raises:
             Exception: Propagates exceptions from the wrapped function after logging and updating the observation with error details.
 
         Note:
-            - Automatic observation ID and context management is provided. Optionally, an observation ID can be specified using the `langfuse_observation_id` keyword when calling the wrapped function.
-            - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.update_current_trace` methods within the wrapped function.
+        - Automatic observation ID and context management is provided. Optionally, an observation ID can be specified using the `langfuse_observation_id` keyword when calling the wrapped function.
+        - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.update_current_trace` methods within the wrapped function.
         """
 
         def decorator(func: Callable) -> Callable:
@@ -594,15 +598,14 @@ class LangfuseDecorator:
         It updates the parameters of the current trace based on the provided arguments. These parameters include metadata, session information,
         and other trace attributes that can be useful for categorization, filtering, and analysis in the Langfuse UI.
 
-
-        Parameters:
-        - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
-        - user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
-        - session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
-        - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
-        - release (Optional[str]): The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
-        - metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
-        - tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+        Arguments:
+            name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
+            user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
+            session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+            version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+            release (Optional[str]): The release identifier of the current deployment. Used to understand how changes of different deployments affect metrics. Useful in debugging.
+            metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+            tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
 
         Returns:
             None
@@ -750,11 +753,11 @@ class LangfuseDecorator:
     ):
         """Score the current observation within an active trace. If called on the top level of a trace, it will score the trace.
 
-        Parameters:
-            - name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
-            - value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
-            - comment (Optional[str]): An optional comment or description providing context or additional details about the score.
-            - id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+        Arguments:
+            name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
+            value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            comment (Optional[str]): An optional comment or description providing context or additional details about the score.
+            id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
 
         Returns:
             None
@@ -796,11 +799,11 @@ class LangfuseDecorator:
     ):
         """Score the current trace in context. This can be called anywhere in the nested trace to score the trace.
 
-        Parameters:
-            - name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
-            - value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
-            - comment (Optional[str]): An optional comment or description providing context or additional details about the score.
-            - id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+        Arguments:
+            name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
+            value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            comment (Optional[str]): An optional comment or description providing context or additional details about the score.
+            id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
 
         Returns:
             None
