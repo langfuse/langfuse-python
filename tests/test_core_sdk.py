@@ -573,13 +573,11 @@ def test_create_trace_and_generation():
     generationId = create_uuid()
 
     trace = langfuse.trace(
-        name="this-is-a-trace-name",
-        input={"key": "value"},
-        session_id="test-session-id",
+        name=trace_name, input={"key": "value"}, session_id="test-session-id"
     )
     trace.generation(
         id=generationId,
-        name="this-is-a-generation-name",
+        name="generation",
         start_time=datetime.now(),
         end_time=datetime.now(),
     )
