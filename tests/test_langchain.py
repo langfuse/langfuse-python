@@ -1178,9 +1178,10 @@ def test_create_extraction_chain():
     llm = ChatOpenAI(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0,
-        streaming=False,
+        streaming=True,
         model="gpt-3.5-turbo-16k-0613",
     )
+    a = llm.invoke()
 
     schema = {
         "properties": {
