@@ -59,6 +59,10 @@ jobs:
             langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
             langfuse-server-
 
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
       - name: Run langfuse server
         run: |
           cd ./langfuse-server
