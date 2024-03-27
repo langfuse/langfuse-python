@@ -1,7 +1,7 @@
 {
   "[python]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.defaultFormatter": "charliermarsh.ruff"
     // "editor.codeActionsOnSave": {
     //   "source.fixAll": "explicit",
     //   "source.organizeImports": "explicit"
@@ -13,5 +13,8 @@
   },
   "prettier.documentSelectors": [
     "**/*.{cjs,mjs,ts,tsx,astro,md,mdx,json,yaml,yml}"
-  ]
+  ],
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

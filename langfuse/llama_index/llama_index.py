@@ -10,12 +10,13 @@ from langfuse.client import (
     StatefulGenerationClient,
     StateType,
 )
-from langfuse.decorators.error_logging import (
+from langfuse.utils.error_logging import (
     auto_decorate_methods_with,
     catch_and_log_errors,
 )
+from langfuse.types import TraceMetadata
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from .utils import CallbackEvent, ParsedLLMEndPayload, TraceMetadata
+from .utils import CallbackEvent, ParsedLLMEndPayload
 
 try:
     from llama_index.core.callbacks.base_handler import (
@@ -32,9 +33,9 @@ except ImportError:
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
 
-context_root: ContextVar[
-    Optional[Union[StatefulTraceClient, StatefulSpanClient]]
-] = ContextVar("root", default=None)
+context_root: ContextVar[Optional[Union[StatefulTraceClient, StatefulSpanClient]]] = (
+    ContextVar("root", default=None)
+)
 context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
     "trace_metadata",
     default={
@@ -45,6 +46,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
         "release": None,
         "metadata": None,
         "tags": None,
+        "public": None,
     },
 )
 
@@ -151,6 +153,7 @@ class LlamaIndexCallbackHandler(
         release: Optional[str] = None,
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
+        public: Optional[bool] = None,
     ):
         """Set the trace params that will be used for all following operations.
 
@@ -159,16 +162,18 @@ class LlamaIndexCallbackHandler(
 
         Attention: If a root trace or span is set on the callback handler, those trace params will be used and NOT those set through this method.
 
-        Parameters:
-        - name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI.
-        - user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
-        - session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
-        - version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
-        - metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
-        - tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+        Attributes:
+            name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI.
+            user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
+            session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
+            version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
+            metadata (Optional[Any]): Additional metadata of the trace. Can be any JSON object. Metadata is merged when being updated via the API.
+            tags (Optional[List[str]]): Tags are used to categorize or label traces. Traces can be filtered by tags in the Langfuse UI and GET API.
+            public (Optional[bool]): You can make a trace public to share it via a public link. This allows others to view the trace without needing to log in or be members of your Langfuse project.
+
 
         Returns:
-        None
+            None
         """
         context_trace_metadata.set(
             {
@@ -179,6 +184,7 @@ class LlamaIndexCallbackHandler(
                 "release": release,
                 "metadata": metadata,
                 "tags": tags,
+                "public": public,
             }
         )
 
@@ -266,7 +272,14 @@ class LlamaIndexCallbackHandler(
 
     def _get_root_observation(self) -> Union[StatefulTraceClient, StatefulSpanClient]:
         user_provided_root = context_root.get()
-        if user_provided_root is not None:
+
+        # Make sure that if a user-provided root is set, it has been set in the same trace
+        # and it's not a root from a different trace
+        if (
+            user_provided_root is not None
+            and self.trace
+            and self.trace.id == user_provided_root.trace_id
+        ):
             return user_provided_root
 
         else:
@@ -282,6 +295,7 @@ class LlamaIndexCallbackHandler(
             user_id = trace_metadata["user_id"] or self.user_id
             metadata = trace_metadata["metadata"]
             tags = trace_metadata["tags"] or self.tags
+            public = trace_metadata["public"] or None
 
             self.trace = self.langfuse.trace(
                 id=str(uuid4()),
@@ -292,6 +306,7 @@ class LlamaIndexCallbackHandler(
                 metadata=metadata,
                 tags=tags,
                 release=release,
+                public=public,
             )
 
             return self.trace
@@ -332,7 +347,7 @@ class LlamaIndexCallbackHandler(
             timeout = serialized.get("timeout", None)
 
         parsed_end_payload = self._parse_LLM_end_event_payload(end_event)
-        parsed_metadata = self._parse_metadata_from_event_payload(end_event.payload)
+        parsed_metadata = self._parse_metadata_from_event(end_event)
 
         generation = parent.generation(
             id=event_id,
@@ -388,8 +403,8 @@ class LlamaIndexCallbackHandler(
         if not end_event.payload:
             return result
 
-        result["input"] = self._parse_input_from_event_payload(end_event.payload)
-        result["output"] = self._parse_output_from_event_payload(end_event.payload)
+        result["input"] = self._parse_input_from_event(end_event)
+        result["output"] = self._parse_output_from_event(end_event)
         result["model"], result["usage"] = self._parse_usage_from_event_payload(
             end_event.payload
         )
@@ -439,10 +454,6 @@ class LlamaIndexCallbackHandler(
 
         if end_event.payload:
             chunks = end_event.payload.get(EventPayload.CHUNKS, [])
-            input = {"num_chunks": len(chunks)}
-            embeddings = end_event.payload.get(EventPayload.EMBEDDINGS, [])
-            output = {"num_embeddings": len(embeddings)}
-
             token_count = sum(
                 self._token_counter.get_string_tokens(chunk) for chunk in chunks
             )
@@ -452,6 +463,9 @@ class LlamaIndexCallbackHandler(
                 "output": 0,
                 "total": token_count or None,
             }
+
+        input = self._parse_input_from_event(end_event)
+        output = self._parse_output_from_event(end_event)
 
         generation = parent.generation(
             id=event_id,
@@ -480,18 +494,10 @@ class LlamaIndexCallbackHandler(
         trace_id: str,
     ) -> StatefulSpanClient:
         start_event, end_event = self.event_map[event_id]
-        input = start_event.payload
-        output = end_event.payload
 
-        if start_event.event_type == CBEventType.NODE_PARSING:
-            input, output = self._handle_node_parsing_payload(self.event_map[event_id])
-
-        elif start_event.event_type == CBEventType.CHUNKING:
-            input, output = self._handle_chunking_payload(self.event_map[event_id])
-
-        extracted_input = self._parse_input_from_event_payload(start_event.payload)
-        extracted_output = self._parse_output_from_event_payload(end_event.payload)
-        extracted_metadata = self._parse_metadata_from_event_payload(end_event.payload)
+        extracted_input = self._parse_input_from_event(start_event)
+        extracted_output = self._parse_output_from_event(end_event)
+        extracted_metadata = self._parse_metadata_from_event(end_event)
 
         metadata = (
             extracted_metadata if extracted_output != extracted_metadata else None
@@ -504,8 +510,8 @@ class LlamaIndexCallbackHandler(
             name=start_event.event_type.value,
             version=self.version,
             session_id=self.session_id,
-            input=extracted_input or input,
-            output=extracted_output or output,
+            input=extracted_input,
+            output=extracted_output,
             metadata=metadata,
         )
 
@@ -513,36 +519,6 @@ class LlamaIndexCallbackHandler(
             span.end(end_time=end_event.time)
 
         return span
-
-    def _handle_node_parsing_payload(
-        self, events: List[CallbackEvent]
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """Handle the payload of a NODE_PARSING event."""
-        inputs = events[0].payload
-        outputs = events[-1].payload
-
-        if inputs and EventPayload.DOCUMENTS in inputs:
-            documents = inputs.pop(EventPayload.DOCUMENTS)
-            inputs["documents"] = [doc.metadata for doc in documents]
-
-        if outputs and EventPayload.NODES in outputs:
-            nodes = outputs.pop(EventPayload.NODES)
-            outputs["num_nodes"] = len(nodes)
-
-        return inputs, outputs
-
-    def _handle_chunking_payload(
-        self, events: List[CallbackEvent]
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """Handle the payload of a NODE_PARSING event."""
-        inputs = None
-        outputs = events[-1].payload
-
-        if outputs and EventPayload.CHUNKS in outputs:
-            chunks = outputs.pop(EventPayload.CHUNKS)
-            outputs["num_chunks"] = len(chunks)
-
-        return inputs, outputs
 
     def _update_trace_data(self, trace_map):
         if context_root.get():  # Exit early if root is user-provided.
@@ -557,29 +533,78 @@ class LlamaIndexCallbackHandler(
             return
 
         start_event, end_event = event_pair
-        input = self._parse_input_from_event_payload(start_event.payload)
-        output = self._parse_output_from_event_payload(end_event.payload)
+        input = self._parse_input_from_event(start_event)
+        output = self._parse_output_from_event(end_event)
 
         if input or output:
             self.trace.update(input=input, output=output)
 
-    def _parse_input_from_event_payload(self, event_payload: Optional[Dict]):
-        if event_payload is None:
+    def _parse_input_from_event(self, event: CallbackEvent):
+        if event.payload is None:
             return
+
+        payload = event.payload.copy()
+
+        if EventPayload.SERIALIZED in payload:
+            # Always pop Serialized from payload as it may contain LLM api keys
+            payload.pop(EventPayload.SERIALIZED)
+
+        if event.event_type == CBEventType.EMBEDDING and EventPayload.CHUNKS in payload:
+            chunks = payload.get(EventPayload.CHUNKS)
+            return {"num_chunks": len(chunks)}
+
+        if (
+            event.event_type == CBEventType.NODE_PARSING
+            and EventPayload.DOCUMENTS in payload
+        ):
+            documents = payload.pop(EventPayload.DOCUMENTS)
+            payload["documents"] = [doc.metadata for doc in documents]
+            return payload
 
         for key in [EventPayload.MESSAGES, EventPayload.QUERY_STR, EventPayload.PROMPT]:
-            if key in event_payload:
-                return event_payload.get(key)
+            if key in payload:
+                return payload.get(key)
 
-    def _parse_output_from_event_payload(self, event_payload):
-        if event_payload is None:
+        return payload or None
+
+    def _parse_output_from_event(self, event: CallbackEvent):
+        if event.payload is None:
             return
 
-        if EventPayload.COMPLETION in event_payload:
-            return event_payload.get(EventPayload.COMPLETION)
+        payload = event.payload.copy()
 
-        if EventPayload.RESPONSE in event_payload:
-            response = event_payload.get(EventPayload.RESPONSE)
+        if EventPayload.SERIALIZED in payload:
+            # Always pop Serialized from payload as it may contain LLM api keys
+            payload.pop(EventPayload.SERIALIZED)
+
+        if (
+            event.event_type == CBEventType.EMBEDDING
+            and EventPayload.EMBEDDINGS in payload
+        ):
+            embeddings = payload.get(EventPayload.EMBEDDINGS)
+            return {"num_embeddings": len(embeddings)}
+
+        if (
+            event.event_type == CBEventType.NODE_PARSING
+            and EventPayload.NODES in payload
+        ):
+            nodes = payload.pop(EventPayload.NODES)
+            payload["num_nodes"] = len(nodes)
+            return payload
+
+        if event.event_type == CBEventType.CHUNKING and EventPayload.CHUNKS in payload:
+            chunks = payload.pop(EventPayload.CHUNKS)
+            payload["num_chunks"] = len(chunks)
+
+        if EventPayload.COMPLETION in payload:
+            return payload.get(EventPayload.COMPLETION)
+
+        if EventPayload.RESPONSE in payload:
+            response = payload.get(EventPayload.RESPONSE)
+
+            # Skip streaming responses as consuming them would block the user's execution path
+            if "Streaming" in type(response).__name__:
+                return None
 
             if hasattr(response, "response"):
                 return response.response
@@ -594,25 +619,27 @@ class LlamaIndexCallbackHandler(
 
                 return output
 
-        return event_payload
+        return payload or None
 
-    def _parse_metadata_from_event_payload(self, event_payload: Optional[Dict]):
-        if event_payload is None:
+    def _parse_metadata_from_event(self, event: CallbackEvent):
+        if event.payload is None:
             return
 
         metadata = {}
 
-        for key in event_payload.keys():
+        for key in event.payload.keys():
             if key not in [
                 EventPayload.MESSAGES,
                 EventPayload.QUERY_STR,
                 EventPayload.PROMPT,
                 EventPayload.COMPLETION,
+                EventPayload.SERIALIZED,
+                "additional_kwargs",
             ]:
                 if key != EventPayload.RESPONSE:
-                    metadata[key] = event_payload[key]
+                    metadata[key] = event.payload[key]
                 else:
-                    response = event_payload.get(EventPayload.RESPONSE)
+                    response = event.payload.get(EventPayload.RESPONSE)
 
                     for res_key, value in vars(response).items():
                         if (
@@ -620,6 +647,7 @@ class LlamaIndexCallbackHandler(
                             and res_key
                             not in [
                                 "response",
+                                "response_txt",
                                 "message",
                                 "additional_kwargs",
                                 "delta",

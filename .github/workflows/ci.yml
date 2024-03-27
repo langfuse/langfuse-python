@@ -41,6 +41,9 @@ jobs:
     name: Test on Python version ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
 
       - name: Clone langfuse server
         run: |
@@ -72,17 +75,13 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Install dependencies (necessary to run seeder)"
-          npm ci
+          pnpm i
           echo "::endgroup::"
 
           echo "::group::Seed db"
           cp .env.dev.example .env
-          pwd
-          cd ./web
-          pwd
-          npm run db:migrate
-          npm run db:seed
-          cd ..
+          pnpm run db:migrate          
+          pnpm run db:seed
           echo "::endgroup::"
 
           echo "::group::Run server"

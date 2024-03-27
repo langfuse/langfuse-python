@@ -1,6 +1,25 @@
+'''
+If you use the OpenAI Python SDK, you can use the Langfuse drop-in replacement to get full logging by changing only the import.
+
+```diff
+- import openai
++ from langfuse.openai import openai
+```
+
+Langfuse automatically tracks:
+
+- All prompts/completions with support for streaming, async and functions
+- Latencies
+- API Errors
+- Model usage (tokens) and cost (USD)
+
+The integration is fully interoperable with the `observe()` decorator and the low-level tracing SDK.
+
+See docs for more details: https://langfuse.com/docs/integrations/openai
+'''
+
 import copy
 import logging
-import threading
 import types
 from typing import List, Optional
 
@@ -9,17 +28,27 @@ from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
+from langfuse.decorators import langfuse_context
 from langfuse.utils import _get_timestamp
+from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
 try:
     import openai
-    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
     raise ModuleNotFoundError(
-        "Please install OpenAI to use this feature: 'pip install openai"
+        "Please install OpenAI to use this feature: 'pip install openai'"
     )
 
+try:
+    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
+except ImportError:
+    AsyncAzureOpenAI = None
+    AsyncOpenAI = None
+    AzureOpenAI = None
+    OpenAI = None
+
 log = logging.getLogger("langfuse")
+
 
 class OpenAiDefinition:
     module: str
@@ -182,7 +211,10 @@ def _get_langfuse_data_from_kwargs(
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
 
-    trace_id = kwargs.get("trace_id", None)
+    decorator_context_observation_id = langfuse_context.get_current_observation_id()
+    decorator_context_trace_id = langfuse_context.get_current_trace_id()
+
+    trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
     if trace_id is not None and not isinstance(trace_id, str):
         raise TypeError("trace_id must be a string")
 
@@ -200,7 +232,17 @@ def _get_langfuse_data_from_kwargs(
     ):
         raise TypeError("tags must be a list of strings")
 
-    parent_observation_id = kwargs.get("parent_observation_id", None)
+    # Update trace params in decorator context if specified in openai call
+    if decorator_context_trace_id:
+        langfuse_context.update_current_trace(
+            session_id=session_id, user_id=user_id, tags=tags
+        )
+
+    parent_observation_id = kwargs.get("parent_observation_id", None) or (
+        decorator_context_observation_id
+        if decorator_context_observation_id != decorator_context_trace_id
+        else None
+    )
     if parent_observation_id is not None and not isinstance(parent_observation_id, str):
         raise TypeError("parent_observation_id must be a string")
     if parent_observation_id is not None and trace_id is None:
@@ -209,9 +251,12 @@ def _get_langfuse_data_from_kwargs(
     if trace_id:
         langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
     else:
-        trace_id = langfuse.trace(
-            session_id=session_id, user_id=user_id, tags=tags, name=name
-        ).id
+        trace_id = (
+            decorator_context_trace_id
+            or langfuse.trace(
+                session_id=session_id, user_id=user_id, tags=tags, name=name
+            ).id
+        )
 
     metadata = kwargs.get("metadata", {})
 
@@ -497,28 +542,17 @@ async def _wrap_async(
 
 
 class OpenAILangfuse:
-    _instance = None
-    _lock = threading.Lock()
     _langfuse: Optional[Langfuse] = None
 
-    def __new__(cls):
-        if not cls._instance:
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super(OpenAILangfuse, cls).__new__(cls)
-        return cls._instance
-
     def initialize(self):
-        if not self._langfuse:
-            with self._lock:
-                if not self._langfuse:
-                    self._langfuse = Langfuse(
-                        public_key=openai.langfuse_public_key,
-                        secret_key=openai.langfuse_secret_key,
-                        host=openai.langfuse_host,
-                        debug=openai.langfuse_debug,
-                        sdk_integration="openai",
-                    )
+        self._langfuse = LangfuseSingleton().get(
+            public_key=openai.langfuse_public_key,
+            secret_key=openai.langfuse_secret_key,
+            host=openai.langfuse_host,
+            debug=openai.langfuse_debug,
+            sdk_integration="openai",
+        )
+
         return self._langfuse
 
     def flush(cls):

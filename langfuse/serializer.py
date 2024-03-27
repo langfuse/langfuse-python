@@ -1,5 +1,10 @@
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
+
+'''
+@private
+'''
+
 from datetime import date, datetime
 from json import JSONEncoder
 from typing import Any
@@ -18,14 +23,18 @@ except ImportError:
 
 
 class EventSerializer(JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seen = set()  # Track seen objects to detect circular references
+
     def default(self, obj: Any):
         if isinstance(obj, (datetime)):
             # Timezone-awareness check
             return serialize_datetime(obj)
 
-        # LlamaIndex StreamingAgentChatResponse is not serializable by default as it is a generator
-        # Attention: StreamingAgentChatResponse is a also a dataclass, so check for it first
-        if type(obj).__name__ == "StreamingAgentChatResponse":
+        # LlamaIndex StreamingAgentChatResponse and StreamingResponse is not serializable by default as it is a generator
+        # Attention: These LlamaIndex objects are a also a dataclasses, so check for it first
+        if "Streaming" in type(obj).__name__:
             return str(obj)
 
         if is_dataclass(obj):
@@ -48,11 +57,30 @@ class EventSerializer(JSONEncoder):
         if isinstance(obj, Sequence):
             return [self.default(item) for item in obj]
 
+        if isinstance(obj, (tuple, set, frozenset)):
+            return list(obj)
+
         if hasattr(obj, "__slots__"):
             return self.default(
                 {slot: getattr(obj, slot, None) for slot in obj.__slots__}
             )
         elif hasattr(obj, "__dict__"):
-            return self.default(vars(obj))
+            obj_id = id(obj)
+
+            if obj_id in self.seen:
+                # Break on circular references
+                return type(obj).__name__
+            else:
+                self.seen.add(obj_id)
+                result = {k: self.default(v) for k, v in vars(obj).items()}
+                self.seen.remove(obj_id)
+
+                return result
+
         else:
-            return JSONEncoder.default(self, obj)
+            # Return object type rather than JSONEncoder.default(obj) which simply raises a TypeError
+            return type(obj).__name__
+
+    def encode(self, obj: Any) -> str:
+        self.seen.clear()  # Clear seen objects before each encode call
+        return super().encode(obj)

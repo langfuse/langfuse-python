@@ -5,7 +5,7 @@ import typing
 import uuid
 import httpx
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
@@ -47,6 +47,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
+from langfuse.types import SpanLevel
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -97,7 +98,7 @@ class Langfuse(object):
         flush_interval: float = 0.5,
         max_retries: int = 3,
         timeout: int = 10,  # seconds
-        sdk_integration: str = "default",
+        sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
     ):
         """Initialize the Langfuse client.
@@ -783,7 +784,7 @@ class Langfuse(object):
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
@@ -889,7 +890,7 @@ class Langfuse(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -986,7 +987,7 @@ class Langfuse(object):
         end_time: typing.Optional[dt.datetime] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         model: typing.Optional[str] = None,
@@ -1246,7 +1247,7 @@ class StatefulClient(object):
         start_time: typing.Optional[dt.datetime] = None,
         end_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
@@ -1359,7 +1360,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -1524,7 +1525,7 @@ class StatefulClient(object):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -1638,7 +1639,7 @@ class StatefulGenerationClient(StatefulClient):
         end_time: typing.Optional[dt.datetime] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         model: typing.Optional[str] = None,
@@ -1739,7 +1740,7 @@ class StatefulGenerationClient(StatefulClient):
         end_time: typing.Optional[dt.datetime] = None,
         completion_start_time: typing.Optional[dt.datetime] = None,
         metadata: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         model: typing.Optional[str] = None,
@@ -1841,7 +1842,7 @@ class StatefulSpanClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -1924,7 +1925,7 @@ class StatefulSpanClient(StatefulClient):
         metadata: typing.Optional[typing.Any] = None,
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
-        level: typing.Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]] = None,
+        level: typing.Optional[SpanLevel] = None,
         status_message: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
         **kwargs,
@@ -1997,11 +1998,6 @@ class StatefulSpanClient(StatefulClient):
         from langfuse.callback import CallbackHandler
 
         return CallbackHandler(stateful_client=self)
-
-    def get_llama_index_handler(self):
-        from langfuse.llama_index import LlamaIndexCallbackHandler
-
-        return LlamaIndexCallbackHandler(stateful_client=self)
 
 
 class StatefulTraceClient(StatefulClient):

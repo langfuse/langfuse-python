@@ -1,3 +1,7 @@
+'''
+@private
+'''
+
 import re
 from typing import Any, Dict, List, Optional
 from langchain_core.load import loads, dumps
@@ -280,6 +284,11 @@ def _extract_model_name(
 
     # anthropic
     model = _extract_model_by_pattern("Anthropic", serialized, "model", "anthropic")
+    if model:
+        return model
+
+    # anthropic
+    model = _extract_model_by_pattern("ChatAnthropic", serialized, "model")
     if model:
         return model
 

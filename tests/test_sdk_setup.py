@@ -11,6 +11,7 @@ from langfuse.api.resources.commons.errors.unauthorized_error import Unauthorize
 from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
 from langfuse.openai import _is_openai_v1, auth_check, openai
+from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from tests.test_task_manager import get_host
 
 chat_func = (
@@ -315,6 +316,8 @@ def test_openai_auth_check():
 
 
 def test_openai_auth_check_failing_key():
+    LangfuseSingleton().reset()
+
     secret_key = os.environ["LANGFUSE_SECRET_KEY"]
     os.environ.pop("LANGFUSE_SECRET_KEY")
 
@@ -332,6 +335,8 @@ def test_openai_auth_check_failing_key():
 
 
 def test_openai_configured(httpserver: HTTPServer):
+    LangfuseSingleton().reset()
+
     httpserver.expect_request(
         "/api/public/ingestion", method="POST"
     ).respond_with_response(Response(status=200))

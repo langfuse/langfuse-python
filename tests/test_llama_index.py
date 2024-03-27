@@ -1,14 +1,8 @@
-import os
-
 from llama_index.core import (
     Settings,
     PromptTemplate,
-    VectorStoreIndex,
-    SimpleDirectoryReader,
-    load_index_from_storage,
-    StorageContext,
 )
-from llama_index.core.callbacks import CallbackManager, CBEventType
+from llama_index.core.callbacks import CallbackManager
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
@@ -16,26 +10,7 @@ from llama_index.core.query_pipeline import QueryPipeline
 from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.client import Langfuse
 
-from tests.utils import create_uuid, get_api
-
-
-def get_index(callback, force_rebuild: bool = False):
-    Settings.callback_manager = CallbackManager([callback])
-    PERSIST_DIR = "tests/mocks/llama-index-storage"
-
-    if not os.path.exists(PERSIST_DIR) or force_rebuild:
-        print("Building RAG index...")
-        documents = SimpleDirectoryReader(
-            "static", ["static/state_of_the_union_short.txt"]
-        ).load_data()
-        index = VectorStoreIndex.from_documents(documents)
-        index.storage_context.persist(persist_dir=PERSIST_DIR)
-    else:
-        print("Using pre-built index from storage...")
-        storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
-        index = load_index_from_storage(storage_context)
-
-    return index
+from tests.utils import create_uuid, get_api, get_llama_index_index
 
 
 def validate_embedding_generation(generation):
@@ -81,7 +56,7 @@ def test_callback_init():
 
 def test_callback_from_index_construction():
     callback = LlamaIndexCallbackHandler()
-    get_index(callback, force_rebuild=True)
+    get_llama_index_index(callback, force_rebuild=True)
 
     assert callback.trace is not None
 
@@ -94,8 +69,7 @@ def test_callback_from_index_construction():
 
     observations = trace_data.observations
 
-    assert any(o.name == CBEventType.NODE_PARSING for o in observations)
-    assert any(o.name == CBEventType.CHUNKING for o in observations)
+    assert any(o.name == "OpenAIEmbedding" for o in observations)
 
     # Test embedding generation
     generations = sorted(
@@ -110,7 +84,7 @@ def test_callback_from_index_construction():
 
 def test_callback_from_query_engine():
     callback = LlamaIndexCallbackHandler()
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
     index.as_query_engine().query(
         "What did the speaker achieve in the past twelve months?"
     )
@@ -134,7 +108,7 @@ def test_callback_from_query_engine():
 
 def test_callback_from_chat_engine():
     callback = LlamaIndexCallbackHandler()
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
     index.as_chat_engine().chat(
         "What did the speaker achieve in the past twelve months?"
     )
@@ -157,9 +131,36 @@ def test_callback_from_chat_engine():
     assert all([validate_llm_generation(g) for g in llm_generations])
 
 
+def test_callback_from_query_engine_stream():
+    callback = LlamaIndexCallbackHandler()
+    index = get_llama_index_index(callback)
+    stream_response = index.as_query_engine(streaming=True).query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+
+    for token in stream_response.response_gen:
+        print(token, end="")
+
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
+
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
+    llm_generations = [g for g in generations if g.name == "openai_llm"]
+
+    assert len(embedding_generations) == 1
+    assert len(llm_generations) > 0
+
+    assert all([validate_embedding_generation(g) for g in embedding_generations])
+
+
 def test_callback_from_chat_stream():
     callback = LlamaIndexCallbackHandler()
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
     stream_response = index.as_chat_engine().stream_chat(
         "What did the speaker achieve in the past twelve months?"
     )
@@ -220,7 +221,7 @@ def test_callback_from_query_pipeline():
 
 def test_callback_with_root_trace():
     callback = LlamaIndexCallbackHandler()
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
 
     langfuse = Langfuse(debug=False)
     trace_id = create_uuid()
@@ -293,7 +294,7 @@ def test_callback_with_root_trace():
 
 def test_callback_with_root_span():
     callback = LlamaIndexCallbackHandler()
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
 
     langfuse = Langfuse(debug=False)
     trace_id = create_uuid()
@@ -381,7 +382,7 @@ def test_callback_with_custom_trace_metadata():
         tags=initial_tags,
     )
 
-    index = get_index(callback)
+    index = get_llama_index_index(callback)
     index.as_query_engine().query(
         "What did the speaker achieve in the past twelve months?"
     )
