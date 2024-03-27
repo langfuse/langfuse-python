@@ -472,7 +472,7 @@ async def test_chains_ainvoke_completions_models(model_name):
 async def test_chains_astream_chat_models(model_name):
     name = create_uuid()
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(streaming=True, max_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     prompt1 = PromptTemplate.from_template(
         """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
@@ -525,7 +525,7 @@ async def test_chains_astream_chat_models(model_name):
 async def test_chains_astream_completions_models(model_name):
     name = create_uuid()
     tags = ["Hello", "world"]
-    model = OpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = OpenAI(streaming=True, max_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     prompt1 = PromptTemplate.from_template(
         """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
