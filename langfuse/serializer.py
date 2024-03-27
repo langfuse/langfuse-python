@@ -35,6 +35,10 @@ class EventSerializer(JSONEncoder):
         if "Streaming" in type(obj).__name__:
             return str(obj)
 
+        # In case the Object type is `object`
+        if isinstance(obj, object):
+            return str(obj)
+
         if is_dataclass(obj):
             return asdict(obj)
         if isinstance(obj, UUID):
