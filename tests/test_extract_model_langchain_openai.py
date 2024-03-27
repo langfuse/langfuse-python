@@ -51,6 +51,50 @@ def test_entire_llm_call_using_langchain_openai(expected_model, model):
     assert generation.model == expected_model
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(  # noqa: F821
+    "expected_model,model",
+    [
+        ("gpt-3.5-turbo", ChatOpenAI()),
+        ("gpt-3.5-turbo-instruct", OpenAI()),
+        (
+            "gpt-3.5-turbo",
+            AzureChatOpenAI(
+                openai_api_version="2023-05-15",
+                azure_deployment="your-deployment-name",
+                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+            ),
+        ),
+        (
+            "gpt-3.5-turbo-instruct",
+            AzureOpenAI(
+                openai_api_version="2023-05-15",
+                azure_deployment="your-deployment-name",
+                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+            ),
+        ),
+    ],
+)
+async def test_ainvoke_on_llm_call_using_langchain_openai(expected_model, model):
+    callback = CallbackHandler()
+    try:
+        # LLM calls are failing, because of missing API keys etc.
+        # However, we are still able to extract the model names beforehand.
+        await model.ainvoke("Hello, how are you?", config={"callbacks": [callback]})
+    except Exception as e:
+        print(e)
+        pass
+
+    callback.flush()
+    api = get_api()
+
+    trace = api.trace.get(callback.get_trace_id())
+    assert len(trace.observations) == 1
+
+    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
+    assert generation.model == expected_model
+
+
 @pytest.mark.parametrize(  # noqa: F821
     "expected_model,model",
     [
@@ -152,7 +196,7 @@ def test_chain_streaming_llm_call_with_langchain_openai(expected_model, model):
 async def test_chain_async_streaming_llm_call_with_langchain_openai(
     expected_model, model
 ):
-    trace_name = f"Chain Streaming {expected_model}"
+    trace_name = f"Chain Async Streaming {expected_model}"
     callback = CallbackHandler(trace_name=trace_name)
     try:
         prompt1 = ChatPromptTemplate.from_template(
@@ -228,7 +272,7 @@ async def test_chain_async_invoke_llm_call_with_langchain_openai(expected_model,
         ("gpt-4-0613", ChatOpenAI(streaming=True, model="gpt-4-0613")),
     ],
 )
-def test_invoke_llm_call_with_langchain_openai(expected_model, model):
+def test_chain_invoke_llm_call_with_langchain_openai(expected_model, model):
     trace_name = f"Chain Invoke{expected_model}"
     callback = CallbackHandler(trace_name=trace_name)
     try:
