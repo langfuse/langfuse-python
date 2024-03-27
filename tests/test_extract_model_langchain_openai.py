@@ -1,6 +1,5 @@
 from langchain_openai import AzureChatOpenAI, AzureOpenAI, ChatOpenAI, OpenAI
 import pytest
-
 from langfuse.callback import CallbackHandler
 from tests.utils import get_api
 
@@ -30,13 +29,7 @@ from tests.utils import get_api
 )
 def test_entire_llm_call_using_langchain_openai(expected_model, model):
     callback = CallbackHandler()
-    try:
-        # LLM calls are failing, because of missing API keys etc.
-        # However, we are still able to extract the model names beforehand.
-        model.invoke("Hello, how are you?", config={"callbacks": [callback]})
-    except Exception as e:
-        print(e)
-        pass
+    model.invoke("Hello, how are you?", config={"callbacks": [callback]})
 
     callback.flush()
     api = get_api()
