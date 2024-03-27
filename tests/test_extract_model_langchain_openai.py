@@ -78,7 +78,6 @@ def test_simple_streaming_llm_call_with_langchain_openai(expected_model, model):
     callback = CallbackHandler()
     try:
         res = model.stream("Hello, how are you?", config={"callbacks": [callback]})
-        assert _is_streaming_response(res)
         for chunk in res:
             chunk
     except Exception as e:
@@ -90,6 +89,7 @@ def test_simple_streaming_llm_call_with_langchain_openai(expected_model, model):
 
     trace = api.trace.get(callback.get_trace_id())
 
+    assert _is_streaming_response(res)
     assert len(trace.observations) == 1
 
     generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
@@ -121,7 +121,6 @@ def test_chain_streaming_llm_call_with_langchain_openai(expected_model, model):
         )
         chain = prompt1 | model | StrOutputParser()
         res = chain.stream("Hello, how are you?", config={"callbacks": [callback]})
-        assert _is_streaming_response(res)
         for chunk in res:
             chunk
     except Exception as e:
@@ -133,11 +132,13 @@ def test_chain_streaming_llm_call_with_langchain_openai(expected_model, model):
 
     trace = api.trace.get(callback.get_trace_id())
 
+    assert _is_streaming_response(res)
     assert len(trace.observations) == 4
     assert trace.name == trace_name
 
     generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
     assert generation.model == expected_model
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(  # noqa: F821
@@ -148,7 +149,9 @@ def test_chain_streaming_llm_call_with_langchain_openai(expected_model, model):
         ("gpt-4-0613", ChatOpenAI(streaming=True, model="gpt-4-0613")),
     ],
 )
-async def test_chain_async_streaming_llm_call_with_langchain_openai(expected_model, model):
+async def test_chain_async_streaming_llm_call_with_langchain_openai(
+    expected_model, model
+):
     trace_name = f"Chain Streaming {expected_model}"
     callback = CallbackHandler(trace_name=trace_name)
     try:
@@ -159,7 +162,6 @@ async def test_chain_async_streaming_llm_call_with_langchain_openai(expected_mod
         )
         chain = prompt1 | model | StrOutputParser()
         res = chain.astream("Hello, how are you?", config={"callbacks": [callback]})
-        assert _is_streaming_response(res)
         async for chunk in res:
             chunk
     except Exception as e:
@@ -171,6 +173,7 @@ async def test_chain_async_streaming_llm_call_with_langchain_openai(expected_mod
 
     trace = api.trace.get(callback.get_trace_id())
 
+    assert _is_streaming_response(res)
     assert len(trace.observations) == 4
     assert trace.name == trace_name
 
