@@ -1,10 +1,9 @@
-from collections.abc import Sequence
-from dataclasses import asdict, is_dataclass
-
 '''
 @private
 '''
 
+from collections.abc import Sequence
+from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
 from json import JSONEncoder
 from typing import Any
