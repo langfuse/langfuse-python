@@ -40,28 +40,38 @@ async def get_response_openai(prompt, background_tasks: BackgroundTasks):
         dict: A dictionary containing the response status and message (always "This is a test message").
     """
     try:
+        # Create a trace
         trace = langfuse.trace(
             name="this-is-a-trace",
             user_id="test",
             metadata="test",
         )
 
-        trace = trace.score(
+        # Score the trace
+        trace.score(
             name="user-feedback",
             value=1,
             comment="Some user feedback",
         )
 
-        generation = trace.generation(name="this-is-a-generation", metadata="test")
-
-        sub_generation = generation.generation(
-            name="this-is-a-sub-generation", metadata="test"
+        # Create a generation within the trace
+        generation = trace.generation(
+            name="this-is-a-generation", 
+            metadata="test"
         )
 
+        # Create a sub-generation within the trace
+        sub_generation = generation.generation(
+            name="this-is-a-sub-generation", 
+            metadata="test"
+        )
+
+        # Create a sub-sub-span within the trace
         sub_sub_span = sub_generation.span(
             name="this-is-a-sub-sub-span", metadata="test"
         )
 
+        # Create a score on the sub-sub-span within the trace
         sub_sub_span = sub_sub_span.score(
             name="user-feedback-o",
             value=1,
