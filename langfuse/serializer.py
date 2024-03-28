@@ -2,15 +2,16 @@
 @private
 '''
 
+from collections.abc import Sequence
+from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
-from dataclasses import is_dataclass, asdict
 from json import JSONEncoder
 from typing import Any
 from uuid import UUID
 
-from langfuse.api.core import serialize_datetime
-
 from pydantic import BaseModel
+
+from langfuse.api.core import serialize_datetime
 
 # Attempt to import Serializable
 try:
@@ -52,6 +53,8 @@ class EventSerializer(JSONEncoder):
         # Standard JSON-encodable types
         if isinstance(obj, (dict, list, str, int, float, type(None))):
             return obj
+        if isinstance(obj, Sequence):
+            return [self.default(item) for item in obj]
 
         if isinstance(obj, (tuple, set, frozenset)):
             return list(obj)
