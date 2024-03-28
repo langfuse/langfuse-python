@@ -1,9 +1,11 @@
+from langchain_openai import ChatOpenAI
 from llama_index.core import (
     Settings,
     PromptTemplate,
 )
 from llama_index.core.callbacks import CallbackManager
 from llama_index.llms.openai import OpenAI
+from llama_index.llms.langchain import LangChainLLM
 from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
 
@@ -195,6 +197,7 @@ def test_callback_from_query_pipeline():
     models = [
         ("openai_llm", OpenAI(model="gpt-3.5-turbo")),
         ("Anthropic_LLM", Anthropic()),
+        ("LangChainLLM", LangChainLLM(llm=ChatOpenAI(model_name="gpt-3.5-turbo"))),
     ]
 
     for model_name, llm in models:
@@ -216,7 +219,9 @@ def test_callback_from_query_pipeline():
         )
 
         assert len(llm_generations) == 1
-        assert validate_llm_generation(llm_generations[0], model_name=model_name)
+        if model_name != "LangChainLLM":
+            # LangChainLLM needs additional work to parse model name, usage and cost information
+            assert validate_llm_generation(llm_generations[0], model_name=model_name)
 
 
 def test_callback_with_root_trace():

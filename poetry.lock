@@ -1842,7 +1842,7 @@ adal = ["adal (>=1.0.2)"]
 name = "langchain"
 version = "0.1.12"
 description = "Building applications with LLMs through composability"
-optional = true
+optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
     {file = "langchain-0.1.12-py3-none-any.whl", hash = "sha256:b4dd1760e2d035daefad08af60a209b96b729ee45492d34e3e127e553a471034"},
@@ -1899,7 +1899,7 @@ langchain-core = ">=0.1,<0.2"
 name = "langchain-community"
 version = "0.0.28"
 description = "Community contributed LangChain integrations."
-optional = true
+optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
     {file = "langchain_community-0.0.28-py3-none-any.whl", hash = "sha256:bdb015ac455ae68432ea104628717583dce041e1abdfcefe86e39f034f5e90b8"},
@@ -1998,7 +1998,7 @@ tiktoken = ">=0.5.2,<1"
 name = "langchain-text-splitters"
 version = "0.0.1"
 description = "LangChain text splitting utilities"
-optional = true
+optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
     {file = "langchain_text_splitters-0.0.1-py3-none-any.whl", hash = "sha256:f5b802f873f5ff6a8b9259ff34d53ed989666ef4e1582e6d1adb3b5520e3839a"},
@@ -2228,10 +2228,42 @@ anthropic = ">=0.20.0,<0.21.0"
 llama-index-core = ">=0.10.1,<0.11.0"
 
 [[package]]
+name = "llama-index-llms-anyscale"
+version = "0.1.3"
+description = "llama-index llms anyscale integration"
+optional = false
+python-versions = ">=3.8.1,<4.0"
+files = [
+    {file = "llama_index_llms_anyscale-0.1.3-py3-none-any.whl", hash = "sha256:3ac1d33169dff8d5b7364bcafc7abb6780ded77fabe7d70897dcf58e097c7432"},
+    {file = "llama_index_llms_anyscale-0.1.3.tar.gz", hash = "sha256:d5a7a5d1ed7e196b51d8e356c025ff428cebbadcd5c4a8b85ceffa4189c8e640"},
+]
+
+[package.dependencies]
+llama-index-core = ">=0.10.1,<0.11.0"
+llama-index-llms-openai = ">=0.1.1,<0.2.0"
+
+[[package]]
+name = "llama-index-llms-langchain"
+version = "0.1.3"
+description = "llama-index llms langchain integration"
+optional = false
+python-versions = ">=3.8.1,<4.0"
+files = [
+    {file = "llama_index_llms_langchain-0.1.3-py3-none-any.whl", hash = "sha256:7c2bcd717c9fb81b6d89271b30b54ebfb35bab913e4c64cef8c1f93d84a4f407"},
+    {file = "llama_index_llms_langchain-0.1.3.tar.gz", hash = "sha256:0b12ac0d8de5987e6f29846c683ef4a6ac469cef56c77c2a91a491169a0cb835"},
+]
+
+[package.dependencies]
+langchain = ">=0.1.3,<0.2.0"
+llama-index-core = ">=0.10.1,<0.11.0"
+llama-index-llms-anyscale = ">=0.1.1,<0.2.0"
+llama-index-llms-openai = ">=0.1.1,<0.2.0"
+
+[[package]]
 name = "llama-index-llms-openai"
 version = "0.1.7"
 description = "llama-index llms openai integration"
-optional = true
+optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
     {file = "llama_index_llms_openai-0.1.7-py3-none-any.whl", hash = "sha256:162a7f1064b389d0db6f731bcedaca80e87ceca8aa919d7425ca32107e756243"},
@@ -3766,7 +3798,6 @@ python-versions = ">=3.8"
 files = [
     {file = "PyMuPDFb-1.23.22-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:9085a1e2fbf16f2820f9f7ad3d25e85f81d9b9eb0409110c1670d4cf5a27a678"},
     {file = "PyMuPDFb-1.23.22-py3-none-macosx_11_0_arm64.whl", hash = "sha256:01016dd33220cef4ecaf929d09fd27a584dc3ec3e5c9f4112dfe63613ea35135"},
-    {file = "PyMuPDFb-1.23.22-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:cf50e814db91f2a2325219302fbac229a23682c372cf8232aabd51ea3f18210e"},
     {file = "PyMuPDFb-1.23.22-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:3ffa713ad18e816e584c8a5f569995c32d22f8ac76ab6e4a61f2d2983c4b73d9"},
     {file = "PyMuPDFb-1.23.22-py3-none-win32.whl", hash = "sha256:d00e372452845aea624659c302d25e935052269fd3aafe26948301576d6f2ee8"},
     {file = "PyMuPDFb-1.23.22-py3-none-win_amd64.whl", hash = "sha256:7c9c157281fdee9f296e666a323307dbf74cb38f017921bb131fa7bfcd39c2bd"},
@@ -3980,7 +4011,6 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
-    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -5327,4 +5357,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "1c68979f31b3ab099367a7c8680eb43f1b76d086f0474050374d72c93d76e639"
+content-hash = "d5765febfba008a2df7027c3c9ad7407dd07276a4d345614144931b221709ecf"
