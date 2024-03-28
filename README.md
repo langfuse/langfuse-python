@@ -16,7 +16,7 @@
 pip install langfuse
 ```
 
-Docs
+## Docs
 
 - Decorators: https://langfuse.com/docs/sdk/python/decorators
 - Low-level SDK: https://langfuse.com/docs/sdk/python/low-level-sdk
