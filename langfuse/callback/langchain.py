@@ -26,6 +26,7 @@ from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 try:
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
+    from langchain.callbacks.manager import CallbackManagerForChainRun
     from langchain_core.outputs import (
         ChatGeneration,
         LLMResult,
@@ -91,7 +92,6 @@ class LangchainCallbackHandler(
             timeout=timeout,
             sdk_integration=sdk_integration or "langchain",
         )
-
         self.runs = {}
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
@@ -202,6 +202,12 @@ class LangchainCallbackHandler(
                     self.runs[run_id] = self.root_span.span(**content)
             if parent_run_id is not None:
                 self.runs[run_id] = self.runs[parent_run_id].span(**content)
+            return CallbackManagerForChainRun(
+                parent_run_id=parent_run_id,
+                run_id=run_id,
+                handlers=[],
+                inheritable_handlers=[],
+            )
 
         except Exception as e:
             self.log.exception(e)
@@ -222,13 +228,13 @@ class LangchainCallbackHandler(
 
             # on a new invocation, and not user provided root, we want to initialise a new trace
             # parent_run_id is None when we are at the root of a langchain execution
-            if (
-                self.trace is not None
-                and parent_run_id is None
-                and self.langfuse is not None
-            ):
-                self.trace = None
-                self.runs = {}
+            # if (
+            #     self.trace is not None
+            #     and parent_run_id is None
+            #     and self.langfuse is not None
+            # ):
+            #     # self.trace = None
+            # self.runs = {}
 
             # if we are at a root, but langfuse exists, it means we do not have a
             # root provided by a user. Initialise it by creating a trace and root span.
