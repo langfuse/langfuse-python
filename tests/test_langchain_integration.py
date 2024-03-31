@@ -220,7 +220,7 @@ def test_batch_in_completions_models(model_name):
 
     generation = generationList[0]
 
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
     assert trace.name == name
     assert generation.model == model_name
     assert generation.input is not None
@@ -268,24 +268,23 @@ def test_batch_in_chat_models(model_name):
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    generation = generationList[0]
-
     assert len(trace.observations) == 2
     assert trace.name == name
-    assert generation.model == model_name
-    assert generation.input is not None
-    assert generation.output is not None
-    assert generation.model_parameters.get("max_tokens") is not None
-    assert generation.model_parameters.get("temperature") is not None
-    assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
-    assert generation.input_price is not None
-    assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
-    assert generation.latency is not None
+    for generation in generationList:
+        assert generation.model == model_name
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.model_parameters.get("max_tokens") is not None
+        assert generation.model_parameters.get("temperature") is not None
+        assert generation.metadata["tags"] == tags
+        assert generation.usage.output is not None
+        assert generation.usage.total is not None
+        assert generation.input_price is not None
+        assert generation.output_price is not None
+        assert generation.calculated_input_cost is not None
+        assert generation.calculated_output_cost is not None
+        assert generation.calculated_total_cost is not None
+        assert generation.latency is not None
 
 
 # Async stream in chat models
@@ -493,7 +492,7 @@ def test_chains_batch_in_chat_models(model_name):
     assert len(generationList) != 0
 
     # generation = generationList[0]
-    assert len(trace.observations) == 8
+    assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
         assert generation.model == model_name
@@ -536,7 +535,7 @@ def test_chains_batch_in_completions_models(model_name):
     assert len(generationList) != 0
 
     # generation = generationList[0]
-    assert len(trace.observations) == 8
+    assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
         assert generation.model == model_name
@@ -581,7 +580,7 @@ async def test_chains_abatch_in_chat_models(model_name):
     assert len(generationList) != 0
 
     # generation = generationList[0]
-    assert len(trace.observations) == 8
+    assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
         assert generation.model == model_name
@@ -623,7 +622,7 @@ async def test_chains_abatch_in_completions_models(model_name):
     assert len(generationList) != 0
 
     # generation = generationList[0]
-    assert len(trace.observations) == 8
+    assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
         assert generation.model == model_name
