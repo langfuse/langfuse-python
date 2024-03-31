@@ -16,9 +16,11 @@
 pip install langfuse
 ```
 
-Full documentation: https://docs.langfuse.com/sdk/python
+## Docs
 
-Langchain documentation: https://docs.langfuse.com/langchain
+- Decorators: https://langfuse.com/docs/sdk/python/decorators
+- Low-level SDK: https://langfuse.com/docs/sdk/python/low-level-sdk
+- Langchain integration: https://langfuse.com/docs/integrations/langchain/tracing
 
 ## Interfaces
 
