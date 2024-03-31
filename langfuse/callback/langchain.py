@@ -223,12 +223,13 @@ class LangchainCallbackHandler(
 
             # on a new invocation, and not user provided root, we want to initialise a new trace
             # parent_run_id is None when we are at the root of a langchain execution
-            # if (
-            #     self.trace is not None
-            #     and parent_run_id is None
-            #     and self.langfuse is not None
-            # ):
-            #     # self.trace = None
+            if (
+                self.trace is not None
+                and parent_run_id is None
+                and self.langfuse is not None
+            ):
+                self.trace = None
+
             # self.runs = {}
 
             # if we are at a root, but langfuse exists, it means we do not have a
