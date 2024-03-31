@@ -12,7 +12,6 @@ except ImportError as e:
     )
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
-from langchain.callbacks.base import BaseCallbackHandler as LangchainBaseCallbackHandler
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
@@ -24,9 +23,11 @@ from langfuse.utils import _get_timestamp
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 
 try:
+    from langchain.callbacks.base import (
+        BaseCallbackHandler as LangchainBaseCallbackHandler,
+    )
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
-    from langchain.callbacks.manager import CallbackManagerForChainRun
     from langchain_core.outputs import (
         ChatGeneration,
         LLMResult,
@@ -202,12 +203,12 @@ class LangchainCallbackHandler(
                     self.runs[run_id] = self.root_span.span(**content)
             if parent_run_id is not None:
                 self.runs[run_id] = self.runs[parent_run_id].span(**content)
-            return CallbackManagerForChainRun(
-                parent_run_id=parent_run_id,
-                run_id=run_id,
-                handlers=[],
-                inheritable_handlers=[],
-            )
+            # return CallbackManagerForChainRun(
+            #     parent_run_id=parent_run_id,
+            #     run_id=run_id,
+            #     handlers=[],
+            #     inheritable_handlers=[],
+            # )
 
         except Exception as e:
             self.log.exception(e)
