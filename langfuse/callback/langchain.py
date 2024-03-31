@@ -203,12 +203,6 @@ class LangchainCallbackHandler(
                     self.runs[run_id] = self.root_span.span(**content)
             if parent_run_id is not None:
                 self.runs[run_id] = self.runs[parent_run_id].span(**content)
-            # return CallbackManagerForChainRun(
-            #     parent_run_id=parent_run_id,
-            #     run_id=run_id,
-            #     handlers=[],
-            #     inheritable_handlers=[],
-            # )
 
         except Exception as e:
             self.log.exception(e)
