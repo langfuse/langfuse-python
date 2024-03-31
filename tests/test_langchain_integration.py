@@ -29,7 +29,6 @@ def test_stream_chat_models(model_name):
     response_str = []
     assert _is_streaming_response(res)
     for chunk in res:
-        print(chunk.content, end="", flush=True)
         response_str.append(chunk.content)
 
     callback.flush()
@@ -75,7 +74,6 @@ def test_stream_completions_models(model_name):
     response_str = []
     assert _is_streaming_response(res)
     for chunk in res:
-        print(chunk, end="", flush=True)
         response_str.append(chunk)
 
     callback.flush()
@@ -154,12 +152,10 @@ def test_invoke_in_completions_models(model_name):
     model = OpenAI(max_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     test_phrase = "This is a test!"
-    res = model.invoke(
+    _ = model.invoke(
         f"return the exact phrase - {test_phrase}",
         config={"callbacks": [callback]},
     )
-
-    print(res)
 
     callback.flush()
     api = get_api()
@@ -196,25 +192,14 @@ def test_batch_in_completions_models(model_name):
     callback = CallbackHandler(trace_name=name)
     input1 = "Who is the first president of America ?"
     input2 = "Who is the first president of Ireland ?"
-    res = model.batch(
+    _ = model.batch(
         [input1, input2],
         config={"callbacks": [callback]},
     )
-    print(res)
-
-    # prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
-
-    # chain = prompt | model | StrOutputParser()
-    # responses = chain.batch(
-    #     [{"foo": "bears"}, {"foo": "cats"}], config={"callbacks": [callback]}
-    # )
-
-    # print(responses)
 
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
-    print("TRACE: ", trace)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -246,25 +231,14 @@ def test_batch_in_chat_models(model_name):
     callback = CallbackHandler(trace_name=name)
     input1 = "Who is the first president of America ?"
     input2 = "Who is the first president of Ireland ?"
-    res = model.batch(
+    _ = model.batch(
         [input1, input2],
         config={"callbacks": [callback]},
     )
-    print(res)
-
-    # prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
-
-    # chain = prompt | model | StrOutputParser()
-    # responses = chain.batch(
-    #     [{"foo": "bears"}, {"foo": "cats"}], config={"callbacks": [callback]}
-    # )
-
-    # print(responses)
 
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
-    print("TRACE: ", trace)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -302,7 +276,6 @@ async def test_astream_chat_models(model_name):
     response_str = []
     assert _is_streaming_response(res)
     async for chunk in res:
-        print(chunk.content, end="", flush=True)
         response_str.append(chunk.content)
 
     callback.flush()
@@ -349,7 +322,6 @@ async def test_astream_completions_models(model_name):
     response_str = []
     assert _is_streaming_response(res)
     async for chunk in res:
-        print(chunk, end="", flush=True)
         response_str.append(chunk)
 
     callback.flush()
@@ -430,12 +402,10 @@ async def test_ainvoke_in_completions_models(model_name):
     model = OpenAI(max_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     test_phrase = "This is a test!"
-    res = await model.ainvoke(
+    _ = await model.ainvoke(
         f"return the exact phrase - {test_phrase}",
         config={"callbacks": [callback]},
     )
-
-    print(res)
 
     callback.flush()
     api = get_api()
@@ -478,20 +448,17 @@ def test_chains_batch_in_chat_models(model_name):
     prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
     inputs = [{"foo": "bears"}, {"foo": "cats"}]
     chain = prompt | model | StrOutputParser()
-    res = chain.batch(
+    _ = chain.batch(
         inputs,
         config={"callbacks": [callback]},
     )
-    print(res)
 
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
-    print("TRACE: ", trace)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    # generation = generationList[0]
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
@@ -521,20 +488,17 @@ def test_chains_batch_in_completions_models(model_name):
     prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
     inputs = [{"foo": "bears"}, {"foo": "cats"}]
     chain = prompt | model | StrOutputParser()
-    res = chain.batch(
+    _ = chain.batch(
         inputs,
         config={"callbacks": [callback]},
     )
-    print(res)
 
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
-    print("TRACE: ", trace)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    # generation = generationList[0]
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
@@ -566,20 +530,17 @@ async def test_chains_abatch_in_chat_models(model_name):
     prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
     inputs = [{"foo": "bears"}, {"foo": "cats"}]
     chain = prompt | model | StrOutputParser()
-    res = await chain.abatch(
+    _ = await chain.abatch(
         inputs,
         config={"callbacks": [callback]},
     )
-    print(res)
 
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
-    print("TRACE: ", trace)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    # generation = generationList[0]
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
@@ -611,17 +572,14 @@ async def test_chains_abatch_in_completions_models(model_name):
     prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
     inputs = [{"foo": "bears"}, {"foo": "cats"}]
     chain = prompt | model | StrOutputParser()
-    res = await chain.abatch(inputs, config={"callbacks": [callback]})
-    print(res)
+    _ = await chain.abatch(inputs, config={"callbacks": [callback]})
 
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
-    print("TRACE: ", trace)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    # generation = generationList[0]
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
@@ -655,19 +613,16 @@ async def test_chains_ainvoke_chat_models(model_name):
         Introduction: This is an engaging introduction for the blog post on the topic above:"""
     )
     chain = prompt1 | model | StrOutputParser()
-    res = chain.invoke(
+    _ = chain.invoke(
         {"topic": "The Impact of Climate Change"},
         config={"callbacks": [callback]},
     )
 
-    print(res)
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
-
-    print(generationList)
 
     assert len(trace.observations) == 4
     assert trace.name == name
@@ -704,19 +659,16 @@ async def test_chains_ainvoke_completions_models(model_name):
         Introduction: This is an engaging introduction for the blog post on the topic above:"""
     )
     chain = prompt1 | model | StrOutputParser()
-    res = chain.invoke(
+    _ = chain.invoke(
         {"topic": "The Impact of Climate Change"},
         config={"callbacks": [callback]},
     )
 
-    print(res)
     callback.flush()
     api = get_api()
     trace = api.trace.get(callback.get_trace_id())
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
-
-    print(generationList)
 
     generation = generationList[0]
 
@@ -759,7 +711,6 @@ async def test_chains_astream_chat_models(model_name):
     response_str = []
     assert _is_streaming_response(res)
     async for chunk in res:
-        print(chunk, end="", flush=True)
         response_str.append(chunk)
 
     callback.flush()
@@ -812,7 +763,6 @@ async def test_chains_astream_completions_models(model_name):
     response_str = []
     assert _is_streaming_response(res)
     async for chunk in res:
-        print(chunk, end="", flush=True)
         response_str.append(chunk)
 
     callback.flush()

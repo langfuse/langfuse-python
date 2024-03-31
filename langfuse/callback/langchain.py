@@ -230,8 +230,6 @@ class LangchainCallbackHandler(
             ):
                 self.trace = None
 
-            # self.runs = {}
-
             # if we are at a root, but langfuse exists, it means we do not have a
             # root provided by a user. Initialise it by creating a trace and root span.
             if self.trace is None and self.langfuse is not None:
