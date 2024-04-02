@@ -422,8 +422,8 @@ class LlamaIndexCallbackHandler(
 
         response = event_payload.get(EventPayload.RESPONSE)
 
-        if hasattr(response, "raw"):
-            model = response.raw.get("model")
+        if hasattr(response, "raw") and response.raw is not None:
+            model = response.raw.get("model", None)
             token_usage = response.raw.get("usage", {})
 
             if token_usage:
