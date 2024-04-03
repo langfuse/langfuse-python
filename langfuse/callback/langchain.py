@@ -329,6 +329,8 @@ class LangchainCallbackHandler(
             )
 
             self._update_trace(run_id, parent_run_id, outputs)
+            # Remove the run details after updating the trace.
+            del self.runs[run_id]
         except Exception as e:
             self.log.exception(e)
 
@@ -678,6 +680,8 @@ class LangchainCallbackHandler(
                 )
 
                 self._update_trace(run_id, parent_run_id, extracted_response)
+                # Remove the run details after updating the trace.
+                del self.runs[run_id]
 
         except Exception as e:
             self.log.exception(e)
