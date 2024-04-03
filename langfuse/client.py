@@ -1333,7 +1333,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "generation-create",
-                "body": new_body.dict(exclude_none=True),
+                "body": new_body.dict(exclude_none=True, exclude_unset=False),
             }
 
             self.log.debug(f"Creating generation {new_body}...")
@@ -1715,7 +1715,7 @@ class StatefulGenerationClient(StatefulClient):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "generation-update",
-                "body": request.dict(exclude_none=True),
+                "body": request.dict(exclude_none=True, exclude_unset=False),
             }
 
             self.log.debug(f"Update generation {event}...")
