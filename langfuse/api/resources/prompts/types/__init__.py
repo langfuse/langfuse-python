@@ -3,7 +3,13 @@
 from .base_prompt import BasePrompt
 from .chat_message import ChatMessage
 from .chat_prompt import ChatPrompt
-from .create_prompt_request import CreatePromptRequest
+from .create_chat_prompt_request import CreateChatPromptRequest
+from .create_prompt_request import (
+    CreatePromptRequest,
+    CreatePromptRequest_Chat,
+    CreatePromptRequest_Text,
+)
+from .create_text_prompt_request import CreateTextPromptRequest
 from .prompt import Prompt, Prompt_Chat, Prompt_Text
 from .text_prompt import TextPrompt
 
@@ -11,7 +17,11 @@ __all__ = [
     "BasePrompt",
     "ChatMessage",
     "ChatPrompt",
+    "CreateChatPromptRequest",
     "CreatePromptRequest",
+    "CreatePromptRequest_Chat",
+    "CreatePromptRequest_Text",
+    "CreateTextPromptRequest",
     "Prompt",
     "Prompt_Chat",
     "Prompt_Text",

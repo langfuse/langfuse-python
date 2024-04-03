@@ -4,12 +4,22 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from .base_prompt import BasePrompt
 from .chat_message import ChatMessage
 
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
-class ChatPrompt(BasePrompt):
+
+class CreateChatPromptRequest(pydantic.BaseModel):
+    name: str
+    is_active: bool = pydantic.Field(
+        alias="isActive",
+        description="Should the prompt be promoted to production immediately?",
+    )
     prompt: typing.List[ChatMessage]
+    config: typing.Optional[typing.Any] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
