@@ -2,10 +2,10 @@ import pytest
 from unittest.mock import Mock, patch
 
 
-from langfuse.api.resources.prompts.types.prompt import Prompt
 from langfuse.client import Langfuse, PromptClient
 from langfuse.prompt_cache import PromptCacheItem, DEFAULT_PROMPT_CACHE_TTL_SECONDS
 from tests.utils import create_uuid, get_api
+from langfuse.api.resources.prompts import Prompt_Text
 
 
 def test_create_prompt():
@@ -113,7 +113,13 @@ def langfuse():
 # Fetching a new prompt when nothing in cache
 def test_get_fresh_prompt(langfuse):
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        config={},
+    )
 
     mock_server_call = langfuse.client.prompts.get
     mock_server_call.return_value = prompt
@@ -163,7 +169,13 @@ def test_throw_if_cache_ttl_seconds_positional_argument(langfuse):
 # Should return cached prompt if not expired
 def test_get_valid_cached_prompt(langfuse):
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        config={},
+    )
     prompt_client = PromptClient(prompt)
 
     mock_server_call = langfuse.client.prompts.get
@@ -185,8 +197,12 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
     ttl_seconds = 20
 
     prompt_name = "test"
-    prompt = Prompt(
-        name=prompt_name, version=1, prompt="Make me laugh", config={"temperature": 0.9}
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        config={"temperature": 0.9},
+        type="text",
     )
     prompt_client = PromptClient(prompt)
 
@@ -218,7 +234,13 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
     mock_time.return_value = 0
 
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        config={},
+    )
     prompt_client = PromptClient(prompt)
 
     mock_server_call = langfuse.client.prompts.get
@@ -249,7 +271,13 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
     mock_time.return_value = 0
 
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        config={},
+    )
     prompt_client = PromptClient(prompt)
 
     mock_server_call = langfuse.client.prompts.get
@@ -272,7 +300,13 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
 # Should fetch new prompt if version changes
 def test_get_fresh_prompt_when_version_changes(langfuse):
     prompt_name = "test"
-    prompt = Prompt(name=prompt_name, version=1, prompt="Make me laugh")
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        config={},
+    )
     prompt_client = PromptClient(prompt)
 
     mock_server_call = langfuse.client.prompts.get
@@ -282,7 +316,13 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
     assert mock_server_call.call_count == 1
     assert result_call_1 == prompt_client
 
-    version_changed_prompt = Prompt(name=prompt_name, version=2, prompt="Make me laugh")
+    version_changed_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Make me laugh",
+        type="text",
+        config={},
+    )
     version_changed_prompt_client = PromptClient(version_changed_prompt)
     mock_server_call.return_value = version_changed_prompt
 

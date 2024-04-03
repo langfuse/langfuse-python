@@ -89,13 +89,25 @@ from .ingestion import (
 from .metrics import DailyMetrics, DailyMetricsDetails, UsageByModel
 from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
-from .prompts import CreatePromptRequest, Prompt
+from .prompts import (
+    BasePrompt,
+    ChatMessage,
+    ChatPrompt,
+    CreatePromptRequest,
+    Prompt,
+    Prompt_Chat,
+    Prompt_Text,
+    TextPrompt,
+)
 from .score import CreateScoreRequest, Scores
 from .trace import Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
     "BaseEvent",
+    "BasePrompt",
+    "ChatMessage",
+    "ChatPrompt",
     "CreateDatasetItemRequest",
     "CreateDatasetRequest",
     "CreateDatasetRunItemRequest",
@@ -148,6 +160,8 @@ __all__ = [
     "Project",
     "Projects",
     "Prompt",
+    "Prompt_Chat",
+    "Prompt_Text",
     "Score",
     "ScoreBody",
     "ScoreEvent",
@@ -159,6 +173,7 @@ __all__ = [
     "Session",
     "SessionWithTraces",
     "Sort",
+    "TextPrompt",
     "Trace",
     "TraceBody",
     "TraceEvent",

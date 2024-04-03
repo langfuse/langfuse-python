@@ -4,20 +4,17 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import pydantic_v1
-from .dataset_run_item import DatasetRunItem
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 
-class DatasetRun(pydantic_v1.BaseModel):
-    id: str
+class BasePrompt(pydantic.BaseModel):
     name: str
-    metadata: typing.Optional[typing.Any] = None
-    dataset_id: str = pydantic_v1.Field(alias="datasetId")
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    dataset_run_items: typing.List[DatasetRunItem] = pydantic_v1.Field(
-        alias="datasetRunItems"
-    )
+    version: int
+    config: typing.Any
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -38,7 +35,4 @@ class DatasetRun(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
