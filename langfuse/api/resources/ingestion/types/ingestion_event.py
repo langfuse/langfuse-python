@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import typing
 
-import typing_extensions
-
 from .create_event_event import CreateEventEvent
 from .create_generation_event import CreateGenerationEvent
 from .create_observation_event import CreateObservationEvent
@@ -19,93 +17,103 @@ from .update_span_event import UpdateSpanEvent
 
 
 class IngestionEvent_TraceCreate(TraceEvent):
-    type: typing_extensions.Literal["trace-create"]
+    type: typing.Literal["trace-create"] = "trace-create"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_ScoreCreate(ScoreEvent):
-    type: typing_extensions.Literal["score-create"]
+    type: typing.Literal["score-create"] = "score-create"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_EventCreate(CreateEventEvent):
-    type: typing_extensions.Literal["event-create"]
+    type: typing.Literal["event-create"] = "event-create"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_GenerationCreate(CreateGenerationEvent):
-    type: typing_extensions.Literal["generation-create"]
+    type: typing.Literal["generation-create"] = "generation-create"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_GenerationUpdate(UpdateGenerationEvent):
-    type: typing_extensions.Literal["generation-update"]
+    type: typing.Literal["generation-update"] = "generation-update"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_SpanCreate(CreateSpanEvent):
-    type: typing_extensions.Literal["span-create"]
+    type: typing.Literal["span-create"] = "span-create"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_SpanUpdate(UpdateSpanEvent):
-    type: typing_extensions.Literal["span-update"]
+    type: typing.Literal["span-update"] = "span-update"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_SdkLog(SdkLogEvent):
-    type: typing_extensions.Literal["sdk-log"]
+    type: typing.Literal["sdk-log"] = "sdk-log"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_ObservationCreate(CreateObservationEvent):
-    type: typing_extensions.Literal["observation-create"]
+    type: typing.Literal["observation-create"] = "observation-create"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class IngestionEvent_ObservationUpdate(UpdateObservationEvent):
-    type: typing_extensions.Literal["observation-update"]
+    type: typing.Literal["observation-update"] = "observation-update"
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
 
 
 IngestionEvent = typing.Union[

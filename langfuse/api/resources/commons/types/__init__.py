@@ -11,6 +11,7 @@ from .observation import Observation
 from .observation_level import ObservationLevel
 from .observations_view import ObservationsView
 from .score import Score
+from .score_source import ScoreSource
 from .session import Session
 from .session_with_traces import SessionWithTraces
 from .trace import Trace
@@ -30,6 +31,7 @@ __all__ = [
     "ObservationLevel",
     "ObservationsView",
     "Score",
+    "ScoreSource",
     "Session",
     "SessionWithTraces",
     "Trace",

@@ -58,6 +58,7 @@ from .resources import (
     Score,
     ScoreBody,
     ScoreEvent,
+    ScoreSource,
     Scores,
     SdkLogBody,
     SdkLogEvent,
@@ -95,6 +96,7 @@ from .resources import (
     trace,
     utils,
 )
+from .version import __version__
 
 __all__ = [
     "AccessDeniedError",
@@ -154,6 +156,7 @@ __all__ = [
     "Score",
     "ScoreBody",
     "ScoreEvent",
+    "ScoreSource",
     "Scores",
     "SdkLogBody",
     "SdkLogEvent",
@@ -176,6 +179,7 @@ __all__ = [
     "UpdateSpanEvent",
     "Usage",
     "UsageByModel",
+    "__version__",
     "commons",
     "dataset_items",
     "dataset_run_items",

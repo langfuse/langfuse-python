@@ -7,8 +7,7 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class ModelUsageUnit(str, enum.Enum):
-    """
-    Unit of usage in Langfuse
+    """Unit of usage in Langfuse
     """
 
     CHARACTERS = "CHARACTERS"

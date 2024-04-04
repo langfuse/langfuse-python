@@ -1,5 +1,4 @@
-"""
-Integrate Langfuse Tracing into your LLM applications with the Langfuse Python SDK using the `@observe()` decorator.
+"""Integrate Langfuse Tracing into your LLM applications with the Langfuse Python SDK using the `@observe()` decorator.
 
 *Simple example (decorator + openai integration)*
 

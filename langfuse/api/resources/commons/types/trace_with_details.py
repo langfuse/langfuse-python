@@ -4,45 +4,48 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from ....core.pydantic_utilities import pydantic_v1
 from .trace import Trace
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
 
 class TraceWithDetails(Trace):
-    html_path: str = pydantic.Field(
-        alias="htmlPath", description="Path of trace in Langfuse UI"
-    )
-    latency: float = pydantic.Field(description="Latency of trace in seconds")
-    total_cost: float = pydantic.Field(
-        alias="totalCost", description="Cost of trace in USD"
-    )
-    observations: typing.List[str] = pydantic.Field(
-        description="List of observation ids"
-    )
-    scores: typing.List[str] = pydantic.Field(description="List of score ids")
+    html_path: str = pydantic_v1.Field(alias="htmlPath")
+    """
+    Path of trace in Langfuse UI
+    """
+
+    latency: float = pydantic_v1.Field()
+    """
+    Latency of trace in seconds
+    """
+
+    total_cost: float = pydantic_v1.Field(alias="totalCost")
+    """
+    Cost of trace in USD
+    """
+
+    observations: typing.List[str] = pydantic_v1.Field()
+    """
+    List of observation ids
+    """
+
+    scores: typing.List[str] = pydantic_v1.Field()
+    """
+    List of score ids
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().dict(**kwargs_with_defaults)
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

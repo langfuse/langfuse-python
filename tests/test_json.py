@@ -22,7 +22,6 @@ class TestModel(BaseModel):
 
 def test_json_encoder():
     """Test that the JSON encoder encodes datetimes correctly."""
-
     message = HumanMessage(content="I love programming!")
     obj = {
         "foo": "bar",

@@ -1,6 +1,5 @@
-'''
-@private
-'''
+"""@private
+"""
 
 import os
 

@@ -4,6 +4,8 @@ import typing
 
 import httpx
 
+from .http_client import AsyncHttpClient, HttpClient
+
 
 class BaseClientWrapper:
     def __init__(
@@ -15,6 +17,7 @@ class BaseClientWrapper:
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
+        timeout: typing.Optional[float] = None
     ):
         self._x_langfuse_sdk_name = x_langfuse_sdk_name
         self._x_langfuse_sdk_version = x_langfuse_sdk_version
@@ -22,6 +25,7 @@ class BaseClientWrapper:
         self._username = username
         self._password = password
         self._base_url = base_url
+        self._timeout = timeout
 
     def get_headers(self) -> typing.Dict[str, str]:
         headers: typing.Dict[str, str] = {"X-Fern-Language": "Python"}
@@ -52,6 +56,9 @@ class BaseClientWrapper:
     def get_base_url(self) -> str:
         return self._base_url
 
+    def get_timeout(self) -> typing.Optional[float]:
+        return self._timeout
+
 
 class SyncClientWrapper(BaseClientWrapper):
     def __init__(
@@ -63,7 +70,8 @@ class SyncClientWrapper(BaseClientWrapper):
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
-        httpx_client: httpx.Client,
+        timeout: typing.Optional[float] = None,
+        httpx_client: httpx.Client
     ):
         super().__init__(
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -72,8 +80,9 @@ class SyncClientWrapper(BaseClientWrapper):
             username=username,
             password=password,
             base_url=base_url,
+            timeout=timeout,
         )
-        self.httpx_client = httpx_client
+        self.httpx_client = HttpClient(httpx_client=httpx_client)
 
 
 class AsyncClientWrapper(BaseClientWrapper):
@@ -86,7 +95,8 @@ class AsyncClientWrapper(BaseClientWrapper):
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
-        httpx_client: httpx.AsyncClient,
+        timeout: typing.Optional[float] = None,
+        httpx_client: httpx.AsyncClient
     ):
         super().__init__(
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -95,5 +105,6 @@ class AsyncClientWrapper(BaseClientWrapper):
             username=username,
             password=password,
             base_url=base_url,
+            timeout=timeout,
         )
-        self.httpx_client = httpx_client
+        self.httpx_client = AsyncHttpClient(httpx_client=httpx_client)
