@@ -1,6 +1,6 @@
-'''
+"""
 @private
-'''
+"""
 
 from datetime import datetime
 from langfuse.client import PromptClient, ModelUsage, MapValue

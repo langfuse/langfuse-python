@@ -1,6 +1,6 @@
-'''
+"""
 @private
-'''
+"""
 
 import logging
 

@@ -13,8 +13,19 @@ except ImportError:
 
 class CreateDatasetRunItemRequest(pydantic.BaseModel):
     run_name: str = pydantic.Field(alias="runName")
+    metadata: typing.Optional[typing.Any] = pydantic.Field(
+        default=None,
+        description="Metadata of the dataset run, updates run if run already exists",
+    )
     dataset_item_id: str = pydantic.Field(alias="datasetItemId")
-    observation_id: str = pydantic.Field(alias="observationId")
+    observation_id: typing.Optional[str] = pydantic.Field(
+        alias="observationId", default=None
+    )
+    trace_id: typing.Optional[str] = pydantic.Field(
+        alias="traceId",
+        default=None,
+        description="traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.",
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

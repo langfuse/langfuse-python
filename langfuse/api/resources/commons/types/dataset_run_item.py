@@ -15,7 +15,10 @@ class DatasetRunItem(pydantic.BaseModel):
     id: str
     dataset_run_id: str = pydantic.Field(alias="datasetRunId")
     dataset_item_id: str = pydantic.Field(alias="datasetItemId")
-    observation_id: str = pydantic.Field(alias="observationId")
+    trace_id: str = pydantic.Field(alias="traceId")
+    observation_id: typing.Optional[str] = pydantic.Field(
+        alias="observationId", default=None
+    )
     created_at: dt.datetime = pydantic.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic.Field(alias="updatedAt")
 

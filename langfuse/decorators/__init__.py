@@ -6,7 +6,7 @@ Integrate Langfuse Tracing into your LLM applications with the Langfuse Python S
 ```python
 from langfuse.decorators import observe
 from langfuse.openai import openai # OpenAI integration
- 
+
 @observe()
 def story():
     return openai.chat.completions.create(
@@ -17,11 +17,11 @@ def story():
           {"role": "user", "content": "Once upon a time in a galaxy far, far away..."}
         ],
     ).choices[0].message.content
- 
+
 @observe()
 def main():
     return story()
- 
+
 main()
 ```
 

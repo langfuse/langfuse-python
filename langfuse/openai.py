@@ -1,4 +1,4 @@
-'''
+"""
 If you use the OpenAI Python SDK, you can use the Langfuse drop-in replacement to get full logging by changing only the import.
 
 ```diff
@@ -16,7 +16,7 @@ Langfuse automatically tracks:
 The integration is fully interoperable with the `observe()` decorator and the low-level tracing SDK.
 
 See docs for more details: https://langfuse.com/docs/integrations/openai
-'''
+"""
 
 import copy
 import logging

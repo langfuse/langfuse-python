@@ -1,6 +1,6 @@
-'''
+"""
 @private
-'''
+"""
 
 from typing import Optional, TypedDict, Any, Dict
 import chevron

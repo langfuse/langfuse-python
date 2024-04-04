@@ -1,6 +1,6 @@
-'''
+"""
 @private
-'''
+"""
 
 import atexit
 import json

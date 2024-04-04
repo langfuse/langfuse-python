@@ -15,6 +15,7 @@ except ImportError:
 class DatasetRun(pydantic.BaseModel):
     id: str
     name: str
+    metadata: typing.Optional[typing.Any] = None
     dataset_id: str = pydantic.Field(alias="datasetId")
     created_at: dt.datetime = pydantic.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic.Field(alias="updatedAt")

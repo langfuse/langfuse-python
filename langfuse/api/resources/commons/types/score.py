@@ -4,6 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
+from .score_source import ScoreSource
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -16,6 +17,7 @@ class Score(pydantic.BaseModel):
     trace_id: str = pydantic.Field(alias="traceId")
     name: str
     value: float
+    source: ScoreSource
     observation_id: typing.Optional[str] = pydantic.Field(
         alias="observationId", default=None
     )
