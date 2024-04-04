@@ -247,16 +247,6 @@ def _get_langfuse_data_from_kwargs(
     if parent_observation_id is not None and trace_id is None:
         raise ValueError("parent_observation_id requires trace_id to be set")
 
-    if trace_id:
-        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
-    else:
-        trace_id = (
-            decorator_context_trace_id
-            or langfuse.trace(
-                session_id=session_id, user_id=user_id, tags=tags, name=name
-            ).id
-        )
-
     metadata = kwargs.get("metadata", {})
 
     if metadata is not None and not isinstance(metadata, dict):
@@ -270,6 +260,21 @@ def _get_langfuse_data_from_kwargs(
         prompt = kwargs.get("prompt", None)
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
+
+    if trace_id:
+        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
+    else:
+        trace_id = (
+            decorator_context_trace_id
+            or langfuse.trace(
+                session_id=session_id,
+                user_id=user_id,
+                tags=tags,
+                name=name,
+                input=prompt,
+                metadata=metadata,
+            ).id
+        )
 
     modelParameters = {
         "temperature": kwargs.get("temperature", 1),
@@ -483,6 +488,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             generation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
             )
+            new_langfuse.trace(id=generation.trace_id, output=completion)
 
         return openai_response
     except Exception as ex:
