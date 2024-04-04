@@ -30,8 +30,7 @@ class PromptsClient:
         self._client_wrapper = client_wrapper
 
     def get(self, *, name: str, version: typing.Optional[int] = None) -> Prompt:
-        """
-        Get a prompt
+        """Get a prompt
 
         Parameters:
             - name: str.
@@ -68,8 +67,7 @@ class PromptsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create(self, *, request: CreatePromptRequest) -> Prompt:
-        """
-        Create a prompt
+        """Create a prompt
 
         Parameters:
             - request: CreatePromptRequest.
@@ -109,8 +107,7 @@ class AsyncPromptsClient:
         self._client_wrapper = client_wrapper
 
     async def get(self, *, name: str, version: typing.Optional[int] = None) -> Prompt:
-        """
-        Get a prompt
+        """Get a prompt
 
         Parameters:
             - name: str.
@@ -147,8 +144,7 @@ class AsyncPromptsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create(self, *, request: CreatePromptRequest) -> Prompt:
-        """
-        Create a prompt
+        """Create a prompt
 
         Parameters:
             - request: CreatePromptRequest.

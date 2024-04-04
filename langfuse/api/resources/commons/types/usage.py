@@ -13,8 +13,7 @@ except ImportError:
 
 
 class Usage(pydantic.BaseModel):
-    """
-    Standard interface for usage and cost
+    """Standard interface for usage and cost
     """
 
     input: typing.Optional[int] = pydantic.Field(

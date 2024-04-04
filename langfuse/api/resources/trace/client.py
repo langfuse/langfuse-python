@@ -26,8 +26,7 @@ class TraceClient:
         self._client_wrapper = client_wrapper
 
     def get(self, trace_id: str) -> TraceWithFullDetails:
-        """
-        Get a specific trace
+        """Get a specific trace
 
         Parameters:
             - trace_id: str. The unique langfuse identifier of a trace
@@ -71,8 +70,7 @@ class TraceClient:
         order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
-        """
-        Get list of traces
+        """Get list of traces
 
         Parameters:
             - page: typing.Optional[int].
@@ -131,8 +129,7 @@ class AsyncTraceClient:
         self._client_wrapper = client_wrapper
 
     async def get(self, trace_id: str) -> TraceWithFullDetails:
-        """
-        Get a specific trace
+        """Get a specific trace
 
         Parameters:
             - trace_id: str. The unique langfuse identifier of a trace
@@ -176,8 +173,7 @@ class AsyncTraceClient:
         order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> Traces:
-        """
-        Get list of traces
+        """Get list of traces
 
         Parameters:
             - page: typing.Optional[int].

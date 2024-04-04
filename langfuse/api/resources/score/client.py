@@ -31,8 +31,7 @@ class ScoreClient:
         self._client_wrapper = client_wrapper
 
     def create(self, *, request: CreateScoreRequest) -> Score:
-        """
-        Create a score
+        """Create a score
 
         Parameters:
             - request: CreateScoreRequest.
@@ -74,8 +73,7 @@ class ScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
     ) -> Scores:
-        """
-        Get a list of scores
+        """Get a list of scores
 
         Parameters:
             - page: typing.Optional[int].
@@ -118,8 +116,7 @@ class ScoreClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_by_id(self, score_id: str) -> Score:
-        """
-        Get a score
+        """Get a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score
@@ -154,8 +151,7 @@ class ScoreClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def delete(self, score_id: str) -> None:
-        """
-        Delete a score
+        """Delete a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score
@@ -195,8 +191,7 @@ class AsyncScoreClient:
         self._client_wrapper = client_wrapper
 
     async def create(self, *, request: CreateScoreRequest) -> Score:
-        """
-        Create a score
+        """Create a score
 
         Parameters:
             - request: CreateScoreRequest.
@@ -238,8 +233,7 @@ class AsyncScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
     ) -> Scores:
-        """
-        Get a list of scores
+        """Get a list of scores
 
         Parameters:
             - page: typing.Optional[int].
@@ -282,8 +276,7 @@ class AsyncScoreClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_by_id(self, score_id: str) -> Score:
-        """
-        Get a score
+        """Get a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score
@@ -318,8 +311,7 @@ class AsyncScoreClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def delete(self, score_id: str) -> None:
-        """
-        Delete a score
+        """Delete a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score

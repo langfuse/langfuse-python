@@ -96,8 +96,7 @@ class LangfuseBaseCallbackHandler:
             )
 
     def get_trace_id(self):
-        """
-        This method is deprecated and will be removed in a future version as it is not concurrency-safe.
+        """This method is deprecated and will be removed in a future version as it is not concurrency-safe.
         Please refer to the [documentation](https://langfuse.com/docs/integrations/langchain/get-started#interoperability) on how to use interop with the Langfuse SDK to get the id of a trace.
 
         Returns:
@@ -106,8 +105,7 @@ class LangfuseBaseCallbackHandler:
         return self.trace.id if self.trace else None
 
     def get_trace_url(self):
-        """
-        This method is deprecated and will be removed in a future version as it is not concurrency-safe.
+        """This method is deprecated and will be removed in a future version as it is not concurrency-safe.
         Please refer to the [documentation](https://langfuse.com/docs/tracing/url) for more information.
 
         Returns:

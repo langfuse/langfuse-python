@@ -1,5 +1,4 @@
-"""
-WSGI config for django_example project.
+"""WSGI config for django_example project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

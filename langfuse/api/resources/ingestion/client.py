@@ -29,8 +29,7 @@ class IngestionClient:
         self._client_wrapper = client_wrapper
 
     def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
-        """
-        Batched ingestion for Langfuse Tracing
+        """Batched ingestion for Langfuse Tracing
 
         Parameters:
             - batch: typing.List[IngestionEvent].
@@ -70,8 +69,7 @@ class AsyncIngestionClient:
         self._client_wrapper = client_wrapper
 
     async def batch(self, *, batch: typing.List[IngestionEvent]) -> IngestionResponse:
-        """
-        Batched ingestion for Langfuse Tracing
+        """Batched ingestion for Langfuse Tracing
 
         Parameters:
             - batch: typing.List[IngestionEvent].
