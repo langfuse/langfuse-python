@@ -6,7 +6,10 @@ import httpx
 
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .resources.dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
-from .resources.dataset_run_items.client import AsyncDatasetRunItemsClient, DatasetRunItemsClient
+from .resources.dataset_run_items.client import (
+    AsyncDatasetRunItemsClient,
+    DatasetRunItemsClient,
+)
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.health.client import AsyncHealthClient, HealthClient
 from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
@@ -64,9 +67,11 @@ class FernLangfuse:
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         timeout: typing.Optional[float] = None,
         follow_redirects: typing.Optional[bool] = None,
-        httpx_client: typing.Optional[httpx.Client] = None
+        httpx_client: typing.Optional[httpx.Client] = None,
     ):
-        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
+        _defaulted_timeout = (
+            timeout if timeout is not None else 60 if httpx_client is None else None
+        )
         self._client_wrapper = SyncClientWrapper(
             base_url=base_url,
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -76,13 +81,17 @@ class FernLangfuse:
             password=password,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.Client(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
+            else httpx.Client(
+                timeout=_defaulted_timeout, follow_redirects=follow_redirects
+            )
             if follow_redirects is not None
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
         self.dataset_items = DatasetItemsClient(client_wrapper=self._client_wrapper)
-        self.dataset_run_items = DatasetRunItemsClient(client_wrapper=self._client_wrapper)
+        self.dataset_run_items = DatasetRunItemsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.datasets = DatasetsClient(client_wrapper=self._client_wrapper)
         self.health = HealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
@@ -140,9 +149,11 @@ class AsyncFernLangfuse:
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         timeout: typing.Optional[float] = None,
         follow_redirects: typing.Optional[bool] = None,
-        httpx_client: typing.Optional[httpx.AsyncClient] = None
+        httpx_client: typing.Optional[httpx.AsyncClient] = None,
     ):
-        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
+        _defaulted_timeout = (
+            timeout if timeout is not None else 60 if httpx_client is None else None
+        )
         self._client_wrapper = AsyncClientWrapper(
             base_url=base_url,
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -152,13 +163,19 @@ class AsyncFernLangfuse:
             password=password,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.AsyncClient(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
+            else httpx.AsyncClient(
+                timeout=_defaulted_timeout, follow_redirects=follow_redirects
+            )
             if follow_redirects is not None
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self.dataset_items = AsyncDatasetItemsClient(client_wrapper=self._client_wrapper)
-        self.dataset_run_items = AsyncDatasetRunItemsClient(client_wrapper=self._client_wrapper)
+        self.dataset_items = AsyncDatasetItemsClient(
+            client_wrapper=self._client_wrapper
+        )
+        self.dataset_run_items = AsyncDatasetRunItemsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.datasets = AsyncDatasetsClient(client_wrapper=self._client_wrapper)
         self.health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
