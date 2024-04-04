@@ -330,6 +330,8 @@ async def _get_langfuse_data_from_async_streaming_response(
         resource, responses
     )
 
+    langfuse.trace(id=generation.trace_id, output=completion)
+
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
 
@@ -534,6 +536,8 @@ async def _wrap_async(
                 end_time=_get_timestamp(),
                 usage=usage,
             )
+            new_langfuse.trace(id=generation.trace_id, output=completion)
+
         return openai_response
     except Exception as ex:
         model = kwargs.get("model", None)
