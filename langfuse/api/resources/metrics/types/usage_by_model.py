@@ -12,8 +12,7 @@ except ImportError:
 
 
 class UsageByModel(pydantic.BaseModel):
-    """
-    Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
+    """Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
     """
 
     model: str

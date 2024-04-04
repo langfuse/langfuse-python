@@ -24,8 +24,7 @@ class SessionsClient:
         self._client_wrapper = client_wrapper
 
     def get(self, session_id: str) -> SessionWithTraces:
-        """
-        Get a session
+        """Get a session
 
         Parameters:
             - session_id: str. The unique id of a session
@@ -65,8 +64,7 @@ class AsyncSessionsClient:
         self._client_wrapper = client_wrapper
 
     async def get(self, session_id: str) -> SessionWithTraces:
-        """
-        Get a session
+        """Get a session
 
         Parameters:
             - session_id: str. The unique id of a session

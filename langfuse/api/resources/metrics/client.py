@@ -33,8 +33,7 @@ class MetricsClient:
         user_id: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> DailyMetrics:
-        """
-        Get daily metrics of the Langfuse project
+        """Get daily metrics of the Langfuse project
 
         Parameters:
             - page: typing.Optional[int].
@@ -98,8 +97,7 @@ class AsyncMetricsClient:
         user_id: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
     ) -> DailyMetrics:
-        """
-        Get daily metrics of the Langfuse project
+        """Get daily metrics of the Langfuse project
 
         Parameters:
             - page: typing.Optional[int].

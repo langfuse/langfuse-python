@@ -25,8 +25,7 @@ class HealthClient:
         self._client_wrapper = client_wrapper
 
     def health(self) -> HealthResponse:
-        """
-        Check health of API and database
+        """Check health of API and database
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
@@ -64,8 +63,7 @@ class AsyncHealthClient:
         self._client_wrapper = client_wrapper
 
     async def health(self) -> HealthResponse:
-        """
-        Check health of API and database
+        """Check health of API and database
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",

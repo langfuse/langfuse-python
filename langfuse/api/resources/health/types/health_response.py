@@ -12,8 +12,7 @@ except ImportError:
 
 
 class HealthResponse(pydantic.BaseModel):
-    """
-    from finto import HealthResponse
+    """from finto import HealthResponse
 
     HealthResponse(
         version="1.25.0",

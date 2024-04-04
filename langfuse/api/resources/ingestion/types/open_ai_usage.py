@@ -12,8 +12,7 @@ except ImportError:
 
 
 class OpenAiUsage(pydantic.BaseModel):
-    """
-    Usage interface of OpenAI for improved compatibility.
+    """Usage interface of OpenAI for improved compatibility.
     """
 
     prompt_tokens: typing.Optional[int] = pydantic.Field(

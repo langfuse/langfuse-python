@@ -30,8 +30,7 @@ class DatasetsClient:
         self._client_wrapper = client_wrapper
 
     def get(self, dataset_name: str) -> Dataset:
-        """
-        Get a dataset and its items
+        """Get a dataset and its items
 
         Parameters:
             - dataset_name: str.
@@ -66,8 +65,7 @@ class DatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create(self, *, request: CreateDatasetRequest) -> Dataset:
-        """
-        Create a dataset
+        """Create a dataset
 
         Parameters:
             - request: CreateDatasetRequest.
@@ -102,8 +100,7 @@ class DatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_runs(self, dataset_name: str, run_name: str) -> DatasetRun:
-        """
-        Get a dataset run and its items
+        """Get a dataset run and its items
 
         Parameters:
             - dataset_name: str.
@@ -145,8 +142,7 @@ class AsyncDatasetsClient:
         self._client_wrapper = client_wrapper
 
     async def get(self, dataset_name: str) -> Dataset:
-        """
-        Get a dataset and its items
+        """Get a dataset and its items
 
         Parameters:
             - dataset_name: str.
@@ -181,8 +177,7 @@ class AsyncDatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create(self, *, request: CreateDatasetRequest) -> Dataset:
-        """
-        Create a dataset
+        """Create a dataset
 
         Parameters:
             - request: CreateDatasetRequest.
@@ -217,8 +212,7 @@ class AsyncDatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_runs(self, dataset_name: str, run_name: str) -> DatasetRun:
-        """
-        Get a dataset run and its items
+        """Get a dataset run and its items
 
         Parameters:
             - dataset_name: str.

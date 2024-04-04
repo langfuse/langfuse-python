@@ -29,8 +29,7 @@ class DatasetRunItemsClient:
         self._client_wrapper = client_wrapper
 
     def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
-        """
-        Create a dataset run item
+        """Create a dataset run item
 
         Parameters:
             - request: CreateDatasetRunItemRequest.
@@ -71,8 +70,7 @@ class AsyncDatasetRunItemsClient:
         self._client_wrapper = client_wrapper
 
     async def create(self, *, request: CreateDatasetRunItemRequest) -> DatasetRunItem:
-        """
-        Create a dataset run item
+        """Create a dataset run item
 
         Parameters:
             - request: CreateDatasetRunItemRequest.

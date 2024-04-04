@@ -29,8 +29,7 @@ class DatasetItemsClient:
         self._client_wrapper = client_wrapper
 
     def create(self, *, request: CreateDatasetItemRequest) -> DatasetItem:
-        """
-        Create a dataset item
+        """Create a dataset item
 
         Parameters:
             - request: CreateDatasetItemRequest.
@@ -65,8 +64,7 @@ class DatasetItemsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get(self, id: str) -> DatasetItem:
-        """
-        Get a dataset item
+        """Get a dataset item
 
         Parameters:
             - id: str.
@@ -106,8 +104,7 @@ class AsyncDatasetItemsClient:
         self._client_wrapper = client_wrapper
 
     async def create(self, *, request: CreateDatasetItemRequest) -> DatasetItem:
-        """
-        Create a dataset item
+        """Create a dataset item
 
         Parameters:
             - request: CreateDatasetItemRequest.
@@ -142,8 +139,7 @@ class AsyncDatasetItemsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get(self, id: str) -> DatasetItem:
-        """
-        Get a dataset item
+        """Get a dataset item
 
         Parameters:
             - id: str.

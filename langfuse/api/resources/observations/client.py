@@ -26,8 +26,7 @@ class ObservationsClient:
         self._client_wrapper = client_wrapper
 
     def get(self, observation_id: str) -> ObservationsView:
-        """
-        Get a observation
+        """Get a observation
 
         Parameters:
             - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
@@ -72,8 +71,7 @@ class ObservationsClient:
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
     ) -> ObservationsViews:
-        """
-        Get a list of observations
+        """Get a list of observations
 
         Parameters:
             - page: typing.Optional[int].
@@ -135,8 +133,7 @@ class AsyncObservationsClient:
         self._client_wrapper = client_wrapper
 
     async def get(self, observation_id: str) -> ObservationsView:
-        """
-        Get a observation
+        """Get a observation
 
         Parameters:
             - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
@@ -181,8 +178,7 @@ class AsyncObservationsClient:
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
     ) -> ObservationsViews:
-        """
-        Get a list of observations
+        """Get a list of observations
 
         Parameters:
             - page: typing.Optional[int].
