@@ -4,24 +4,19 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from ....core.pydantic_utilities import pydantic_v1
 
 
-class OpenAiUsage(pydantic.BaseModel):
-    """Usage interface of OpenAI for improved compatibility.
-    """
+class OpenAiUsage(pydantic_v1.BaseModel):
+    """Usage interface of OpenAI for improved compatibility."""
 
-    prompt_tokens: typing.Optional[int] = pydantic.Field(
+    prompt_tokens: typing.Optional[int] = pydantic_v1.Field(
         alias="promptTokens", default=None
     )
-    completion_tokens: typing.Optional[int] = pydantic.Field(
+    completion_tokens: typing.Optional[int] = pydantic_v1.Field(
         alias="completionTokens", default=None
     )
-    total_tokens: typing.Optional[int] = pydantic.Field(
+    total_tokens: typing.Optional[int] = pydantic_v1.Field(
         alias="totalTokens", default=None
     )
 
@@ -45,4 +40,6 @@ class OpenAiUsage(pydantic.BaseModel):
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

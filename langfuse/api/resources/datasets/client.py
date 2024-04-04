@@ -7,6 +7,9 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.jsonable_encoder import jsonable_encoder
+from ...core.pydantic_utilities import pydantic_v1
+from ...core.remove_none_from_dict import remove_none_from_dict
+from ...core.request_options import RequestOptions
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
@@ -16,11 +19,6 @@ from ..commons.types.dataset import Dataset
 from ..commons.types.dataset_run import DatasetRun
 from .types.create_dataset_request import CreateDatasetRequest
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
-
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
@@ -29,107 +27,268 @@ class DatasetsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(self, dataset_name: str) -> Dataset:
+    def get(
+        self,
+        dataset_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Dataset:
         """Get a dataset and its items
 
         Parameters:
             - dataset_name: str.
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.datasets.get(
+            dataset_name="string",
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/datasets/{dataset_name}",
+                f"api/public/datasets/{jsonable_encoder(dataset_name)}",
             ),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            params=jsonable_encoder(
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
+            ),
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Dataset, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
             )  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def create(self, *, request: CreateDatasetRequest) -> Dataset:
+    def create(
+        self,
+        *,
+        request: CreateDatasetRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Dataset:
         """Create a dataset
 
         Parameters:
             - request: CreateDatasetRequest.
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto import CreateDatasetRequest
+        from finto.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.datasets.create(
+            request=CreateDatasetRequest(
+                name="string",
+            ),
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"
             ),
-            json=jsonable_encoder(request),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            params=jsonable_encoder(
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
+            ),
+            json=jsonable_encoder(request)
+            if request_options is None
+            or request_options.get("additional_body_parameters") is None
+            else {
+                **jsonable_encoder(request),
+                **(
+                    jsonable_encoder(
+                        remove_none_from_dict(
+                            request_options.get("additional_body_parameters", {})
+                        )
+                    )
+                ),
+            },
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Dataset, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
             )  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get_runs(self, dataset_name: str, run_name: str) -> DatasetRun:
+    def get_runs(
+        self,
+        dataset_name: str,
+        run_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DatasetRun:
         """Get a dataset run and its items
 
         Parameters:
             - dataset_name: str.
 
             - run_name: str.
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.datasets.get_runs(
+            dataset_name="string",
+            run_name="string",
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/datasets/{dataset_name}/runs/{run_name}",
+                f"api/public/datasets/{jsonable_encoder(dataset_name)}/runs/{jsonable_encoder(run_name)}",
             ),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            params=jsonable_encoder(
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
+            ),
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DatasetRun, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(DatasetRun, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
             )  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
@@ -141,107 +300,268 @@ class AsyncDatasetsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(self, dataset_name: str) -> Dataset:
+    async def get(
+        self,
+        dataset_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Dataset:
         """Get a dataset and its items
 
         Parameters:
             - dataset_name: str.
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        await client.datasets.get(
+            dataset_name="string",
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/datasets/{dataset_name}",
+                f"api/public/datasets/{jsonable_encoder(dataset_name)}",
             ),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            params=jsonable_encoder(
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
+            ),
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Dataset, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
             )  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def create(self, *, request: CreateDatasetRequest) -> Dataset:
+    async def create(
+        self,
+        *,
+        request: CreateDatasetRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Dataset:
         """Create a dataset
 
         Parameters:
             - request: CreateDatasetRequest.
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto import CreateDatasetRequest
+        from finto.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        await client.datasets.create(
+            request=CreateDatasetRequest(
+                name="string",
+            ),
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"
             ),
-            json=jsonable_encoder(request),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            params=jsonable_encoder(
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
+            ),
+            json=jsonable_encoder(request)
+            if request_options is None
+            or request_options.get("additional_body_parameters") is None
+            else {
+                **jsonable_encoder(request),
+                **(
+                    jsonable_encoder(
+                        remove_none_from_dict(
+                            request_options.get("additional_body_parameters", {})
+                        )
+                    )
+                ),
+            },
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(Dataset, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
             )  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get_runs(self, dataset_name: str, run_name: str) -> DatasetRun:
+    async def get_runs(
+        self,
+        dataset_name: str,
+        run_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DatasetRun:
         """Get a dataset run and its items
 
         Parameters:
             - dataset_name: str.
 
             - run_name: str.
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        await client.datasets.get_runs(
+            dataset_name="string",
+            run_name="string",
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
                 f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/datasets/{dataset_name}/runs/{run_name}",
+                f"api/public/datasets/{jsonable_encoder(dataset_name)}/runs/{jsonable_encoder(run_name)}",
             ),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            params=jsonable_encoder(
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
+            ),
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DatasetRun, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(DatasetRun, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
             raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
             )  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:

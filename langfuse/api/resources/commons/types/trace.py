@@ -4,47 +4,42 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from ....core.pydantic_utilities import pydantic_v1
 
 
-class Trace(pydantic.BaseModel):
-    id: str = pydantic.Field(description="The unique identifier of a trace")
+class Trace(pydantic_v1.BaseModel):
+    id: str = pydantic_v1.Field()
+    """
+    The unique identifier of a trace
+    """
+
     timestamp: dt.datetime
     name: typing.Optional[str] = None
     input: typing.Optional[typing.Any] = None
     output: typing.Optional[typing.Any] = None
-    session_id: typing.Optional[str] = pydantic.Field(alias="sessionId", default=None)
+    session_id: typing.Optional[str] = pydantic_v1.Field(alias="sessionId", default=None)
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic.Field(alias="userId", default=None)
+    user_id: typing.Optional[str] = pydantic_v1.Field(alias="userId", default=None)
     metadata: typing.Optional[typing.Any] = None
     tags: typing.Optional[typing.List[str]] = None
-    public: typing.Optional[bool] = pydantic.Field(
-        default=None, description="Public traces are accessible via url without login"
-    )
+    public: typing.Optional[bool] = pydantic_v1.Field(default=None)
+    """
+    Public traces are accessible via url without login
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().dict(**kwargs_with_defaults)
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

@@ -4,41 +4,30 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from ....core.pydantic_utilities import pydantic_v1
 
 
-class CreateDatasetItemRequest(pydantic.BaseModel):
-    dataset_name: str = pydantic.Field(alias="datasetName")
+class CreateDatasetItemRequest(pydantic_v1.BaseModel):
+    dataset_name: str = pydantic_v1.Field(alias="datasetName")
     input: typing.Any
-    expected_output: typing.Optional[typing.Any] = pydantic.Field(
-        alias="expectedOutput", default=None
-    )
-    id: typing.Optional[str] = pydantic.Field(
-        default=None, description="Dataset items are upserted on their id"
-    )
+    expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(alias="expectedOutput", default=None)
+    id: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    Dataset items are upserted on their id
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().dict(**kwargs_with_defaults)
 
     class Config:
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
