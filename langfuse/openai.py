@@ -314,8 +314,7 @@ def _get_langfuse_data_from_sync_streaming_response(
     )
 
     # Avoiding the trace-update if trace-id is provided by user.
-    decorator_context_trace_id = langfuse_context.get_current_trace_id()
-    trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
+    trace_id = kwargs.get("trace_id", None)
     if not trace_id:
         langfuse.trace(id=generation.trace_id, output=completion)
 
@@ -339,8 +338,7 @@ async def _get_langfuse_data_from_async_streaming_response(
     )
 
     # Avoiding the trace-update if trace-id is provided by user.
-    decorator_context_trace_id = langfuse_context.get_current_trace_id()
-    trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
+    trace_id = kwargs.get("trace_id", None)
     if not trace_id:
         langfuse.trace(id=generation.trace_id, output=completion)
 
@@ -506,7 +504,11 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             generation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
             )
-            new_langfuse.trace(id=generation.trace_id, output=completion)
+
+            # Avoiding the trace-update if trace-id is provided by user.
+            trace_id = arg_extractor.get_langfuse_args().get("trace_id", None)
+            if not trace_id:
+                new_langfuse.trace(id=generation.trace_id, output=completion)
 
         return openai_response
     except Exception as ex:
@@ -556,7 +558,10 @@ async def _wrap_async(
                 end_time=_get_timestamp(),
                 usage=usage,
             )
-            new_langfuse.trace(id=generation.trace_id, output=completion)
+            # Avoiding the trace-update if trace-id is provided by user.
+            trace_id = arg_extractor.get_langfuse_args().get("trace_id", None)
+            if not trace_id:
+                new_langfuse.trace(id=generation.trace_id, output=completion)
 
         return openai_response
     except Exception as ex:
