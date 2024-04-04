@@ -1,5 +1,4 @@
-'''
-If you use the OpenAI Python SDK, you can use the Langfuse drop-in replacement to get full logging by changing only the import.
+"""If you use the OpenAI Python SDK, you can use the Langfuse drop-in replacement to get full logging by changing only the import.
 
 ```diff
 - import openai
@@ -16,7 +15,7 @@ Langfuse automatically tracks:
 The integration is fully interoperable with the `observe()` decorator and the low-level tracing SDK.
 
 See docs for more details: https://langfuse.com/docs/integrations/openai
-'''
+"""
 
 import copy
 import logging
@@ -155,7 +154,7 @@ def _langfuse_wrapper(func):
 
 
 def _extract_chat_prompt(kwargs: any):
-    """extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
+    """Extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
     prompt = {}
 
     if kwargs.get("functions") is not None:
@@ -181,7 +180,7 @@ def _extract_chat_prompt(kwargs: any):
 
 
 def _extract_chat_response(kwargs: any):
-    """extracts the llm output from the response."""
+    """Extracts the llm output from the response."""
     response = {
         "role": kwargs.get("role", None),
     }
@@ -589,14 +588,12 @@ def auth_check():
 
 
 def _filter_image_data(messages: List[dict]):
-    """
-    https://platform.openai.com/docs/guides/vision?lang=python
+    """https://platform.openai.com/docs/guides/vision?lang=python
 
     The messages array remains the same, but the 'image_url' is removed from the 'content' array.
     It should only be removed if the value starts with 'data:image/jpeg;base64,'
 
     """
-
     output_messages = copy.deepcopy(messages)
 
     for message in output_messages:

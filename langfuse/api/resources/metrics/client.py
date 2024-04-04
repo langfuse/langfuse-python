@@ -6,18 +6,16 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.jsonable_encoder import jsonable_encoder
+from ...core.pydantic_utilities import pydantic_v1
 from ...core.remove_none_from_dict import remove_none_from_dict
+from ...core.request_options import RequestOptions
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from .types.daily_metrics import DailyMetrics
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
 
 class MetricsClient:
@@ -31,10 +29,10 @@ class MetricsClient:
         limit: typing.Optional[int] = None,
         trace_name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
-        tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
+        tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> DailyMetrics:
-        """
-        Get daily metrics of the Langfuse project
+        """Get daily metrics of the Langfuse project
 
         Parameters:
             - page: typing.Optional[int].
@@ -45,39 +43,73 @@ class MetricsClient:
 
             - user_id: typing.Optional[str]. Optional filter by the userId associated with the trace
 
-            - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Optional filter for metrics where traces include all of these tags
+            - tags: typing.Optional[typing.Union[str, typing.Sequence[str]]]. Optional filter for metrics where traces include all of these tags
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.metrics.daily(
+            page=1,
+            limit=1,
+            trace_name="string",
+            user_id="string",
+            tags="string",
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/metrics/daily"
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/metrics/daily"),
+            params=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        "page": page,
+                        "limit": limit,
+                        "traceName": trace_name,
+                        "userId": user_id,
+                        "tags": tags,
+                        **(
+                            request_options.get("additional_query_parameters", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
             ),
-            params=remove_none_from_dict(
-                {
-                    "page": page,
-                    "limit": limit,
-                    "traceName": trace_name,
-                    "userId": user_id,
-                    "tags": tags,
-                }
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                    }
+                )
             ),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DailyMetrics, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(DailyMetrics, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:
@@ -96,10 +128,10 @@ class AsyncMetricsClient:
         limit: typing.Optional[int] = None,
         trace_name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
-        tags: typing.Optional[typing.Union[str, typing.List[str]]] = None,
+        tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> DailyMetrics:
-        """
-        Get daily metrics of the Langfuse project
+        """Get daily metrics of the Langfuse project
 
         Parameters:
             - page: typing.Optional[int].
@@ -110,39 +142,73 @@ class AsyncMetricsClient:
 
             - user_id: typing.Optional[str]. Optional filter by the userId associated with the trace
 
-            - tags: typing.Optional[typing.Union[str, typing.List[str]]]. Optional filter for metrics where traces include all of these tags
+            - tags: typing.Optional[typing.Union[str, typing.Sequence[str]]]. Optional filter for metrics where traces include all of these tags
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        await client.metrics.daily(
+            page=1,
+            limit=1,
+            trace_name="string",
+            user_id="string",
+            tags="string",
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/metrics/daily"
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/metrics/daily"),
+            params=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        "page": page,
+                        "limit": limit,
+                        "traceName": trace_name,
+                        "userId": user_id,
+                        "tags": tags,
+                        **(
+                            request_options.get("additional_query_parameters", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
             ),
-            params=remove_none_from_dict(
-                {
-                    "page": page,
-                    "limit": limit,
-                    "traceName": trace_name,
-                    "userId": user_id,
-                    "tags": tags,
-                }
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                    }
+                )
             ),
-            headers=self._client_wrapper.get_headers(),
-            timeout=60,
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(DailyMetrics, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(DailyMetrics, _response.json())  # type: ignore
         if _response.status_code == 400:
-            raise Error(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
-            raise NotFoundError(pydantic.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
             _response_json = _response.json()
         except JSONDecodeError:

@@ -1,6 +1,5 @@
-'''
-@private
-'''
+"""@private
+"""
 
 import atexit
 import json
@@ -71,7 +70,6 @@ class Consumer(threading.Thread):
         sdk_integration: str,
     ):
         """Create a consumer thread."""
-
         threading.Thread.__init__(self)
         # Make consumer a daemon thread so that it doesn't block program exit
         self.daemon = True
@@ -93,7 +91,6 @@ class Consumer(threading.Thread):
 
     def _next(self):
         """Return the next batch of items to upload."""
-
         queue = self._queue
         items = []
 
@@ -134,7 +131,6 @@ class Consumer(threading.Thread):
 
     def upload(self):
         """Upload the next batch of items, return whether successful."""
-
         batch = self._next()
         if len(batch) == 0:
             return
@@ -275,7 +271,6 @@ class TaskManager(object):
 
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client"""
-
         self._log.debug("shutdown initiated")
 
         self.flush()

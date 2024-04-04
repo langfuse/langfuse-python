@@ -19,8 +19,7 @@ def catch_and_log_errors(func):
 
 
 def auto_decorate_methods_with(decorator, exclude: Optional[List[str]] = []):
-    """
-    Class decorator to automatically apply a given decorator to all
+    """Class decorator to automatically apply a given decorator to all
     methods of a class.
     """
 

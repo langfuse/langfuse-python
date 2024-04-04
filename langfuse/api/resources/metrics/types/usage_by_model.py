@@ -4,22 +4,16 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from ....core.pydantic_utilities import pydantic_v1
 
 
-class UsageByModel(pydantic.BaseModel):
-    """
-    Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
-    """
+class UsageByModel(pydantic_v1.BaseModel):
+    """Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens)."""
 
     model: str
-    input_usage: int = pydantic.Field(alias="inputUsage")
-    output_usage: int = pydantic.Field(alias="outputUsage")
-    total_usage: int = pydantic.Field(alias="totalUsage")
+    input_usage: int = pydantic_v1.Field(alias="inputUsage")
+    output_usage: int = pydantic_v1.Field(alias="outputUsage")
+    total_usage: int = pydantic_v1.Field(alias="totalUsage")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -41,4 +35,6 @@ class UsageByModel(pydantic.BaseModel):
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

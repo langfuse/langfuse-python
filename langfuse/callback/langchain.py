@@ -12,7 +12,6 @@ except ImportError as e:
     )
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
-from langchain.callbacks.base import BaseCallbackHandler as LangchainBaseCallbackHandler
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
@@ -24,6 +23,9 @@ from langfuse.utils import _get_timestamp
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 
 try:
+    from langchain.callbacks.base import (
+        BaseCallbackHandler as LangchainBaseCallbackHandler,
+    )
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
     from langchain_core.outputs import (
@@ -115,8 +117,7 @@ class LangchainCallbackHandler(
         )
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
-        """
-        Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
+        """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
         key in 'kwargs' or falling back to the 'name' or 'id' in 'serialized'. Defaults to "<unknown>"
         if none are available.
 
@@ -127,7 +128,6 @@ class LangchainCallbackHandler(
         Returns:
             str: The determined Langchain run name for the entity.
         """
-
         # Check if 'name' is in kwargs and not None, otherwise use default fallback logic
         if "name" in kwargs and kwargs["name"] is not None:
             return kwargs["name"]
@@ -228,7 +228,6 @@ class LangchainCallbackHandler(
                 and self.langfuse is not None
             ):
                 self.trace = None
-                self.runs = {}
 
             # if we are at a root, but langfuse exists, it means we do not have a
             # root provided by a user. Initialise it by creating a trace and root span.
@@ -303,7 +302,7 @@ class LangchainCallbackHandler(
                 output=finish, version=self.version
             )
 
-            self._update_trace(run_id, parent_run_id, finish)
+            self._update_trace_and_remove_state(run_id, parent_run_id, finish)
 
         except Exception as e:
             self.log.exception(e)
@@ -328,7 +327,7 @@ class LangchainCallbackHandler(
                 output=outputs, version=self.version
             )
 
-            self._update_trace(run_id, parent_run_id, outputs)
+            self._update_trace_and_remove_state(run_id, parent_run_id, outputs)
         except Exception as e:
             self.log.exception(e)
 
@@ -351,7 +350,7 @@ class LangchainCallbackHandler(
                 version=self.version,
             )
 
-            self._update_trace(run_id, parent_run_id, error)
+            self._update_trace_and_remove_state(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -498,7 +497,7 @@ class LangchainCallbackHandler(
                 output=documents, version=self.version
             )
 
-            self._update_trace(run_id, parent_run_id, documents)
+            self._update_trace_and_remove_state(run_id, parent_run_id, documents)
 
         except Exception as e:
             self.log.exception(e)
@@ -522,7 +521,7 @@ class LangchainCallbackHandler(
                 output=output, version=self.version
             )
 
-            self._update_trace(run_id, parent_run_id, output)
+            self._update_trace_and_remove_state(run_id, parent_run_id, output)
 
         except Exception as e:
             self.log.exception(e)
@@ -548,7 +547,7 @@ class LangchainCallbackHandler(
                 version=self.version,
             )
 
-            self._update_trace(run_id, parent_run_id, error)
+            self._update_trace_and_remove_state(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -617,7 +616,6 @@ class LangchainCallbackHandler(
 
     def _parse_model_and_log_errors(self, serialized, kwargs):
         """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
-
         try:
             model_name = _extract_model_name(serialized, **kwargs)
             if model_name:
@@ -677,7 +675,9 @@ class LangchainCallbackHandler(
                     output=extracted_response, usage=llm_usage, version=self.version
                 )
 
-                self._update_trace(run_id, parent_run_id, extracted_response)
+                self._update_trace_and_remove_state(
+                    run_id, parent_run_id, extracted_response
+                )
 
         except Exception as e:
             self.log.exception(e)
@@ -699,7 +699,7 @@ class LangchainCallbackHandler(
                 level=ObservationLevel.ERROR,
                 version=self.version,
             )
-            self._update_trace(run_id, parent_run_id, error)
+            self._update_trace_and_remove_state(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
@@ -731,9 +731,10 @@ class LangchainCallbackHandler(
             }
         )
 
-    def _update_trace(self, run_id: str, parent_run_id: Optional[str], output: any):
+    def _update_trace_and_remove_state(
+        self, run_id: str, parent_run_id: Optional[str], output: any
+    ):
         """Update the trace with the output of the current run. Called at every finish callback event."""
-
         if (
             parent_run_id
             is None  # If we are at the root of the langchain execution -> reached the end of the root
@@ -742,6 +743,7 @@ class LangchainCallbackHandler(
             == str(run_id)  # The trace was generated by langchain and not by the user
         ):
             self.trace = self.trace.update(output=output)
+        del self.runs[run_id]
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
