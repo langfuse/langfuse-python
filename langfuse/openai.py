@@ -261,7 +261,9 @@ def _get_langfuse_data_from_kwargs(
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
 
+    is_nested_trace = False
     if trace_id:
+        is_nested_trace = True
         langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
     else:
         trace_id = (
@@ -294,7 +296,7 @@ def _get_langfuse_data_from_kwargs(
         "input": prompt,
         "model_parameters": modelParameters,
         "model": model,
-    }
+    }, is_nested_trace
 
 
 def _get_langfuse_data_from_sync_streaming_response(
@@ -302,7 +304,7 @@ def _get_langfuse_data_from_sync_streaming_response(
     response,
     generation: StatefulGenerationClient,
     langfuse: Langfuse,
-    kwargs,
+    is_nested_trace,
 ):
     responses = []
     for i in response:
@@ -314,8 +316,7 @@ def _get_langfuse_data_from_sync_streaming_response(
     )
 
     # Avoiding the trace-update if trace-id is provided by user.
-    trace_id = kwargs.get("trace_id", None)
-    if not trace_id:
+    if not is_nested_trace:
         langfuse.trace(id=generation.trace_id, output=completion)
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
@@ -326,7 +327,7 @@ async def _get_langfuse_data_from_async_streaming_response(
     response,
     generation: StatefulGenerationClient,
     langfuse: Langfuse,
-    kwargs,
+    is_nested_trace,
 ):
     responses = []
     async for i in response:
@@ -338,8 +339,7 @@ async def _get_langfuse_data_from_async_streaming_response(
     )
 
     # Avoiding the trace-update if trace-id is provided by user.
-    trace_id = kwargs.get("trace_id", None)
-    if not trace_id:
+    if not is_nested_trace:
         langfuse.trace(id=generation.trace_id, output=completion)
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
@@ -480,7 +480,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     start_time = _get_timestamp()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
-    generation = _get_langfuse_data_from_kwargs(
+    generation, is_nested_trace = _get_langfuse_data_from_kwargs(
         open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
     )
     generation = new_langfuse.generation(**generation)
@@ -493,7 +493,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 openai_response,
                 generation,
                 new_langfuse,
-                arg_extractor.get_langfuse_args(),
+                is_nested_trace,
             )
 
         else:
@@ -506,8 +506,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             )
 
             # Avoiding the trace-update if trace-id is provided by user.
-            trace_id = arg_extractor.get_langfuse_args().get("trace_id", None)
-            if not trace_id:
+            if not is_nested_trace:
                 new_langfuse.trace(id=generation.trace_id, output=completion)
 
         return openai_response
@@ -531,7 +530,7 @@ async def _wrap_async(
     start_time = _get_timestamp()
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
 
-    generation = _get_langfuse_data_from_kwargs(
+    generation, is_nested_trace = _get_langfuse_data_from_kwargs(
         open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
     )
     generation = new_langfuse.generation(**generation)
@@ -544,7 +543,7 @@ async def _wrap_async(
                 openai_response,
                 generation,
                 new_langfuse,
-                arg_extractor.get_langfuse_args(),
+                is_nested_trace,
             )
 
         else:
@@ -559,8 +558,7 @@ async def _wrap_async(
                 usage=usage,
             )
             # Avoiding the trace-update if trace-id is provided by user.
-            trace_id = arg_extractor.get_langfuse_args().get("trace_id", None)
-            if not trace_id:
+            if not is_nested_trace:
                 new_langfuse.trace(id=generation.trace_id, output=completion)
 
         return openai_response
