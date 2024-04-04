@@ -302,6 +302,7 @@ def _get_langfuse_data_from_sync_streaming_response(
     response,
     generation: StatefulGenerationClient,
     langfuse: Langfuse,
+    kwargs,
 ):
     responses = []
     for i in response:
@@ -312,6 +313,12 @@ def _get_langfuse_data_from_sync_streaming_response(
         resource, responses
     )
 
+    # Avoiding the trace-update if trace-id is provided by user.
+    decorator_context_trace_id = langfuse_context.get_current_trace_id()
+    trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
+    if not trace_id:
+        langfuse.trace(id=generation.trace_id, output=completion)
+
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
 
@@ -320,6 +327,7 @@ async def _get_langfuse_data_from_async_streaming_response(
     response,
     generation: StatefulGenerationClient,
     langfuse: Langfuse,
+    kwargs,
 ):
     responses = []
     async for i in response:
@@ -330,7 +338,11 @@ async def _get_langfuse_data_from_async_streaming_response(
         resource, responses
     )
 
-    langfuse.trace(id=generation.trace_id, output=completion)
+    # Avoiding the trace-update if trace-id is provided by user.
+    decorator_context_trace_id = langfuse_context.get_current_trace_id()
+    trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
+    if not trace_id:
+        langfuse.trace(id=generation.trace_id, output=completion)
 
     _create_langfuse_update(completion, generation, completion_start_time, model=model)
 
@@ -479,7 +491,11 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
 
         if _is_streaming_response(openai_response):
             return _get_langfuse_data_from_sync_streaming_response(
-                open_ai_resource, openai_response, generation, new_langfuse
+                open_ai_resource,
+                openai_response,
+                generation,
+                new_langfuse,
+                arg_extractor.get_langfuse_args(),
             )
 
         else:
@@ -522,7 +538,11 @@ async def _wrap_async(
 
         if _is_streaming_response(openai_response):
             return _get_langfuse_data_from_async_streaming_response(
-                open_ai_resource, openai_response, generation, new_langfuse
+                open_ai_resource,
+                openai_response,
+                generation,
+                new_langfuse,
+                arg_extractor.get_langfuse_args(),
             )
 
         else:
