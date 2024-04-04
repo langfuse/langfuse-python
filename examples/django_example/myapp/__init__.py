@@ -4,8 +4,7 @@ from .langfuse_integration import langfuse_flush
 
 
 def shutdown_handler(*args):
-    """
-    This function handles the shutdown process.
+    """This function handles the shutdown process.
 
     It calls the langfuse_flush function to flush any pending changes,
     and then exits the program with a status code of 0.

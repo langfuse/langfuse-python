@@ -117,8 +117,7 @@ class LangchainCallbackHandler(
         )
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
-        """
-        Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
+        """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
         key in 'kwargs' or falling back to the 'name' or 'id' in 'serialized'. Defaults to "<unknown>"
         if none are available.
 
@@ -129,7 +128,6 @@ class LangchainCallbackHandler(
         Returns:
             str: The determined Langchain run name for the entity.
         """
-
         # Check if 'name' is in kwargs and not None, otherwise use default fallback logic
         if "name" in kwargs and kwargs["name"] is not None:
             return kwargs["name"]
@@ -618,7 +616,6 @@ class LangchainCallbackHandler(
 
     def _parse_model_and_log_errors(self, serialized, kwargs):
         """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
-
         try:
             model_name = _extract_model_name(serialized, **kwargs)
             if model_name:
@@ -738,7 +735,6 @@ class LangchainCallbackHandler(
         self, run_id: str, parent_run_id: Optional[str], output: any
     ):
         """Update the trace with the output of the current run. Called at every finish callback event."""
-
         if (
             parent_run_id
             is None  # If we are at the root of the langchain execution -> reached the end of the root

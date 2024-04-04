@@ -139,12 +139,15 @@ def test_sdk_custom_xhttp_client():
         "read": 9999,
         "write": 9999,
     }
-    assert langfuse.client._client_wrapper.httpx_client._timeout.as_dict() == {
-        "connect": 9999,
-        "pool": 9999,
-        "read": 9999,
-        "write": 9999,
-    }
+    assert (
+        langfuse.client._client_wrapper.httpx_client.httpx_client._timeout.as_dict()
+        == {
+            "connect": 9999,
+            "pool": 9999,
+            "read": 9999,
+            "write": 9999,
+        }
+    )
 
 
 # callback

@@ -12,6 +12,7 @@ from .types import (
     ObservationLevel,
     ObservationsView,
     Score,
+    ScoreSource,
     Session,
     SessionWithTraces,
     Trace,
@@ -19,13 +20,7 @@ from .types import (
     TraceWithFullDetails,
     Usage,
 )
-from .errors import (
-    AccessDeniedError,
-    Error,
-    MethodNotAllowedError,
-    NotFoundError,
-    UnauthorizedError,
-)
+from .errors import AccessDeniedError, Error, MethodNotAllowedError, NotFoundError, UnauthorizedError
 
 __all__ = [
     "AccessDeniedError",
@@ -43,6 +38,7 @@ __all__ = [
     "ObservationLevel",
     "ObservationsView",
     "Score",
+    "ScoreSource",
     "Session",
     "SessionWithTraces",
     "Trace",

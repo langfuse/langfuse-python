@@ -5,8 +5,7 @@ langfuse = Langfuse(public_key="pk-lf-1234567890", secret_key="sk-lf-1234567890"
 
 
 def get_response_openai(prompt):
-    """
-    This simulates the response to a prompt using the OpenAI API.
+    """This simulates the response to a prompt using the OpenAI API.
 
     Args:
         prompt (str): The prompt for generating the response.
