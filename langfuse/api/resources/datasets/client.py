@@ -27,7 +27,12 @@ class DatasetsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(self, dataset_name: str, *, request_options: typing.Optional[RequestOptions] = None) -> Dataset:
+    def get(
+        self,
+        dataset_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Dataset:
         """Get a dataset and its items
 
         Parameters:
@@ -52,35 +57,51 @@ class DatasetsClient:
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", f"api/public/datasets/{jsonable_encoder(dataset_name)}"
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/datasets/{jsonable_encoder(dataset_name)}",
             ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters") if request_options is not None else None
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
             ),
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -90,7 +111,10 @@ class DatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create(
-        self, *, request: CreateDatasetRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: CreateDatasetRequest,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
         """Create a dataset
 
@@ -118,40 +142,64 @@ class DatasetsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"
+            ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters") if request_options is not None else None
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
             ),
             json=jsonable_encoder(request)
-            if request_options is None or request_options.get("additional_body_parameters") is None
+            if request_options is None
+            or request_options.get("additional_body_parameters") is None
             else {
                 **jsonable_encoder(request),
-                **(jsonable_encoder(remove_none_from_dict(request_options.get("additional_body_parameters", {})))),
+                **(
+                    jsonable_encoder(
+                        remove_none_from_dict(
+                            request_options.get("additional_body_parameters", {})
+                        )
+                    )
+                ),
             },
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -161,7 +209,11 @@ class DatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_runs(
-        self, dataset_name: str, run_name: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        dataset_name: str,
+        run_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRun:
         """Get a dataset run and its items
 
@@ -194,32 +246,47 @@ class DatasetsClient:
                 f"api/public/datasets/{jsonable_encoder(dataset_name)}/runs/{jsonable_encoder(run_name)}",
             ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters") if request_options is not None else None
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
             ),
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(DatasetRun, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -233,7 +300,12 @@ class AsyncDatasetsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(self, dataset_name: str, *, request_options: typing.Optional[RequestOptions] = None) -> Dataset:
+    async def get(
+        self,
+        dataset_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Dataset:
         """Get a dataset and its items
 
         Parameters:
@@ -258,35 +330,51 @@ class AsyncDatasetsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", f"api/public/datasets/{jsonable_encoder(dataset_name)}"
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/datasets/{jsonable_encoder(dataset_name)}",
             ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters") if request_options is not None else None
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
             ),
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -296,7 +384,10 @@ class AsyncDatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create(
-        self, *, request: CreateDatasetRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: CreateDatasetRequest,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
         """Create a dataset
 
@@ -324,40 +415,64 @@ class AsyncDatasetsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"),
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/datasets"
+            ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters") if request_options is not None else None
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
             ),
             json=jsonable_encoder(request)
-            if request_options is None or request_options.get("additional_body_parameters") is None
+            if request_options is None
+            or request_options.get("additional_body_parameters") is None
             else {
                 **jsonable_encoder(request),
-                **(jsonable_encoder(remove_none_from_dict(request_options.get("additional_body_parameters", {})))),
+                **(
+                    jsonable_encoder(
+                        remove_none_from_dict(
+                            request_options.get("additional_body_parameters", {})
+                        )
+                    )
+                ),
             },
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Dataset, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -367,7 +482,11 @@ class AsyncDatasetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_runs(
-        self, dataset_name: str, run_name: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        dataset_name: str,
+        run_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRun:
         """Get a dataset run and its items
 
@@ -400,32 +519,47 @@ class AsyncDatasetsClient:
                 f"api/public/datasets/{jsonable_encoder(dataset_name)}/runs/{jsonable_encoder(run_name)}",
             ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters") if request_options is not None else None
+                request_options.get("additional_query_parameters")
+                if request_options is not None
+                else None
             ),
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(DatasetRun, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
