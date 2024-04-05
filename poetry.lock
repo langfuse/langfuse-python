@@ -126,13 +126,13 @@ typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.9\""}
 
 [[package]]
 name = "anthropic"
-version = "0.20.0"
+version = "0.23.1"
 description = "The official Python library for the anthropic API"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "anthropic-0.20.0-py3-none-any.whl", hash = "sha256:754fe24596efbe1d7a49d3d59818a2a25d2bf29539e036eafd8a43427cd58134"},
-    {file = "anthropic-0.20.0.tar.gz", hash = "sha256:f9f1a5213af4710d6e1f9b83208a4b158355d1a95eb4ae0906c7580aa0e0f1d1"},
+    {file = "anthropic-0.23.1-py3-none-any.whl", hash = "sha256:6dc5779dae83a5834864f4a4af0166c972b70f4cb8fd2765e1558282cc6d6242"},
+    {file = "anthropic-0.23.1.tar.gz", hash = "sha256:9325103702cbc96bb09d1b58c36bde75c726f6a01029fb4d85f41ebba07e9066"},
 ]
 
 [package.dependencies]
@@ -1899,19 +1899,19 @@ text-helpers = ["chardet (>=5.1.0,<6.0.0)"]
 
 [[package]]
 name = "langchain-anthropic"
-version = "0.1.4"
+version = "0.1.6"
 description = "An integration package connecting AnthropicMessages and LangChain"
 optional = false
-python-versions = ">=3.8.1,<4.0"
+python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_anthropic-0.1.4-py3-none-any.whl", hash = "sha256:9b3e28c1c0f7a502495b240c6c015d7fc57d04fb381fae389ecdce8847de5777"},
-    {file = "langchain_anthropic-0.1.4.tar.gz", hash = "sha256:d772f7111335953d23393cac8173a0a1ee65b5fe0dc137c6b7a6db2a06fbcac4"},
+    {file = "langchain_anthropic-0.1.6-py3-none-any.whl", hash = "sha256:5626f9f2f0d3cc1665a2f5817ea1856dbfa4c745bc6f95b7043c56b6ab85e0c1"},
+    {file = "langchain_anthropic-0.1.6.tar.gz", hash = "sha256:544e5c8c365964c594b80eb1db994e67d90722be9efde460229e5888524545de"},
 ]
 
 [package.dependencies]
-anthropic = ">=0.17.0,<1"
+anthropic = ">=0.23.0,<1"
 defusedxml = ">=0.7.1,<0.8.0"
-langchain-core = ">=0.1,<0.2"
+langchain-core = ">=0.1.33,<0.2.0"
 
 [[package]]
 name = "langchain-community"
@@ -2231,17 +2231,17 @@ query-tools = ["guidance (>=0.0.64,<0.0.65)", "jsonpath-ng (>=1.6.0,<2.0.0)", "l
 
 [[package]]
 name = "llama-index-llms-anthropic"
-version = "0.1.7"
+version = "0.1.9"
 description = "llama-index llms anthropic integration"
 optional = false
-python-versions = ">=3.8.1,<4.0"
+python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "llama_index_llms_anthropic-0.1.7-py3-none-any.whl", hash = "sha256:4ff22fdf90fff1c9ded01f4f3e07fe7dcfe35b55dd6aabf0edfacd2e02a2dfef"},
-    {file = "llama_index_llms_anthropic-0.1.7.tar.gz", hash = "sha256:287be32d602cad848d56fe95e5e69527278a776d16cba2059b870006720162e3"},
+    {file = "llama_index_llms_anthropic-0.1.9-py3-none-any.whl", hash = "sha256:6b066ae7077abd03ddda7111694a0cf952571c99aa6f2f7b7a6a3383636a8f42"},
+    {file = "llama_index_llms_anthropic-0.1.9.tar.gz", hash = "sha256:1071c6a08cf88923c8a33cefdc7b5aa9c8205f1c75040a90cf3229e32c522a7c"},
 ]
 
 [package.dependencies]
-anthropic = ">=0.20.0,<0.21.0"
+anthropic = ">=0.23.1,<0.24.0"
 llama-index-core = ">=0.10.1,<0.11.0"
 
 [[package]]
