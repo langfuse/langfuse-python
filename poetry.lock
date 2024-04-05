@@ -636,22 +636,23 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cohere"
-version = "4.57"
-description = "Python SDK for the Cohere API"
+version = "5.2.2"
+description = ""
 optional = false
-python-versions = ">=3.8,<4.0"
+python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cohere-4.57-py3-none-any.whl", hash = "sha256:479bdea81ae119e53f671f1ae808fcff9df88211780525d7ef2f7b99dfb32e59"},
-    {file = "cohere-4.57.tar.gz", hash = "sha256:71ace0204a92d1a2a8d4b949b88b353b4f22fc645486851924284cc5a0eb700d"},
+    {file = "cohere-5.2.2-py3-none-any.whl", hash = "sha256:dae0c7318fa0d15a2147a044a49c1f40164a6c8135a260cc46214058c7c06085"},
+    {file = "cohere-5.2.2.tar.gz", hash = "sha256:43243b86d4abf3140f9077435580ebceaa431fb7d57a9fef6858eee880f26646"},
 ]
 
 [package.dependencies]
-aiohttp = ">=3.0,<4.0"
-backoff = ">=2.0,<3.0"
-fastavro = ">=1.8,<2.0"
-importlib_metadata = ">=6.0,<7.0"
-requests = ">=2.25.0,<3.0.0"
-urllib3 = ">=1.26,<3"
+fastavro = ">=1.9.4,<2.0.0"
+httpx = ">=0.21.2"
+pydantic = ">=1.9.2"
+requests = ">=2.0.0,<3.0.0"
+tokenizers = ">=0.15.2,<0.16.0"
+types-requests = ">=2.0.0,<3.0.0"
+typing_extensions = ">=4.0.0"
 
 [[package]]
 name = "colorama"
@@ -5432,4 +5433,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "c6d2b3706420991ba8815ec7d84ef199acedab8ac149a77d54da4a93dd6712de"
+content-hash = "36c6e9ee2941b39f89592beac0da16a4a702df3f8e00ce8115adc0936f6bcf1f"
