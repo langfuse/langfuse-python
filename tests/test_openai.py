@@ -944,3 +944,61 @@ def test_image_filter_url():
             ],
         }
     ]
+
+
+def test_openai_with_existing_trace_id():
+    langfuse = Langfuse()
+    trace = langfuse.trace(
+        name="docs-retrieval",
+        user_id="user__935d7d1d-8625-4ef4-8651-544613e7bd22",
+        metadata={
+            "email": "user@langfuse.com",
+        },
+        tags=["production"],
+        output="This is a standard output",
+        input="My custom input",
+    )
+
+    langfuse.flush()
+
+    api = get_api()
+    generation_name = create_uuid()
+    completion = chat_func(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+        trace_id=trace.id,
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].metadata == {"someKey": "someResponse"}
+    assert len(completion.choices) != 0
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    assert "2" in generation.data[0].output["content"]
+    assert generation.data[0].output["role"] == "assistant"
+
+    trace = api.trace.get(generation.data[0].trace_id)
+    assert trace.output == "This is a standard output"
+    assert trace.input == "My custom input"
