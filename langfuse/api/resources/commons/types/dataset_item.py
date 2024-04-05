@@ -11,8 +11,9 @@ from .dataset_status import DatasetStatus
 class DatasetItem(pydantic_v1.BaseModel):
     id: str
     status: DatasetStatus
-    input: typing.Any
+    input: typing.Optional[typing.Any] = None
     expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(alias="expectedOutput", default=None)
+    source_trace_id: typing.Optional[str] = pydantic_v1.Field(alias="sourceTraceId", default=None)
     source_observation_id: typing.Optional[str] = pydantic_v1.Field(alias="sourceObservationId", default=None)
     dataset_id: str = pydantic_v1.Field(alias="datasetId")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
