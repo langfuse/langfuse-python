@@ -7,21 +7,13 @@ from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
 
 
-class HealthResponse(pydantic_v1.BaseModel):
-    """from finto import HealthResponse
-
-    HealthResponse(
-        version="1.25.0",
-        status="OK",
-    )
-    """
-
-    version: str = pydantic_v1.Field()
-    """
-    Langfuse server version
-    """
-
-    status: str
+class DatasetCore(pydantic_v1.BaseModel):
+    id: str
+    name: str
+    description: typing.Optional[str] = None
+    project_id: str = pydantic_v1.Field(alias="projectId")
+    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
+    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -34,5 +26,7 @@ class HealthResponse(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
