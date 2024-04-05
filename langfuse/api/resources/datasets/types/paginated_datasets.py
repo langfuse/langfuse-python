@@ -5,23 +5,13 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from ...commons.types.dataset_with_references import DatasetWithReferences
+from ...utils.resources.pagination.types.meta_response import MetaResponse
 
 
-class HealthResponse(pydantic_v1.BaseModel):
-    """from finto import HealthResponse
-
-    HealthResponse(
-        version="1.25.0",
-        status="OK",
-    )
-    """
-
-    version: str = pydantic_v1.Field()
-    """
-    Langfuse server version
-    """
-
-    status: str
+class PaginatedDatasets(pydantic_v1.BaseModel):
+    data: typing.List[DatasetWithReferences]
+    meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

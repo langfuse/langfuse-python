@@ -9,6 +9,7 @@ from ....core.pydantic_utilities import pydantic_v1
 
 class CreateDatasetRequest(pydantic_v1.BaseModel):
     name: str
+    description: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

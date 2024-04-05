@@ -2,10 +2,12 @@
 
 from .types import (
     Dataset,
+    DatasetCore,
     DatasetItem,
     DatasetRun,
     DatasetRunItem,
     DatasetStatus,
+    DatasetWithReferences,
     MapValue,
     ModelUsageUnit,
     Observation,
@@ -25,10 +27,12 @@ from .errors import AccessDeniedError, Error, MethodNotAllowedError, NotFoundErr
 __all__ = [
     "AccessDeniedError",
     "Dataset",
+    "DatasetCore",
     "DatasetItem",
     "DatasetRun",
     "DatasetRunItem",
     "DatasetStatus",
+    "DatasetWithReferences",
     "Error",
     "MapValue",
     "MethodNotAllowedError",
