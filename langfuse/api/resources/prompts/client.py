@@ -59,9 +59,7 @@ class PromptsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"
-            ),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"),
             params=jsonable_encoder(
                 remove_none_from_dict(
                     {
@@ -79,39 +77,26 @@ class PromptsClient:
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -121,10 +106,7 @@ class PromptsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create(
-        self,
-        *,
-        request: CreatePromptRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreatePromptRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> Prompt:
         """Create a prompt
 
@@ -155,64 +137,40 @@ class PromptsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"
-            ),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
+                request_options.get("additional_query_parameters") if request_options is not None else None
             ),
             json=jsonable_encoder(request)
-            if request_options is None
-            or request_options.get("additional_body_parameters") is None
+            if request_options is None or request_options.get("additional_body_parameters") is None
             else {
                 **jsonable_encoder(request),
-                **(
-                    jsonable_encoder(
-                        remove_none_from_dict(
-                            request_options.get("additional_body_parameters", {})
-                        )
-                    )
-                ),
+                **(jsonable_encoder(remove_none_from_dict(request_options.get("additional_body_parameters", {})))),
             },
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -259,9 +217,7 @@ class AsyncPromptsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"
-            ),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"),
             params=jsonable_encoder(
                 remove_none_from_dict(
                     {
@@ -279,39 +235,26 @@ class AsyncPromptsClient:
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -321,10 +264,7 @@ class AsyncPromptsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create(
-        self,
-        *,
-        request: CreatePromptRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreatePromptRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> Prompt:
         """Create a prompt
 
@@ -355,64 +295,40 @@ class AsyncPromptsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"
-            ),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/prompts"),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
+                request_options.get("additional_query_parameters") if request_options is not None else None
             ),
             json=jsonable_encoder(request)
-            if request_options is None
-            or request_options.get("additional_body_parameters") is None
+            if request_options is None or request_options.get("additional_body_parameters") is None
             else {
                 **jsonable_encoder(request),
-                **(
-                    jsonable_encoder(
-                        remove_none_from_dict(
-                            request_options.get("additional_body_parameters", {})
-                        )
-                    )
-                ),
+                **(jsonable_encoder(remove_none_from_dict(request_options.get("additional_body_parameters", {})))),
             },
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:

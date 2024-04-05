@@ -11,8 +11,10 @@ from .dataset_run_item import DatasetRunItem
 class DatasetRun(pydantic_v1.BaseModel):
     id: str
     name: str
+    description: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
     dataset_id: str = pydantic_v1.Field(alias="datasetId")
+    dataset_name: str = pydantic_v1.Field(alias="datasetName")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
     dataset_run_items: typing.List[DatasetRunItem] = pydantic_v1.Field(alias="datasetRunItems")

@@ -9,7 +9,7 @@ from ....core.pydantic_utilities import pydantic_v1
 
 class CreateDatasetItemRequest(pydantic_v1.BaseModel):
     dataset_name: str = pydantic_v1.Field(alias="datasetName")
-    input: typing.Any
+    input: typing.Optional[typing.Any] = None
     expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(alias="expectedOutput", default=None)
     id: typing.Optional[str] = pydantic_v1.Field(default=None)
     """

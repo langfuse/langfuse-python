@@ -5,23 +5,19 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from .dataset_core import DatasetCore
 
 
-class HealthResponse(pydantic_v1.BaseModel):
-    """from finto import HealthResponse
-
-    HealthResponse(
-        version="1.25.0",
-        status="OK",
-    )
+class DatasetWithReferences(DatasetCore):
+    items: typing.List[str] = pydantic_v1.Field()
+    """
+    list of dataset item ids
     """
 
-    version: str = pydantic_v1.Field()
+    runs: typing.List[str] = pydantic_v1.Field()
     """
-    Langfuse server version
+    list of dataset run names
     """
-
-    status: str
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
@@ -34,5 +30,7 @@ class HealthResponse(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
