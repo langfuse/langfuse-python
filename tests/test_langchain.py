@@ -1485,10 +1485,7 @@ def test_get_langchain_prompt():
         )
 
         if i == 0:
-            assert (
-                langchain_prompt.format(test="test")
-                == "Human: This is a test with a test"
-            )
+            assert langchain_prompt.format(test="test") == "Human: This is a test"
         else:
             assert (
                 langchain_prompt.format(test="test", test2="test2")
