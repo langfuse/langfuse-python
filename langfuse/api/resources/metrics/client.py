@@ -35,9 +35,9 @@ class MetricsClient:
         """Get daily metrics of the Langfuse project
 
         Parameters:
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - trace_name: typing.Optional[str]. Optional filter by the name of the trace
 
@@ -134,9 +134,9 @@ class AsyncMetricsClient:
         """Get daily metrics of the Langfuse project
 
         Parameters:
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - trace_name: typing.Optional[str]. Optional filter by the name of the trace
 

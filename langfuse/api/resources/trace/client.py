@@ -25,9 +25,7 @@ class TraceClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(
-        self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> TraceWithFullDetails:
+    def get(self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> TraceWithFullDetails:
         """Get a specific trace
 
         Parameters:
@@ -52,51 +50,35 @@ class TraceClient:
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/traces/{jsonable_encoder(trace_id)}",
+                f"{self._client_wrapper.get_base_url()}/", f"api/public/traces/{jsonable_encoder(trace_id)}"
             ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
+                request_options.get("additional_query_parameters") if request_options is not None else None
             ),
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(TraceWithFullDetails, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -120,9 +102,9 @@ class TraceClient:
         """Get list of traces
 
         Parameters:
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - user_id: typing.Optional[str].
 
@@ -162,9 +144,7 @@ class TraceClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/traces"
-            ),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/traces"),
             params=jsonable_encoder(
                 remove_none_from_dict(
                     {
@@ -172,9 +152,7 @@ class TraceClient:
                         "limit": limit,
                         "userId": user_id,
                         "name": name,
-                        "fromTimestamp": serialize_datetime(from_timestamp)
-                        if from_timestamp is not None
-                        else None,
+                        "fromTimestamp": serialize_datetime(from_timestamp) if from_timestamp is not None else None,
                         "orderBy": order_by,
                         "tags": tags,
                         **(
@@ -189,39 +167,26 @@ class TraceClient:
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Traces, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -262,51 +227,35 @@ class AsyncTraceClient:
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/traces/{jsonable_encoder(trace_id)}",
+                f"{self._client_wrapper.get_base_url()}/", f"api/public/traces/{jsonable_encoder(trace_id)}"
             ),
             params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
+                request_options.get("additional_query_parameters") if request_options is not None else None
             ),
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(TraceWithFullDetails, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
@@ -330,9 +279,9 @@ class AsyncTraceClient:
         """Get list of traces
 
         Parameters:
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - user_id: typing.Optional[str].
 
@@ -372,9 +321,7 @@ class AsyncTraceClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/traces"
-            ),
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/public/traces"),
             params=jsonable_encoder(
                 remove_none_from_dict(
                     {
@@ -382,9 +329,7 @@ class AsyncTraceClient:
                         "limit": limit,
                         "userId": user_id,
                         "name": name,
-                        "fromTimestamp": serialize_datetime(from_timestamp)
-                        if from_timestamp is not None
-                        else None,
+                        "fromTimestamp": serialize_datetime(from_timestamp) if from_timestamp is not None else None,
                         "orderBy": order_by,
                         "tags": tags,
                         **(
@@ -399,39 +344,26 @@ class AsyncTraceClient:
                 remove_none_from_dict(
                     {
                         **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
+                        **(request_options.get("additional_headers", {}) if request_options is not None else {}),
                     }
                 )
             ),
             timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
+            if request_options is not None and request_options.get("timeout_in_seconds") is not None
             else self._client_wrapper.get_timeout(),
             retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            max_retries=request_options.get("max_retries") if request_options is not None else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(Traces, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
+            raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 404:
             raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:

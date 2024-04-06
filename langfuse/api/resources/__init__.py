@@ -19,10 +19,12 @@ from . import (
 from .commons import (
     AccessDeniedError,
     Dataset,
+    DatasetCore,
     DatasetItem,
     DatasetRun,
     DatasetRunItem,
     DatasetStatus,
+    DatasetWithReferences,
     Error,
     MapValue,
     MethodNotAllowedError,
@@ -43,7 +45,7 @@ from .commons import (
 )
 from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
-from .datasets import CreateDatasetRequest
+from .datasets import CreateDatasetRequest, PaginatedDatasets
 from .health import HealthResponse, ServiceUnavailableError
 from .ingestion import (
     BaseEvent,
@@ -123,10 +125,12 @@ __all__ = [
     "DailyMetrics",
     "DailyMetricsDetails",
     "Dataset",
+    "DatasetCore",
     "DatasetItem",
     "DatasetRun",
     "DatasetRunItem",
     "DatasetStatus",
+    "DatasetWithReferences",
     "Error",
     "HealthResponse",
     "IngestionError",
@@ -157,6 +161,7 @@ __all__ = [
     "ObservationsViews",
     "OpenAiUsage",
     "OptionalObservationBody",
+    "PaginatedDatasets",
     "Project",
     "Projects",
     "Prompt",

@@ -9,6 +9,11 @@ from ....core.pydantic_utilities import pydantic_v1
 
 class CreateDatasetRunItemRequest(pydantic_v1.BaseModel):
     run_name: str = pydantic_v1.Field(alias="runName")
+    run_description: typing.Optional[str] = pydantic_v1.Field(alias="runDescription", default=None)
+    """
+    Description of the run. If run exists, description will be updated.
+    """
+
     metadata: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
     """
     Metadata of the dataset run, updates run if run already exists
