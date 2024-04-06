@@ -4,19 +4,16 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from ....core.pydantic_utilities import pydantic_v1
 
 
-class CreateTextPromptRequest(pydantic.BaseModel):
+class CreateTextPromptRequest(pydantic_v1.BaseModel):
     name: str
-    is_active: bool = pydantic.Field(
-        alias="isActive",
-        description="Should the prompt be promoted to production immediately?",
-    )
+    is_active: bool = pydantic_v1.Field(alias="isActive")
+    """
+    Should the prompt be promoted to production immediately?
+    """
+
     prompt: str
     config: typing.Optional[typing.Any] = None
 
@@ -40,4 +37,6 @@ class CreateTextPromptRequest(pydantic.BaseModel):
         frozen = True
         smart_union = True
         allow_population_by_field_name = True
+        populate_by_name = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
