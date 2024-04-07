@@ -93,7 +93,7 @@ class LangchainCallbackHandler(
             timeout=timeout,
             sdk_integration=sdk_integration or "langchain",
         )
-
+        self.traces = {}
         self.runs = {}
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
@@ -185,23 +185,25 @@ class LangchainCallbackHandler(
                 version=self.version,
                 **kwargs,
             )
-
+            print("KWARSG: ", kwargs)
+            trace_id = str(run_id) if str(run_id) in self.traces else str(parent_run_id)
             content = {
                 "id": self.next_span_id,
-                "trace_id": self.trace.id,
+                "trace_id": trace_id,
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
                 "version": self.version,
             }
-
             if parent_run_id is None:
                 if self.root_span is None:
-                    self.runs[run_id] = self.trace.span(**content)
+                    self.runs[run_id] = self.traces[trace_id].span(**content)
                 else:
                     self.runs[run_id] = self.root_span.span(**content)
             if parent_run_id is not None:
                 self.runs[run_id] = self.runs[parent_run_id].span(**content)
+
+            return LangchainBaseCallbackHandler(run_id=run_id, parent_run_id=parent_run_id, trace_id=trace_id)
 
         except Exception as e:
             self.log.exception(e)
@@ -222,16 +224,17 @@ class LangchainCallbackHandler(
 
             # on a new invocation, and not user provided root, we want to initialise a new trace
             # parent_run_id is None when we are at the root of a langchain execution
-            if (
-                self.trace is not None
-                and parent_run_id is None
-                and self.langfuse is not None
-            ):
-                self.trace = None
+            # if (
+            #     run_id is not None
+            #     and parent_run_id is None
+            #     and self.langfuse is not None
+            # ):
+            #     self.traces[str(run_id)] = None
+            #     print("TRACE_ID::::: ", str(run_id))
 
             # if we are at a root, but langfuse exists, it means we do not have a
             # root provided by a user. Initialise it by creating a trace and root span.
-            if self.trace is None and self.langfuse is not None:
+            if self.traces.get(str(run_id)) is None and self.langfuse is not None:
                 trace = self.langfuse.trace(
                     id=str(run_id),
                     name=self.trace_name if self.trace_name is not None else class_name,
@@ -243,11 +246,13 @@ class LangchainCallbackHandler(
                 )
 
                 self.trace = trace
-
+                self.traces[str(run_id)] = trace
+                trace_id = trace.id
+                print("--->>>>>trace_id: ", trace_id, run_id, parent_run_id)
                 if parent_run_id is not None and parent_run_id in self.runs:
-                    self.runs[run_id] = self.trace.span(
+                    self.runs[run_id] = self.traces[trace_id].span(
                         id=self.next_span_id,
-                        trace_id=self.trace.id,
+                        trace_id=self.traces[trace_id].id,
                         name=class_name,
                         metadata=self.__join_tags_and_metadata(tags, metadata),
                         input=inputs,
@@ -326,8 +331,9 @@ class LangchainCallbackHandler(
             self.runs[run_id] = self.runs[run_id].end(
                 output=outputs, version=self.version
             )
-
-            self._update_trace_and_remove_state(run_id, parent_run_id, outputs)
+            self._update_trace_and_remove_state(
+                run_id, parent_run_id, outputs, input=kwargs.get("inputs")
+            )
         except Exception as e:
             self.log.exception(e)
 
@@ -350,7 +356,9 @@ class LangchainCallbackHandler(
                 version=self.version,
             )
 
-            self._update_trace_and_remove_state(run_id, parent_run_id, error)
+            self._update_trace_and_remove_state(
+                run_id, parent_run_id, error, input=kwargs.get("inputs")
+            )
 
         except Exception as e:
             self.log.exception(e)
@@ -604,12 +612,14 @@ class LangchainCallbackHandler(
                 "version": self.version,
             }
 
+            trace_id = str(run_id) if str(run_id) in self.traces else str(parent_run_id)
+
             if parent_run_id in self.runs:
                 self.runs[run_id] = self.runs[parent_run_id].generation(**content)
             elif self.root_span is not None and parent_run_id is None:
                 self.runs[run_id] = self.root_span.generation(**content)
             else:
-                self.runs[run_id] = self.trace.generation(**content)
+                self.runs[run_id] = self.traces[trace_id].generation(**content)
 
         except Exception as e:
             self.log.exception(e)
@@ -732,17 +742,19 @@ class LangchainCallbackHandler(
         )
 
     def _update_trace_and_remove_state(
-        self, run_id: str, parent_run_id: Optional[str], output: any
+        self, run_id: str, parent_run_id: Optional[str], output: any, **kwargs: Any
     ):
         """Update the trace with the output of the current run. Called at every finish callback event."""
         if (
             parent_run_id
             is None  # If we are at the root of the langchain execution -> reached the end of the root
-            and self.trace is not None  # We do have a trace available
-            and self.trace.id
-            == str(run_id)  # The trace was generated by langchain and not by the user
+            and self.traces.get(str(run_id)) is not None  # We do have a trace available
         ):
-            self.trace = self.trace.update(output=output)
+            print("::::::: ", run_id, parent_run_id)
+
+            self.traces[str(run_id)] = self.traces[str(run_id)].update(
+                output=output, **kwargs
+            )
         del self.runs[run_id]
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
