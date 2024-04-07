@@ -626,7 +626,7 @@ async def test_chains_ainvoke_chat_models(model_name):
         Introduction: This is an engaging introduction for the blog post on the topic above:"""
     )
     chain = prompt1 | model | StrOutputParser()
-    res = chain.invoke(
+    res = await chain.ainvoke(
         {"topic": "The Impact of Climate Change"},
         config={"callbacks": [callback]},
     )
@@ -675,7 +675,7 @@ async def test_chains_ainvoke_completions_models(model_name):
         Introduction: This is an engaging introduction for the blog post on the topic above:"""
     )
     chain = prompt1 | model | StrOutputParser()
-    res = chain.invoke(
+    res = await chain.ainvoke(
         {"topic": "The Impact of Climate Change"},
         config={"callbacks": [callback]},
     )
