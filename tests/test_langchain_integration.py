@@ -593,7 +593,6 @@ async def test_chains_abatch_in_completions_models(model_name):
     trace = api.trace.get(callback.get_trace_id())
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
-
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
@@ -627,7 +626,7 @@ async def test_chains_ainvoke_chat_models(model_name):
         Introduction: This is an engaging introduction for the blog post on the topic above:"""
     )
     chain = prompt1 | model | StrOutputParser()
-    _ = chain.invoke(
+    res = await chain.ainvoke(
         {"topic": "The Impact of Climate Change"},
         config={"callbacks": [callback]},
     )
@@ -641,6 +640,8 @@ async def test_chains_ainvoke_chat_models(model_name):
 
     assert len(trace.observations) == 4
     assert trace.name == name
+    assert trace.input == {"topic": "The Impact of Climate Change"}
+    assert trace.output == res
     for generation in generationList:
         assert generation.model == model_name
         assert generation.input is not None
@@ -674,7 +675,7 @@ async def test_chains_ainvoke_completions_models(model_name):
         Introduction: This is an engaging introduction for the blog post on the topic above:"""
     )
     chain = prompt1 | model | StrOutputParser()
-    _ = chain.invoke(
+    res = await chain.ainvoke(
         {"topic": "The Impact of Climate Change"},
         config={"callbacks": [callback]},
     )
@@ -687,7 +688,8 @@ async def test_chains_ainvoke_completions_models(model_name):
     assert len(generationList) != 0
 
     generation = generationList[0]
-
+    assert trace.input == {"topic": "The Impact of Climate Change"}
+    assert trace.output == res
     assert len(trace.observations) == 4
     assert trace.name == name
     assert generation.model == model_name
@@ -738,6 +740,8 @@ async def test_chains_astream_chat_models(model_name):
 
     generation = generationList[0]
 
+    assert trace.input == {"topic": "The Impact of Climate Change"}
+    assert trace.output == "".join(response_str)
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 4
     assert trace.name == name
@@ -791,6 +795,8 @@ async def test_chains_astream_completions_models(model_name):
 
     generation = generationList[0]
 
+    assert trace.input == {"topic": "The Impact of Climate Change"}
+    assert trace.output == "".join(response_str)
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 4
     assert trace.name == name
