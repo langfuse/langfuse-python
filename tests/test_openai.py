@@ -202,9 +202,11 @@ def test_openai_chat_completion_with_langfuse_prompt():
     generation_name = create_uuid()
     langfuse = Langfuse()
     prompt_name = create_uuid()
-    prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name, prompt="test prompt", is_active=True
     )
+
+    prompt_client = langfuse.get_prompt(name=prompt_name)
 
     chat_func(
         name=generation_name,
