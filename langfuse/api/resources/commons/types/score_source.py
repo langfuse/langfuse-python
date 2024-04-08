@@ -10,7 +10,9 @@ class ScoreSource(str, enum.Enum):
     API = "API"
     REVIEW = "REVIEW"
 
-    def visit(self, api: typing.Callable[[], T_Result], review: typing.Callable[[], T_Result]) -> T_Result:
+    def visit(
+        self, api: typing.Callable[[], T_Result], review: typing.Callable[[], T_Result]
+    ) -> T_Result:
         if self is ScoreSource.API:
             return api()
         if self is ScoreSource.REVIEW:
