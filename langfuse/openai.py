@@ -124,6 +124,7 @@ class OpenAiArgsExtractor:
         user_id=None,
         tags=None,
         parent_observation_id=None,
+        langfuse_prompt=None,
         **kwargs,
     ):
         self.args = {}
@@ -134,6 +135,7 @@ class OpenAiArgsExtractor:
         self.args["user_id"] = user_id
         self.args["tags"] = tags
         self.args["parent_observation_id"] = parent_observation_id
+        self.args["langfuse_prompt"] = langfuse_prompt
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -286,6 +288,8 @@ def _get_langfuse_data_from_kwargs(
         "presence_penalty": kwargs.get("presence_penalty", 0),
     }
 
+    langfuse_prompt = kwargs.get("langfuse_prompt", None)
+
     return {
         "name": name,
         "metadata": metadata,
@@ -296,6 +300,7 @@ def _get_langfuse_data_from_kwargs(
         "input": prompt,
         "model_parameters": modelParameters,
         "model": model,
+        "prompt": langfuse_prompt,
     }, is_nested_trace
 
 
