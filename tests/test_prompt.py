@@ -108,6 +108,27 @@ def test_compiling_prompt():
     )
 
 
+def test_compiling_prompt_without_character_escaping():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test",
+        prompt="Hello, {{ some_json }}",
+        is_active=True,
+    )
+
+    second_prompt_client = langfuse.get_prompt("test")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+
+    some_json = '{"key": "value"}'
+    compiled = second_prompt_client.compile(some_json=some_json)
+
+    assert compiled == 'Hello, {"key": "value"}'
+
+
 def test_create_prompt_with_null_config():
     langfuse = Langfuse(debug=False)
 

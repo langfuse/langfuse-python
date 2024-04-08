@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, TypedDict, Any, Dict, Union, List
-import chevron
+from jinja2 import Template
 import re
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -73,8 +73,12 @@ class BasePromptClient(ABC):
         pass
 
     @staticmethod
-    def get_langchain_prompt_string(content: str):
+    def _get_langchain_prompt_string(content: str):
         return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
+
+    @staticmethod
+    def _compile_string(content: str, **kwargs) -> str:
+        return Template(content, autoescape=False).render(**kwargs)
 
 
 class TextPromptClient(BasePromptClient):
@@ -83,7 +87,7 @@ class TextPromptClient(BasePromptClient):
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
-        return chevron.render(self.prompt, kwargs)
+        return self._compile_string(self.prompt, **kwargs)
 
     def __eq__(self, other):
         if isinstance(self, other.__class__):
@@ -105,7 +109,7 @@ class TextPromptClient(BasePromptClient):
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        return self.get_langchain_prompt_string(self.prompt)
+        return self._get_langchain_prompt_string(self.prompt)
 
 
 class ChatPromptClient(BasePromptClient):
@@ -116,7 +120,7 @@ class ChatPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> List[ChatMessage]:
         return [
             ChatMessage(
-                content=chevron.render(chat_message["content"], kwargs),
+                content=self._compile_string(chat_message["content"], **kwargs),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
@@ -146,7 +150,7 @@ class ChatPromptClient(BasePromptClient):
             List of messages in the format expected by Langchain's ChatPromptTemplate: (role, content) tuple.
         """
         return [
-            (msg["role"], self.get_langchain_prompt_string(msg["content"]))
+            (msg["role"], self._get_langchain_prompt_string(msg["content"]))
             for msg in self.prompt
         ]
 
