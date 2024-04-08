@@ -1516,8 +1516,10 @@ def test_get_langchain_chat_prompt():
             is_active=True,
         )
 
-        langfuse_prompt = langfuse.get_prompt(f"test_chat_{i}")
-        langchain_prompt = langfuse_prompt.get_langchain_prompt()
+        langfuse_prompt = langfuse.get_prompt(f"test_chat_{i}", type="chat")
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            langfuse_prompt.get_langchain_prompt()
+        )
 
         if i == 0:
             assert (

@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, TypedDict, Any, Dict, Union, List
-from logging import getLogger
 import chevron
 import re
 
@@ -73,6 +72,10 @@ class BasePromptClient(ABC):
     def get_langchain_prompt(self):
         pass
 
+    @staticmethod
+    def get_langchain_prompt_string(content: str):
+        return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
+
 
 class TextPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Text):
@@ -102,7 +105,7 @@ class TextPromptClient(BasePromptClient):
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", self.prompt)
+        return self.get_langchain_prompt_string(self.prompt)
 
 
 class ChatPromptClient(BasePromptClient):
@@ -140,22 +143,12 @@ class ChatPromptClient(BasePromptClient):
         to the single curly brace {variable} format expected by Langchain.
 
         Returns:
-            Langchain ChatPromptTemplate with variables in Langchain format.
+            List of messages in the format expected by Langchain's ChatPromptTemplate: (role, content) tuple.
         """
-        try:
-            from langchain_core.prompts import ChatPromptTemplate
-
-        except ImportError:
-            getLogger("langfuse").error(
-                "Langchain not installed. Please install langchain to use this method."
-            )
-
-        return ChatPromptTemplate.from_messages(
-            [
-                (msg["role"], re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", msg["content"]))
-                for msg in self.prompt
-            ]
-        )
+        return [
+            (msg["role"], self.get_langchain_prompt_string(msg["content"]))
+            for msg in self.prompt
+        ]
 
 
 PromptClient = Union[TextPromptClient, ChatPromptClient]
