@@ -338,8 +338,8 @@ files = [
 jmespath = ">=0.7.1,<2.0.0"
 python-dateutil = ">=2.1,<3.0.0"
 urllib3 = [
-    {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
     {version = ">=1.25.4,<1.27", markers = "python_version < \"3.10\""},
+    {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
 ]
 
 [package.extras]
@@ -1062,12 +1062,12 @@ files = [
 google-auth = ">=2.14.1,<3.0.dev0"
 googleapis-common-protos = ">=1.56.2,<2.0.dev0"
 grpcio = [
-    {version = ">=1.49.1,<2.0dev", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
     {version = ">=1.33.2,<2.0dev", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.49.1,<2.0dev", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 grpcio-status = [
-    {version = ">=1.49.1,<2.0.dev0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
     {version = ">=1.33.2,<2.0.dev0", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.49.1,<2.0.dev0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 proto-plus = ">=1.22.3,<2.0.0dev"
 protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<5.0.0.dev0"
@@ -2064,19 +2064,19 @@ regex = ["regex"]
 
 [[package]]
 name = "llama-index"
-version = "0.10.26"
+version = "0.10.27"
 description = "Interface between LLMs and your data"
 optional = true
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "llama_index-0.10.26-py3-none-any.whl", hash = "sha256:25a3f8c9f63fbdaaf3d760ce59c5dad8afc5cf40431e9e6a28e02b92a820d450"},
-    {file = "llama_index-0.10.26.tar.gz", hash = "sha256:5a6036bcb2449277ede3244cfa1b49d9fab5dba30ad8b212c2df92449cfa7d48"},
+    {file = "llama_index-0.10.27-py3-none-any.whl", hash = "sha256:e4813786c8240504ac8c394bb36a1755c6de7518a2bcbfc9e54ec78724f0af0b"},
+    {file = "llama_index-0.10.27.tar.gz", hash = "sha256:ef7862df50ceb1cd9f43b7e4b476121dd1a230075d2a8fdc84c92b03239602c7"},
 ]
 
 [package.dependencies]
 llama-index-agent-openai = ">=0.1.4,<0.3.0"
 llama-index-cli = ">=0.1.2,<0.2.0"
-llama-index-core = ">=0.10.26,<0.11.0"
+llama-index-core = ">=0.10.27,<0.11.0"
 llama-index-embeddings-openai = ">=0.1.5,<0.2.0"
 llama-index-indices-managed-llama-cloud = ">=0.1.2,<0.2.0"
 llama-index-legacy = ">=0.9.48,<0.10.0"
@@ -2120,13 +2120,13 @@ llama-index-llms-openai = ">=0.1.1,<0.2.0"
 
 [[package]]
 name = "llama-index-core"
-version = "0.10.26"
+version = "0.10.27"
 description = "Interface between LLMs and your data"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "llama_index_core-0.10.26-py3-none-any.whl", hash = "sha256:e08886b9d353fb45f63d0011e78326627f1ee5c7761585fdd85a9a0dfdbf0365"},
-    {file = "llama_index_core-0.10.26.tar.gz", hash = "sha256:8ea27093a053aed79b7b5d80694152066ddaa5b70116308d48db382c76367a87"},
+    {file = "llama_index_core-0.10.27-py3-none-any.whl", hash = "sha256:805b20a16a417180a32a31956710637af75e22cd0849fec2729447d182197d39"},
+    {file = "llama_index_core-0.10.27.tar.gz", hash = "sha256:01881a1943cb7b37f9f8147212d4a55caeef2d68ec498a0a1b864f79cf9d2be4"},
 ]
 
 [package.dependencies]
@@ -2136,7 +2136,7 @@ deprecated = ">=1.2.9.3"
 dirtyjson = ">=1.0.8,<2.0.0"
 fsspec = ">=2023.5.0"
 httpx = "*"
-llamaindex-py-client = ">=0.1.15,<0.2.0"
+llamaindex-py-client = ">=0.1.16,<0.2.0"
 nest-asyncio = ">=1.5.8,<2.0.0"
 networkx = ">=3.0"
 nltk = ">=3.8.1,<4.0.0"
@@ -2355,13 +2355,13 @@ llama-index-core = ">=0.10.7"
 
 [[package]]
 name = "llamaindex-py-client"
-version = "0.1.15"
+version = "0.1.16"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "llamaindex_py_client-0.1.15-py3-none-any.whl", hash = "sha256:d189f23a8f7f78d0e170f62b531dd6ac030eadcb7dd7d38c1b543c4c98c51e5c"},
-    {file = "llamaindex_py_client-0.1.15.tar.gz", hash = "sha256:c7ce26855ba976153bb40157c3c194223c6b75179935b988dd4bd6a3fe83aacb"},
+    {file = "llamaindex_py_client-0.1.16-py3-none-any.whl", hash = "sha256:b34e0a14984468f46ff5eebfe4b2b88598a24ff9459338a5621eee78e58bf0db"},
+    {file = "llamaindex_py_client-0.1.16.tar.gz", hash = "sha256:e99bbc0855e6caaa75eba219cdb3cf6c943ae94fa15ccbb68a3a08d452fd6380"},
 ]
 
 [package.dependencies]
@@ -3205,8 +3205,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
     {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"

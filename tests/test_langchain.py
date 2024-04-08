@@ -1493,6 +1493,46 @@ def test_get_langchain_prompt():
             )
 
 
+def test_get_langchain_chat_prompt():
+    langfuse = Langfuse()
+
+    test_prompts = [
+        [{"role": "system", "content": "This is a {{test}} with a {{test}}"}],
+        [
+            {"role": "system", "content": "This is a {{test}}."},
+            {"role": "user", "content": "And this is a {{test2}}"},
+        ],
+    ]
+
+    for i, test_prompt in enumerate(test_prompts):
+        langfuse.create_prompt(
+            name=f"test_chat_{i}",
+            prompt=test_prompt,
+            type="chat",
+            config={
+                "model": "gpt-3.5-turbo-1106",
+                "temperature": 0,
+            },
+            is_active=True,
+        )
+
+        langfuse_prompt = langfuse.get_prompt(f"test_chat_{i}", type="chat")
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            langfuse_prompt.get_langchain_prompt()
+        )
+
+        if i == 0:
+            assert (
+                langchain_prompt.format(test="test")
+                == "System: This is a test with a test"
+            )
+        else:
+            assert (
+                langchain_prompt.format(test="test", test2="test2")
+                == "System: This is a test.\nHuman: And this is a test2"
+            )
+
+
 def test_langchain_anthropic_package():
     langfuse_handler = CallbackHandler(debug=False)
     from langchain_anthropic import ChatAnthropic
