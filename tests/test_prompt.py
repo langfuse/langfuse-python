@@ -92,7 +92,8 @@ def test_compiling_prompt():
 
     prompt_client = langfuse.create_prompt(
         name="test",
-        prompt="Hello, {{target}}! I hope you are {{state}}.",
+        prompt='Hello, {{target}}! I hope you are {{state}}. {{undefined_variable}}. And here is some JSON that should not be compiled: {{ "key": "value" }} \
+            Here is a custom var for users using str.format instead of the mustache-style double curly braces: {custom_var}',
         is_active=True,
     )
 
@@ -102,9 +103,12 @@ def test_compiling_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
 
+    compiled = second_prompt_client.compile(target="world", state="great")
+
     assert (
-        second_prompt_client.compile(target="world", state="great")
-        == "Hello, world! I hope you are great."
+        compiled
+        == 'Hello, world! I hope you are great. {{undefined_variable}}. And here is some JSON that should not be compiled: {{ "key": "value" }} \
+            Here is a custom var for users using str.format instead of the mustache-style double curly braces: {custom_var}'
     )
 
 

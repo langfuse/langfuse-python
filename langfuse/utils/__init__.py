@@ -1,5 +1,4 @@
-"""@private
-"""
+"""@private"""
 
 import logging
 import typing
@@ -11,6 +10,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse.model import ModelUsage, PromptClient
+from .compile_template_string import compile_template_string  # noqa: F401
 
 log = logging.getLogger("langfuse")
 

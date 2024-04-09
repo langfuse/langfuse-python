@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, TypedDict, Any, Dict, Union, List
-from jinja2 import Template
 import re
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -38,6 +37,7 @@ from langfuse.api.resources.datasets.types.create_dataset_request import (  # no
     CreateDatasetRequest,
 )
 from langfuse.api.resources.prompts import Prompt, ChatMessage, Prompt_Chat, Prompt_Text
+from langfuse.utils import compile_template_string
 
 
 class ModelUsage(TypedDict):
@@ -76,10 +76,6 @@ class BasePromptClient(ABC):
     def _get_langchain_prompt_string(content: str):
         return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
 
-    @staticmethod
-    def _compile_string(content: str, **kwargs) -> str:
-        return Template(content, autoescape=False).render(**kwargs)
-
 
 class TextPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Text):
@@ -87,7 +83,7 @@ class TextPromptClient(BasePromptClient):
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
-        return self._compile_string(self.prompt, **kwargs)
+        return compile_template_string(self.prompt, **kwargs)
 
     def __eq__(self, other):
         if isinstance(self, other.__class__):
@@ -120,7 +116,7 @@ class ChatPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> List[ChatMessage]:
         return [
             ChatMessage(
-                content=self._compile_string(chat_message["content"], **kwargs),
+                content=compile_template_string(chat_message["content"], **kwargs),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
