@@ -117,6 +117,13 @@ def test_variable_case_sensitivity():
     )
 
 
+def test_start_with_closing_braces():
+    template = "}}"
+    expected = "}}"
+
+    assert BasePromptClient._compile_template_string(template, name="john") == expected
+
+
 def test_unescaped_JSON_variable_value():
     template = "{{some_json}}"
     some_json = """
