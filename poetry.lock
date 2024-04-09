@@ -338,8 +338,8 @@ files = [
 jmespath = ">=0.7.1,<2.0.0"
 python-dateutil = ">=2.1,<3.0.0"
 urllib3 = [
-    {version = ">=1.25.4,<1.27", markers = "python_version < \"3.10\""},
     {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
+    {version = ">=1.25.4,<1.27", markers = "python_version < \"3.10\""},
 ]
 
 [package.extras]
@@ -1062,12 +1062,12 @@ files = [
 google-auth = ">=2.14.1,<3.0.dev0"
 googleapis-common-protos = ">=1.56.2,<2.0.dev0"
 grpcio = [
-    {version = ">=1.33.2,<2.0dev", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
     {version = ">=1.49.1,<2.0dev", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.33.2,<2.0dev", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
 ]
 grpcio-status = [
-    {version = ">=1.33.2,<2.0.dev0", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
     {version = ">=1.49.1,<2.0.dev0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.33.2,<2.0.dev0", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
 ]
 proto-plus = ">=1.22.3,<2.0.0dev"
 protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<5.0.0.dev0"
@@ -1647,6 +1647,17 @@ http2 = ["h2 (>=3,<5)"]
 socks = ["socksio (==1.*)"]
 
 [[package]]
+name = "httpx-sse"
+version = "0.4.0"
+description = "Consume Server-Sent Event (SSE) messages with HTTPX."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "httpx-sse-0.4.0.tar.gz", hash = "sha256:1e81a3a3070ce322add1d3529ed42eb5f70817f45ed6ec915ab753f961139721"},
+    {file = "httpx_sse-0.4.0-py3-none-any.whl", hash = "sha256:f329af6eae57eaa2bdfd962b42524764af68075ea87370a2de920af5341e318f"},
+]
+
+[[package]]
 name = "huggingface-hub"
 version = "0.22.2"
 description = "Client library to download and publish models, datasets and other repos on the huggingface.co hub"
@@ -1983,18 +1994,20 @@ types-requests = ">=2.31.0,<3.0.0"
 
 [[package]]
 name = "langchain-mistralai"
-version = "0.0.2.post1"
+version = "0.1.0"
 description = "An integration package connecting Mistral and LangChain"
 optional = false
-python-versions = ">=3.8.1,<4.0"
+python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_mistralai-0.0.2.post1-py3-none-any.whl", hash = "sha256:c0005cc94e87f511d8631e67e310ff96091c3e0ee621949aa24cfeb02f02fce3"},
-    {file = "langchain_mistralai-0.0.2.post1.tar.gz", hash = "sha256:485c9d2483536b9d48edcea54c74b6bd3227f5c3b9422ab7fa61fcfc935d1589"},
+    {file = "langchain_mistralai-0.1.0-py3-none-any.whl", hash = "sha256:7f3c6c575a3c622d24bc00caf04ea9d074e87fa469737fd43993becf3f7a9645"},
+    {file = "langchain_mistralai-0.1.0.tar.gz", hash = "sha256:180c7a219418bb47c3627da2d8e2adbcc5a8ca46645c839ce2f2ff64038d1632"},
 ]
 
 [package.dependencies]
-langchain-core = ">=0.1,<0.2"
-mistralai = ">=0.0.8,<0.0.9"
+httpx = ">=0.25.2,<1"
+httpx-sse = ">=0.3.1,<1"
+langchain-core = ">=0.1.31,<0.2.0"
+tokenizers = ">=0.15.1,<0.16.0"
 
 [[package]]
 name = "langchain-openai"
@@ -2490,24 +2503,6 @@ files = [
     {file = "mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"},
     {file = "mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"},
 ]
-
-[[package]]
-name = "mistralai"
-version = "0.0.8"
-description = ""
-optional = false
-python-versions = ">=3.8,<4.0"
-files = [
-    {file = "mistralai-0.0.8-py3-none-any.whl", hash = "sha256:288d31c30d40aacef46c98f05676813153938e36e1a3d49c3943eba227faf8b3"},
-    {file = "mistralai-0.0.8.tar.gz", hash = "sha256:c1d9f53f75d6b99f614ce3d08cf90d99927c1af73ec986859ebe058431a18a5b"},
-]
-
-[package.dependencies]
-aiohttp = ">=3.9.1,<4.0.0"
-backoff = ">=2.2.1,<3.0.0"
-orjson = ">=3.9.10,<4.0.0"
-pydantic = ">=2.5.2,<3.0.0"
-requests = ">=2.31.0,<3.0.0"
 
 [[package]]
 name = "mmh3"
@@ -3205,8 +3200,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.20.3", markers = "python_version < \"3.10\""},
     {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+    {version = ">=1.20.3", markers = "python_version < \"3.10\""},
     {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
@@ -5433,4 +5428,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "36c6e9ee2941b39f89592beac0da16a4a702df3f8e00ce8115adc0936f6bcf1f"
+content-hash = "de53a2401e132ab2aee16b1ce605f7455552b87c5a082c5880c312305fb8c782"
