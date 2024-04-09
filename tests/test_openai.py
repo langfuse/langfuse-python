@@ -197,6 +197,33 @@ def test_openai_chat_completion_with_trace():
     assert generation.data[0].trace_id == trace_id
 
 
+def test_openai_chat_completion_with_langfuse_prompt():
+    api = get_api()
+    generation_name = create_uuid()
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+    langfuse.create_prompt(
+        name=prompt_name, prompt="test prompt", is_active=True
+    )
+
+    prompt_client = langfuse.get_prompt(name=prompt_name)
+
+    chat_func(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "Make me laugh"}],
+        langfuse_prompt=prompt_client,
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert isinstance(generation.data[0].prompt_id, str)
+
+
 def test_openai_chat_completion_with_parent_observation_id():
     api = get_api()
     generation_name = create_uuid()
@@ -526,6 +553,32 @@ def test_openai_completion_stream_fail():
     assert generation.data[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
+
+
+def test_openai_completion_with_languse_prompt():
+    api = get_api()
+    generation_name = create_uuid()
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name, prompt="test prompt", is_active=True
+    )
+    completion_func(
+        name=generation_name,
+        model="gpt-3.5-turbo-instruct",
+        prompt="1 + 1 = ",
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+        langfuse_prompt=prompt_client,
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert isinstance(generation.data[0].prompt_id, str)
 
 
 def test_fails_wrong_name():
