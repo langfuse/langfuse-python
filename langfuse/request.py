@@ -49,7 +49,10 @@ class LangfuseClient:
 
     def batch_post(self, **kwargs) -> httpx.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
-        logging.debug("uploading data: %s", kwargs)
+
+        log = logging.getLogger("langfuse")
+        log.debug("uploading data: %s", kwargs)
+
         res = self.post(**kwargs)
         return self._process_response(
             res, success_message="data uploaded successfully", return_json=False

@@ -531,17 +531,6 @@ files = [
 ]
 
 [[package]]
-name = "chevron"
-version = "0.14.0"
-description = "Mustache templating language renderer"
-optional = false
-python-versions = "*"
-files = [
-    {file = "chevron-0.14.0-py3-none-any.whl", hash = "sha256:fbf996a709f8da2e745ef763f482ce2d311aa817d287593a5b990d6d6e4f0443"},
-    {file = "chevron-0.14.0.tar.gz", hash = "sha256:87613aafdf6d77b6a90ff073165a61ae5086e21ad49057aa0e53681601800ebf"},
-]
-
-[[package]]
 name = "chroma-hnswlib"
 version = "0.7.3"
 description = "Chromas fork of hnswlib"
@@ -5433,4 +5422,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "5767fce1cfa9b0737d657364f3221831d2336966a800a48a139b8b2201c61825"
+content-hash = "9486fb559ec491789406f38a55f0028fb0f18494e426dcf5fd01274597805885"

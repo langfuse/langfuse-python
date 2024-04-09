@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, TypedDict, Any, Dict, Union, List
-import chevron
 import re
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -73,8 +72,47 @@ class BasePromptClient(ABC):
         pass
 
     @staticmethod
-    def get_langchain_prompt_string(content: str):
+    def _get_langchain_prompt_string(content: str):
         return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
+
+    @staticmethod
+    def _compile_template_string(content: str, **kwargs) -> str:
+        opening = "{{"
+        closing = "}}"
+
+        result_list = []
+        curr_idx = 0
+
+        while curr_idx < len(content):
+            # Find the next opening tag
+            var_start = content.find(opening, curr_idx)
+
+            if var_start == -1:
+                result_list.append(content[curr_idx:])
+                break
+
+            # Find the next closing tag
+            var_end = content.find(closing, var_start)
+
+            if var_end == -1:
+                result_list.append(content[curr_idx:])
+                break
+
+            # Append the content before the variable
+            result_list.append(content[curr_idx:var_start])
+
+            # Extract the variable name
+            variable_name = content[var_start + len(opening) : var_end].strip()
+
+            # Append the variable value
+            if variable_name in kwargs:
+                result_list.append(str(kwargs[variable_name]))
+            else:
+                result_list.append(content[var_start : var_end + len(closing)])
+
+            curr_idx = var_end + len(closing)
+
+        return "".join(result_list)
 
 
 class TextPromptClient(BasePromptClient):
@@ -83,7 +121,7 @@ class TextPromptClient(BasePromptClient):
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
-        return chevron.render(self.prompt, kwargs)
+        return self._compile_template_string(self.prompt, **kwargs)
 
     def __eq__(self, other):
         if isinstance(self, other.__class__):
@@ -105,7 +143,7 @@ class TextPromptClient(BasePromptClient):
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        return self.get_langchain_prompt_string(self.prompt)
+        return self._get_langchain_prompt_string(self.prompt)
 
 
 class ChatPromptClient(BasePromptClient):
@@ -116,7 +154,9 @@ class ChatPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> List[ChatMessage]:
         return [
             ChatMessage(
-                content=chevron.render(chat_message["content"], kwargs),
+                content=self._compile_template_string(
+                    chat_message["content"], **kwargs
+                ),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
@@ -146,7 +186,7 @@ class ChatPromptClient(BasePromptClient):
             List of messages in the format expected by Langchain's ChatPromptTemplate: (role, content) tuple.
         """
         return [
-            (msg["role"], self.get_langchain_prompt_string(msg["content"]))
+            (msg["role"], self._get_langchain_prompt_string(msg["content"]))
             for msg in self.prompt
         ]
 

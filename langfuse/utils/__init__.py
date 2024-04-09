@@ -1,5 +1,4 @@
-"""@private
-"""
+"""@private"""
 
 import logging
 import typing
