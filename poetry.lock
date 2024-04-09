@@ -306,17 +306,17 @@ lxml = ["lxml"]
 
 [[package]]
 name = "boto3"
-version = "1.34.75"
+version = "1.34.80"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "boto3-1.34.75-py3-none-any.whl", hash = "sha256:ba5d2104bba4370766036d64ad9021eb6289d154265852a2a821ec6a5e816faa"},
-    {file = "boto3-1.34.75.tar.gz", hash = "sha256:eaec72fda124084105a31bcd67eafa1355b34df6da70cadae0c0f262d8a4294f"},
+    {file = "boto3-1.34.80-py3-none-any.whl", hash = "sha256:bb8f433c04dcdffbd4a802df56c1c30f2be23b1161fd8fb45e4b76c1487ec122"},
+    {file = "boto3-1.34.80.tar.gz", hash = "sha256:5627f6ecadb46fc7c9f8c368baf948f1b00a3fd2f8eb1275c254469853ad8fdb"},
 ]
 
 [package.dependencies]
-botocore = ">=1.34.75,<1.35.0"
+botocore = ">=1.34.80,<1.35.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.10.0,<0.11.0"
 
@@ -325,13 +325,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.34.75"
+version = "1.34.80"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "botocore-1.34.75-py3-none-any.whl", hash = "sha256:1d7f683d99eba65076dfb9af3b42fa967c64f11111d9699b65757420902aa002"},
-    {file = "botocore-1.34.75.tar.gz", hash = "sha256:06113ee2587e6160211a6bd797e135efa6aa21b5bde97bf455c02f7dff40203c"},
+    {file = "botocore-1.34.80-py3-none-any.whl", hash = "sha256:354a00f03faba52acc6f1a84fa4f035d48541633be98ccc24b59dc544f679f8b"},
+    {file = "botocore-1.34.80.tar.gz", hash = "sha256:8402262e819f3d46df504bbd781e770858c0130b90f660699f75ef3a63abca5a"},
 ]
 
 [package.dependencies]
@@ -1954,13 +1954,13 @@ extended-testing = ["jinja2 (>=3,<4)"]
 
 [[package]]
 name = "langchain-google-vertexai"
-version = "0.1.1"
+version = "0.1.2"
 description = "An integration package connecting Google VertexAI and LangChain"
 optional = false
-python-versions = ">=3.8.1,<4.0"
+python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_google_vertexai-0.1.1-py3-none-any.whl", hash = "sha256:704c2487a6250d3a85839e5e791469773f62c5da2b4bfef3e63069657408d2a8"},
-    {file = "langchain_google_vertexai-0.1.1.tar.gz", hash = "sha256:6f872d9e3fb188a100ee9348cd6867483e9416544b4fe031a1b26543ec547776"},
+    {file = "langchain_google_vertexai-0.1.2-py3-none-any.whl", hash = "sha256:fa5110b7c6a71450e95e47c06d0fdd58b1fa70596728df8f5c205131cc7d40ba"},
+    {file = "langchain_google_vertexai-0.1.2.tar.gz", hash = "sha256:3489546cd6a20cdd9b57af74aba419dc0e1b9225b842939587054bf8b90a5fe3"},
 ]
 
 [package.dependencies]
