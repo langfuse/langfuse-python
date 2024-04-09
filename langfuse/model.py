@@ -37,7 +37,6 @@ from langfuse.api.resources.datasets.types.create_dataset_request import (  # no
     CreateDatasetRequest,
 )
 from langfuse.api.resources.prompts import Prompt, ChatMessage, Prompt_Chat, Prompt_Text
-from langfuse.utils import compile_template_string
 
 
 class ModelUsage(TypedDict):
@@ -76,6 +75,45 @@ class BasePromptClient(ABC):
     def _get_langchain_prompt_string(content: str):
         return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
 
+    @staticmethod
+    def _compile_template_string(content: str, **kwargs) -> str:
+        opening = "{{"
+        closing = "}}"
+
+        result_list = []
+        curr_idx = 0
+
+        while curr_idx < len(content):
+            # Find the next opening tag
+            var_start = content.find(opening, curr_idx)
+
+            if var_start == -1:
+                result_list.append(content[curr_idx:])
+                break
+
+            # Find the next closing tag
+            var_end = content.find(closing, var_start)
+
+            if var_end == -1:
+                result_list.append(content[curr_idx:])
+                break
+
+            # Append the content before the variable
+            result_list.append(content[curr_idx:var_start])
+
+            # Extract the variable name
+            variable_name = content[var_start + len(opening) : var_end].strip()
+
+            # Append the variable value
+            if variable_name in kwargs:
+                result_list.append(str(kwargs[variable_name]))
+            else:
+                result_list.append(content[var_start : var_end + len(closing)])
+
+            curr_idx = var_end + len(closing)
+
+        return "".join(result_list)
+
 
 class TextPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Text):
@@ -83,7 +121,7 @@ class TextPromptClient(BasePromptClient):
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
-        return compile_template_string(self.prompt, **kwargs)
+        return self._compile_template_string(self.prompt, **kwargs)
 
     def __eq__(self, other):
         if isinstance(self, other.__class__):
@@ -116,7 +154,9 @@ class ChatPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> List[ChatMessage]:
         return [
             ChatMessage(
-                content=compile_template_string(chat_message["content"], **kwargs),
+                content=self._compile_template_string(
+                    chat_message["content"], **kwargs
+                ),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
