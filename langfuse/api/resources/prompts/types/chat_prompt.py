@@ -5,28 +5,12 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from .base_prompt import BasePrompt
+from .chat_message import ChatMessage
 
 
-class CreateDatasetRunItemRequest(pydantic_v1.BaseModel):
-    run_name: str = pydantic_v1.Field(alias="runName")
-    run_description: typing.Optional[str] = pydantic_v1.Field(alias="runDescription", default=None)
-    """
-    Description of the run. If run exists, description will be updated.
-    """
-
-    metadata: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
-    """
-    Metadata of the dataset run, updates run if run already exists
-    """
-
-    dataset_item_id: str = pydantic_v1.Field(alias="datasetItemId")
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
-    """
-    traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.
-    """
+class ChatPrompt(BasePrompt):
+    prompt: typing.List[ChatMessage]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

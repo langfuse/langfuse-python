@@ -5,7 +5,7 @@ import typing
 import uuid
 import httpx
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Literal, Union, List, overload
 
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
@@ -21,8 +21,10 @@ from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBo
 from langfuse.api.resources.observations.types.observations_views import (
     ObservationsViews,
 )
-from langfuse.api.resources.prompts.types.create_prompt_request import (
-    CreatePromptRequest,
+from langfuse.api.resources.prompts.types import (
+    CreatePromptRequest_Chat,
+    CreatePromptRequest_Text,
+    ChatMessage,
 )
 from langfuse.model import (
     CreateDatasetItemRequest,
@@ -33,6 +35,8 @@ from langfuse.model import (
     DatasetStatus,
     ModelUsage,
     PromptClient,
+    ChatPromptClient,
+    TextPromptClient,
 )
 from langfuse.prompt_cache import PromptCache
 
@@ -490,11 +494,32 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    @overload
     def get_prompt(
         self,
         name: str,
         version: Optional[int] = None,
         *,
+        type: Literal["chat"],
+        cache_ttl_seconds: Optional[int] = None,
+    ) -> ChatPromptClient: ...
+
+    @overload
+    def get_prompt(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        *,
+        type: Literal["text"] = "text",
+        cache_ttl_seconds: Optional[int] = None,
+    ) -> TextPromptClient: ...
+
+    def get_prompt(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        *,
+        type: Literal["chat", "text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
         """Get a prompt.
@@ -507,11 +532,16 @@ class Langfuse(object):
         Args:
             name (str): The name of the prompt to retrieve.
             version (Optional[int]): The version of the prompt. If not specified, the `active` version is returned.
+
+        Keyword Args:
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
             keyword argument. If not set, defaults to 60 seconds.
+            type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
 
         Returns:
-            PromptClient: The prompt object retrieved from the cache or directly fetched if not cached or expired.
+            The prompt object retrieved from the cache or directly fetched if not cached or expired of type
+            - TextPromptClient, if type argument is 'text'.
+            - ChatPromptClient, if type argument is 'chat'.
 
         Raises:
             Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
@@ -556,7 +586,11 @@ class Langfuse(object):
 
             promptResponse = self.client.prompts.get(name=name, version=version)
             cache_key = PromptCache.generate_cache_key(name, version)
-            prompt = PromptClient(promptResponse)
+
+            if promptResponse.type == "chat":
+                prompt = ChatPromptClient(promptResponse)
+            else:
+                prompt = TextPromptClient(promptResponse)
 
             self.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
@@ -568,34 +602,83 @@ class Langfuse(object):
             )
             raise e
 
+    @overload
     def create_prompt(
-        self, *, name: str, prompt: str, is_active: bool, config: Optional[Any] = None
+        self,
+        *,
+        name: str,
+        prompt: List[ChatMessage],
+        is_active: bool,
+        type: Optional[Literal["chat"]],
+        config: Optional[Any] = None,
+    ) -> ChatPromptClient: ...
+
+    @overload
+    def create_prompt(
+        self,
+        *,
+        name: str,
+        prompt: str,
+        is_active: bool,
+        type: Optional[Literal["text"]] = "text",
+        config: Optional[Any] = None,
+    ) -> TextPromptClient: ...
+
+    def create_prompt(
+        self,
+        *,
+        name: str,
+        prompt: Union[str, List[ChatMessage]],
+        is_active: bool,
+        type: Optional[Literal["chat", "text"]] = "text",
+        config: Optional[Any] = None,
     ) -> PromptClient:
         """Create a new prompt in Langfuse.
 
-        Args:
+        Keyword Args:
             name : The name of the prompt to be created.
             prompt : The content of the prompt to be created.
             is_active : A flag indicating whether the prompt is active or not.
             config: Additional structured data to be saved with the prompt. Defaults to None.
+            type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
 
         Returns:
-            PromptClient: The prompt.
+            TextPromptClient: The prompt if type argument is 'text'.
+            ChatPromptClient: The prompt if type argument is 'chat'.
         """
         try:
             self.log.debug(f"Creating prompt {name}, version {version}")
 
-            if config is None:
-                config = {}
+            if type == "chat":
+                if not isinstance(prompt, list):
+                    raise ValueError(
+                        "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
+                    )
+                request = CreatePromptRequest_Chat(
+                    name=name,
+                    prompt=prompt,
+                    isActive=is_active,
+                    config=config or {},
+                    type="chat",
+                )
+                server_prompt = self.client.prompts.create(request=request)
 
-            request = CreatePromptRequest(
+                return ChatPromptClient(prompt=server_prompt)
+
+            if not isinstance(prompt, str):
+                raise ValueError("For 'text' type, 'prompt' must be a string.")
+
+            request = CreatePromptRequest_Text(
                 name=name,
                 prompt=prompt,
                 isActive=is_active,
-                config=config,
+                config=config or {},
+                type="text",
             )
+
             server_prompt = self.client.prompts.create(request=request)
-            return PromptClient(prompt=server_prompt)
+            return TextPromptClient(prompt=server_prompt)
+
         except Exception as e:
             self.log.exception(e)
             raise e
