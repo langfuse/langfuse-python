@@ -50,6 +50,13 @@ def test_missing_variable():
     assert BasePromptClient._compile_template_string(template) == expected
 
 
+def test_none_variable():
+    template = "Hello, {{name}}!"
+    expected = "Hello, !"
+
+    assert BasePromptClient._compile_template_string(template, name=None) == expected
+
+
 def test_strip_whitespace():
     template = "Hello, {{    name }}!"
     expected = "Hello, John!"
