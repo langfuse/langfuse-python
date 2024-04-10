@@ -18,6 +18,8 @@ from typing import (
     Iterable,
     AsyncGenerator,
     Generator,
+    TypeVar,
+    cast,
 )
 
 
@@ -69,6 +71,11 @@ _observation_params_context: ContextVar[DefaultDict[str, ObservationParams]] = (
     )
 )
 
+# For users with mypy type checking, we need to define a TypeVar for the decorated function
+# Otherwise, mypy will infer the return type of the decorated function as Any
+# Docs: https://mypy.readthedocs.io/en/stable/generics.html#declaring-decorators
+F = TypeVar("F", bound=Callable[..., Any])
+
 
 class LangfuseDecorator:
     _log = logging.getLogger("langfuse")
@@ -80,7 +87,7 @@ class LangfuseDecorator:
         capture_input: bool = True,
         capture_output: bool = True,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ) -> Callable:
+    ) -> Callable[[F], F]:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
         It captures the function's execution context, including start/end times, input/output data, and automatically handles trace/span generation within the Langfuse observation context.
@@ -117,7 +124,7 @@ class LangfuseDecorator:
         - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.update_current_trace` methods within the wrapped function.
         """
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: F) -> F:
             return (
                 self._async_observe(
                     func,
@@ -140,12 +147,12 @@ class LangfuseDecorator:
 
     def _async_observe(
         self,
-        func: Callable,
+        func: F,
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ) -> Callable:
+    ) -> F:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             observation = self._prepare_call(
@@ -171,16 +178,16 @@ class LangfuseDecorator:
                 if result is not None:
                     return result
 
-        return async_wrapper
+        return cast(F, async_wrapper)
 
     def _sync_observe(
         self,
-        func: Callable,
+        func: F,
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ) -> Callable:
+    ) -> F:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             observation = self._prepare_call(
@@ -206,7 +213,7 @@ class LangfuseDecorator:
                 if result is not None:
                     return result
 
-        return sync_wrapper
+        return cast(F, sync_wrapper)
 
     @staticmethod
     def _is_instance_method(func: Callable) -> bool:

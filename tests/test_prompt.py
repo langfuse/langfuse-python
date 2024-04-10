@@ -54,7 +54,6 @@ def test_create_chat_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
-    print(prompt_client.config, second_prompt_client.config)
     assert prompt_client.config == {}
 
 
@@ -131,6 +130,26 @@ def test_compiling_prompt_without_character_escaping():
     compiled = second_prompt_client.compile(some_json=some_json)
 
     assert compiled == 'Hello, {"key": "value"}'
+
+
+def test_compiling_prompt_with_content_as_variable_name():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test",
+        prompt="Hello, {{ content }}!",
+        is_active=True,
+    )
+
+    second_prompt_client = langfuse.get_prompt("test")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+
+    compiled = second_prompt_client.compile(content="Jane")
+
+    assert compiled == "Hello, Jane!"
 
 
 def test_create_prompt_with_null_config():
