@@ -124,7 +124,7 @@ class OpenAiArgsExtractor:
         user_id=None,
         tags=None,
         parent_observation_id=None,
-        langfuse_prompt=None, # we cannot use prompt because it's an argument of the old OpenAI completions API
+        langfuse_prompt=None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
         **kwargs,
     ):
         self.args = {}
@@ -254,7 +254,7 @@ def _get_langfuse_data_from_kwargs(
     if metadata is not None and not isinstance(metadata, dict):
         raise TypeError("metadata must be a dictionary")
 
-    model = kwargs.get("model", None)
+    model = kwargs.get("model", None) or None
 
     prompt = None
 
@@ -290,7 +290,6 @@ def _get_langfuse_data_from_kwargs(
 
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
 
-
     return {
         "name": name,
         "metadata": metadata,
@@ -300,7 +299,7 @@ def _get_langfuse_data_from_kwargs(
         "start_time": start_time,
         "input": prompt,
         "model_parameters": modelParameters,
-        "model": model,
+        "model": model or None,
         "prompt": langfuse_prompt,
     }, is_nested_trace
 
@@ -377,7 +376,7 @@ def _extract_openai_response(resource, responses):
         if _is_openai_v1():
             i = i.__dict__
 
-        model = i.get("model", None) if model is None else model
+        model = model or i.get("model", None) or None
 
         choices = i.get("choices", [])
 
@@ -442,7 +441,7 @@ def _extract_openai_response(resource, responses):
 
 
 def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
-    model = response.get("model", None)
+    model = response.get("model", None) or None
 
     completion = None
     if resource.type == "completion":
@@ -518,7 +517,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         return openai_response
     except Exception as ex:
         log.warning(ex)
-        model = kwargs.get("model", None)
+        model = kwargs.get("model", None) or None
         generation.update(
             end_time=_get_timestamp(),
             status_message=str(ex),
@@ -569,7 +568,7 @@ async def _wrap_async(
 
         return openai_response
     except Exception as ex:
-        model = kwargs.get("model", None)
+        model = kwargs.get("model", None) or None
         generation.update(
             end_time=_get_timestamp(),
             status_message=str(ex),
