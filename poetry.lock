@@ -625,13 +625,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cohere"
-version = "5.2.2"
+version = "5.2.4"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cohere-5.2.2-py3-none-any.whl", hash = "sha256:dae0c7318fa0d15a2147a044a49c1f40164a6c8135a260cc46214058c7c06085"},
-    {file = "cohere-5.2.2.tar.gz", hash = "sha256:43243b86d4abf3140f9077435580ebceaa431fb7d57a9fef6858eee880f26646"},
+    {file = "cohere-5.2.4-py3-none-any.whl", hash = "sha256:50e8cbd009a6d6f6ce7127a0b62c50d3dfcfdb853f681f0ac315cfa70599fee4"},
+    {file = "cohere-5.2.4.tar.gz", hash = "sha256:2bf6e905773116ad3fff348e054e4ce1a1830092a63cb48fa8180beda4cbb96a"},
 ]
 
 [package.dependencies]
@@ -1889,19 +1889,19 @@ text-helpers = ["chardet (>=5.1.0,<6.0.0)"]
 
 [[package]]
 name = "langchain-anthropic"
-version = "0.1.6"
+version = "0.1.7"
 description = "An integration package connecting AnthropicMessages and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_anthropic-0.1.6-py3-none-any.whl", hash = "sha256:5626f9f2f0d3cc1665a2f5817ea1856dbfa4c745bc6f95b7043c56b6ab85e0c1"},
-    {file = "langchain_anthropic-0.1.6.tar.gz", hash = "sha256:544e5c8c365964c594b80eb1db994e67d90722be9efde460229e5888524545de"},
+    {file = "langchain_anthropic-0.1.7-py3-none-any.whl", hash = "sha256:ae022d98eadeb8151145e417d0e2edc350740a117724a08d6b5d17481379c007"},
+    {file = "langchain_anthropic-0.1.7.tar.gz", hash = "sha256:113a7bcc297798692c64f569a73c0681450a706d9d6acdcac0102511b2958fac"},
 ]
 
 [package.dependencies]
 anthropic = ">=0.23.0,<1"
 defusedxml = ">=0.7.1,<0.8.0"
-langchain-core = ">=0.1.33,<0.2.0"
+langchain-core = ">=0.1.41,<0.2.0"
 
 [[package]]
 name = "langchain-community"
@@ -1931,13 +1931,13 @@ extended-testing = ["aiosqlite (>=0.19.0,<0.20.0)", "aleph-alpha-client (>=2.15.
 
 [[package]]
 name = "langchain-core"
-version = "0.1.38"
+version = "0.1.41"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_core-0.1.38-py3-none-any.whl", hash = "sha256:d881b2754254cb4bdb0d5bb56e5c138d032b6e75e5cb21f151b01224b322e02b"},
-    {file = "langchain_core-0.1.38.tar.gz", hash = "sha256:ee8da6d061c06cce7dc22fec224b6ecbc3a8de106d6dd9f409c7fe448ea41861"},
+    {file = "langchain_core-0.1.41-py3-none-any.whl", hash = "sha256:92d3da5ca0d5fb1606b3ab42bfd455c7b386fe4c38f6c0d44ba6014abf46147d"},
+    {file = "langchain_core-0.1.41.tar.gz", hash = "sha256:4002304883b251af8cb781f01c59f56aeee58be42c965dbbdeca0a3bfb8f96af"},
 ]
 
 [package.dependencies]
@@ -1946,7 +1946,6 @@ langsmith = ">=0.1.0,<0.2.0"
 packaging = ">=23.2,<24.0"
 pydantic = ">=1,<3"
 PyYAML = ">=5.3"
-requests = ">=2,<3"
 tenacity = ">=8.1.0,<9.0.0"
 
 [package.extras]

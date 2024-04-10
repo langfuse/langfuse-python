@@ -1,12 +1,12 @@
-"""@private
-"""
+"""@private"""
 
+from asyncio import Queue
 from datetime import date, datetime
 from dataclasses import is_dataclass, asdict
 from json import JSONEncoder
 from typing import Any
 from uuid import UUID
-
+from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
 
 from pydantic import BaseModel
@@ -34,16 +34,24 @@ class EventSerializer(JSONEncoder):
         if "Streaming" in type(obj).__name__:
             return str(obj)
 
+        if isinstance(obj, Queue):
+            return type(obj).__name__
+
         if is_dataclass(obj):
             return asdict(obj)
+
         if isinstance(obj, UUID):
             return str(obj)
+
         if isinstance(obj, bytes):
             return obj.decode("utf-8")
+
         if isinstance(obj, (date)):
             return obj.isoformat()
+
         if isinstance(obj, BaseModel):
             return obj.dict()
+
         # if langchain is not available, the Serializable type is NoneType
         if Serializable is not None and isinstance(obj, Serializable):
             return obj.to_json()
@@ -54,6 +62,11 @@ class EventSerializer(JSONEncoder):
 
         if isinstance(obj, (tuple, set, frozenset)):
             return list(obj)
+
+        # Important: this needs to be always checked after str and bytes types
+        # Useful for serializing protobuf messages
+        if isinstance(obj, Sequence):
+            return [self.default(item) for item in obj]
 
         if hasattr(obj, "__slots__"):
             return self.default(
@@ -78,4 +91,8 @@ class EventSerializer(JSONEncoder):
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call
-        return super().encode(obj)
+
+        try:
+            return super().encode(obj)
+        except Exception:
+            return f"<not serializable object of type: {type(obj).__name__}>"
