@@ -76,7 +76,7 @@ class BasePromptClient(ABC):
         return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
 
     @staticmethod
-    def _compile_template_string(content: str, **kwargs) -> str:
+    def _compile_template_string(content: str, data: Dict[str, Any] = {}) -> str:
         opening = "{{"
         closing = "}}"
 
@@ -105,8 +105,10 @@ class BasePromptClient(ABC):
             variable_name = content[var_start + len(opening) : var_end].strip()
 
             # Append the variable value
-            if variable_name in kwargs:
-                result_list.append(str(kwargs[variable_name]))
+            if variable_name in data:
+                result_list.append(
+                    str(data[variable_name]) if data[variable_name] is not None else ""
+                )
             else:
                 result_list.append(content[var_start : var_end + len(closing)])
 
@@ -121,7 +123,7 @@ class TextPromptClient(BasePromptClient):
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
-        return self._compile_template_string(self.prompt, **kwargs)
+        return self._compile_template_string(self.prompt, kwargs)
 
     def __eq__(self, other):
         if isinstance(self, other.__class__):
@@ -154,9 +156,7 @@ class ChatPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> List[ChatMessage]:
         return [
             ChatMessage(
-                content=self._compile_template_string(
-                    chat_message["content"], **kwargs
-                ),
+                content=self._compile_template_string(chat_message["content"], kwargs),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
