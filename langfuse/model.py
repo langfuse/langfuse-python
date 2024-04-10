@@ -76,7 +76,8 @@ class BasePromptClient(ABC):
         return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
 
     @staticmethod
-    def _compile_template_string(content: str, **kwargs) -> str:
+    def _compile_template_string(*args, **kwargs) -> str:
+        content = args[0]
         opening = "{{"
         closing = "}}"
 

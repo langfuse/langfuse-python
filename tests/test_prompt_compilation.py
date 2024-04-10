@@ -169,3 +169,13 @@ def test_unescaped_JSON_variable_value():
 )
 def test_various_templates(template, kwargs, expected):
     assert BasePromptClient._compile_template_string(template, **kwargs) == expected
+
+
+def test_content_var():
+    template = "Hello, {{content}}!"
+    expected = "Hello, Thomas!"
+
+    assert (
+        BasePromptClient._compile_template_string(template, content="Thomas")
+        == expected
+    )
