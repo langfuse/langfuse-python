@@ -54,7 +54,6 @@ def test_create_chat_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
-    print(prompt_client.config, second_prompt_client.config)
     assert prompt_client.config == {}
 
 
@@ -149,7 +148,6 @@ def test_compiling_prompt_with_content_as_variable_name():
     assert prompt_client.prompt == second_prompt_client.prompt
 
     compiled = second_prompt_client.compile(content="Jane")
-    print(compiled)
 
     assert compiled == "Hello, Jane!"
 
