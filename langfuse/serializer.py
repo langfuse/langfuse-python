@@ -6,7 +6,7 @@ from dataclasses import is_dataclass, asdict
 from json import JSONEncoder
 from typing import Any
 from uuid import UUID
-
+from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
 
 from pydantic import BaseModel
@@ -62,6 +62,11 @@ class EventSerializer(JSONEncoder):
 
         if isinstance(obj, (tuple, set, frozenset)):
             return list(obj)
+
+        # Important: this needs to be always checked after str and bytes types
+        # Useful for serializing protobuf messages
+        if isinstance(obj, Sequence):
+            return [self.default(item) for item in obj]
 
         if hasattr(obj, "__slots__"):
             return self.default(
