@@ -116,6 +116,11 @@ def test_openai_chat_completion_stream():
     assert isinstance(generation.data[0].output, str) is True
     assert generation.data[0].completion_start_time is not None
 
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+
     trace = api.trace.get(generation.data[0].trace_id)
     assert trace.input == [{"role": "user", "content": "1 + 1 = "}]
     assert trace.output == chat_content
@@ -202,9 +207,7 @@ def test_openai_chat_completion_with_langfuse_prompt():
     generation_name = create_uuid()
     langfuse = Langfuse()
     prompt_name = create_uuid()
-    langfuse.create_prompt(
-        name=prompt_name, prompt="test prompt", is_active=True
-    )
+    langfuse.create_prompt(name=prompt_name, prompt="test prompt", is_active=True)
 
     prompt_client = langfuse.get_prompt(name=prompt_name)
 
@@ -462,6 +465,11 @@ def test_openai_completion_stream():
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
     assert generation.data[0].completion_start_time is not None
 
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+
     trace = api.trace.get(generation.data[0].trace_id)
     assert trace.input == "1 + 1 = "
     assert trace.output == content
@@ -693,6 +701,11 @@ async def test_async_chat_stream():
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output
+
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
 def test_openai_function_call():
