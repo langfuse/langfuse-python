@@ -106,7 +106,11 @@ class BasePromptClient(ABC):
 
             # Append the variable value
             if variable_name in kwargs:
-                result_list.append(str(kwargs[variable_name]))
+                result_list.append(
+                    str(kwargs[variable_name])
+                    if kwargs[variable_name] is not None
+                    else ""
+                )
             else:
                 result_list.append(content[var_start : var_end + len(closing)])
 
