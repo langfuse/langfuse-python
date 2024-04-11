@@ -44,6 +44,7 @@ pymongo = "^4.6.1"
 llama-index-llms-anthropic = "^0.1.1"
 bson = "^0.5.10"
 langchain-anthropic = "^0.1.4"
+llama-index-callbacks-langfuse = "^0.1.4"
 
 [tool.poetry.group.docs.dependencies]
 pdoc = "^14.4.0"

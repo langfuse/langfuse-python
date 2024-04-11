@@ -2,15 +2,21 @@ from llama_index.core import (
     Settings,
     PromptTemplate,
 )
+
 from llama_index.core.callbacks import CallbackManager
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
-
+from llama_index.core import (
+    VectorStoreIndex,
+    SimpleDirectoryReader,
+    set_global_handler,
+)
 from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.client import Langfuse
 
 from tests.utils import create_uuid, get_api, get_llama_index_index
+from typing import cast
 
 
 def validate_embedding_generation(generation):
@@ -418,3 +424,35 @@ def test_callback_with_custom_trace_metadata():
     assert trace_data.user_id == updated_user_id
     assert trace_data.session_id == updated_session_id
     assert trace_data.tags == updated_tags
+
+
+def test_llama_index_global_handler_integration():
+    set_global_handler("langfuse")
+
+    from llama_index.core import global_handler  # noqa
+
+    callback = cast(LlamaIndexCallbackHandler, global_handler)
+
+    documents = SimpleDirectoryReader(
+        "static", ["static/state_of_the_union_short.txt"]
+    ).load_data()
+    index = VectorStoreIndex.from_documents(documents)
+    index.as_query_engine().query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
+
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    assert (
+        len(generations) == 2
+    )  # One generation event for embedding call of query, one for LLM call
+
+    embedding_generation, llm_generation = generations
+    assert validate_embedding_generation(embedding_generation)
+    assert validate_llm_generation(llm_generation)
