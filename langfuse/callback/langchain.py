@@ -145,8 +145,8 @@ class LangchainCallbackHandler(
     ) -> Any:
         """Run when Retriever errors."""
         try:
-            self.log.debug(
-                f"on retriever error: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_retriever_error", run_id, parent_run_id, error=error
             )
 
             if run_id is None or run_id not in self.runs:
@@ -172,8 +172,8 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on chain start: run_id: {run_id} parent_run_id: {parent_run_id}, name {serialized.get('name', serialized.get('id', ['<unknown>'])[-1])}"
+            self._log_debug_event(
+                "on_chain_start", run_id, parent_run_id, inputs=inputs
             )
             self.__generate_trace_and_parent(
                 serialized=serialized,
@@ -268,8 +268,8 @@ class LangchainCallbackHandler(
     ) -> Any:
         """Run on agent action."""
         try:
-            self.log.debug(
-                f"on agent action: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_agent_action", run_id, parent_run_id, action=action
             )
 
             if run_id not in self.runs:
@@ -291,8 +291,8 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on agent finish: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_agent_finish", run_id, parent_run_id, finish=finish
             )
             if run_id not in self.runs:
                 raise Exception("run not found")
@@ -301,7 +301,11 @@ class LangchainCallbackHandler(
                 output=finish, version=self.version
             )
 
-            self._update_trace_and_remove_state(run_id, parent_run_id, finish)
+            # langchain sends same run_id for agent_finish and chain_end for the same agent interaction. 
+            # Hence, we only delete at chain_end and not here.
+            self._update_trace_and_remove_state(
+                run_id, parent_run_id, finish, keep_state=True
+            )
 
         except Exception as e:
             self.log.exception(e)
@@ -315,8 +319,8 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on chain end: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_chain_end", run_id, parent_run_id, outputs=outputs
             )
 
             if run_id not in self.runs:
@@ -341,9 +345,7 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> None:
         try:
-            self.log.debug(
-                f"on chain error: run_id: {run_id} parent_run_id: {parent_run_id}"
-            )
+            self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
             self.runs[run_id] = self.runs[run_id].end(
                 level=ObservationLevel.ERROR,
                 status_message=str(error),
@@ -369,10 +371,9 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on chat model start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_chat_model_start", run_id, parent_run_id, messages=messages
             )
-
             self.__on_llm_action(
                 serialized,
                 run_id,
@@ -399,8 +400,8 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on llm start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_llm_start", run_id, parent_run_id, prompts=prompts
             )
             self.__on_llm_action(
                 serialized,
@@ -426,8 +427,8 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on tool start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
             if parent_run_id is None or parent_run_id not in self.runs:
@@ -461,10 +462,9 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on retriever start: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_retriever_start", run_id, parent_run_id, query=query
             )
-
             if parent_run_id is None or parent_run_id not in self.runs:
                 raise Exception("parent run not found")
 
@@ -488,10 +488,9 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on retriever end: run_id: {run_id} parent_run_id: {parent_run_id}"
+            self._log_debug_event(
+                "on_retriever_end", run_id, parent_run_id, documents=documents
             )
-
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -513,9 +512,7 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on tool end: run_id: {run_id} parent_run_id: {parent_run_id}"
-            )
+            self._log_debug_event("on_tool_end", run_id, parent_run_id, output=output)
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -537,9 +534,7 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on tool error: run_id: {run_id} parent_run_id: {parent_run_id}"
-            )
+            self._log_debug_event("on_tool_error", run_id, parent_run_id, error=error)
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
@@ -659,8 +654,8 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on llm end: run_id: {run_id} parent_run_id: {parent_run_id} response: {response} kwargs: {kwargs}"
+            self._log_debug_event(
+                "on_llm_end", run_id, parent_run_id, response=response, kwargs=kwargs
             )
             if run_id not in self.runs:
                 raise Exception("Run not found, see docs what to do in this case.")
@@ -693,9 +688,7 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         try:
-            self.log.debug(
-                f"on llm error: run_id: {run_id} parent_run_id: {parent_run_id}"
-            )
+            self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
             self.runs[run_id] = self.runs[run_id].end(
                 status_message=str(error),
                 level=ObservationLevel.ERROR,
@@ -734,7 +727,13 @@ class LangchainCallbackHandler(
         )
 
     def _update_trace_and_remove_state(
-        self, run_id: str, parent_run_id: Optional[str], output: any, **kwargs: Any
+        self,
+        run_id: str,
+        parent_run_id: Optional[str],
+        output: any,
+        *,
+        keep_state: bool = False,
+        **kwargs: Any,
     ):
         """Update the trace with the output of the current run. Called at every finish callback event."""
         if (
@@ -745,7 +744,9 @@ class LangchainCallbackHandler(
             == str(run_id)  # The trace was generated by langchain and not by the user
         ):
             self.trace = self.trace.update(output=output, **kwargs)
-        del self.runs[run_id]
+
+        if not keep_state:
+            del self.runs[run_id]
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
@@ -775,6 +776,23 @@ class LangchainCallbackHandler(
         self, messages: List[BaseMessage]
     ) -> List[Dict[str, Any]]:
         return [self._convert_message_to_dict(m) for m in messages]
+
+    def _log_debug_event(
+        self,
+        event_name: str,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs,
+    ):
+        kwargs_log = (
+            ", " + ", ".join([f"{key}: {value}" for key, value in kwargs.items()])
+            if len(kwargs) > 0
+            else ""
+        )
+        self.log.debug(
+            f"Event: {event_name}, run_id: {str(run_id)[:5]}, parent_run_id: {str(parent_run_id)[:5]}"
+            + kwargs_log
+        )
 
 
 def _extract_raw_esponse(last_response):
