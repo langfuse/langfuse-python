@@ -331,7 +331,13 @@ class LangfuseDecorator:
                 raise ValueError("No observation found in the current context")
 
             # Collect final observation data
-            observation_params = _observation_params_context.get()[observation.id]
+            observation_params = _observation_params_context.get()[
+                observation.id
+            ].copy()
+            del _observation_params_context.get()[
+                observation.id
+            ]  # Remove observation params to avoid leaking
+
             end_time = observation_params["end_time"] or _get_timestamp()
             output = observation_params["output"] or (
                 str(result) if result and capture_output else None
