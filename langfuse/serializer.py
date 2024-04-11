@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID
 from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -51,6 +52,9 @@ class EventSerializer(JSONEncoder):
 
         if isinstance(obj, BaseModel):
             return obj.dict()
+
+        if isinstance(obj, Path):
+            return str(obj)
 
         # if langchain is not available, the Serializable type is NoneType
         if Serializable is not None and isinstance(obj, Serializable):
