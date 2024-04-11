@@ -301,6 +301,8 @@ class LangchainCallbackHandler(
                 output=finish, version=self.version
             )
 
+            # langchain sends same run_id for agent_finish and chain_end for the same agent interaction. 
+            # Hence, we only delete at chain_end and not here.
             self._update_trace_and_remove_state(
                 run_id, parent_run_id, finish, keep_state=True
             )
