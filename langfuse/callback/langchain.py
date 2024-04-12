@@ -711,7 +711,7 @@ class LangchainCallbackHandler(
         trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         final_dict = {}
-        if tags is not None:
+        if tags is not None and len(tags) > 0:
             final_dict["tags"] = tags
         if metadata is not None:
             final_dict.update(metadata)
