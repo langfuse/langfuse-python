@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, List, Any
 import logging
 import os
 
@@ -23,6 +23,8 @@ class LangfuseBaseCallbackHandler:
         user_id: Optional[str] = None,
         trace_name: Optional[str] = None,
         release: Optional[str] = None,
+        metadata: Optional[Any] = None,
+        tags: Optional[List[str]] = None,
         threads: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[int] = None,
@@ -35,6 +37,8 @@ class LangfuseBaseCallbackHandler:
         self.user_id = user_id
         self.trace_name = trace_name
         self.release = release
+        self.metadata = metadata
+        self.tags = tags
 
         self.root_span = None
         self.langfuse = None
