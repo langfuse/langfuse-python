@@ -43,6 +43,7 @@ def test_callback_init():
 
 
 def test_callback_kwargs():
+    api = get_api()
     callback = CallbackHandler(
         trace_name="trace-name",
         release="release",
