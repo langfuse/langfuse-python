@@ -67,6 +67,8 @@ class LangchainCallbackHandler(
         trace_name: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
+        metadata: Optional[Any] = None,
+        tags: Optional[List[str]] = None,
         threads: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[int] = None,
@@ -86,6 +88,8 @@ class LangchainCallbackHandler(
             trace_name=trace_name,
             release=release,
             version=version,
+            metadata=metadata,
+            tags=tags,
             threads=threads,
             flush_at=flush_at,
             flush_interval=flush_interval,
@@ -238,6 +242,8 @@ class LangchainCallbackHandler(
                     version=self.version,
                     session_id=self.session_id,
                     user_id=self.user_id,
+                    metadata=self.metadata,
+                    tags=self.tags,
                     input=inputs,
                 )
 

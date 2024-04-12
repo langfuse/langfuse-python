@@ -42,6 +42,35 @@ def test_callback_init():
     assert callback._task_manager is not None
 
 
+def test_callback_kwargs():
+    callback = CallbackHandler(
+        trace_name="trace-name",
+        release="release",
+        version="version",
+        session_id="session-id",
+        user_id="user-id",
+        metadata={"key": "value"},
+        tags=["tag1", "tag2"]
+    )
+
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), max_tokens=5)
+    prompt_template = PromptTemplate(input_variables=["input"], template="""{input}""")
+    test_chain = LLMChain(llm=llm, prompt=prompt_template)
+    test_chain.run("Hi", callbacks=[callback])
+    callback.flush()
+
+    trace_id = callback.get_trace_id()
+
+    trace = api.trace.get(trace_id)
+    assert trace.input is not None
+    assert trace.output is not None
+    assert trace.metadata == {"key": "value"}
+    assert trace.tags == ["tag1", "tag2"]
+    assert trace.release == "release"
+    assert trace.version == "version"
+    assert trace.session_id == "session-id"
+    assert trace.user_id == "user-id"
+
 def test_langfuse_span():
     trace_id = create_uuid()
     span_id = create_uuid()
