@@ -72,6 +72,7 @@ class LlamaIndexCallbackHandler(
         release: Optional[str] = None,
         version: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        metadata: Optional[Any] = None,
         threads: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[int] = None,
@@ -98,6 +99,8 @@ class LlamaIndexCallbackHandler(
             trace_name=trace_name,
             release=release,
             version=version,
+            tags=tags,
+            metadata=metadata,
             threads=threads,
             flush_at=flush_at,
             flush_interval=flush_interval,
@@ -109,7 +112,6 @@ class LlamaIndexCallbackHandler(
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
         self._llama_index_trace_name: Optional[str] = None
         self._token_counter = TokenCounter(tokenizer)
-        self.tags = tags
 
         # For stream-chat, the last LLM end_event arrives after the trace has ended
         # Keep track of these orphans to upsert them with the correct trace_id after the trace has ended
@@ -293,7 +295,7 @@ class LlamaIndexCallbackHandler(
             release = trace_metadata["release"] or self.release
             session_id = trace_metadata["session_id"] or self.session_id
             user_id = trace_metadata["user_id"] or self.user_id
-            metadata = trace_metadata["metadata"]
+            metadata = trace_metadata["metadata"] or self.metadata
             tags = trace_metadata["tags"] or self.tags
             public = trace_metadata["public"] or None
 
