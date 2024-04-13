@@ -112,7 +112,6 @@ class LlamaIndexCallbackHandler(
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
         self._llama_index_trace_name: Optional[str] = None
         self._token_counter = TokenCounter(tokenizer)
-        self.tags = tags
 
         # For stream-chat, the last LLM end_event arrives after the trace has ended
         # Keep track of these orphans to upsert them with the correct trace_id after the trace has ended
