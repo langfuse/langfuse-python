@@ -1967,21 +1967,24 @@ extended-testing = ["jinja2 (>=3,<4)"]
 
 [[package]]
 name = "langchain-google-vertexai"
-version = "0.1.2"
+version = "1.0.1"
 description = "An integration package connecting Google VertexAI and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_google_vertexai-0.1.2-py3-none-any.whl", hash = "sha256:fa5110b7c6a71450e95e47c06d0fdd58b1fa70596728df8f5c205131cc7d40ba"},
-    {file = "langchain_google_vertexai-0.1.2.tar.gz", hash = "sha256:3489546cd6a20cdd9b57af74aba419dc0e1b9225b842939587054bf8b90a5fe3"},
+    {file = "langchain_google_vertexai-1.0.1-py3-none-any.whl", hash = "sha256:29dc243098a6a5a6972578bc5543c281b871c772a9969abb905d31a4ea39d019"},
+    {file = "langchain_google_vertexai-1.0.1.tar.gz", hash = "sha256:a3eb99f1001181f5fa6ccb95c28cd8a3202379775cc7366f5c64e5421a537482"},
 ]
 
 [package.dependencies]
-google-cloud-aiplatform = ">=1.44.0,<2.0.0"
+google-cloud-aiplatform = ">=1.47.0,<2.0.0"
 google-cloud-storage = ">=2.14.0,<3.0.0"
-langchain-core = ">=0.1.27,<0.2"
+langchain-core = ">=0.1.42,<0.2.0"
 types-protobuf = ">=4.24.0.4,<5.0.0.0"
 types-requests = ">=2.31.0,<3.0.0"
+
+[package.extras]
+anthropic = ["anthropic[vertexai] (>=0.23.0,<1)"]
 
 [[package]]
 name = "langchain-mistralai"
@@ -5419,4 +5422,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "3291d997c28808e5c6aea0ca603d756d4a5e3f5a28754e9621692c5ad518adc3"
+content-hash = "d025e4ce03c9a5125b3e5813e5efcb1fcdf3f30e15dc2d1814a3e4dd157afa04"
