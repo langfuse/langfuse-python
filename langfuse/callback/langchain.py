@@ -67,6 +67,8 @@ class LangchainCallbackHandler(
         trace_name: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
         threads: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[int] = None,
@@ -86,6 +88,8 @@ class LangchainCallbackHandler(
             trace_name=trace_name,
             release=release,
             version=version,
+            metadata=metadata,
+            tags=tags,
             threads=threads,
             flush_at=flush_at,
             flush_interval=flush_interval,
@@ -234,10 +238,11 @@ class LangchainCallbackHandler(
                 trace = self.langfuse.trace(
                     id=str(run_id),
                     name=self.trace_name if self.trace_name is not None else class_name,
-                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    metadata=self.__join_tags_and_metadata(tags, metadata, trace_metadata=self.metadata),
                     version=self.version,
                     session_id=self.session_id,
                     user_id=self.user_id,
+                    tags=self.tags,
                     input=inputs,
                 )
 
@@ -703,16 +708,16 @@ class LangchainCallbackHandler(
         self,
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        trace_metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
-        if tags is None and metadata is None:
-            return None
-        elif tags is not None and len(tags) > 0:
-            final_dict = {"tags": tags}
-            if metadata is not None:
-                final_dict.update(metadata)  # Merge metadata into final_dict
-            return final_dict
-        else:
-            return metadata
+        final_dict = {}
+        if tags is not None and len(tags) > 0:
+            final_dict["tags"] = tags
+        if metadata is not None:
+            final_dict.update(metadata)
+        if trace_metadata is not None:
+            final_dict.update(trace_metadata)
+        return final_dict if final_dict != {} else None
 
     def _report_error(self, error: dict):
         event = SdkLogBody(log=error)

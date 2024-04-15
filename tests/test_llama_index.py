@@ -41,17 +41,49 @@ def validate_llm_generation(generation, model_name="openai_llm"):
 
 def test_callback_init():
     callback = LlamaIndexCallbackHandler(
-        release="something",
+        release="release",
+        version="version",
         session_id="session-id",
         user_id="user-id",
+        metadata={"key": "value"},
+        tags=["tag1", "tag2"],
     )
 
     assert callback.trace is None
 
-    assert callback.langfuse.release == "something"
+    assert callback.langfuse.release == "release"
     assert callback.session_id == "session-id"
     assert callback.user_id == "user-id"
+    assert callback.metadata == {"key": "value"}
+    assert callback.tags == ["tag1", "tag2"]
+    assert callback.version == "version"
     assert callback._task_manager is not None
+
+def test_constructor_kwargs():
+    callback = LlamaIndexCallbackHandler(
+        release="release",
+        version="version",
+        session_id="session-id",
+        user_id="user-id",
+        metadata={"key": "value"},
+        tags=["tag1", "tag2"],
+    )
+    get_llama_index_index(callback, force_rebuild=True)
+    assert callback.trace is not None
+
+    trace_id = callback.trace.id
+    assert trace_id is not None
+
+    callback.flush()
+    trace_data = get_api().trace.get(trace_id)
+    assert trace_data is not None
+
+    assert trace_data.release == "release"
+    assert trace_data.version == "version"
+    assert trace_data.session_id == "session-id"
+    assert trace_data.user_id == "user-id"
+    assert trace_data.metadata == {"key": "value"}
+    assert trace_data.tags == ["tag1", "tag2"]
 
 
 def test_callback_from_index_construction():
