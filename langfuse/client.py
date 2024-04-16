@@ -2248,6 +2248,7 @@ class DatasetItemClient:
         status (DatasetStatus): The status of the dataset item. Can be either 'ACTIVE' or 'ARCHIVED'.
         input (Any): Input data of the dataset item.
         expected_output (Optional[Any]): Expected output of the dataset item.
+        source_trace_id (Optional[str]): Identifier of the source trace.
         source_observation_id (Optional[str]): Identifier of the source observation.
         dataset_id (str): Identifier of the dataset to which this item belongs.
         created_at (datetime): Timestamp of dataset item creation.
@@ -2278,6 +2279,7 @@ class DatasetItemClient:
     status: DatasetStatus
     input: typing.Any
     expected_output: typing.Optional[typing.Any]
+    source_trace_id: typing.Optional[str]
     source_observation_id: typing.Optional[str]
     dataset_id: str
     created_at: dt.datetime
@@ -2291,6 +2293,7 @@ class DatasetItemClient:
         self.status = dataset_item.status
         self.input = dataset_item.input
         self.expected_output = dataset_item.expected_output
+        self.source_trace_id = dataset_item.source_trace_id
         self.source_observation_id = dataset_item.source_observation_id
         self.dataset_id = dataset_item.dataset_id
         self.created_at = dataset_item.created_at
