@@ -32,7 +32,8 @@ class DatasetRunItemsClient:
         request: CreateDatasetRunItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """Create a dataset run item
+        """
+        Create a dataset run item
 
         Parameters:
             - request: CreateDatasetRunItemRequest.
@@ -141,7 +142,8 @@ class AsyncDatasetRunItemsClient:
         request: CreateDatasetRunItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """Create a dataset run item
+        """
+        Create a dataset run item
 
         Parameters:
             - request: CreateDatasetRunItemRequest.

@@ -23,7 +23,8 @@ from .resources.trace.client import AsyncTraceClient, TraceClient
 
 
 class FernLangfuse:
-    """Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propogate to these functions.
+    """
+    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propogate to these functions.
 
     Parameters:
         - base_url: str. The base url to use for requests from the client.
@@ -105,7 +106,8 @@ class FernLangfuse:
 
 
 class AsyncFernLangfuse:
-    """Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propogate to these functions.
+    """
+    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propogate to these functions.
 
     Parameters:
         - base_url: str. The base url to use for requests from the client.

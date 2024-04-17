@@ -4,14 +4,10 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from ....core.pydantic_utilities import pydantic_v1
 
 
-class BasePrompt(pydantic.BaseModel):
+class BasePrompt(pydantic_v1.BaseModel):
     name: str
     version: int
     config: typing.Any
@@ -35,4 +31,5 @@ class BasePrompt(pydantic.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

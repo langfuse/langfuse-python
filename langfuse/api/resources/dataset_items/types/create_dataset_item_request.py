@@ -13,6 +13,13 @@ class CreateDatasetItemRequest(pydantic_v1.BaseModel):
     expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(
         alias="expectedOutput", default=None
     )
+    metadata: typing.Optional[typing.Any] = None
+    source_trace_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="sourceTraceId", default=None
+    )
+    source_observation_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="sourceObservationId", default=None
+    )
     id: typing.Optional[str] = pydantic_v1.Field(default=None)
     """
     Dataset items are upserted on their id

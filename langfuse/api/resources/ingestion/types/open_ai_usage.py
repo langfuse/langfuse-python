@@ -8,7 +8,9 @@ from ....core.pydantic_utilities import pydantic_v1
 
 
 class OpenAiUsage(pydantic_v1.BaseModel):
-    """Usage interface of OpenAI for improved compatibility."""
+    """
+    Usage interface of OpenAI for improved compatibility.
+    """
 
     prompt_tokens: typing.Optional[int] = pydantic_v1.Field(
         alias="promptTokens", default=None

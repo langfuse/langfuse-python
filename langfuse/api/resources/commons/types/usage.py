@@ -9,7 +9,9 @@ from .model_usage_unit import ModelUsageUnit
 
 
 class Usage(pydantic_v1.BaseModel):
-    """Standard interface for usage and cost"""
+    """
+    Standard interface for usage and cost
+    """
 
     input: typing.Optional[int] = pydantic_v1.Field(default=None)
     """
