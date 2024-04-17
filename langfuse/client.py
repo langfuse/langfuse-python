@@ -308,17 +308,26 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def create_dataset(self, name: str) -> Dataset:
+    def create_dataset(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        metadata: Optional[Any] = None,
+    ) -> Dataset:
         """Create a dataset with the given name on Langfuse.
 
         Args:
             name: Name of the dataset to create.
+            description: Description of the dataset. Defaults to None.
+            metadata: Additional metadata. Defaults to None.
 
         Returns:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
-            body = CreateDatasetRequest(name=name)
+            body = CreateDatasetRequest(
+                name=name, description=description, metadata=metadata
+            )
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
         except Exception as e:
@@ -328,8 +337,11 @@ class Langfuse(object):
     def create_dataset_item(
         self,
         dataset_name: str,
-        input: Any,
+        input: Optional[Any] = None,
         expected_output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        source_trace_id: Optional[str] = None,
+        source_observation_id: Optional[str] = None,
         id: Optional[str] = None,
     ) -> DatasetItem:
         """Create a dataset item.
@@ -338,8 +350,11 @@ class Langfuse(object):
 
         Args:
             dataset_name: Name of the dataset in which the dataset item should be created.
-            input: Input data. Can contain any dict, list or scalar.
+            input: Input data. Defaults to None. Can contain any dict, list or scalar.
             expected_output: Expected output data. Defaults to None. Can contain any dict, list or scalar.
+            metadata: Additional metadata. Defaults to None. Can contain any dict, list or scalar.
+            source_trace_id: Id of the source trace. Defaults to None.
+            source_observation_id: Id of the source observation. Defaults to None.
             id: Id of the dataset item. Defaults to None.
 
         Returns:
@@ -355,7 +370,8 @@ class Langfuse(object):
             langfuse.create_dataset_item(
                 dataset_name="capital_cities",
                 input={"input": {"country": "Italy"}},
-                expected_output={"expected_output": "Rome"}
+                expected_output={"expected_output": "Rome"},
+                metadata={"foo": "bar"}
             )
             ```
         """
@@ -364,6 +380,9 @@ class Langfuse(object):
                 datasetName=dataset_name,
                 input=input,
                 expectedOutput=expected_output,
+                metadata=metadata,
+                sourceTraceId=source_trace_id,
+                sourceObservationId=source_observation_id,
                 id=id,
             )
             self.log.debug(f"Creating dataset item {body}")
@@ -2248,9 +2267,11 @@ class DatasetItemClient:
         status (DatasetStatus): The status of the dataset item. Can be either 'ACTIVE' or 'ARCHIVED'.
         input (Any): Input data of the dataset item.
         expected_output (Optional[Any]): Expected output of the dataset item.
+        metadata (Optional[Any]): Additional metadata of the dataset item.
         source_trace_id (Optional[str]): Identifier of the source trace.
         source_observation_id (Optional[str]): Identifier of the source observation.
         dataset_id (str): Identifier of the dataset to which this item belongs.
+        dataset_name (str): Name of the dataset to which this item belongs.
         created_at (datetime): Timestamp of dataset item creation.
         updated_at (datetime): Timestamp of the last update to the dataset item.
         langfuse (Langfuse): Instance of Langfuse client for API interactions.
@@ -2279,9 +2300,11 @@ class DatasetItemClient:
     status: DatasetStatus
     input: typing.Any
     expected_output: typing.Optional[typing.Any]
+    metadata: Optional[Any]
     source_trace_id: typing.Optional[str]
     source_observation_id: typing.Optional[str]
     dataset_id: str
+    dataset_name: str
     created_at: dt.datetime
     updated_at: dt.datetime
 
@@ -2293,9 +2316,11 @@ class DatasetItemClient:
         self.status = dataset_item.status
         self.input = dataset_item.input
         self.expected_output = dataset_item.expected_output
+        self.metadata = dataset_item.metadata
         self.source_trace_id = dataset_item.source_trace_id
         self.source_observation_id = dataset_item.source_observation_id
         self.dataset_id = dataset_item.dataset_id
+        self.dataset_name = dataset_item.dataset_name
         self.created_at = dataset_item.created_at
         self.updated_at = dataset_item.updated_at
 
@@ -2307,39 +2332,70 @@ class DatasetItemClient:
         Used before creating a dataset run item to ensure all events are persistent.
 
         Args:
-            observation (StatefulClient): The observation client associated with the dataset item.
+            observation (StatefulClient): The observation or trace client associated with the dataset item.
             run_name (str): The name of the dataset run.
         """
         observation.task_manager.flush()
 
-    def link(self, observation: typing.Union[StatefulClient, str], run_name: str):
+    def link(
+        self,
+        trace_or_observation: typing.Union[StatefulClient, str, None],
+        run_name: str,
+        run_metadata: Optional[Any] = None,
+        trace_id: Optional[str] = None,
+        observation_id: Optional[str] = None,
+    ):
         """Link the dataset item to observation within a specific dataset run. Creates a dataset run item.
 
         Args:
-            observation (Union[StatefulClient, str]): The observation to link, either as a client or as an ID.
+            trace_or_observation (Union[StatefulClient, str, None]): The trace or observation object to link. Deprecated: can also be an observation ID.
             run_name (str): The name of the dataset run.
+            run_metadata (Optional[Any]): Additional metadata to include in dataset run.
+            trace_id (Optional[str]): The trace ID to link to the dataset item. Set trace_or_observation to None if trace_id is provided.
+            observation_id (Optional[str]): The observation ID to link to the dataset item (optional). Set trace_or_observation to None if trace_id is provided.
         """
-        observation_id = None
+        parsed_trace_id: str = None
+        parsed_observation_id: str = None
 
         log = logging.getLogger("langfuse")
 
-        if isinstance(observation, StatefulClient):
+        if isinstance(trace_or_observation, StatefulClient):
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
-            observation.task_manager.flush()
-            observation_id = observation.id
-        elif isinstance(observation, str):
+            trace_or_observation.task_manager.flush()
+            if trace_or_observation.state_type == StateType.TRACE:
+                parsed_trace_id = trace_or_observation.trace_id
+            elif trace_or_observation.state_type == StateType.OBSERVATION:
+                parsed_observation_id = trace_or_observation.id
+                parsed_trace_id = trace_or_observation.trace_id
+        # legacy support for observation_id
+        elif isinstance(trace_or_observation, str):
             self.langfuse.flush()
-            observation_id = observation
+            parsed_observation_id = trace_or_observation
+        elif trace_or_observation is None:
+            if trace_id is not None:
+                parsed_trace_id = trace_id
+                if observation_id is not None:
+                    parsed_observation_id = observation_id
+            else:
+                raise ValueError(
+                    "trace_id must be provided if trace_or_observation is None"
+                )
         else:
             raise ValueError(
-                "observation parameter must be either a StatefulClient or a string"
+                "trace_or_observation (arg) or trace_id (kwarg) must be provided to link the dataset item"
             )
 
-        log.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
+        log.debug(
+            f"Creating dataset run item: {run_name} {self.id} {parsed_trace_id} {parsed_observation_id}"
+        )
         self.langfuse.client.dataset_run_items.create(
             request=CreateDatasetRunItemRequest(
-                runName=run_name, datasetItemId=self.id, observationId=observation_id
+                runName=run_name,
+                datasetItemId=self.id,
+                traceId=parsed_trace_id,
+                observationId=parsed_observation_id,
+                metadata=run_metadata,
             )
         )
 
@@ -2377,6 +2433,8 @@ class DatasetClient:
     Attributes:
         id (str): Unique identifier of the dataset.
         name (str): Name of the dataset.
+        description (Optional[str]): Description of the dataset.
+        metadata (Optional[typing.Any]): Additional metadata of the dataset.
         project_id (str): Identifier of the project to which the dataset belongs.
         dataset_name (str): Name of the dataset.
         created_at (datetime): Timestamp of dataset creation.
@@ -2400,8 +2458,10 @@ class DatasetClient:
 
     id: str
     name: str
+    description: Optional[str]
     project_id: str
-    dataset_name: str
+    dataset_name: str  # for backward compatibility, to be deprecated
+    metadata: Optional[Any]
     created_at: dt.datetime
     updated_at: dt.datetime
     items: typing.List[DatasetItemClient]
@@ -2411,8 +2471,10 @@ class DatasetClient:
         """Initialize the DatasetClient."""
         self.id = dataset.id
         self.name = dataset.name
+        self.description = dataset.description
         self.project_id = dataset.project_id
-        self.dataset_name = dataset.name
+        self.metadata = dataset.metadata
+        self.dataset_name = dataset.name  # for backward compatibility, to be deprecated
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
