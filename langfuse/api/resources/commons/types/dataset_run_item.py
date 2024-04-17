@@ -12,16 +12,26 @@ class DatasetRunItem(pydantic_v1.BaseModel):
     dataset_run_id: str = pydantic_v1.Field(alias="datasetRunId")
     dataset_item_id: str = pydantic_v1.Field(alias="datasetItemId")
     trace_id: str = pydantic_v1.Field(alias="traceId")
-    observation_id: typing.Optional[str] = pydantic_v1.Field(alias="observationId", default=None)
+    observation_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="observationId", default=None
+    )
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

@@ -238,7 +238,9 @@ class LangchainCallbackHandler(
                 trace = self.langfuse.trace(
                     id=str(run_id),
                     name=self.trace_name if self.trace_name is not None else class_name,
-                    metadata=self.__join_tags_and_metadata(tags, metadata, trace_metadata=self.metadata),
+                    metadata=self.__join_tags_and_metadata(
+                        tags, metadata, trace_metadata=self.metadata
+                    ),
                     version=self.version,
                     session_id=self.session_id,
                     user_id=self.user_id,
@@ -306,7 +308,7 @@ class LangchainCallbackHandler(
                 output=finish, version=self.version
             )
 
-            # langchain sends same run_id for agent_finish and chain_end for the same agent interaction. 
+            # langchain sends same run_id for agent_finish and chain_end for the same agent interaction.
             # Hence, we only delete at chain_end and not here.
             self._update_trace_and_remove_state(
                 run_id, parent_run_id, finish, keep_state=True

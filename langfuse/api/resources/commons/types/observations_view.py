@@ -10,20 +10,40 @@ from .observation import Observation
 
 class ObservationsView(Observation):
     model_id: typing.Optional[str] = pydantic_v1.Field(alias="modelId", default=None)
-    input_price: typing.Optional[float] = pydantic_v1.Field(alias="inputPrice", default=None)
-    output_price: typing.Optional[float] = pydantic_v1.Field(alias="outputPrice", default=None)
-    total_price: typing.Optional[float] = pydantic_v1.Field(alias="totalPrice", default=None)
-    calculated_input_cost: typing.Optional[float] = pydantic_v1.Field(alias="calculatedInputCost", default=None)
-    calculated_output_cost: typing.Optional[float] = pydantic_v1.Field(alias="calculatedOutputCost", default=None)
-    calculated_total_cost: typing.Optional[float] = pydantic_v1.Field(alias="calculatedTotalCost", default=None)
+    input_price: typing.Optional[float] = pydantic_v1.Field(
+        alias="inputPrice", default=None
+    )
+    output_price: typing.Optional[float] = pydantic_v1.Field(
+        alias="outputPrice", default=None
+    )
+    total_price: typing.Optional[float] = pydantic_v1.Field(
+        alias="totalPrice", default=None
+    )
+    calculated_input_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="calculatedInputCost", default=None
+    )
+    calculated_output_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="calculatedOutputCost", default=None
+    )
+    calculated_total_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="calculatedTotalCost", default=None
+    )
     latency: typing.Optional[float] = None
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

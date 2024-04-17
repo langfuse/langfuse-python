@@ -10,18 +10,25 @@ from .dataset_item import DatasetItem
 
 
 class Dataset(DatasetCore):
-    """Dataset including all items
-    """
+    """Dataset including all items"""
 
     items: typing.List[DatasetItem]
     runs: typing.List[str]
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

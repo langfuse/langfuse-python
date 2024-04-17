@@ -1,5 +1,4 @@
-"""@private
-"""
+"""@private"""
 
 import json
 import logging
@@ -94,7 +93,11 @@ class LangfuseClient:
             if len(errors) > 0:
                 raise APIErrors(
                     [
-                        APIError(error["status"], error["message"], error["error"])
+                        APIError(
+                            error["status"],
+                            error.get("message", ""),
+                            error.get("error", ""),
+                        )
                         for error in errors
                     ]
                 )

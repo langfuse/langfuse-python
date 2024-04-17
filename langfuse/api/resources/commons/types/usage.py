@@ -9,8 +9,7 @@ from .model_usage_unit import ModelUsageUnit
 
 
 class Usage(pydantic_v1.BaseModel):
-    """Standard interface for usage and cost
-    """
+    """Standard interface for usage and cost"""
 
     input: typing.Optional[int] = pydantic_v1.Field(default=None)
     """
@@ -28,27 +27,41 @@ class Usage(pydantic_v1.BaseModel):
     """
 
     unit: typing.Optional[ModelUsageUnit] = None
-    input_cost: typing.Optional[float] = pydantic_v1.Field(alias="inputCost", default=None)
+    input_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="inputCost", default=None
+    )
     """
     USD input cost
     """
 
-    output_cost: typing.Optional[float] = pydantic_v1.Field(alias="outputCost", default=None)
+    output_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="outputCost", default=None
+    )
     """
     USD output cost
     """
 
-    total_cost: typing.Optional[float] = pydantic_v1.Field(alias="totalCost", default=None)
+    total_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="totalCost", default=None
+    )
     """
     USD total cost, defaults to input+output
     """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:

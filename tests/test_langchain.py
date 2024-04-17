@@ -51,7 +51,7 @@ def test_callback_kwargs():
         session_id="session-id",
         user_id="user-id",
         metadata={"key": "value"},
-        tags=["tag1", "tag2"]
+        tags=["tag1", "tag2"],
     )
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), max_tokens=5)
@@ -71,6 +71,7 @@ def test_callback_kwargs():
     assert trace.version == "version"
     assert trace.session_id == "session-id"
     assert trace.user_id == "user-id"
+
 
 def test_langfuse_span():
     trace_id = create_uuid()

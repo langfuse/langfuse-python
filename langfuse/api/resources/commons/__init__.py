@@ -22,7 +22,13 @@ from .types import (
     TraceWithFullDetails,
     Usage,
 )
-from .errors import AccessDeniedError, Error, MethodNotAllowedError, NotFoundError, UnauthorizedError
+from .errors import (
+    AccessDeniedError,
+    Error,
+    MethodNotAllowedError,
+    NotFoundError,
+    UnauthorizedError,
+)
 
 __all__ = [
     "AccessDeniedError",

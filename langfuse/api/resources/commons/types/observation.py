@@ -16,8 +16,12 @@ class Observation(pydantic_v1.BaseModel):
     type: str
     name: typing.Optional[str] = None
     start_time: dt.datetime = pydantic_v1.Field(alias="startTime")
-    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="endTime", default=None)
-    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="completionStartTime", default=None)
+    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
+        alias="endTime", default=None
+    )
+    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
+        alias="completionStartTime", default=None
+    )
     model: typing.Optional[str] = None
     model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic_v1.Field(
         alias="modelParameters", default=None
@@ -28,16 +32,28 @@ class Observation(pydantic_v1.BaseModel):
     output: typing.Optional[typing.Any] = None
     usage: typing.Optional[Usage] = None
     level: ObservationLevel
-    status_message: typing.Optional[str] = pydantic_v1.Field(alias="statusMessage", default=None)
-    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(alias="parentObservationId", default=None)
+    status_message: typing.Optional[str] = pydantic_v1.Field(
+        alias="statusMessage", default=None
+    )
+    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="parentObservationId", default=None
+    )
     prompt_id: typing.Optional[str] = pydantic_v1.Field(alias="promptId", default=None)
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:
