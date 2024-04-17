@@ -28,8 +28,7 @@ class TraceClient:
     def get(
         self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> TraceWithFullDetails:
-        """
-        Get a specific trace
+        """Get a specific trace
 
         Parameters:
             - trace_id: str. The unique langfuse identifier of a trace
@@ -118,8 +117,7 @@ class TraceClient:
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
-        """
-        Get list of traces
+        """Get list of traces
 
         Parameters:
             - page: typing.Optional[int]. page number, starts at 1
@@ -240,8 +238,7 @@ class AsyncTraceClient:
     async def get(
         self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> TraceWithFullDetails:
-        """
-        Get a specific trace
+        """Get a specific trace
 
         Parameters:
             - trace_id: str. The unique langfuse identifier of a trace
@@ -330,8 +327,7 @@ class AsyncTraceClient:
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
-        """
-        Get list of traces
+        """Get list of traces
 
         Parameters:
             - page: typing.Optional[int]. page number, starts at 1

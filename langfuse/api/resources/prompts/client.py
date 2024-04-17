@@ -33,8 +33,7 @@ class PromptsClient:
         version: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Get a prompt
+        """Get a prompt
 
         Parameters:
             - name: str.
@@ -127,15 +126,14 @@ class PromptsClient:
         request: CreatePromptRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Create a prompt
+        """Create a prompt
 
         Parameters:
             - request: CreatePromptRequest.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import ChatMessage, CreatePromptRequest_Chat
+        from finto import CreatePromptRequest
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -147,10 +145,10 @@ class PromptsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.prompts.create(
-            request=CreatePromptRequest_Chat(
+            request=CreatePromptRequest(
                 name="string",
                 is_active=True,
-                prompt=[ChatMessage()],
+                prompt="string",
                 config={"key": "value"},
             ),
         )
@@ -235,8 +233,7 @@ class AsyncPromptsClient:
         version: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Get a prompt
+        """Get a prompt
 
         Parameters:
             - name: str.
@@ -329,15 +326,14 @@ class AsyncPromptsClient:
         request: CreatePromptRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Create a prompt
+        """Create a prompt
 
         Parameters:
             - request: CreatePromptRequest.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import ChatMessage, CreatePromptRequest_Chat
+        from finto import CreatePromptRequest
         from finto.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -349,10 +345,10 @@ class AsyncPromptsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         await client.prompts.create(
-            request=CreatePromptRequest_Chat(
+            request=CreatePromptRequest(
                 name="string",
                 is_active=True,
-                prompt=[ChatMessage()],
+                prompt="string",
                 config={"key": "value"},
             ),
         )
