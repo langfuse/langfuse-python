@@ -55,7 +55,7 @@ def test_create_dataset_item():
     dataset = langfuse.get_dataset(name)
     assert len(dataset.items) == 3
     assert dataset.items[2].input == input
-    assert dataset.items[2].expected_output == None
+    assert dataset.items[2].expected_output is None
 
     assert dataset.items[1].input == input
     assert dataset.items[1].expected_output == "Output"
@@ -63,11 +63,11 @@ def test_create_dataset_item():
     assert dataset.items[1].source_observation_id == generation.id
     assert dataset.items[1].source_trace_id == generation.trace_id
 
-    assert dataset.items[0].input == None
-    assert dataset.items[0].expected_output == None
-    assert dataset.items[0].metadata == None
-    assert dataset.items[0].source_observation_id == None
-    assert dataset.items[0].source_trace_id == None
+    assert dataset.items[0].input is None
+    assert dataset.items[0].expected_output is None
+    assert dataset.items[0].metadata is None
+    assert dataset.items[0].source_observation_id is None
+    assert dataset.items[0].source_trace_id is None
 
 
 def test_upsert_and_get_dataset_item():
