@@ -125,7 +125,7 @@ def test_linking_observation():
     assert run.dataset_run_items[0].trace_id == trace_id
 
 
-def test_linking_trace_and_run_metadata():
+def test_linking_trace_and_run_metadata_and_description():
     langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
@@ -144,12 +144,18 @@ def test_linking_trace_and_run_metadata():
     for item in dataset.items:
         trace = langfuse.trace(id=trace_id)
 
-        item.link(trace, run_name, run_metadata={"key": "value"})
+        item.link(
+            trace,
+            run_name,
+            run_metadata={"key": "value"},
+            run_description="This is a test run",
+        )
 
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name
     assert run.metadata == {"key": "value"}
+    assert run.description == "This is a test run"
     assert len(run.dataset_run_items) == 1
     assert run.dataset_run_items[0].trace_id == trace_id
     assert run.dataset_run_items[0].observation_id is None
@@ -287,41 +293,31 @@ def test_langchain_dataset():
 
     trace = api.trace.get(handler.get_trace_id())
 
-    assert len(trace.observations) == 3
+    assert len(trace.observations) == 2
 
     sorted_observations = sorted_dependencies(trace.observations)
 
-    assert sorted_observations[1].id == sorted_observations[2].parent_observation_id
     assert sorted_observations[0].id == sorted_observations[1].parent_observation_id
     assert sorted_observations[0].parent_observation_id is None
 
     assert trace.name == "dataset-run"
-    assert sorted_observations[0].name == "dataset-run"
     assert trace.metadata == {
         "dataset_item_id": dataset_item_id,
         "run_name": run_name,
         "dataset_id": dataset.id,
     }
 
-    assert sorted_observations[0].metadata == {
-        "dataset_item_id": dataset_item_id,
-        "run_name": run_name,
-        "dataset_id": dataset.id,
-    }
+    assert sorted_observations[0].name == "LLMChain"
 
-    generations = list(
-        filter(lambda obs: obs.type == "GENERATION", sorted_observations)
-    )
-
-    assert len(generations) > 0
-    for generation in generations:
-        assert generation.input is not None
-        assert generation.output is not None
-        assert generation.input != ""
-        assert generation.output != ""
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+    assert sorted_observations[1].name == "OpenAI"
+    assert sorted_observations[1].type == "GENERATION"
+    assert sorted_observations[1].input is not None
+    assert sorted_observations[1].output is not None
+    assert sorted_observations[1].input != ""
+    assert sorted_observations[1].output != ""
+    assert sorted_observations[1].usage.total is not None
+    assert sorted_observations[1].usage.input is not None
+    assert sorted_observations[1].usage.output is not None
 
 
 def sorted_dependencies(

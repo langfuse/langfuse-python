@@ -2342,6 +2342,7 @@ class DatasetItemClient:
         trace_or_observation: typing.Union[StatefulClient, str, None],
         run_name: str,
         run_metadata: Optional[Any] = None,
+        run_description: Optional[str] = None,
         trace_id: Optional[str] = None,
         observation_id: Optional[str] = None,
     ):
@@ -2351,6 +2352,7 @@ class DatasetItemClient:
             trace_or_observation (Union[StatefulClient, str, None]): The trace or observation object to link. Deprecated: can also be an observation ID.
             run_name (str): The name of the dataset run.
             run_metadata (Optional[Any]): Additional metadata to include in dataset run.
+            run_description (Optional[str]): Description of the dataset run.
             trace_id (Optional[str]): The trace ID to link to the dataset item. Set trace_or_observation to None if trace_id is provided.
             observation_id (Optional[str]): The observation ID to link to the dataset item (optional). Set trace_or_observation to None if trace_id is provided.
         """
@@ -2396,13 +2398,12 @@ class DatasetItemClient:
                 traceId=parsed_trace_id,
                 observationId=parsed_observation_id,
                 metadata=run_metadata,
+                runDescription=run_description,
             )
         )
 
     def get_langchain_handler(self, *, run_name: str):
         """Create and get a langchain callback handler linked to this dataset item.
-
-        Creates a trace and a span, linked to the trace, and returns a Langchain CallbackHandler to the span.
 
         Args:
             run_name (str): The name of the dataset run to be used in the callback handler.
@@ -2418,13 +2419,12 @@ class DatasetItemClient:
             "dataset_id": self.dataset_id,
         }
         trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
-        span = trace.span(name="dataset-run", metadata=metadata)
 
         self.langfuse.flush()
 
-        self.link(span, run_name)
+        self.link(trace, run_name)
 
-        return CallbackHandler(stateful_client=span)
+        return CallbackHandler(stateful_client=trace)
 
 
 class DatasetClient:
