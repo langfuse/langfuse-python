@@ -59,6 +59,7 @@ def test_callback_init():
     assert callback.version == "version"
     assert callback._task_manager is not None
 
+
 def test_constructor_kwargs():
     callback = LlamaIndexCallbackHandler(
         release="release",

@@ -1,5 +1,4 @@
-"""@private
-"""
+"""@private"""
 
 import atexit
 import json

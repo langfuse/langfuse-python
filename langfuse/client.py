@@ -2320,7 +2320,7 @@ class DatasetItemClient:
             run_name (str): The name of the dataset run.
         """
         observation_id = None
-        
+
         log = logging.getLogger("langfuse")
 
         if isinstance(observation, StatefulClient):
@@ -2336,9 +2336,7 @@ class DatasetItemClient:
                 "observation parameter must be either a StatefulClient or a string"
             )
 
-        log.debug(
-            f"Creating dataset run item: {run_name} {self.id} {observation_id}"
-        )
+        log.debug(f"Creating dataset run item: {run_name} {self.id} {observation_id}")
         self.langfuse.client.dataset_run_items.create(
             request=CreateDatasetRunItemRequest(
                 runName=run_name, datasetItemId=self.id, observationId=observation_id

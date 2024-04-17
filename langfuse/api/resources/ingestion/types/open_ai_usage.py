@@ -8,19 +8,32 @@ from ....core.pydantic_utilities import pydantic_v1
 
 
 class OpenAiUsage(pydantic_v1.BaseModel):
-    """Usage interface of OpenAI for improved compatibility.
-    """
+    """Usage interface of OpenAI for improved compatibility."""
 
-    prompt_tokens: typing.Optional[int] = pydantic_v1.Field(alias="promptTokens", default=None)
-    completion_tokens: typing.Optional[int] = pydantic_v1.Field(alias="completionTokens", default=None)
-    total_tokens: typing.Optional[int] = pydantic_v1.Field(alias="totalTokens", default=None)
+    prompt_tokens: typing.Optional[int] = pydantic_v1.Field(
+        alias="promptTokens", default=None
+    )
+    completion_tokens: typing.Optional[int] = pydantic_v1.Field(
+        alias="completionTokens", default=None
+    )
+    total_tokens: typing.Optional[int] = pydantic_v1.Field(
+        alias="totalTokens", default=None
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().dict(**kwargs_with_defaults)
 
     class Config:
