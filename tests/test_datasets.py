@@ -18,6 +18,15 @@ def test_create_and_get_dataset():
     assert dataset.name == name
 
 
+def test_create_and_get_dataset_special_characters():
+    langfuse = Langfuse(debug=False)
+
+    name = create_uuid() + " hello ! / world"
+    langfuse.create_dataset(name=name)
+    dataset = langfuse.get_dataset(name)
+    assert dataset.name == name
+
+
 def test_create_dataset_item():
     langfuse = Langfuse(debug=False)
     name = create_uuid()
