@@ -35,7 +35,8 @@ class DatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasets:
-        """Get all datasets
+        """
+        Get all datasets
 
         Parameters:
             - page: typing.Optional[int].
@@ -128,7 +129,8 @@ class DatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Get a dataset and its items
+        """
+        Get a dataset and its items
 
         Parameters:
             - dataset_name: str.
@@ -211,7 +213,8 @@ class DatasetsClient:
         request: CreateDatasetRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Create a dataset
+        """
+        Create a dataset
 
         Parameters:
             - request: CreateDatasetRequest.
@@ -233,6 +236,7 @@ class DatasetsClient:
             request=CreateDatasetRequest(
                 name="string",
                 description="string",
+                metadata={"key": "value"},
             ),
         )
         """
@@ -311,7 +315,8 @@ class DatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRun:
-        """Get a dataset run and its items
+        """
+        Get a dataset run and its items
 
         Parameters:
             - dataset_name: str.
@@ -403,7 +408,8 @@ class AsyncDatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasets:
-        """Get all datasets
+        """
+        Get all datasets
 
         Parameters:
             - page: typing.Optional[int].
@@ -496,7 +502,8 @@ class AsyncDatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Get a dataset and its items
+        """
+        Get a dataset and its items
 
         Parameters:
             - dataset_name: str.
@@ -579,7 +586,8 @@ class AsyncDatasetsClient:
         request: CreateDatasetRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Create a dataset
+        """
+        Create a dataset
 
         Parameters:
             - request: CreateDatasetRequest.
@@ -601,6 +609,7 @@ class AsyncDatasetsClient:
             request=CreateDatasetRequest(
                 name="string",
                 description="string",
+                metadata={"key": "value"},
             ),
         )
         """
@@ -679,7 +688,8 @@ class AsyncDatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRun:
-        """Get a dataset run and its items
+        """
+        Get a dataset run and its items
 
         Parameters:
             - dataset_name: str.

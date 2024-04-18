@@ -9,11 +9,17 @@ T_Result = typing.TypeVar("T_Result")
 class ScoreSource(str, enum.Enum):
     API = "API"
     REVIEW = "REVIEW"
+    EVAL = "EVAL"
 
     def visit(
-        self, api: typing.Callable[[], T_Result], review: typing.Callable[[], T_Result]
+        self,
+        api: typing.Callable[[], T_Result],
+        review: typing.Callable[[], T_Result],
+        eval: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is ScoreSource.API:
             return api()
         if self is ScoreSource.REVIEW:
             return review()
+        if self is ScoreSource.EVAL:
+            return eval()

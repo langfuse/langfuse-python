@@ -8,7 +8,9 @@ from ....core.pydantic_utilities import pydantic_v1
 
 
 class UsageByModel(pydantic_v1.BaseModel):
-    """Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens)."""
+    """
+    Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
+    """
 
     model: str
     input_usage: int = pydantic_v1.Field(alias="inputUsage")

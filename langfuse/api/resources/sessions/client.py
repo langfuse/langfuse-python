@@ -28,7 +28,8 @@ class SessionsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SessionWithTraces:
-        """Get a session
+        """
+        Get a session
 
         Parameters:
             - session_id: str. The unique id of a session
@@ -116,7 +117,8 @@ class AsyncSessionsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SessionWithTraces:
-        """Get a session
+        """
+        Get a session
 
         Parameters:
             - session_id: str. The unique id of a session

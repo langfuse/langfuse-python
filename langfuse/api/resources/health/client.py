@@ -26,7 +26,8 @@ class HealthClient:
     def health(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HealthResponse:
-        """Check health of API and database
+        """
+        Check health of API and database
 
         Parameters:
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
@@ -108,7 +109,8 @@ class AsyncHealthClient:
     async def health(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HealthResponse:
-        """Check health of API and database
+        """
+        Check health of API and database
 
         Parameters:
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.

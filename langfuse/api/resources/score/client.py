@@ -18,6 +18,7 @@ from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.score import Score
+from ..commons.types.score_source import ScoreSource
 from .types.create_score_request import CreateScoreRequest
 from .types.scores import Scores
 
@@ -35,7 +36,8 @@ class ScoreClient:
         request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Score:
-        """Create a score
+        """
+        Create a score
 
         Parameters:
             - request: CreateScoreRequest.
@@ -140,9 +142,13 @@ class ScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
+        source: ScoreSource,
+        operator: typing.Optional[str] = None,
+        value: typing.Optional[float] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
-        """Get a list of scores
+        """
+        Get a list of scores
 
         Parameters:
             - page: typing.Optional[int]. page number, starts at 1
@@ -155,10 +161,17 @@ class ScoreClient:
 
             - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this timestamp.
 
+            - source: ScoreSource. Retrieve only scores from a specific source.
+
+            - operator: typing.Optional[str]. Retrieve only scores with <operator> value.
+
+            - value: typing.Optional[float]. Retrieve only scores with <operator> value.
+
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
         import datetime
 
+        from finto import ScoreSource
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -177,6 +190,9 @@ class ScoreClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            source=ScoreSource.API,
+            operator="string",
+            value=1.1,
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -194,6 +210,9 @@ class ScoreClient:
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
                         else None,
+                        "source": source,
+                        "operator": operator,
+                        "value": value,
                         **(
                             request_options.get("additional_query_parameters", {})
                             if request_options is not None
@@ -250,7 +269,8 @@ class ScoreClient:
     def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
-        """Get a score
+        """
+        Get a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score
@@ -330,7 +350,8 @@ class ScoreClient:
     def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """Delete a score
+        """
+        Delete a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score
@@ -418,7 +439,8 @@ class AsyncScoreClient:
         request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Score:
-        """Create a score
+        """
+        Create a score
 
         Parameters:
             - request: CreateScoreRequest.
@@ -523,9 +545,13 @@ class AsyncScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
+        source: ScoreSource,
+        operator: typing.Optional[str] = None,
+        value: typing.Optional[float] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
-        """Get a list of scores
+        """
+        Get a list of scores
 
         Parameters:
             - page: typing.Optional[int]. page number, starts at 1
@@ -538,10 +564,17 @@ class AsyncScoreClient:
 
             - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this timestamp.
 
+            - source: ScoreSource. Retrieve only scores from a specific source.
+
+            - operator: typing.Optional[str]. Retrieve only scores with <operator> value.
+
+            - value: typing.Optional[float]. Retrieve only scores with <operator> value.
+
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
         import datetime
 
+        from finto import ScoreSource
         from finto.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -560,6 +593,9 @@ class AsyncScoreClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            source=ScoreSource.API,
+            operator="string",
+            value=1.1,
         )
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -577,6 +613,9 @@ class AsyncScoreClient:
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
                         else None,
+                        "source": source,
+                        "operator": operator,
+                        "value": value,
                         **(
                             request_options.get("additional_query_parameters", {})
                             if request_options is not None
@@ -633,7 +672,8 @@ class AsyncScoreClient:
     async def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
-        """Get a score
+        """
+        Get a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score
@@ -713,7 +753,8 @@ class AsyncScoreClient:
     async def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """Delete a score
+        """
+        Delete a score
 
         Parameters:
             - score_id: str. The unique langfuse identifier of a score

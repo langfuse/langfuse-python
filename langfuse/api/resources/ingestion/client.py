@@ -32,7 +32,8 @@ class IngestionClient:
         batch: typing.Sequence[IngestionEvent],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
-        """Batched ingestion for Langfuse Tracing
+        """
+        Batched ingestion for Langfuse Tracing
 
         Parameters:
             - batch: typing.Sequence[IngestionEvent].
@@ -157,7 +158,8 @@ class AsyncIngestionClient:
         batch: typing.Sequence[IngestionEvent],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
-        """Batched ingestion for Langfuse Tracing
+        """
+        Batched ingestion for Langfuse Tracing
 
         Parameters:
             - batch: typing.Sequence[IngestionEvent].

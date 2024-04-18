@@ -32,7 +32,8 @@ class DatasetItemsClient:
         request: CreateDatasetItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetItem:
-        """Create a dataset item
+        """
+        Create a dataset item
 
         Parameters:
             - request: CreateDatasetItemRequest.
@@ -55,6 +56,9 @@ class DatasetItemsClient:
                 dataset_name="string",
                 input={"key": "value"},
                 expected_output={"key": "value"},
+                metadata={"key": "value"},
+                source_trace_id="string",
+                source_observation_id="string",
                 id="string",
             ),
         )
@@ -130,7 +134,8 @@ class DatasetItemsClient:
     def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
-        """Get a dataset item
+        """
+        Get a dataset item
 
         Parameters:
             - id: str.
@@ -218,7 +223,8 @@ class AsyncDatasetItemsClient:
         request: CreateDatasetItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetItem:
-        """Create a dataset item
+        """
+        Create a dataset item
 
         Parameters:
             - request: CreateDatasetItemRequest.
@@ -241,6 +247,9 @@ class AsyncDatasetItemsClient:
                 dataset_name="string",
                 input={"key": "value"},
                 expected_output={"key": "value"},
+                metadata={"key": "value"},
+                source_trace_id="string",
+                source_observation_id="string",
                 id="string",
             ),
         )
@@ -316,7 +325,8 @@ class AsyncDatasetItemsClient:
     async def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
-        """Get a dataset item
+        """
+        Get a dataset item
 
         Parameters:
             - id: str.

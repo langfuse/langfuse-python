@@ -10,7 +10,9 @@ from .dataset_item import DatasetItem
 
 
 class Dataset(DatasetCore):
-    """Dataset including all items"""
+    """
+    Dataset including all items
+    """
 
     items: typing.List[DatasetItem]
     runs: typing.List[str]
