@@ -1988,19 +1988,19 @@ anthropic = ["anthropic[vertexai] (>=0.23.0,<1)"]
 
 [[package]]
 name = "langchain-mistralai"
-version = "0.1.1"
+version = "0.1.2"
 description = "An integration package connecting Mistral and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_mistralai-0.1.1-py3-none-any.whl", hash = "sha256:1e5fadd83d26df684dcf89a2755d9befb9b82445ce162b4af85aaa608b37ca99"},
-    {file = "langchain_mistralai-0.1.1.tar.gz", hash = "sha256:3c6323154996804f09db28f90e8585bfd271bd1a27babe7c548b0a847b8d2825"},
+    {file = "langchain_mistralai-0.1.2-py3-none-any.whl", hash = "sha256:39889ee5aff37e15760fef245d3e5e5382183adeb0b46fc2060ba07b1d97c694"},
+    {file = "langchain_mistralai-0.1.2.tar.gz", hash = "sha256:5b30dca47e8e3eaea7b1a40962c33588cd5245479dba6464eb3a83d850466c77"},
 ]
 
 [package.dependencies]
 httpx = ">=0.25.2,<1"
 httpx-sse = ">=0.3.1,<1"
-langchain-core = ">=0.1.41,<0.2.0"
+langchain-core = ">=0.1.42,<0.2.0"
 tokenizers = ">=0.15.1,<0.16.0"
 
 [[package]]
@@ -5422,4 +5422,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "5bfcffcbffb103059994f7cbeb331a15dda5c7c55444e226d82810328abe2c32"
+content-hash = "f5ad6179b1a5bfac461d1491833cb7e1aba4dc2700dda80758a07b9fc8e0cf6e"
