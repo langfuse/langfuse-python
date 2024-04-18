@@ -126,9 +126,9 @@ class ObservationsClient:
         Get a list of observations
 
         Parameters:
-            - page: typing.Optional[int]. page number, starts at 1
+            - page: typing.Optional[int]. Page number, starts at 1.
 
-            - limit: typing.Optional[int]. limit of items per page
+            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
             - name: typing.Optional[str].
 
@@ -346,9 +346,9 @@ class AsyncObservationsClient:
         Get a list of observations
 
         Parameters:
-            - page: typing.Optional[int]. page number, starts at 1
+            - page: typing.Optional[int]. Page number, starts at 1.
 
-            - limit: typing.Optional[int]. limit of items per page
+            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
             - name: typing.Optional[str].
 

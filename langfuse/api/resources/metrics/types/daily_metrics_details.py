@@ -11,6 +11,7 @@ from .usage_by_model import UsageByModel
 class DailyMetricsDetails(pydantic_v1.BaseModel):
     date: dt.date
     count_traces: int = pydantic_v1.Field(alias="countTraces")
+    count_observations: int = pydantic_v1.Field(alias="countObservations")
     total_cost: float = pydantic_v1.Field(alias="totalCost")
     usage: typing.List[UsageByModel]
 

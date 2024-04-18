@@ -12,7 +12,7 @@ class UsageByModel(pydantic_v1.BaseModel):
     Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
     """
 
-    model: str
+    model: typing.Optional[str] = None
     input_usage: int = pydantic_v1.Field(alias="inputUsage")
     output_usage: int = pydantic_v1.Field(alias="outputUsage")
     total_usage: int = pydantic_v1.Field(alias="totalUsage")
