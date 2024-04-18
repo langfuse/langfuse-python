@@ -4,7 +4,8 @@ import datetime as dt
 
 
 def serialize_datetime(v: dt.datetime) -> str:
-    """Serialize a datetime including timezone info.
+    """
+    Serialize a datetime including timezone info.
 
     Uses the timezone info provided if present, otherwise uses the current runtime's timezone info.
 

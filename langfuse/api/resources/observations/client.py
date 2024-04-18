@@ -31,7 +31,8 @@ class ObservationsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsView:
-        """Get a observation
+        """
+        Get a observation
 
         Parameters:
             - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
@@ -121,7 +122,8 @@ class ObservationsClient:
         from_start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
-        """Get a list of observations
+        """
+        Get a list of observations
 
         Parameters:
             - page: typing.Optional[int]. page number, starts at 1
@@ -249,7 +251,8 @@ class AsyncObservationsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsView:
-        """Get a observation
+        """
+        Get a observation
 
         Parameters:
             - observation_id: str. The unique langfuse identifier of an observation, can be an event, span or generation
@@ -339,7 +342,8 @@ class AsyncObservationsClient:
         from_start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
-        """Get a list of observations
+        """
+        Get a list of observations
 
         Parameters:
             - page: typing.Optional[int]. page number, starts at 1

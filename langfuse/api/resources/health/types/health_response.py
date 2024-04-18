@@ -8,7 +8,8 @@ from ....core.pydantic_utilities import pydantic_v1
 
 
 class HealthResponse(pydantic_v1.BaseModel):
-    """from finto import HealthResponse
+    """
+    from finto import HealthResponse
 
     HealthResponse(
         version="1.25.0",

@@ -10,6 +10,7 @@ from ....core.pydantic_utilities import pydantic_v1
 class DatasetRunItem(pydantic_v1.BaseModel):
     id: str
     dataset_run_id: str = pydantic_v1.Field(alias="datasetRunId")
+    dataset_run_name: str = pydantic_v1.Field(alias="datasetRunName")
     dataset_item_id: str = pydantic_v1.Field(alias="datasetItemId")
     trace_id: str = pydantic_v1.Field(alias="traceId")
     observation_id: typing.Optional[str] = pydantic_v1.Field(
