@@ -442,6 +442,9 @@ class LangchainCallbackHandler(
                 raise Exception("parent run not found")
             meta = self.__join_tags_and_metadata(tags, metadata)
 
+            if not meta:
+                meta = {}
+
             meta.update(
                 {key: value for key, value in kwargs.items() if value is not None}
             )
