@@ -28,7 +28,8 @@ class TraceClient:
     def get(
         self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> TraceWithFullDetails:
-        """Get a specific trace
+        """
+        Get a specific trace
 
         Parameters:
             - trace_id: str. The unique langfuse identifier of a trace
@@ -117,12 +118,13 @@ class TraceClient:
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
-        """Get list of traces
+        """
+        Get list of traces.
 
         Parameters:
-            - page: typing.Optional[int]. page number, starts at 1
+            - page: typing.Optional[int]. Page number, starts at 1
 
-            - limit: typing.Optional[int]. limit of items per page
+            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
             - user_id: typing.Optional[str].
 
@@ -238,7 +240,8 @@ class AsyncTraceClient:
     async def get(
         self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> TraceWithFullDetails:
-        """Get a specific trace
+        """
+        Get a specific trace
 
         Parameters:
             - trace_id: str. The unique langfuse identifier of a trace
@@ -327,12 +330,13 @@ class AsyncTraceClient:
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
-        """Get list of traces
+        """
+        Get list of traces.
 
         Parameters:
-            - page: typing.Optional[int]. page number, starts at 1
+            - page: typing.Optional[int]. Page number, starts at 1
 
-            - limit: typing.Optional[int]. limit of items per page
+            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
             - user_id: typing.Optional[str].
 
