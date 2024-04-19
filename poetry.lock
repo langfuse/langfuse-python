@@ -2239,13 +2239,13 @@ query-tools = ["guidance (>=0.0.64,<0.0.65)", "jsonpath-ng (>=1.6.0,<2.0.0)", "l
 
 [[package]]
 name = "llama-index-llms-anthropic"
-version = "0.1.9"
+version = "0.1.10"
 description = "llama-index llms anthropic integration"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "llama_index_llms_anthropic-0.1.9-py3-none-any.whl", hash = "sha256:6b066ae7077abd03ddda7111694a0cf952571c99aa6f2f7b7a6a3383636a8f42"},
-    {file = "llama_index_llms_anthropic-0.1.9.tar.gz", hash = "sha256:1071c6a08cf88923c8a33cefdc7b5aa9c8205f1c75040a90cf3229e32c522a7c"},
+    {file = "llama_index_llms_anthropic-0.1.10-py3-none-any.whl", hash = "sha256:7678e82200cee489c0b8a981af92e2650695979c3aa94d7b075365aa72bb0537"},
+    {file = "llama_index_llms_anthropic-0.1.10.tar.gz", hash = "sha256:df0b726358f02de27b61bd7e120873fac58fcd2cf6d7d874b011f144a994cef2"},
 ]
 
 [package.dependencies]
