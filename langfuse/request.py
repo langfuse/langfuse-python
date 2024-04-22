@@ -84,25 +84,36 @@ class LangfuseClient:
     ) -> Union[httpx.Response, Any]:
         log = logging.getLogger("langfuse")
         log.debug("received response: %s", res.text)
-        if res.status_code == 200 or res.status_code == 201:
+        if res.status_code in (200, 201):
             log.debug(success_message)
-            return res.json() if return_json else res
-        elif res.status_code == 207:
-            payload = res.json()
-            errors = payload["errors"]
-            if len(errors) > 0:
-                raise APIErrors(
-                    [
-                        APIError(
-                            error["status"],
-                            error.get("message", ""),
-                            error.get("error", ""),
-                        )
-                        for error in errors
-                    ]
-                )
+            if return_json:
+                try:
+                    return res.json()
+                except json.JSONDecodeError:
+                    log.error("Response is not valid JSON.")
+                    raise APIError(res.status_code, "Invalid JSON response received")
             else:
-                return res.json() if return_json else res
+                return res
+        elif res.status_code == 207:
+            try:
+                payload = res.json()
+                errors = payload.get("errors", [])
+                if errors:
+                    raise APIErrors(
+                        [
+                            APIError(
+                                error.get("status"),
+                                error.get("message", "No message provided"),
+                                error.get("error", "No error details provided")
+                            )
+                            for error in errors
+                        ]
+                    )
+                else:
+                    return res.json() if return_json else res
+            except json.JSONDecodeError:
+                log.error("Response is not valid JSON.")
+                raise APIError(res.status_code, "Invalid JSON response received")
         try:
             payload = res.json()
             log.error("received error response: %s", payload)
