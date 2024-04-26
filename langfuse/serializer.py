@@ -13,8 +13,6 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-
 # Attempt to import Serializable
 try:
     from langchain.load.serializable import Serializable

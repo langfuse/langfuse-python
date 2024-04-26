@@ -3,8 +3,6 @@ import typing
 
 import pydantic
 
-from langfuse.types import SpanLevel
-
 try:  # Test that langchain is installed before proceeding
     import langchain  # noqa
 except ImportError as e:
