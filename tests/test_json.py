@@ -12,6 +12,7 @@ from langchain.schema.messages import HumanMessage
 from pydantic import BaseModel
 
 import langfuse
+from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.serializer import EventSerializer
 
 
@@ -123,6 +124,12 @@ def test_data_uuid():
     result = json.dumps(test_id, cls=EventSerializer)
 
     assert result == f'"{str(test_id)}"'
+
+
+def test_observation_level():
+    result = json.dumps(ObservationLevel.ERROR, cls=EventSerializer)
+
+    assert result == '"ERROR"'
 
 
 def test_mongo_cursor():

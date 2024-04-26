@@ -12,7 +12,6 @@ except ImportError as e:
     )
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID, uuid4
-from langfuse.api.resources.commons.types.observation_level import ObservationLevel
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
     StatefulSpanClient,
@@ -157,7 +156,7 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                level=ObservationLevel.ERROR,
+                level="ERROR",
                 status_message=str(error),
                 version=self.version,
             )
@@ -354,7 +353,7 @@ class LangchainCallbackHandler(
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
             self.runs[run_id] = self.runs[run_id].end(
-                level=ObservationLevel.ERROR,
+                level="ERROR",
                 status_message=str(error),
                 version=self.version,
             )
@@ -550,7 +549,7 @@ class LangchainCallbackHandler(
 
             self.runs[run_id] = self.runs[run_id].end(
                 status_message=str(error),
-                level=ObservationLevel.ERROR,
+                level="ERROR",
                 version=self.version,
             )
 
@@ -701,7 +700,7 @@ class LangchainCallbackHandler(
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
             self.runs[run_id] = self.runs[run_id].end(
                 status_message=str(error),
-                level=ObservationLevel.ERROR,
+                level="ERROR",
                 version=self.version,
             )
             self._update_trace_and_remove_state(run_id, parent_run_id, error)

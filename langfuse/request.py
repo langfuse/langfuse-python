@@ -104,7 +104,7 @@ class LangfuseClient:
                             APIError(
                                 error.get("status"),
                                 error.get("message", "No message provided"),
-                                error.get("error", "No error details provided")
+                                error.get("error", "No error details provided"),
                             )
                             for error in errors
                         ]
