@@ -127,11 +127,9 @@ def test_data_uuid():
 
 
 def test_observation_level():
-    test_id = uuid.uuid4()
-
     result = json.dumps(ObservationLevel.ERROR, cls=EventSerializer)
 
-    assert result == f'"ERROR"'
+    assert result == '"ERROR"'
 
 
 def test_mongo_cursor():
