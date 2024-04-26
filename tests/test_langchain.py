@@ -52,7 +52,6 @@ def test_callback_kwargs():
         user_id="user-id",
         metadata={"key": "value"},
         tags=["tag1", "tag2"],
-        debug=True,
     )
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), max_tokens=5)
