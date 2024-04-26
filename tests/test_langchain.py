@@ -55,7 +55,7 @@ def test_callback_kwargs():
         debug=True,
     )
 
-    llm = OpenAI(openai_api_key="os.environ.get(OPENAI_API_KEY)", max_tokens=5)
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), max_tokens=5)
     prompt_template = PromptTemplate(input_variables=["input"], template="""{input}""")
     test_chain = LLMChain(llm=llm, prompt=prompt_template)
     test_chain.run("Hi", callbacks=[callback])
