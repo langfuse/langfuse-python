@@ -87,6 +87,7 @@ class LangfuseDecorator:
         capture_input: bool = True,
         capture_output: bool = True,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        observation_name: Optional[str] = None,
     ) -> Callable[[F], F]:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
@@ -98,6 +99,7 @@ class LangfuseDecorator:
             capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
             capture_output (bool): If True, captures the return value of the function as output. Default is True.
             transform_to_string (Optional[Callable[[Iterable], str]]): When the decorated function returns a generator, this function transforms yielded values into a string representation for output capture
+            observation_name (Optional[str]): If set, will be used as name of the observation instead of the function name by default.
 
         Returns:
             Callable: A wrapped version of the original function that, upon execution, is automatically observed and managed by Langfuse.
@@ -132,6 +134,7 @@ class LangfuseDecorator:
                     capture_input=capture_input,
                     capture_output=capture_output,
                     transform_to_string=transform_to_string,
+                    observation_name=observation_name,
                 )
                 if asyncio.iscoroutinefunction(func)
                 else self._sync_observe(
@@ -140,6 +143,7 @@ class LangfuseDecorator:
                     capture_input=capture_input,
                     capture_output=capture_output,
                     transform_to_string=transform_to_string,
+                    observation_name=observation_name,
                 )
             )
 
@@ -152,13 +156,15 @@ class LangfuseDecorator:
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        observation_name: Optional[str] = None,
     ) -> F:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             observation = self._prepare_call(
-                func_name=func.__name__,
+                func_name=observation_name if observation_name else func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
+                observation_name=observation_name,
                 is_instance_method=self._is_instance_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
@@ -187,6 +193,7 @@ class LangfuseDecorator:
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        observation_name: Optional[str] = None,
     ) -> F:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
@@ -194,6 +201,7 @@ class LangfuseDecorator:
                 func_name=func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
+                observation_name=observation_name,
                 is_instance_method=self._is_instance_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
@@ -234,6 +242,7 @@ class LangfuseDecorator:
         func_name: str,
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
+        observation_name: Optional[str] = None,
         is_instance_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
@@ -246,7 +255,7 @@ class LangfuseDecorator:
             parent = stack[-1] if stack else None
 
             # Collect default observation data
-            name = func_name
+            name = observation_name if observation_name else func_name
             observation_id = func_kwargs.pop("langfuse_observation_id", None)
             id = str(observation_id) if observation_id else None
             start_time = _get_timestamp()
