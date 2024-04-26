@@ -158,7 +158,15 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
+<<<<<<< Updated upstream
                 level=SpanLevel.ERROR,
+=======
+<<<<<<< Updated upstream
+                level=ObservationLevel.ERROR,
+=======
+                level="ERROR",
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
                 status_message=str(error),
                 version=self.version,
             )
@@ -355,7 +363,15 @@ class LangchainCallbackHandler(
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
             self.runs[run_id] = self.runs[run_id].end(
+<<<<<<< Updated upstream
                 level=SpanLevel.ERROR,
+=======
+<<<<<<< Updated upstream
+                level=ObservationLevel.ERROR,
+=======
+                level="ERROR",
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
                 status_message=str(error),
                 version=self.version,
             )
@@ -551,7 +567,15 @@ class LangchainCallbackHandler(
 
             self.runs[run_id] = self.runs[run_id].end(
                 status_message=str(error),
+<<<<<<< Updated upstream
                 level=SpanLevel.ERROR,
+=======
+<<<<<<< Updated upstream
+                level=ObservationLevel.ERROR,
+=======
+                level="ERROR",
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
                 version=self.version,
             )
 
@@ -702,7 +726,15 @@ class LangchainCallbackHandler(
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
             self.runs[run_id] = self.runs[run_id].end(
                 status_message=str(error),
+<<<<<<< Updated upstream
                 level=SpanLevel.ERROR,
+=======
+<<<<<<< Updated upstream
+                level=ObservationLevel.ERROR,
+=======
+                level="ERROR",
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
                 version=self.version,
             )
             self._update_trace_and_remove_state(run_id, parent_run_id, error)
