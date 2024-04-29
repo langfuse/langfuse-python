@@ -1793,6 +1793,7 @@ class StatefulGenerationClient(StatefulClient):
         try:
             generation_body = {
                 "id": self.id,
+                "trace_id": self.trace_id, # Included to avoid relying on the order of events sent to the API
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
@@ -1985,6 +1986,7 @@ class StatefulSpanClient(StatefulClient):
         try:
             span_body = {
                 "id": self.id,
+                "trace_id": self.trace_id,  # Included to avoid relying on the order of events sent to the API
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
