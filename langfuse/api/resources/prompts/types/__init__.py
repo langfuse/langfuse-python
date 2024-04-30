@@ -11,6 +11,8 @@ from .create_prompt_request import (
 )
 from .create_text_prompt_request import CreateTextPromptRequest
 from .prompt import Prompt, Prompt_Chat, Prompt_Text
+from .prompt_meta import PromptMeta
+from .prompt_meta_list_response import PromptMetaListResponse
 from .text_prompt import TextPrompt
 
 __all__ = [
@@ -23,6 +25,8 @@ __all__ = [
     "CreatePromptRequest_Text",
     "CreateTextPromptRequest",
     "Prompt",
+    "PromptMeta",
+    "PromptMetaListResponse",
     "Prompt_Chat",
     "Prompt_Text",
     "TextPrompt",

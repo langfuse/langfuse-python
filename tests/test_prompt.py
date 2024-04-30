@@ -13,6 +13,25 @@ def test_create_prompt():
     langfuse = Langfuse()
     prompt_name = create_uuid()
     prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["production"],
+    )
+
+    second_prompt_client = langfuse.get_prompt(prompt_name)
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.config == second_prompt_client.config
+    assert prompt_client.config == {}
+
+
+def test_create_prompt_with_is_active():
+    # Backward compatibility test for is_active
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+    prompt_client = langfuse.create_prompt(
         name=prompt_name, prompt="test prompt", is_active=True
     )
 
@@ -22,7 +41,25 @@ def test_create_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
-    print(prompt_client.config, second_prompt_client.config)
+    assert prompt_client.labels == ["production", "latest"]
+    assert prompt_client.config == {}
+
+
+def test_create_prompt_with_special_chars_in_name():
+    langfuse = Langfuse()
+    prompt_name = create_uuid() + "special chars !@#$%^&*() +"
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["production"],
+    )
+
+    second_prompt_client = langfuse.get_prompt(prompt_name)
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.config == second_prompt_client.config
     assert prompt_client.config == {}
 
 
@@ -36,7 +73,7 @@ def test_create_chat_prompt():
             {"role": "system", "content": "test prompt 1 with {{animal}}"},
             {"role": "user", "content": "test prompt 2 with {{occupation}}"},
         ],
-        is_active=True,
+        labels=["production"],
         type="chat",
     )
 
@@ -54,6 +91,7 @@ def test_create_chat_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
+    assert prompt_client.labels == ["production", "latest"]
     assert prompt_client.config == {}
 
 
@@ -70,7 +108,7 @@ def test_compiling_chat_prompt():
             },
             {"role": "user", "content": "test prompt 2 with {{state}}"},
         ],
-        is_active=True,
+        labels=["production"],
         type="chat",
     )
 
@@ -79,6 +117,7 @@ def test_compiling_chat_prompt():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
 
     assert second_prompt_client.compile(target="world", state="great") == [
         {"role": "system", "content": "test prompt 1 with great world great"},
@@ -101,6 +140,7 @@ def test_compiling_prompt():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
 
     compiled = second_prompt_client.compile(target="world", state="great")
 
@@ -125,6 +165,7 @@ def test_compiling_prompt_without_character_escaping():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
 
     some_json = '{"key": "value"}'
     compiled = second_prompt_client.compile(some_json=some_json)
@@ -146,6 +187,7 @@ def test_compiling_prompt_with_content_as_variable_name():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
 
     compiled = second_prompt_client.compile(content="Jane")
 
@@ -165,6 +207,38 @@ def test_create_prompt_with_null_config():
     prompt = langfuse.get_prompt("test_null_config")
 
     assert prompt.config == {}
+
+
+def test_get_prompt_by_version_or_label():
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+
+    for i in range(3):
+        langfuse.create_prompt(
+            name=prompt_name,
+            prompt="test prompt " + str(i + 1),
+            labels=["production"] if i == 1 else [],
+        )
+
+    default_prompt_client = langfuse.get_prompt(prompt_name)
+    assert default_prompt_client.version == 2
+    assert default_prompt_client.prompt == "test prompt 2"
+    assert default_prompt_client.labels == ["production"]
+
+    first_prompt_client = langfuse.get_prompt(prompt_name, 1)
+    assert first_prompt_client.version == 1
+    assert first_prompt_client.prompt == "test prompt 1"
+    assert first_prompt_client.labels == []
+
+    second_prompt_client = langfuse.get_prompt(prompt_name, version=2)
+    assert second_prompt_client.version == 2
+    assert second_prompt_client.prompt == "test prompt 2"
+    assert second_prompt_client.labels == ["production"]
+
+    third_prompt_client = langfuse.get_prompt(prompt_name, label="latest")
+    assert third_prompt_client.version == 3
+    assert third_prompt_client.prompt == "test prompt 3"
+    assert third_prompt_client.labels == ["latest"]
 
 
 def test_prompt_end_to_end():
@@ -224,6 +298,7 @@ def test_get_fresh_prompt(langfuse):
         version=1,
         prompt="Make me laugh",
         type="text",
+        labels=[],
         config={},
     )
 
@@ -231,7 +306,7 @@ def test_get_fresh_prompt(langfuse):
     mock_server_call.return_value = prompt
 
     result = langfuse.get_prompt(prompt_name)
-    mock_server_call.assert_called_once_with(name=prompt_name, version=None)
+    mock_server_call.assert_called_once_with(prompt_name, version=None, label=None)
 
     assert result == TextPromptClient(prompt)
 
@@ -280,6 +355,7 @@ def test_get_valid_cached_prompt(langfuse):
         version=1,
         prompt="Make me laugh",
         type="text",
+        labels=[],
         config={},
     )
     prompt_client = TextPromptClient(prompt)
@@ -296,6 +372,81 @@ def test_get_valid_cached_prompt(langfuse):
     assert result_call_2 == prompt_client
 
 
+# Should return cached chat prompt if not expired when fetching by label
+def test_get_valid_cached_chat_prompt_by_label(langfuse):
+    prompt_name = "test"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=["test"],
+        type="chat",
+        config={},
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, label="test")
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name, label="test")
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+# Should return cached chat prompt if not expired when fetching by version
+def test_get_valid_cached_chat_prompt_by_version(langfuse):
+    prompt_name = "test"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=["test"],
+        type="chat",
+        config={},
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, version=1)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name, version=1)
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+# Should return cached chat prompt if fetching the default prompt or the 'production' labeled one
+def test_get_valid_cached_production_chat_prompt(langfuse):
+    prompt_name = "test"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=["test"],
+        type="chat",
+        config={},
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name, label="production")
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
 # Should return cached chat prompt if not expired
 def test_get_valid_cached_chat_prompt(langfuse):
     prompt_name = "test"
@@ -303,6 +454,7 @@ def test_get_valid_cached_chat_prompt(langfuse):
         name=prompt_name,
         version=1,
         prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=[],
         type="chat",
         config={},
     )
@@ -332,6 +484,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
         version=1,
         prompt="Make me laugh",
         config={"temperature": 0.9},
+        labels=[],
         type="text",
     )
     prompt_client = TextPromptClient(prompt)
@@ -368,6 +521,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
         name=prompt_name,
         version=1,
         prompt="Make me laugh",
+        labels=[],
         type="text",
         config={},
     )
@@ -405,6 +559,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
         name=prompt_name,
         version=1,
         prompt="Make me laugh",
+        labels=[],
         type="text",
         config={},
     )
@@ -434,6 +589,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         name=prompt_name,
         version=1,
         prompt="Make me laugh",
+        labels=[],
         type="text",
         config={},
     )
@@ -449,6 +605,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
     version_changed_prompt = Prompt_Text(
         name=prompt_name,
         version=2,
+        labels=[],
         prompt="Make me laugh",
         type="text",
         config={},

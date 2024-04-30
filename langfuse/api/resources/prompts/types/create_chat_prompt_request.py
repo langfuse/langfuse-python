@@ -10,13 +10,9 @@ from .chat_message import ChatMessage
 
 class CreateChatPromptRequest(pydantic_v1.BaseModel):
     name: str
-    is_active: bool = pydantic_v1.Field(alias="isActive")
-    """
-    Should the prompt be promoted to production immediately?
-    """
-
     prompt: typing.List[ChatMessage]
     config: typing.Optional[typing.Any] = None
+    labels: typing.Optional[typing.List[str]] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -37,7 +33,5 @@ class CreateChatPromptRequest(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

@@ -49,15 +49,22 @@ class ModelUsage(TypedDict):
     total_cost: Optional[float]
 
 
+class ChatMessageDict(TypedDict):
+    role: str
+    content: str
+
+
 class BasePromptClient(ABC):
     name: str
     version: int
     config: Dict[str, Any]
+    labels: List[str]
 
     def __init__(self, prompt: Prompt):
         self.name = prompt.name
         self.version = prompt.version
         self.config = prompt.config
+        self.labels = prompt.labels
 
     @abstractmethod
     def compile(self, **kwargs) -> Union[str, List[ChatMessage]]:
@@ -151,11 +158,13 @@ class TextPromptClient(BasePromptClient):
 class ChatPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Chat):
         super().__init__(prompt)
-        self.prompt = prompt.prompt
+        self.prompt = [
+            ChatMessageDict(role=p.role, content=p.content) for p in prompt.prompt
+        ]
 
-    def compile(self, **kwargs) -> List[ChatMessage]:
+    def compile(self, **kwargs) -> List[ChatMessageDict]:
         return [
-            ChatMessage(
+            ChatMessageDict(
                 content=self._compile_template_string(chat_message["content"], kwargs),
                 role=chat_message["role"],
             )

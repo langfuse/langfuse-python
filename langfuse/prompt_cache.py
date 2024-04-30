@@ -38,5 +38,19 @@ class PromptCache:
         self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
     @staticmethod
-    def generate_cache_key(name: str, version: Optional[int]) -> str:
-        return f"{name}-{version or 'latest'}"
+    def generate_cache_key(
+        name: str, *, version: Optional[int], label: Optional[str]
+    ) -> str:
+        parts = [name]
+
+        if version is not None:
+            parts.append(f"version:{version}")
+
+        elif label is not None:
+            parts.append(f"label:{label}")
+
+        else:
+            # Default to production labeled prompt
+            parts.append("label:production")
+
+        return "-".join(parts)
