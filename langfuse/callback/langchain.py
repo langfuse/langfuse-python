@@ -813,8 +813,8 @@ def _extract_raw_esponse(last_response):
         # Additional kwargs contains the response in case of tool usage
         return last_response.message.additional_kwargs
     else:
-        # Sometimes response text can be empty
-        return last_response.text
+        # Not tool usage, some LLM responses can be simply empty
+        return ""
 
 
 def _flatten_comprehension(matrix):
