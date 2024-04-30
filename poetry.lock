@@ -673,12 +673,12 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "dashscope"
-version = "1.17.1"
+version = "1.18.0"
 description = "dashscope client sdk library"
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "dashscope-1.17.1-py3-none-any.whl", hash = "sha256:1e07e7ff4544684797f86ede646766b5ab8f5bd6eb43d2d01f0f757a2941efe1"},
+    {file = "dashscope-1.18.0-py3-none-any.whl", hash = "sha256:87ab6a3459f76ecad4519d096647a5b5c5aacc732b1014213bda405cec3661a1"},
 ]
 
 [package.dependencies]
