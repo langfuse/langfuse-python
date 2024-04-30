@@ -26,12 +26,12 @@ from langfuse.api.resources.observations.types.observations_views import (
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
-    ChatMessage,
 )
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
     CreateDatasetRunItemRequest,
+    ChatMessageDict,
     DatasetItem,
     DatasetRun,
     DatasetStatus,
@@ -555,9 +555,9 @@ class Langfuse(object):
 
         Args:
             name (str): The name of the prompt to retrieve.
-            version (Optional[int]): The version of the prompt. If not specified, the `active` version is returned. Specify either version or label, not both.
 
         Keyword Args:
+            version (Optional[int]): The version of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             label: Optional[str]: The label of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
             keyword argument. If not set, defaults to 60 seconds.
@@ -642,7 +642,7 @@ class Langfuse(object):
         self,
         *,
         name: str,
-        prompt: List[ChatMessage],
+        prompt: List[ChatMessageDict],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
         type: Optional[Literal["chat"]],
@@ -665,7 +665,7 @@ class Langfuse(object):
         self,
         *,
         name: str,
-        prompt: Union[str, List[ChatMessage]],
+        prompt: Union[str, List[ChatMessageDict]],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
         type: Optional[Literal["chat", "text"]] = "text",
