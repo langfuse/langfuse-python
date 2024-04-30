@@ -6,6 +6,8 @@ import uuid
 import httpx
 from enum import Enum
 from typing import Any, Optional, Literal, Union, List, overload
+import urllib.parse
+
 
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
@@ -519,6 +521,7 @@ class Langfuse(object):
         name: str,
         version: Optional[int] = None,
         *,
+        label: Optional[str] = None,
         type: Literal["chat"],
         cache_ttl_seconds: Optional[int] = None,
     ) -> ChatPromptClient: ...
@@ -529,6 +532,7 @@ class Langfuse(object):
         name: str,
         version: Optional[int] = None,
         *,
+        label: Optional[str] = None,
         type: Literal["text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
     ) -> TextPromptClient: ...
@@ -538,6 +542,7 @@ class Langfuse(object):
         name: str,
         version: Optional[int] = None,
         *,
+        label: Optional[str] = None,
         type: Literal["chat", "text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
@@ -550,9 +555,10 @@ class Langfuse(object):
 
         Args:
             name (str): The name of the prompt to retrieve.
-            version (Optional[int]): The version of the prompt. If not specified, the `active` version is returned.
+            version (Optional[int]): The version of the prompt. If not specified, the `active` version is returned. Specify either version or label, not both.
 
         Keyword Args:
+            label: Optional[str]: The label of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
             keyword argument. If not set, defaults to 60 seconds.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
@@ -566,26 +572,34 @@ class Langfuse(object):
             Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
             expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
         """
-        self.log.debug(f"Getting prompt {name}, version {version or 'latest'}")
+        if version is not None and label is not None:
+            raise ValueError("Cannot specify both version and label at the same time.")
 
         if not name:
             raise ValueError("Prompt name cannot be empty.")
 
-        cache_key = PromptCache.generate_cache_key(name, version)
+        cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+
+        self.log.debug(f"Getting prompt '{cache_key}'")
         cached_prompt = self.prompt_cache.get(cache_key)
 
         if cached_prompt is None:
-            return self._fetch_prompt_and_update_cache(name, version, cache_ttl_seconds)
+            return self._fetch_prompt_and_update_cache(
+                name, version=version, label=label, ttl_seconds=cache_ttl_seconds
+            )
 
         if cached_prompt.is_expired():
             try:
                 return self._fetch_prompt_and_update_cache(
-                    name, version, cache_ttl_seconds
+                    name,
+                    version=version,
+                    label=label,
+                    ttl_seconds=cache_ttl_seconds,
                 )
 
             except Exception as e:
                 self.log.warn(
-                    f"Returning expired prompt cache for '${name}-${version or 'latest'}' due to fetch error: {e}"
+                    f"Returning expired prompt cache for '{cache_key}' due to fetch error: {e}"
                 )
 
                 return cached_prompt.value
@@ -595,16 +609,20 @@ class Langfuse(object):
     def _fetch_prompt_and_update_cache(
         self,
         name: str,
+        *,
         version: Optional[int] = None,
+        label: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
     ) -> PromptClient:
         try:
-            self.log.debug(
-                f"Fetching prompt {name}-{version or 'latest'}' from server..."
+            cache_key = PromptCache.generate_cache_key(
+                name, version=version, label=label
             )
 
-            promptResponse = self.client.prompts.get(name=name, version=version)
-            cache_key = PromptCache.generate_cache_key(name, version)
+            self.log.debug(f"Fetching prompt '{cache_key}' from server...")
+            promptResponse = self.client.prompts.get(
+                self._url_encode(name), version=version, label=label
+            )
 
             if promptResponse.type == "chat":
                 prompt = ChatPromptClient(promptResponse)
@@ -616,9 +634,7 @@ class Langfuse(object):
             return prompt
 
         except Exception as e:
-            self.log.exception(
-                f"Error while fetching prompt '{name}-{version or 'latest'}': {e}"
-            )
+            self.log.exception(f"Error while fetching prompt '{cache_key}': {e}")
             raise e
 
     @overload
@@ -627,7 +643,8 @@ class Langfuse(object):
         *,
         name: str,
         prompt: List[ChatMessage],
-        is_active: bool,
+        is_active: Optional[bool] = None,  # deprecated
+        labels: List[str] = [],
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
     ) -> ChatPromptClient: ...
@@ -638,7 +655,8 @@ class Langfuse(object):
         *,
         name: str,
         prompt: str,
-        is_active: bool,
+        is_active: Optional[bool] = None,  # deprecated
+        labels: List[str] = [],
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
     ) -> TextPromptClient: ...
@@ -648,7 +666,8 @@ class Langfuse(object):
         *,
         name: str,
         prompt: Union[str, List[ChatMessage]],
-        is_active: bool,
+        is_active: Optional[bool] = None,  # deprecated
+        labels: List[str] = [],
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
     ) -> PromptClient:
@@ -657,7 +676,8 @@ class Langfuse(object):
         Keyword Args:
             name : The name of the prompt to be created.
             prompt : The content of the prompt to be created.
-            is_active : A flag indicating whether the prompt is active or not.
+            is_active [DEPRECATED] : A flag indicating whether the prompt is active or not. This is deprecated and will be removed in a future release. Please use the 'production' label instead.
+            labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
 
@@ -666,7 +686,15 @@ class Langfuse(object):
             ChatPromptClient: The prompt if type argument is 'chat'.
         """
         try:
-            self.log.debug(f"Creating prompt {name}, version {version}")
+            self.log.debug(f"Creating prompt {name=}, {version=}, {labels=}")
+
+            # Handle deprecated is_active flag
+            if is_active:
+                self.log.warning(
+                    "The 'is_active' flag is deprecated and will be removed in a future release. Please use the 'production' label instead."
+                )
+
+                labels = labels if "production" in labels else labels + ["production"]
 
             if type == "chat":
                 if not isinstance(prompt, list):
@@ -676,7 +704,7 @@ class Langfuse(object):
                 request = CreatePromptRequest_Chat(
                     name=name,
                     prompt=prompt,
-                    isActive=is_active,
+                    labels=labels,
                     config=config or {},
                     type="chat",
                 )
@@ -690,7 +718,7 @@ class Langfuse(object):
             request = CreatePromptRequest_Text(
                 name=name,
                 prompt=prompt,
-                isActive=is_active,
+                labels=labels,
                 config=config or {},
                 type="text",
             )
@@ -701,6 +729,9 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+
+    def _url_encode(self, url: str) -> str:
+        return urllib.parse.quote(url)
 
     def trace(
         self,
@@ -1793,7 +1824,7 @@ class StatefulGenerationClient(StatefulClient):
         try:
             generation_body = {
                 "id": self.id,
-                "trace_id": self.trace_id, # Included to avoid relying on the order of events sent to the API
+                "trace_id": self.trace_id,  # Included to avoid relying on the order of events sent to the API
                 "name": name,
                 "start_time": start_time,
                 "metadata": metadata,
