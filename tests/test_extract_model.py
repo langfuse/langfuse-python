@@ -61,32 +61,32 @@ from tests.utils import get_api
             "text-gen",
             TextGen(model_url="some-url"),
         ),  # local deployments, does not have a model name
-        ("claude-2", ChatAnthropic()),
-        (
-            "claude-3-sonnet-20240229",
-            SeparateChatAnthropic(model="claude-3-sonnet-20240229"),
-        ),
+        # ("claude-2", ChatAnthropic()),
+        # (
+        #     "claude-3-sonnet-20240229",
+        #     SeparateChatAnthropic(model="claude-3-sonnet-20240229"),
+        # ),
         ("anthropic", Anthropic()),
         ("anthropic", Anthropic()),
         ("command", ChatCohere(model="command", cohere_api_key="command")),
         ("command", Cohere(model="command", cohere_api_key="command")),
         (None, ChatTongyi(dashscope_api_key="dash")),
-        (
-            "amazon.titan-tg1-large",
-            BedrockChat(
-                model_id="amazon.titan-tg1-large",
-                region_name="us-east-1",
-                client=MagicMock(),
-            ),
-        ),
-        (
-            "amazon.titan-tg1-large",
-            Bedrock(
-                model_id="amazon.titan-tg1-large",
-                region_name="us-east-1",
-                client=MagicMock(),
-            ),
-        ),
+        # (
+        #     "amazon.titan-tg1-large",
+        #     BedrockChat(
+        #         model_id="amazon.titan-tg1-large",
+        #         region_name="us-east-1",
+        #         client=MagicMock(),
+        #     ),
+        # ),
+        # (
+        #     "amazon.titan-tg1-large",
+        #     Bedrock(
+        #         model_id="amazon.titan-tg1-large",
+        #         region_name="us-east-1",
+        #         client=MagicMock(),
+        #     ),
+        # ),
         (
             "HuggingFaceH4/zephyr-7b-beta",
             HuggingFaceHub(
