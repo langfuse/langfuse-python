@@ -159,7 +159,7 @@ class LangfuseDecorator:
                 func_name=func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
-                is_instance_method=self._is_instance_method(func),
+                is_method=self._is_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
             )
@@ -194,7 +194,7 @@ class LangfuseDecorator:
                 func_name=func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
-                is_instance_method=self._is_instance_method(func),
+                is_method=self._is_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
             )
@@ -216,17 +216,20 @@ class LangfuseDecorator:
         return cast(F, sync_wrapper)
 
     @staticmethod
-    def _is_instance_method(func: Callable) -> bool:
-        """Check if a callable is likely an instance method based on its signature.
+    def _is_method(func: Callable) -> bool:
+        """Check if a callable is likely an class or instance method based on its signature.
 
-        This method inspects the given callable's signature for the presence of a 'self' parameter, which is conventionally used for instance methods in Python classes. It returns True if 'self' is found among the parameters, suggesting the callable is an instance method.
+        This method inspects the given callable's signature for the presence of a 'cls' or 'self' parameter, which is conventionally used for class and instance methods in Python classes. It returns True if 'class' or 'self' is found among the parameters, suggesting the callable is a method.
 
-        Note: This method relies on naming conventions and may not accurately identify instance methods if unconventional parameter names are used or if static or class methods incorrectly include a 'self' parameter. Additionally, during decorator execution, inspect.ismethod does not work as expected because the function has not yet been bound to an instance; it is still a function, not a method. This check attempts to infer method status based on signature, which can be useful in decorator contexts where traditional method identification techniques fail.
+        Note: This method relies on naming conventions and may not accurately identify instance methods if unconventional parameter names are used or if static or class methods incorrectly include a 'self' or 'cls' parameter. Additionally, during decorator execution, inspect.ismethod does not work as expected because the function has not yet been bound to an instance; it is still a function, not a method. This check attempts to infer method status based on signature, which can be useful in decorator contexts where traditional method identification techniques fail.
 
         Returns:
-        bool: True if 'self' is in the callable's parameters, False otherwise.
+        bool: True if 'cls' or 'self' is in the callable's parameters, False otherwise.
         """
-        return "self" in inspect.signature(func).parameters
+        return (
+            "self" in inspect.signature(func).parameters
+            or "cls" in inspect.signature(func).parameters
+        )
 
     def _prepare_call(
         self,
@@ -234,7 +237,7 @@ class LangfuseDecorator:
         func_name: str,
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
-        is_instance_method: bool = False,
+        is_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
     ) -> Optional[
@@ -253,7 +256,7 @@ class LangfuseDecorator:
 
             input = (
                 self._get_input_from_func_args(
-                    is_instance_method=is_instance_method,
+                    is_method=is_method,
                     func_args=func_args,
                     func_kwargs=func_kwargs,
                 )
@@ -292,12 +295,12 @@ class LangfuseDecorator:
     def _get_input_from_func_args(
         self,
         *,
-        is_instance_method: bool = False,
+        is_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
     ) -> Any:
-        # Remove implicitly passed "self" argument for instance methods
-        if is_instance_method:
+        # Remove implicitly passed "self" or "cls" argument for instance or class methods
+        if is_method:
             logged_args = func_args[1:]
         else:
             logged_args = func_args
