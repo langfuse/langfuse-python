@@ -22,7 +22,6 @@ from typing import (
     cast,
 )
 
-
 from langfuse.client import (
     Langfuse,
     StatefulSpanClient,
@@ -32,6 +31,7 @@ from langfuse.client import (
     ModelUsage,
     MapValue,
 )
+from langfuse.serializer import EventSerializer
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
@@ -159,7 +159,7 @@ class LangfuseDecorator:
                 func_name=func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
-                is_instance_method=self._is_instance_method(func),
+                is_method=self._is_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
             )
@@ -194,7 +194,7 @@ class LangfuseDecorator:
                 func_name=func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
-                is_instance_method=self._is_instance_method(func),
+                is_method=self._is_method(func),
                 func_args=args,
                 func_kwargs=kwargs,
             )
@@ -216,17 +216,20 @@ class LangfuseDecorator:
         return cast(F, sync_wrapper)
 
     @staticmethod
-    def _is_instance_method(func: Callable) -> bool:
-        """Check if a callable is likely an instance method based on its signature.
+    def _is_method(func: Callable) -> bool:
+        """Check if a callable is likely an class or instance method based on its signature.
 
-        This method inspects the given callable's signature for the presence of a 'self' parameter, which is conventionally used for instance methods in Python classes. It returns True if 'self' is found among the parameters, suggesting the callable is an instance method.
+        This method inspects the given callable's signature for the presence of a 'cls' or 'self' parameter, which is conventionally used for class and instance methods in Python classes. It returns True if 'class' or 'self' is found among the parameters, suggesting the callable is a method.
 
-        Note: This method relies on naming conventions and may not accurately identify instance methods if unconventional parameter names are used or if static or class methods incorrectly include a 'self' parameter. Additionally, during decorator execution, inspect.ismethod does not work as expected because the function has not yet been bound to an instance; it is still a function, not a method. This check attempts to infer method status based on signature, which can be useful in decorator contexts where traditional method identification techniques fail.
+        Note: This method relies on naming conventions and may not accurately identify instance methods if unconventional parameter names are used or if static or class methods incorrectly include a 'self' or 'cls' parameter. Additionally, during decorator execution, inspect.ismethod does not work as expected because the function has not yet been bound to an instance; it is still a function, not a method. This check attempts to infer method status based on signature, which can be useful in decorator contexts where traditional method identification techniques fail.
 
         Returns:
-        bool: True if 'self' is in the callable's parameters, False otherwise.
+        bool: True if 'cls' or 'self' is in the callable's parameters, False otherwise.
         """
-        return "self" in inspect.signature(func).parameters
+        return (
+            "self" in inspect.signature(func).parameters
+            or "cls" in inspect.signature(func).parameters
+        )
 
     def _prepare_call(
         self,
@@ -234,7 +237,7 @@ class LangfuseDecorator:
         func_name: str,
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
-        is_instance_method: bool = False,
+        is_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
     ) -> Optional[
@@ -251,14 +254,14 @@ class LangfuseDecorator:
             id = str(observation_id) if observation_id else None
             start_time = _get_timestamp()
 
-            # Remove implicitly passed "self" argument for instance methods
-            if is_instance_method:
-                logged_args = func_args[1:]
-            else:
-                logged_args = func_args
-
             input = (
-                {"args": logged_args, "kwargs": func_kwargs} if capture_input else None
+                self._get_input_from_func_args(
+                    is_method=is_method,
+                    func_args=func_args,
+                    func_kwargs=func_kwargs,
+                )
+                if capture_input
+                else None
             )
 
             params = {
@@ -288,6 +291,38 @@ class LangfuseDecorator:
             return observation
         except Exception as e:
             self._log.error(f"Failed to prepare observation: {e}")
+
+    def _get_input_from_func_args(
+        self,
+        *,
+        is_method: bool = False,
+        func_args: Tuple = (),
+        func_kwargs: Dict = {},
+    ) -> Any:
+        # Remove implicitly passed "self" or "cls" argument for instance or class methods
+        if is_method:
+            logged_args = func_args[1:]
+        else:
+            logged_args = func_args
+
+        # Remove generators from logged values
+        logged_args = [
+            f"<{type(arg).__name__}>"
+            if (inspect.isgenerator(arg) or inspect.isasyncgen(arg))
+            else arg
+            for arg in logged_args
+        ]
+
+        logged_kwargs = {
+            k: (
+                f"<{type(v).__name__}>"
+                if inspect.isgenerator(v) or inspect.isasyncgen(v)
+                else v
+            )
+            for k, v in func_kwargs.items()
+        }
+
+        return {"args": logged_args, "kwargs": logged_kwargs}
 
     def _finalize_call(
         self,
@@ -340,7 +375,7 @@ class LangfuseDecorator:
 
             end_time = observation_params["end_time"] or _get_timestamp()
             output = observation_params["output"] or (
-                str(result) if result and capture_output else None
+                EventSerializer().default(result) if result and capture_output else None
             )
             observation_params.update(end_time=end_time, output=output)
 

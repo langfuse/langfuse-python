@@ -651,11 +651,16 @@ def test_disabled_io_capture():
     assert trace_data.observations[0].output == "manually set output"
 
 
-def test_decorated_instance_methods():
-    mock_name = "test_decorated_instance_methods"
+def test_decorated_class_and_instance_methods():
+    mock_name = "test_decorated_class_and_instance_methods"
     mock_trace_id = create_uuid()
 
     class TestClass:
+        @classmethod
+        @observe()
+        def class_method(cls, *args, **kwargs):
+            return "class_method"
+
         @observe(as_type="generation")
         def level_3_function(self):
             langfuse_context.update_current_observation(metadata=mock_metadata)
@@ -674,6 +679,8 @@ def test_decorated_instance_methods():
 
         @observe()
         def level_2_function(self):
+            TestClass.class_method()
+
             self.level_3_function()
             langfuse_context.update_current_observation(metadata=mock_metadata)
 
@@ -697,7 +704,7 @@ def test_decorated_instance_methods():
 
     trace_data = get_api().trace.get(mock_trace_id)
     assert (
-        len(trace_data.observations) == 2
+        len(trace_data.observations) == 3
     )  # Top-most function is trace, so it's not an observations
 
     assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
@@ -716,7 +723,11 @@ def test_decorated_instance_methods():
     assert len(adjacencies) == 2  # Only trace and one observation have children
 
     level_2_observation = adjacencies[mock_trace_id][0]
-    level_3_observation = adjacencies[level_2_observation.id][0]
+    level_3_observation = adjacencies[level_2_observation.id][1]
+    class_method_observation = adjacencies[level_2_observation.id][0]
+
+    assert class_method_observation.input == {"args": [], "kwargs": {}}
+    assert class_method_observation.output == "class_method"
 
     assert level_2_observation.metadata == mock_metadata
     assert level_3_observation.metadata == mock_deep_metadata
@@ -926,3 +937,62 @@ def test_generation_at_highest_level():
     generation = trace_data.observations[0]
     assert generation.type == "GENERATION"
     assert generation.output == result
+
+
+def test_generator_as_function_input():
+    mock_trace_id = create_uuid()
+    mock_output = "Hello, World!"
+
+    def generator_function():
+        yield "Hello"
+        yield ", "
+        yield "World!"
+
+    @observe()
+    def nested(gen):
+        result = ""
+        for item in gen:
+            result += item
+
+        return result
+
+    @observe()
+    def main(**kwargs):
+        gen = generator_function()
+
+        return nested(gen)
+
+    result = main(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == mock_output
+
+    assert "<generator>" in trace_data.observations[0].input["args"]
+    assert trace_data.observations[0].output == "Hello, World!"
+
+    observation_start_time = trace_data.observations[0].start_time
+    observation_end_time = trace_data.observations[0].end_time
+
+    assert observation_start_time is not None
+    assert observation_end_time is not None
+    assert observation_start_time <= observation_end_time
+
+
+def test_return_dict_for_output():
+    mock_trace_id = create_uuid()
+    mock_output = {"key": "value"}
+
+    @observe()
+    def function():
+        return mock_output
+
+    result = function(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == mock_output
