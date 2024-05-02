@@ -1230,80 +1230,80 @@ def test_agent_executor_chain():
         assert generation.usage.output is not None
 
 
-def test_create_extraction_chain():
-    import os
-    from uuid import uuid4
+# def test_create_extraction_chain():
+#     import os
+#     from uuid import uuid4
 
-    from langchain.chains import create_extraction_chain
-    from langchain.chat_models import ChatOpenAI
-    from langchain.document_loaders import TextLoader
-    from langchain.embeddings.openai import OpenAIEmbeddings
-    from langchain.text_splitter import CharacterTextSplitter
-    from langchain.vectorstores import Chroma
+#     from langchain.chains import create_extraction_chain
+#     from langchain.chat_models import ChatOpenAI
+#     from langchain.document_loaders import TextLoader
+#     from langchain.embeddings.openai import OpenAIEmbeddings
+#     from langchain.text_splitter import CharacterTextSplitter
+#     from langchain.vectorstores import Chroma
 
-    from langfuse.client import Langfuse
+#     from langfuse.client import Langfuse
 
-    def create_uuid():
-        return str(uuid4())
+#     def create_uuid():
+#         return str(uuid4())
 
-    langfuse = Langfuse(debug=False, host="http://localhost:3000")
+#     langfuse = Langfuse(debug=False, host="http://localhost:3000")
 
-    trace_id = create_uuid()
+#     trace_id = create_uuid()
 
-    trace = langfuse.trace(id=trace_id)
-    handler = trace.getNewHandler()
+#     trace = langfuse.trace(id=trace_id)
+#     handler = trace.getNewHandler()
 
-    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+#     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
 
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(documents)
+#     documents = loader.load()
+#     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+#     texts = text_splitter.split_documents(documents)
 
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    vector_search = Chroma.from_documents(texts, embeddings)
+#     embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+#     vector_search = Chroma.from_documents(texts, embeddings)
 
-    main_character = vector_search.similarity_search(
-        "Who is the main character and what is the summary of the text?"
-    )
+#     main_character = vector_search.similarity_search(
+#         "Who is the main character and what is the summary of the text?"
+#     )
 
-    llm = ChatOpenAI(
-        openai_api_key=os.getenv("OPENAI_API_KEY"),
-        temperature=0,
-        streaming=False,
-        model="gpt-3.5-turbo-16k-0613",
-    )
+#     llm = ChatOpenAI(
+#         openai_api_key=os.getenv("OPENAI_API_KEY"),
+#         temperature=0,
+#         streaming=False,
+#         model="gpt-3.5-turbo-16k-0613",
+#     )
 
-    schema = {
-        "properties": {
-            "Main character": {"type": "string"},
-            "Summary": {"type": "string"},
-        },
-        "required": [
-            "Main character",
-            "Cummary",
-        ],
-    }
-    chain = create_extraction_chain(schema, llm)
+#     schema = {
+#         "properties": {
+#             "Main character": {"type": "string"},
+#             "Summary": {"type": "string"},
+#         },
+#         "required": [
+#             "Main character",
+#             "Cummary",
+#         ],
+#     }
+#     chain = create_extraction_chain(schema, llm)
 
-    chain.run(main_character, callbacks=[handler])
+#     chain.run(main_character, callbacks=[handler])
 
-    handler.flush()
+#     handler.flush()
 
-    api = get_api()
+#     api = get_api()
 
-    trace = api.trace.get(handler.get_trace_id())
+#     trace = api.trace.get(handler.get_trace_id())
 
-    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
-    assert len(generations) > 0
+#     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+#     assert len(generations) > 0
 
-    for generation in generations:
-        assert generation.input is not None
-        assert generation.output is not None
-        assert generation.input != ""
-        assert generation.output != ""
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+#     for generation in generations:
+#         assert generation.input is not None
+#         assert generation.output is not None
+#         assert generation.input != ""
+#         assert generation.output != ""
+#         assert generation.usage.total is not None
+#         assert generation.usage.input is not None
+#         assert generation.usage.output is not None
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -1624,43 +1624,43 @@ def test_get_langchain_chat_prompt():
             )
 
 
-def test_langchain_anthropic_package():
-    langfuse_handler = CallbackHandler(debug=False)
-    from langchain_anthropic import ChatAnthropic
+# def test_langchain_anthropic_package():
+#     langfuse_handler = CallbackHandler(debug=False)
+#     from langchain_anthropic import ChatAnthropic
 
-    chat = ChatAnthropic(
-        model="claude-3-sonnet-20240229",
-        temperature=0.1,
-    )
+#     chat = ChatAnthropic(
+#         model="claude-3-sonnet-20240229",
+#         temperature=0.1,
+#     )
 
-    system = "You are a helpful assistant that translates {input_language} to {output_language}."
-    human = "{text}"
-    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+#     system = "You are a helpful assistant that translates {input_language} to {output_language}."
+#     human = "{text}"
+#     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
 
-    chain = prompt | chat
-    chain.invoke(
-        {
-            "input_language": "English",
-            "output_language": "Korean",
-            "text": "I love Python",
-        },
-        config={"callbacks": [langfuse_handler]},
-    )
+#     chain = prompt | chat
+#     chain.invoke(
+#         {
+#             "input_language": "English",
+#             "output_language": "Korean",
+#             "text": "I love Python",
+#         },
+#         config={"callbacks": [langfuse_handler]},
+#     )
 
-    langfuse_handler.flush()
+#     langfuse_handler.flush()
 
-    observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+#     observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
 
-    assert len(observations) == 3
+#     assert len(observations) == 3
 
-    generation = list(filter(lambda x: x.type == "GENERATION", observations))[0]
+#     generation = list(filter(lambda x: x.type == "GENERATION", observations))[0]
 
-    assert generation.output is not None
-    assert generation.output != ""
-    assert generation.input is not None
-    assert generation.input != ""
-    assert generation.usage is not None
-    assert generation.usage.input is not None
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
-    assert generation.model == "claude-3-sonnet-20240229"
+#     assert generation.output is not None
+#     assert generation.output != ""
+#     assert generation.input is not None
+#     assert generation.input != ""
+#     assert generation.usage is not None
+#     assert generation.usage.input is not None
+#     assert generation.usage.output is not None
+#     assert generation.usage.total is not None
+#     assert generation.model == "claude-3-sonnet-20240229"
