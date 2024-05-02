@@ -968,3 +968,20 @@ def test_generator_as_function_input():
     assert observation_start_time is not None
     assert observation_end_time is not None
     assert observation_start_time <= observation_end_time
+
+
+def test_return_dict_for_output():
+    mock_trace_id = create_uuid()
+    mock_output = {"key": "value"}
+
+    @observe()
+    def function():
+        return mock_output
+
+    result = function(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == mock_output

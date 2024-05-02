@@ -22,7 +22,6 @@ from typing import (
     cast,
 )
 
-
 from langfuse.client import (
     Langfuse,
     StatefulSpanClient,
@@ -32,6 +31,7 @@ from langfuse.client import (
     ModelUsage,
     MapValue,
 )
+from langfuse.serializer import EventSerializer
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
@@ -372,7 +372,7 @@ class LangfuseDecorator:
 
             end_time = observation_params["end_time"] or _get_timestamp()
             output = observation_params["output"] or (
-                str(result) if result and capture_output else None
+                EventSerializer().default(result) if result and capture_output else None
             )
             observation_params.update(end_time=end_time, output=output)
 
