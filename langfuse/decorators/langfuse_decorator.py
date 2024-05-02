@@ -83,6 +83,7 @@ class LangfuseDecorator:
     def observe(
         self,
         *,
+        name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
         capture_input: bool = True,
         capture_output: bool = True,
@@ -94,6 +95,7 @@ class LangfuseDecorator:
         In case of an exception, the observation is updated with error details. The top-most decorated function is treated as a trace, with nested calls captured as spans or generations.
 
         Attributes:
+            name (Optional[str]): Name of the created trace or span. Overwrites the function name as the default used for the trace or span name.
             as_type (Optional[Literal["generation"]]): Specify "generation" to treat the observation as a generation type, suitable for language model invocations.
             capture_input (bool): If True, captures the args and kwargs of the function as input. Default is True.
             capture_output (bool): If True, captures the return value of the function as output. Default is True.
@@ -128,6 +130,7 @@ class LangfuseDecorator:
             return (
                 self._async_observe(
                     func,
+                    name=name,
                     as_type=as_type,
                     capture_input=capture_input,
                     capture_output=capture_output,
@@ -136,6 +139,7 @@ class LangfuseDecorator:
                 if asyncio.iscoroutinefunction(func)
                 else self._sync_observe(
                     func,
+                    name=name,
                     as_type=as_type,
                     capture_input=capture_input,
                     capture_output=capture_output,
@@ -148,6 +152,8 @@ class LangfuseDecorator:
     def _async_observe(
         self,
         func: F,
+        *,
+        name: Optional[str],
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
@@ -156,7 +162,7 @@ class LangfuseDecorator:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             observation = self._prepare_call(
-                func_name=func.__name__,
+                name=name or func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
                 is_method=self._is_method(func),
@@ -183,6 +189,8 @@ class LangfuseDecorator:
     def _sync_observe(
         self,
         func: F,
+        *,
+        name: Optional[str],
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
@@ -191,7 +199,7 @@ class LangfuseDecorator:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             observation = self._prepare_call(
-                func_name=func.__name__,
+                name=name or func.__name__,
                 as_type=as_type,
                 capture_input=capture_input,
                 is_method=self._is_method(func),
@@ -234,7 +242,7 @@ class LangfuseDecorator:
     def _prepare_call(
         self,
         *,
-        func_name: str,
+        name: str,
         as_type: Optional[Literal["generation"]],
         capture_input: bool,
         is_method: bool = False,
@@ -249,7 +257,6 @@ class LangfuseDecorator:
             parent = stack[-1] if stack else None
 
             # Collect default observation data
-            name = func_name
             observation_id = func_kwargs.pop("langfuse_observation_id", None)
             id = str(observation_id) if observation_id else None
             start_time = _get_timestamp()
