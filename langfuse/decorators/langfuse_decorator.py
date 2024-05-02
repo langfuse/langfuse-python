@@ -251,14 +251,14 @@ class LangfuseDecorator:
             id = str(observation_id) if observation_id else None
             start_time = _get_timestamp()
 
-            # Remove implicitly passed "self" argument for instance methods
-            if is_instance_method:
-                logged_args = func_args[1:]
-            else:
-                logged_args = func_args
-
             input = (
-                {"args": logged_args, "kwargs": func_kwargs} if capture_input else None
+                self._get_input_from_func_args(
+                    is_instance_method=is_instance_method,
+                    func_args=func_args,
+                    func_kwargs=func_kwargs,
+                )
+                if capture_input
+                else None
             )
 
             params = {
@@ -288,6 +288,38 @@ class LangfuseDecorator:
             return observation
         except Exception as e:
             self._log.error(f"Failed to prepare observation: {e}")
+
+    def _get_input_from_func_args(
+        self,
+        *,
+        is_instance_method: bool = False,
+        func_args: Tuple = (),
+        func_kwargs: Dict = {},
+    ) -> Any:
+        # Remove implicitly passed "self" argument for instance methods
+        if is_instance_method:
+            logged_args = func_args[1:]
+        else:
+            logged_args = func_args
+
+        # Remove generators from logged values
+        logged_args = [
+            f"<{type(arg).__name__}>"
+            if (inspect.isgenerator(arg) or inspect.isasyncgen(arg))
+            else arg
+            for arg in logged_args
+        ]
+
+        logged_kwargs = {
+            k: (
+                f"<{type(v).__name__}>"
+                if inspect.isgenerator(v) or inspect.isasyncgen(v)
+                else v
+            )
+            for k, v in func_kwargs.items()
+        }
+
+        return {"args": logged_args, "kwargs": logged_kwargs}
 
     def _finalize_call(
         self,

@@ -926,3 +926,45 @@ def test_generation_at_highest_level():
     generation = trace_data.observations[0]
     assert generation.type == "GENERATION"
     assert generation.output == result
+
+
+def test_generator_as_function_input():
+    mock_trace_id = create_uuid()
+    mock_output = "Hello, World!"
+
+    def generator_function():
+        yield "Hello"
+        yield ", "
+        yield "World!"
+
+    @observe()
+    def nested(gen):
+        result = ""
+        for item in gen:
+            result += item
+
+        return result
+
+    @observe()
+    def main(**kwargs):
+        gen = generator_function()
+
+        return nested(gen)
+
+    result = main(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == mock_output
+
+    assert "<generator>" in trace_data.observations[0].input["args"]
+    assert trace_data.observations[0].output == "Hello, World!"
+
+    observation_start_time = trace_data.observations[0].start_time
+    observation_end_time = trace_data.observations[0].end_time
+
+    assert observation_start_time is not None
+    assert observation_end_time is not None
+    assert observation_start_time <= observation_end_time
