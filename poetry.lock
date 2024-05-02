@@ -1946,13 +1946,13 @@ extended-testing = ["aiosqlite (>=0.19.0,<0.20.0)", "aleph-alpha-client (>=2.15.
 
 [[package]]
 name = "langchain-core"
-version = "0.1.43"
+version = "0.1.48"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_core-0.1.43-py3-none-any.whl", hash = "sha256:9b601916602c17cb7588e8089302e30872cbd049b583a27debf5566018af6405"},
-    {file = "langchain_core-0.1.43.tar.gz", hash = "sha256:499133fadc28efcf7d24306236521518080bb10fd8bf6f7426de4a2bbf2aebb5"},
+    {file = "langchain_core-0.1.48-py3-none-any.whl", hash = "sha256:f3078d97a38ac79083cf5a9f3dfd2bb340c08fd93d0064c608be9aa40a73b038"},
+    {file = "langchain_core-0.1.48.tar.gz", hash = "sha256:f0a9b0a8f22f219ef6fd84e2b1d92a8014e84514c0a1b553370fd40296813c16"},
 ]
 
 [package.dependencies]
@@ -2004,17 +2004,17 @@ mistralai = ">=0.0.8,<0.0.9"
 
 [[package]]
 name = "langchain-openai"
-version = "0.0.8"
+version = "0.1.5"
 description = "An integration package connecting OpenAI and LangChain"
 optional = false
-python-versions = ">=3.8.1,<4.0"
+python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_openai-0.0.8-py3-none-any.whl", hash = "sha256:4862fc72cecbee0240aaa6df0234d5893dd30cd33ca23ac5cfdd86c11d2c44df"},
-    {file = "langchain_openai-0.0.8.tar.gz", hash = "sha256:b7aba7fcc52305e78b08197ebc54fc45cc06dbc40ba5b913bc48a22b30a4f5c9"},
+    {file = "langchain_openai-0.1.5-py3-none-any.whl", hash = "sha256:8789af68afe747fd05acbe5190e5f0f17cbcce4c07bc58f0584f169318ed9f1c"},
+    {file = "langchain_openai-0.1.5.tar.gz", hash = "sha256:c161890f871f8675eb633dcebb53173527045996468ed9d393ed892448408ab1"},
 ]
 
 [package.dependencies]
-langchain-core = ">=0.1.27,<0.2.0"
+langchain-core = ">=0.1.46,<0.2.0"
 openai = ">=1.10.0,<2.0.0"
 tiktoken = ">=0.5.2,<1"
 
@@ -5360,4 +5360,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "8ced68353ff9b7cc2a2c452c424470e735a8ce7be8ada12c50a01ef7007ffb39"
+content-hash = "b57bda0e3fab6e5e2201dcd505da6449383e0876133137ed41830621a78f58f6"
