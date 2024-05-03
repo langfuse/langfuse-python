@@ -2260,7 +2260,7 @@ class StatefulTraceClient(StatefulClient):
         trace. Use this if you want to group multiple Langchain runs within a single trace.
 
         Args:
-            update_parent (bool): If set to True, the parent trace or span will be updated with the outcome of the Langchain run.
+            update_parent (bool): If set to True, the parent trace or observation will be updated with the outcome of the Langchain run.
 
         Raises:
             ImportError: If the 'langchain' module is not installed, indicating missing functionality.
