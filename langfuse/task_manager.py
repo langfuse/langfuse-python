@@ -135,7 +135,7 @@ class Consumer(threading.Thread):
                 items.append(item)
                 total_size += item_size
                 if total_size >= BATCH_SIZE_LIMIT:
-                    self._log.warn("hit batch size limit (size: %d)", total_size)
+                    self._log.debug("hit batch size limit (size: %d)", total_size)
                     break
 
             except Empty:
@@ -252,7 +252,6 @@ class TaskManager(object):
 
     def add_task(self, event: dict):
         try:
-            # self._log.debug(f"adding task {event}")
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = datetime.utcnow().replace(tzinfo=timezone.utc)
 
