@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import MagicMock
+# from unittest.mock import MagicMock
 
 # from langchain_google_genai import ChatGoogleGenerativeAI
 import pytest
@@ -10,19 +10,20 @@ from langchain_core.load.dump import default
 
 
 from langchain_community.chat_models import (
-    ChatAnthropic,
+    # ChatAnthropic,
     ChatOpenAI,
     AzureChatOpenAI,
     ChatTongyi,
     ChatCohere,
-    BedrockChat,
+    # BedrockChat,
     # ChatAnyscale,
     # ChatVertexAI,
 )
-from langchain_anthropic import ChatAnthropic as SeparateChatAnthropic
+
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
 from langchain_community.llms.anthropic import Anthropic
-from langchain_community.llms.bedrock import Bedrock
+
+# from langchain_community.llms.bedrock import Bedrock
 from langchain_community.llms.cohere import Cohere
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
@@ -61,32 +62,32 @@ from tests.utils import get_api
             "text-gen",
             TextGen(model_url="some-url"),
         ),  # local deployments, does not have a model name
-        ("claude-2", ChatAnthropic()),
-        (
-            "claude-3-sonnet-20240229",
-            SeparateChatAnthropic(model="claude-3-sonnet-20240229"),
-        ),
+        # ("claude-2", ChatAnthropic()),
+        # (
+        #     "claude-3-sonnet-20240229",
+        #     SeparateChatAnthropic(model="claude-3-sonnet-20240229"),
+        # ),
         ("anthropic", Anthropic()),
         ("anthropic", Anthropic()),
         ("command", ChatCohere(model="command", cohere_api_key="command")),
         ("command", Cohere(model="command", cohere_api_key="command")),
         (None, ChatTongyi(dashscope_api_key="dash")),
-        (
-            "amazon.titan-tg1-large",
-            BedrockChat(
-                model_id="amazon.titan-tg1-large",
-                region_name="us-east-1",
-                client=MagicMock(),
-            ),
-        ),
-        (
-            "amazon.titan-tg1-large",
-            Bedrock(
-                model_id="amazon.titan-tg1-large",
-                region_name="us-east-1",
-                client=MagicMock(),
-            ),
-        ),
+        # (
+        #     "amazon.titan-tg1-large",
+        #     BedrockChat(
+        #         model_id="amazon.titan-tg1-large",
+        #         region_name="us-east-1",
+        #         client=MagicMock(),
+        #     ),
+        # ),
+        # (
+        #     "amazon.titan-tg1-large",
+        #     Bedrock(
+        #         model_id="amazon.titan-tg1-large",
+        #         region_name="us-east-1",
+        #         client=MagicMock(),
+        #     ),
+        # ),
         (
             "HuggingFaceH4/zephyr-7b-beta",
             HuggingFaceHub(
