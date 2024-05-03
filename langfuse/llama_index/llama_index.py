@@ -128,7 +128,7 @@ class LlamaIndexCallbackHandler(
         """Set the root trace or span for the callback handler.
 
         Args:
-            root (Optional[Union[StatefulTraceClient, StatefulSpanClient]]): The root trace or span to
+            root (Optional[Union[StatefulTraceClient, StatefulSpanClient]]): The root trace or observation to
                 be used for all following operations.
 
         Keyword Args:
