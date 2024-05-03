@@ -108,17 +108,14 @@ def test_create_score():
 def test_create_trace():
     langfuse = Langfuse(
         debug=False,
-        host="https://cloud.langfuse.com",
-        secret_key="sk-lf-30a792b2-ae81-4cec-a690-3c595b3a1826",
-        public_key="pk-lf-ebcabf56-6285-4842-ab73-0cd4fddca216",
     )
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
-    long_string = "a" * 950_000
     trace = langfuse.trace(
         name=trace_name,
-        input={"key": long_string},
+        user_id="test",
+        metadata={"key": "value"},
         tags=["tag1", "tag2"],
         public=True,
     )
