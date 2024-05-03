@@ -130,4 +130,4 @@ def test_mongo_cursor():
 
     result = json.dumps(test_id, cls=EventSerializer)
 
-    assert type(result) == str
+    assert isinstance(result) == "string"
