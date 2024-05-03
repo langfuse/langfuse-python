@@ -368,7 +368,7 @@ def test_large_events_i_o_dropped(httpserver: HTTPServer):
 
     tm.add_task({"body": "bar"})
     # create task with extremely long string for bar
-    long_string = "a" * 1_000_000  # 100,000 characters of 'a'
+    long_string = "a" * 1_000_000
     tm.add_task({"body": {"input": long_string}})
 
     # We can't reliably assert that the queue is non-empty here; that's
