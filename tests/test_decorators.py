@@ -22,7 +22,7 @@ def test_nested_observations():
     mock_name = "test_nested_observations"
     mock_trace_id = create_uuid()
 
-    @observe(as_type="generation")
+    @observe(as_type="generation", name="level_3_to_be_overwritten")
     def level_3_function():
         langfuse_context.update_current_observation(metadata=mock_metadata)
         langfuse_context.update_current_observation(
@@ -31,7 +31,9 @@ def test_nested_observations():
             model="gpt-3.5-turbo",
             output="mock_output",
         )
-        langfuse_context.update_current_observation(version="version-1")
+        langfuse_context.update_current_observation(
+            version="version-1", name="overwritten_level_3"
+        )
 
         langfuse_context.update_current_trace(
             session_id=mock_session_id, name=mock_name
@@ -43,7 +45,7 @@ def test_nested_observations():
 
         return "level_3"
 
-    @observe()
+    @observe(name="level_2_manually_set")
     def level_2_function():
         level_3_function()
         langfuse_context.update_current_observation(metadata=mock_metadata)
@@ -89,7 +91,10 @@ def test_nested_observations():
     level_2_observation = adjacencies[mock_trace_id][0]
     level_3_observation = adjacencies[level_2_observation.id][0]
 
+    assert level_2_observation.name == "level_2_manually_set"
     assert level_2_observation.metadata == mock_metadata
+
+    assert level_3_observation.name == "overwritten_level_3"
     assert level_3_observation.metadata == mock_deep_metadata
     assert level_3_observation.type == "GENERATION"
     assert level_3_observation.calculated_total_cost > 0
@@ -180,9 +185,7 @@ def test_concurrent_decorator_executions():
             usage={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse_context.update_current_trace(
-            session_id=mock_session_id, name=mock_name
-        )
+        langfuse_context.update_current_trace(session_id=mock_session_id)
 
         return "level_3"
 
@@ -193,7 +196,7 @@ def test_concurrent_decorator_executions():
 
         return "level_2"
 
-    @observe()
+    @observe(name=mock_name)
     def level_1_function(*args, **kwargs):
         level_2_function()
 
