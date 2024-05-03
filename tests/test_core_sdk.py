@@ -106,7 +106,9 @@ def test_create_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(
+        debug=False,
+    )
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 

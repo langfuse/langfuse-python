@@ -106,11 +106,32 @@ class Consumer(threading.Thread):
                 self._log.debug(f"item size {item_size}")
                 if item_size > MAX_MSG_SIZE:
                     self._log.warning(
-                        "Item exceeds size limit (size: %s), dropping item.",
+                        "Item exceeds size limit (size: %s), dropping input/output of item.",
                         item_size,
                     )
-                    self._queue.task_done()
-                    continue
+
+                    # for large events, drop input / output within the body
+                    if "body" in item and "input" in item["body"]:
+                        item["body"]["input"] = None
+                    if "body" in item and "output" in item["body"]:
+                        item["body"]["output"] = None
+
+                    # if item does not have body or input/output fields, drop the event
+                    if "body" not in item or (
+                        "input" not in item["body"] and "output" not in item["body"]
+                    ):
+                        self._log.warning(
+                            "Item does not have body or input/output fields, dropping item."
+                        )
+                        self._queue.task_done()
+                        continue
+
+                    # need to calculate the size again after dropping input/output
+                    item_size = len(json.dumps(item, cls=EventSerializer).encode())
+                    self._log.debug(
+                        f"item size after dropping input/output {item_size}"
+                    )
+
                 items.append(item)
                 total_size += item_size
                 if total_size >= BATCH_SIZE_LIMIT:
@@ -231,7 +252,6 @@ class TaskManager(object):
 
     def add_task(self, event: dict):
         try:
-            self._log.debug(f"adding task {event}")
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = datetime.utcnow().replace(tzinfo=timezone.utc)
 
