@@ -105,7 +105,7 @@ class Consumer(threading.Thread):
                 item_size = len(json.dumps(item, cls=EventSerializer).encode())
                 self._log.debug(f"item size {item_size}")
                 if item_size > MAX_MSG_SIZE:
-                    self._log.info(
+                    self._log.warning(
                         "Item exceeds size limit (size: %s), dropping I/O of item.",
                         item_size,
                     )
@@ -120,6 +120,9 @@ class Consumer(threading.Thread):
                     if "body" not in item or (
                         "input" not in item["body"] and "output" not in item["body"]
                     ):
+                        self._log.warning(
+                            "Item does not have body or input/output fields, dropping item."
+                        )
                         self._queue.task_done()
                         continue
 
