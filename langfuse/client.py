@@ -2124,7 +2124,7 @@ class StatefulSpanClient(StatefulClient):
                 task_manager=self.task_manager,
             )
 
-    def get_langchain_handler(self):
+    def get_langchain_handler(self, update_parent: bool = False):
         """Get langchain callback handler associated with the current span.
 
         Returns:
@@ -2132,7 +2132,9 @@ class StatefulSpanClient(StatefulClient):
         """
         from langfuse.callback import CallbackHandler
 
-        return CallbackHandler(stateful_client=self)
+        return CallbackHandler(
+            stateful_client=self, update_stateful_client=update_parent
+        )
 
 
 class StatefulTraceClient(StatefulClient):
@@ -2251,11 +2253,14 @@ class StatefulTraceClient(StatefulClient):
                 task_manager=self.task_manager,
             )
 
-    def get_langchain_handler(self):
+    def get_langchain_handler(self, update_parent: bool = False):
         """Get langchain callback handler associated with the current trace.
 
         This method creates and returns a CallbackHandler instance, linking it with the current
         trace. Use this if you want to group multiple Langchain runs within a single trace.
+
+        Args:
+            update_parent (bool): If set to True, the parent trace or span will be updated with the outcome of the Langchain run.
 
         Raises:
             ImportError: If the 'langchain' module is not installed, indicating missing functionality.
@@ -2282,7 +2287,9 @@ class StatefulTraceClient(StatefulClient):
             self.log.debug(f"Creating new handler for trace {self.id}")
 
             return CallbackHandler(
-                stateful_client=self, debug=self.log.level == logging.DEBUG
+                stateful_client=self,
+                debug=self.log.level == logging.DEBUG,
+                update_stateful_client=update_parent,
             )
         except Exception as e:
             self.log.exception(e)
