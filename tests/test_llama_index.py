@@ -325,6 +325,42 @@ def test_callback_with_root_trace():
     assert validate_llm_generation(llm_generation)
 
 
+def test_callback_with_root_trace_and_trace_update():
+    callback = LlamaIndexCallbackHandler()
+    index = get_llama_index_index(callback)
+
+    langfuse = Langfuse(debug=False)
+    trace_id = create_uuid()
+    root_trace = langfuse.trace(id=trace_id, name=trace_id)
+
+    callback.set_root(root_trace, update_root=True)
+    index.as_query_engine().query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+
+    assert callback.get_trace_id() == trace_id
+
+    callback.flush()
+    trace_data = get_api().trace.get(callback.trace.id)
+    assert trace_data is not None
+    assert "LlamaIndex" in trace_data.name
+    assert trace_data.input is not None
+    assert trace_data.output is not None
+
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    assert (
+        len(generations) == 2
+    )  # One generation event for embedding call of query, one for LLM call
+
+    embedding_generation, llm_generation = generations
+    assert validate_embedding_generation(embedding_generation)
+    assert validate_llm_generation(llm_generation)
+
+
 def test_callback_with_root_span():
     callback = LlamaIndexCallbackHandler()
     index = get_llama_index_index(callback)
@@ -387,6 +423,47 @@ def test_callback_with_root_span():
 
     assert trace_data is not None
     assert not any([o.id == span_id for o in trace_data.observations])
+
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    assert (
+        len(generations) == 2
+    )  # One generation event for embedding call of query, one for LLM call
+
+    embedding_generation, llm_generation = generations
+    assert validate_embedding_generation(embedding_generation)
+    assert validate_llm_generation(llm_generation)
+
+
+def test_callback_with_root_span_and_root_update():
+    callback = LlamaIndexCallbackHandler()
+    index = get_llama_index_index(callback)
+
+    langfuse = Langfuse(debug=False)
+    trace_id = create_uuid()
+    span_id = create_uuid()
+    trace = langfuse.trace(id=trace_id, name=trace_id)
+    span = trace.span(id=span_id, name=span_id)
+
+    callback.set_root(span, update_root=True)
+    index.as_query_engine().query(
+        "What did the speaker achieve in the past twelve months?"
+    )
+
+    assert callback.get_trace_id() == trace_id
+    callback.flush()
+    trace_data = get_api().trace.get(trace_id)
+
+    assert trace_data is not None
+
+    root_span_data = [o for o in trace_data.observations if o.id == span_id][0]
+    assert root_span_data is not None
+    assert "LlamaIndex" in root_span_data.name
+    assert root_span_data.input is not None
+    assert root_span_data.output is not None
 
     # Test LLM generation
     generations = sorted(
