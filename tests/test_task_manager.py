@@ -8,7 +8,6 @@ import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug.wrappers import Request, Response
 
-from langfuse.client import Langfuse
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 
