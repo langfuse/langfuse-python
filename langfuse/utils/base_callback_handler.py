@@ -18,6 +18,7 @@ class LangfuseBaseCallbackHandler:
         stateful_client: Optional[
             Union[StatefulTraceClient, StatefulSpanClient]
         ] = None,
+        update_stateful_client: bool = False,
         version: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -41,6 +42,7 @@ class LangfuseBaseCallbackHandler:
         self.tags = tags
 
         self.root_span = None
+        self.update_stateful_client = update_stateful_client
         self.langfuse = None
 
         prio_public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
