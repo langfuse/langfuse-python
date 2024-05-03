@@ -563,6 +563,96 @@ def test_basic_chat_openai_based_on_trace():
     assert len(trace.observations) == 1
 
 
+def test_callback_from_trace_with_trace_update():
+    langfuse = Langfuse(debug=False)
+
+    trace_id = create_uuid()
+    trace = langfuse.trace(id=trace_id)
+
+    handler = trace.get_langchain_handler(update_parent=True)
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    api = get_api()
+    trace = api.trace.get(trace_id)
+
+    assert trace.input is not None
+    assert trace.output is not None
+
+    assert len(trace.observations) == 2
+    assert handler.get_trace_id() == trace_id
+    assert trace.id == trace_id
+
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
+
+
+def test_callback_from_span_with_span_update():
+    langfuse = Langfuse(debug=False)
+
+    trace_id = create_uuid()
+    span_id = create_uuid()
+    trace = langfuse.trace(id=trace_id)
+    span = trace.span(id=span_id)
+
+    handler = span.get_langchain_handler(update_parent=True)
+    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+        Title: {title}
+        Playwright: This is a synopsis for the above play:"""
+
+    prompt_template = PromptTemplate(input_variables=["title"], template=template)
+    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+
+    langfuse.flush()
+
+    trace_id = handler.get_trace_id()
+
+    api = get_api()
+    trace = api.trace.get(trace_id)
+
+    assert trace.input is None
+    assert trace.output is None
+    assert trace.metadata is None
+
+    assert len(trace.observations) == 3
+    assert handler.get_trace_id() == trace_id
+    assert trace.id == trace_id
+    assert handler.root_span.id == span_id
+
+    root_span_observation = [o for o in trace.observations if o.id == span_id][0]
+    assert root_span_observation.input is not None
+    assert root_span_observation.output is not None
+
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
+    for generation in generations:
+        assert generation.input is not None
+        assert generation.output is not None
+        assert generation.usage.total is not None
+        assert generation.usage.input is not None
+        assert generation.usage.output is not None
+
+
 def test_callback_from_trace_simple_chain():
     langfuse = Langfuse(debug=False)
 

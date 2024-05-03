@@ -300,7 +300,7 @@ def test_langchain_dataset():
     assert sorted_observations[0].id == sorted_observations[1].parent_observation_id
     assert sorted_observations[0].parent_observation_id is None
 
-    assert trace.name == "dataset-run"
+    assert trace.name == "LLMChain"  # Overwritten by the Langchain run
     assert trace.metadata == {
         "dataset_item_id": dataset_item_id,
         "run_name": run_name,
