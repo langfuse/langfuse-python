@@ -185,9 +185,7 @@ def test_concurrent_decorator_executions():
             usage={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse_context.update_current_trace(
-            session_id=mock_session_id, name=mock_name
-        )
+        langfuse_context.update_current_trace(session_id=mock_session_id)
 
         return "level_3"
 
@@ -198,7 +196,7 @@ def test_concurrent_decorator_executions():
 
         return "level_2"
 
-    @observe()
+    @observe(name=mock_name)
     def level_1_function(*args, **kwargs):
         level_2_function()
 
