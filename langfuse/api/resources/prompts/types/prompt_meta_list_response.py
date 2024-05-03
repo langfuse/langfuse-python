@@ -5,13 +5,13 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from ...utils.resources.pagination.types.meta_response import MetaResponse
+from .prompt_meta import PromptMeta
 
 
-class CreateTextPromptRequest(pydantic_v1.BaseModel):
-    name: str
-    prompt: str
-    config: typing.Optional[typing.Any] = None
-    labels: typing.Optional[typing.List[str]] = None
+class PromptMetaListResponse(pydantic_v1.BaseModel):
+    data: typing.List[PromptMeta]
+    meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

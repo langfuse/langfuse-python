@@ -7,11 +7,11 @@ from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
 
 
-class CreateTextPromptRequest(pydantic_v1.BaseModel):
+class PromptMeta(pydantic_v1.BaseModel):
     name: str
-    prompt: str
-    config: typing.Optional[typing.Any] = None
-    labels: typing.Optional[typing.List[str]] = None
+    versions: typing.List[int]
+    labels: typing.List[str]
+    tags: typing.List[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

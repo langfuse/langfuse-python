@@ -3,6 +3,7 @@
 from asyncio import Queue
 from datetime import date, datetime
 from dataclasses import is_dataclass, asdict
+import enum
 from json import JSONEncoder
 from typing import Any
 from uuid import UUID
@@ -34,6 +35,9 @@ class EventSerializer(JSONEncoder):
         # Attention: These LlamaIndex objects are a also a dataclasses, so check for it first
         if "Streaming" in type(obj).__name__:
             return str(obj)
+
+        if isinstance(obj, enum.Enum):
+            return obj.value
 
         if isinstance(obj, Queue):
             return type(obj).__name__

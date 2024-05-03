@@ -81,3 +81,7 @@ To run the reference locally, you can use the following command:
 ```sh
 poetry run pdoc --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
 ```
+
+## Credits
+
+Thanks to the PostHog team for the awesome work on [posthog-python](https://github.com/PostHog/posthog-python). This project is based on it as it was the best starting point to build an async Python SDK.
