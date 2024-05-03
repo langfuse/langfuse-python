@@ -159,6 +159,7 @@ class LangchainCallbackHandler(
                 level="ERROR",
                 status_message=str(error),
                 version=self.version,
+                input=kwargs.get("inputs"),
             )
         except Exception as e:
             self.log.exception(e)
@@ -282,7 +283,9 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                output=action, version=self.version
+                output=action,
+                version=self.version,
+                input=kwargs.get("inputs"),
             )
 
         except Exception as e:
@@ -304,7 +307,9 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                output=finish, version=self.version
+                output=finish,
+                version=self.version,
+                input=kwargs.get("inputs"),
             )
 
             # langchain sends same run_id for agent_finish and chain_end for the same agent interaction.
@@ -333,7 +338,9 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                output=outputs, version=self.version
+                output=outputs,
+                version=self.version,
+                input=kwargs.get("inputs"),
             )
             self._update_trace_and_remove_state(
                 run_id, parent_run_id, outputs, input=kwargs.get("inputs")
@@ -356,6 +363,7 @@ class LangchainCallbackHandler(
                 level="ERROR",
                 status_message=str(error),
                 version=self.version,
+                input=kwargs.get("inputs"),
             )
 
             self._update_trace_and_remove_state(
@@ -504,7 +512,9 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                output=documents, version=self.version
+                output=documents,
+                version=self.version,
+                input=kwargs.get("inputs"),
             )
 
             self._update_trace_and_remove_state(run_id, parent_run_id, documents)
@@ -526,7 +536,9 @@ class LangchainCallbackHandler(
                 raise Exception("run not found")
 
             self.runs[run_id] = self.runs[run_id].end(
-                output=output, version=self.version
+                output=output,
+                version=self.version,
+                input=kwargs.get("inputs"),
             )
 
             self._update_trace_and_remove_state(run_id, parent_run_id, output)
@@ -551,6 +563,7 @@ class LangchainCallbackHandler(
                 status_message=str(error),
                 level="ERROR",
                 version=self.version,
+                input=kwargs.get("inputs"),
             )
 
             self._update_trace_and_remove_state(run_id, parent_run_id, error)
@@ -678,7 +691,10 @@ class LangchainCallbackHandler(
 
                 llm_usage = _parse_usage(response)
                 self.runs[run_id] = self.runs[run_id].end(
-                    output=extracted_response, usage=llm_usage, version=self.version
+                    output=extracted_response,
+                    usage=llm_usage,
+                    version=self.version,
+                    input=kwargs.get("inputs"),
                 )
 
                 self._update_trace_and_remove_state(
@@ -702,6 +718,7 @@ class LangchainCallbackHandler(
                 status_message=str(error),
                 level="ERROR",
                 version=self.version,
+                input=kwargs.get("inputs"),
             )
             self._update_trace_and_remove_state(run_id, parent_run_id, error)
 
