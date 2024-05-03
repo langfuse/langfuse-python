@@ -106,7 +106,7 @@ class Consumer(threading.Thread):
                 self._log.debug(f"item size {item_size}")
                 if item_size > MAX_MSG_SIZE:
                     self._log.warning(
-                        "Item exceeds size limit (size: %s), dropping I/O of item.",
+                        "Item exceeds size limit (size: %s), dropping input/output of item.",
                         item_size,
                     )
 
