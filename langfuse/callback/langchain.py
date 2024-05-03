@@ -843,13 +843,15 @@ class LangchainCallbackHandler(
 
 def _extract_raw_esponse(last_response):
     """Extract the response from the last response of the LLM call."""
-    # We return the text of the response if not empty, otherwise the additional_kwargs
-    # Additional kwargs contains the response in case of tool usage
-    return (
-        last_response.text.strip()
-        if last_response.text is not None and last_response.text.strip() != ""
-        else last_response.message.additional_kwargs
-    )
+    # We return the text of the response if not empty
+    if last_response.text is not None and last_response.text.strip() != "":
+        return last_response.text.strip()
+    elif hasattr(last_response, 'message'):
+        # Additional kwargs contains the response in case of tool usage
+        return last_response.message.additional_kwargs
+    else:
+        # Not tool usage, some LLM responses can be simply empty
+        return ""
 
 
 def _flatten_comprehension(matrix):
