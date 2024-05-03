@@ -8,12 +8,13 @@ import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug.wrappers import Request, Response
 
+from langfuse.client import Langfuse
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
 
 logging.basicConfig()
 log = logging.getLogger("langfuse")
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 
 
 def setup_server(httpserver, expected_body: dict):
@@ -298,7 +299,7 @@ def test_shutdown(httpserver: HTTPServer):
     assert not failed
 
 
-def test_large_events(httpserver: HTTPServer):
+def test_large_events_dropped_if_random(httpserver: HTTPServer):
     failed = False
 
     def handler(request: Request):
@@ -326,7 +327,7 @@ def test_large_events(httpserver: HTTPServer):
 
     tm.add_task({"foo": "bar"})
     # create task with extremely long string for bar
-    long_string = "a" * 1_000_000  # 100,000 characters of 'a'
+    long_string = "a" * 100_000  # 100,000 characters of 'a'
     tm.add_task({"foo": long_string})
 
     # We can't reliably assert that the queue is non-empty here; that's
@@ -335,3 +336,45 @@ def test_large_events(httpserver: HTTPServer):
     # Make sure that the client queue is empty after flushing
     assert tm._queue.empty()
     assert not failed
+
+
+def test_large_events_i_o_dropped(httpserver: HTTPServer):
+    failed = False
+    count = 0
+
+    def handler(request: Request):
+        try:
+            nonlocal count
+            count += 1
+            log.info(f"count {count}")
+            return Response(status=200)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            nonlocal failed
+            failed = True
+
+    httpserver.expect_request(
+        "/api/public/ingestion",
+        method="POST",
+    ).respond_with_handler(handler)
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
+
+    tm = TaskManager(
+        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+    )
+
+    tm.add_task({"body": "bar"})
+    # create task with extremely long string for bar
+    long_string = "a" * 1_000_000  # 100,000 characters of 'a'
+    tm.add_task({"body": {"input": long_string}})
+
+    # We can't reliably assert that the queue is non-empty here; that's
+    # a race condition. We do our best to load it up though.
+    tm.flush()
+    # Make sure that the client queue is empty after flushing
+    assert tm._queue.empty()
+    assert not failed
+    assert count == 2

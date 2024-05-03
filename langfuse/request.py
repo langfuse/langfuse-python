@@ -98,6 +98,7 @@ class LangfuseClient:
             try:
                 payload = res.json()
                 errors = payload.get("errors", [])
+                logging.error("received error response: %s", errors)
                 if errors:
                     raise APIErrors(
                         [
