@@ -120,8 +120,23 @@ class LlamaIndexCallbackHandler(
         ] = {}
 
     def set_root(
-        self, root: Optional[Union[StatefulTraceClient, StatefulSpanClient]]
+        self,
+        root: Optional[Union[StatefulTraceClient, StatefulSpanClient]],
+        *,
+        update_root: bool = False,
     ) -> None:
+        """Set the root trace or span for the callback handler.
+
+        Args:
+            root (Optional[Union[StatefulTraceClient, StatefulSpanClient]]): The root trace or span to
+                be used for all following operations.
+
+        Keyword Args:
+            update_root (bool): If True, the root trace or observation will be updated with the outcome of the LlamaIndex run.
+
+        Returns:
+            None
+        """
         context_root.set(root)
 
         if root is None:
@@ -145,6 +160,7 @@ class LlamaIndexCallbackHandler(
             )
 
         self._task_manager = root.task_manager
+        self.update_stateful_client = update_root
 
     def set_trace_params(
         self,
@@ -275,6 +291,21 @@ class LlamaIndexCallbackHandler(
     def _get_root_observation(self) -> Union[StatefulTraceClient, StatefulSpanClient]:
         user_provided_root = context_root.get()
 
+        # Get trace metadata from contextvars or use default values
+        trace_metadata = context_trace_metadata.get()
+        name = (
+            trace_metadata["name"]
+            or self.trace_name
+            or f"LlamaIndex_{self._llama_index_trace_name}"
+        )
+        version = trace_metadata["version"] or self.version
+        release = trace_metadata["release"] or self.release
+        session_id = trace_metadata["session_id"] or self.session_id
+        user_id = trace_metadata["user_id"] or self.user_id
+        metadata = trace_metadata["metadata"] or self.metadata
+        tags = trace_metadata["tags"] or self.tags
+        public = trace_metadata["public"] or None
+
         # Make sure that if a user-provided root is set, it has been set in the same trace
         # and it's not a root from a different trace
         if (
@@ -282,23 +313,21 @@ class LlamaIndexCallbackHandler(
             and self.trace
             and self.trace.id == user_provided_root.trace_id
         ):
+            if self.update_stateful_client:
+                user_provided_root.update(
+                    name=name,
+                    version=version,
+                    session_id=session_id,
+                    user_id=user_id,
+                    metadata=metadata,
+                    tags=tags,
+                    release=release,
+                    public=public,
+                )
+
             return user_provided_root
 
         else:
-            trace_metadata = context_trace_metadata.get()
-            name = (
-                trace_metadata["name"]
-                or self.trace_name
-                or f"LlamaIndex_{self._llama_index_trace_name}"
-            )
-            version = trace_metadata["version"] or self.version
-            release = trace_metadata["release"] or self.release
-            session_id = trace_metadata["session_id"] or self.session_id
-            user_id = trace_metadata["user_id"] or self.user_id
-            metadata = trace_metadata["metadata"] or self.metadata
-            tags = trace_metadata["tags"] or self.tags
-            public = trace_metadata["public"] or None
-
             self.trace = self.langfuse.trace(
                 id=str(uuid4()),
                 name=name,
@@ -523,7 +552,8 @@ class LlamaIndexCallbackHandler(
         return span
 
     def _update_trace_data(self, trace_map):
-        if context_root.get():  # Exit early if root is user-provided.
+        context_root_value = context_root.get()
+        if context_root_value and not self.update_stateful_client:
             return
 
         child_event_ids = trace_map.get(BASE_TRACE_EVENT, [])
@@ -539,7 +569,10 @@ class LlamaIndexCallbackHandler(
         output = self._parse_output_from_event(end_event)
 
         if input or output:
-            self.trace.update(input=input, output=output)
+            if context_root_value and self.update_stateful_client:
+                context_root_value.update(input=input, output=output)
+            else:
+                self.trace.update(input=input, output=output)
 
     def _parse_input_from_event(self, event: CallbackEvent):
         if event.payload is None:
