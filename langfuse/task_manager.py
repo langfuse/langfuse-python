@@ -120,14 +120,14 @@ class Consumer(threading.Thread):
                     if "body" not in item or (
                         "input" not in item["body"] and "output" not in item["body"]
                     ):
-                        print(
-                            "Item does not have body or input/output fields. Dropping event.",
-                            "body" in item,
-                            "input" in item["body"],
-                            "output" in item["body"],
-                        )
                         self._queue.task_done()
                         continue
+
+                    # need to calculate the size again after dropping input/output
+                    item_size = len(json.dumps(item, cls=EventSerializer).encode())
+                    self._log.debug(
+                        f"item size after dropping input/output {item_size}"
+                    )
 
                 items.append(item)
                 total_size += item_size
