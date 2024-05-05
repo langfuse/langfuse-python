@@ -523,6 +523,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             status_message=str(ex),
             level="ERROR",
             model=model,
+            usage={"input_cost": 0, "output_cost": 0, "total_cost": 0},
         )
         raise ex
 
