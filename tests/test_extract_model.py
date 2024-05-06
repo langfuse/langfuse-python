@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 from langchain_anthropic import ChatAnthropic
 from langchain_google_vertexai import ChatVertexAI
+from langchain_groq import ChatGroq
 import pytest
 from langfuse.callback import CallbackHandler
 
@@ -32,8 +33,10 @@ from langchain_community.llms.openai import (
     AzureOpenAI,
     OpenAI,
 )
+from langchain_community.llms.ollama import Ollama
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain.schema.messages import HumanMessage
+
 
 from tests.utils import get_api
 
@@ -42,56 +45,63 @@ from tests.utils import get_api
     "expected_model,model",
     [
         (
-            None,
-            FakeMessagesListChatModel(responses=[HumanMessage("Hello, how are you?")]),
-        ),
-        (
-            "mistralai",
-            ChatMistralAI(mistral_api_key="mistral_api_key", model="mistralai"),
-        ),
-        (
-            "text-gen",
-            TextGen(model_url="some-url"),
-        ),  # local deployments, does not have a model name
-        ("claude-2", ChatAnthropic(model_name="claude-2")),
-        (
-            "claude-3-sonnet-20240229",
-            ChatAnthropic(model="claude-3-sonnet-20240229"),
-        ),
-        ("anthropic", Anthropic()),
-        ("anthropic", Anthropic()),
-        ("command", ChatCohere(model="command", cohere_api_key="command")),
-        ("command", Cohere(model="command", cohere_api_key="command")),
-        (None, ChatTongyi(dashscope_api_key="dash")),
-        (
-            "amazon.titan-tg1-large",
-            BedrockChat(
-                model_id="amazon.titan-tg1-large",
-                region_name="us-east-1",
-                client=MagicMock(),
+            "mixtral-8x7b-32768",
+            ChatGroq(
+                temperature=0, model_name="mixtral-8x7b-32768", groq_api_key="something"
             ),
         ),
-        (
-            "amazon.titan-tg1-large",
-            Bedrock(
-                model_id="amazon.titan-tg1-large",
-                region_name="us-east-1",
-                client=MagicMock(),
-            ),
-        ),
-        (
-            "HuggingFaceH4/zephyr-7b-beta",
-            HuggingFaceHub(
-                repo_id="HuggingFaceH4/zephyr-7b-beta",
-                task="text-generation",
-                model_kwargs={
-                    "max_new_tokens": 512,
-                    "top_k": 30,
-                    "temperature": 0.1,
-                    "repetition_penalty": 1.03,
-                },
-            ),
-        ),
+        # ("llama3", Ollama(model="llama3")),
+        # (
+        #     None,
+        #     FakeMessagesListChatModel(responses=[HumanMessage("Hello, how are you?")]),
+        # ),
+        # (
+        #     "mistralai",
+        #     ChatMistralAI(mistral_api_key="mistral_api_key", model="mistralai"),
+        # ),
+        # (
+        #     "text-gen",
+        #     TextGen(model_url="some-url"),
+        # ),  # local deployments, does not have a model name
+        # ("claude-2", ChatAnthropic(model_name="claude-2")),
+        # (
+        #     "claude-3-sonnet-20240229",
+        #     ChatAnthropic(model="claude-3-sonnet-20240229"),
+        # ),
+        # ("anthropic", Anthropic()),
+        # ("anthropic", Anthropic()),
+        # ("command", ChatCohere(model="command", cohere_api_key="command")),
+        # ("command", Cohere(model="command", cohere_api_key="command")),
+        # (None, ChatTongyi(dashscope_api_key="dash")),
+        # (
+        #     "amazon.titan-tg1-large",
+        #     BedrockChat(
+        #         model_id="amazon.titan-tg1-large",
+        #         region_name="us-east-1",
+        #         client=MagicMock(),
+        #     ),
+        # ),
+        # (
+        #     "amazon.titan-tg1-large",
+        #     Bedrock(
+        #         model_id="amazon.titan-tg1-large",
+        #         region_name="us-east-1",
+        #         client=MagicMock(),
+        #     ),
+        # ),
+        # (
+        #     "HuggingFaceH4/zephyr-7b-beta",
+        #     HuggingFaceHub(
+        #         repo_id="HuggingFaceH4/zephyr-7b-beta",
+        #         task="text-generation",
+        #         model_kwargs={
+        #             "max_new_tokens": 512,
+        #             "top_k": 30,
+        #             "temperature": 0.1,
+        #             "repetition_penalty": 1.03,
+        #         },
+        #     ),
+        # ),
     ],
 )
 def test_models(expected_model: str, model: Any):

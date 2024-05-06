@@ -59,6 +59,7 @@ def _extract_model_name(
         ("HuggingFaceHub", "model", None),
         ("ChatAnyscale", "model_name", None),
         ("TextGen", "model", "text-gen"),
+        ("Ollama", "model", None),
     ]
 
     for model_name, pattern, default in configs:
@@ -88,8 +89,9 @@ def _extract_model_from_repr_by_pattern(
     id: str, serialized: dict, pattern: str, default: Optional[str] = None
 ):
     if serialized.get("id")[-1] == id:
-        extracted = _extract_model_with_regex(pattern, serialized["repr"])
-        return extracted if extracted else default if default else None
+        if serialized.get("repr"):
+            extracted = _extract_model_with_regex(pattern, serialized.get("repr"))
+            return extracted if extracted else default if default else None
 
 
 def _extract_model_with_regex(pattern: str, text: str):
