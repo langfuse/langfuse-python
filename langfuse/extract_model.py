@@ -16,20 +16,23 @@ def _extract_model_name(
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
     # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
     # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
-
+    print(serialized, kwargs)
     models = [
         ("ChatGoogleGenerativeAI", ["kwargs", "model"], "serialized"),
         ("ChatMistralAI", ["kwargs", "model"], "serialized"),
         ("ChatVertexAi", ["kwargs", "model_name"], "serialized"),
+        ("ChatVertexAI", ["kwargs", "model_name"], "serialized"),
         ("OpenAI", ["invocation_params", "model_name"], "kwargs"),
         ("ChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
+        ("BedrockChat", ["kwargs", "model_id"], "serialized"),
+        ("Bedrock", ["kwargs", "model_id"], "serialized"),
     ]
 
     for model_name, keys, select_from in models:
-        model = _extract_model_by_path(
+        model = _extract_model_by_path_for_id(
             model_name, serialized, kwargs, keys, select_from
         )
         if model:
@@ -65,6 +68,19 @@ def _extract_model_name(
         if model:
             return model
 
+    # try most likely paths
+    random_paths = [
+        ["kwargs", "model_name"],
+        ["kwargs", "model"],
+        ["invocation_params", "model_name"],
+        ["invocation_params", "model"],
+    ]
+    for select in ["kwargs", "serialized"]:
+        for path in random_paths:
+            model = _extract_model_by_path(serialized, kwargs, path, select)
+            if model:
+                return model
+
     return None
 
 
@@ -83,18 +99,30 @@ def _extract_model_with_regex(pattern: str, text: str):
     return None
 
 
-def _extract_model_by_path(
+def _extract_model_by_path_for_id(
     id: str,
     serialized: dict,
     kwargs: dict,
     keys: List[str],
     select_from: str = Literal["serialized", "kwargs"],
 ):
+    print(id)
     if serialized.get("id")[-1] == id:
-        current_obj = kwargs if select_from == "kwargs" else serialized
-        for key in keys:
-            current_obj = current_obj.get(key)
-            if not current_obj:
-                raise ValueError(f"Key {key} not found in {object}")
+        return _extract_model_by_path(serialized, kwargs, keys, select_from)
 
-        return current_obj if current_obj else None
+
+def _extract_model_by_path(
+    serialized: dict,
+    kwargs: dict,
+    keys: List[str],
+    select_from: str = Literal["serialized", "kwargs"],
+):
+    current_obj = kwargs if select_from == "kwargs" else serialized
+
+    for key in keys:
+        print(current_obj)
+        current_obj = current_obj.get(key)
+        if not current_obj:
+            return None
+
+    return current_obj if current_obj else None
