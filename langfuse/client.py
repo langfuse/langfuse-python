@@ -907,6 +907,25 @@ class Langfuse(object):
                     self.client, new_id, StateType.TRACE, new_id, self.task_manager
                 )
 
+    def delete_score(self, *, score_id: str) -> None:
+        """Delete a score via the Langfuse API by its id.
+
+        Args:
+            id: The id of the score to delete.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If the score with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
+        try:
+            self.log.debug(f"Deleting score {id}")
+            self.client.score.delete(score_id=score_id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def span(
         self,
         *,

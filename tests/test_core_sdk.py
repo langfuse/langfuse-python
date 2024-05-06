@@ -105,6 +105,44 @@ def test_create_score():
     assert trace["scores"][0]["id"] == score_id
 
 
+def test_delete_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=1,
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+    assert trace["scores"][0]["id"] == score_id
+
+    langfuse.delete_score(score_id)
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert len(trace["scores"]) == 0
+
+
 def test_create_trace():
     langfuse = Langfuse(
         debug=False,
