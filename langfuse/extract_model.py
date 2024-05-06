@@ -28,8 +28,10 @@ def _extract_model_name(
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
     ]
 
-    for model_name, keys in models:
-        model = _extract_model_by_path(model_name, serialized, serialized, keys)
+    for model_name, keys, select_from in models:
+        model = _extract_model_by_path(
+            model_name, serialized, kwargs, keys, select_from
+        )
         if model:
             return model
 
@@ -47,24 +49,26 @@ def _extract_model_name(
 
     configs = [
         ("Anthropic", "model", "anthropic"),
-        ("ChatAnthropic", "model"),
-        ("ChatTongyi", "model_name"),
-        ("ChatCohere", "model"),
-        ("Cohere", "model"),
-        ("HuggingFaceHub", "model"),
-        ("ChatAnyscale", "model_name"),
+        ("ChatAnthropic", "model", None),
+        ("ChatTongyi", "model_name", None),
+        ("ChatCohere", "model", None),
+        ("Cohere", "model", None),
+        ("HuggingFaceHub", "model", None),
+        ("ChatAnyscale", "model_name", None),
         ("TextGen", "model", "text-gen"),
     ]
 
     for model_name, pattern, default in configs:
-        model = _extract_model_by_pattern(model_name, serialized, pattern, default)
+        model = _extract_model_from_repr_by_pattern(
+            model_name, serialized, pattern, default
+        )
         if model:
             return model
 
     return None
 
 
-def _extract_model_by_pattern(
+def _extract_model_from_repr_by_pattern(
     id: str, serialized: dict, pattern: str, default: Optional[str] = None
 ):
     if serialized.get("id")[-1] == id:
@@ -87,7 +91,7 @@ def _extract_model_by_path(
     select_from: str = Literal["serialized", "kwargs"],
 ):
     if serialized.get("id")[-1] == id:
-        current_eobj = kwargs if select_from == "kwargs" else serialized
+        current_obj = kwargs if select_from == "kwargs" else serialized
         for key in keys:
             current_obj = current_obj.get(key)
             if not current_obj:
