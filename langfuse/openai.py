@@ -575,6 +575,7 @@ async def _wrap_async(
             status_message=str(ex),
             level="ERROR",
             model=model,
+            usage={"input_cost": 0, "output_cost": 0, "total_cost": 0},
         )
         raise ex
 
