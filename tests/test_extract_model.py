@@ -1,7 +1,5 @@
 from typing import Any
 from unittest.mock import MagicMock
-# from unittest.mock import MagicMock
-
 
 from langchain_anthropic import ChatAnthropic
 from langchain_google_vertexai import ChatVertexAI
@@ -19,11 +17,11 @@ from langchain_community.chat_models import (
     ChatTongyi,
     ChatCohere,
     BedrockChat,
+    ChatOllama,
 )
 
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
 from langchain_community.llms.anthropic import Anthropic
-
 from langchain_community.llms.bedrock import Bedrock
 from langchain_community.llms.cohere import Cohere
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
@@ -51,6 +49,7 @@ from tests.utils import get_api
             ),
         ),
         ("llama3", Ollama(model="llama3")),
+        ("llama3", ChatOllama(model="llama3")),
         (
             None,
             FakeMessagesListChatModel(responses=[HumanMessage("Hello, how are you?")]),
@@ -85,6 +84,22 @@ from tests.utils import get_api
             "amazon.titan-tg1-large",
             Bedrock(
                 model_id="amazon.titan-tg1-large",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
+        (
+            "claude-1",
+            BedrockChat(
+                model_id="claude-1",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
+        (
+            "claude-1",
+            Bedrock(
+                model_id="claude-1",
                 region_name="us-east-1",
                 client=MagicMock(),
             ),

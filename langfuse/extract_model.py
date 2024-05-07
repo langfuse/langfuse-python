@@ -60,6 +60,7 @@ def _extract_model_name(
         ("ChatAnyscale", "model_name", None),
         ("TextGen", "model", "text-gen"),
         ("Ollama", "model", None),
+        ("ChatOllama", "model", None),
     ]
 
     for model_name, pattern, default in configs:
