@@ -2454,7 +2454,6 @@ class DatasetItemClient:
         Returns:
             CallbackHandler: An instance of CallbackHandler linked to the created span.
         """
-
         metadata = {
             "dataset_item_id": self.id,
             "run_name": run_name,
