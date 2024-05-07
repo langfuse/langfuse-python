@@ -1979,13 +1979,13 @@ extended-testing = ["jinja2 (>=3,<4)"]
 
 [[package]]
 name = "langchain-google-vertexai"
-version = "1.0.2"
+version = "1.0.3"
 description = "An integration package connecting Google VertexAI and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_google_vertexai-1.0.2-py3-none-any.whl", hash = "sha256:9c544226734fd74464c022bd4d2a97e3e6295bad76333c6e6402f7f24630beb6"},
-    {file = "langchain_google_vertexai-1.0.2.tar.gz", hash = "sha256:cb6b7eb98bc026c6939fa6736a3a507ae87ff973671eaa64d408ad7928cd126c"},
+    {file = "langchain_google_vertexai-1.0.3-py3-none-any.whl", hash = "sha256:407caa2b10cd20d4748cebfc6e405d28d8ef4a0e4f21b01739eca4e24c4f04d2"},
+    {file = "langchain_google_vertexai-1.0.3.tar.gz", hash = "sha256:a3929bc07b971072e7cd21ffe28d843640faaf93763f473077d6786745cce247"},
 ]
 
 [package.dependencies]
