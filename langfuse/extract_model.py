@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 # NOTE ON DEPENDENCIES:
 # - since Jan 2024, there is https://pypi.org/project/langchain-openai/ which is a separate package and imports openai models.
 #   Decided to not make this a dependency of langfuse as few people will have this. Need to match these models manually
-# - langchain_community is loaded as a dependency of langchain, so we can use it here
+# - langchain_community is loaded as a dependency of langchain, but extremely unreliable. Decided to not depend on it.
 
 
 def _extract_model_name(
@@ -14,7 +14,12 @@ def _extract_model_name(
     **kwargs: Any,
 ):
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
-    models = [
+
+    # In this function we return on the first match, so the order of operations is important
+
+    # First, extract known models where we know the model name aka id
+    # Extract the model name from the provided path (aray) in the serialized or kwargs object
+    models_by_id = [
         ("ChatGoogleGenerativeAI", ["kwargs", "model"], "serialized"),
         ("ChatMistralAI", ["kwargs", "model"], "serialized"),
         ("ChatVertexAi", ["kwargs", "model_name"], "serialized"),
@@ -28,13 +33,14 @@ def _extract_model_name(
         ("Bedrock", ["kwargs", "model_id"], "serialized"),
     ]
 
-    for model_name, keys, select_from in models:
+    for model_name, keys, select_from in models_by_id:
         model = _extract_model_by_path_for_id(
             model_name, serialized, kwargs, keys, select_from
         )
         if model:
             return model
 
+    # Second, we match AzureOpenAI as we need to extract the model name, fdeployment version and deployment name
     if serialized.get("id")[-1] == "AzureOpenAI":
         if kwargs.get("invocation_params").get("model_name"):
             return kwargs.get("invocation_params").get("model_name")
@@ -47,7 +53,9 @@ def _extract_model_name(
             deployment_name = serialized.get("kwargs").get("deployment_name")
         return deployment_name + "-" + deployment_version
 
-    configs = [
+    # Third, for some models, we are unable to extract the model by a path in an object. Langfuse provides us with a string representation of the model pbjects
+    # We use regex to extract the model from the repr string
+    models_by_pattern = [
         ("Anthropic", "model", "anthropic"),
         ("ChatAnthropic", "model", None),
         ("ChatTongyi", "model_name", None),
@@ -60,14 +68,14 @@ def _extract_model_name(
         ("ChatOllama", "model", None),
     ]
 
-    for model_name, pattern, default in configs:
+    for model_name, pattern, default in models_by_pattern:
         model = _extract_model_from_repr_by_pattern(
             model_name, serialized, pattern, default
         )
         if model:
             return model
 
-    # try most likely paths
+    # Finally, we try to extract the most likely paths as a catch all
     random_paths = [
         ["kwargs", "model_name"],
         ["kwargs", "model"],
