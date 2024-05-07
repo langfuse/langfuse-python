@@ -95,7 +95,7 @@ class EventSerializer(JSONEncoder):
 
         else:
             # Return object type rather than JSONEncoder.default(obj) which simply raises a TypeError
-            return type(obj).__name__
+            return f"<{type(obj).__name__}>"
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call

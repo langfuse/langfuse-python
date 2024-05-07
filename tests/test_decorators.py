@@ -987,6 +987,50 @@ def test_generator_as_function_input():
     assert observation_start_time <= observation_end_time
 
 
+def test_nest_list_of_generator_as_function_input():
+    mock_trace_id = create_uuid()
+    mock_output = "Hello, World!"
+
+    def generator_function():
+        yield "Hello"
+        yield ", "
+        yield "World!"
+
+    @observe()
+    def nested(list_of_gens):
+        result = ""
+        for item in list_of_gens[0][0]:
+            result += item
+
+        return result
+
+    @observe()
+    def main(**kwargs):
+        gen = generator_function()
+
+        return nested([(gen, gen)])
+
+    result = main(langfuse_observation_id=mock_trace_id)
+    langfuse_context.flush()
+
+    assert result == mock_output
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.output == mock_output
+
+    assert (
+        '[[["<generator>", "<generator>"]]]' == trace_data.observations[0].input["args"]
+    )
+    assert trace_data.observations[0].output == "Hello, World!"
+
+    observation_start_time = trace_data.observations[0].start_time
+    observation_end_time = trace_data.observations[0].end_time
+
+    assert observation_start_time is not None
+    assert observation_end_time is not None
+    assert observation_start_time <= observation_end_time
+
+
 def test_return_dict_for_output():
     mock_trace_id = create_uuid()
     mock_output = {"key": "value"}

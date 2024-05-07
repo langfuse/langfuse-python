@@ -4,6 +4,7 @@ from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
 import inspect
+import json
 import logging
 from typing import (
     Any,
@@ -307,29 +308,12 @@ class LangfuseDecorator:
         func_kwargs: Dict = {},
     ) -> Any:
         # Remove implicitly passed "self" or "cls" argument for instance or class methods
-        if is_method:
-            logged_args = func_args[1:]
-        else:
-            logged_args = func_args
+        logged_args = func_args[1:] if is_method else func_args
 
-        # Remove generators from logged values
-        logged_args = [
-            f"<{type(arg).__name__}>"
-            if (inspect.isgenerator(arg) or inspect.isasyncgen(arg))
-            else arg
-            for arg in logged_args
-        ]
-
-        logged_kwargs = {
-            k: (
-                f"<{type(v).__name__}>"
-                if inspect.isgenerator(v) or inspect.isasyncgen(v)
-                else v
-            )
-            for k, v in func_kwargs.items()
+        return {
+            "args": json.dumps(logged_args, cls=EventSerializer),
+            "kwargs": json.dumps(func_kwargs, cls=EventSerializer),
         }
-
-        return {"args": logged_args, "kwargs": logged_kwargs}
 
     def _finalize_call(
         self,
