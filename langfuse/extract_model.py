@@ -14,9 +14,6 @@ def _extract_model_name(
     **kwargs: Any,
 ):
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
-    # we have to deal with ChatGoogleGenerativeAI and ChatMistralAI first, as
-    # if we run loads(dumps(serialized)) on it, it will throw in case of missing api keys
-    print(serialized, kwargs)
     models = [
         ("ChatGoogleGenerativeAI", ["kwargs", "model"], "serialized"),
         ("ChatMistralAI", ["kwargs", "model"], "serialized"),
@@ -109,7 +106,6 @@ def _extract_model_by_path_for_id(
     keys: List[str],
     select_from: str = Literal["serialized", "kwargs"],
 ):
-    print(id)
     if serialized.get("id")[-1] == id:
         return _extract_model_by_path(serialized, kwargs, keys, select_from)
 
@@ -123,7 +119,6 @@ def _extract_model_by_path(
     current_obj = kwargs if select_from == "kwargs" else serialized
 
     for key in keys:
-        print(current_obj)
         current_obj = current_obj.get(key)
         if not current_obj:
             return None
