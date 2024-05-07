@@ -310,12 +310,13 @@ class LangfuseDecorator:
         # Remove implicitly passed "self" or "cls" argument for instance or class methods
         logged_args = func_args[1:] if is_method else func_args
 
-        # we need to json dump here, as this will be pushed into the lower level langfuse sdk
-        # the langfuse SDK converts all inputs to pydantic to enbsure correct typing. JSON dump required to convert to dict.
-        return {
-            "args": json.dumps(logged_args, cls=EventSerializer),
-            "kwargs": json.dumps(func_kwargs, cls=EventSerializer),
-        }
+        return json.dumps(
+            {
+                "args": logged_args,
+                "kwargs": func_kwargs,
+            },
+            cls=EventSerializer,
+        )
 
     def _finalize_call(
         self,

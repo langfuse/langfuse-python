@@ -2,6 +2,7 @@ import asyncio
 from contextvars import ContextVar
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+import json
 import pytest
 
 from langchain_community.chat_models import ChatOpenAI
@@ -72,7 +73,9 @@ def test_nested_observations():
         len(trace_data.observations) == 2
     )  # Top-most function is trace, so it's not an observations
 
-    assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
+    assert trace_data.input == json.dumps(
+        {"args": list(mock_args), "kwargs": mock_kwargs}
+    )
     assert trace_data.output == "level_1"
 
     # trace parameters if set anywhere in the call stack
@@ -144,7 +147,9 @@ def test_exception_in_wrapped_function():
 
     trace_data = get_api().trace.get(mock_trace_id)
 
-    assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
+    assert trace_data.input == json.dumps(
+        {"args": list(mock_args), "kwargs": mock_kwargs}
+    )
     assert trace_data.output is None  # Output is None if exception is raised
 
     # trace parameters if set anywhere in the call stack
@@ -232,10 +237,12 @@ def test_concurrent_decorator_executions():
             len(trace_data.observations) == 2
         )  # Top-most function is trace, so it's not an observations
 
-        assert trace_data.input == {
-            "args": list(mock_args) + [mock_id],
-            "kwargs": mock_kwargs,
-        }
+        assert trace_data.input == json.dumps(
+            {
+                "args": list(mock_args) + [mock_id],
+                "kwargs": mock_kwargs,
+            }
+        )
         assert trace_data.output == "level_1"
 
         # trace parameters if set anywhere in the call stack
@@ -615,7 +622,7 @@ def test_circular_reference_handling():
 
     trace_data = get_api().trace.get(mock_trace_id)
 
-    assert trace_data.input["args"][0]["reference"] == "CircularRefObject"
+    assert json.loads(trace_data.input)["args"][0]["reference"] == "CircularRefObject"
 
 
 def test_disabled_io_capture():
@@ -645,7 +652,9 @@ def test_disabled_io_capture():
 
     trace_data = get_api().trace.get(mock_trace_id)
 
-    assert trace_data.input == {"args": ["Hello, World!"], "kwargs": {"name": "John"}}
+    assert trace_data.input == json.dumps(
+        {"args": ["Hello, World!"], "kwargs": {"name": "John"}}
+    )
     assert trace_data.output is None
 
     # Check that disabled capture_io doesn't capture manually set input/output
@@ -711,7 +720,9 @@ def test_decorated_class_and_instance_methods():
         len(trace_data.observations) == 3
     )  # Top-most function is trace, so it's not an observations
 
-    assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
+    assert trace_data.input == json.dumps(
+        {"args": list(mock_args), "kwargs": mock_kwargs}
+    )
     assert trace_data.output == "level_1"
 
     # trace parameters if set anywhere in the call stack
@@ -732,7 +743,7 @@ def test_decorated_class_and_instance_methods():
         o for o in adjacencies[level_2_observation.id] if o.name == "class_method"
     ][0]
 
-    assert class_method_observation.input == {"args": [], "kwargs": {}}
+    assert class_method_observation.input == json.dumps({"args": [], "kwargs": {}})
     assert class_method_observation.output == "class_method"
 
     assert level_2_observation.metadata == mock_metadata
@@ -876,7 +887,9 @@ async def test_async_nested_openai_chat_stream():
         len(trace_data.observations) == 2
     )  # Top-most function is trace, so it's not an observations
 
-    assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
+    assert trace_data.input == json.dumps(
+        {"args": list(mock_args), "kwargs": mock_kwargs}
+    )
     assert trace_data.output == "level_1"
 
     # trace parameters if set anywhere in the call stack
@@ -976,7 +989,7 @@ def test_generator_as_function_input():
     trace_data = get_api().trace.get(mock_trace_id)
     assert trace_data.output == mock_output
 
-    assert "<generator>" in trace_data.observations[0].input["args"]
+    assert json.loads(trace_data.observations[0].input)["args"][0] == "<generator>"
     assert trace_data.observations[0].output == "Hello, World!"
 
     observation_start_time = trace_data.observations[0].start_time
@@ -1018,9 +1031,9 @@ def test_nest_list_of_generator_as_function_input():
     trace_data = get_api().trace.get(mock_trace_id)
     assert trace_data.output == mock_output
 
-    assert (
-        '[[["<generator>", "<generator>"]]]' == trace_data.observations[0].input["args"]
-    )
+    assert [[["<generator>", "<generator>"]]] == json.loads(
+        trace_data.observations[0].input
+    )["args"]
     assert trace_data.observations[0].output == "Hello, World!"
 
     observation_start_time = trace_data.observations[0].start_time
