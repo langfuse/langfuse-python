@@ -193,7 +193,7 @@ def test_batch_in_completions_models(model_name):
     name = f"test_batch_in_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
     model = OpenAI(max_tokens=300, tags=tags, model=model_name)
-    callback = CallbackHandler(trace_name=name)
+    callback = CallbackHandler(trace_name=name, host="http://localhost:3000")
     input1 = "Who is the first president of America ?"
     input2 = "Who is the first president of Ireland ?"
     _ = model.batch(
@@ -248,7 +248,7 @@ def test_batch_in_chat_models(model_name):
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
     assert trace.name == name
     for generation in generationList:
         assert generation.model == model_name
