@@ -1,11 +1,14 @@
 on:
-  pull_request:
+  workflow_dispatch:
   push:
     branches:
-      - main
-      - master
-      - development
-  workflow_dispatch:
+      - "main"
+    tags:
+      - "v*"
+  merge_group:
+  pull_request:
+    branches:
+      - "*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
