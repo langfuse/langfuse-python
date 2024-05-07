@@ -248,7 +248,7 @@ def test_batch_in_chat_models(model_name):
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
     assert trace.name == name
     for generation in generationList:
         assert generation.model == model_name

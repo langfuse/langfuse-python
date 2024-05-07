@@ -1,7 +1,9 @@
 from typing import Any
-# from unittest.mock import MagicMock
+from unittest.mock import MagicMock
 
-# from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_vertexai import ChatVertexAI
+from langchain_groq import ChatGroq
 import pytest
 from langfuse.callback import CallbackHandler
 
@@ -10,20 +12,17 @@ from langchain_core.load.dump import default
 
 
 from langchain_community.chat_models import (
-    # ChatAnthropic,
     ChatOpenAI,
     AzureChatOpenAI,
     ChatTongyi,
     ChatCohere,
-    # BedrockChat,
-    # ChatAnyscale,
-    # ChatVertexAI,
+    BedrockChat,
+    ChatOllama,
 )
 
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
 from langchain_community.llms.anthropic import Anthropic
-
-# from langchain_community.llms.bedrock import Bedrock
+from langchain_community.llms.bedrock import Bedrock
 from langchain_community.llms.cohere import Cohere
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
@@ -32,8 +31,10 @@ from langchain_community.llms.openai import (
     AzureOpenAI,
     OpenAI,
 )
+from langchain_community.llms.ollama import Ollama
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain.schema.messages import HumanMessage
+
 
 from tests.utils import get_api
 
@@ -41,15 +42,14 @@ from tests.utils import get_api
 @pytest.mark.parametrize(
     "expected_model,model",
     [
-        # exclueded as this is doing an API call upon initialisation
-        # (
-        #     "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        #     ChatAnyscale(
-        #         anyscale_api_key="anyscale_api_key",
-        #         model_name="mistralai/Mixtral-8x7B-Instruct-v0.1",
-        #         temperature=1.0,
-        #     ),
-        # ),
+        (
+            "mixtral-8x7b-32768",
+            ChatGroq(
+                temperature=0, model_name="mixtral-8x7b-32768", groq_api_key="something"
+            ),
+        ),
+        ("llama3", Ollama(model="llama3")),
+        ("llama3", ChatOllama(model="llama3")),
         (
             None,
             FakeMessagesListChatModel(responses=[HumanMessage("Hello, how are you?")]),
@@ -62,32 +62,48 @@ from tests.utils import get_api
             "text-gen",
             TextGen(model_url="some-url"),
         ),  # local deployments, does not have a model name
-        # ("claude-2", ChatAnthropic()),
-        # (
-        #     "claude-3-sonnet-20240229",
-        #     SeparateChatAnthropic(model="claude-3-sonnet-20240229"),
-        # ),
+        ("claude-2", ChatAnthropic(model_name="claude-2")),
+        (
+            "claude-3-sonnet-20240229",
+            ChatAnthropic(model="claude-3-sonnet-20240229"),
+        ),
         ("anthropic", Anthropic()),
         ("anthropic", Anthropic()),
         ("command", ChatCohere(model="command", cohere_api_key="command")),
         ("command", Cohere(model="command", cohere_api_key="command")),
         (None, ChatTongyi(dashscope_api_key="dash")),
-        # (
-        #     "amazon.titan-tg1-large",
-        #     BedrockChat(
-        #         model_id="amazon.titan-tg1-large",
-        #         region_name="us-east-1",
-        #         client=MagicMock(),
-        #     ),
-        # ),
-        # (
-        #     "amazon.titan-tg1-large",
-        #     Bedrock(
-        #         model_id="amazon.titan-tg1-large",
-        #         region_name="us-east-1",
-        #         client=MagicMock(),
-        #     ),
-        # ),
+        (
+            "amazon.titan-tg1-large",
+            BedrockChat(
+                model_id="amazon.titan-tg1-large",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
+        (
+            "amazon.titan-tg1-large",
+            Bedrock(
+                model_id="amazon.titan-tg1-large",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
+        (
+            "claude-1",
+            BedrockChat(
+                model_id="claude-1",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
+        (
+            "claude-1",
+            Bedrock(
+                model_id="claude-1",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
         (
             "HuggingFaceH4/zephyr-7b-beta",
             HuggingFaceHub(
@@ -147,11 +163,12 @@ def test_models(expected_model: str, model: Any):
             "qwen-72b-chat",
             ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
         ),
-        # ("gemini", ChatVertexAI(model_name="gemini", credentials=MagicMock())),
-        # (
-        #     "gemini-pro",
-        #     ChatGoogleGenerativeAI(model="gemini-pro", google_api_key="google_api_key"),
-        # ),
+        (
+            "gemini",
+            ChatVertexAI(
+                model_name="gemini", credentials=MagicMock(), project="some-project"
+            ),
+        ),
     ],
 )
 def test_entire_llm_call(expected_model, model):
