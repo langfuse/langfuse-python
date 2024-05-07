@@ -355,7 +355,14 @@ def test_llama_index_dataset():
 
     trace = api.trace.get(handler.get_trace_id())
 
-    assert len(trace.observations) == 6
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    assert (
+        len(generations) == 2
+    )  # One generation event for embedding call of query, one for LLM call
 
     sorted_observations = sorted_dependencies(trace.observations)
 
