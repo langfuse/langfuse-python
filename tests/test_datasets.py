@@ -6,7 +6,7 @@ from langchain import LLMChain, OpenAI, PromptTemplate
 
 from langfuse import Langfuse
 from langfuse.api.resources.commons.types.observation import Observation
-from tests.utils import create_uuid, get_api
+from tests.utils import create_uuid, get_api, get_llama_index_index
 
 
 def test_create_and_get_dataset():
@@ -318,6 +318,59 @@ def test_langchain_dataset():
     assert sorted_observations[1].usage.total is not None
     assert sorted_observations[1].usage.input is not None
     assert sorted_observations[1].usage.output is not None
+
+
+def test_llama_index_dataset():
+    langfuse = Langfuse(debug=False)
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    langfuse.create_dataset_item(
+        dataset_name=dataset_name, input={"input": "Hello World"}
+    )
+
+    dataset = langfuse.get_dataset(dataset_name)
+
+    run_name = create_uuid()
+
+    dataset_item_id = None
+
+    for item in dataset.items:
+        handler = item.get_llama_index_handler(run_name=run_name)
+        dataset_item_id = item.id
+
+        index = get_llama_index_index(handler)
+        index.as_query_engine().query(
+            "What did the speaker achieve in the past twelve months?"
+        )
+
+    langfuse.flush()
+    run = langfuse.get_dataset_run(dataset_name, run_name)
+
+    assert run.name == run_name
+    assert len(run.dataset_run_items) == 1
+    assert run.dataset_run_items[0].dataset_run_id == run.id
+
+    api = get_api()
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    assert len(trace.observations) == 6
+
+    sorted_observations = sorted_dependencies(trace.observations)
+
+    assert sorted_observations[0].id == sorted_observations[1].parent_observation_id
+    assert sorted_observations[0].parent_observation_id is None
+
+    assert trace.name == "LlamaIndex_query"  # Overwritten by the Langchain run
+    assert trace.metadata == {
+        "dataset_item_id": dataset_item_id,
+        "run_name": run_name,
+        "dataset_id": dataset.id,
+    }
+
+    assert sorted_observations[0].name == "query"
+    assert sorted_observations[1].name == "synthesize"
 
 
 def sorted_dependencies(
