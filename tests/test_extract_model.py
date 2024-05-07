@@ -163,7 +163,12 @@ def test_models(expected_model: str, model: Any):
             "qwen-72b-chat",
             ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
         ),
-        ("gemini", ChatVertexAI(model_name="gemini", credentials=MagicMock())),
+        (
+            "gemini",
+            ChatVertexAI(
+                model_name="gemini", credentials=MagicMock(), project="some-project"
+            ),
+        ),
     ],
 )
 def test_entire_llm_call(expected_model, model):
