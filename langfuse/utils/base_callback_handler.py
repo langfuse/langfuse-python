@@ -69,44 +69,35 @@ class LangfuseBaseCallbackHandler:
             )
             self._task_manager = stateful_client.task_manager
 
-        elif prio_public_key and prio_secret_key:
-            args = {
-                "public_key": prio_public_key,
-                "secret_key": prio_secret_key,
-                "host": prio_host,
-                "debug": debug,
-            }
+        args = {
+            "public_key": prio_public_key,
+            "secret_key": prio_secret_key,
+            "host": prio_host,
+            "debug": debug,
+        }
 
-            if release is not None:
-                args["release"] = release
-            if threads is not None:
-                args["threads"] = threads
-            if flush_at is not None:
-                args["flush_at"] = flush_at
-            if flush_interval is not None:
-                args["flush_interval"] = flush_interval
-            if max_retries is not None:
-                args["max_retries"] = max_retries
-            if timeout is not None:
-                args["timeout"] = timeout
-            if enabled is not None:
-                args["enabled"] = enabled
-            if httpx_client is not None:
-                args["httpx_client"] = httpx_client
+        if release is not None:
+            args["release"] = release
+        if threads is not None:
+            args["threads"] = threads
+        if flush_at is not None:
+            args["flush_at"] = flush_at
+        if flush_interval is not None:
+            args["flush_interval"] = flush_interval
+        if max_retries is not None:
+            args["max_retries"] = max_retries
+        if timeout is not None:
+            args["timeout"] = timeout
+        if enabled is not None:
+            args["enabled"] = enabled
+        if httpx_client is not None:
+            args["httpx_client"] = httpx_client
 
-            args["sdk_integration"] = sdk_integration
+        args["sdk_integration"] = sdk_integration
 
-            self.langfuse = Langfuse(**args)
-            self.trace: Optional[StatefulTraceClient] = None
-            self._task_manager = self.langfuse.task_manager
-
-        else:
-            self.log.error(
-                "Either provide a stateful langfuse object or both public_key and secret_key."
-            )
-            raise ValueError(
-                "Either provide a stateful langfuse object or both public_key and secret_key."
-            )
+        self.langfuse = Langfuse(**args)
+        self.trace: Optional[StatefulTraceClient] = None
+        self._task_manager = self.langfuse.task_manager
 
     def get_trace_id(self):
         """This method is deprecated and will be removed in a future version as it is not concurrency-safe.

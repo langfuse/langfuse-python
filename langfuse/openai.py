@@ -589,6 +589,7 @@ class OpenAILangfuse:
             secret_key=openai.langfuse_secret_key,
             host=openai.langfuse_host,
             debug=openai.langfuse_debug,
+            enabled=openai.langfuse_enabled,
             sdk_integration="openai",
         )
 
@@ -613,6 +614,7 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_secret_key", None)
         setattr(openai, "langfuse_host", None)
         setattr(openai, "langfuse_debug", None)
+        setattr(openai, "langfuse_enabled", True)
         setattr(openai, "flush_langfuse", self.flush)
 
 

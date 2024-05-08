@@ -143,6 +143,7 @@ class Langfuse(object):
             ```
         """
         if not enabled:
+            self.enabled = False
             self.log.warning(
                 "Langfuse client is disabled. No observability data will be sent."
             )
@@ -170,15 +171,15 @@ class Langfuse(object):
         )
 
         if not public_key:
-            self.log.warning("public_key is not set.")
-            raise ValueError(
-                "public_key is required, set as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'"
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since no public_key was provided as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'."
             )
 
         if not secret_key:
-            self.log.warning("secret_key is not set.")
-            raise ValueError(
-                "secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'"
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since no secret_key was provided as a parameter or environment variable 'LANGFUSE_SECRET_KEY'."
             )
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
@@ -212,7 +213,7 @@ class Langfuse(object):
             "sdk_name": "python",
             "sdk_version": version,
             "sdk_integration": sdk_integration,
-            "enabled": enabled,
+            "enabled": self.enabled,
         }
 
         self.task_manager = TaskManager(**args)
