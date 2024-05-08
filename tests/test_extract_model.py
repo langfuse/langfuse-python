@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from langchain_anthropic import ChatAnthropic
 from langchain_google_vertexai import ChatVertexAI
 from langchain_groq import ChatGroq
+from langchain_aws import ChatBedrock
 import pytest
 from langfuse.callback import CallbackHandler
 
@@ -84,6 +85,14 @@ from tests.utils import get_api
             "amazon.titan-tg1-large",
             Bedrock(
                 model_id="amazon.titan-tg1-large",
+                region_name="us-east-1",
+                client=MagicMock(),
+            ),
+        ),
+        (
+            "anthropic.claude-3-sonnet-20240229-v1:0",
+            ChatBedrock(
+                model_id="anthropic.claude-3-sonnet-20240229-v1:0",
                 region_name="us-east-1",
                 client=MagicMock(),
             ),

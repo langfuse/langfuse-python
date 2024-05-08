@@ -31,6 +31,7 @@ def _extract_model_name(
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
         ("BedrockChat", ["kwargs", "model_id"], "serialized"),
         ("Bedrock", ["kwargs", "model_id"], "serialized"),
+        ("ChatBedrock", ["kwargs", "model_id"], "serialized"),
         ("LlamaCpp", ["invocation_params", "model_path"], "kwargs"),
     ]
 
