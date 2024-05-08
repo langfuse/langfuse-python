@@ -5,7 +5,7 @@ import typing
 import uuid
 import httpx
 from enum import Enum
-from typing import Any, Optional, Literal, Union, List, overload
+from typing import Any, Dict, Optional, Literal, Union, List, overload
 import urllib.parse
 
 
@@ -2339,6 +2339,8 @@ class DatasetItemClient:
         ```
     """
 
+    log = logging.getLogger("langfuse")
+
     id: str
     status: DatasetStatus
     input: typing.Any
@@ -2402,8 +2404,6 @@ class DatasetItemClient:
         parsed_trace_id: str = None
         parsed_observation_id: str = None
 
-        log = logging.getLogger("langfuse")
-
         if isinstance(trace_or_observation, StatefulClient):
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
@@ -2431,7 +2431,7 @@ class DatasetItemClient:
                 "trace_or_observation (arg) or trace_id (kwarg) must be provided to link the dataset item"
             )
 
-        log.debug(
+        self.log.debug(
             f"Creating dataset run item: {run_name} {self.id} {parsed_trace_id} {parsed_observation_id}"
         )
         self.langfuse.client.dataset_run_items.create(
@@ -2445,14 +2445,22 @@ class DatasetItemClient:
             )
         )
 
-    def get_langchain_handler(self, *, run_name: str):
+    def get_langchain_handler(
+        self,
+        *,
+        run_name: str,
+        run_description: Optional[str] = None,
+        run_metadata: Optional[Any] = None,
+    ):
         """Create and get a langchain callback handler linked to this dataset item.
 
         Args:
             run_name (str): The name of the dataset run to be used in the callback handler.
+            run_description (Optional[str]): Description of the dataset run.
+            run_metadata (Optional[Any]): Additional metadata to include in dataset run.
 
         Returns:
-            CallbackHandler: An instance of CallbackHandler linked to the created span.
+            CallbackHandler: An instance of CallbackHandler linked to the dataset item.
         """
         metadata = {
             "dataset_item_id": self.id,
@@ -2461,9 +2469,53 @@ class DatasetItemClient:
         }
         trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
 
-        self.link(trace, run_name)
+        self.link(
+            trace, run_name, run_metadata=run_metadata, run_description=run_description
+        )
 
         return trace.get_langchain_handler(update_parent=True)
+
+    def get_llama_index_handler(
+        self,
+        *,
+        run_name: str,
+        run_description: Optional[str] = None,
+        run_metadata: Optional[Any] = None,
+        llama_index_integration_constructor_kwargs: Optional[Dict[str, Any]] = {},
+    ):
+        """Create and get a llama-index callback handler linked to this dataset item.
+
+        Args:
+            run_name (str): The name of the dataset run to be used in the callback handler.
+            run_description (Optional[str]): Description of the dataset run.
+            run_metadata (Optional[Any]): Additional metadata to include in dataset run.
+            llama_index_integration_constructor_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments to pass to the LlamaIndex integration constructor.
+
+        Returns:
+            LlamaIndexCallbackHandler: An instance of LlamaIndexCallbackHandler linked to the dataset item.
+        """
+        metadata = {
+            "dataset_item_id": self.id,
+            "run_name": run_name,
+            "dataset_id": self.dataset_id,
+        }
+        trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
+
+        self.link(
+            trace, run_name, run_metadata=run_metadata, run_description=run_description
+        )
+
+        try:
+            from langfuse.llama_index.llama_index import LlamaIndexCallbackHandler
+
+            callback_handler = LlamaIndexCallbackHandler(
+                **llama_index_integration_constructor_kwargs,
+            )
+            callback_handler.set_root(trace, update_root=True)
+
+            return callback_handler
+        except Exception as e:
+            self.log.exception(e)
 
 
 class DatasetClient:
