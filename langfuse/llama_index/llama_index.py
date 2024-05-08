@@ -3,6 +3,7 @@ from contextvars import ContextVar
 from typing import Any, Dict, List, Optional, Union, Tuple, Callable, Generator
 from uuid import uuid4
 import logging
+import httpx
 
 from langfuse.client import (
     StatefulSpanClient,
@@ -81,6 +82,8 @@ class LlamaIndexCallbackHandler(
         event_starts_to_ignore: Optional[List[CBEventType]] = None,
         event_ends_to_ignore: Optional[List[CBEventType]] = None,
         tokenizer: Optional[Callable[[str], list]] = None,
+        enabled: Optional[bool] = None,
+        httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
     ) -> None:
         LlamaIndexBaseCallbackHandler.__init__(
@@ -106,6 +109,8 @@ class LlamaIndexCallbackHandler(
             flush_interval=flush_interval,
             max_retries=max_retries,
             timeout=timeout,
+            enabled=enabled,
+            httpx_client=httpx_client,
             sdk_integration=sdk_integration or "llama-index_callback",
         )
 

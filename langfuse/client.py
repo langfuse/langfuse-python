@@ -106,6 +106,7 @@ class Langfuse(object):
         timeout: int = 20,  # seconds
         sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
+        enabled: Optional[bool] = True,
     ):
         """Initialize the Langfuse client.
 
@@ -122,6 +123,7 @@ class Langfuse(object):
             timeout: Timeout of API requests in seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
+            enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -140,6 +142,11 @@ class Langfuse(object):
             langfuse = Langfuse()
             ```
         """
+        if not enabled:
+            self.log.warning(
+                "Langfuse client is disabled. No observability data will be sent."
+            )
+
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
         if set_debug is True:
@@ -205,6 +212,7 @@ class Langfuse(object):
             "sdk_name": "python",
             "sdk_version": version,
             "sdk_integration": sdk_integration,
+            "enabled": enabled,
         }
 
         self.task_manager = TaskManager(**args)

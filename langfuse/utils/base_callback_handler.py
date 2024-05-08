@@ -1,4 +1,5 @@
 from typing import Optional, Union, List, Any
+import httpx
 import logging
 import os
 
@@ -31,6 +32,8 @@ class LangfuseBaseCallbackHandler:
         flush_interval: Optional[int] = None,
         max_retries: Optional[int] = None,
         timeout: Optional[int] = None,
+        enabled: Optional[bool] = None,
+        httpx_client: Optional[httpx.Client] = None,
         sdk_integration: str,
     ) -> None:
         self.version = version
@@ -86,6 +89,10 @@ class LangfuseBaseCallbackHandler:
                 args["max_retries"] = max_retries
             if timeout is not None:
                 args["timeout"] = timeout
+            if enabled is not None:
+                args["enabled"] = enabled
+            if httpx_client is not None:
+                args["httpx_client"] = httpx_client
 
             args["sdk_integration"] = sdk_integration
 

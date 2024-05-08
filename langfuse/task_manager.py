@@ -190,6 +190,7 @@ class Consumer(threading.Thread):
 class TaskManager(object):
     _log = logging.getLogger("langfuse")
     _consumers: List[Consumer]
+    _enabled: bool
     _threads: int
     _max_task_queue_size: int
     _queue: Queue
@@ -213,6 +214,7 @@ class TaskManager(object):
         sdk_name: str,
         sdk_version: str,
         sdk_integration: str,
+        enabled: bool = True,
         max_task_queue_size: int = 100_000,
     ):
         self._max_task_queue_size = max_task_queue_size
@@ -227,6 +229,7 @@ class TaskManager(object):
         self._sdk_name = sdk_name
         self._sdk_version = sdk_version
         self._sdk_integration = sdk_integration
+        self._enabled = enabled
 
         self.init_resources()
 
@@ -251,6 +254,9 @@ class TaskManager(object):
             self._consumers.append(consumer)
 
     def add_task(self, event: dict):
+        if not self._enabled:
+            return
+
         try:
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = datetime.utcnow().replace(tzinfo=timezone.utc)
