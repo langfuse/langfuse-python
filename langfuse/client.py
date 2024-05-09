@@ -142,8 +142,8 @@ class Langfuse(object):
             langfuse = Langfuse()
             ```
         """
-        if not enabled:
-            self.enabled = False
+        self.enabled = enabled
+        if not self.enabled:
             self.log.warning(
                 "Langfuse client is disabled. No observability data will be sent."
             )
