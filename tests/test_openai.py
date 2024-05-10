@@ -1068,3 +1068,26 @@ def test_openai_with_existing_trace_id():
     trace = api.trace.get(generation.data[0].trace_id)
     assert trace.output == "This is a standard output"
     assert trace.input == "My custom input"
+
+
+def test_disabled_langfuse():
+    openai.langfuse_enabled = False
+
+    api = get_api()
+    generation_name = create_uuid()
+    chat_func(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generations = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generations.data) == 0
+
+    # Reset state
+    openai.langfuse_enabled = True
