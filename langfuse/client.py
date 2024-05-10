@@ -154,13 +154,13 @@ class Langfuse(object):
         elif not public_key:
             self.enabled = False
             self.log.warning(
-                "Langfuse client is disabled since no public_key was provided as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'."
+                "Langfuse client is disabled since no public_key was provided as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'. See our docs: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
             )
 
         elif not secret_key:
             self.enabled = False
             self.log.warning(
-                "Langfuse client is disabled since no secret_key was provided as a parameter or environment variable 'LANGFUSE_SECRET_KEY'."
+                "Langfuse client is disabled since no secret_key was provided as a parameter or environment variable 'LANGFUSE_SECRET_KEY'. See our docs: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
             )
 
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
