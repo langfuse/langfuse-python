@@ -58,6 +58,8 @@ class LangfuseBaseCallbackHandler:
             self.trace = stateful_client
             self._task_manager = stateful_client.task_manager
 
+            return
+
         elif stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.root_span = stateful_client
             self.trace = StatefulTraceClient(
@@ -68,6 +70,8 @@ class LangfuseBaseCallbackHandler:
                 stateful_client.task_manager,
             )
             self._task_manager = stateful_client.task_manager
+
+            return
 
         args = {
             "public_key": prio_public_key,

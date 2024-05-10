@@ -1071,11 +1071,17 @@ def test_openai_with_existing_trace_id():
 
 
 def test_disabled_langfuse():
+    # Reimport to reset the state
+    from langfuse.openai import openai
+    from langfuse.utils.langfuse_singleton import LangfuseSingleton
+
+    LangfuseSingleton().reset()
+
     openai.langfuse_enabled = False
 
     api = get_api()
     generation_name = create_uuid()
-    chat_func(
+    openai.chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -1089,5 +1095,5 @@ def test_disabled_langfuse():
 
     assert len(generations.data) == 0
 
-    # Reset state
-    openai.langfuse_enabled = True
+    # Reimport to reset the state
+    from langfuse.openai import openai
