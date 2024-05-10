@@ -1714,6 +1714,35 @@ def test_get_langchain_chat_prompt():
             )
 
 
+def test_disabled_langfuse():
+    api = get_api()
+
+    run_name_override = "This is a custom Run Name"
+    handler = CallbackHandler(enabled=False, debug=False)
+
+    prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
+    model = ChatOpenAI(temperature=0)
+
+    chain = prompt | model
+
+    chain.invoke(
+        {"topic": "ice cream"},
+        config={
+            "callbacks": [handler],
+            "run_name": run_name_override,
+        },
+    )
+
+    assert handler.langfuse.task_manager._queue.empty()
+
+    handler.flush()
+
+    trace_id = handler.get_trace_id()
+
+    with pytest.raises(Exception):
+        api.trace.get(trace_id)
+
+
 # def test_langchain_anthropic_package():
 #     langfuse_handler = CallbackHandler(debug=False)
 #     from langchain_anthropic import ChatAnthropic

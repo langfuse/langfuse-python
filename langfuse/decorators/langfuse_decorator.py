@@ -3,6 +3,7 @@ from collections import defaultdict
 from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
+import httpx
 import inspect
 import json
 import logging
@@ -898,6 +899,58 @@ class LangfuseDecorator:
             langfuse.flush()
         else:
             self._log.warn("No langfuse object found in the current context")
+
+    def configure(
+        self,
+        *,
+        public_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
+        host: Optional[str] = None,
+        release: Optional[str] = None,
+        debug: Optional[bool] = None,
+        threads: Optional[int] = None,
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[int] = None,
+        max_retries: Optional[int] = None,
+        timeout: Optional[int] = None,
+        httpx_client: Optional[httpx.Client] = None,
+        enabled: Optional[bool] = None,
+    ):
+        """Configure the Langfuse client.
+
+        If called, this method must be called before any other langfuse_context or observe decorated function to configure the Langfuse client with the necessary credentials and settings.
+
+        Args:
+            public_key: Public API key of Langfuse project. Can be set via `LANGFUSE_PUBLIC_KEY` environment variable.
+            secret_key: Secret API key of Langfuse project. Can be set via `LANGFUSE_SECRET_KEY` environment variable.
+            host: Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable. Defaults to `https://cloud.langfuse.com`.
+            release: Release number/hash of the application to provide analytics grouped by release. Can be set via `LANGFUSE_RELEASE` environment variable.
+            debug: Enables debug mode for more verbose logging. Can be set via `LANGFUSE_DEBUG` environment variable.
+            threads: Number of consumer threads to execute network requests. Helps scaling the SDK for high load. Only increase this if you run into scaling issues.
+            flush_at: Max batch size that's sent to the API.
+            flush_interval: Max delay until a new batch is sent to the API.
+            max_retries: Max number of retries in case of API/network errors.
+            timeout: Timeout of API requests in seconds. Default is 20 seconds.
+            httpx_client: Pass your own httpx client for more customizability of requests.
+            enabled: Enables or disables the Langfuse client. Defaults to True. If disabled, no observability data will be sent to Langfuse. If data is requested while disabled, an error will be raised.
+        """
+        langfuse_singleton = LangfuseSingleton()
+        langfuse_singleton.reset()
+
+        langfuse_singleton.get(
+            public_key=public_key,
+            secret_key=secret_key,
+            host=host,
+            release=release,
+            debug=debug,
+            threads=threads,
+            flush_at=flush_at,
+            flush_interval=flush_interval,
+            max_retries=max_retries,
+            timeout=timeout,
+            httpx_client=httpx_client,
+            enabled=enabled,
+        )
 
     def _get_langfuse(self) -> Langfuse:
         return LangfuseSingleton().get()

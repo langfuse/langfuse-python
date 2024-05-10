@@ -1,4 +1,5 @@
 import importlib
+import logging
 import os
 
 import httpx
@@ -50,7 +51,7 @@ def test_langfuse_release():
 
 
 # langfuse sdk
-def test_setup_without_any_keys():
+def test_setup_without_any_keys(caplog):
     public_key, secret_key, host = (
         os.environ["LANGFUSE_PUBLIC_KEY"],
         os.environ["LANGFUSE_SECRET_KEY"],
@@ -59,27 +60,34 @@ def test_setup_without_any_keys():
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
     os.environ.pop("LANGFUSE_SECRET_KEY")
     os.environ.pop("LANGFUSE_HOST")
-    with pytest.raises(ValueError):
+
+    with caplog.at_level(logging.WARNING):
         Langfuse()
+
+    assert "Langfuse client is disabled" in caplog.text
 
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
     os.environ["LANGFUSE_HOST"] = host
 
 
-def test_setup_without_pk():
+def test_setup_without_pk(caplog):
     public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    with pytest.raises(ValueError):
+    with caplog.at_level(logging.WARNING):
         Langfuse()
+
+    assert "Langfuse client is disabled" in caplog.text
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
 
 
-def test_setup_without_sk():
+def test_setup_without_sk(caplog):
     secret_key = os.environ["LANGFUSE_SECRET_KEY"]
     os.environ.pop("LANGFUSE_SECRET_KEY")
-    with pytest.raises(ValueError):
+    with caplog.at_level(logging.WARNING):
         Langfuse()
+
+    assert "Langfuse client is disabled" in caplog.text
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
 
 
@@ -151,13 +159,16 @@ def test_sdk_custom_xhttp_client():
 
 
 # callback
-def test_callback_setup_without_keys():
+def test_callback_setup_without_keys(caplog):
     public_key, secret_key, host = get_env_variables()
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
     os.environ.pop("LANGFUSE_SECRET_KEY")
     os.environ.pop("LANGFUSE_HOST")
-    with pytest.raises(ValueError):
+
+    with caplog.at_level(logging.WARNING):
         CallbackHandler()
+
+    assert "Langfuse client is disabled" in caplog.text
 
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
@@ -186,19 +197,27 @@ def test_callback_setup():
     assert callback_handler.langfuse.client._client_wrapper._password == secret_key
 
 
-def test_callback_setup_without_pk():
+def test_callback_setup_without_pk(caplog):
     public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
     os.environ.pop("LANGFUSE_PUBLIC_KEY")
-    with pytest.raises(ValueError):
+
+    with caplog.at_level(logging.WARNING):
         CallbackHandler()
+
+    assert "Langfuse client is disabled" in caplog.text
+
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
 
 
-def test_callback_setup_without_sk():
+def test_callback_setup_without_sk(caplog):
     secret_key = os.environ["LANGFUSE_SECRET_KEY"]
     os.environ.pop("LANGFUSE_SECRET_KEY")
-    with pytest.raises(ValueError):
+
+    with caplog.at_level(logging.WARNING):
         CallbackHandler()
+
+    assert "Langfuse client is disabled" in caplog.text
+
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
 
 

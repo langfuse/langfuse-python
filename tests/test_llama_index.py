@@ -1,3 +1,4 @@
+import pytest
 from llama_index.core import (
     Settings,
     PromptTemplate,
@@ -528,3 +529,20 @@ def test_callback_with_custom_trace_metadata():
     assert trace_data.user_id == updated_user_id
     assert trace_data.session_id == updated_session_id
     assert trace_data.tags == updated_tags
+
+
+def test_disabled_langfuse():
+    callback = LlamaIndexCallbackHandler(enabled=False)
+    get_llama_index_index(callback, force_rebuild=True)
+
+    assert callback.trace is not None
+
+    trace_id = callback.trace.id
+    assert trace_id is not None
+
+    assert callback.langfuse.task_manager._queue.empty()
+
+    callback.flush()
+
+    with pytest.raises(Exception):
+        get_api().trace.get(trace_id)
