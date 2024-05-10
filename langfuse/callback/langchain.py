@@ -1,3 +1,4 @@
+import httpx
 import logging
 import typing
 
@@ -74,6 +75,8 @@ class LangchainCallbackHandler(
         flush_interval: Optional[int] = None,
         max_retries: Optional[int] = None,
         timeout: Optional[int] = None,
+        enabled: Optional[bool] = None,
+        httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
     ) -> None:
         LangfuseBaseCallbackHandler.__init__(
@@ -96,6 +99,8 @@ class LangchainCallbackHandler(
             flush_interval=flush_interval,
             max_retries=max_retries,
             timeout=timeout,
+            enabled=enabled,
+            httpx_client=httpx_client,
             sdk_integration=sdk_integration or "langchain",
         )
 
@@ -863,7 +868,7 @@ def _extract_raw_esponse(last_response):
     # We return the text of the response if not empty
     if last_response.text is not None and last_response.text.strip() != "":
         return last_response.text.strip()
-    elif hasattr(last_response, 'message'):
+    elif hasattr(last_response, "message"):
         # Additional kwargs contains the response in case of tool usage
         return last_response.message.additional_kwargs
     else:

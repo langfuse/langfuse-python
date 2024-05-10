@@ -70,6 +70,52 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
 
 
 @pytest.mark.timeout(10)
+def test_disabled_task_manager(httpserver: HTTPServer):
+    request_fired = False
+
+    def handler(request: Request):
+        nonlocal request_fired
+        request_fired = True
+        try:
+            if request.json["batch"][0]["foo"] == "bar":
+                return Response(status=200)
+            return Response(status=500)
+        except Exception as e:
+            print(e)
+            logging.error(e)
+
+    httpserver.expect_request(
+        "/api/public/ingestion", method="POST"
+    ).respond_with_handler(handler)
+
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
+
+    tm = TaskManager(
+        langfuse_client,
+        10,
+        0.1,
+        3,
+        1,
+        10_000,
+        "test-sdk",
+        "1.0.0",
+        "default",
+        enabled=False,
+    )
+
+    tm.add_task({"foo": "bar"})
+    tm.add_task({"foo": "bar"})
+    tm.add_task({"foo": "bar"})
+
+    assert tm._queue.empty()
+
+    tm.flush()
+    assert not request_fired
+
+
+@pytest.mark.timeout(10)
 def test_task_manager_fail(httpserver: HTTPServer):
     count = 0
 

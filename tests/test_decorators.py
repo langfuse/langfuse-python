@@ -727,9 +727,11 @@ def test_decorated_class_and_instance_methods():
     assert len(adjacencies) == 2  # Only trace and one observation have children
 
     level_2_observation = adjacencies[mock_trace_id][0]
-    level_3_observation = adjacencies[level_2_observation.id][1]
     class_method_observation = [
         o for o in adjacencies[level_2_observation.id] if o.name == "class_method"
+    ][0]
+    level_3_observation = [
+        o for o in adjacencies[level_2_observation.id] if o.name != "class_method"
     ][0]
 
     assert class_method_observation.input == {"args": [], "kwargs": {}}

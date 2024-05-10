@@ -1,4 +1,5 @@
 from typing import Optional, Union, List, Any
+import httpx
 import logging
 import os
 
@@ -31,6 +32,8 @@ class LangfuseBaseCallbackHandler:
         flush_interval: Optional[int] = None,
         max_retries: Optional[int] = None,
         timeout: Optional[int] = None,
+        enabled: Optional[bool] = None,
+        httpx_client: Optional[httpx.Client] = None,
         sdk_integration: str,
     ) -> None:
         self.version = version
@@ -55,6 +58,8 @@ class LangfuseBaseCallbackHandler:
             self.trace = stateful_client
             self._task_manager = stateful_client.task_manager
 
+            return
+
         elif stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.root_span = stateful_client
             self.trace = StatefulTraceClient(
@@ -66,40 +71,37 @@ class LangfuseBaseCallbackHandler:
             )
             self._task_manager = stateful_client.task_manager
 
-        elif prio_public_key and prio_secret_key:
-            args = {
-                "public_key": prio_public_key,
-                "secret_key": prio_secret_key,
-                "host": prio_host,
-                "debug": debug,
-            }
+            return
 
-            if release is not None:
-                args["release"] = release
-            if threads is not None:
-                args["threads"] = threads
-            if flush_at is not None:
-                args["flush_at"] = flush_at
-            if flush_interval is not None:
-                args["flush_interval"] = flush_interval
-            if max_retries is not None:
-                args["max_retries"] = max_retries
-            if timeout is not None:
-                args["timeout"] = timeout
+        args = {
+            "public_key": prio_public_key,
+            "secret_key": prio_secret_key,
+            "host": prio_host,
+            "debug": debug,
+        }
 
-            args["sdk_integration"] = sdk_integration
+        if release is not None:
+            args["release"] = release
+        if threads is not None:
+            args["threads"] = threads
+        if flush_at is not None:
+            args["flush_at"] = flush_at
+        if flush_interval is not None:
+            args["flush_interval"] = flush_interval
+        if max_retries is not None:
+            args["max_retries"] = max_retries
+        if timeout is not None:
+            args["timeout"] = timeout
+        if enabled is not None:
+            args["enabled"] = enabled
+        if httpx_client is not None:
+            args["httpx_client"] = httpx_client
 
-            self.langfuse = Langfuse(**args)
-            self.trace: Optional[StatefulTraceClient] = None
-            self._task_manager = self.langfuse.task_manager
+        args["sdk_integration"] = sdk_integration
 
-        else:
-            self.log.error(
-                "Either provide a stateful langfuse object or both public_key and secret_key."
-            )
-            raise ValueError(
-                "Either provide a stateful langfuse object or both public_key and secret_key."
-            )
+        self.langfuse = Langfuse(**args)
+        self.trace: Optional[StatefulTraceClient] = None
+        self._task_manager = self.langfuse.task_manager
 
     def get_trace_id(self):
         """This method is deprecated and will be removed in a future version as it is not concurrency-safe.

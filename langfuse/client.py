@@ -106,6 +106,7 @@ class Langfuse(object):
         timeout: int = 20,  # seconds
         sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
+        enabled: Optional[bool] = True,
     ):
         """Initialize the Langfuse client.
 
@@ -122,6 +123,7 @@ class Langfuse(object):
             timeout: Timeout of API requests in seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
+            enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -140,6 +142,27 @@ class Langfuse(object):
             langfuse = Langfuse()
             ```
         """
+        self.enabled = enabled
+        public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
+        secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+
+        if not self.enabled:
+            self.log.warning(
+                "Langfuse client is disabled. No observability data will be sent."
+            )
+
+        elif not public_key:
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since no public_key was provided as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'. See our docs: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
+            )
+
+        elif not secret_key:
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since no secret_key was provided as a parameter or environment variable 'LANGFUSE_SECRET_KEY'. See our docs: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
+            )
+
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
 
         if set_debug is True:
@@ -154,25 +177,11 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         self.base_url = (
             host
             if host
             else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
         )
-
-        if not public_key:
-            self.log.warning("public_key is not set.")
-            raise ValueError(
-                "public_key is required, set as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'"
-            )
-
-        if not secret_key:
-            self.log.warning("secret_key is not set.")
-            raise ValueError(
-                "secret_key is required, set as parameter or environment variable 'LANGFUSE_SECRET_KEY'"
-            )
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
@@ -205,6 +214,7 @@ class Langfuse(object):
             "sdk_name": "python",
             "sdk_version": version,
             "sdk_integration": sdk_integration,
+            "enabled": self.enabled,
         }
 
         self.task_manager = TaskManager(**args)
