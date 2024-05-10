@@ -143,9 +143,24 @@ class Langfuse(object):
             ```
         """
         self.enabled = enabled
+        public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
+        secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+
         if not self.enabled:
             self.log.warning(
                 "Langfuse client is disabled. No observability data will be sent."
+            )
+
+        elif not public_key:
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since no public_key was provided as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'."
+            )
+
+        elif not secret_key:
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since no secret_key was provided as a parameter or environment variable 'LANGFUSE_SECRET_KEY'."
             )
 
         set_debug = debug if debug else (os.getenv("LANGFUSE_DEBUG", "False") == "True")
@@ -162,25 +177,11 @@ class Langfuse(object):
             self.log.setLevel(logging.WARNING)
             clean_logger()
 
-        public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         self.base_url = (
             host
             if host
             else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
         )
-
-        if not public_key:
-            self.enabled = False
-            self.log.warning(
-                "Langfuse client is disabled since no public_key was provided as a parameter or environment variable 'LANGFUSE_PUBLIC_KEY'."
-            )
-
-        if not secret_key:
-            self.enabled = False
-            self.log.warning(
-                "Langfuse client is disabled since no secret_key was provided as a parameter or environment variable 'LANGFUSE_SECRET_KEY'."
-            )
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
