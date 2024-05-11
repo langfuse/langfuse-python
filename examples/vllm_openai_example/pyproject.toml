@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "vllm-openai-example"
+version = "0.1.0"
+description = "This example explains how to basically integrate LangFuse inside vllm openai-compatible server"
+authors = ["dimaioksha <dmitrii.ioksha@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+vllm = "^0.4.0"
+langfuse = "^2.13.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
