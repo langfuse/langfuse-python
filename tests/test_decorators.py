@@ -1043,3 +1043,51 @@ def test_return_dict_for_output():
 
     trace_data = get_api().trace.get(mock_trace_id)
     assert trace_data.output == mock_output
+
+
+def test_manual_context_copy_in_threadpoolexecutor():
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from contextvars import copy_context
+
+    mock_trace_id = create_uuid()
+
+    @observe()
+    def execute_task(*args):
+        return args
+
+    task_args = [["a", "b"], ["c", "d"]]
+
+    @observe()
+    def execute_groups(task_args):
+        with ThreadPoolExecutor(3) as executor:
+            futures = []
+
+            for task_arg in task_args:
+                ctx = copy_context()
+
+                # Using a lambda to capture the current 'task_arg' and context 'ctx' to ensure each task uses its specific arguments and isolated context when executed.
+                task = lambda p=task_arg: ctx.run(execute_task, *p)  # noqa
+
+                futures.append(executor.submit(task))
+
+            # Ensure all futures complete
+            for future in as_completed(futures):
+                future.result()
+
+        return [f.result() for f in futures]
+
+    execute_groups(task_args, langfuse_observation_id=mock_trace_id)
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert len(trace_data.observations) == 2
+
+    for observation in trace_data.observations:
+        assert observation.input["args"] in [["a", "b"], ["c", "d"]]
+        assert observation.output in [["a", "b"], ["c", "d"]]
+
+        assert (
+            observation.parent_observation_id is None
+        )  # Ensure that the observations are not nested
