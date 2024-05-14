@@ -1643,6 +1643,24 @@ def test_openai_instruct_usage():
         assert observation.usage.total is not None
 
 
+def test_get_langchain_prompt_with_jinja2():
+    langfuse = Langfuse()
+
+    prompt = 'this is a {{ template }} template that should remain unchanged: {{ handle_text(payload["Name"], "Name is") }}'
+    langfuse.create_prompt(
+        name="test_jinja2",
+        prompt=prompt,
+        labels=["production"],
+    )
+
+    langfuse_prompt = langfuse.get_prompt("test_jinja2")
+
+    assert (
+        langfuse_prompt.get_langchain_prompt()
+        == 'this is a {template} template that should remain unchanged: {{ handle_text(payload["Name"], "Name is") }}'
+    )
+
+
 def test_get_langchain_prompt():
     langfuse = Langfuse()
 
@@ -1656,7 +1674,7 @@ def test_get_langchain_prompt():
                 "model": "gpt-3.5-turbo-1106",
                 "temperature": 0,
             },
-            is_active=True,
+            labels=["production"],
         )
 
         langfuse_prompt = langfuse.get_prompt(f"test_{i}")
@@ -1694,7 +1712,7 @@ def test_get_langchain_chat_prompt():
                 "model": "gpt-3.5-turbo-1106",
                 "temperature": 0,
             },
-            is_active=True,
+            labels=["production"],
         )
 
         langfuse_prompt = langfuse.get_prompt(f"test_chat_{i}", type="chat")
