@@ -40,7 +40,7 @@ class DatasetItemsClient:
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import CreateDatasetItemRequest
+        from finto import CreateDatasetItemRequest, DatasetItemStatus
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -60,6 +60,7 @@ class DatasetItemsClient:
                 source_trace_id="string",
                 source_observation_id="string",
                 id="string",
+                status=DatasetItemStatus.ACTIVE,
             ),
         )
         """
@@ -231,7 +232,7 @@ class AsyncDatasetItemsClient:
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import CreateDatasetItemRequest
+        from finto import CreateDatasetItemRequest, DatasetItemStatus
         from finto.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -251,6 +252,7 @@ class AsyncDatasetItemsClient:
                 source_trace_id="string",
                 source_observation_id="string",
                 id="string",
+                status=DatasetItemStatus.ACTIVE,
             ),
         )
         """
