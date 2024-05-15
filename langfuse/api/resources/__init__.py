@@ -43,7 +43,7 @@ from .commons import (
     UnauthorizedError,
     Usage,
 )
-from .dataset_items import CreateDatasetItemRequest, DatasetItemStatus
+from .dataset_items import CreateDatasetItemRequest
 from .dataset_run_items import CreateDatasetRunItemRequest
 from .datasets import CreateDatasetRequest, PaginatedDatasets
 from .health import HealthResponse, ServiceUnavailableError
@@ -137,7 +137,6 @@ __all__ = [
     "Dataset",
     "DatasetCore",
     "DatasetItem",
-    "DatasetItemStatus",
     "DatasetRun",
     "DatasetRunItem",
     "DatasetStatus",
