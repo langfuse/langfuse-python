@@ -86,12 +86,17 @@ def test_upsert_and_get_dataset_item():
 
     new_input = {"input": "Hello World 2"}
     langfuse.create_dataset_item(
-        dataset_name=name, input=new_input, id=item.id, expected_output=new_input
+        dataset_name=name,
+        input=new_input,
+        id=item.id,
+        expected_output=new_input,
+        status="ARCHIVED",
     )
     get_new_item = langfuse.get_dataset_item(item.id)
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
     assert get_new_item.expected_output == new_input
+    assert get_new_item.status == "ARCHIVED"
 
 
 def test_linking_observation():
