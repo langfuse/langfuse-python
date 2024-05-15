@@ -37,7 +37,7 @@ def test_create_dataset_item():
 
     input = {"input": "Hello World"}
     # 2
-    langfuse.create_dataset_item(dataset_name=name, input=input, status="ARCHIVED")
+    langfuse.create_dataset_item(dataset_name=name, input=input)
     # 1
     langfuse.create_dataset_item(
         dataset_name=name,
@@ -46,7 +46,6 @@ def test_create_dataset_item():
         metadata={"key": "value"},
         source_observation_id=generation.id,
         source_trace_id=generation.trace_id,
-        status="ACTIVE",  # verify that this is not rejected
     )
     # 0 - no data
     langfuse.create_dataset_item(
@@ -57,14 +56,12 @@ def test_create_dataset_item():
     assert len(dataset.items) == 3
     assert dataset.items[2].input == input
     assert dataset.items[2].expected_output is None
-    assert dataset.items[2].status == "ARCHIVED"
 
     assert dataset.items[1].input == input
     assert dataset.items[1].expected_output == "Output"
     assert dataset.items[1].metadata == {"key": "value"}
     assert dataset.items[1].source_observation_id == generation.id
     assert dataset.items[1].source_trace_id == generation.trace_id
-    assert dataset.items[1].status == "ACTIVE"
 
     assert dataset.items[0].input is None
     assert dataset.items[0].expected_output is None
@@ -89,12 +86,17 @@ def test_upsert_and_get_dataset_item():
 
     new_input = {"input": "Hello World 2"}
     langfuse.create_dataset_item(
-        dataset_name=name, input=new_input, id=item.id, expected_output=new_input
+        dataset_name=name,
+        input=new_input,
+        id=item.id,
+        expected_output=new_input,
+        status="ARCHIVED",
     )
     get_new_item = langfuse.get_dataset_item(item.id)
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
     assert get_new_item.expected_output == new_input
+    assert get_new_item.status == "ARCHIVED"
 
 
 def test_linking_observation():

@@ -397,6 +397,7 @@ class Langfuse(object):
                 metadata=metadata,
                 sourceTraceId=source_trace_id,
                 sourceObservationId=source_observation_id,
+                status=status,
                 id=id,
             )
             self.log.debug(f"Creating dataset item {body}")
