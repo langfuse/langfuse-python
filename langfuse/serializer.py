@@ -103,4 +103,4 @@ class EventSerializer(JSONEncoder):
         try:
             return super().encode(obj)
         except Exception:
-            return f"<not serializable object of type: {type(obj).__name__}>"
+            return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
