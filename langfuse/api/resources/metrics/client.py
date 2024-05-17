@@ -50,9 +50,9 @@ class MetricsClient:
 
             - tags: typing.Optional[typing.Union[str, typing.Sequence[str]]]. Optional filter for metrics where traces include all of these tags
 
-            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces on or after a certain timestamp
+            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces on or after a certain datetime (ISO 8601)
 
-            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces before a certain timestamp
+            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces before a certain datetime (ISO 8601)
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -185,9 +185,9 @@ class AsyncMetricsClient:
 
             - tags: typing.Optional[typing.Union[str, typing.Sequence[str]]]. Optional filter for metrics where traces include all of these tags
 
-            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces on or after a certain timestamp
+            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces on or after a certain datetime (ISO 8601)
 
-            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces before a certain timestamp
+            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces before a certain datetime (ISO 8601)
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---

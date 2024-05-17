@@ -140,7 +140,7 @@ class ObservationsClient:
 
             - parent_observation_id: typing.Optional[str].
 
-            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time greater than this timestamp.
+            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time greater than this datetime (ISO 8601).
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -360,7 +360,7 @@ class AsyncObservationsClient:
 
             - parent_observation_id: typing.Optional[str].
 
-            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time greater than this timestamp.
+            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time greater than this datetime (ISO 8601).
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
