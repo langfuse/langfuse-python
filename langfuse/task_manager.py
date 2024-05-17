@@ -140,6 +140,7 @@ class Consumer(threading.Thread):
 
             except Empty:
                 break
+        self._log.debug("~%d items in the Langfuse queue", self._queue.qsize())
 
         return items
 
