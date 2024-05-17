@@ -98,7 +98,7 @@ class Langfuse(object):
         secret_key: Optional[str] = None,
         host: Optional[str] = None,
         release: Optional[str] = None,
-        debug: Optional[bool] = None,
+        debug: bool = False,
         threads: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
