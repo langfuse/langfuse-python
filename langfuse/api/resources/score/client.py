@@ -159,7 +159,7 @@ class ScoreClient:
 
             - name: typing.Optional[str].
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this timestamp.
+            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this datetime (ISO 8601).
 
             - source: ScoreSource. Retrieve only scores from a specific source.
 
@@ -562,7 +562,7 @@ class AsyncScoreClient:
 
             - name: typing.Optional[str].
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this timestamp.
+            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this datetime (ISO 8601).
 
             - source: ScoreSource. Retrieve only scores from a specific source.
 

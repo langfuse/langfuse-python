@@ -80,7 +80,7 @@ class BasePromptClient(ABC):
 
     @staticmethod
     def _get_langchain_prompt_string(content: str):
-        return re.sub(r"\{\{(.*?)\}\}", r"{\g<1>}", content)
+        return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
 
     @staticmethod
     def _compile_template_string(content: str, data: Dict[str, Any] = {}) -> str:

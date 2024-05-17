@@ -130,7 +130,7 @@ class TraceClient:
 
             - name: typing.Optional[str].
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this timestamp.
+            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this datetime (ISO 8601).
 
             - order_by: typing.Optional[str]. Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
 
@@ -342,7 +342,7 @@ class AsyncTraceClient:
 
             - name: typing.Optional[str].
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this timestamp.
+            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this datetime (ISO 8601).
 
             - order_by: typing.Optional[str]. Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
 

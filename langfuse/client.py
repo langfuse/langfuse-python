@@ -362,6 +362,7 @@ class Langfuse(object):
         metadata: Optional[Any] = None,
         source_trace_id: Optional[str] = None,
         source_observation_id: Optional[str] = None,
+        status: Optional[DatasetStatus] = None,
         id: Optional[str] = None,
     ) -> DatasetItem:
         """Create a dataset item.
@@ -375,6 +376,7 @@ class Langfuse(object):
             metadata: Additional metadata. Defaults to None. Can contain any dict, list or scalar.
             source_trace_id: Id of the source trace. Defaults to None.
             source_observation_id: Id of the source observation. Defaults to None.
+            status: Status of the dataset item. Defaults to ACTIVE for newly created items.
             id: Id of the dataset item. Defaults to None.
 
         Returns:
@@ -403,6 +405,7 @@ class Langfuse(object):
                 metadata=metadata,
                 sourceTraceId=source_trace_id,
                 sourceObservationId=source_observation_id,
+                status=status,
                 id=id,
             )
             self.log.debug(f"Creating dataset item {body}")

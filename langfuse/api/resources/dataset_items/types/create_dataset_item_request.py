@@ -5,6 +5,7 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from ...commons.types.dataset_status import DatasetStatus
 
 
 class CreateDatasetItemRequest(pydantic_v1.BaseModel):
@@ -23,6 +24,11 @@ class CreateDatasetItemRequest(pydantic_v1.BaseModel):
     id: typing.Optional[str] = pydantic_v1.Field(default=None)
     """
     Dataset items are upserted on their id
+    """
+
+    status: typing.Optional[DatasetStatus] = pydantic_v1.Field(default=None)
+    """
+    Defaults to ACTIVE for newly created items
     """
 
     def json(self, **kwargs: typing.Any) -> str:
