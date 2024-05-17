@@ -140,6 +140,7 @@ class Consumer(threading.Thread):
 
             except Empty:
                 break
+        self._log.debug("there are still ~%d items in the queue", self._queue.qsize())
 
         return items
 

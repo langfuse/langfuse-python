@@ -133,7 +133,7 @@ def test_create_trace():
 
 
 def test_create_update_trace():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api = get_api()
     trace_name = create_uuid()
 
@@ -143,7 +143,13 @@ def test_create_update_trace():
         metadata={"key": "value"},
         public=True,
     )
-    trace.update(metadata={"key": "value2"}, public=False)
+
+    trace.update(metadata=[1, True], public=False, version="1000")
+    trace.update(
+        metadata="Mashallah",
+        public=False,
+        version="lol",
+    )
 
     langfuse.flush()
 
