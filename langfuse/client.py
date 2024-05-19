@@ -146,13 +146,15 @@ class Langfuse(object):
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
 
-        threads = threads or os.environ.get("LANGFUSE_THREADS") or 1
-        flush_at = flush_at or os.environ.get("LANGFUSE_FLUSH_AT") or 15
-        flush_interval = (
-            flush_interval or os.environ.get("LANGFUSE_FLUSH_INTERVAL") or 0.5
-        )
-        max_retries = max_retries or os.environ.get("LANGFUSE_MAX_RETRIES") or 3
-        timeout = timeout or os.environ.get("LANGFUSE_TIMEOUT") or 20
+        threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
+        flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT",  15))
+        flush_interval = flush_interval or float(os.environ.get(
+            "LANGFUSE_FLUSH_INTERVAL", 0.5
+        ))
+
+        max_retries = max_retries or int(os.environ.get("LANGFUSE_MAX_RETRIES", 3))
+        timeout = timeout or int(os.environ.get("LANGFUSE_TIMEOUT", 20))
+
 
         if not self.enabled:
             self.log.warning(
