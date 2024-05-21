@@ -5,6 +5,8 @@ import typing
 import uuid
 import httpx
 from enum import Enum
+import time
+import tracemalloc
 from typing import Any, Dict, Optional, Literal, Union, List, overload
 import urllib.parse
 
@@ -16,6 +18,7 @@ from langfuse.api.resources.ingestion.types.create_generation_body import (
 from langfuse.api.resources.ingestion.types.create_span_body import CreateSpanBody
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.ingestion.types.trace_body import TraceBody
+from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
@@ -147,14 +150,13 @@ class Langfuse(object):
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
 
         threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
-        flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT",  15))
-        flush_interval = flush_interval or float(os.environ.get(
-            "LANGFUSE_FLUSH_INTERVAL", 0.5
-        ))
+        flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT", 15))
+        flush_interval = flush_interval or float(
+            os.environ.get("LANGFUSE_FLUSH_INTERVAL", 0.5)
+        )
 
         max_retries = max_retries or int(os.environ.get("LANGFUSE_MAX_RETRIES", 3))
         timeout = timeout or int(os.environ.get("LANGFUSE_TIMEOUT", 20))
-
 
         if not self.enabled:
             self.log.warning(
@@ -841,9 +843,58 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
         finally:
+            self._log_memory_usage()
+
             return StatefulTraceClient(
                 self.client, new_id, StateType.TRACE, new_id, self.task_manager
             )
+
+    def _log_memory_usage(self):
+        try:
+            is_malloc_tracing_enabled = bool(int(os.getenv("PYTHONTRACEMALLOC", 0)))
+            report_interval = int(os.getenv("LANGFUSE_DEBUG_MEMORY_REPORT_INTERVAL", 0))
+            top_k_items = int(os.getenv("LANGFUSE_DEBUG_MEMORY_TOP_K", 10))
+
+            if (
+                not is_malloc_tracing_enabled
+                or report_interval <= 0
+                or round(time.monotonic()) % report_interval != 0
+            ):
+                return
+
+            snapshot = tracemalloc.take_snapshot().statistics("lineno")
+
+            total_memory_usage = sum([stat.size for stat in snapshot]) / 1024 / 1024
+            memory_usage_total_items = [f"{stat}" for stat in snapshot]
+            memory_usage_langfuse_items = [
+                stat for stat in memory_usage_total_items if "/langfuse/" in stat
+            ]
+
+            logged_memory_usage = {
+                "all_files": [f"{stat}" for stat in memory_usage_total_items][
+                    :top_k_items
+                ],
+                "langfuse_files": [f"{stat}" for stat in memory_usage_langfuse_items][
+                    :top_k_items
+                ],
+                "total_usage": f"{total_memory_usage:.2f} MB",
+                "langfuse_queue_length": self.task_manager._queue.qsize(),
+            }
+
+            self.log.debug("Memory usage: ", logged_memory_usage)
+
+            event = SdkLogBody(log=logged_memory_usage)
+            self.task_manager.add_task(
+                {
+                    "id": str(uuid.uuid4()),
+                    "type": "sdk-log",
+                    "timestamp": _get_timestamp(),
+                    "body": event.dict(),
+                }
+            )
+
+        except Exception as e:
+            self.log.exception(e)
 
     def score(
         self,
@@ -1027,6 +1078,8 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
         finally:
+            self._log_memory_usage()
+
             return StatefulSpanClient(
                 self.client,
                 new_span_id,
