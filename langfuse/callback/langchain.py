@@ -920,7 +920,7 @@ def _parse_usage(response: LLMResult):
     if hasattr(response, "generations"):
         for generation in response.generations:
             for generation_chunk in generation:
-                if "usage_metadata" in generation_chunk.generation_info:
+                if generation_chunk.generation_info and ("usage_metadata" in generation_chunk.generation_info):
                     llm_usage = _parse_usage_model(generation_chunk.generation_info["usage_metadata"])
                     break
 
