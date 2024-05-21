@@ -99,11 +99,11 @@ class Langfuse(object):
         host: Optional[str] = None,
         release: Optional[str] = None,
         debug: bool = False,
-        threads: int = 1,
-        flush_at: int = 15,
-        flush_interval: float = 0.5,
-        max_retries: int = 3,
-        timeout: int = 20,  # seconds
+        threads: Optional[int] = None,
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[float] = None,
+        max_retries: Optional[int] = None,
+        timeout: Optional[int] = None,  # seconds
         sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
@@ -145,6 +145,16 @@ class Langfuse(object):
         self.enabled = enabled
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+
+        threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
+        flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT",  15))
+        flush_interval = flush_interval or float(os.environ.get(
+            "LANGFUSE_FLUSH_INTERVAL", 0.5
+        ))
+
+        max_retries = max_retries or int(os.environ.get("LANGFUSE_MAX_RETRIES", 3))
+        timeout = timeout or int(os.environ.get("LANGFUSE_TIMEOUT", 20))
+
 
         if not self.enabled:
             self.log.warning(
