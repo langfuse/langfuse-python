@@ -892,6 +892,9 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # https://pypi.org/project/langchain-anthropic/
         ("input_tokens", "input"),
         ("output_tokens", "output"),
+        # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
+        ("prompt_token_count", "input"),
+        ("candidates_token_count", "output"),
     ]
 
     usage_model = usage.copy()  # Copy all existing key-value pairs
@@ -913,5 +916,12 @@ def _parse_usage(response: LLMResult):
             if key in response.llm_output and response.llm_output[key]:
                 llm_usage = _parse_usage_model(response.llm_output[key])
                 break
+                
+    if hasattr(response, "generations"):
+        for generation in response.generations:
+            for generation_chunk in generation:
+                if generation_chunk.generation_info and ("usage_metadata" in generation_chunk.generation_info):
+                    llm_usage = _parse_usage_model(generation_chunk.generation_info["usage_metadata"])
+                    break
 
     return llm_usage
