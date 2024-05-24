@@ -9,6 +9,7 @@ import time
 import tracemalloc
 from typing import Any, Dict, Optional, Literal, Union, List, overload
 import urllib.parse
+from ulid import ULID
 
 
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
@@ -60,6 +61,8 @@ from langfuse.types import SpanLevel
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
+
+ulid = ULID()
 
 
 class Langfuse(object):
@@ -831,7 +834,7 @@ class Langfuse(object):
 
             self.log.debug(f"Creating trace {new_body}")
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "trace-create",
                 "body": new_body.dict(exclude_none=True),
             }
@@ -886,7 +889,7 @@ class Langfuse(object):
             event = SdkLogBody(log=logged_memory_usage)
             self.task_manager.add_task(
                 {
-                    "id": str(uuid.uuid4()),
+                    "id": str(ulid.generate()),
                     "type": "sdk-log",
                     "timestamp": _get_timestamp(),
                     "body": event.dict(),
@@ -959,7 +962,7 @@ class Langfuse(object):
             new_body = ScoreBody(**new_dict)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "score-create",
                 "body": new_body.dict(exclude_none=True),
             }
@@ -1067,7 +1070,7 @@ class Langfuse(object):
             span_body = CreateSpanBody(**span_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "span-create",
                 "body": span_body.dict(exclude_none=True),
             }
@@ -1166,7 +1169,7 @@ class Langfuse(object):
             request = CreateEventBody(**event_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "event-create",
                 "body": request.dict(exclude_none=True),
             }
@@ -1291,7 +1294,7 @@ class Langfuse(object):
                 request = TraceBody(**trace)
 
                 event = {
-                    "id": str(uuid.uuid4()),
+                    "id": str(ulid.generate()),
                     "type": "trace-create",
                     "body": request.dict(exclude_none=True),
                 }
@@ -1304,7 +1307,7 @@ class Langfuse(object):
             request = CreateGenerationBody(**generation_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "generation-create",
                 "body": request.dict(exclude_none=True),
             }
@@ -1333,7 +1336,7 @@ class Langfuse(object):
         trace_body = TraceBody(**trace_dict)
 
         event = {
-            "id": str(uuid.uuid4()),
+            "id": str(ulid.generate()),
             "type": "trace-create",
             "body": trace_body.dict(exclude_none=True),
         }
@@ -1540,7 +1543,7 @@ class StatefulClient(object):
             new_body = CreateGenerationBody(**new_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "generation-create",
                 "body": new_body.dict(exclude_none=True, exclude_unset=False),
             }
@@ -1631,7 +1634,7 @@ class StatefulClient(object):
             event = CreateSpanBody(**new_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "span-create",
                 "body": event.dict(exclude_none=True),
             }
@@ -1707,7 +1710,7 @@ class StatefulClient(object):
             request = ScoreBody(**new_dict)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "score-create",
                 "body": request.dict(exclude_none=True),
             }
@@ -1792,7 +1795,7 @@ class StatefulClient(object):
             request = CreateEventBody(**new_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "event-create",
                 "body": request.dict(exclude_none=True),
             }
@@ -1923,7 +1926,7 @@ class StatefulGenerationClient(StatefulClient):
             request = UpdateGenerationBody(**generation_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "generation-update",
                 "body": request.dict(exclude_none=True, exclude_unset=False),
             }
@@ -2110,7 +2113,7 @@ class StatefulSpanClient(StatefulClient):
             request = UpdateSpanBody(**span_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "span-update",
                 "body": request.dict(exclude_none=True),
             }
@@ -2314,7 +2317,7 @@ class StatefulTraceClient(StatefulClient):
             request = TraceBody(**trace_body)
 
             event = {
-                "id": str(uuid.uuid4()),
+                "id": str(ulid.generate()),
                 "type": "trace-create",
                 "body": request.dict(exclude_none=True),
             }

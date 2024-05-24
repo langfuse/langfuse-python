@@ -17,6 +17,7 @@ langchain = { version = ">=0.0.309", optional = true }
 llama-index = {version = ">=0.10.12, <2.0.0", optional = true}
 packaging = "^23.2"
 idna = "^3.7"
+py-ulid = "^1.0.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"
