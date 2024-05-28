@@ -11,7 +11,7 @@ from .prompt_meta import PromptMeta
 
 class PromptMetaListResponse(pydantic_v1.BaseModel):
     data: typing.List[PromptMeta]
-    meta: MetaResponse
+    pagination: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
