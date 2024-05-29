@@ -13,6 +13,7 @@ class CreateChatPromptRequest(pydantic_v1.BaseModel):
     prompt: typing.List[ChatMessage]
     config: typing.Optional[typing.Any] = None
     labels: typing.Optional[typing.List[str]] = None
+    tags: typing.Optional[typing.List[str]] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
