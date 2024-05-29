@@ -672,6 +672,7 @@ class Langfuse(object):
         labels: List[str] = [],
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
+        tags: Optional[List[str]] = [],
     ) -> ChatPromptClient: ...
 
     @overload
@@ -684,6 +685,7 @@ class Langfuse(object):
         labels: List[str] = [],
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
+        tags: Optional[List[str]] = [],
     ) -> TextPromptClient: ...
 
     def create_prompt(
@@ -695,6 +697,7 @@ class Langfuse(object):
         labels: List[str] = [],
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
+        tags: Optional[List[str]] = [],
     ) -> PromptClient:
         """Create a new prompt in Langfuse.
 
@@ -705,6 +708,7 @@ class Langfuse(object):
             labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
+            tags: The tags to be associated with the prompt. Defaults to empty list.
 
         Returns:
             TextPromptClient: The prompt if type argument is 'text'.
@@ -732,6 +736,7 @@ class Langfuse(object):
                     labels=labels,
                     config=config or {},
                     type="chat",
+                    tags=tags,
                 )
                 server_prompt = self.client.prompts.create(request=request)
 
@@ -746,6 +751,7 @@ class Langfuse(object):
                 labels=labels,
                 config=config or {},
                 type="text",
+                tags=tags,
             )
 
             server_prompt = self.client.prompts.create(request=request)
