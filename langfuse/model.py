@@ -59,12 +59,14 @@ class BasePromptClient(ABC):
     version: int
     config: Dict[str, Any]
     labels: List[str]
+    tags: List[str]
 
     def __init__(self, prompt: Prompt):
         self.name = prompt.name
         self.version = prompt.version
         self.config = prompt.config
         self.labels = prompt.labels
+        self.tags = prompt.tags
 
     @abstractmethod
     def compile(self, **kwargs) -> Union[str, List[ChatMessage]]:
