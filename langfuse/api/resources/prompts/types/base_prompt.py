@@ -12,6 +12,7 @@ class BasePrompt(pydantic_v1.BaseModel):
     version: int
     config: typing.Any
     labels: typing.List[str]
+    tags: typing.List[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
