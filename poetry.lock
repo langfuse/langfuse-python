@@ -1930,18 +1930,18 @@ langchain-core = ">=0.1.43,<0.3"
 
 [[package]]
 name = "langchain-aws"
-version = "0.1.3"
+version = "0.1.6"
 description = "An integration package connecting AWS and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_aws-0.1.3-py3-none-any.whl", hash = "sha256:8a6ec77dee365160cdda9509f74b629489c8c79e700321260581347ffecab53a"},
-    {file = "langchain_aws-0.1.3.tar.gz", hash = "sha256:4a6ea820d0fa720907182267040d55683ca35ea4e41c61f9afea4c13f03b1148"},
+    {file = "langchain_aws-0.1.6-py3-none-any.whl", hash = "sha256:a747c282c2df29281918818238fea5f7e183cfa1b28add4a08d7f3f9a4438ca9"},
+    {file = "langchain_aws-0.1.6.tar.gz", hash = "sha256:d5ceb3db72aef98b2fb2336add7932f1ed045df8824fef24cd3613d93d8b4efb"},
 ]
 
 [package.dependencies]
 boto3 = ">=1.34.51,<1.35.0"
-langchain-core = ">=0.1.45,<0.2.0"
+langchain-core = ">=0.1.45,<0.3"
 numpy = ">=1,<2"
 
 [[package]]
@@ -1994,39 +1994,37 @@ extended-testing = ["jinja2 (>=3,<4)"]
 
 [[package]]
 name = "langchain-google-vertexai"
-version = "1.0.3"
+version = "1.0.4"
 description = "An integration package connecting Google VertexAI and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_google_vertexai-1.0.3-py3-none-any.whl", hash = "sha256:407caa2b10cd20d4748cebfc6e405d28d8ef4a0e4f21b01739eca4e24c4f04d2"},
-    {file = "langchain_google_vertexai-1.0.3.tar.gz", hash = "sha256:a3929bc07b971072e7cd21ffe28d843640faaf93763f473077d6786745cce247"},
+    {file = "langchain_google_vertexai-1.0.4-py3-none-any.whl", hash = "sha256:f9d217df2d5cfafb2e551ddd5f1c43611222f542ee0df0cc3b5faed82e657ee3"},
+    {file = "langchain_google_vertexai-1.0.4.tar.gz", hash = "sha256:bb2d2e93cc2896b9bdc96789c2df247f6392184dffc0c3dddc06889f2b530465"},
 ]
 
 [package.dependencies]
 google-cloud-aiplatform = ">=1.47.0,<2.0.0"
 google-cloud-storage = ">=2.14.0,<3.0.0"
-langchain-core = ">=0.1.42,<0.2.0"
-types-protobuf = ">=4.24.0.4,<5.0.0.0"
-types-requests = ">=2.31.0,<3.0.0"
+langchain-core = ">=0.1.42,<0.3"
 
 [package.extras]
 anthropic = ["anthropic[vertexai] (>=0.23.0,<1)"]
 
 [[package]]
 name = "langchain-groq"
-version = "0.1.3"
+version = "0.1.4"
 description = "An integration package connecting Groq and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_groq-0.1.3-py3-none-any.whl", hash = "sha256:1420c118507a85fbea560a67e3c881d880541a1e347d8c44da23dfd6bd14dcb9"},
-    {file = "langchain_groq-0.1.3.tar.gz", hash = "sha256:1fefb70b01f413b407709df97cd85a881a7bcce743b0ad9cc8514b27c15e5951"},
+    {file = "langchain_groq-0.1.4-py3-none-any.whl", hash = "sha256:83fa9252eb841dc29e7c0b77c5374fa26383b909c2e87eb54824ff0f9529f173"},
+    {file = "langchain_groq-0.1.4.tar.gz", hash = "sha256:eb7e517cfcb245b0b598f93c1e87cc15100e336eb0c1b930c43e7a19dbe131d6"},
 ]
 
 [package.dependencies]
 groq = ">=0.4.1,<1"
-langchain-core = ">=0.1.45,<0.2.0"
+langchain-core = ">=0.1.45,<0.3"
 
 [[package]]
 name = "langchain-mistralai"
@@ -2954,13 +2952,13 @@ sympy = "*"
 
 [[package]]
 name = "openai"
-version = "1.30.1"
+version = "1.30.3"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.7.1"
 files = [
-    {file = "openai-1.30.1-py3-none-any.whl", hash = "sha256:c9fb3c3545c118bbce8deb824397b9433a66d0d0ede6a96f7009c95b76de4a46"},
-    {file = "openai-1.30.1.tar.gz", hash = "sha256:4f85190e577cba0b066e1950b8eb9b11d25bc7ebcc43a86b326ce1bfa564ec74"},
+    {file = "openai-1.30.3-py3-none-any.whl", hash = "sha256:f88119c8a848998be533c71ab8aa832446fa72b7ddbc70917c3f5886dc132051"},
+    {file = "openai-1.30.3.tar.gz", hash = "sha256:8e1bcdca2b96fe3636ab522fa153d88efde1b702d12ec32f1c73e9553ff93f45"},
 ]
 
 [package.dependencies]
@@ -3804,13 +3802,13 @@ dev = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "pygments
 
 [[package]]
 name = "pytest-asyncio"
-version = "0.23.6"
+version = "0.23.7"
 description = "Pytest support for asyncio"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pytest-asyncio-0.23.6.tar.gz", hash = "sha256:ffe523a89c1c222598c76856e76852b787504ddb72dd5d9b6617ffa8aa2cde5f"},
-    {file = "pytest_asyncio-0.23.6-py3-none-any.whl", hash = "sha256:68516fdd1018ac57b846c9846b954f0393b26f094764a28c955eabb0536a4e8a"},
+    {file = "pytest_asyncio-0.23.7-py3-none-any.whl", hash = "sha256:009b48127fbe44518a547bddd25611551b0e43ccdbf1e67d12479f569832c20b"},
+    {file = "pytest_asyncio-0.23.7.tar.gz", hash = "sha256:5f5c72948f4c49e7db4f29f2521d4031f1c27f86e57b046126654083d4770268"},
 ]
 
 [package.dependencies]
@@ -4663,17 +4661,6 @@ shellingham = ">=1.3.0"
 typing-extensions = ">=3.7.4.3"
 
 [[package]]
-name = "types-protobuf"
-version = "4.25.0.20240417"
-description = "Typing stubs for protobuf"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-protobuf-4.25.0.20240417.tar.gz", hash = "sha256:c34eff17b9b3a0adb6830622f0f302484e4c089f533a46e3f147568313544352"},
-    {file = "types_protobuf-4.25.0.20240417-py3-none-any.whl", hash = "sha256:e9b613227c2127e3d4881d75d93c93b4d6fd97b5f6a099a0b654a05351c8685d"},
-]
-
-[[package]]
 name = "types-requests"
 version = "2.31.0.6"
 description = "Typing stubs for requests"
@@ -5292,4 +5279,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "369e60779eee90c54d924cef0a1627b2e1f9709217cfb395d61bb8c113e644c0"
+content-hash = "f18af8e768a15f0e6611c61432e91a833f4ac49c5922f232aa7dda62e4afc181"
