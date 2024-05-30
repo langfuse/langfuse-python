@@ -1930,18 +1930,18 @@ langchain-core = ">=0.1.43,<0.3"
 
 [[package]]
 name = "langchain-aws"
-version = "0.1.3"
+version = "0.1.6"
 description = "An integration package connecting AWS and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_aws-0.1.3-py3-none-any.whl", hash = "sha256:8a6ec77dee365160cdda9509f74b629489c8c79e700321260581347ffecab53a"},
-    {file = "langchain_aws-0.1.3.tar.gz", hash = "sha256:4a6ea820d0fa720907182267040d55683ca35ea4e41c61f9afea4c13f03b1148"},
+    {file = "langchain_aws-0.1.6-py3-none-any.whl", hash = "sha256:a747c282c2df29281918818238fea5f7e183cfa1b28add4a08d7f3f9a4438ca9"},
+    {file = "langchain_aws-0.1.6.tar.gz", hash = "sha256:d5ceb3db72aef98b2fb2336add7932f1ed045df8824fef24cd3613d93d8b4efb"},
 ]
 
 [package.dependencies]
 boto3 = ">=1.34.51,<1.35.0"
-langchain-core = ">=0.1.45,<0.2.0"
+langchain-core = ">=0.1.45,<0.3"
 numpy = ">=1,<2"
 
 [[package]]
