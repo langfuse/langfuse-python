@@ -138,21 +138,21 @@ def test_sdk_custom_configs():
     public_key, secret_key, host = get_env_variables()
 
     langfuse = Langfuse(
-        threads=100,
-        flush_at=100,
-        flush_interval=100,
-        max_retries=100,
-        timeout=100,
+        threads=3,
+        flush_at=3,
+        flush_interval=3,
+        max_retries=3,
+        timeout=3,
     )
 
     assert langfuse.client._client_wrapper._username == public_key
     assert langfuse.client._client_wrapper._password == secret_key
     assert langfuse.client._client_wrapper._base_url == host
-    assert langfuse.task_manager._threads == 100
-    assert langfuse.task_manager._flush_at == 100
-    assert langfuse.task_manager._flush_interval == 100
-    assert langfuse.task_manager._max_retries == 100
-    assert langfuse.task_manager._client._timeout == 100
+    assert langfuse.task_manager._threads == 3
+    assert langfuse.task_manager._flush_at == 3
+    assert langfuse.task_manager._flush_interval == 3
+    assert langfuse.task_manager._max_retries == 3
+    assert langfuse.task_manager._client._timeout == 3
 
 
 def test_sdk_custom_xhttp_client():
