@@ -304,52 +304,6 @@ def _get_langfuse_data_from_kwargs(
     }, is_nested_trace
 
 
-def _get_langfuse_data_from_sync_streaming_response(
-    resource: OpenAiDefinition,
-    response,
-    generation: StatefulGenerationClient,
-    langfuse: Langfuse,
-    is_nested_trace,
-):
-    responses = []
-    for i in response:
-        responses.append(i)
-        yield i
-
-    model, completion_start_time, completion = _extract_openai_response(
-        resource, responses
-    )
-
-    # Avoiding the trace-update if trace-id is provided by user.
-    if not is_nested_trace:
-        langfuse.trace(id=generation.trace_id, output=completion)
-
-    _create_langfuse_update(completion, generation, completion_start_time, model=model)
-
-
-async def _get_langfuse_data_from_async_streaming_response(
-    resource: OpenAiDefinition,
-    response,
-    generation: StatefulGenerationClient,
-    langfuse: Langfuse,
-    is_nested_trace,
-):
-    responses = []
-    async for i in response:
-        responses.append(i)
-        yield i
-
-    model, completion_start_time, completion = _extract_openai_response(
-        resource, responses
-    )
-
-    # Avoiding the trace-update if trace-id is provided by user.
-    if not is_nested_trace:
-        langfuse.trace(id=generation.trace_id, output=completion)
-
-    _create_langfuse_update(completion, generation, completion_start_time, model=model)
-
-
 def _create_langfuse_update(
     completion, generation: StatefulGenerationClient, completion_start_time, model=None
 ):
@@ -493,12 +447,12 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return _get_langfuse_data_from_sync_streaming_response(
-                open_ai_resource,
-                openai_response,
-                generation,
-                new_langfuse,
-                is_nested_trace,
+            return LangfuseResponseGeneratorSync(
+                resource=open_ai_resource,
+                response=openai_response,
+                generation=generation,
+                langfuse=new_langfuse,
+                is_nested_trace=is_nested_trace,
             )
 
         else:
@@ -544,12 +498,12 @@ async def _wrap_async(
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return _get_langfuse_data_from_async_streaming_response(
-                open_ai_resource,
-                openai_response,
-                generation,
-                new_langfuse,
-                is_nested_trace,
+            return LangfuseResponseGeneratorAsync(
+                resource=open_ai_resource,
+                response=openai_response,
+                generation=generation,
+                langfuse=new_langfuse,
+                is_nested_trace=is_nested_trace,
             )
 
         else:
@@ -648,3 +602,97 @@ def _filter_image_data(messages: List[dict]):
                         del content[index]["image_url"]
 
     return output_messages
+
+
+class LangfuseResponseGeneratorSync:
+    def __init__(
+        self,
+        *,
+        resource,
+        response,
+        generation,
+        langfuse,
+        is_nested_trace,
+    ):
+        self.items = []
+
+        self.resource = resource
+        self.response = response
+        self.generation = generation
+        self.langfuse = langfuse
+        self.is_nested_trace = is_nested_trace
+
+    def __iter__(self):
+        try:
+            for i in self.response:
+                self.items.append(i)
+
+                yield i
+        finally:
+            self._finalize()
+
+    def __enter__(self):
+        return self.__iter__()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def _finalize(self):
+        model, completion_start_time, completion = _extract_openai_response(
+            self.resource, self.items
+        )
+
+        # Avoiding the trace-update if trace-id is provided by user.
+        if not self.is_nested_trace:
+            self.langfuse.trace(id=self.generation.trace_id, output=completion)
+
+        _create_langfuse_update(
+            completion, self.generation, completion_start_time, model=model
+        )
+
+
+class LangfuseResponseGeneratorAsync:
+    def __init__(
+        self,
+        *,
+        resource,
+        response,
+        generation,
+        langfuse,
+        is_nested_trace,
+    ):
+        self.items = []
+
+        self.resource = resource
+        self.response = response
+        self.generation = generation
+        self.langfuse = langfuse
+        self.is_nested_trace = is_nested_trace
+
+    async def __aiter__(self):
+        try:
+            async for i in self.response:
+                self.items.append(i)
+
+                yield i
+        finally:
+            await self._finalize()
+
+    async def __aenter__(self):
+        return self.__aiter__()
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        pass
+
+    async def _finalize(self):
+        model, completion_start_time, completion = _extract_openai_response(
+            self.resource, self.items
+        )
+
+        # Avoiding the trace-update if trace-id is provided by user.
+        if not self.is_nested_trace:
+            self.langfuse.trace(id=self.generation.trace_id, output=completion)
+
+        _create_langfuse_update(
+            completion, self.generation, completion_start_time, model=model
+        )

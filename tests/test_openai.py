@@ -9,7 +9,6 @@ from langfuse.openai import (
     AsyncOpenAI,
     AzureOpenAI,
     _is_openai_v1,
-    _is_streaming_response,
     _filter_image_data,
     openai,
 )
@@ -83,10 +82,13 @@ def test_openai_chat_completion_stream():
         stream=True,
     )
 
-    assert _is_streaming_response(completion)
+    assert iter(completion)
+
     chat_content = ""
     for i in completion:
         chat_content += i.choices[0].delta.content or ""
+
+    assert len(chat_content) > 0
 
     openai.flush_langfuse()
 
@@ -433,12 +435,14 @@ def test_openai_completion_stream():
         stream=True,
     )
 
-    assert _is_streaming_response(completion)
+    assert iter(completion)
     content = ""
     for i in completion:
         content += i.choices[0].text
 
     openai.flush_langfuse()
+
+    assert len(content) > 0
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
 
@@ -1097,3 +1101,17 @@ def test_disabled_langfuse():
 
     # Reimport to reset the state
     from langfuse.openai import openai
+
+
+def test_langchain_integration():
+    from langchain_openai import ChatOpenAI
+
+    chat = ChatOpenAI(model="gpt-4o")
+
+    result = ""
+
+    for chunk in chat.stream("Hello, how are you?"):
+        result += chunk.content
+
+    print(result)
+    assert result != ""
