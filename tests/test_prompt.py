@@ -618,7 +618,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
     assert result_call_2 == version_changed_prompt_client
 
 def test_tags_feature():
-    langfuse = Langfuse(public_key="pk-lf-9adc70ff-a41f-4ab1-a43b-c634e5db3aa3", secret_key="sk-lf-d4bc10d9-bbce-4ba3-b559-e74f1547a8eb", host="http://localhost:3000")
+    langfuse = Langfuse()
     prompt_name = create_uuid()
     chat_prompt_name = create_uuid()
     tags = ["tag1", "tag2", "tag3"]
