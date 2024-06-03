@@ -218,7 +218,6 @@ def test_create_prompt_with_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=["tag1", "tag2"],
     )
 
@@ -232,7 +231,6 @@ def test_create_prompt_with_empty_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=[],
     )
 
@@ -246,7 +244,6 @@ def test_create_prompt_with_previous_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=["tag1", "tag2"],
     )
 
@@ -257,7 +254,6 @@ def test_create_prompt_with_previous_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
     )
 
     new_prompt = langfuse.get_prompt("test", version=2)
@@ -270,7 +266,6 @@ def test_remove_prompt_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=["tag1", "tag2"],
     )
 
@@ -281,7 +276,6 @@ def test_remove_prompt_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=[],
     )
 
@@ -295,7 +289,6 @@ def test_update_prompt_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=["tag1", "tag2"],
     )
 
@@ -306,7 +299,6 @@ def test_update_prompt_tags():
     langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
-        is_active=True,
         tags=["tag3", "tag4"],
     )
 
