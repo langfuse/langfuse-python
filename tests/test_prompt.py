@@ -214,97 +214,113 @@ def test_create_prompt_with_null_config():
 
 def test_create_prompt_with_tags():
     langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
 
-    prompt_client = langfuse.create_prompt(
-        name="test",
+    langfuse.create_prompt(
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=["tag1", "tag2"],
     )
 
-    second_prompt_client = langfuse.get_prompt("test")
+    prompt = langfuse.get_prompt(prompt_name, version=1)
 
-    assert prompt_client.tags == second_prompt_client.tags
+    assert prompt.tags == ["tag1", "tag2"]
+
 
 def test_create_prompt_with_empty_tags():
     langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
 
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=[],
     )
 
-    prompt = langfuse.get_prompt("test")
+    prompt = langfuse.get_prompt(prompt_name, version=1)
 
     assert prompt.tags == []
+
 
 def test_create_prompt_with_previous_tags():
     langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
 
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+    )
+
+    prompt = langfuse.get_prompt(prompt_name, version=1)
+
+    assert prompt.tags == []
+
+    langfuse.create_prompt(
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=["tag1", "tag2"],
     )
 
-    prompt = langfuse.get_prompt("test")
+    prompt_v2 = langfuse.get_prompt(prompt_name, version=2)
 
-    assert prompt.tags == ["tag1", "tag2"]
+    assert prompt_v2.tags == ["tag1", "tag2"]
 
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
     )
 
-    new_prompt = langfuse.get_prompt("test", version=2)
+    prompt_v3 = langfuse.get_prompt(prompt_name, version=3)
 
-    assert new_prompt.tags == ["tag1", "tag2"]
+    assert prompt_v3.tags == ["tag1", "tag2"]
+
 
 def test_remove_prompt_tags():
     langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
 
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=["tag1", "tag2"],
     )
 
-    prompt = langfuse.get_prompt("test")
-
-    assert prompt.tags == ["tag1", "tag2"]
-
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=[],
     )
 
-    prompt = langfuse.get_prompt("test", version=1)
+    prompt_v1 = langfuse.get_prompt(prompt_name, version=1)
+    prompt_v2 = langfuse.get_prompt(prompt_name, version=2)
 
-    assert prompt.tags == []
+    assert prompt_v1.tags == []
+    assert prompt_v2.tags == []
+
 
 def test_update_prompt_tags():
     langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
 
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=["tag1", "tag2"],
     )
 
-    prompt = langfuse.get_prompt("test")
+    prompt_v1 = langfuse.get_prompt(prompt_name, version=1)
 
-    assert prompt.tags == ["tag1", "tag2"]
+    assert prompt_v1.tags == ["tag1", "tag2"]
 
     langfuse.create_prompt(
-        name="test",
+        name=prompt_name,
         prompt="Hello, world! I hope you are great",
         tags=["tag3", "tag4"],
     )
 
-    prompt = langfuse.get_prompt("test", version=2)
+    prompt_v2 = langfuse.get_prompt(prompt_name, version=2)
 
-    assert prompt.tags == ["tag3", "tag4"]
+    assert prompt_v2.tags == ["tag3", "tag4"]
 
 
 def test_get_prompt_by_version_or_label():
