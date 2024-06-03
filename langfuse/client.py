@@ -670,6 +670,7 @@ class Langfuse(object):
         prompt: List[ChatMessageDict],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
+        tags: List[str] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
     ) -> ChatPromptClient: ...
@@ -682,6 +683,7 @@ class Langfuse(object):
         prompt: str,
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
+        tags: List[str] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
     ) -> TextPromptClient: ...
@@ -693,6 +695,7 @@ class Langfuse(object):
         prompt: Union[str, List[ChatMessageDict]],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
+        tags: List[str] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
     ) -> PromptClient:
@@ -703,6 +706,7 @@ class Langfuse(object):
             prompt : The content of the prompt to be created.
             is_active [DEPRECATED] : A flag indicating whether the prompt is active or not. This is deprecated and will be removed in a future release. Please use the 'production' label instead.
             labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
+            tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
 
@@ -730,6 +734,7 @@ class Langfuse(object):
                     name=name,
                     prompt=prompt,
                     labels=labels,
+                    tags=tags,
                     config=config or {},
                     type="chat",
                 )
@@ -744,6 +749,7 @@ class Langfuse(object):
                 name=name,
                 prompt=prompt,
                 labels=labels,
+                tags=tags,
                 config=config or {},
                 type="text",
             )

@@ -190,7 +190,7 @@ class ScoreClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
-            source=ScoreSource.API,
+            source=ScoreSource.ANNOTATION,
             operator="string",
             value=1.1,
         )
@@ -593,7 +593,7 @@ class AsyncScoreClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
-            source=ScoreSource.API,
+            source=ScoreSource.ANNOTATION,
             operator="string",
             value=1.1,
         )

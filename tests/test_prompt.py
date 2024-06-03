@@ -52,6 +52,7 @@ def test_create_prompt_with_special_chars_in_name():
         name=prompt_name,
         prompt="test prompt",
         labels=["production"],
+        tags=["test"],
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name)
@@ -59,6 +60,7 @@ def test_create_prompt_with_special_chars_in_name():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.tags == second_prompt_client.tags
     assert prompt_client.config == second_prompt_client.config
     assert prompt_client.config == {}
 
@@ -74,10 +76,11 @@ def test_create_chat_prompt():
             {"role": "user", "content": "test prompt 2 with {{occupation}}"},
         ],
         labels=["production"],
+        tags=["test"],
         type="chat",
     )
 
-    second_prompt_client = langfuse.get_prompt(prompt_name)
+    second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
 
     # Create a test generation
     completion = openai.chat.completions.create(
@@ -92,6 +95,7 @@ def test_create_chat_prompt():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
     assert prompt_client.labels == ["production", "latest"]
+    assert prompt_client.tags == second_prompt_client.tags
     assert prompt_client.config == {}
 
 
@@ -616,3 +620,91 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def test_tags_feature():
+    langfuse = Langfuse()
+    # Test creating a prompt without tags
+    prompt_name = create_uuid()
+    no_tags_prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt without tags",
+        labels=["production"],
+    )
+
+    v1_prompt = langfuse.get_prompt(prompt_name)
+    assert v1_prompt.tags == []
+
+    # Test updating a prompt to add tags
+    updated_prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt to update with tags",
+        labels=["production"],
+        tags=["new_tag1", "new_tag2"],
+    )
+
+    v2_prompt = langfuse.get_prompt(prompt_name)
+    assert v2_prompt.tags == ["new_tag1", "new_tag2"]
+    v1_prompt = langfuse.get_prompt(prompt_name, version=1)
+    assert v1_prompt.tags == ["new_tag1", "new_tag2"]
+
+    # Test update to add tags
+    updated_prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt to update with additional tags",
+        labels=["production"],
+        tags=["new_tag2", "new_tag3", "new_tag4"],
+    )
+    v3_prompt = langfuse.get_prompt(prompt_name)
+    assert v3_prompt.tags == [
+        "new_tag1",
+        "new_tag2",
+        "new_tag3",
+        "new_tag4",
+    ]
+    v2_prompt = langfuse.get_prompt(prompt_name, version=2)
+    assert v2_prompt.tags == [
+        "new_tag1",
+        "new_tag2",
+        "new_tag3",
+        "new_tag4",
+    ]
+    v1_prompt = langfuse.get_prompt(prompt_name, version=1)
+    assert v1_prompt.tags == [
+        "new_tag1",
+        "new_tag2",
+        "new_tag3",
+        "new_tag4",
+    ]
+
+    # create new version without tags
+    new_version_no_tags_prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt without tags",
+        labels=["production"],
+    )
+    v4_prompt = langfuse.get_prompt(prompt_name)
+    assert v4_prompt.tags == [
+        "new_tag1",
+        "new_tag2",
+        "new_tag3",
+        "new_tag4",
+    ]
+
+    # remove tags
+    updated_prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt to update with no tags",
+        labels=["production"],
+        tags=[],
+    )
+    v5_prompt = langfuse.get_prompt(prompt_name)
+    assert v5_prompt.tags == []
+    v4_prompt = langfuse.get_prompt(prompt_name, version=4)
+    assert v4_prompt.tags == []
+    v3_prompt = langfuse.get_prompt(prompt_name, version=3)
+    assert v3_prompt.tags == []
+    v2_prompt = langfuse.get_prompt(prompt_name, version=2)
+    assert v2_prompt.tags == []
+    v1_prompt = langfuse.get_prompt(prompt_name, version=1)
+    assert v1_prompt.tags == []
