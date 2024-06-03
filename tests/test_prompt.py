@@ -626,7 +626,7 @@ def test_tags_feature():
     langfuse = Langfuse()
     # Test creating a prompt without tags
     prompt_name = create_uuid()
-    no_tags_prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name,
         prompt="test prompt without tags",
         labels=["production"],
@@ -636,7 +636,7 @@ def test_tags_feature():
     assert v1_prompt.tags == []
 
     # Test updating a prompt to add tags
-    updated_prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name,
         prompt="test prompt to update with tags",
         labels=["production"],
@@ -649,7 +649,7 @@ def test_tags_feature():
     assert v1_prompt.tags == ["new_tag1", "new_tag2"]
 
     # Test update to add tags
-    updated_prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name,
         prompt="test prompt to update with additional tags",
         labels=["production"],
@@ -678,7 +678,7 @@ def test_tags_feature():
     ]
 
     # create new version without tags
-    new_version_no_tags_prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name,
         prompt="test prompt without tags",
         labels=["production"],
@@ -692,7 +692,7 @@ def test_tags_feature():
     ]
 
     # remove tags
-    updated_prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name,
         prompt="test prompt to update with no tags",
         labels=["production"],
