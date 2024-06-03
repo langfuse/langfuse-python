@@ -212,6 +212,108 @@ def test_create_prompt_with_null_config():
 
     assert prompt.config == {}
 
+def test_create_prompt_with_tags():
+    langfuse = Langfuse(debug=False)
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=["tag1", "tag2"],
+    )
+
+    prompt = langfuse.get_prompt("test")
+
+    assert prompt.tags == ["tag1", "tag2"]
+
+def test_create_prompt_with_empty_tags():
+    langfuse = Langfuse(debug=False)
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=[],
+    )
+
+    prompt = langfuse.get_prompt("test")
+
+    assert prompt.tags == []
+
+def test_create_prompt_with_previous_tags():
+    langfuse = Langfuse(debug=False)
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=["tag1", "tag2"],
+    )
+
+    prompt = langfuse.get_prompt("test")
+
+    assert prompt.tags == ["tag1", "tag2"]
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+    )
+
+    new_prompt = langfuse.get_prompt("test", version=2)
+
+    assert new_prompt.tags == ["tag1", "tag2"]
+
+def test_remove_prompt_tags():
+    langfuse = Langfuse(debug=False)
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=["tag1", "tag2"],
+    )
+
+    prompt = langfuse.get_prompt("test")
+
+    assert prompt.tags == ["tag1", "tag2"]
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=[],
+    )
+
+    prompt = langfuse.get_prompt("test", version=1)
+
+    assert prompt.tags == []
+
+def test_update_prompt_tags():
+    langfuse = Langfuse(debug=False)
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=["tag1", "tag2"],
+    )
+
+    prompt = langfuse.get_prompt("test")
+
+    assert prompt.tags == ["tag1", "tag2"]
+
+    langfuse.create_prompt(
+        name="test",
+        prompt="Hello, world! I hope you are great",
+        is_active=True,
+        tags=["tag3", "tag4"],
+    )
+
+    prompt = langfuse.get_prompt("test", version=2)
+
+    assert prompt.tags == ["tag3", "tag4"]
+
 
 def test_get_prompt_by_version_or_label():
     langfuse = Langfuse()
@@ -620,91 +722,3 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
-
-
-def test_tags_feature():
-    langfuse = Langfuse()
-    # Test creating a prompt without tags
-    prompt_name = create_uuid()
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt="test prompt without tags",
-        labels=["production"],
-    )
-
-    v1_prompt = langfuse.get_prompt(prompt_name)
-    assert v1_prompt.tags == []
-
-    # Test updating a prompt to add tags
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt="test prompt to update with tags",
-        labels=["production"],
-        tags=["new_tag1", "new_tag2"],
-    )
-
-    v2_prompt = langfuse.get_prompt(prompt_name)
-    assert v2_prompt.tags == ["new_tag1", "new_tag2"]
-    v1_prompt = langfuse.get_prompt(prompt_name, version=1)
-    assert v1_prompt.tags == ["new_tag1", "new_tag2"]
-
-    # Test update to add tags
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt="test prompt to update with additional tags",
-        labels=["production"],
-        tags=["new_tag2", "new_tag3", "new_tag4"],
-    )
-    v3_prompt = langfuse.get_prompt(prompt_name)
-    assert v3_prompt.tags == [
-        "new_tag1",
-        "new_tag2",
-        "new_tag3",
-        "new_tag4",
-    ]
-    v2_prompt = langfuse.get_prompt(prompt_name, version=2)
-    assert v2_prompt.tags == [
-        "new_tag1",
-        "new_tag2",
-        "new_tag3",
-        "new_tag4",
-    ]
-    v1_prompt = langfuse.get_prompt(prompt_name, version=1)
-    assert v1_prompt.tags == [
-        "new_tag1",
-        "new_tag2",
-        "new_tag3",
-        "new_tag4",
-    ]
-
-    # create new version without tags
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt="test prompt without tags",
-        labels=["production"],
-    )
-    v4_prompt = langfuse.get_prompt(prompt_name)
-    assert v4_prompt.tags == [
-        "new_tag1",
-        "new_tag2",
-        "new_tag3",
-        "new_tag4",
-    ]
-
-    # remove tags
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt="test prompt to update with no tags",
-        labels=["production"],
-        tags=[],
-    )
-    v5_prompt = langfuse.get_prompt(prompt_name)
-    assert v5_prompt.tags == []
-    v4_prompt = langfuse.get_prompt(prompt_name, version=4)
-    assert v4_prompt.tags == []
-    v3_prompt = langfuse.get_prompt(prompt_name, version=3)
-    assert v3_prompt.tags == []
-    v2_prompt = langfuse.get_prompt(prompt_name, version=2)
-    assert v2_prompt.tags == []
-    v1_prompt = langfuse.get_prompt(prompt_name, version=1)
-    assert v1_prompt.tags == []
