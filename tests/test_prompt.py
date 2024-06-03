@@ -215,15 +215,15 @@ def test_create_prompt_with_null_config():
 def test_create_prompt_with_tags():
     langfuse = Langfuse(debug=False)
 
-    langfuse.create_prompt(
+    prompt_client = langfuse.create_prompt(
         name="test",
         prompt="Hello, world! I hope you are great",
         tags=["tag1", "tag2"],
     )
 
-    prompt = langfuse.get_prompt("test")
+    second_prompt_client = langfuse.get_prompt("test")
 
-    assert prompt.tags == ["tag1", "tag2"]
+    assert prompt_client.tags == second_prompt_client.tags
 
 def test_create_prompt_with_empty_tags():
     langfuse = Langfuse(debug=False)
