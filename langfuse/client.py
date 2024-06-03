@@ -670,7 +670,7 @@ class Langfuse(object):
         prompt: List[ChatMessageDict],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
-        tags: List[str] = None,
+        tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
     ) -> ChatPromptClient: ...
@@ -683,7 +683,7 @@ class Langfuse(object):
         prompt: str,
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
-        tags: List[str] = None,
+        tags: Optional[List[str]] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
     ) -> TextPromptClient: ...
@@ -695,7 +695,7 @@ class Langfuse(object):
         prompt: Union[str, List[ChatMessageDict]],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
-        tags: List[str] = None,
+        tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
     ) -> PromptClient:
