@@ -1129,3 +1129,24 @@ def test_timezone_awareness_setting_timestamps():
         if observation.type != "EVENT":
             delta = utc_now - observation.end_time
             assert delta.seconds < 5
+
+def test_get_trace_by_session_id():
+    langfuse = Langfuse(debug=False)
+    api = get_api()
+
+    # Create a trace with a session_id
+    trace_name = create_uuid()
+    session_id = create_uuid()
+    trace = langfuse.trace(name=trace_name, session_id=session_id)
+
+    langfuse.flush()
+
+    # Retrieve the trace using the session_id
+    traces = api.trace.list(session_id=session_id)
+
+    # Verify that the trace was retrieved correctly
+    assert len(traces.data) == 1
+    retrieved_trace = traces.data[0]
+    assert retrieved_trace.name == trace_name
+    assert retrieved_trace.session_id == session_id
+    assert retrieved_trace.id == trace.id
