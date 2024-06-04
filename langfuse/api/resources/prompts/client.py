@@ -268,6 +268,7 @@ class PromptsClient:
                 prompt=[ChatMessage()],
                 config={"key": "value"},
                 labels=["string"],
+                tags=["string"],
             ),
         )
         """
@@ -585,6 +586,7 @@ class AsyncPromptsClient:
                 prompt=[ChatMessage()],
                 config={"key": "value"},
                 labels=["string"],
+                tags=["string"],
             ),
         )
         """

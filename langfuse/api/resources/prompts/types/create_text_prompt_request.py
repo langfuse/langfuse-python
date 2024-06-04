@@ -11,7 +11,15 @@ class CreateTextPromptRequest(pydantic_v1.BaseModel):
     name: str
     prompt: str
     config: typing.Optional[typing.Any] = None
-    labels: typing.Optional[typing.List[str]] = None
+    labels: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
+    """
+    List of deployment labels of this prompt version.
+    """
+
+    tags: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
+    """
+    List of tags to apply to all versions of this prompt.
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
