@@ -414,6 +414,7 @@ def test_get_fresh_prompt(langfuse):
         type="text",
         labels=[],
         config={},
+        tags=[],
     )
 
     mock_server_call = langfuse.client.prompts.get
@@ -471,6 +472,7 @@ def test_get_valid_cached_prompt(langfuse):
         type="text",
         labels=[],
         config={},
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -496,6 +498,7 @@ def test_get_valid_cached_chat_prompt_by_label(langfuse):
         labels=["test"],
         type="chat",
         config={},
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -521,6 +524,7 @@ def test_get_valid_cached_chat_prompt_by_version(langfuse):
         labels=["test"],
         type="chat",
         config={},
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -546,6 +550,7 @@ def test_get_valid_cached_production_chat_prompt(langfuse):
         labels=["test"],
         type="chat",
         config={},
+        tags=[]
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -571,6 +576,7 @@ def test_get_valid_cached_chat_prompt(langfuse):
         labels=[],
         type="chat",
         config={},
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -600,6 +606,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
         config={"temperature": 0.9},
         labels=[],
         type="text",
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -638,6 +645,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
         labels=[],
         type="text",
         config={},
+        tags=[]
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -676,6 +684,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
         labels=[],
         type="text",
         config={},
+        tags=[]
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -706,6 +715,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         labels=[],
         type="text",
         config={},
+        tags=[]
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -723,6 +733,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         prompt="Make me laugh",
         type="text",
         config={},
+        tags=[]
     )
     version_changed_prompt_client = TextPromptClient(version_changed_prompt)
     mock_server_call.return_value = version_changed_prompt
