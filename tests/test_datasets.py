@@ -56,18 +56,21 @@ def test_create_dataset_item():
     assert len(dataset.items) == 3
     assert dataset.items[2].input == input
     assert dataset.items[2].expected_output is None
+    assert dataset.items[2].dataset_name == name
 
     assert dataset.items[1].input == input
     assert dataset.items[1].expected_output == "Output"
     assert dataset.items[1].metadata == {"key": "value"}
     assert dataset.items[1].source_observation_id == generation.id
     assert dataset.items[1].source_trace_id == generation.trace_id
+    assert dataset.items[1].dataset_name == name
 
     assert dataset.items[0].input is None
     assert dataset.items[0].expected_output is None
     assert dataset.items[0].metadata is None
     assert dataset.items[0].source_observation_id is None
     assert dataset.items[0].source_trace_id is None
+    assert dataset.items[0].dataset_name == name
 
 
 def test_upsert_and_get_dataset_item():
