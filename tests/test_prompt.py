@@ -52,6 +52,7 @@ def test_create_prompt_with_special_chars_in_name():
         name=prompt_name,
         prompt="test prompt",
         labels=["production"],
+        tags=["test"],
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name)
@@ -59,6 +60,7 @@ def test_create_prompt_with_special_chars_in_name():
     assert prompt_client.name == second_prompt_client.name
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.tags == second_prompt_client.tags
     assert prompt_client.config == second_prompt_client.config
     assert prompt_client.config == {}
 
@@ -74,10 +76,11 @@ def test_create_chat_prompt():
             {"role": "user", "content": "test prompt 2 with {{occupation}}"},
         ],
         labels=["production"],
+        tags=["test"],
         type="chat",
     )
 
-    second_prompt_client = langfuse.get_prompt(prompt_name)
+    second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
 
     # Create a test generation
     completion = openai.chat.completions.create(
@@ -92,6 +95,7 @@ def test_create_chat_prompt():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
     assert prompt_client.labels == ["production", "latest"]
+    assert prompt_client.tags == second_prompt_client.tags
     assert prompt_client.config == {}
 
 
@@ -208,6 +212,116 @@ def test_create_prompt_with_null_config():
 
     assert prompt.config == {}
 
+def test_create_prompt_with_tags():
+    langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=["tag1", "tag2"],
+    )
+
+    prompt = langfuse.get_prompt(prompt_name, version=1)
+
+    assert prompt.tags == ["tag1", "tag2"]
+
+
+def test_create_prompt_with_empty_tags():
+    langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=[],
+    )
+
+    prompt = langfuse.get_prompt(prompt_name, version=1)
+
+    assert prompt.tags == []
+
+
+def test_create_prompt_with_previous_tags():
+    langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+    )
+
+    prompt = langfuse.get_prompt(prompt_name, version=1)
+
+    assert prompt.tags == []
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=["tag1", "tag2"],
+    )
+
+    prompt_v2 = langfuse.get_prompt(prompt_name, version=2)
+
+    assert prompt_v2.tags == ["tag1", "tag2"]
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+    )
+
+    prompt_v3 = langfuse.get_prompt(prompt_name, version=3)
+
+    assert prompt_v3.tags == ["tag1", "tag2"]
+
+
+def test_remove_prompt_tags():
+    langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=["tag1", "tag2"],
+    )
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=[],
+    )
+
+    prompt_v1 = langfuse.get_prompt(prompt_name, version=1)
+    prompt_v2 = langfuse.get_prompt(prompt_name, version=2)
+
+    assert prompt_v1.tags == []
+    assert prompt_v2.tags == []
+
+
+def test_update_prompt_tags():
+    langfuse = Langfuse(debug=False)
+    prompt_name=create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=["tag1", "tag2"],
+    )
+
+    prompt_v1 = langfuse.get_prompt(prompt_name, version=1)
+
+    assert prompt_v1.tags == ["tag1", "tag2"]
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="Hello, world! I hope you are great",
+        tags=["tag3", "tag4"],
+    )
+
+    prompt_v2 = langfuse.get_prompt(prompt_name, version=2)
+
+    assert prompt_v2.tags == ["tag3", "tag4"]
+
 
 def test_get_prompt_by_version_or_label():
     langfuse = Langfuse()
@@ -300,6 +414,7 @@ def test_get_fresh_prompt(langfuse):
         type="text",
         labels=[],
         config={},
+        tags=[],
     )
 
     mock_server_call = langfuse.client.prompts.get
@@ -357,6 +472,7 @@ def test_get_valid_cached_prompt(langfuse):
         type="text",
         labels=[],
         config={},
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -382,6 +498,7 @@ def test_get_valid_cached_chat_prompt_by_label(langfuse):
         labels=["test"],
         type="chat",
         config={},
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -407,6 +524,7 @@ def test_get_valid_cached_chat_prompt_by_version(langfuse):
         labels=["test"],
         type="chat",
         config={},
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -432,6 +550,7 @@ def test_get_valid_cached_production_chat_prompt(langfuse):
         labels=["test"],
         type="chat",
         config={},
+        tags=[]
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -457,6 +576,7 @@ def test_get_valid_cached_chat_prompt(langfuse):
         labels=[],
         type="chat",
         config={},
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -486,6 +606,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
         config={"temperature": 0.9},
         labels=[],
         type="text",
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -524,6 +645,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
         labels=[],
         type="text",
         config={},
+        tags=[]
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -562,6 +684,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
         labels=[],
         type="text",
         config={},
+        tags=[]
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -592,6 +715,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         labels=[],
         type="text",
         config={},
+        tags=[]
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -609,6 +733,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         prompt="Make me laugh",
         type="text",
         config={},
+        tags=[]
     )
     version_changed_prompt_client = TextPromptClient(version_changed_prompt)
     mock_server_call.return_value = version_changed_prompt
