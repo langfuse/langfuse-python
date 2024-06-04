@@ -1130,6 +1130,7 @@ def test_timezone_awareness_setting_timestamps():
             delta = utc_now - observation.end_time
             assert delta.seconds < 5
 
+
 def test_get_trace_by_session_id():
     langfuse = Langfuse(debug=False)
     api = get_api()
@@ -1138,6 +1139,9 @@ def test_get_trace_by_session_id():
     trace_name = create_uuid()
     session_id = create_uuid()
     trace = langfuse.trace(name=trace_name, session_id=session_id)
+
+    # create a trace without a session_id
+    langfuse.trace(name=create_uuid())
 
     langfuse.flush()
 
