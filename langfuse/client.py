@@ -2620,12 +2620,14 @@ class DatasetItemClient:
             # Temporarily set the global handler to the new handler if previous handler is a LlamaIndexCallbackHandler
             # LlamaIndex does not adding two errors of same type, so if global handler is already a LlamaIndexCallbackHandler, we need to remove it
             prev_global_handler = llama_index.core.global_handler
-            prev_callback_manager = Settings.callback_manager
 
             if isinstance(prev_global_handler, LlamaIndexCallbackHandler):
                 llama_index.core.global_handler = None
 
-            Settings.callback_manager = CallbackManager([callback_handler])
+            if Settings.callback_manager is None:
+                Settings.callback_manager = CallbackManager([callback_handler])
+            else:
+                Settings.callback_manager.add_handler(callback_handler)
 
         except Exception as e:
             self.log.exception(e)
@@ -2634,7 +2636,7 @@ class DatasetItemClient:
             yield callback_handler
         finally:
             # Reset the handlers
-            Settings.callback_manager = prev_callback_manager
+            Settings.callback_manager.remove_handler(callback_handler)
             llama_index.core.global_handler = prev_global_handler
 
     def get_llama_index_handler(
