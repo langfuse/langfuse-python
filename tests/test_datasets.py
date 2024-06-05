@@ -344,13 +344,13 @@ def test_llama_index_dataset():
     dataset_item_id = None
 
     for item in dataset.items:
-        handler = item.get_llama_index_handler(run_name=run_name)
-        dataset_item_id = item.id
+        with item.observe_llama_index(run_name=run_name) as handler:
+            dataset_item_id = item.id
 
-        index = get_llama_index_index(handler)
-        index.as_query_engine().query(
-            "What did the speaker achieve in the past twelve months?"
-        )
+            index = get_llama_index_index(handler)
+            index.as_query_engine().query(
+                "What did the speaker achieve in the past twelve months?"
+            )
 
     langfuse.flush()
     run = langfuse.get_dataset_run(dataset_name, run_name)
