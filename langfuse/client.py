@@ -2490,7 +2490,6 @@ class DatasetItemClient:
         if isinstance(trace_or_observation, StatefulClient):
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
-            trace_or_observation.task_manager.flush()
             if trace_or_observation.state_type == StateType.TRACE:
                 parsed_trace_id = trace_or_observation.trace_id
             elif trace_or_observation.state_type == StateType.OBSERVATION:
@@ -2498,7 +2497,6 @@ class DatasetItemClient:
                 parsed_trace_id = trace_or_observation.trace_id
         # legacy support for observation_id
         elif isinstance(trace_or_observation, str):
-            self.langfuse.flush()
             parsed_observation_id = trace_or_observation
         elif trace_or_observation is None:
             if trace_id is not None:
@@ -2557,6 +2555,44 @@ class DatasetItemClient:
         )
 
         return trace.get_langchain_handler(update_parent=True)
+
+    @contextmanager
+    def observe(
+        self,
+        *,
+        run_name: str,
+        run_description: Optional[str] = None,
+        run_metadata: Optional[Any] = None,
+        trace_id: Optional[str] = None,
+    ):
+        """Observes a dataset run within the Langfuse client.
+
+        Args:
+            run_name (str): The name of the dataset run.
+            root_trace (Optional[StatefulTraceClient]): The root trace client to use for the dataset run. If not provided, a new trace client will be created.
+            run_description (Optional[str]): The description of the dataset run.
+            run_metadata (Optional[Any]): Additional metadata for the dataset run.
+
+        Yields:
+            StatefulTraceClient: The trace associated with the dataset run.
+        """
+        from langfuse.decorators import langfuse_context
+
+        root_trace_id = trace_id or str(uuid.uuid4())
+
+        langfuse_context._set_root_trace_id(root_trace_id)
+
+        try:
+            yield root_trace_id
+
+        finally:
+            self.link(
+                run_name=run_name,
+                run_metadata=run_metadata,
+                run_description=run_description,
+                trace_or_observation=None,
+                trace_id=root_trace_id,
+            )
 
     @contextmanager
     def observe_llama_index(

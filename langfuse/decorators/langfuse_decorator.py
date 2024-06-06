@@ -72,6 +72,9 @@ _observation_params_context: ContextVar[DefaultDict[str, ObservationParams]] = (
         ),
     )
 )
+_root_trace_id_context: ContextVar[Optional[str]] = ContextVar(
+    "root_trace_id_context", default=None
+)
 
 # For users with mypy type checking, we need to define a TypeVar for the decorated function
 # Otherwise, mypy will infer the return type of the decorated function as Any
@@ -293,6 +296,7 @@ class LangfuseDecorator:
             elif parent:
                 observation = parent.span(**params)
             else:
+                params["id"] = self._get_context_trace_id() or params["id"]
                 observation = langfuse.trace(**params)
 
             _observation_stack_context.set(stack + [observation])
@@ -318,6 +322,17 @@ class LangfuseDecorator:
         # Serialize and deserialize to ensure proper JSON serialization.
         # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
         return json.loads(json.dumps(raw_input, cls=EventSerializer))
+
+    def _get_context_trace_id(self):
+        context_trace_id = _root_trace_id_context.get()
+
+        if context_trace_id is not None:
+            # Clear the context trace ID to avoid leaking it to other traces
+            _root_trace_id_context.set(None)
+
+            return context_trace_id
+
+        return None
 
     def _finalize_call(
         self,
@@ -958,6 +973,15 @@ class LangfuseDecorator:
 
     def _get_langfuse(self) -> Langfuse:
         return LangfuseSingleton().get()
+
+    def _set_root_trace_id(self, trace_id: str):
+        if _observation_stack_context.get():
+            self._log.warn(
+                "Root Trace ID cannot be set on a already running trace. Skipping root trace ID assignment."
+            )
+            return
+
+        _root_trace_id_context.set(trace_id)
 
     def auth_check(self) -> bool:
         """Check if the current Langfuse client is authenticated.
