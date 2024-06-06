@@ -2490,7 +2490,6 @@ class DatasetItemClient:
         if isinstance(trace_or_observation, StatefulClient):
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
-            trace_or_observation.task_manager.flush()
             if trace_or_observation.state_type == StateType.TRACE:
                 parsed_trace_id = trace_or_observation.trace_id
             elif trace_or_observation.state_type == StateType.OBSERVATION:
@@ -2498,7 +2497,6 @@ class DatasetItemClient:
                 parsed_trace_id = trace_or_observation.trace_id
         # legacy support for observation_id
         elif isinstance(trace_or_observation, str):
-            self.langfuse.flush()
             parsed_observation_id = trace_or_observation
         elif trace_or_observation is None:
             if trace_id is not None:
