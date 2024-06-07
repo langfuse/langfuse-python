@@ -722,11 +722,15 @@ class LangchainCallbackHandler(
                 )
 
                 llm_usage = _parse_usage(response)
+
+                # e.g. azure returns the model name in the response
+                model = _parse_model(response)
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response,
                     usage=llm_usage,
                     version=self.version,
                     input=kwargs.get("inputs"),
+                    model=model,
                 )
 
                 self._update_trace_and_remove_state(
@@ -929,3 +933,16 @@ def _parse_usage(response: LLMResult):
                     break
 
     return llm_usage
+
+
+def _parse_model(response: LLMResult):
+    # langchain-anthropic uses the usage field
+    llm_model_keys = ["model_name"]
+    llm_model = None
+    if response.llm_output is not None:
+        for key in llm_model_keys:
+            if key in response.llm_output and response.llm_output[key]:
+                llm_model = response.llm_output[key]
+                break
+
+    return llm_model
