@@ -13,6 +13,10 @@ class DailyMetricsDetails(pydantic_v1.BaseModel):
     count_traces: int = pydantic_v1.Field(alias="countTraces")
     count_observations: int = pydantic_v1.Field(alias="countObservations")
     total_cost: float = pydantic_v1.Field(alias="totalCost")
+    """
+    Total model cost in USD
+    """
+
     usage: typing.List[UsageByModel]
 
     def json(self, **kwargs: typing.Any) -> str:

@@ -1,10 +1,12 @@
 import json
 import os
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
 
 from langchain import LLMChain, OpenAI, PromptTemplate
 
 from langfuse import Langfuse
+from langfuse.decorators import observe, langfuse_context
 from langfuse.api.resources.commons.types.observation import Observation
 from tests.utils import create_uuid, get_api, get_llama_index_index
 
@@ -56,18 +58,21 @@ def test_create_dataset_item():
     assert len(dataset.items) == 3
     assert dataset.items[2].input == input
     assert dataset.items[2].expected_output is None
+    assert dataset.items[2].dataset_name == name
 
     assert dataset.items[1].input == input
     assert dataset.items[1].expected_output == "Output"
     assert dataset.items[1].metadata == {"key": "value"}
     assert dataset.items[1].source_observation_id == generation.id
     assert dataset.items[1].source_trace_id == generation.trace_id
+    assert dataset.items[1].dataset_name == name
 
     assert dataset.items[0].input is None
     assert dataset.items[0].expected_output is None
     assert dataset.items[0].metadata is None
     assert dataset.items[0].source_observation_id is None
     assert dataset.items[0].source_trace_id is None
+    assert dataset.items[0].dataset_name == name
 
 
 def test_upsert_and_get_dataset_item():
@@ -341,13 +346,13 @@ def test_llama_index_dataset():
     dataset_item_id = None
 
     for item in dataset.items:
-        handler = item.get_llama_index_handler(run_name=run_name)
-        dataset_item_id = item.id
+        with item.observe_llama_index(run_name=run_name) as handler:
+            dataset_item_id = item.id
 
-        index = get_llama_index_index(handler)
-        index.as_query_engine().query(
-            "What did the speaker achieve in the past twelve months?"
-        )
+            index = get_llama_index_index(handler)
+            index.as_query_engine().query(
+                "What did the speaker achieve in the past twelve months?"
+            )
 
     langfuse.flush()
     run = langfuse.get_dataset_run(dataset_name, run_name)
@@ -391,3 +396,91 @@ def sorted_dependencies(
         dependencies.append(current_observation)
 
     return dependencies
+
+
+def test_observe_dataset_run():
+    # Create dataset
+    langfuse = Langfuse(debug=True)
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    items_data = []
+    num_items = 3
+
+    for i in range(num_items):
+        trace_id = create_uuid()
+        dataset_item_input = "Hello World " + str(i)
+        langfuse.create_dataset_item(
+            dataset_name=dataset_name, input=dataset_item_input
+        )
+
+        items_data.append((dataset_item_input, trace_id))
+
+    dataset = langfuse.get_dataset(dataset_name)
+    assert len(dataset.items) == num_items
+
+    run_name = create_uuid()
+
+    @observe()
+    def run_llm_app_on_dataset_item(input):
+        return input
+
+    def wrapperFunc(input):
+        return run_llm_app_on_dataset_item(input)
+
+    def execute_dataset_item(item, run_name, trace_id):
+        with item.observe(run_name=run_name, trace_id=trace_id):
+            wrapperFunc(item.input)
+
+    items = zip(dataset.items[::-1], items_data)  # Reverse order to reflect input order
+
+    with ThreadPoolExecutor() as executor:
+        for item, (_, trace_id) in items:
+            result = executor.submit(
+                execute_dataset_item,
+                item,
+                run_name=run_name,
+                trace_id=trace_id,
+            )
+
+            result.result()
+
+    langfuse_context.flush()
+
+    # Check dataset run
+    run = langfuse.get_dataset_run(dataset_name, run_name)
+
+    assert run.name == run_name
+    assert len(run.dataset_run_items) == num_items
+    assert run.dataset_run_items[0].dataset_run_id == run.id
+
+    for _, trace_id in items_data:
+        assert any(
+            item.trace_id == trace_id for item in run.dataset_run_items
+        ), f"Trace {trace_id} not found in run"
+
+    # Check trace
+    api = get_api()
+
+    for dataset_item_input, trace_id in items_data:
+        trace = api.trace.get(trace_id)
+
+        assert trace.name == "run_llm_app_on_dataset_item"
+        assert len(trace.observations) == 0
+        assert trace.input["args"][0] == dataset_item_input
+        assert trace.output == dataset_item_input
+
+    # Check that the decorator context is not polluted
+    new_trace_id = create_uuid()
+    run_llm_app_on_dataset_item(
+        "non-dataset-run-afterwards", langfuse_observation_id=new_trace_id
+    )
+
+    langfuse_context.flush()
+
+    next_trace = api.trace.get(new_trace_id)
+    assert next_trace.name == "run_llm_app_on_dataset_item"
+    assert next_trace.input["args"][0] == "non-dataset-run-afterwards"
+    assert next_trace.output == "non-dataset-run-afterwards"
+    assert len(next_trace.observations) == 0
+    assert next_trace.id != trace_id

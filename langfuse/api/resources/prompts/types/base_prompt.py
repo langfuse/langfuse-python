@@ -11,7 +11,15 @@ class BasePrompt(pydantic_v1.BaseModel):
     name: str
     version: int
     config: typing.Any
-    labels: typing.List[str]
+    labels: typing.List[str] = pydantic_v1.Field()
+    """
+    List of deployment labels of this prompt version.
+    """
+
+    tags: typing.List[str] = pydantic_v1.Field()
+    """
+    List of tags. Used to filter via UI and API. The same across versions of a prompt.
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

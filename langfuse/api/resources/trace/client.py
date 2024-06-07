@@ -113,6 +113,7 @@ class TraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -129,6 +130,8 @@ class TraceClient:
             - user_id: typing.Optional[str].
 
             - name: typing.Optional[str].
+
+            - session_id: typing.Optional[str].
 
             - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this datetime (ISO 8601).
 
@@ -155,6 +158,7 @@ class TraceClient:
             limit=1,
             user_id="string",
             name="string",
+            session_id="string",
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
@@ -174,6 +178,7 @@ class TraceClient:
                         "limit": limit,
                         "userId": user_id,
                         "name": name,
+                        "sessionId": session_id,
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
                         else None,
@@ -325,6 +330,7 @@ class AsyncTraceClient:
         limit: typing.Optional[int] = None,
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -341,6 +347,8 @@ class AsyncTraceClient:
             - user_id: typing.Optional[str].
 
             - name: typing.Optional[str].
+
+            - session_id: typing.Optional[str].
 
             - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this datetime (ISO 8601).
 
@@ -367,6 +375,7 @@ class AsyncTraceClient:
             limit=1,
             user_id="string",
             name="string",
+            session_id="string",
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
@@ -386,6 +395,7 @@ class AsyncTraceClient:
                         "limit": limit,
                         "userId": user_id,
                         "name": name,
+                        "sessionId": session_id,
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
                         else None,

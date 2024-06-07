@@ -7,19 +7,19 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class ScoreSource(str, enum.Enum):
+    ANNOTATION = "ANNOTATION"
     API = "API"
-    REVIEW = "REVIEW"
     EVAL = "EVAL"
 
     def visit(
         self,
+        annotation: typing.Callable[[], T_Result],
         api: typing.Callable[[], T_Result],
-        review: typing.Callable[[], T_Result],
         eval: typing.Callable[[], T_Result],
     ) -> T_Result:
+        if self is ScoreSource.ANNOTATION:
+            return annotation()
         if self is ScoreSource.API:
             return api()
-        if self is ScoreSource.REVIEW:
-            return review()
         if self is ScoreSource.EVAL:
             return eval()

@@ -14,8 +14,26 @@ class UsageByModel(pydantic_v1.BaseModel):
 
     model: typing.Optional[str] = None
     input_usage: int = pydantic_v1.Field(alias="inputUsage")
+    """
+    Total number of generation input units (e.g. tokens)
+    """
+
     output_usage: int = pydantic_v1.Field(alias="outputUsage")
+    """
+    Total number of generation output units (e.g. tokens)
+    """
+
     total_usage: int = pydantic_v1.Field(alias="totalUsage")
+    """
+    Total number of generation total units (e.g. tokens)
+    """
+
+    count_traces: int = pydantic_v1.Field(alias="countTraces")
+    count_observations: int = pydantic_v1.Field(alias="countObservations")
+    total_cost: float = pydantic_v1.Field(alias="totalCost")
+    """
+    Total model cost in USD
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

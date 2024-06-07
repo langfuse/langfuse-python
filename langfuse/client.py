@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import datetime as dt
 import logging
 import os
@@ -670,6 +671,7 @@ class Langfuse(object):
         prompt: List[ChatMessageDict],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
+        tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
     ) -> ChatPromptClient: ...
@@ -682,6 +684,7 @@ class Langfuse(object):
         prompt: str,
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
+        tags: Optional[List[str]] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
     ) -> TextPromptClient: ...
@@ -693,6 +696,7 @@ class Langfuse(object):
         prompt: Union[str, List[ChatMessageDict]],
         is_active: Optional[bool] = None,  # deprecated
         labels: List[str] = [],
+        tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
     ) -> PromptClient:
@@ -703,6 +707,7 @@ class Langfuse(object):
             prompt : The content of the prompt to be created.
             is_active [DEPRECATED] : A flag indicating whether the prompt is active or not. This is deprecated and will be removed in a future release. Please use the 'production' label instead.
             labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
+            tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
 
@@ -730,6 +735,7 @@ class Langfuse(object):
                     name=name,
                     prompt=prompt,
                     labels=labels,
+                    tags=tags,
                     config=config or {},
                     type="chat",
                 )
@@ -744,6 +750,7 @@ class Langfuse(object):
                 name=name,
                 prompt=prompt,
                 labels=labels,
+                tags=tags,
                 config=config or {},
                 type="text",
             )
@@ -2483,7 +2490,6 @@ class DatasetItemClient:
         if isinstance(trace_or_observation, StatefulClient):
             # flush the queue before creating the dataset run item
             # to ensure that all events are persisted.
-            trace_or_observation.task_manager.flush()
             if trace_or_observation.state_type == StateType.TRACE:
                 parsed_trace_id = trace_or_observation.trace_id
             elif trace_or_observation.state_type == StateType.OBSERVATION:
@@ -2491,7 +2497,6 @@ class DatasetItemClient:
                 parsed_trace_id = trace_or_observation.trace_id
         # legacy support for observation_id
         elif isinstance(trace_or_observation, str):
-            self.langfuse.flush()
             parsed_observation_id = trace_or_observation
         elif trace_or_observation is None:
             if trace_id is not None:
@@ -2550,6 +2555,134 @@ class DatasetItemClient:
         )
 
         return trace.get_langchain_handler(update_parent=True)
+
+    @contextmanager
+    def observe(
+        self,
+        *,
+        run_name: str,
+        run_description: Optional[str] = None,
+        run_metadata: Optional[Any] = None,
+        trace_id: Optional[str] = None,
+    ):
+        """Observes a dataset run within the Langfuse client.
+
+        Args:
+            run_name (str): The name of the dataset run.
+            root_trace (Optional[StatefulTraceClient]): The root trace client to use for the dataset run. If not provided, a new trace client will be created.
+            run_description (Optional[str]): The description of the dataset run.
+            run_metadata (Optional[Any]): Additional metadata for the dataset run.
+
+        Yields:
+            StatefulTraceClient: The trace associated with the dataset run.
+        """
+        from langfuse.decorators import langfuse_context
+
+        root_trace_id = trace_id or str(uuid.uuid4())
+
+        langfuse_context._set_root_trace_id(root_trace_id)
+
+        try:
+            yield root_trace_id
+
+        finally:
+            self.link(
+                run_name=run_name,
+                run_metadata=run_metadata,
+                run_description=run_description,
+                trace_or_observation=None,
+                trace_id=root_trace_id,
+            )
+
+    @contextmanager
+    def observe_llama_index(
+        self,
+        *,
+        run_name: str,
+        run_description: Optional[str] = None,
+        run_metadata: Optional[Any] = None,
+        llama_index_integration_constructor_kwargs: Optional[Dict[str, Any]] = {},
+    ):
+        """Context manager for observing LlamaIndex operations linked to this dataset item.
+
+        This method sets up a LlamaIndex callback handler that integrates with Langfuse, allowing detailed logging
+        and tracing of LlamaIndex operations within the context of a specific dataset run. It ensures that all
+        operations performed within the context are linked to the appropriate dataset item and run in Langfuse.
+
+        Args:
+            run_name (str): The name of the dataset run.
+            run_description (Optional[str]): Description of the dataset run. Defaults to None.
+            run_metadata (Optional[Any]): Additional metadata for the dataset run. Defaults to None.
+            llama_index_integration_constructor_kwargs (Optional[Dict[str, Any]]): Keyword arguments to pass
+                to the LlamaIndex integration constructor. Defaults to an empty dictionary.
+
+        Yields:
+            LlamaIndexCallbackHandler: The callback handler for LlamaIndex operations.
+
+        Example:
+            ```python
+            dataset_item = dataset.items[0]
+
+            with dataset_item.observe_llama_index(run_name="example-run", run_description="Example LlamaIndex run") as handler:
+                # Perform LlamaIndex operations here
+                some_llama_index_operation()
+            ```
+
+        Raises:
+            ImportError: If required modules for LlamaIndex integration are not available.
+        """
+        metadata = {
+            "dataset_item_id": self.id,
+            "run_name": run_name,
+            "dataset_id": self.dataset_id,
+        }
+        trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
+        self.link(
+            trace, run_name, run_metadata=run_metadata, run_description=run_description
+        )
+
+        try:
+            import llama_index.core
+            from llama_index.core import Settings
+            from llama_index.core.callbacks import CallbackManager
+
+            from langfuse.llama_index import LlamaIndexCallbackHandler
+
+            callback_handler = LlamaIndexCallbackHandler(
+                **llama_index_integration_constructor_kwargs,
+            )
+            callback_handler.set_root(trace, update_root=True)
+
+            # Temporarily set the global handler to the new handler if previous handler is a LlamaIndexCallbackHandler
+            # LlamaIndex does not adding two errors of same type, so if global handler is already a LlamaIndexCallbackHandler, we need to remove it
+            prev_global_handler = llama_index.core.global_handler
+            prev_langfuse_handler = None
+
+            if isinstance(prev_global_handler, LlamaIndexCallbackHandler):
+                llama_index.core.global_handler = None
+
+            if Settings.callback_manager is None:
+                Settings.callback_manager = CallbackManager([callback_handler])
+            else:
+                for handler in Settings.callback_manager.handlers:
+                    if isinstance(handler, LlamaIndexCallbackHandler):
+                        prev_langfuse_handler = handler
+                        Settings.callback_manager.remove_handler(handler)
+
+                Settings.callback_manager.add_handler(callback_handler)
+
+        except Exception as e:
+            self.log.exception(e)
+
+        try:
+            yield callback_handler
+        finally:
+            # Reset the handlers
+            Settings.callback_manager.remove_handler(callback_handler)
+            if prev_langfuse_handler is not None:
+                Settings.callback_manager.add_handler(prev_langfuse_handler)
+
+            llama_index.core.global_handler = prev_global_handler
 
     def get_llama_index_handler(
         self,
