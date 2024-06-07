@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langfuse"
-version = "2.35.0"
+version = "2.35.1"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -64,3 +64,6 @@ build-backend = "poetry.core.masonry.api"
 log_cli = true
 
 [tool.poetry_bumpversion.file."langfuse/version.py"]
+
+[tool.poetry.scripts]
+release = "scripts.release:main"

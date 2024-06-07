@@ -47,6 +47,22 @@ poetry run pre-commit install
 
 ### Publish release
 
+#### Release script
+
+Make sure you have your PyPi API token setup in your poetry config. If not, you can set it up by running:
+
+```sh
+poetry config pypi-token.pypi $your-api-token
+```
+
+Run the release script:
+
+```sh
+poetry run release
+```
+
+#### Manual steps (for prepatch versions)
+
 1. `poetry version patch`
    - `poetry version prepatch` for pre-release versions
 2. `poetry install`
