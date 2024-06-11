@@ -29,7 +29,7 @@ class SessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SessionWithTraces:
         """
-        Get a session
+        Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
 
         Parameters:
             - session_id: str. The unique id of a session
@@ -118,7 +118,7 @@ class AsyncSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SessionWithTraces:
         """
-        Get a session
+        Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
 
         Parameters:
             - session_id: str. The unique id of a session
