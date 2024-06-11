@@ -285,8 +285,13 @@ class TaskManager(object):
         Blocks execution until finished
         """
         self._log.debug(f"joining {len(self._consumers)} consumer threads")
+
+        # pause all consumers before joining them so we don't have to wait for multiple
+        # flush intervals to join them all.
         for consumer in self._consumers:
             consumer.pause()
+
+        for consumer in self._consumers:
             try:
                 consumer.join()
             except RuntimeError:
