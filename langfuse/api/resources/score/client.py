@@ -142,9 +142,10 @@ class ScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
-        source: ScoreSource,
+        source: typing.Optional[ScoreSource] = None,
         operator: typing.Optional[str] = None,
         value: typing.Optional[float] = None,
+        score_ids: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
         """
@@ -161,11 +162,13 @@ class ScoreClient:
 
             - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this datetime (ISO 8601).
 
-            - source: ScoreSource. Retrieve only scores from a specific source.
+            - source: typing.Optional[ScoreSource]. Retrieve only scores from a specific source.
 
             - operator: typing.Optional[str]. Retrieve only scores with <operator> value.
 
             - value: typing.Optional[float]. Retrieve only scores with <operator> value.
+
+            - score_ids: typing.Optional[str]. Comma-separated list of score IDs to limit the results to.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -193,6 +196,7 @@ class ScoreClient:
             source=ScoreSource.ANNOTATION,
             operator="string",
             value=1.1,
+            score_ids="string",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -213,6 +217,7 @@ class ScoreClient:
                         "source": source,
                         "operator": operator,
                         "value": value,
+                        "scoreIds": score_ids,
                         **(
                             request_options.get("additional_query_parameters", {})
                             if request_options is not None
@@ -545,9 +550,10 @@ class AsyncScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
-        source: ScoreSource,
+        source: typing.Optional[ScoreSource] = None,
         operator: typing.Optional[str] = None,
         value: typing.Optional[float] = None,
+        score_ids: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
         """
@@ -564,11 +570,13 @@ class AsyncScoreClient:
 
             - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this datetime (ISO 8601).
 
-            - source: ScoreSource. Retrieve only scores from a specific source.
+            - source: typing.Optional[ScoreSource]. Retrieve only scores from a specific source.
 
             - operator: typing.Optional[str]. Retrieve only scores with <operator> value.
 
             - value: typing.Optional[float]. Retrieve only scores with <operator> value.
+
+            - score_ids: typing.Optional[str]. Comma-separated list of score IDs to limit the results to.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -596,6 +604,7 @@ class AsyncScoreClient:
             source=ScoreSource.ANNOTATION,
             operator="string",
             value=1.1,
+            score_ids="string",
         )
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -616,6 +625,7 @@ class AsyncScoreClient:
                         "source": source,
                         "operator": operator,
                         "value": value,
+                        "scoreIds": score_ids,
                         **(
                             request_options.get("additional_query_parameters", {})
                             if request_options is not None
