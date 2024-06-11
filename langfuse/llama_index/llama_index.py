@@ -681,6 +681,9 @@ class LlamaIndexCallbackHandler(
                 else:
                     response = event.payload.get(EventPayload.RESPONSE)
 
+                    if "Streaming" in type(response).__name__:
+                        continue
+
                     for res_key, value in vars(response).items():
                         if (
                             not res_key.startswith("_")
