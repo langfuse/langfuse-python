@@ -21,7 +21,7 @@ idna = "^3.7"
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"
 chromadb = ">=0.4.2,<0.6.0"
-tiktoken = "0.6.0"
+tiktoken = "0.7.0"
 pytest-timeout = "^2.1.0"
 pytest-xdist = "^3.3.1"
 respx = ">=0.20.2,<0.22.0"
