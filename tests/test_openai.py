@@ -12,6 +12,8 @@ from langfuse.openai import (
     _filter_image_data,
     openai,
 )
+from openai.types.chat.chat_completion import ChatCompletionMessage
+
 from tests.utils import create_uuid, get_api
 
 chat_func = (
@@ -32,7 +34,12 @@ def test_openai_chat_completion():
     completion = chat_func(
         name=generation_name,
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": "1 + 1 = "}],
+        messages=[
+            ChatCompletionMessage(
+                role="assistant", content="You are an expert mathematician"
+            ),
+            {"role": "user", "content": "1 + 1 = "},
+        ],
         temperature=0,
         metadata={"someKey": "someResponse"},
     )
@@ -45,7 +52,15 @@ def test_openai_chat_completion():
     assert generation.data[0].name == generation_name
     assert generation.data[0].metadata == {"someKey": "someResponse"}
     assert len(completion.choices) != 0
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].input == [
+        {
+            "content": "You are an expert mathematician",
+            "function_call": None,
+            "role": "assistant",
+            "tool_calls": None,
+        },
+        {"content": "1 + 1 = ", "role": "user"},
+    ]
     assert generation.data[0].type == "GENERATION"
     assert generation.data[0].model == "gpt-3.5-turbo-0125"
     assert generation.data[0].start_time is not None
@@ -65,7 +80,15 @@ def test_openai_chat_completion():
     assert generation.data[0].output["role"] == "assistant"
 
     trace = api.trace.get(generation.data[0].trace_id)
-    assert trace.input == [{"role": "user", "content": "1 + 1 = "}]
+    assert trace.input == [
+        {
+            "content": "You are an expert mathematician",
+            "function_call": None,
+            "role": "assistant",
+            "tool_calls": None,
+        },
+        {"role": "user", "content": "1 + 1 = "},
+    ]
     assert trace.output["content"] == completion.choices[0].message.content
     assert trace.output["role"] == completion.choices[0].message.role
 
@@ -754,6 +777,47 @@ def test_openai_function_call():
     assert output["title"] is not None
 
 
+def test_openai_function_call_streamed():
+    from typing import List
+
+    from pydantic import BaseModel
+
+    api = get_api()
+    generation_name = create_uuid()
+
+    class StepByStepAIResponse(BaseModel):
+        title: str
+        steps: List[str]
+
+    response = openai.chat.completions.create(
+        name=generation_name,
+        model="gpt-3.5-turbo-0613",
+        messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
+        functions=[
+            {
+                "name": "get_answer_for_user_query",
+                "description": "Get user answer in series of steps",
+                "parameters": StepByStepAIResponse.schema(),
+            }
+        ],
+        function_call={"name": "get_answer_for_user_query"},
+        stream=True,
+    )
+
+    # Consume the stream
+    for _ in response:
+        pass
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].output is not None
+    assert "function_call" in generation.data[0].output
+
+
 def test_openai_tool_call():
     api = get_api()
     generation_name = create_uuid()
@@ -795,6 +859,62 @@ def test_openai_tool_call():
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
+    assert (
+        generation.data[0].output["tool_calls"][0]["function"]["name"]
+        == "get_current_weather"
+    )
+    assert (
+        generation.data[0].output["tool_calls"][0]["function"]["arguments"] is not None
+    )
+    assert generation.data[0].input["tools"] == tools
+    assert generation.data[0].input["messages"] == messages
+
+
+def test_openai_tool_call_streamed():
+    api = get_api()
+    generation_name = create_uuid()
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_weather",
+                "description": "Get the current weather in a given location",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "The city and state, e.g. San Francisco, CA",
+                        },
+                        "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                    },
+                    "required": ["location"],
+                },
+            },
+        }
+    ]
+    messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        tools=tools,
+        tool_choice="required",
+        name=generation_name,
+        stream=True,
+    )
+
+    # Consume the stream
+    for _ in response:
+        pass
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+
     assert (
         generation.data[0].output["tool_calls"][0]["function"]["name"]
         == "get_current_weather"

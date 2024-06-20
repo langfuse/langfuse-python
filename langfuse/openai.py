@@ -20,6 +20,8 @@ See docs for more details: https://langfuse.com/docs/integrations/openai
 import copy
 import logging
 import types
+
+from collections import defaultdict
 from typing import List, Optional
 
 from packaging.version import Version
@@ -318,12 +320,12 @@ def _create_langfuse_update(
     generation.update(**update)
 
 
-def _extract_openai_response(resource, responses):
-    completion = [] if resource.type == "chat" else ""
+def _extract_streamed_openai_response(resource, chunks):
+    completion = defaultdict(str) if resource.type == "chat" else ""
     model = None
     completion_start_time = None
 
-    for index, i in enumerate(responses):
+    for index, i in enumerate(chunks):
         if index == 0:
             completion_start_time = _get_timestamp()
 
@@ -344,48 +346,70 @@ def _extract_openai_response(resource, responses):
                     delta = delta.__dict__
 
                 if delta.get("role", None) is not None:
-                    completion.append(
-                        {
-                            "role": delta.get("role", None),
-                            "function_call": None,
-                            "tool_calls": None,
-                            "content": None,
-                        }
-                    )
+                    completion["role"] = delta["role"]
 
-                elif delta.get("content", None) is not None:
-                    completion[-1]["content"] = (
+                if delta.get("content", None) is not None:
+                    completion["content"] = (
                         delta.get("content", None)
-                        if completion[-1]["content"] is None
-                        else completion[-1]["content"] + delta.get("content", None)
+                        if completion["content"] is None
+                        else completion["content"] + delta.get("content", None)
+                    )
+                elif delta.get("function_call", None) is not None:
+                    curr = completion["function_call"]
+                    tool_call_chunk = delta.get("function_call", None)
+
+                    if not curr:
+                        completion["function_call"] = {
+                            "name": getattr(tool_call_chunk, "name", ""),
+                            "arguments": getattr(tool_call_chunk, "arguments", ""),
+                        }
+
+                    else:
+                        curr["name"] = curr["name"] or getattr(
+                            tool_call_chunk, "name", None
+                        )
+                        curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
+
+                elif delta.get("tool_calls", None) is not None:
+                    curr = completion["tool_calls"]
+                    tool_call_chunk = getattr(
+                        delta.get("tool_calls", None)[0], "function", None
                     )
 
-                elif delta.get("function_call", None) is not None:
-                    completion[-1]["function_call"] = (
-                        delta.get("function_call", None)
-                        if completion[-1]["function_call"] is None
-                        else completion[-1]["function_call"]
-                        + delta.get("function_call", None)
-                    )
-                elif delta.get("tools_call", None) is not None:
-                    completion[-1]["tool_calls"] = (
-                        delta.get("tools_call", None)
-                        if completion[-1]["tool_calls"] is None
-                        else completion[-1]["tool_calls"]
-                        + delta.get("tools_call", None)
-                    )
+                    if not curr:
+                        completion["tool_calls"] = {
+                            "name": getattr(tool_call_chunk, "name", ""),
+                            "arguments": getattr(tool_call_chunk, "arguments", ""),
+                        }
+
+                    else:
+                        curr["name"] = curr["name"] or getattr(
+                            tool_call_chunk, "name", None
+                        )
+                        curr["arguments"] += getattr(tool_call_chunk, "arguments", None)
+
             if resource.type == "completion":
                 completion += choice.get("text", None)
 
     def get_response_for_chat():
-        if len(completion) > 0:
-            if completion[-1].get("content", None) is not None:
-                return completion[-1]["content"]
-            elif completion[-1].get("function_call", None) is not None:
-                return completion[-1]["function_call"]
-            elif completion[-1].get("tool_calls", None) is not None:
-                return completion[-1]["tool_calls"]
-        return None
+        return (
+            completion["content"]
+            or (
+                completion["function_call"]
+                and {
+                    "role": "assistant",
+                    "function_call": completion["function_call"],
+                }
+            )
+            or (
+                completion["tool_calls"]
+                and {
+                    "role": "assistant",
+                    "tool_calls": [{"function": completion["tool_calls"]}],
+                }
+            )
+            or None
+        )
 
     return (
         model,
@@ -593,8 +617,13 @@ def _filter_image_data(messages: List[dict]):
     output_messages = copy.deepcopy(messages)
 
     for message in output_messages:
-        if message.get("content", None) is not None:
-            content = message["content"]
+        content = (
+            message.get("content", None)
+            if isinstance(message, dict)
+            else getattr(message, "content", None)
+        )
+
+        if content is not None:
             for index, item in enumerate(content):
                 if isinstance(item, dict) and item.get("image_url", None) is not None:
                     url = item["image_url"]["url"]
@@ -638,7 +667,7 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self):
-        model, completion_start_time, completion = _extract_openai_response(
+        model, completion_start_time, completion = _extract_streamed_openai_response(
             self.resource, self.items
         )
 
@@ -685,7 +714,7 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self):
-        model, completion_start_time, completion = _extract_openai_response(
+        model, completion_start_time, completion = _extract_streamed_openai_response(
             self.resource, self.items
         )
 
