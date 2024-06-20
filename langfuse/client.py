@@ -382,7 +382,7 @@ class Langfuse(object):
             source_trace_id: Id of the source trace. Defaults to None.
             source_observation_id: Id of the source observation. Defaults to None.
             status: Status of the dataset item. Defaults to ACTIVE for newly created items.
-            id: Id of the dataset item. Defaults to None.
+            id: Id of the dataset item. Defaults to None. Provide your own id if you want to dedupe dataset items. Id needs to be globally unique and cannot be reused across datasets.
 
         Returns:
             DatasetItem: The created dataset item as returned by the Langfuse API.
