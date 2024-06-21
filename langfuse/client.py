@@ -8,7 +8,7 @@ import httpx
 from enum import Enum
 import time
 import tracemalloc
-from typing import Any, Dict, Optional, Literal, Union, List, overload
+from typing import Any, Dict, Optional, Literal, Union, List, Sequence, overload
 import urllib.parse
 
 
@@ -437,6 +437,53 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting trace {id}")
             return self.client.trace.get(id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def get_traces(
+        self,
+        *,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+        user_id: Optional[str] = None,
+        name: Optional[str] = None,
+        session_id: Optional[str] = None,
+        from_timestamp: Optional[dt.datetime] = None,
+        order_by: Optional[str] = None,
+        tags: Optional[Union[str, Sequence[str]]] = None,
+    ) -> Traces:
+        """Get a list of observations in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number, starts at 1. Defaults to None.
+            limit (Optional[int]): Limit of items per page. If you encounter API issues due to too large page sizes, try to reduce the limit. Defaults to None.
+            name (Optional[str]): Filter by name of traces. Defaults to None.
+            user_id (Optional[str]): Filter by user_id. Defaults to None.
+            session_id (Optional[str]): Filter by session_id. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
+            tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
+
+        Returns:
+            List of Traces
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
+            )
+            return self.client.trace.list(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                trace_id=trace_id,
+                parent_observation_id=parent_observation_id,
+                type=type,
+            )
         except Exception as e:
             self.log.exception(e)
             raise e
