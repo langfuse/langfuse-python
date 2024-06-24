@@ -31,6 +31,7 @@ from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
 )
+from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
@@ -453,7 +454,7 @@ class Langfuse(object):
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> Traces:
-        """Get a list of observations in the current project matching the given parameters.
+        """Get a list of traces in the current project matching the given parameters.
 
         Args:
             page (Optional[int]): Page number, starts at 1. Defaults to None.
@@ -473,16 +474,17 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
             )
             return self.client.trace.list(
                 page=page,
                 limit=limit,
                 name=name,
                 user_id=user_id,
-                trace_id=trace_id,
-                parent_observation_id=parent_observation_id,
-                type=type,
+                session_id=session_id,
+                from_timestamp=from_timestamp,
+                order_by=order_by,
+                tags=tags,
             )
         except Exception as e:
             self.log.exception(e)
@@ -497,6 +499,7 @@ class Langfuse(object):
         user_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
+        from_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> ObservationsViews:
         """Get a list of observations in the current project matching the given parameters.
@@ -508,6 +511,7 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -518,7 +522,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
             )
             return self.client.observations.get_many(
                 page=page,
@@ -527,6 +531,7 @@ class Langfuse(object):
                 user_id=user_id,
                 trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
+                from_start_time=from_start_time,
                 type=type,
             )
         except Exception as e:
