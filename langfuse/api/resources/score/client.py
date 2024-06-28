@@ -44,7 +44,7 @@ class ScoreClient:
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import CreateScoreRequest
+        from finto import CreateScoreRequest, ScoreDataType
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -61,8 +61,11 @@ class ScoreClient:
                 trace_id="string",
                 name="string",
                 value=1.1,
+                string_value="string",
                 observation_id="string",
                 comment="string",
+                data_type=ScoreDataType.NUMERIC,
+                config_id="string",
             ),
         )
         """
@@ -469,8 +472,11 @@ class AsyncScoreClient:
                 trace_id="string",
                 name="string",
                 value=1.1,
+                stringValue="string",
                 observation_id="string",
                 comment="string",
+                data_type=ScoreDataType.NUMERIC,
+                config_id="string",
             ),
         )
         """

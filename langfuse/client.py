@@ -58,7 +58,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel
+from langfuse.types import SpanLevel, ScoreDataType
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -960,10 +960,13 @@ class Langfuse(object):
         *,
         name: str,
         value: float,
+        string_value: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        data_type: typing.Optional[ScoreDataType] = None,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached to a trace (and optionally an observation).
@@ -971,10 +974,13 @@ class Langfuse(object):
         Args:
             name (str): Identifier of the score.
             value (float): The value of the score. Can be any number, often standardized to 0..1
+            string_value (Optional[str]): Translates numeric value to string equivalent for boolean and categorical score types.
             trace_id (str): The id of the trace to which the score should be attached.
             comment (Optional[str]): Additional context/explanation of the score.
             observation_id (Optional[str]): The id of the observation to which the score should be attached.
             id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            config_id (Optional[str]): The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+            data_type Optional[Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]]): The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
             **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
@@ -1010,7 +1016,10 @@ class Langfuse(object):
                 "observation_id": observation_id,
                 "name": name,
                 "value": value,
+                "string_value": string_value,
                 "comment": comment,
+                "config_id": config_id,
+                "data_type": data_type
                 **kwargs,
             }
 
@@ -1713,7 +1722,10 @@ class StatefulClient(object):
         id: typing.Optional[str] = None,
         name: str,
         value: float,
+        string_value: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        data_type: typing.Optional[ScoreDataType] = None,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached for the current observation or trace.
@@ -1721,8 +1733,11 @@ class StatefulClient(object):
         Args:
             name (str): Identifier of the score.
             value (float): The value of the score. Can be any number, often standardized to 0..1
+            string_value (Optional[str]): Translates numeric value to string equivalent for boolean and categorical score types.
             comment (Optional[str]): Additional context/explanation of the score.
             id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            config_id (Optional[str]): The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+            data_type Optional[Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]]): The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
             **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
@@ -1752,7 +1767,10 @@ class StatefulClient(object):
                 "trace_id": self.trace_id,
                 "name": name,
                 "value": value,
+                "string_value": string_value,
                 "comment": comment,
+                "config_id": config_id, 
+                "data_type": data_type,
                 **kwargs,
             }
 
