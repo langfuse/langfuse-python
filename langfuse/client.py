@@ -1019,7 +1019,7 @@ class Langfuse(object):
                 "string_value": string_value,
                 "comment": comment,
                 "config_id": config_id,
-                "data_type": data_type
+                "data_type": data_type,
                 **kwargs,
             }
 
@@ -1769,7 +1769,7 @@ class StatefulClient(object):
                 "value": value,
                 "string_value": string_value,
                 "comment": comment,
-                "config_id": config_id, 
+                "config_id": config_id,
                 "data_type": data_type,
                 **kwargs,
             }

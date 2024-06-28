@@ -17,7 +17,9 @@ class CreateScoreRequest(pydantic_v1.BaseModel):
     The numeric value of the score. Must be passed for all data types. Is used as source of truth when inferring the string value.
     """
 
-    string_value: typing.Optional[str] = pydantic_v1.Field(alias="stringValue", default=None)
+    string_value: typing.Optional[str] = pydantic_v1.Field(
+        alias="stringValue", default=None
+    )
     """
     Translates numeric value to string equivalent for boolean and categorical score types. When passing a configId or boolean data type this field is automatically populated. Otherwise, you may use this field to provide a custom string value.
     """
@@ -25,7 +27,9 @@ class CreateScoreRequest(pydantic_v1.BaseModel):
         alias="observationId", default=None
     )
     comment: typing.Optional[str] = None
-    data_type: typing.Optional[ScoreDataType] = pydantic_v1.Field(alias="dataType", default=None)
+    data_type: typing.Optional[ScoreDataType] = pydantic_v1.Field(
+        alias="dataType", default=None
+    )
     """
     The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
     """

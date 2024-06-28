@@ -7,6 +7,7 @@ from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
 from .score_data_type import ScoreDataType
 
+
 class ScoreBody(pydantic_v1.BaseModel):
     id: typing.Optional[str] = None
     trace_id: str = pydantic_v1.Field(alias="traceId")
@@ -18,7 +19,7 @@ class ScoreBody(pydantic_v1.BaseModel):
     )
     comment: typing.Optional[str] = None
     config_id: typing.Optional[str] = None
-    data_type: typing.Optional[ScoreDataType] = None,
+    data_type: typing.Optional[ScoreDataType] = (None,)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

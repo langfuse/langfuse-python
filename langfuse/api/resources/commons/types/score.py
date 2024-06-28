@@ -22,8 +22,7 @@ class Score(pydantic_v1.BaseModel):
     timestamp: dt.datetime
     comment: typing.Optional[str] = None
     config_id: typing.Optional[str] = None
-    data_type: typing.Optional[ScoreDataType] = None,
-
+    data_type: typing.Optional[ScoreDataType] = (None,)
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
