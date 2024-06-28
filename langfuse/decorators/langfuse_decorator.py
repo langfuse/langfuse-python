@@ -34,7 +34,7 @@ from langfuse.client import (
     MapValue,
 )
 from langfuse.serializer import EventSerializer
-from langfuse.types import ObservationParams, SpanLevel
+from langfuse.types import ObservationParams, SpanLevel, ScoreDataType
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from langfuse.utils.error_logging import catch_and_log_errors
@@ -810,16 +810,22 @@ class LangfuseDecorator:
         *,
         name: str,
         value: float,
+        string_value: Optional[str] = None,
         comment: Optional[str] = None,
         id: Optional[str] = None,
+        config_id: Optional[str] = None,
+        data_type: Optional[ScoreDataType] = None,
     ):
         """Score the current observation within an active trace. If called on the top level of a trace, it will score the trace.
 
         Arguments:
             name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
             value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            string_value (Optional[str]): Translates numeric value to string equivalent for boolean and categorical score types.
             comment (Optional[str]): An optional comment or description providing context or additional details about the score.
             id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+            config_id (Optional[str]): The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+            data_type Optional[Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]]): The data type of the score. When passing a config_id this field is inferred. Otherwise, this field must be passed or will default to numeric.
 
         Returns:
             None
@@ -842,8 +848,11 @@ class LangfuseDecorator:
                     observation_id=observation_id,
                     name=name,
                     value=value,
+                    string_value=string_value,
                     comment=comment,
                     id=id,
+                    config_id=config_id,
+                    data_type=data_type,
                 )
             else:
                 raise ValueError("No trace or observation found in the current context")
@@ -856,16 +865,22 @@ class LangfuseDecorator:
         *,
         name: str,
         value: float,
+        string_value: Optional[str] = None,
         comment: Optional[str] = None,
         id: Optional[str] = None,
+        config_id: Optional[str] = None,
+        data_type: Optional[ScoreDataType] = None,
     ):
         """Score the current trace in context. This can be called anywhere in the nested trace to score the trace.
 
         Arguments:
             name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
             value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            string_value (Optional[str]): Translates numeric value to string equivalent for boolean and categorical score types.
             comment (Optional[str]): An optional comment or description providing context or additional details about the score.
             id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+            config_id (Optional[str]): The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+            data_type Optional[Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]]): The data type of the score. When passing a config_id this field is inferred. Otherwise, this field must be passed or will default to numeric.
 
         Returns:
             None
@@ -882,8 +897,11 @@ class LangfuseDecorator:
                     trace_id=trace_id,
                     name=name,
                     value=value,
+                    string_value=string_value,
                     comment=comment,
                     id=id,
+                    config_id=config_id,
+                    data_type=data_type,
                 )
             else:
                 raise ValueError("No trace found in the current context")

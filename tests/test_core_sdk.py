@@ -542,6 +542,7 @@ def test_score_span():
     assert score["value"] == 1
     assert score["comment"] == "This is a comment"
     assert score["observationId"] == spanId
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_create_trace_and_span():

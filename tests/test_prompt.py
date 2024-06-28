@@ -212,9 +212,10 @@ def test_create_prompt_with_null_config():
 
     assert prompt.config == {}
 
+
 def test_create_prompt_with_tags():
     langfuse = Langfuse(debug=False)
-    prompt_name=create_uuid()
+    prompt_name = create_uuid()
 
     langfuse.create_prompt(
         name=prompt_name,
@@ -229,7 +230,7 @@ def test_create_prompt_with_tags():
 
 def test_create_prompt_with_empty_tags():
     langfuse = Langfuse(debug=False)
-    prompt_name=create_uuid()
+    prompt_name = create_uuid()
 
     langfuse.create_prompt(
         name=prompt_name,
@@ -244,7 +245,7 @@ def test_create_prompt_with_empty_tags():
 
 def test_create_prompt_with_previous_tags():
     langfuse = Langfuse(debug=False)
-    prompt_name=create_uuid()
+    prompt_name = create_uuid()
 
     langfuse.create_prompt(
         name=prompt_name,
@@ -277,7 +278,7 @@ def test_create_prompt_with_previous_tags():
 
 def test_remove_prompt_tags():
     langfuse = Langfuse(debug=False)
-    prompt_name=create_uuid()
+    prompt_name = create_uuid()
 
     langfuse.create_prompt(
         name=prompt_name,
@@ -300,7 +301,7 @@ def test_remove_prompt_tags():
 
 def test_update_prompt_tags():
     langfuse = Langfuse(debug=False)
-    prompt_name=create_uuid()
+    prompt_name = create_uuid()
 
     langfuse.create_prompt(
         name=prompt_name,
@@ -550,7 +551,7 @@ def test_get_valid_cached_production_chat_prompt(langfuse):
         labels=["test"],
         type="chat",
         config={},
-        tags=[]
+        tags=[],
     )
     prompt_client = ChatPromptClient(prompt)
 
@@ -645,7 +646,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
         labels=[],
         type="text",
         config={},
-        tags=[]
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -684,7 +685,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
         labels=[],
         type="text",
         config={},
-        tags=[]
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -715,7 +716,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         labels=[],
         type="text",
         config={},
-        tags=[]
+        tags=[],
     )
     prompt_client = TextPromptClient(prompt)
 
@@ -733,7 +734,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
         prompt="Make me laugh",
         type="text",
         config={},
-        tags=[]
+        tags=[],
     )
     version_changed_prompt_client = TextPromptClient(version_changed_prompt)
     mock_server_call.return_value = version_changed_prompt
