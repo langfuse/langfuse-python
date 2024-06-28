@@ -30,6 +30,7 @@ from .observation_type import ObservationType
 from .open_ai_usage import OpenAiUsage
 from .optional_observation_body import OptionalObservationBody
 from .score_body import ScoreBody
+from .score_data_type import ScoreDataType
 from .score_event import ScoreEvent
 from .sdk_log_body import SdkLogBody
 from .sdk_log_event import SdkLogEvent
@@ -71,6 +72,7 @@ __all__ = [
     "OpenAiUsage",
     "OptionalObservationBody",
     "ScoreBody",
+    "ScoreDataType",
     "ScoreEvent",
     "SdkLogBody",
     "SdkLogEvent",

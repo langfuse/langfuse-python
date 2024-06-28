@@ -189,7 +189,6 @@ __all__ = [
     "ScoreSource",
     "Scores",
     "SdkLogBody",
-    "ScoreDataType",
     "SdkLogEvent",
     "ServiceUnavailableError",
     "Session",
