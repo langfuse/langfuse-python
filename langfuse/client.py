@@ -12,6 +12,12 @@ from typing import Any, Dict, Optional, Literal, Union, List, Sequence, overload
 import urllib.parse
 
 
+from langfuse.api.resources.commons.types.dataset_run_with_items import (
+    DatasetRunWithItems,
+)
+from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
+    PaginatedDatasetRuns,
+)
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
     CreateGenerationBody,
@@ -38,7 +44,6 @@ from langfuse.model import (
     CreateDatasetRunItemRequest,
     ChatMessageDict,
     DatasetItem,
-    DatasetRun,
     DatasetStatus,
     ModelUsage,
     PromptClient,
@@ -255,11 +260,14 @@ class Langfuse(object):
         """Get the URL of the current trace to view it in the Langfuse UI."""
         return f"{self.base_url}/trace/{self.trace_id}"
 
-    def get_dataset(self, name: str) -> "DatasetClient":
+    def get_dataset(
+        self, name: str, items_chunk_size: Optional[int] = 50
+    ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
             name (str): The name of the dataset to fetch.
+            items_chunk_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -268,7 +276,18 @@ class Langfuse(object):
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
 
-            items = [DatasetItemClient(i, langfuse=self) for i in dataset.items]
+            dataset_items = []
+            page = 1
+            while True:
+                new_items = self.client.dataset_items.list(
+                    dataset_name=name, page=page, limit=items_chunk_size
+                )
+                dataset_items.extend(new_items.data)
+                if new_items.meta.total_pages <= page:
+                    break
+                page += 1
+
+            items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
 
             return DatasetClient(dataset, items=items)
         except Exception as e:
@@ -309,11 +328,37 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_dataset_runs(
+        self,
+        dataset_name: str,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+    ) -> PaginatedDatasetRuns:
+        """Get all dataset runs.
+
+        Args:
+            dataset_name (str): Name of the dataset.
+            page (Optional[int]): Page number of the dataset runs to return, starts at 1. Defaults to None.
+            limit (Optional[int]): Maximum number of dataset runs to return. Defaults to 50.
+
+        Returns:
+            PaginatedDatasetRuns: The dataset runs.
+        """
+        try:
+            self.log.debug(f"Getting dataset runs")
+            return self.client.datasets.get_runs(
+                dataset_name=dataset_name, page=page, limit=limit
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_dataset_run(
         self,
         dataset_name: str,
         dataset_run_name: str,
-    ) -> DatasetRun:
+    ) -> DatasetRunWithItems:
         """Get a dataset run.
 
         Args:
@@ -321,13 +366,13 @@ class Langfuse(object):
             dataset_run_name: Name of the dataset run.
 
         Returns:
-            DatasetRun: The dataset run.
+            DatasetRunWithItems: The dataset run.
         """
         try:
             self.log.debug(
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
             )
-            return self.client.datasets.get_runs(
+            return self.client.datasets.get_run(
                 dataset_name=dataset_name, run_name=dataset_run_name
             )
         except Exception as e:
@@ -2792,7 +2837,7 @@ class DatasetClient:
         created_at (datetime): Timestamp of dataset creation.
         updated_at (datetime): Timestamp of the last update to the dataset.
         items (List[DatasetItemClient]): List of dataset items associated with the dataset.
-        runs (List[str]): List of dataset runs associated with the dataset.
+        runs (List[str]): List of dataset runs associated with the dataset. Deprecated.
 
     Example:
         Print the input of each dataset item in a dataset.
@@ -2817,7 +2862,7 @@ class DatasetClient:
     created_at: dt.datetime
     updated_at: dt.datetime
     items: typing.List[DatasetItemClient]
-    runs: typing.List[str]
+    runs: typing.List[str] = []  # deprecated
 
     def __init__(self, dataset: Dataset, items: typing.List[DatasetItemClient]):
         """Initialize the DatasetClient."""
@@ -2830,4 +2875,3 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
-        self.runs = dataset.runs

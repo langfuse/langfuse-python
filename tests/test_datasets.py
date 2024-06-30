@@ -75,6 +75,25 @@ def test_create_dataset_item():
     assert dataset.items[0].dataset_name == name
 
 
+def test_get_all_items():
+    langfuse = Langfuse(debug=False)
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    input = {"input": "Hello World"}
+    for _ in range(99):
+        langfuse.create_dataset_item(dataset_name=name, input=input)
+
+    dataset = langfuse.get_dataset(name)
+    assert len(dataset.items) == 99
+
+    dataset_2 = langfuse.get_dataset(name, items_chunk_size=9)
+    assert len(dataset_2.items) == 99
+
+    dataset_3 = langfuse.get_dataset(name, items_chunk_size=2)
+    assert len(dataset_2.items) == 99
+
+
 def test_upsert_and_get_dataset_item():
     langfuse = Langfuse(debug=False)
     name = create_uuid()
@@ -169,6 +188,58 @@ def test_linking_trace_and_run_metadata_and_description():
     assert len(run.dataset_run_items) == 1
     assert run.dataset_run_items[0].trace_id == trace_id
     assert run.dataset_run_items[0].observation_id is None
+
+
+def test_get_runs():
+    langfuse = Langfuse(debug=False)
+
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    input = json.dumps({"input": "Hello World"})
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
+
+    dataset = langfuse.get_dataset(dataset_name)
+    assert len(dataset.items) == 1
+    assert dataset.items[0].input == input
+
+    run_name_1 = create_uuid()
+    trace_id_1 = create_uuid()
+
+    for item in dataset.items:
+        trace = langfuse.trace(id=trace_id_1)
+
+        item.link(
+            trace,
+            run_name_1,
+            run_metadata={"key": "value"},
+            run_description="This is a test run",
+        )
+
+    run_name_2 = create_uuid()
+    trace_id_2 = create_uuid()
+
+    for item in dataset.items:
+        trace = langfuse.trace(id=trace_id_2)
+
+        item.link(
+            trace,
+            run_name_2,
+            run_metadata={"key": "value"},
+            run_description="This is a test run",
+        )
+
+    runs = langfuse.get_dataset_runs(dataset_name)
+
+    assert len(runs.data) == 2
+    assert runs.data[0].name == run_name_2
+    assert runs.data[0].metadata == {"key": "value"}
+    assert runs.data[0].description == "This is a test run"
+    assert runs.data[1].name == run_name_1
+    assert runs.meta.total_items == 2
+    assert runs.meta.total_pages == 1
+    assert runs.meta.page == 1
+    assert runs.meta.limit == 50
 
 
 def test_linking_via_id_observation_arg_legacy():
