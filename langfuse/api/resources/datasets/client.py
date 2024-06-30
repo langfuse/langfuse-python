@@ -40,9 +40,9 @@ class DatasetsClient:
         Get all datasets
 
         Parameters:
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -411,9 +411,9 @@ class DatasetsClient:
         Parameters:
             - dataset_name: str.
 
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -513,9 +513,9 @@ class AsyncDatasetsClient:
         Get all datasets
 
         Parameters:
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -884,9 +884,9 @@ class AsyncDatasetsClient:
         Parameters:
             - dataset_name: str.
 
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---

@@ -234,9 +234,9 @@ class DatasetItemsClient:
 
             - source_observation_id: typing.Optional[str].
 
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -536,9 +536,9 @@ class AsyncDatasetItemsClient:
 
             - source_observation_id: typing.Optional[str].
 
-            - page: typing.Optional[int].
+            - page: typing.Optional[int]. page number, starts at 1
 
-            - limit: typing.Optional[int].
+            - limit: typing.Optional[int]. limit of items per page
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
