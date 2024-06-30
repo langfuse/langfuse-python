@@ -5,16 +5,13 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from ...commons.types.dataset_item import DatasetItem
+from ...utils.resources.pagination.types.meta_response import MetaResponse
 
 
-class Dataset(pydantic_v1.BaseModel):
-    id: str
-    name: str
-    description: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    project_id: str = pydantic_v1.Field(alias="projectId")
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+class PaginatedDatasetItems(pydantic_v1.BaseModel):
+    data: typing.List[DatasetItem]
+    meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -35,7 +32,5 @@ class Dataset(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

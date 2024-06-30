@@ -30,13 +30,21 @@ class IngestionClient:
         self,
         *,
         batch: typing.Sequence[IngestionEvent],
+        metadata: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
         """
-        Batched ingestion for Langfuse Tracing
+        Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+
+        Notes:
+
+        - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
+        - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 
         Parameters:
-            - batch: typing.Sequence[IngestionEvent].
+            - batch: typing.Sequence[IngestionEvent]. Batch of tracing events to be ingested. Discriminated by attribute `type`.
+
+            - metadata: typing.Optional[typing.Any]. Optional. Metadata field used by the Langfuse SDKs for debugging.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -77,8 +85,12 @@ class IngestionClient:
                     metadata={"key": "value"},
                 )
             ],
+            metadata={"key": "value"},
         )
         """
+        _request: typing.Dict[str, typing.Any] = {"batch": batch}
+        if metadata is not OMIT:
+            _request["metadata"] = metadata
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(
@@ -89,11 +101,11 @@ class IngestionClient:
                 if request_options is not None
                 else None
             ),
-            json=jsonable_encoder({"batch": batch})
+            json=jsonable_encoder(_request)
             if request_options is None
             or request_options.get("additional_body_parameters") is None
             else {
-                **jsonable_encoder({"batch": batch}),
+                **jsonable_encoder(_request),
                 **(
                     jsonable_encoder(
                         remove_none_from_dict(
@@ -156,13 +168,21 @@ class AsyncIngestionClient:
         self,
         *,
         batch: typing.Sequence[IngestionEvent],
+        metadata: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
         """
-        Batched ingestion for Langfuse Tracing
+        Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+
+        Notes:
+
+        - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
+        - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 
         Parameters:
-            - batch: typing.Sequence[IngestionEvent].
+            - batch: typing.Sequence[IngestionEvent]. Batch of tracing events to be ingested. Discriminated by attribute `type`.
+
+            - metadata: typing.Optional[typing.Any]. Optional. Metadata field used by the Langfuse SDKs for debugging.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -203,8 +223,12 @@ class AsyncIngestionClient:
                     metadata={"key": "value"},
                 )
             ],
+            metadata={"key": "value"},
         )
         """
+        _request: typing.Dict[str, typing.Any] = {"batch": batch}
+        if metadata is not OMIT:
+            _request["metadata"] = metadata
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(
@@ -215,11 +239,11 @@ class AsyncIngestionClient:
                 if request_options is not None
                 else None
             ),
-            json=jsonable_encoder({"batch": batch})
+            json=jsonable_encoder(_request)
             if request_options is None
             or request_options.get("additional_body_parameters") is None
             else {
-                **jsonable_encoder({"batch": batch}),
+                **jsonable_encoder(_request),
                 **(
                     jsonable_encoder(
                         remove_none_from_dict(

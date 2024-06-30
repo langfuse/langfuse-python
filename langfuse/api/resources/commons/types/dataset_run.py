@@ -5,7 +5,6 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .dataset_run_item import DatasetRunItem
 
 
 class DatasetRun(pydantic_v1.BaseModel):
@@ -17,9 +16,6 @@ class DatasetRun(pydantic_v1.BaseModel):
     dataset_name: str = pydantic_v1.Field(alias="datasetName")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    dataset_run_items: typing.List[DatasetRunItem] = pydantic_v1.Field(
-        alias="datasetRunItems"
-    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
