@@ -261,13 +261,13 @@ class Langfuse(object):
         return f"{self.base_url}/trace/{self.trace_id}"
 
     def get_dataset(
-        self, name: str, items_chunk_size: Optional[int] = 50
+        self, name: str, *, fetch_page_size: Optional[int] = 50
     ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
             name (str): The name of the dataset to fetch.
-            items_chunk_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            fetch_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -280,7 +280,7 @@ class Langfuse(object):
             page = 1
             while True:
                 new_items = self.client.dataset_items.list(
-                    dataset_name=name, page=page, limit=items_chunk_size
+                    dataset_name=name, page=page, limit=fetch_page_size
                 )
                 dataset_items.extend(new_items.data)
                 if new_items.meta.total_pages <= page:
