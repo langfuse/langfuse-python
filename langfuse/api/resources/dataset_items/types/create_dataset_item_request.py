@@ -23,7 +23,7 @@ class CreateDatasetItemRequest(pydantic_v1.BaseModel):
     )
     id: typing.Optional[str] = pydantic_v1.Field(default=None)
     """
-    Dataset items are upserted on their id
+    Dataset items are upserted on their id. Id needs to be globally unique and cannot be reused across datasets.
     """
 
     status: typing.Optional[DatasetStatus] = pydantic_v1.Field(default=None)

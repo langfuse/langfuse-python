@@ -5,16 +5,30 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
+from .config_category import ConfigCategory
+from .score_data_type import ScoreDataType
 
 
-class Dataset(pydantic_v1.BaseModel):
+class ScoreConfig(pydantic_v1.BaseModel):
+    """
+    Configuration for a score
+    """
+
     id: str
     name: str
-    description: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
-    project_id: str = pydantic_v1.Field(alias="projectId")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+    project_id: str = pydantic_v1.Field(alias="projectId")
+    data_type: ScoreDataType = pydantic_v1.Field(alias="dataType")
+    is_archived: bool = pydantic_v1.Field(alias="isArchived")
+    min_value: typing.Optional[float] = pydantic_v1.Field(
+        alias="minValue", default=None
+    )
+    max_value: typing.Optional[float] = pydantic_v1.Field(
+        alias="maxValue", default=None
+    )
+    categories: typing.Optional[typing.List[ConfigCategory]] = None
+    description: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

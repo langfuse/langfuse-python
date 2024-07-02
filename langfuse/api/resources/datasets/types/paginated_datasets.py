@@ -5,12 +5,12 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from ...commons.types.dataset_with_references import DatasetWithReferences
+from ...commons.types.dataset import Dataset
 from ...utils.resources.pagination.types.meta_response import MetaResponse
 
 
 class PaginatedDatasets(pydantic_v1.BaseModel):
-    data: typing.List[DatasetWithReferences]
+    data: typing.List[Dataset]
     meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:

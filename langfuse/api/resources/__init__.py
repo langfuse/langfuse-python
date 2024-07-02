@@ -12,19 +12,20 @@ from . import (
     projects,
     prompts,
     score,
+    score_configs,
     sessions,
     trace,
     utils,
 )
 from .commons import (
     AccessDeniedError,
+    ConfigCategory,
     Dataset,
-    DatasetCore,
     DatasetItem,
     DatasetRun,
     DatasetRunItem,
+    DatasetRunWithItems,
     DatasetStatus,
-    DatasetWithReferences,
     Error,
     MapValue,
     MethodNotAllowedError,
@@ -34,6 +35,8 @@ from .commons import (
     ObservationLevel,
     ObservationsView,
     Score,
+    ScoreConfig,
+    ScoreDataType,
     ScoreSource,
     Session,
     SessionWithTraces,
@@ -43,9 +46,9 @@ from .commons import (
     UnauthorizedError,
     Usage,
 )
-from .dataset_items import CreateDatasetItemRequest
+from .dataset_items import CreateDatasetItemRequest, PaginatedDatasetItems
 from .dataset_run_items import CreateDatasetRunItemRequest
-from .datasets import CreateDatasetRequest, PaginatedDatasets
+from .datasets import CreateDatasetRequest, PaginatedDatasetRuns, PaginatedDatasets
 from .health import HealthResponse, ServiceUnavailableError
 from .ingestion import (
     BaseEvent,
@@ -108,6 +111,7 @@ from .prompts import (
     TextPrompt,
 )
 from .score import CreateScoreRequest, Scores
+from .score_configs import ScoreConfigs
 from .trace import Sort, Traces
 
 __all__ = [
@@ -116,6 +120,7 @@ __all__ = [
     "BasePrompt",
     "ChatMessage",
     "ChatPrompt",
+    "ConfigCategory",
     "CreateChatPromptRequest",
     "CreateDatasetItemRequest",
     "CreateDatasetRequest",
@@ -135,12 +140,11 @@ __all__ = [
     "DailyMetrics",
     "DailyMetricsDetails",
     "Dataset",
-    "DatasetCore",
     "DatasetItem",
     "DatasetRun",
     "DatasetRunItem",
+    "DatasetRunWithItems",
     "DatasetStatus",
-    "DatasetWithReferences",
     "Error",
     "HealthResponse",
     "IngestionError",
@@ -171,6 +175,8 @@ __all__ = [
     "ObservationsViews",
     "OpenAiUsage",
     "OptionalObservationBody",
+    "PaginatedDatasetItems",
+    "PaginatedDatasetRuns",
     "PaginatedDatasets",
     "Project",
     "Projects",
@@ -181,6 +187,9 @@ __all__ = [
     "Prompt_Text",
     "Score",
     "ScoreBody",
+    "ScoreConfig",
+    "ScoreConfigs",
+    "ScoreDataType",
     "ScoreEvent",
     "ScoreSource",
     "Scores",
@@ -217,6 +226,7 @@ __all__ = [
     "projects",
     "prompts",
     "score",
+    "score_configs",
     "sessions",
     "trace",
     "utils",

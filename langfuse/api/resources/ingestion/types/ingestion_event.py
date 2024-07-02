@@ -36,8 +36,18 @@ class IngestionEvent_ScoreCreate(ScoreEvent):
         populate_by_name = True
 
 
-class IngestionEvent_EventCreate(CreateEventEvent):
-    type: typing.Literal["event-create"] = "event-create"
+class IngestionEvent_SpanCreate(CreateSpanEvent):
+    type: typing.Literal["span-create"] = "span-create"
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
+
+
+class IngestionEvent_SpanUpdate(UpdateSpanEvent):
+    type: typing.Literal["span-update"] = "span-update"
 
     class Config:
         frozen = True
@@ -66,18 +76,8 @@ class IngestionEvent_GenerationUpdate(UpdateGenerationEvent):
         populate_by_name = True
 
 
-class IngestionEvent_SpanCreate(CreateSpanEvent):
-    type: typing.Literal["span-create"] = "span-create"
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-
-
-class IngestionEvent_SpanUpdate(UpdateSpanEvent):
-    type: typing.Literal["span-update"] = "span-update"
+class IngestionEvent_EventCreate(CreateEventEvent):
+    type: typing.Literal["event-create"] = "event-create"
 
     class Config:
         frozen = True
@@ -119,11 +119,11 @@ class IngestionEvent_ObservationUpdate(UpdateObservationEvent):
 IngestionEvent = typing.Union[
     IngestionEvent_TraceCreate,
     IngestionEvent_ScoreCreate,
-    IngestionEvent_EventCreate,
-    IngestionEvent_GenerationCreate,
-    IngestionEvent_GenerationUpdate,
     IngestionEvent_SpanCreate,
     IngestionEvent_SpanUpdate,
+    IngestionEvent_GenerationCreate,
+    IngestionEvent_GenerationUpdate,
+    IngestionEvent_EventCreate,
     IngestionEvent_SdkLog,
     IngestionEvent_ObservationCreate,
     IngestionEvent_ObservationUpdate,
