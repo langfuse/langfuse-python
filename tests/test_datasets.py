@@ -87,10 +87,10 @@ def test_get_all_items():
     dataset = langfuse.get_dataset(name)
     assert len(dataset.items) == 99
 
-    dataset_2 = langfuse.get_dataset(name, fetch_page_size=9)
+    dataset_2 = langfuse.get_dataset(name, fetch_items_page_size=9)
     assert len(dataset_2.items) == 99
 
-    dataset_3 = langfuse.get_dataset(name, fetch_page_size=2)
+    dataset_3 = langfuse.get_dataset(name, fetch_items_page_size=2)
     assert len(dataset_3.items) == 99
 
 
