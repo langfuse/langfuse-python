@@ -91,7 +91,7 @@ def test_get_all_items():
     assert len(dataset_2.items) == 99
 
     dataset_3 = langfuse.get_dataset(name, fetch_page_size=2)
-    assert len(dataset_2.items) == 99
+    assert len(dataset_3.items) == 99
 
 
 def test_upsert_and_get_dataset_item():

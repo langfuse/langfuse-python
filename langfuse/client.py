@@ -346,7 +346,7 @@ class Langfuse(object):
             PaginatedDatasetRuns: The dataset runs.
         """
         try:
-            self.log.debug(f"Getting dataset runs")
+            self.log.debug("Getting dataset runs")
             return self.client.datasets.get_runs(
                 dataset_name=dataset_name, page=page, limit=limit
             )
