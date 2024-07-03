@@ -2,6 +2,7 @@ from typing import Optional, Union, List, Any
 import httpx
 import logging
 import os
+import warnings
 
 from langfuse.client import Langfuse, StatefulTraceClient, StatefulSpanClient, StateType
 
@@ -110,6 +111,10 @@ class LangfuseBaseCallbackHandler:
         Returns:
             The ID of the current/last trace or None if no trace is available.
         """
+        warnings.warn(
+            "get_trace_id is deprecated, create a trace for this handler instead. See interop documentation of this integration for more information.",
+            DeprecationWarning,
+        )
         return self.trace.id if self.trace else None
 
     def get_trace_url(self):
@@ -119,6 +124,10 @@ class LangfuseBaseCallbackHandler:
         Returns:
             The URL of the current/last trace or None if no trace is available.
         """
+        warnings.warn(
+            "get_trace_url is deprecated, create a trace for this handler instead. See interop documentation of this integration for more information.",
+            DeprecationWarning,
+        )
         return self.trace.get_trace_url() if self.trace else None
 
     def flush(self):

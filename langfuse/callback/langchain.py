@@ -1,6 +1,7 @@
 import httpx
 import logging
 import typing
+import warnings
 
 import pydantic
 
@@ -110,6 +111,10 @@ class LangchainCallbackHandler(
             self.runs[stateful_client.id] = stateful_client
 
     def setNextSpan(self, id: str):
+        warnings.warn(
+            "setNextSpan is deprecated, use span.get_langchain_handler() instead",
+            DeprecationWarning,
+        )
         self.next_span_id = id
 
     def on_llm_new_token(
