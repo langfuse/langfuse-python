@@ -15,141 +15,28 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from .types.create_prompt_request import CreatePromptRequest
-from .types.prompt import Prompt
-from .types.prompt_meta_list_response import PromptMetaListResponse
-
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
+from ..commons.types.score_config import ScoreConfig
+from .types.score_configs import ScoreConfigs
 
 
-class PromptsClient:
+class ScoreConfigsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
     def get(
         self,
-        prompt_name: str,
         *,
-        version: typing.Optional[int] = None,
-        label: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Prompt:
-        """
-        Get a prompt
-
-        Parameters:
-            - prompt_name: str. The name of the prompt
-
-            - version: typing.Optional[int]. Version of the prompt to be retrieved.
-
-            - label: typing.Optional[str]. Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
-
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
-        from finto.client import FernLangfuse
-
-        client = FernLangfuse(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.prompts.get(
-            prompt_name="string",
-            version=1,
-            label="string",
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}",
-            ),
-            params=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        "version": version,
-                        "label": label,
-                        **(
-                            request_options.get("additional_query_parameters", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
-        )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def list(
-        self,
-        *,
-        name: typing.Optional[str] = None,
-        label: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> PromptMetaListResponse:
+    ) -> ScoreConfigs:
         """
-        Get a list of prompt names with versions and labels
+        Get all score configs
 
         Parameters:
-            - name: typing.Optional[str].
+            - page: typing.Optional[int]. Page number, starts at 1.
 
-            - label: typing.Optional[str].
-
-            - tag: typing.Optional[str].
-
-            - page: typing.Optional[int]. page number, starts at 1
-
-            - limit: typing.Optional[int]. limit of items per page
+            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -163,10 +50,7 @@ class PromptsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.prompts.list(
-            name="string",
-            label="string",
-            tag="string",
+        client.score_configs.get(
             page=1,
             limit=1,
         )
@@ -174,14 +58,11 @@ class PromptsClient:
         _response = self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/v2/prompts"
+                f"{self._client_wrapper.get_base_url()}/", "api/public/score-configs"
             ),
             params=jsonable_encoder(
                 remove_none_from_dict(
                     {
-                        "name": name,
-                        "label": label,
-                        "tag": tag,
                         "page": page,
                         "limit": limit,
                         **(
@@ -214,7 +95,7 @@ class PromptsClient:
             else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(PromptMetaListResponse, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(ScoreConfigs, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -237,21 +118,17 @@ class PromptsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def create(
-        self,
-        *,
-        request: CreatePromptRequest,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Prompt:
+    def get_by_id(
+        self, config_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ScoreConfig:
         """
-        Create a prompt
+        Get a score config
 
         Parameters:
-            - request: CreatePromptRequest.
+            - config_id: str. The unique langfuse identifier of a score config
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import ChatMessage, CreatePromptRequest_Chat
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -262,39 +139,21 @@ class PromptsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.prompts.create(
-            request=CreatePromptRequest_Chat(
-                name="string",
-                prompt=[ChatMessage()],
-                config={"key": "value"},
-                labels=["string"],
-                tags=["string"],
-            ),
+        client.score_configs.get_by_id(
+            config_id="string",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "POST",
+            "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/v2/prompts"
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/score-configs/{jsonable_encoder(config_id)}",
             ),
             params=jsonable_encoder(
                 request_options.get("additional_query_parameters")
                 if request_options is not None
                 else None
             ),
-            json=jsonable_encoder(request)
-            if request_options is None
-            or request_options.get("additional_body_parameters") is None
-            else {
-                **jsonable_encoder(request),
-                **(
-                    jsonable_encoder(
-                        remove_none_from_dict(
-                            request_options.get("additional_body_parameters", {})
-                        )
-                    )
-                ),
-            },
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
@@ -317,7 +176,7 @@ class PromptsClient:
             else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(ScoreConfig, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -341,133 +200,24 @@ class PromptsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncPromptsClient:
+class AsyncScoreConfigsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
     async def get(
         self,
-        prompt_name: str,
         *,
-        version: typing.Optional[int] = None,
-        label: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Prompt:
-        """
-        Get a prompt
-
-        Parameters:
-            - prompt_name: str. The name of the prompt
-
-            - version: typing.Optional[int]. Version of the prompt to be retrieved.
-
-            - label: typing.Optional[str]. Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
-
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
-        from finto.client import AsyncFernLangfuse
-
-        client = AsyncFernLangfuse(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        await client.prompts.get(
-            prompt_name="string",
-            version=1,
-            label="string",
-        )
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}",
-            ),
-            params=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        "version": version,
-                        "label": label,
-                        **(
-                            request_options.get("additional_query_parameters", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
-        )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        try:
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def list(
-        self,
-        *,
-        name: typing.Optional[str] = None,
-        label: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> PromptMetaListResponse:
+    ) -> ScoreConfigs:
         """
-        Get a list of prompt names with versions and labels
+        Get all score configs
 
         Parameters:
-            - name: typing.Optional[str].
+            - page: typing.Optional[int]. Page number, starts at 1.
 
-            - label: typing.Optional[str].
-
-            - tag: typing.Optional[str].
-
-            - page: typing.Optional[int]. page number, starts at 1
-
-            - limit: typing.Optional[int]. limit of items per page
+            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -481,10 +231,7 @@ class AsyncPromptsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        await client.prompts.list(
-            name="string",
-            label="string",
-            tag="string",
+        await client.score_configs.get(
             page=1,
             limit=1,
         )
@@ -492,14 +239,11 @@ class AsyncPromptsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/v2/prompts"
+                f"{self._client_wrapper.get_base_url()}/", "api/public/score-configs"
             ),
             params=jsonable_encoder(
                 remove_none_from_dict(
                     {
-                        "name": name,
-                        "label": label,
-                        "tag": tag,
                         "page": page,
                         "limit": limit,
                         **(
@@ -532,7 +276,7 @@ class AsyncPromptsClient:
             else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(PromptMetaListResponse, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(ScoreConfigs, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -555,21 +299,17 @@ class AsyncPromptsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def create(
-        self,
-        *,
-        request: CreatePromptRequest,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Prompt:
+    async def get_by_id(
+        self, config_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ScoreConfig:
         """
-        Create a prompt
+        Get a score config
 
         Parameters:
-            - request: CreatePromptRequest.
+            - config_id: str. The unique langfuse identifier of a score config
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
-        from finto import ChatMessage, CreatePromptRequest_Chat
         from finto.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -580,39 +320,21 @@ class AsyncPromptsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        await client.prompts.create(
-            request=CreatePromptRequest_Chat(
-                name="string",
-                prompt=[ChatMessage()],
-                config={"key": "value"},
-                labels=["string"],
-                tags=["string"],
-            ),
+        await client.score_configs.get_by_id(
+            config_id="string",
         )
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "POST",
+            "GET",
             urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/v2/prompts"
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/public/score-configs/{jsonable_encoder(config_id)}",
             ),
             params=jsonable_encoder(
                 request_options.get("additional_query_parameters")
                 if request_options is not None
                 else None
             ),
-            json=jsonable_encoder(request)
-            if request_options is None
-            or request_options.get("additional_body_parameters") is None
-            else {
-                **jsonable_encoder(request),
-                **(
-                    jsonable_encoder(
-                        remove_none_from_dict(
-                            request_options.get("additional_body_parameters", {})
-                        )
-                    )
-                ),
-            },
             headers=jsonable_encoder(
                 remove_none_from_dict(
                     {
@@ -635,7 +357,7 @@ class AsyncPromptsClient:
             else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(ScoreConfig, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

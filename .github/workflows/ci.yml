@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: chartboost/ruff-action@v1
         with:
-          args: --config ci.ruff.toml
+          args: check --config ci.ruff.toml
 
   ci:
     runs-on: ubuntu-latest

@@ -17,6 +17,7 @@ from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.dataset_item import DatasetItem
 from .types.create_dataset_item_request import CreateDatasetItemRequest
+from .types.paginated_dataset_items import PaginatedDatasetItems
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -213,6 +214,116 @@ class DatasetItemsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def list(
+        self,
+        *,
+        dataset_name: typing.Optional[str] = None,
+        source_trace_id: typing.Optional[str] = None,
+        source_observation_id: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PaginatedDatasetItems:
+        """
+        Get dataset items
+
+        Parameters:
+            - dataset_name: typing.Optional[str].
+
+            - source_trace_id: typing.Optional[str].
+
+            - source_observation_id: typing.Optional[str].
+
+            - page: typing.Optional[int]. page number, starts at 1
+
+            - limit: typing.Optional[int]. limit of items per page
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.dataset_items.list(
+            dataset_name="string",
+            source_trace_id="string",
+            source_observation_id="string",
+            page=1,
+            limit=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-items"
+            ),
+            params=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        "datasetName": dataset_name,
+                        "sourceTraceId": source_trace_id,
+                        "sourceObservationId": source_observation_id,
+                        "page": page,
+                        "limit": limit,
+                        **(
+                            request_options.get("additional_query_parameters", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic_v1.parse_obj_as(PaginatedDatasetItems, _response.json())  # type: ignore
+        if _response.status_code == 400:
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+        if _response.status_code == 401:
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
+        if _response.status_code == 403:
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
+        if _response.status_code == 405:
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
 
 class AsyncDatasetItemsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -383,6 +494,116 @@ class AsyncDatasetItemsClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic_v1.parse_obj_as(DatasetItem, _response.json())  # type: ignore
+        if _response.status_code == 400:
+            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+        if _response.status_code == 401:
+            raise UnauthorizedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
+        if _response.status_code == 403:
+            raise AccessDeniedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
+        if _response.status_code == 405:
+            raise MethodNotAllowedError(
+                pydantic_v1.parse_obj_as(typing.Any, _response.json())
+            )  # type: ignore
+        if _response.status_code == 404:
+            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def list(
+        self,
+        *,
+        dataset_name: typing.Optional[str] = None,
+        source_trace_id: typing.Optional[str] = None,
+        source_observation_id: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PaginatedDatasetItems:
+        """
+        Get dataset items
+
+        Parameters:
+            - dataset_name: typing.Optional[str].
+
+            - source_trace_id: typing.Optional[str].
+
+            - source_observation_id: typing.Optional[str].
+
+            - page: typing.Optional[int]. page number, starts at 1
+
+            - limit: typing.Optional[int]. limit of items per page
+
+            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
+        ---
+        from finto.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        await client.dataset_items.list(
+            dataset_name="string",
+            source_trace_id="string",
+            source_observation_id="string",
+            page=1,
+            limit=1,
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/public/dataset-items"
+            ),
+            params=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        "datasetName": dataset_name,
+                        "sourceTraceId": source_trace_id,
+                        "sourceObservationId": source_observation_id,
+                        "page": page,
+                        "limit": limit,
+                        **(
+                            request_options.get("additional_query_parameters", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            headers=jsonable_encoder(
+                remove_none_from_dict(
+                    {
+                        **self._client_wrapper.get_headers(),
+                        **(
+                            request_options.get("additional_headers", {})
+                            if request_options is not None
+                            else {}
+                        ),
+                    }
+                )
+            ),
+            timeout=request_options.get("timeout_in_seconds")
+            if request_options is not None
+            and request_options.get("timeout_in_seconds") is not None
+            else self._client_wrapper.get_timeout(),
+            retries=0,
+            max_retries=request_options.get("max_retries")
+            if request_options is not None
+            else 0,  # type: ignore
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic_v1.parse_obj_as(PaginatedDatasetItems, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:

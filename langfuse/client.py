@@ -8,10 +8,16 @@ import httpx
 from enum import Enum
 import time
 import tracemalloc
-from typing import Any, Dict, Optional, Literal, Union, List, overload
+from typing import Any, Dict, Optional, Literal, Union, List, Sequence, overload
 import urllib.parse
 
 
+from langfuse.api.resources.commons.types.dataset_run_with_items import (
+    DatasetRunWithItems,
+)
+from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
+    PaginatedDatasetRuns,
+)
 from langfuse.api.resources.ingestion.types.create_event_body import CreateEventBody
 from langfuse.api.resources.ingestion.types.create_generation_body import (
     CreateGenerationBody,
@@ -31,13 +37,13 @@ from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
 )
+from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
     CreateDatasetRunItemRequest,
     ChatMessageDict,
     DatasetItem,
-    DatasetRun,
     DatasetStatus,
     ModelUsage,
     PromptClient,
@@ -254,11 +260,14 @@ class Langfuse(object):
         """Get the URL of the current trace to view it in the Langfuse UI."""
         return f"{self.base_url}/trace/{self.trace_id}"
 
-    def get_dataset(self, name: str) -> "DatasetClient":
+    def get_dataset(
+        self, name: str, *, fetch_items_page_size: Optional[int] = 50
+    ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
             name (str): The name of the dataset to fetch.
+            fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -267,7 +276,18 @@ class Langfuse(object):
             self.log.debug(f"Getting datasets {name}")
             dataset = self.client.datasets.get(dataset_name=name)
 
-            items = [DatasetItemClient(i, langfuse=self) for i in dataset.items]
+            dataset_items = []
+            page = 1
+            while True:
+                new_items = self.client.dataset_items.list(
+                    dataset_name=name, page=page, limit=fetch_items_page_size
+                )
+                dataset_items.extend(new_items.data)
+                if new_items.meta.total_pages <= page:
+                    break
+                page += 1
+
+            items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
 
             return DatasetClient(dataset, items=items)
         except Exception as e:
@@ -308,11 +328,37 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_dataset_runs(
+        self,
+        dataset_name: str,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+    ) -> PaginatedDatasetRuns:
+        """Get all dataset runs.
+
+        Args:
+            dataset_name (str): Name of the dataset.
+            page (Optional[int]): Page number of the dataset runs to return, starts at 1. Defaults to None.
+            limit (Optional[int]): Maximum number of dataset runs to return. Defaults to 50.
+
+        Returns:
+            PaginatedDatasetRuns: The dataset runs.
+        """
+        try:
+            self.log.debug("Getting dataset runs")
+            return self.client.datasets.get_runs(
+                dataset_name=dataset_name, page=page, limit=limit
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_dataset_run(
         self,
         dataset_name: str,
         dataset_run_name: str,
-    ) -> DatasetRun:
+    ) -> DatasetRunWithItems:
         """Get a dataset run.
 
         Args:
@@ -320,13 +366,13 @@ class Langfuse(object):
             dataset_run_name: Name of the dataset run.
 
         Returns:
-            DatasetRun: The dataset run.
+            DatasetRunWithItems: The dataset run.
         """
         try:
             self.log.debug(
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
             )
-            return self.client.datasets.get_runs(
+            return self.client.datasets.get_run(
                 dataset_name=dataset_name, run_name=dataset_run_name
             )
         except Exception as e:
@@ -441,6 +487,54 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def get_traces(
+        self,
+        *,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+        user_id: Optional[str] = None,
+        name: Optional[str] = None,
+        session_id: Optional[str] = None,
+        from_timestamp: Optional[dt.datetime] = None,
+        order_by: Optional[str] = None,
+        tags: Optional[Union[str, Sequence[str]]] = None,
+    ) -> Traces:
+        """Get a list of traces in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number, starts at 1. Defaults to None.
+            limit (Optional[int]): Limit of items per page. If you encounter API issues due to too large page sizes, try to reduce the limit. Defaults to None.
+            name (Optional[str]): Filter by name of traces. Defaults to None.
+            user_id (Optional[str]): Filter by user_id. Defaults to None.
+            session_id (Optional[str]): Filter by session_id. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
+            tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
+
+        Returns:
+            List of Traces
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
+            )
+            return self.client.trace.list(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                session_id=session_id,
+                from_timestamp=from_timestamp,
+                order_by=order_by,
+                tags=tags,
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_observations(
         self,
         *,
@@ -450,6 +544,7 @@ class Langfuse(object):
         user_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
+        from_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> ObservationsViews:
         """Get a list of observations in the current project matching the given parameters.
@@ -461,6 +556,7 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -471,7 +567,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
             )
             return self.client.observations.get_many(
                 page=page,
@@ -480,6 +576,7 @@ class Langfuse(object):
                 user_id=user_id,
                 trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
+                from_start_time=from_start_time,
                 type=type,
             )
         except Exception as e:
@@ -2740,7 +2837,7 @@ class DatasetClient:
         created_at (datetime): Timestamp of dataset creation.
         updated_at (datetime): Timestamp of the last update to the dataset.
         items (List[DatasetItemClient]): List of dataset items associated with the dataset.
-        runs (List[str]): List of dataset runs associated with the dataset.
+        runs (List[str]): List of dataset runs associated with the dataset. Deprecated.
 
     Example:
         Print the input of each dataset item in a dataset.
@@ -2765,7 +2862,7 @@ class DatasetClient:
     created_at: dt.datetime
     updated_at: dt.datetime
     items: typing.List[DatasetItemClient]
-    runs: typing.List[str]
+    runs: typing.List[str] = []  # deprecated
 
     def __init__(self, dataset: Dataset, items: typing.List[DatasetItemClient]):
         """Initialize the DatasetClient."""
@@ -2778,4 +2875,3 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
-        self.runs = dataset.runs

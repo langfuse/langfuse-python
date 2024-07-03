@@ -1,0 +1,10 @@
+contact_links:
+  - name: 🐞 Bug Report
+    url: https://github.com/langfuse/langfuse/issues/new?labels=%F0%9F%90%9E%E2%9D%94+unconfirmed+bug,sdk-js&template=bug_report.yml&title=bug(sdk-js)%3A+
+    about: Create a bug report to help us improve the JS SDK and integrations.
+  - name: 💡 Feature Request
+    url: https://github.com/orgs/langfuse/discussions/new?category=ideas&title=SDK-JS%3A%20&labels=sdk-js
+    about: Suggest any ideas you have using our discussion forums.
+  - name: 🤗 Get Help
+    url: https://github.com/orgs/langfuse/discussions/new?category=support&title=SDK-JS%3A%20&labels=sdk-js
+    about: If you can’t get something to work the way you expect, open a question in our discussion forums.
