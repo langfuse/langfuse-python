@@ -423,3 +423,108 @@ def test_large_events_i_o_dropped(httpserver: HTTPServer):
     assert tm._queue.empty()
     assert not failed
     assert count == 2
+
+
+def test_truncate_item_in_place(httpserver):
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
+
+    tm = TaskManager(
+        langfuse_client, 10, 0.1, 3, 1, 100, "test-sdk", "1.0.0", "default"
+    )
+
+    consumer = tm._consumers[0]
+
+    # Item size within limit
+    MAX_MSG_SIZE = 100
+
+    small_item = {"body": {"input": "small"}}
+    assert (
+        consumer._truncate_item_in_place(item=small_item, max_size=MAX_MSG_SIZE)
+        <= MAX_MSG_SIZE
+    )
+    assert small_item["body"]["input"] == "small"  # unchanged
+
+    # Item size exceeding limit
+    large_item = {"body": {"input": "a" * (MAX_MSG_SIZE + 10)}}
+    truncated_size = consumer._truncate_item_in_place(
+        item=large_item, max_size=MAX_MSG_SIZE
+    )
+
+    assert truncated_size <= MAX_MSG_SIZE
+    assert large_item["body"]["input"] is None  # truncated
+
+    # Multiple fields
+    full_item = {
+        "body": {
+            "input": "a" * 300,
+            "output": "b" * 300,
+            "metadata": "c" * 300,
+        }
+    }
+    truncated_size = consumer._truncate_item_in_place(
+        item=full_item, max_size=MAX_MSG_SIZE
+    )
+
+    assert truncated_size <= MAX_MSG_SIZE
+    assert any(
+        full_item["body"][field] is None for field in ["input", "output", "metadata"]
+    )  # all truncated
+
+    # Field sizes
+    input_largest = {
+        "body": {
+            "input": "a" * 500,
+            "output": "b" * 10,
+            "metadata": "c" * 10,
+        }
+    }
+    consumer._truncate_item_in_place(item=input_largest, max_size=MAX_MSG_SIZE)
+    assert input_largest["body"]["input"] is None
+    assert input_largest["body"]["output"] is not None
+    assert input_largest["body"]["metadata"] is not None
+
+    # Truncation order
+    mixed_size = {
+        "body": {
+            "input": "a" * 20,
+            "output": "b" * 200,
+            "metadata": "c" * 20,
+        }
+    }
+    consumer._truncate_item_in_place(item=mixed_size, max_size=MAX_MSG_SIZE)
+    print(mixed_size)
+    assert mixed_size["body"]["input"] is not None
+    assert mixed_size["body"]["output"] is None
+    assert mixed_size["body"]["metadata"] is not None
+
+    # Multiple field drops
+    very_large = {
+        "body": {
+            "input": "a" * 100,
+            "output": "b" * 120,
+            "metadata": "c" * 50,
+        }
+    }
+    consumer._truncate_item_in_place(item=very_large, max_size=MAX_MSG_SIZE)
+    assert very_large["body"]["input"] is None
+    assert very_large["body"]["output"] is None
+    assert very_large["body"]["metadata"] is not None
+
+    # Return value
+    assert isinstance(
+        consumer._truncate_item_in_place(item=small_item, max_size=MAX_MSG_SIZE), int
+    )
+
+    # JSON serialization
+    complex_item = {
+        "body": {
+            "input": {"nested": ["complex", {"structure": "a" * (MAX_MSG_SIZE + 1)}]}
+        }
+    }
+    assert (
+        consumer._truncate_item_in_place(item=complex_item, max_size=MAX_MSG_SIZE)
+        <= MAX_MSG_SIZE
+    )
+    assert complex_item["body"]["input"] is None
