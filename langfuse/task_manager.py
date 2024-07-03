@@ -102,8 +102,11 @@ class Consumer(threading.Thread):
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
+
                 item_size = self._truncate_item_in_place(
-                    item=item, max_size=MAX_MSG_SIZE
+                    item=item,
+                    max_size=MAX_MSG_SIZE,
+                    log_message="<truncated due to size exceeding limit>",
                 )
 
                 items.append(item)
@@ -118,7 +121,13 @@ class Consumer(threading.Thread):
 
         return items
 
-    def _truncate_item_in_place(self, *, item: typing.Any, max_size: int) -> int:
+    def _truncate_item_in_place(
+        self,
+        *,
+        item: typing.Any,
+        max_size: int,
+        log_message: typing.Optional[str] = None,
+    ) -> int:
         """Truncate the item in place to fit within the size limit."""
         item_size = self._get_item_size(item)
         self._log.debug(f"item size {item_size}")
@@ -151,7 +160,7 @@ class Consumer(threading.Thread):
                     if field_to_drop not in item["body"]:
                         continue
 
-                    item["body"][field_to_drop] = None
+                    item["body"][field_to_drop] = log_message
                     item_size -= size_to_drop
 
                     self._log.debug(

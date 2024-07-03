@@ -455,6 +455,15 @@ def test_truncate_item_in_place(httpserver):
     assert truncated_size <= MAX_MSG_SIZE
     assert large_item["body"]["input"] is None  # truncated
 
+    # Logs message if item is truncated
+    large_item = {"body": {"input": "a" * (MAX_MSG_SIZE + 10)}}
+    truncated_size = consumer._truncate_item_in_place(
+        item=large_item, max_size=MAX_MSG_SIZE, log_message="truncated"
+    )
+
+    assert truncated_size <= MAX_MSG_SIZE
+    assert large_item["body"]["input"] == "truncated"  # truncated
+
     # Multiple fields
     full_item = {
         "body": {
@@ -494,7 +503,6 @@ def test_truncate_item_in_place(httpserver):
         }
     }
     consumer._truncate_item_in_place(item=mixed_size, max_size=MAX_MSG_SIZE)
-    print(mixed_size)
     assert mixed_size["body"]["input"] is not None
     assert mixed_size["body"]["output"] is None
     assert mixed_size["body"]["metadata"] is not None
