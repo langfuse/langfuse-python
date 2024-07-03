@@ -102,35 +102,12 @@ class Consumer(threading.Thread):
                 break
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
-                item_size = len(json.dumps(item, cls=EventSerializer).encode())
-                self._log.debug(f"item size {item_size}")
-                if item_size > MAX_MSG_SIZE:
-                    self._log.warning(
-                        "Item exceeds size limit (size: %s), dropping input/output of item.",
-                        item_size,
-                    )
 
-                    # for large events, drop input / output within the body
-                    if "body" in item and "input" in item["body"]:
-                        item["body"]["input"] = None
-                    if "body" in item and "output" in item["body"]:
-                        item["body"]["output"] = None
-
-                    # if item does not have body or input/output fields, drop the event
-                    if "body" not in item or (
-                        "input" not in item["body"] and "output" not in item["body"]
-                    ):
-                        self._log.warning(
-                            "Item does not have body or input/output fields, dropping item."
-                        )
-                        self._queue.task_done()
-                        continue
-
-                    # need to calculate the size again after dropping input/output
-                    item_size = len(json.dumps(item, cls=EventSerializer).encode())
-                    self._log.debug(
-                        f"item size after dropping input/output {item_size}"
-                    )
+                item_size = self._truncate_item_in_place(
+                    item=item,
+                    max_size=MAX_MSG_SIZE,
+                    log_message="<truncated due to size exceeding limit>",
+                )
 
                 items.append(item)
                 total_size += item_size
@@ -143,6 +120,71 @@ class Consumer(threading.Thread):
         self._log.debug("~%d items in the Langfuse queue", self._queue.qsize())
 
         return items
+
+    def _truncate_item_in_place(
+        self,
+        *,
+        item: typing.Any,
+        max_size: int,
+        log_message: typing.Optional[str] = None,
+    ) -> int:
+        """Truncate the item in place to fit within the size limit."""
+        item_size = self._get_item_size(item)
+        self._log.debug(f"item size {item_size}")
+
+        if item_size > max_size:
+            self._log.warning(
+                "Item exceeds size limit (size: %s), dropping input / output / metadata of item until it fits.",
+                item_size,
+            )
+
+            if "body" in item:
+                drop_candidates = ["input", "output", "metadata"]
+                sorted_field_sizes = sorted(
+                    [
+                        (
+                            field,
+                            self._get_item_size((item["body"][field]))
+                            if field in item["body"]
+                            else 0,
+                        )
+                        for field in drop_candidates
+                    ],
+                    key=lambda x: x[1],
+                )
+
+                # drop the largest field until the item size is within the limit
+                for _ in range(len(sorted_field_sizes)):
+                    field_to_drop, size_to_drop = sorted_field_sizes.pop()
+
+                    if field_to_drop not in item["body"]:
+                        continue
+
+                    item["body"][field_to_drop] = log_message
+                    item_size -= size_to_drop
+
+                    self._log.debug(
+                        f"Dropped field {field_to_drop}, new item size {item_size}"
+                    )
+
+                    if item_size <= max_size:
+                        break
+
+            # if item does not have body or input/output fields, drop the event
+            if "body" not in item or (
+                "input" not in item["body"] and "output" not in item["body"]
+            ):
+                self._log.warning(
+                    "Item does not have body or input/output fields, dropping item."
+                )
+                self._queue.task_done()
+                return 0
+
+        return self._get_item_size(item)
+
+    def _get_item_size(self, item: typing.Any) -> int:
+        """Return the size of the item in bytes."""
+        return len(json.dumps(item, cls=EventSerializer).encode())
 
     def run(self):
         """Runs the consumer."""
