@@ -11,6 +11,7 @@ from typing import List, Any
 from datetime import datetime, timezone
 import typing
 
+from langfuse.request import APIError
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -224,7 +225,17 @@ class Consumer(threading.Thread):
 
         @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
         def execute_task_with_backoff(batch: List[Any]):
-            return self._client.batch_post(batch=batch, metadata=metadata)
+            try:
+                self._client.batch_post(batch=batch, metadata=metadata)
+            except Exception as e:
+                if isinstance(e, APIError) and 400 <= int(e.status) < 500:
+                    self._log.warn(
+                        "Received 4XX error by Langfuse server, not retrying: ", e
+                    )
+
+                    return
+
+                raise e
 
         execute_task_with_backoff(batch)
         self._log.debug("successfully uploaded batch of %d items", len(batch))
