@@ -69,6 +69,7 @@ def _extract_model_name(
         ("Ollama", "model", None),
         ("ChatOllama", "model", None),
         ("ChatFireworks", "model", None),
+        ("ChatPerplexity", "model", None),
     ]
 
     for model_name, pattern, default in models_by_pattern:

@@ -19,6 +19,7 @@ from langchain_community.chat_models import (
     ChatCohere,
     BedrockChat,
     ChatOllama,
+    ChatPerplexity,
 )
 
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
@@ -176,6 +177,15 @@ def test_models(expected_model: str, model: Any):
             "gemini",
             ChatVertexAI(
                 model_name="gemini", credentials=MagicMock(), project="some-project"
+            ),
+        ),
+        (
+            "llama-3-8b-instruct",
+            ChatPerplexity(
+                model="llama-3-8b-instruct",
+                credentials=MagicMock(),
+                project="some-project",
+                pplx_api_key="pplx_api_key",
             ),
         ),
     ],
