@@ -8,13 +8,26 @@ import httpx
 from enum import Enum
 import time
 import tracemalloc
-from typing import Any, Dict, Optional, Literal, Union, List, Sequence, overload
+from typing import (
+    Any,
+    Dict,
+    Optional,
+    Literal,
+    Union,
+    List,
+    Sequence,
+    overload,
+)
 import urllib.parse
+import warnings
+from dataclasses import dataclass
 
 
 from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
 )
+from langfuse.api.resources.commons.types.observations_view import ObservationsView
+from langfuse.api.resources.commons.types.trace_with_details import TraceWithDetails
 from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
     PaginatedDatasetRuns,
 )
@@ -38,6 +51,9 @@ from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Text,
 )
 from langfuse.api.resources.trace.types.traces import Traces
+from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
+    MetaResponse,
+)
 from langfuse.model import (
     CreateDatasetItemRequest,
     CreateDatasetRequest,
@@ -67,6 +83,36 @@ from langfuse.types import SpanLevel
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
+
+
+@dataclass
+class FetchTracesResponse:
+    """Response object for fetch_traces method."""
+
+    data: typing.List[TraceWithDetails]
+    meta: MetaResponse
+
+
+@dataclass
+class FetchTraceResponse:
+    """Response object for fetch_trace method."""
+
+    data: TraceWithFullDetails
+
+
+@dataclass
+class FetchObservationsResponse:
+    """Response object for fetch_observations method."""
+
+    data: typing.List[ObservationsView]
+    meta: MetaResponse
+
+
+@dataclass
+class FetchObservationResponse:
+    """Response object for fetch_observation method."""
+
+    data: Observation
 
 
 class Langfuse(object):
@@ -465,11 +511,34 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def fetch_trace(
+        self,
+        id: str,
+    ) -> FetchTraceResponse:
+        """Fetch a trace via the Langfuse API by its id.
+
+        Args:
+            id: The id of the trace to fetch.
+
+        Returns:
+            FetchTraceResponse: The trace with full details as returned by the Langfuse API on `data`.
+
+        Raises:
+            Exception: If the trace with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
+        try:
+            self.log.debug(f"Getting trace {id}")
+            trace = self.client.trace.get(id)
+            return FetchTraceResponse(data=trace)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_trace(
         self,
         id: str,
     ) -> TraceWithFullDetails:
-        """Get a trace via the Langfuse API by its id.
+        """Get a trace via the Langfuse API by its id. Deprecated, use fetch_trace instead.
 
         Args:
             id: The id of the trace to fetch.
@@ -480,9 +549,63 @@ class Langfuse(object):
         Raises:
             Exception: If the trace with the given id could not be found within the authenticated project or if an error occurred during the request.
         """
+        warnings.warn(
+            "get_trace is deprecated, use fetch_trace instead.",
+            DeprecationWarning,
+        )
+
         try:
             self.log.debug(f"Getting trace {id}")
             return self.client.trace.get(id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def fetch_traces(
+        self,
+        *,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+        user_id: Optional[str] = None,
+        name: Optional[str] = None,
+        session_id: Optional[str] = None,
+        from_timestamp: Optional[dt.datetime] = None,
+        order_by: Optional[str] = None,
+        tags: Optional[Union[str, Sequence[str]]] = None,
+    ) -> FetchTracesResponse:
+        """Fetch a list of traces in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number, starts at 1. Defaults to None.
+            limit (Optional[int]): Limit of items per page. If you encounter API issues due to too large page sizes, try to reduce the limit. Defaults to None.
+            name (Optional[str]): Filter by name of traces. Defaults to None.
+            user_id (Optional[str]): Filter by user_id. Defaults to None.
+            session_id (Optional[str]): Filter by session_id. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
+            tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
+
+        Returns:
+            FetchTracesResponse, list of traces on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
+            )
+            res = self.client.trace.list(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                session_id=session_id,
+                from_timestamp=from_timestamp,
+                order_by=order_by,
+                tags=tags,
+            )
+            return FetchTracesResponse(data=res.data, meta=res.meta)
         except Exception as e:
             self.log.exception(e)
             raise e
@@ -499,7 +622,7 @@ class Langfuse(object):
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> Traces:
-        """Get a list of traces in the current project matching the given parameters.
+        """Get a list of traces in the current project matching the given parameters. Deprecated, use fetch_traces instead.
 
         Args:
             page (Optional[int]): Page number, starts at 1. Defaults to None.
@@ -517,6 +640,10 @@ class Langfuse(object):
         Raises:
             Exception: If an error occurred during the request.
         """
+        warnings.warn(
+            "get_traces is deprecated, use fetch_traces instead.",
+            DeprecationWarning,
+        )
         try:
             self.log.debug(
                 f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
@@ -535,6 +662,55 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def fetch_observations(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        from_start_time: typing.Optional[dt.datetime] = None,
+        type: typing.Optional[str] = None,
+    ) -> FetchObservationsResponse:
+        """Get a list of observations in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number of the observations to return. Defaults to None.
+            limit (Optional[int]): Maximum number of observations to return. Defaults to None.
+            name (Optional[str]): Name of the observations to return. Defaults to None.
+            user_id (Optional[str]): User identifier. Defaults to None.
+            trace_id (Optional[str]): Trace identifier. Defaults to None.
+            parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            type (Optional[str]): Type of the observation. Defaults to None.
+
+        Returns:
+            FetchObservationsResponse, list of observations on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
+            )
+            res = self.client.observations.get_many(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                trace_id=trace_id,
+                parent_observation_id=parent_observation_id,
+                from_start_time=from_start_time,
+                type=type,
+            )
+            return FetchObservationsResponse(data=res.data, meta=res.meta)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     def get_observations(
         self,
         *,
@@ -547,7 +723,7 @@ class Langfuse(object):
         from_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> ObservationsViews:
-        """Get a list of observations in the current project matching the given parameters.
+        """Get a list of observations in the current project matching the given parameters. Deprecated, use fetch_observations instead.
 
         Args:
             page (Optional[int]): Page number of the observations to return. Defaults to None.
@@ -565,6 +741,10 @@ class Langfuse(object):
         Raises:
             Exception: If an error occurred during the request.
         """
+        warnings.warn(
+            "get_observations is deprecated, use fetch_observations instead.",
+            DeprecationWarning,
+        )
         try:
             self.log.debug(
                 f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
@@ -591,9 +771,10 @@ class Langfuse(object):
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        from_start_time: typing.Optional[dt.datetime] = None,
         parent_observation_id: typing.Optional[str] = None,
     ) -> ObservationsViews:
-        """Get a list of generations in the current project matching the given parameters.
+        """Get a list of generations in the current project matching the given parameters. Deprecated, use fetch_observations(type='GENERATION') instead.
 
         Args:
             page (Optional[int]): Page number of the generations to return. Defaults to None.
@@ -601,6 +782,7 @@ class Langfuse(object):
             name (Optional[str]): Name of the generations to return. Defaults to None.
             user_id (Optional[str]): User identifier of the generations to return. Defaults to None.
             trace_id (Optional[str]): Trace identifier of the generations to return. Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier of the generations to return. Defaults to None.
 
         Returns:
@@ -609,6 +791,10 @@ class Langfuse(object):
         Raises:
             Exception: If an error occurred during the request.
         """
+        warnings.warn(
+            "get_generations is deprecated, use `fetch_observations(type='GENERATION')` instead.",
+            DeprecationWarning,
+        )
         return self.get_observations(
             page=page,
             limit=limit,
@@ -616,14 +802,38 @@ class Langfuse(object):
             user_id=user_id,
             trace_id=trace_id,
             parent_observation_id=parent_observation_id,
+            from_start_time=from_start_time,
             type="GENERATION",
         )
+
+    def fetch_observation(
+        self,
+        id: str,
+    ) -> FetchObservationResponse:
+        """Get an observation in the current project with the given identifier.
+
+        Args:
+            id: The identifier of the observation to fetch.
+
+        Returns:
+            FetchObservationResponse: The observation with the given id on `data`.
+
+        Raises:
+            Exception: If the observation with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
+        try:
+            self.log.debug(f"Getting observation {id}")
+            observation = self.client.observations.get(id)
+            return FetchObservationResponse(data=observation)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def get_observation(
         self,
         id: str,
     ) -> Observation:
-        """Get an observation in the current project with the given identifier.
+        """Get an observation in the current project with the given identifier. Deprecated, use fetch_observation instead.
 
         Args:
             id: The identifier of the observation to fetch.
@@ -631,6 +841,10 @@ class Langfuse(object):
         Raises:
             Exception: If the observation with the given id could not be found within the authenticated project or if an error occurred during the request.
         """
+        warnings.warn(
+            "get_observation is deprecated, use fetch_observation instead.",
+            DeprecationWarning,
+        )
         try:
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
