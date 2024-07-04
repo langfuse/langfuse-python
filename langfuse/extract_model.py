@@ -68,6 +68,7 @@ def _extract_model_name(
         ("TextGen", "model", "text-gen"),
         ("Ollama", "model", None),
         ("ChatOllama", "model", None),
+        ("ChatFireworks", "model", None),
     ]
 
     for model_name, pattern, default in models_by_pattern:
