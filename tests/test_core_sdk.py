@@ -3,6 +3,12 @@ import time
 from asyncio import gather
 from datetime import datetime, timezone
 
+from langfuse.client import (
+    FetchObservationResponse,
+    FetchObservationsResponse,
+    FetchTraceResponse,
+    FetchTracesResponse,
+)
 from langfuse.utils import _get_timestamp
 
 
@@ -1154,3 +1160,138 @@ def test_get_trace_by_session_id():
     assert retrieved_trace.name == trace_name
     assert retrieved_trace.session_id == session_id
     assert retrieved_trace.id == trace.id
+
+
+def test_fetch_trace():
+    langfuse = Langfuse()
+
+    # Create a trace
+    name = create_uuid()
+    trace = langfuse.trace(name=name)
+    langfuse.flush()
+
+    # Fetch the trace
+    response = langfuse.fetch_trace(trace.id)
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchTraceResponse)
+    assert hasattr(response, "data")
+    assert response.data.id == trace.id
+    assert response.data.name == name
+
+
+def test_fetch_traces():
+    langfuse = Langfuse()
+
+    # unique name
+    name = create_uuid()
+
+    # Create multiple traces
+    trace1 = langfuse.trace(name=name)
+    trace2 = langfuse.trace(name=name)
+    langfuse.flush()
+
+    # Fetch traces
+    response = langfuse.fetch_traces(limit=10, name=name)
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchTracesResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert len(response.data) == 2
+    assert response.meta.total_items == 2
+    assert response.data[0].id in [trace1.id, trace2.id]
+
+    # fetch only one
+    response = langfuse.fetch_traces(limit=1, page=2, name=name)
+    assert len(response.data) == 1
+    assert response.meta.total_items == 2
+    assert response.meta.total_pages == 2
+
+
+def test_fetch_observation():
+    langfuse = Langfuse()
+
+    # Create a trace and a generation
+    name = create_uuid()
+    trace = langfuse.trace(name=name)
+    generation = trace.generation(name=name)
+    langfuse.flush()
+
+    # Fetch the observation
+    response = langfuse.fetch_observation(generation.id)
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchObservationResponse)
+    assert hasattr(response, "data")
+    assert response.data.id == generation.id
+    assert response.data.name == name
+    assert response.data.type == "GENERATION"
+
+
+def test_fetch_observations():
+    langfuse = Langfuse()
+
+    # Create a trace with multiple generations
+    name = create_uuid()
+    trace = langfuse.trace(name=name)
+    gen1 = trace.generation(name=name)
+    gen2 = trace.generation(name=name)
+    langfuse.flush()
+
+    # Fetch observations
+    response = langfuse.fetch_observations(limit=10, name=name)
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchObservationsResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert len(response.data) == 2
+    assert response.meta.total_items == 2
+    assert response.data[0].id in [gen1.id, gen2.id]
+
+    # fetch only one
+    response = langfuse.fetch_observations(limit=1, page=2, name=name)
+    assert len(response.data) == 1
+    assert response.meta.total_items == 2
+    assert response.meta.total_pages == 2
+
+
+def test_fetch_trace_not_found():
+    langfuse = Langfuse()
+
+    # Attempt to fetch a non-existent trace
+    with pytest.raises(Exception):
+        langfuse.fetch_trace(create_uuid())
+
+
+def test_fetch_observation_not_found():
+    langfuse = Langfuse()
+
+    # Attempt to fetch a non-existent observation
+    with pytest.raises(Exception):
+        langfuse.fetch_observation(create_uuid())
+
+
+def test_fetch_traces_empty():
+    langfuse = Langfuse()
+
+    # Fetch traces with a filter that should return no results
+    response = langfuse.fetch_traces(name=create_uuid())
+
+    assert isinstance(response, FetchTracesResponse)
+    assert len(response.data) == 0
+    assert response.meta.total_items == 0
+
+
+def test_fetch_observations_empty():
+    langfuse = Langfuse()
+
+    # Fetch observations with a filter that should return no results
+    response = langfuse.fetch_observations(name=create_uuid())
+
+    assert isinstance(response, FetchObservationsResponse)
+    assert len(response.data) == 0
+    assert response.meta.total_items == 0
