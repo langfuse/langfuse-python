@@ -230,9 +230,8 @@ class Consumer(threading.Thread):
             except Exception as e:
                 if isinstance(e, APIError) and 400 <= int(e.status) < 500:
                     self._log.warn(
-                        "Received 4XX error by Langfuse server, not retrying: ", e
+                        f"Received {e.status} error by Langfuse server, not retrying: {e.message}"
                     )
-
                     return
 
                 raise e
