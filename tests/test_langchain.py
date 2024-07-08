@@ -1761,6 +1761,31 @@ def test_disabled_langfuse():
         api.trace.get(trace_id)
 
 
+# # Enable this test when the ChatBedrock is available in CI
+# def test_chat_bedrock():
+#     handler = CallbackHandler(debug=True)
+
+#     llm = ChatBedrock(
+#         model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+#         # model_id="amazon.titan-text-lite-v1",
+#         region_name="eu-central-1",
+#         callbacks=[handler],
+#     )
+
+#     messages = [
+#         (
+#             "system",
+#             "You are a expert software engineer.",
+#         ),
+#         ("human", "Give me fizzbuzz algo in C++"),
+#     ]
+
+#     ai_msg = llm.stream("Give me fizzbuzz algo in C++")
+
+#     for chunk in ai_msg:
+#         print(chunk)
+
+
 # def test_langchain_anthropic_package():
 #     langfuse_handler = CallbackHandler(debug=False)
 #     from langchain_anthropic import ChatAnthropic
