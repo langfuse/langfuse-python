@@ -898,20 +898,28 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         usage = usage.__dict__
 
     conversion_list = [
-        # https://pypi.org/project/langchain-anthropic/
+        # https://pypi.org/project/langchain-anthropic/ (works also for Bedrock-Anthropic)
         ("input_tokens", "input"),
         ("output_tokens", "output"),
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
+        # Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-cw.html#runtime-cloudwatch-metrics
+        ("inputTokenCount", "input"),
+        ("outputTokenCount", "output"),
     ]
 
     usage_model = usage.copy()  # Copy all existing key-value pairs
-    for key, value in conversion_list:
-        if key in usage_model:
-            usage_model[value] = usage_model.pop(
-                key
-            )  # Translate key and keep the value
+    for model_key, langfuse_key in conversion_list:
+        if model_key in usage_model:
+            captured_count = usage_model.pop(model_key)
+            final_count = (
+                sum(captured_count)
+                if isinstance(captured_count, list)
+                else captured_count
+            )  # For Bedrock, the token count is a list when streamed
+
+            usage_model[langfuse_key] = final_count  # Translate key and keep the value
 
     return usage_model if usage_model else None
 
@@ -935,6 +943,25 @@ def _parse_usage(response: LLMResult):
                     llm_usage = _parse_usage_model(
                         generation_chunk.generation_info["usage_metadata"]
                     )
+                    break
+
+                message_chunk = getattr(generation_chunk, "message", {})
+                response_metadata = getattr(message_chunk, "response_metadata", {})
+
+                chunk_usage = (
+                    response_metadata.get("usage", None)  # for Bedrock-Anthropic
+                    if isinstance(response_metadata, dict)
+                    else None
+                ) or (
+                    response_metadata.get(
+                        "amazon-bedrock-invocationMetrics", None
+                    )  # for Bedrock-Titan
+                    if isinstance(response_metadata, dict)
+                    else None
+                )
+
+                if chunk_usage:
+                    llm_usage = _parse_usage_model(chunk_usage)
                     break
 
     return llm_usage
