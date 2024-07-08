@@ -8,6 +8,7 @@ from . import (
     health,
     ingestion,
     metrics,
+    models,
     observations,
     projects,
     prompts,
@@ -19,7 +20,10 @@ from . import (
 )
 from .commons import (
     AccessDeniedError,
+    BooleanScore,
+    CategoricalScore,
     ConfigCategory,
+    CreateScoreValue,
     Dataset,
     DatasetItem,
     DatasetRun,
@@ -29,8 +33,10 @@ from .commons import (
     Error,
     MapValue,
     MethodNotAllowedError,
+    Model,
     ModelUsageUnit,
     NotFoundError,
+    NumericScore,
     Observation,
     ObservationLevel,
     ObservationsView,
@@ -38,6 +44,9 @@ from .commons import (
     ScoreConfig,
     ScoreDataType,
     ScoreSource,
+    Score_Boolean,
+    Score_Categorical,
+    Score_Numeric,
     Session,
     SessionWithTraces,
     Trace,
@@ -92,6 +101,7 @@ from .ingestion import (
     UpdateSpanEvent,
 )
 from .metrics import DailyMetrics, DailyMetricsDetails, UsageByModel
+from .models import CreateModelRequest, PaginatedModels
 from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
 from .prompts import (
@@ -111,13 +121,15 @@ from .prompts import (
     TextPrompt,
 )
 from .score import CreateScoreRequest, Scores
-from .score_configs import ScoreConfigs
+from .score_configs import CreateScoreConfigRequest, ScoreConfigs
 from .trace import Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
     "BaseEvent",
     "BasePrompt",
+    "BooleanScore",
+    "CategoricalScore",
     "ChatMessage",
     "ChatPrompt",
     "ConfigCategory",
@@ -129,11 +141,14 @@ __all__ = [
     "CreateEventEvent",
     "CreateGenerationBody",
     "CreateGenerationEvent",
+    "CreateModelRequest",
     "CreateObservationEvent",
     "CreatePromptRequest",
     "CreatePromptRequest_Chat",
     "CreatePromptRequest_Text",
+    "CreateScoreConfigRequest",
     "CreateScoreRequest",
+    "CreateScoreValue",
     "CreateSpanBody",
     "CreateSpanEvent",
     "CreateTextPromptRequest",
@@ -164,8 +179,10 @@ __all__ = [
     "IngestionUsage",
     "MapValue",
     "MethodNotAllowedError",
+    "Model",
     "ModelUsageUnit",
     "NotFoundError",
+    "NumericScore",
     "Observation",
     "ObservationBody",
     "ObservationLevel",
@@ -178,6 +195,7 @@ __all__ = [
     "PaginatedDatasetItems",
     "PaginatedDatasetRuns",
     "PaginatedDatasets",
+    "PaginatedModels",
     "Project",
     "Projects",
     "Prompt",
@@ -192,6 +210,9 @@ __all__ = [
     "ScoreDataType",
     "ScoreEvent",
     "ScoreSource",
+    "Score_Boolean",
+    "Score_Categorical",
+    "Score_Numeric",
     "Scores",
     "SdkLogBody",
     "SdkLogEvent",
@@ -222,6 +243,7 @@ __all__ = [
     "health",
     "ingestion",
     "metrics",
+    "models",
     "observations",
     "projects",
     "prompts",
