@@ -529,9 +529,9 @@ def test_scoring_observations():
     @observe(as_type="generation")
     def level_3_function():
         langfuse_context.score_current_observation(
-            name="test-observation-score", value=1
+            name="test-observation-score", value=1.0
         )
-        langfuse_context.score_current_trace(name="another-test-trace-score", value=2)
+        langfuse_context.score_current_trace(name="another-test-trace-score", value=2.0)
         return "level_3"
 
     @observe()
@@ -540,7 +540,7 @@ def test_scoring_observations():
 
     @observe()
     def level_1_function(*args, **kwargs):
-        langfuse_context.score_current_observation(name="test-trace-score", value=3)
+        langfuse_context.score_current_observation(name="test-trace-score", value=3.0)
         langfuse_context.update_current_trace(name=mock_name)
         return level_2_function()
 

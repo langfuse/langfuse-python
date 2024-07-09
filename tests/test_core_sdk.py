@@ -598,7 +598,7 @@ def test_score_span():
         trace_id=langfuse.get_trace_id(),
         observation_id=spanId,
         name="valuation",
-        value=1,
+        value=1.0,
         comment="This is a comment",
     )
 
@@ -614,9 +614,10 @@ def test_score_span():
     score = trace["scores"][0]
 
     assert score["name"] == "valuation"
-    assert score["value"] == 1
+    assert score["value"] == 1.0
     assert score["comment"] == "This is a comment"
     assert score["observationId"] == spanId
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_create_trace_and_span():
