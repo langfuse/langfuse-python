@@ -1226,7 +1226,6 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
-        raise_exception: typing.Optional[bool] = False,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -1242,7 +1241,6 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
-        raise_exception: typing.Optional[bool] = False,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -1258,7 +1256,6 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
-        raise_exception: typing.Optional[bool] = False,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -1273,7 +1270,6 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
-        raise_exception: typing.Optional[bool] = False,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached to a trace (and optionally an observation).
@@ -1288,7 +1284,6 @@ class Langfuse(object):
             comment (Optional[str]): Additional context/explanation of the score.
             observation_id (Optional[str]): The id of the observation to which the score should be attached.
             config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
-            raise_exception (Optional[bool]): If set to True, an exception is raised if the input is not valid. Defaults to False i.e. logging a warning.
             **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
@@ -1341,10 +1336,7 @@ class Langfuse(object):
             self.task_manager.add_task(event)
 
         except Exception as e:
-            if raise_exception:
-                raise e
-            else:
-                self.log.exception(e)
+            self.log.exception(e)
         finally:
             if observation_id is not None:
                 return StatefulClient(
