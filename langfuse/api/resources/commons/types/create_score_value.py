@@ -2,4 +2,4 @@
 
 import typing
 
-CreateScoreValue = typing.Union[str, float]
+CreateScoreValue = typing.Union[float, str]

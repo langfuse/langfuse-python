@@ -97,7 +97,7 @@ def test_create_numeric_score():
         id=score_id,
         trace_id=trace.id,
         name="this-is-a-score",
-        value=0.9,
+        value=1,
     )
 
     trace.generation(name="yet another child", metadata="test")
@@ -109,8 +109,8 @@ def test_create_numeric_score():
     trace = api_wrapper.get_trace(trace.id)
 
     assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["value"] == 1
     assert trace["scores"][0]["dataType"] == "NUMERIC"
-    assert trace["scores"][0]["value"] == 0.9
     assert trace["scores"][0]["stringValue"] is None
 
 
