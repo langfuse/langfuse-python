@@ -78,7 +78,7 @@ def test_shutdown():
     assert langfuse.task_manager._queue.empty()
 
 
-def test_create_score():
+def test_create_numeric_score():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
@@ -97,7 +97,7 @@ def test_create_score():
         id=score_id,
         trace_id=trace.id,
         name="this-is-a-score",
-        value=1,
+        value=float(0.9),
     )
 
     trace.generation(name="yet another child", metadata="test")
@@ -109,6 +109,75 @@ def test_create_score():
     trace = api_wrapper.get_trace(trace.id)
 
     assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "NUMERIC"
+
+
+def test_create_boolean_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=float(1),
+        data_type="BOOLEAN",
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+
+
+def test_create_categorical_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value="high score",
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "CATEGORICAL"
 
 
 def test_create_trace():

@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
+ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
+
 
 class TraceMetadata(TypedDict):
     name: Optional[str]

@@ -79,7 +79,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel
+from langfuse.types import SpanLevel, ScoreDataType
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -1214,26 +1214,81 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
+    @overload
     def score(
         self,
         *,
         name: str,
         value: float,
+        data_type: typing.Optional[Literal["NUMERIC"]] = "NUMERIC",
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        raise_exception: typing.Optional[bool] = False,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    @overload
+    def score(
+        self,
+        *,
+        name: str,
+        value: float,
+        data_type: typing.Optional[Literal["BOOLEAN"]] = None,
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        raise_exception: typing.Optional[bool] = False,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    @overload
+    def score(
+        self,
+        *,
+        name: str,
+        value: str,
+        data_type: typing.Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        raise_exception: typing.Optional[bool] = False,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    def score(
+        self,
+        *,
+        name: str,
+        value: typing.Union[float, str],
+        data_type: typing.Optional[ScoreDataType] = None,
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        raise_exception: typing.Optional[bool] = False,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached to a trace (and optionally an observation).
 
         Args:
             name (str): Identifier of the score.
-            value (float): The value of the score. Can be any number, often standardized to 0..1
+            value (Union[float, str]): The value of the score. Should be passed as float for numeric and boolean scores and as string for categorical scores.
+            data_type (Optional[ScoreDataType]): The data type of the score. When not set, the data type is inferred from the score config's data type, when present.
+              When no config is set, the data type is inferred from the value's type, i.e. float values are categorized as numeric scores and string values as categorical scores.
             trace_id (str): The id of the trace to which the score should be attached.
+            id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
             comment (Optional[str]): Additional context/explanation of the score.
             observation_id (Optional[str]): The id of the observation to which the score should be attached.
-            id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
+            raise_exception (Optional[bool]): If set to True, an exception is raised if the input is not valid. Defaults to False i.e. logging a warning.
             **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
@@ -1255,7 +1310,7 @@ class Langfuse(object):
             trace = langfuse.score(
                 trace_id=trace_id,
                 name="user-explicit-feedback",
-                value=1,
+                value=0.9,
                 comment="I like how personalized the response is"
             )
             ```
@@ -1269,7 +1324,9 @@ class Langfuse(object):
                 "observation_id": observation_id,
                 "name": name,
                 "value": value,
+                "data_type": data_type,
                 "comment": comment,
+                "config_id": config_id,
                 **kwargs,
             }
 
@@ -1284,7 +1341,10 @@ class Langfuse(object):
             self.task_manager.add_task(event)
 
         except Exception as e:
-            self.log.exception(e)
+            if raise_exception:
+                raise e
+            else:
+                self.log.exception(e)
         finally:
             if observation_id is not None:
                 return StatefulClient(
@@ -2006,6 +2066,7 @@ class StatefulClient(object):
         """
         score_id = id or str(uuid.uuid4())
         try:
+            self.log.debug(f"Creating score {name} with value {value}...")
             new_score = {
                 "id": score_id,
                 "trace_id": self.trace_id,
