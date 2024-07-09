@@ -1220,22 +1220,7 @@ class Langfuse(object):
         *,
         name: str,
         value: float,
-        data_type: typing.Optional[Literal["NUMERIC"]] = "NUMERIC",
-        trace_id: typing.Optional[str] = None,
-        id: typing.Optional[str] = None,
-        comment: typing.Optional[str] = None,
-        observation_id: typing.Optional[str] = None,
-        config_id: typing.Optional[str] = None,
-        **kwargs,
-    ) -> "StatefulClient": ...
-
-    @overload
-    def score(
-        self,
-        *,
-        name: str,
-        value: float,
-        data_type: typing.Optional[Literal["BOOLEAN"]] = None,
+        data_type: typing.Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
@@ -2025,20 +2010,7 @@ class StatefulClient(object):
         id: typing.Optional[str] = None,
         name: str,
         value: float,
-        data_type: typing.Optional[Literal["NUMERIC"]] = "NUMERIC",
-        comment: typing.Optional[str] = None,
-        config_id: typing.Optional[str] = None,
-        **kwargs,
-    ) -> "StatefulClient": ...
-
-    @overload
-    def score(
-        self,
-        *,
-        id: typing.Optional[str] = None,
-        name: str,
-        value: float,
-        data_type: typing.Optional[Literal["BOOLEAN"]] = None,
+        data_type: typing.Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
