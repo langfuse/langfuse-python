@@ -97,7 +97,7 @@ def test_create_numeric_score():
         id=score_id,
         trace_id=trace.id,
         name="this-is-a-score",
-        value=float(0.9),
+        value=0.9,
     )
 
     trace.generation(name="yet another child", metadata="test")
@@ -110,6 +110,8 @@ def test_create_numeric_score():
 
     assert trace["scores"][0]["id"] == score_id
     assert trace["scores"][0]["dataType"] == "NUMERIC"
+    assert trace["scores"][0]["value"] == 0.9
+    assert trace["scores"][0]["stringValue"] is None
 
 
 def test_create_boolean_score():
@@ -131,7 +133,7 @@ def test_create_boolean_score():
         id=score_id,
         trace_id=trace.id,
         name="this-is-a-score",
-        value=float(1),
+        value=1,
         data_type="BOOLEAN",
     )
 
@@ -144,6 +146,9 @@ def test_create_boolean_score():
     trace = api_wrapper.get_trace(trace.id)
 
     assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "BOOLEAN"
+    assert trace["scores"][0]["value"] == 1
+    assert trace["scores"][0]["stringValue"] == "True"
 
 
 def test_create_categorical_score():
@@ -178,6 +183,8 @@ def test_create_categorical_score():
 
     assert trace["scores"][0]["id"] == score_id
     assert trace["scores"][0]["dataType"] == "CATEGORICAL"
+    assert trace["scores"][0]["value"] is None
+    assert trace["scores"][0]["stringValue"] == "high score"
 
 
 def test_create_trace():
@@ -511,6 +518,7 @@ def test_score_trace():
     assert score["value"] == 0.5
     assert score["comment"] == "This is a comment"
     assert score["observationId"] is None
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_score_trace_nested_trace():
@@ -543,6 +551,7 @@ def test_score_trace_nested_trace():
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id is None
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_trace_nested_observation():
@@ -576,6 +585,7 @@ def test_score_trace_nested_observation():
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id == span.id
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_span():
