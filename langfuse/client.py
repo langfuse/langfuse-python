@@ -2058,7 +2058,6 @@ class StatefulClient(object):
         """
         score_id = id or str(uuid.uuid4())
         try:
-            self.log.debug(f"Creating score {name} with value {value}...")
             new_score = {
                 "id": score_id,
                 "trace_id": self.trace_id,
