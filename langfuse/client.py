@@ -2018,6 +2018,45 @@ class StatefulClient(object):
                 task_manager=self.task_manager,
             )
 
+    @overload
+    def score(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: str,
+        value: float,
+        data_type: typing.Optional[Literal["NUMERIC"]] = "NUMERIC",
+        comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    @overload
+    def score(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: str,
+        value: float,
+        data_type: typing.Optional[Literal["BOOLEAN"]] = None,
+        comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    @overload
+    def score(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: str,
+        value: str,
+        data_type: typing.Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
     def score(
         self,
         *,
