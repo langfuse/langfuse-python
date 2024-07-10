@@ -410,7 +410,7 @@ def test_create_generation():
             "TOKENS",
             0.0021,
             0.00000000000021,
-            None,
+            0.00210000000021,
         ),
     ],
 )
