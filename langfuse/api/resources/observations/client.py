@@ -120,6 +120,7 @@ class ObservationsClient:
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
         """
@@ -140,7 +141,9 @@ class ObservationsClient:
 
             - parent_observation_id: typing.Optional[str].
 
-            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time greater than this datetime (ISO 8601).
+            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time or or after this datetime (ISO 8601).
+
+            - to_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time before this datetime (ISO 8601).
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -167,6 +170,9 @@ class ObservationsClient:
             from_start_time=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            to_start_time=datetime.datetime.fromisoformat(
+                "2024-01-15 09:30:00+00:00",
+            ),
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -186,6 +192,9 @@ class ObservationsClient:
                         "parentObservationId": parent_observation_id,
                         "fromStartTime": serialize_datetime(from_start_time)
                         if from_start_time is not None
+                        else None,
+                        "toStartTime": serialize_datetime(to_start_time)
+                        if to_start_time is not None
                         else None,
                         **(
                             request_options.get("additional_query_parameters", {})
@@ -340,6 +349,7 @@ class AsyncObservationsClient:
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
         """
@@ -360,7 +370,9 @@ class AsyncObservationsClient:
 
             - parent_observation_id: typing.Optional[str].
 
-            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time greater than this datetime (ISO 8601).
+            - from_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time or or after this datetime (ISO 8601).
+
+            - to_start_time: typing.Optional[dt.datetime]. Retrieve only observations with a start_time before this datetime (ISO 8601).
 
             - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
         ---
@@ -387,6 +399,9 @@ class AsyncObservationsClient:
             from_start_time=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            to_start_time=datetime.datetime.fromisoformat(
+                "2024-01-15 09:30:00+00:00",
+            ),
         )
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -406,6 +421,9 @@ class AsyncObservationsClient:
                         "parentObservationId": parent_observation_id,
                         "fromStartTime": serialize_datetime(from_start_time)
                         if from_start_time is not None
+                        else None,
+                        "toStartTime": serialize_datetime(to_start_time)
+                        if to_start_time is not None
                         else None,
                         **(
                             request_options.get("additional_query_parameters", {})

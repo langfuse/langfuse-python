@@ -572,6 +572,7 @@ class Langfuse(object):
         name: Optional[str] = None,
         session_id: Optional[str] = None,
         from_timestamp: Optional[dt.datetime] = None,
+        to_timestamp: Optional[dt.datetime] = None,
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> FetchTracesResponse:
@@ -583,7 +584,8 @@ class Langfuse(object):
             name (Optional[str]): Filter by name of traces. Defaults to None.
             user_id (Optional[str]): Filter by user_id. Defaults to None.
             session_id (Optional[str]): Filter by session_id. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime (ISO 8601). Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime (ISO 8601). Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -595,7 +597,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {order_by}, {tags}"
             )
             res = self.client.trace.list(
                 page=page,
@@ -604,6 +606,7 @@ class Langfuse(object):
                 user_id=user_id,
                 session_id=session_id,
                 from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
                 order_by=order_by,
                 tags=tags,
             )
@@ -621,6 +624,7 @@ class Langfuse(object):
         name: Optional[str] = None,
         session_id: Optional[str] = None,
         from_timestamp: Optional[dt.datetime] = None,
+        to_timestamp: Optional[dt.datetime] = None,
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> Traces:
@@ -632,7 +636,8 @@ class Langfuse(object):
             name (Optional[str]): Filter by name of traces. Defaults to None.
             user_id (Optional[str]): Filter by user_id. Defaults to None.
             session_id (Optional[str]): Filter by session_id. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime (ISO 8601). Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime (ISO 8601). Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -648,7 +653,7 @@ class Langfuse(object):
         )
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {order_by}, {tags}"
             )
             return self.client.trace.list(
                 page=page,
@@ -657,6 +662,7 @@ class Langfuse(object):
                 user_id=user_id,
                 session_id=session_id,
                 from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
                 order_by=order_by,
                 tags=tags,
             )
@@ -674,6 +680,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> FetchObservationsResponse:
         """Get a list of observations in the current project matching the given parameters.
@@ -685,7 +692,8 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime (ISO 8601). Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime (ISO 8601). Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -696,7 +704,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {type}"
             )
             res = self.client.observations.get_many(
                 page=page,
@@ -706,6 +714,7 @@ class Langfuse(object):
                 trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
                 from_start_time=from_start_time,
+                to_start_time=to_start_time,
                 type=type,
             )
             return FetchObservationsResponse(data=res.data, meta=res.meta)
@@ -723,6 +732,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> ObservationsViews:
         """Get a list of observations in the current project matching the given parameters. Deprecated, use fetch_observations instead.
@@ -734,7 +744,8 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime (ISO 8601). Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime (ISO 8601). Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -749,7 +760,7 @@ class Langfuse(object):
         )
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {type}"
             )
             return self.client.observations.get_many(
                 page=page,
@@ -759,6 +770,7 @@ class Langfuse(object):
                 trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
                 from_start_time=from_start_time,
+                to_start_time=to_start_time,
                 type=type,
             )
         except Exception as e:
@@ -774,6 +786,7 @@ class Langfuse(object):
         user_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         parent_observation_id: typing.Optional[str] = None,
     ) -> ObservationsViews:
         """Get a list of generations in the current project matching the given parameters. Deprecated, use fetch_observations(type='GENERATION') instead.
@@ -784,7 +797,8 @@ class Langfuse(object):
             name (Optional[str]): Name of the generations to return. Defaults to None.
             user_id (Optional[str]): User identifier of the generations to return. Defaults to None.
             trace_id (Optional[str]): Trace identifier of the generations to return. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime (ISO 8601). Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime (ISO 8601). Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier of the generations to return. Defaults to None.
 
         Returns:
@@ -805,6 +819,7 @@ class Langfuse(object):
             trace_id=trace_id,
             parent_observation_id=parent_observation_id,
             from_start_time=from_start_time,
+            to_start_time=to_start_time,
             type="GENERATION",
         )
 

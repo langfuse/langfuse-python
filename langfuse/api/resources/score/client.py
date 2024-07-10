@@ -21,6 +21,7 @@ from ..commons.types.score import Score
 from ..commons.types.score_data_type import ScoreDataType
 from ..commons.types.score_source import ScoreSource
 from .types.create_score_request import CreateScoreRequest
+from .types.create_score_response import CreateScoreResponse
 from .types.scores import Scores
 
 # this is used as the default value for optional parameters
@@ -36,7 +37,7 @@ class ScoreClient:
         *,
         request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> Score:
+    ) -> CreateScoreResponse:
         """
         Create a score
 
@@ -109,7 +110,7 @@ class ScoreClient:
             else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Score, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(CreateScoreResponse, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -140,6 +141,7 @@ class ScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
         source: typing.Optional[ScoreSource] = None,
         operator: typing.Optional[str] = None,
         value: typing.Optional[float] = None,
@@ -160,7 +162,9 @@ class ScoreClient:
 
             - name: typing.Optional[str]. Retrieve only scores with this name.
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this datetime (ISO 8601).
+            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created on or after a certain datetime (ISO 8601)
+
+            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created before a certain datetime (ISO 8601)
 
             - source: typing.Optional[ScoreSource]. Retrieve only scores from a specific source.
 
@@ -197,6 +201,9 @@ class ScoreClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            to_timestamp=datetime.datetime.fromisoformat(
+                "2024-01-15 09:30:00+00:00",
+            ),
             source=ScoreSource.ANNOTATION,
             operator="string",
             value=1.1,
@@ -219,6 +226,9 @@ class ScoreClient:
                         "name": name,
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
+                        else None,
+                        "toTimestamp": serialize_datetime(to_timestamp)
+                        if to_timestamp is not None
                         else None,
                         "source": source,
                         "operator": operator,
@@ -451,7 +461,7 @@ class AsyncScoreClient:
         *,
         request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> Score:
+    ) -> CreateScoreResponse:
         """
         Create a score
 
@@ -524,7 +534,7 @@ class AsyncScoreClient:
             else 0,  # type: ignore
         )
         if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Score, _response.json())  # type: ignore
+            return pydantic_v1.parse_obj_as(CreateScoreResponse, _response.json())  # type: ignore
         if _response.status_code == 400:
             raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         if _response.status_code == 401:
@@ -555,6 +565,7 @@ class AsyncScoreClient:
         user_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
         source: typing.Optional[ScoreSource] = None,
         operator: typing.Optional[str] = None,
         value: typing.Optional[float] = None,
@@ -575,7 +586,9 @@ class AsyncScoreClient:
 
             - name: typing.Optional[str]. Retrieve only scores with this name.
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only scores newer than this datetime (ISO 8601).
+            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created on or after a certain datetime (ISO 8601)
+
+            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created before a certain datetime (ISO 8601)
 
             - source: typing.Optional[ScoreSource]. Retrieve only scores from a specific source.
 
@@ -612,6 +625,9 @@ class AsyncScoreClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            to_timestamp=datetime.datetime.fromisoformat(
+                "2024-01-15 09:30:00+00:00",
+            ),
             source=ScoreSource.ANNOTATION,
             operator="string",
             value=1.1,
@@ -634,6 +650,9 @@ class AsyncScoreClient:
                         "name": name,
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
+                        else None,
+                        "toTimestamp": serialize_datetime(to_timestamp)
+                        if to_timestamp is not None
                         else None,
                         "source": source,
                         "operator": operator,

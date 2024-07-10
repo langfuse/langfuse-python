@@ -5,13 +5,10 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .score_source import ScoreSource
+from .base_score import BaseScore
 
 
-class CategoricalScore(pydantic_v1.BaseModel):
-    id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
+class CategoricalScore(BaseScore):
     value: typing.Optional[float] = pydantic_v1.Field(default=None)
     """
     Only defined if a config is linked. Represents the numeric category mapping of the stringValue
@@ -20,22 +17,6 @@ class CategoricalScore(pydantic_v1.BaseModel):
     string_value: str = pydantic_v1.Field(alias="stringValue")
     """
     The string representation of the score value. If no config is linked, can be any string. Otherwise, must map to a config category
-    """
-
-    source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    timestamp: dt.datetime
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
-    comment: typing.Optional[str] = None
-    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
-    """
-    Reference a score config on a score. When set, config and score name must be equal and stringValue must map to a config category
     """
 
     def json(self, **kwargs: typing.Any) -> str:
