@@ -78,6 +78,32 @@ def test_shutdown():
     assert langfuse.task_manager._queue.empty()
 
 
+def test_invalid_score_data_does_not_raise_exception():
+    langfuse = Langfuse(debug=False)
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=-1,
+        data_type="BOOLEAN",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+
 def test_create_numeric_score():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
