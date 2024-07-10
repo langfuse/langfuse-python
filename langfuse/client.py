@@ -995,7 +995,10 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
             promptResponse = self.client.prompts.get(
-                self._url_encode(name), version=version, label=label
+                self._url_encode(name),
+                version=version,
+                label=label,
+                request_options={"max_retries": 2},
             )
 
             if promptResponse.type == "chat":
