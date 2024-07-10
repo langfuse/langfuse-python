@@ -27,6 +27,7 @@ from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
 )
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
+from langfuse.api.resources.commons.types.session import Session
 from langfuse.api.resources.commons.types.trace_with_details import TraceWithDetails
 from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
     PaginatedDatasetRuns,
@@ -113,6 +114,14 @@ class FetchObservationResponse:
     """Response object for fetch_observation method."""
 
     data: Observation
+
+
+@dataclass
+class FetchSessionsResponse:
+    """Response object for fetch_sessions method."""
+
+    data: typing.List[Session]
+    meta: MetaResponse
 
 
 class Langfuse(object):
@@ -582,8 +591,8 @@ class Langfuse(object):
             name (Optional[str]): Filter by name of traces. Defaults to None.
             user_id (Optional[str]): Filter by user_id. Defaults to None.
             session_id (Optional[str]): Filter by session_id. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime (ISO 8601). Defaults to None.
-            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime (ISO 8601). Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime. Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -634,8 +643,8 @@ class Langfuse(object):
             name (Optional[str]): Filter by name of traces. Defaults to None.
             user_id (Optional[str]): Filter by user_id. Defaults to None.
             session_id (Optional[str]): Filter by session_id. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime (ISO 8601). Defaults to None.
-            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime (ISO 8601). Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime. Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -690,8 +699,8 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime (ISO 8601). Defaults to None.
-            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -742,8 +751,8 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime (ISO 8601). Defaults to None.
-            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -795,8 +804,8 @@ class Langfuse(object):
             name (Optional[str]): Name of the generations to return. Defaults to None.
             user_id (Optional[str]): User identifier of the generations to return. Defaults to None.
             trace_id (Optional[str]): Trace identifier of the generations to return. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime (ISO 8601). Defaults to None.
-            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier of the generations to return. Defaults to None.
 
         Returns:
@@ -863,6 +872,43 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def fetch_sessions(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
+    ) -> FetchSessionsResponse:
+        """Get a list of sessions in the current project.
+
+        Args:
+            page (Optional[int]): Page number of the sessions to return. Defaults to None.
+            limit (Optional[int]): Maximum number of sessions to return. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only sessions with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only sessions with a timestamp before this datetime. Defaults to None.
+
+        Returns:
+            FetchSessionsResponse, list of sessions on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting sessions... {page}, {limit}, {from_timestamp}, {to_timestamp}"
+            )
+            res = self.client.sessions.list(
+                page=page,
+                limit=limit,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+            )
+            return FetchSessionsResponse(data=res.data, meta=res.meta)
         except Exception as e:
             self.log.exception(e)
             raise e

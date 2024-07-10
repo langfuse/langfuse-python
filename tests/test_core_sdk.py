@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
+    FetchSessionsResponse,
     FetchTraceResponse,
     FetchTracesResponse,
 )
@@ -1401,3 +1402,34 @@ def test_fetch_observations_empty():
     assert isinstance(response, FetchObservationsResponse)
     assert len(response.data) == 0
     assert response.meta.total_items == 0
+
+
+def test_fetch_sessions():
+    langfuse = Langfuse()
+
+    # unique name
+    name = create_uuid()
+    session1 = create_uuid()
+    session2 = create_uuid()
+    session3 = create_uuid()
+
+    # Create multiple traces
+    langfuse.trace(name=name, session_id=session1)
+    langfuse.trace(name=name, session_id=session2)
+    langfuse.trace(name=name, session_id=session3)
+    langfuse.flush()
+
+    # Fetch traces
+    response = langfuse.fetch_sessions()
+
+    # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests
+    assert isinstance(response, FetchSessionsResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert response.data[0].id in [session1, session2, session3]
+
+    # fetch only one, cannot check for the exact number of sessions as the table is not cleared between tests
+    response = langfuse.fetch_sessions(limit=1, page=2)
+    assert len(response.data) == 1
+    assert response.data[0].id in [session1, session2, session3]
