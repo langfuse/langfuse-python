@@ -61,12 +61,13 @@ class BasePromptClient(ABC):
     labels: List[str]
     tags: List[str]
 
-    def __init__(self, prompt: Prompt):
+    def __init__(self, prompt: Prompt, is_fallback: bool = False):
         self.name = prompt.name
         self.version = prompt.version
         self.config = prompt.config
         self.labels = prompt.labels
         self.tags = prompt.tags
+        self.is_fallback = is_fallback
 
     @abstractmethod
     def compile(self, **kwargs) -> Union[str, List[ChatMessage]]:
@@ -127,8 +128,8 @@ class BasePromptClient(ABC):
 
 
 class TextPromptClient(BasePromptClient):
-    def __init__(self, prompt: Prompt_Text):
-        super().__init__(prompt)
+    def __init__(self, prompt: Prompt_Text, is_fallback: bool = False):
+        super().__init__(prompt, is_fallback)
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
@@ -158,8 +159,8 @@ class TextPromptClient(BasePromptClient):
 
 
 class ChatPromptClient(BasePromptClient):
-    def __init__(self, prompt: Prompt_Chat):
-        super().__init__(prompt)
+    def __init__(self, prompt: Prompt_Chat, is_fallback: bool = False):
+        super().__init__(prompt, is_fallback)
         self.prompt = [
             ChatMessageDict(role=p.role, content=p.content) for p in prompt.prompt
         ]

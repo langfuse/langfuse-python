@@ -421,8 +421,10 @@ def test_get_fresh_prompt(langfuse):
     mock_server_call = langfuse.client.prompts.get
     mock_server_call.return_value = prompt
 
-    result = langfuse.get_prompt(prompt_name)
-    mock_server_call.assert_called_once_with(prompt_name, version=None, label=None)
+    result = langfuse.get_prompt(prompt_name, fallback="fallback")
+    mock_server_call.assert_called_once_with(
+        prompt_name, version=None, label=None, request_options={"max_retries": 2}
+    )
 
     assert result == TextPromptClient(prompt)
 
@@ -480,7 +482,7 @@ def test_get_valid_cached_prompt(langfuse):
     mock_server_call = langfuse.client.prompts.get
     mock_server_call.return_value = prompt
 
-    result_call_1 = langfuse.get_prompt(prompt_name)
+    result_call_1 = langfuse.get_prompt(prompt_name, fallback="fallback")
     assert mock_server_call.call_count == 1
     assert result_call_1 == prompt_client
 
@@ -742,3 +744,82 @@ def test_get_fresh_prompt_when_version_changes(langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def test_do_not_return_fallback_if_fetch_success():
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["production"],
+    )
+
+    second_prompt_client = langfuse.get_prompt(prompt_name, fallback="fallback")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.config == second_prompt_client.config
+    assert prompt_client.config == {}
+
+
+def test_fallback_text_prompt():
+    langfuse = Langfuse()
+
+    fallback_text_prompt = "this is a fallback text prompt with {{variable}}"
+
+    # Should throw an error if prompt not found and no fallback provided
+    with pytest.raises(Exception):
+        langfuse.get_prompt("nonexistent_prompt")
+
+    prompt = langfuse.get_prompt("nonexistent_prompt", fallback=fallback_text_prompt)
+
+    assert prompt.prompt == fallback_text_prompt
+    assert (
+        prompt.compile(variable="value") == "this is a fallback text prompt with value"
+    )
+
+
+def test_fallback_chat_prompt():
+    langfuse = Langfuse()
+    fallback_chat_prompt = [
+        {"role": "system", "content": "fallback system"},
+        {"role": "user", "content": "fallback user name {{name}}"},
+    ]
+
+    # Should throw an error if prompt not found and no fallback provided
+    with pytest.raises(Exception):
+        langfuse.get_prompt("nonexistent_chat_prompt", type="chat")
+
+    prompt = langfuse.get_prompt(
+        "nonexistent_chat_prompt", type="chat", fallback=fallback_chat_prompt
+    )
+
+    assert prompt.prompt == fallback_chat_prompt
+    assert prompt.compile(name="Jane") == [
+        {"role": "system", "content": "fallback system"},
+        {"role": "user", "content": "fallback user name Jane"},
+    ]
+
+
+def test_do_not_link_observation_if_fallback():
+    langfuse = Langfuse()
+    trace_id = create_uuid()
+
+    fallback_text_prompt = "this is a fallback text prompt with {{variable}}"
+
+    # Should throw an error if prompt not found and no fallback provided
+    with pytest.raises(Exception):
+        langfuse.get_prompt("nonexistent_prompt")
+
+    prompt = langfuse.get_prompt("nonexistent_prompt", fallback=fallback_text_prompt)
+
+    langfuse.trace(id=trace_id).generation(prompt=prompt, input="this is a test input")
+    langfuse.flush()
+
+    api = get_api()
+    trace = api.trace.get(trace_id)
+
+    assert len(trace.observations) == 1
+    assert trace.observations[0].prompt_id is None
