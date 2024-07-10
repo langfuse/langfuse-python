@@ -115,6 +115,7 @@ class TraceClient:
         name: typing.Optional[str] = None,
         session_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
         order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -133,7 +134,9 @@ class TraceClient:
 
             - session_id: typing.Optional[str].
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this datetime (ISO 8601).
+            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces with a trace.timestamp on or after a certain datetime (ISO 8601)
+
+            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces with a trace.timestamp before a certain datetime (ISO 8601)
 
             - order_by: typing.Optional[str]. Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
 
@@ -162,6 +165,9 @@ class TraceClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            to_timestamp=datetime.datetime.fromisoformat(
+                "2024-01-15 09:30:00+00:00",
+            ),
             order_by="string",
             tags="string",
         )
@@ -181,6 +187,9 @@ class TraceClient:
                         "sessionId": session_id,
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
+                        else None,
+                        "toTimestamp": serialize_datetime(to_timestamp)
+                        if to_timestamp is not None
                         else None,
                         "orderBy": order_by,
                         "tags": tags,
@@ -332,6 +341,7 @@ class AsyncTraceClient:
         name: typing.Optional[str] = None,
         session_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
         order_by: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -350,7 +360,9 @@ class AsyncTraceClient:
 
             - session_id: typing.Optional[str].
 
-            - from_timestamp: typing.Optional[dt.datetime]. Retrieve only traces newer than this datetime (ISO 8601).
+            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces with a trace.timestamp on or after a certain datetime (ISO 8601)
+
+            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include traces with a trace.timestamp before a certain datetime (ISO 8601)
 
             - order_by: typing.Optional[str]. Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
 
@@ -379,6 +391,9 @@ class AsyncTraceClient:
             from_timestamp=datetime.datetime.fromisoformat(
                 "2024-01-15 09:30:00+00:00",
             ),
+            to_timestamp=datetime.datetime.fromisoformat(
+                "2024-01-15 09:30:00+00:00",
+            ),
             order_by="string",
             tags="string",
         )
@@ -398,6 +413,9 @@ class AsyncTraceClient:
                         "sessionId": session_id,
                         "fromTimestamp": serialize_datetime(from_timestamp)
                         if from_timestamp is not None
+                        else None,
+                        "toTimestamp": serialize_datetime(to_timestamp)
+                        if to_timestamp is not None
                         else None,
                         "orderBy": order_by,
                         "tags": tags,

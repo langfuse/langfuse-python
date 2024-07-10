@@ -5,13 +5,12 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .base_score import BaseScore
 
 
-class NumericScore(BaseScore):
-    value: float = pydantic_v1.Field()
+class CreateScoreResponse(pydantic_v1.BaseModel):
+    id: str = pydantic_v1.Field()
     """
-    The numeric value of the score
+    The id of the created object in Langfuse
     """
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -33,7 +32,5 @@ class NumericScore(BaseScore):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

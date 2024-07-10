@@ -5,14 +5,13 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .base_score import BaseScore
+from ...commons.types.session import Session
+from ...utils.resources.pagination.types.meta_response import MetaResponse
 
 
-class NumericScore(BaseScore):
-    value: float = pydantic_v1.Field()
-    """
-    The numeric value of the score
-    """
+class PaginatedSessions(pydantic_v1.BaseModel):
+    data: typing.List[Session]
+    meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -33,7 +32,5 @@ class NumericScore(BaseScore):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
