@@ -78,7 +78,33 @@ def test_shutdown():
     assert langfuse.task_manager._queue.empty()
 
 
-def test_create_score():
+def test_invalid_score_data_does_not_raise_exception():
+    langfuse = Langfuse(debug=False)
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=-1,
+        data_type="BOOLEAN",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+
+def test_create_numeric_score():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
@@ -109,6 +135,82 @@ def test_create_score():
     trace = api_wrapper.get_trace(trace.id)
 
     assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["value"] == 1
+    assert trace["scores"][0]["dataType"] == "NUMERIC"
+    assert trace["scores"][0]["stringValue"] is None
+
+
+def test_create_boolean_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=1,
+        data_type="BOOLEAN",
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "BOOLEAN"
+    assert trace["scores"][0]["value"] == 1
+    assert trace["scores"][0]["stringValue"] == "True"
+
+
+def test_create_categorical_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value="high score",
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "CATEGORICAL"
+    assert trace["scores"][0]["value"] is None
+    assert trace["scores"][0]["stringValue"] == "high score"
 
 
 def test_create_trace():
@@ -442,6 +544,7 @@ def test_score_trace():
     assert score["value"] == 0.5
     assert score["comment"] == "This is a comment"
     assert score["observationId"] is None
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_score_trace_nested_trace():
@@ -474,6 +577,7 @@ def test_score_trace_nested_trace():
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id is None
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_trace_nested_observation():
@@ -507,6 +611,7 @@ def test_score_trace_nested_observation():
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id == span.id
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_span():
@@ -548,6 +653,7 @@ def test_score_span():
     assert score["value"] == 1
     assert score["comment"] == "This is a comment"
     assert score["observationId"] == spanId
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_create_trace_and_span():
