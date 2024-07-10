@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-django = "^5.0.3"
+django = "^5.0.7"
 langfuse = "^2.13.3"
 
 
