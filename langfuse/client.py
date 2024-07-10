@@ -50,6 +50,8 @@ from langfuse.api.resources.observations.types.observations_views import (
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
+    Prompt_Text,
+    Prompt_Chat,
 )
 from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
@@ -922,6 +924,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         type: Literal["chat"],
         cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[List[ChatMessageDict]] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -933,6 +936,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         type: Literal["text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[str] = None,
     ) -> TextPromptClient: ...
 
     def get_prompt(
@@ -943,6 +947,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         type: Literal["chat", "text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
+        fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
     ) -> PromptClient:
         """Get a prompt.
 
@@ -960,6 +965,7 @@ class Langfuse(object):
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
             keyword argument. If not set, defaults to 60 seconds.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
+            fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -982,9 +988,40 @@ class Langfuse(object):
         cached_prompt = self.prompt_cache.get(cache_key)
 
         if cached_prompt is None:
-            return self._fetch_prompt_and_update_cache(
-                name, version=version, label=label, ttl_seconds=cache_ttl_seconds
-            )
+            self.log.debug(f"Prompt '{cache_key}' not found in cache.")
+            try:
+                return self._fetch_prompt_and_update_cache(
+                    name, version=version, label=label, ttl_seconds=cache_ttl_seconds
+                )
+            except Exception as e:
+                if fallback:
+                    self.log.warn(
+                        f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
+                    )
+
+                    fallback_client_args = {
+                        "name": name,
+                        "prompt": fallback,
+                        "type": type,
+                        "version": version or 0,
+                        "config": {},
+                        "labels": [label] if label else [],
+                        "tags": [],
+                    }
+
+                    if type == "text":
+                        return TextPromptClient(
+                            prompt=Prompt_Text(**fallback_client_args),
+                            is_fallback=True,
+                        )
+
+                    if type == "chat":
+                        return ChatPromptClient(
+                            prompt=Prompt_Chat(**fallback_client_args),
+                            is_fallback=True,
+                        )
+
+                raise e
 
         if cached_prompt.is_expired():
             try:
@@ -1019,7 +1056,10 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
             promptResponse = self.client.prompts.get(
-                self._url_encode(name), version=version, label=label
+                self._url_encode(name),
+                version=version,
+                label=label,
+                request_options={"max_retries": 2},
             )
 
             if promptResponse.type == "chat":
