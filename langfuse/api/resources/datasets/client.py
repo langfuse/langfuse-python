@@ -131,7 +131,7 @@ class DatasetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
         """
-        Get a dataset and its items
+        Get a dataset
 
         Parameters:
             - dataset_name: str.
@@ -406,7 +406,7 @@ class DatasetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetRuns:
         """
-        Get a dataset runs
+        Get dataset runs
 
         Parameters:
             - dataset_name: str.
@@ -604,7 +604,7 @@ class AsyncDatasetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
         """
-        Get a dataset and its items
+        Get a dataset
 
         Parameters:
             - dataset_name: str.
@@ -879,7 +879,7 @@ class AsyncDatasetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetRuns:
         """
-        Get a dataset runs
+        Get dataset runs
 
         Parameters:
             - dataset_name: str.

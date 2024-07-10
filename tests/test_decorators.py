@@ -531,7 +531,9 @@ def test_scoring_observations():
         langfuse_context.score_current_observation(
             name="test-observation-score", value=1
         )
-        langfuse_context.score_current_trace(name="another-test-trace-score", value=2)
+        langfuse_context.score_current_trace(
+            name="another-test-trace-score", value="my_value"
+        )
         return "level_3"
 
     @observe()
@@ -570,19 +572,24 @@ def test_scoring_observations():
 
     assert any(
         [
-            score.name == "another-test-trace-score" and score.value == 2
+            score.name == "another-test-trace-score"
+            and score.string_value == "my_value"
+            and score.data_type == "CATEGORICAL"
             for score in trace_scores
         ]
     )
     assert any(
         [
-            score.name == "test-trace-score" and score.value == 3
+            score.name == "test-trace-score"
+            and score.value == 3
+            and score.data_type == "NUMERIC"
             for score in trace_scores
         ]
     )
 
     assert observation_score.name == "test-observation-score"
     assert observation_score.value == 1
+    assert observation_score.data_type == "NUMERIC"
 
 
 def test_circular_reference_handling():

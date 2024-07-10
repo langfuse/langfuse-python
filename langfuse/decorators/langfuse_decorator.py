@@ -32,6 +32,7 @@ from langfuse.client import (
     PromptClient,
     ModelUsage,
     MapValue,
+    ScoreDataType,
 )
 from langfuse.serializer import EventSerializer
 from langfuse.types import ObservationParams, SpanLevel
@@ -809,17 +810,22 @@ class LangfuseDecorator:
         self,
         *,
         name: str,
-        value: float,
+        value: Union[float, str],
+        data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         id: Optional[str] = None,
+        config_id: Optional[str] = None,
     ):
         """Score the current observation within an active trace. If called on the top level of a trace, it will score the trace.
 
         Arguments:
             name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
             value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            data_type (Optional[ScoreDataType]): The data type of the score. When not set, the data type is inferred from the score config's data type, when present.
+              When no config is set, the data type is inferred from the value's type, i.e. float values are categorized as numeric scores and string values as categorical scores.
             comment (Optional[str]): An optional comment or description providing context or additional details about the score.
             id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+            config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
 
         Returns:
             None
@@ -842,8 +848,10 @@ class LangfuseDecorator:
                     observation_id=observation_id,
                     name=name,
                     value=value,
+                    data_type=data_type,
                     comment=comment,
                     id=id,
+                    config_id=config_id,
                 )
             else:
                 raise ValueError("No trace or observation found in the current context")
@@ -855,17 +863,22 @@ class LangfuseDecorator:
         self,
         *,
         name: str,
-        value: float,
+        value: Union[float, str],
+        data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         id: Optional[str] = None,
+        config_id: Optional[str] = None,
     ):
         """Score the current trace in context. This can be called anywhere in the nested trace to score the trace.
 
         Arguments:
             name (str): The name of the score metric. This should be a clear and concise identifier for the metric being recorded.
-            value (float): The numerical value of the score. This could represent performance metrics, error rates, or any other quantifiable measure.
+            value (Union[float, str]): The value of the score. Should be passed as float for numeric and boolean scores and as string for categorical scores. This could represent performance metrics, error rates, or any other quantifiable measure.
+            data_type (Optional[ScoreDataType]): The data type of the score. When not set, the data type is inferred from the score config's data type, when present.
+              When no config is set, the data type is inferred from the value's type, i.e. float values are categorized as numeric scores and string values as categorical scores.
             comment (Optional[str]): An optional comment or description providing context or additional details about the score.
             id (Optional[str]): An optional custom ID for the scoring event. Useful for linking scores with external systems or for detailed tracking.
+            config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
 
         Returns:
             None
@@ -882,8 +895,10 @@ class LangfuseDecorator:
                     trace_id=trace_id,
                     name=name,
                     value=value,
+                    data_type=data_type,
                     comment=comment,
                     id=id,
+                    config_id=config_id,
                 )
             else:
                 raise ValueError("No trace found in the current context")
