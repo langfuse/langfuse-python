@@ -16,13 +16,25 @@ class TraceWithFullDetails(Trace):
     Path of trace in Langfuse UI
     """
 
+    latency: float = pydantic_v1.Field()
+    """
+    Latency of trace in seconds
+    """
+
     total_cost: float = pydantic_v1.Field(alias="totalCost")
     """
     Cost of trace in USD
     """
 
-    observations: typing.List[ObservationsView]
-    scores: typing.List[Score]
+    observations: typing.List[ObservationsView] = pydantic_v1.Field()
+    """
+    List of observations
+    """
+
+    scores: typing.List[Score] = pydantic_v1.Field()
+    """
+    List of scores
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

@@ -20,6 +20,7 @@ from . import (
 )
 from .commons import (
     AccessDeniedError,
+    BaseScore,
     BooleanScore,
     CategoricalScore,
     ConfigCategory,
@@ -120,14 +121,16 @@ from .prompts import (
     Prompt_Text,
     TextPrompt,
 )
-from .score import CreateScoreRequest, Scores
+from .score import CreateScoreRequest, CreateScoreResponse, Scores
 from .score_configs import CreateScoreConfigRequest, ScoreConfigs
+from .sessions import PaginatedSessions
 from .trace import Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
     "BaseEvent",
     "BasePrompt",
+    "BaseScore",
     "BooleanScore",
     "CategoricalScore",
     "ChatMessage",
@@ -148,6 +151,7 @@ __all__ = [
     "CreatePromptRequest_Text",
     "CreateScoreConfigRequest",
     "CreateScoreRequest",
+    "CreateScoreResponse",
     "CreateScoreValue",
     "CreateSpanBody",
     "CreateSpanEvent",
@@ -196,6 +200,7 @@ __all__ = [
     "PaginatedDatasetRuns",
     "PaginatedDatasets",
     "PaginatedModels",
+    "PaginatedSessions",
     "Project",
     "Projects",
     "Prompt",

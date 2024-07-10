@@ -5,13 +5,27 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .base_score import BaseScore
+from .score_source import ScoreSource
 
 
-class NumericScore(BaseScore):
-    value: float = pydantic_v1.Field()
+class BaseScore(pydantic_v1.BaseModel):
+    id: str
+    trace_id: str = pydantic_v1.Field(alias="traceId")
+    name: str
+    source: ScoreSource
+    observation_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="observationId", default=None
+    )
+    timestamp: dt.datetime
+    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
+    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+    author_user_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="authorUserId", default=None
+    )
+    comment: typing.Optional[str] = None
+    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     """
-    The numeric value of the score
+    Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
     """
 
     def json(self, **kwargs: typing.Any) -> str:
