@@ -422,7 +422,9 @@ def test_get_fresh_prompt(langfuse):
     mock_server_call.return_value = prompt
 
     result = langfuse.get_prompt(prompt_name, fallback="fallback")
-    mock_server_call.assert_called_once_with(prompt_name, version=None, label=None)
+    mock_server_call.assert_called_once_with(
+        prompt_name, version=None, label=None, request_options={"max_retries": 2}
+    )
 
     assert result == TextPromptClient(prompt)
 
