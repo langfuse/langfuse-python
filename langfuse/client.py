@@ -925,6 +925,7 @@ class Langfuse(object):
         type: Literal["chat"],
         cache_ttl_seconds: Optional[int] = None,
         fallback: Optional[List[ChatMessageDict]] = None,
+        max_retries: Optional[int] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -937,6 +938,7 @@ class Langfuse(object):
         type: Literal["text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
         fallback: Optional[str] = None,
+        max_retries: Optional[int] = None,
     ) -> TextPromptClient: ...
 
     def get_prompt(
@@ -948,6 +950,7 @@ class Langfuse(object):
         type: Literal["chat", "text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
         fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
+        max_retries: Optional[int] = None,
     ) -> PromptClient:
         """Get a prompt.
 
@@ -966,6 +969,7 @@ class Langfuse(object):
             keyword argument. If not set, defaults to 60 seconds.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
+            max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -983,6 +987,9 @@ class Langfuse(object):
             raise ValueError("Prompt name cannot be empty.")
 
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+        bounded_max_retries = self._get_bounded_max_retries(
+            max_retries, default_max_retries=2, max_retries_upper_bound=4
+        )
 
         self.log.debug(f"Getting prompt '{cache_key}'")
         cached_prompt = self.prompt_cache.get(cache_key)
@@ -991,7 +998,11 @@ class Langfuse(object):
             self.log.debug(f"Prompt '{cache_key}' not found in cache.")
             try:
                 return self._fetch_prompt_and_update_cache(
-                    name, version=version, label=label, ttl_seconds=cache_ttl_seconds
+                    name,
+                    version=version,
+                    label=label,
+                    ttl_seconds=cache_ttl_seconds,
+                    max_retries=bounded_max_retries,
                 )
             except Exception as e:
                 if fallback:
@@ -1030,6 +1041,7 @@ class Langfuse(object):
                     version=version,
                     label=label,
                     ttl_seconds=cache_ttl_seconds,
+                    max_retries=bounded_max_retries,
                 )
 
             except Exception as e:
@@ -1048,6 +1060,7 @@ class Langfuse(object):
         version: Optional[int] = None,
         label: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
+        max_retries: int,
     ) -> PromptClient:
         try:
             cache_key = PromptCache.generate_cache_key(
@@ -1059,7 +1072,7 @@ class Langfuse(object):
                 self._url_encode(name),
                 version=version,
                 label=label,
-                request_options={"max_retries": 2},
+                request_options={"max_retries": max_retries},
             )
 
             if promptResponse.type == "chat":
@@ -1074,6 +1087,23 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(f"Error while fetching prompt '{cache_key}': {e}")
             raise e
+
+    def _get_bounded_max_retries(
+        self,
+        max_retries: Optional[int],
+        *,
+        default_max_retries: int = 2,
+        max_retries_upper_bound: int = 4,
+    ) -> int:
+        if max_retries is None:
+            return default_max_retries
+
+        bounded_max_retries = min(
+            max(max_retries, 0),
+            max_retries_upper_bound,
+        )
+
+        return bounded_max_retries
 
     @overload
     def create_prompt(
