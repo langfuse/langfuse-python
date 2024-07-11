@@ -27,6 +27,7 @@ from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
 )
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
+from langfuse.api.resources.commons.types.session import Session
 from langfuse.api.resources.commons.types.trace_with_details import TraceWithDetails
 from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
     PaginatedDatasetRuns,
@@ -49,6 +50,8 @@ from langfuse.api.resources.observations.types.observations_views import (
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
+    Prompt_Text,
+    Prompt_Chat,
 )
 from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
@@ -79,7 +82,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel
+from langfuse.types import SpanLevel, ScoreDataType
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -113,6 +116,14 @@ class FetchObservationResponse:
     """Response object for fetch_observation method."""
 
     data: Observation
+
+
+@dataclass
+class FetchSessionsResponse:
+    """Response object for fetch_sessions method."""
+
+    data: typing.List[Session]
+    meta: MetaResponse
 
 
 class Langfuse(object):
@@ -570,6 +581,7 @@ class Langfuse(object):
         name: Optional[str] = None,
         session_id: Optional[str] = None,
         from_timestamp: Optional[dt.datetime] = None,
+        to_timestamp: Optional[dt.datetime] = None,
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> FetchTracesResponse:
@@ -581,7 +593,8 @@ class Langfuse(object):
             name (Optional[str]): Filter by name of traces. Defaults to None.
             user_id (Optional[str]): Filter by user_id. Defaults to None.
             session_id (Optional[str]): Filter by session_id. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime. Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -593,7 +606,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {order_by}, {tags}"
             )
             res = self.client.trace.list(
                 page=page,
@@ -602,6 +615,7 @@ class Langfuse(object):
                 user_id=user_id,
                 session_id=session_id,
                 from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
                 order_by=order_by,
                 tags=tags,
             )
@@ -619,6 +633,7 @@ class Langfuse(object):
         name: Optional[str] = None,
         session_id: Optional[str] = None,
         from_timestamp: Optional[dt.datetime] = None,
+        to_timestamp: Optional[dt.datetime] = None,
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> Traces:
@@ -630,7 +645,8 @@ class Langfuse(object):
             name (Optional[str]): Filter by name of traces. Defaults to None.
             user_id (Optional[str]): Filter by user_id. Defaults to None.
             session_id (Optional[str]): Filter by session_id. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only traces newer than this datetime (ISO 8601). Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime. Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -646,7 +662,7 @@ class Langfuse(object):
         )
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {order_by}, {tags}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {order_by}, {tags}"
             )
             return self.client.trace.list(
                 page=page,
@@ -655,6 +671,7 @@ class Langfuse(object):
                 user_id=user_id,
                 session_id=session_id,
                 from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
                 order_by=order_by,
                 tags=tags,
             )
@@ -672,6 +689,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> FetchObservationsResponse:
         """Get a list of observations in the current project matching the given parameters.
@@ -683,7 +701,8 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -694,7 +713,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {type}"
             )
             res = self.client.observations.get_many(
                 page=page,
@@ -704,6 +723,7 @@ class Langfuse(object):
                 trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
                 from_start_time=from_start_time,
+                to_start_time=to_start_time,
                 type=type,
             )
             return FetchObservationsResponse(data=res.data, meta=res.meta)
@@ -721,6 +741,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         type: typing.Optional[str] = None,
     ) -> ObservationsViews:
         """Get a list of observations in the current project matching the given parameters. Deprecated, use fetch_observations instead.
@@ -732,7 +753,8 @@ class Langfuse(object):
             user_id (Optional[str]): User identifier. Defaults to None.
             trace_id (Optional[str]): Trace identifier. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -747,7 +769,7 @@ class Langfuse(object):
         )
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {type}"
             )
             return self.client.observations.get_many(
                 page=page,
@@ -757,6 +779,7 @@ class Langfuse(object):
                 trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
                 from_start_time=from_start_time,
+                to_start_time=to_start_time,
                 type=type,
             )
         except Exception as e:
@@ -772,6 +795,7 @@ class Langfuse(object):
         user_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
         parent_observation_id: typing.Optional[str] = None,
     ) -> ObservationsViews:
         """Get a list of generations in the current project matching the given parameters. Deprecated, use fetch_observations(type='GENERATION') instead.
@@ -782,7 +806,8 @@ class Langfuse(object):
             name (Optional[str]): Name of the generations to return. Defaults to None.
             user_id (Optional[str]): User identifier of the generations to return. Defaults to None.
             trace_id (Optional[str]): Trace identifier of the generations to return. Defaults to None.
-            from_start_time (Optional[dt.datetime]): Retrieve only observations newer than this datetime (ISO 8601). Defaults to None.
+            from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
             parent_observation_id (Optional[str]): Parent observation identifier of the generations to return. Defaults to None.
 
         Returns:
@@ -803,6 +828,7 @@ class Langfuse(object):
             trace_id=trace_id,
             parent_observation_id=parent_observation_id,
             from_start_time=from_start_time,
+            to_start_time=to_start_time,
             type="GENERATION",
         )
 
@@ -852,6 +878,43 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
+    def fetch_sessions(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
+    ) -> FetchSessionsResponse:
+        """Get a list of sessions in the current project.
+
+        Args:
+            page (Optional[int]): Page number of the sessions to return. Defaults to None.
+            limit (Optional[int]): Maximum number of sessions to return. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only sessions with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only sessions with a timestamp before this datetime. Defaults to None.
+
+        Returns:
+            FetchSessionsResponse, list of sessions on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting sessions... {page}, {limit}, {from_timestamp}, {to_timestamp}"
+            )
+            res = self.client.sessions.list(
+                page=page,
+                limit=limit,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+            )
+            return FetchSessionsResponse(data=res.data, meta=res.meta)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
     @overload
     def get_prompt(
         self,
@@ -861,6 +924,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         type: Literal["chat"],
         cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[List[ChatMessageDict]] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -872,6 +936,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         type: Literal["text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[str] = None,
     ) -> TextPromptClient: ...
 
     def get_prompt(
@@ -882,6 +947,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         type: Literal["chat", "text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
+        fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
     ) -> PromptClient:
         """Get a prompt.
 
@@ -899,6 +965,7 @@ class Langfuse(object):
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
             keyword argument. If not set, defaults to 60 seconds.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
+            fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -921,9 +988,40 @@ class Langfuse(object):
         cached_prompt = self.prompt_cache.get(cache_key)
 
         if cached_prompt is None:
-            return self._fetch_prompt_and_update_cache(
-                name, version=version, label=label, ttl_seconds=cache_ttl_seconds
-            )
+            self.log.debug(f"Prompt '{cache_key}' not found in cache.")
+            try:
+                return self._fetch_prompt_and_update_cache(
+                    name, version=version, label=label, ttl_seconds=cache_ttl_seconds
+                )
+            except Exception as e:
+                if fallback:
+                    self.log.warn(
+                        f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
+                    )
+
+                    fallback_client_args = {
+                        "name": name,
+                        "prompt": fallback,
+                        "type": type,
+                        "version": version or 0,
+                        "config": {},
+                        "labels": [label] if label else [],
+                        "tags": [],
+                    }
+
+                    if type == "text":
+                        return TextPromptClient(
+                            prompt=Prompt_Text(**fallback_client_args),
+                            is_fallback=True,
+                        )
+
+                    if type == "chat":
+                        return ChatPromptClient(
+                            prompt=Prompt_Chat(**fallback_client_args),
+                            is_fallback=True,
+                        )
+
+                raise e
 
         if cached_prompt.is_expired():
             try:
@@ -958,7 +1056,10 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
             promptResponse = self.client.prompts.get(
-                self._url_encode(name), version=version, label=label
+                self._url_encode(name),
+                version=version,
+                label=label,
+                request_options={"max_retries": 2},
             )
 
             if promptResponse.type == "chat":
@@ -1214,26 +1315,61 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
 
+    @overload
     def score(
         self,
         *,
         name: str,
         value: float,
+        data_type: typing.Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    @overload
+    def score(
+        self,
+        *,
+        name: str,
+        value: str,
+        data_type: typing.Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    def score(
+        self,
+        *,
+        name: str,
+        value: typing.Union[float, str],
+        data_type: typing.Optional[ScoreDataType] = None,
+        trace_id: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
+        comment: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached to a trace (and optionally an observation).
 
         Args:
             name (str): Identifier of the score.
-            value (float): The value of the score. Can be any number, often standardized to 0..1
+            value (Union[float, str]): The value of the score. Should be passed as float for numeric and boolean scores and as string for categorical scores.
+            data_type (Optional[ScoreDataType]): The data type of the score. When not set, the data type is inferred from the score config's data type, when present.
+              When no config is set, the data type is inferred from the value's type, i.e. float values are categorized as numeric scores and string values as categorical scores.
             trace_id (str): The id of the trace to which the score should be attached.
+            id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
             comment (Optional[str]): Additional context/explanation of the score.
             observation_id (Optional[str]): The id of the observation to which the score should be attached.
-            id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
             **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
@@ -1255,7 +1391,7 @@ class Langfuse(object):
             trace = langfuse.score(
                 trace_id=trace_id,
                 name="user-explicit-feedback",
-                value=1,
+                value=0.9,
                 comment="I like how personalized the response is"
             )
             ```
@@ -1269,7 +1405,9 @@ class Langfuse(object):
                 "observation_id": observation_id,
                 "name": name,
                 "value": value,
+                "data_type": data_type,
                 "comment": comment,
+                "config_id": config_id,
                 **kwargs,
             }
 
@@ -1966,22 +2104,53 @@ class StatefulClient(object):
                 task_manager=self.task_manager,
             )
 
+    @overload
     def score(
         self,
         *,
         id: typing.Optional[str] = None,
         name: str,
         value: float,
+        data_type: typing.Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    @overload
+    def score(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: str,
+        value: str,
+        data_type: typing.Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        **kwargs,
+    ) -> "StatefulClient": ...
+
+    def score(
+        self,
+        *,
+        id: typing.Optional[str] = None,
+        name: str,
+        value: typing.Union[float, str],
+        data_type: typing.Optional[ScoreDataType] = None,
+        comment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached for the current observation or trace.
 
         Args:
             name (str): Identifier of the score.
-            value (float): The value of the score. Can be any number, often standardized to 0..1
+            value (Union[float, str]): The value of the score. Should be passed as float for numeric and boolean scores and as string for categorical scores.
+            data_type (Optional[ScoreDataType]): The data type of the score. When not set, the data type is inferred from the score config's data type, when present.
+              When no config is set, the data type is inferred from the value's type, i.e. float values are categorized as numeric scores and string values as categorical scores.
             comment (Optional[str]): Additional context/explanation of the score.
             id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
+            config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
             **kwargs: Additional keyword arguments to include in the score.
 
         Returns:
@@ -1999,7 +2168,7 @@ class StatefulClient(object):
             # Add score to the trace
             trace = trace.score(
                 name="user-explicit-feedback",
-                value=1,
+                value=0.8,
                 comment="I like how personalized the response is"
             )
             ```
@@ -2011,7 +2180,9 @@ class StatefulClient(object):
                 "trace_id": self.trace_id,
                 "name": name,
                 "value": value,
+                "data_type": data_type,
                 "comment": comment,
+                "config_id": config_id,
                 **kwargs,
             }
 

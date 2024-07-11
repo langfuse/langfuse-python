@@ -5,35 +5,13 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .observations_view import ObservationsView
-from .score import Score
-from .trace import Trace
+from .base_score import BaseScore
 
 
-class TraceWithFullDetails(Trace):
-    html_path: str = pydantic_v1.Field(alias="htmlPath")
+class NumericScore(BaseScore):
+    value: float = pydantic_v1.Field()
     """
-    Path of trace in Langfuse UI
-    """
-
-    latency: float = pydantic_v1.Field()
-    """
-    Latency of trace in seconds
-    """
-
-    total_cost: float = pydantic_v1.Field(alias="totalCost")
-    """
-    Cost of trace in USD
-    """
-
-    observations: typing.List[ObservationsView] = pydantic_v1.Field()
-    """
-    List of observations
-    """
-
-    scores: typing.List[Score] = pydantic_v1.Field()
-    """
-    List of scores
+    The numeric value of the score
     """
 
     def json(self, **kwargs: typing.Any) -> str:

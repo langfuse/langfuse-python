@@ -1,11 +1,12 @@
 import os
 import time
 from asyncio import gather
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
+    FetchSessionsResponse,
     FetchTraceResponse,
     FetchTracesResponse,
 )
@@ -78,7 +79,33 @@ def test_shutdown():
     assert langfuse.task_manager._queue.empty()
 
 
-def test_create_score():
+def test_invalid_score_data_does_not_raise_exception():
+    langfuse = Langfuse(debug=False)
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=-1,
+        data_type="BOOLEAN",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+
+def test_create_numeric_score():
     langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
 
@@ -109,6 +136,82 @@ def test_create_score():
     trace = api_wrapper.get_trace(trace.id)
 
     assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["value"] == 1
+    assert trace["scores"][0]["dataType"] == "NUMERIC"
+    assert trace["scores"][0]["stringValue"] is None
+
+
+def test_create_boolean_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value=1,
+        data_type="BOOLEAN",
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "BOOLEAN"
+    assert trace["scores"][0]["value"] == 1
+    assert trace["scores"][0]["stringValue"] == "True"
+
+
+def test_create_categorical_score():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    score_id = create_uuid()
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value="high score",
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "CATEGORICAL"
+    assert trace["scores"][0]["value"] is None
+    assert trace["scores"][0]["stringValue"] == "high score"
 
 
 def test_create_trace():
@@ -307,7 +410,7 @@ def test_create_generation():
             "TOKENS",
             0.0021,
             0.00000000000021,
-            None,
+            0.00210000000021,
         ),
     ],
 )
@@ -442,6 +545,7 @@ def test_score_trace():
     assert score["value"] == 0.5
     assert score["comment"] == "This is a comment"
     assert score["observationId"] is None
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_score_trace_nested_trace():
@@ -474,6 +578,7 @@ def test_score_trace_nested_trace():
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id is None
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_trace_nested_observation():
@@ -507,6 +612,7 @@ def test_score_trace_nested_observation():
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id == span.id
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_span():
@@ -548,6 +654,7 @@ def test_score_span():
     assert score["value"] == 1
     assert score["comment"] == "This is a comment"
     assert score["observationId"] == spanId
+    assert score["dataType"] == "NUMERIC"
 
 
 def test_create_trace_and_span():
@@ -1186,28 +1293,60 @@ def test_fetch_traces():
     # unique name
     name = create_uuid()
 
-    # Create multiple traces
-    trace1 = langfuse.trace(name=name)
-    trace2 = langfuse.trace(name=name)
+    # Create 3 traces with different timestamps
+    now = datetime.now()
+    trace_params = [
+        {"id": create_uuid(), "timestamp": now - timedelta(seconds=10)},
+        {"id": create_uuid(), "timestamp": now - timedelta(seconds=5)},
+        {"id": create_uuid(), "timestamp": now},
+    ]
+
+    for trace_param in trace_params:
+        langfuse.trace(
+            id=trace_param["id"],
+            name=name,
+            session_id="session-1",
+            input={"key": "value"},
+            output="output-value",
+            timestamp=trace_param["timestamp"],
+        )
     langfuse.flush()
 
-    # Fetch traces
-    response = langfuse.fetch_traces(limit=10, name=name)
+    all_traces = langfuse.fetch_traces(limit=10, name=name)
+    assert len(all_traces.data) == 3
+    assert all_traces.meta.total_items == 3
 
     # Assert the structure of the response
-    assert isinstance(response, FetchTracesResponse)
-    assert hasattr(response, "data")
-    assert hasattr(response, "meta")
-    assert isinstance(response.data, list)
-    assert len(response.data) == 2
-    assert response.meta.total_items == 2
-    assert response.data[0].id in [trace1.id, trace2.id]
+    assert isinstance(all_traces, FetchTracesResponse)
+    assert hasattr(all_traces, "data")
+    assert hasattr(all_traces, "meta")
+    assert isinstance(all_traces.data, list)
+    assert all_traces.data[0].name == name
+    assert all_traces.data[0].session_id == "session-1"
 
-    # fetch only one
-    response = langfuse.fetch_traces(limit=1, page=2, name=name)
+    # Fetch traces with a time range that should only include the middle trace
+    from_timestamp = now - timedelta(seconds=7.5)
+    to_timestamp = now - timedelta(seconds=2.5)
+    response = langfuse.fetch_traces(
+        limit=10, name=name, from_timestamp=from_timestamp, to_timestamp=to_timestamp
+    )
     assert len(response.data) == 1
-    assert response.meta.total_items == 2
-    assert response.meta.total_pages == 2
+    assert response.meta.total_items == 1
+    fetched_trace = response.data[0]
+    assert fetched_trace.name == name
+    assert fetched_trace.session_id == "session-1"
+    assert fetched_trace.input == {"key": "value"}
+    assert fetched_trace.output == "output-value"
+    # compare timestamps without microseconds and in UTC
+    assert fetched_trace.timestamp.replace(microsecond=0) == trace_params[1][
+        "timestamp"
+    ].replace(microsecond=0).astimezone(timezone.utc)
+
+    # Fetch with pagination
+    paginated_response = langfuse.fetch_traces(limit=1, page=2, name=name)
+    assert len(paginated_response.data) == 1
+    assert paginated_response.meta.total_items == 3
+    assert paginated_response.meta.total_pages == 3
 
 
 def test_fetch_observation():
@@ -1295,3 +1434,34 @@ def test_fetch_observations_empty():
     assert isinstance(response, FetchObservationsResponse)
     assert len(response.data) == 0
     assert response.meta.total_items == 0
+
+
+def test_fetch_sessions():
+    langfuse = Langfuse()
+
+    # unique name
+    name = create_uuid()
+    session1 = create_uuid()
+    session2 = create_uuid()
+    session3 = create_uuid()
+
+    # Create multiple traces
+    langfuse.trace(name=name, session_id=session1)
+    langfuse.trace(name=name, session_id=session2)
+    langfuse.trace(name=name, session_id=session3)
+    langfuse.flush()
+
+    # Fetch traces
+    response = langfuse.fetch_sessions()
+
+    # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests
+    assert isinstance(response, FetchSessionsResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert response.data[0].id in [session1, session2, session3]
+
+    # fetch only one, cannot check for the exact number of sessions as the table is not cleared between tests
+    response = langfuse.fetch_sessions(limit=1, page=2)
+    assert len(response.data) == 1
+    assert response.data[0].id in [session1, session2, session3]

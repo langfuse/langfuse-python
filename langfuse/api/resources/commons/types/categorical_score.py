@@ -5,35 +5,18 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import pydantic_v1
-from .observations_view import ObservationsView
-from .score import Score
-from .trace import Trace
+from .base_score import BaseScore
 
 
-class TraceWithFullDetails(Trace):
-    html_path: str = pydantic_v1.Field(alias="htmlPath")
+class CategoricalScore(BaseScore):
+    value: typing.Optional[float] = pydantic_v1.Field(default=None)
     """
-    Path of trace in Langfuse UI
-    """
-
-    latency: float = pydantic_v1.Field()
-    """
-    Latency of trace in seconds
+    Only defined if a config is linked. Represents the numeric category mapping of the stringValue
     """
 
-    total_cost: float = pydantic_v1.Field(alias="totalCost")
+    string_value: str = pydantic_v1.Field(alias="stringValue")
     """
-    Cost of trace in USD
-    """
-
-    observations: typing.List[ObservationsView] = pydantic_v1.Field()
-    """
-    List of observations
-    """
-
-    scores: typing.List[Score] = pydantic_v1.Field()
-    """
-    List of scores
+    The string representation of the score value. If no config is linked, can be any string. Otherwise, must map to a config category
     """
 
     def json(self, **kwargs: typing.Any) -> str:
