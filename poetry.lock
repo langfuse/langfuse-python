@@ -677,17 +677,18 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "dashscope"
-version = "1.18.1"
+version = "1.20.1"
 description = "dashscope client sdk library"
 optional = false
 python-versions = ">=3.8.0"
 files = [
-    {file = "dashscope-1.18.1-py3-none-any.whl", hash = "sha256:f70cc9c24bdf4373193b07b6955d093b60eab3b04b911d6349159cc873b1ab98"},
+    {file = "dashscope-1.20.1-py3-none-any.whl", hash = "sha256:3beb470004ead66eb4cb7e6ac378d1002c76139bbf7d195c3323f0510b55082a"},
 ]
 
 [package.dependencies]
 aiohttp = "*"
 requests = "*"
+websocket-client = "*"
 
 [package.extras]
 tokenizer = ["tiktoken"]
