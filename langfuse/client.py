@@ -2239,7 +2239,7 @@ class StatefulClient(object):
             return StatefulClient(
                 self.client,
                 self.id,
-                StateType.OBSERVATION,
+                self.state_type,
                 self.trace_id,
                 task_manager=self.task_manager,
             )
@@ -2323,7 +2323,11 @@ class StatefulClient(object):
             self.log.exception(e)
         finally:
             return StatefulClient(
-                self.client, event_id, self.state_type, self.trace_id, self.task_manager
+                self.client,
+                event_id,
+                StateType.OBSERVATION,
+                self.trace_id,
+                self.task_manager,
             )
 
     def get_trace_url(self):
