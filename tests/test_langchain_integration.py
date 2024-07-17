@@ -1,6 +1,6 @@
 from langchain_openai import ChatOpenAI, OpenAI
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 import pytest
 import types
 from langfuse.callback import CallbackHandler

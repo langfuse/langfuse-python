@@ -5,8 +5,8 @@ import warnings
 
 import pydantic
 
-try:  # Test that langchain is installed before proceeding
-    import langchain  # noqa
+try:  # Test that langchain core is installed before proceeding
+    import langchain_core  # noqa
 except ImportError as e:
     log = logging.getLogger("langfuse")
     log.error(
@@ -24,11 +24,11 @@ from langfuse.utils import _get_timestamp
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 
 try:
-    from langchain.callbacks.base import (
+    from langchain_core.callbacks.base import (
         BaseCallbackHandler as LangchainBaseCallbackHandler,
     )
-    from langchain.schema.agent import AgentAction, AgentFinish
-    from langchain.schema.document import Document
+    from langchain_core.agents import AgentAction, AgentFinish
+    from langchain_core.documents import Document
     from langchain_core.outputs import (
         ChatGeneration,
         LLMResult,
@@ -44,7 +44,8 @@ try:
     )
 except ImportError:
     raise ModuleNotFoundError(
-        "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
+        "Please install 'langchain core' to use the Langfuse langchain integration:"
+        " 'pip install langchain-core'"
     )
 
 
