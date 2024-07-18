@@ -25,18 +25,22 @@ poetry run pre-commit install
 
 #### Setup
 
-- Add .env based on .env.example
+- Add .env based on .env.template
 
 #### Run
 
 - Run all
+
   ```
   poetry run pytest -s -v --log-cli-level=INFO
   ```
+
 - Run a specific test
+
   ```
   poetry run pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py::test_flush
   ```
+
 - E2E tests involving OpenAI and Serp API are usually skipped, remove skip decorators in [tests/test_langchain.py](tests/test_langchain.py) to run them.
 
 ### Update openapi spec
@@ -72,7 +76,7 @@ poetry run release
 6. `git tag v{version}`
 7. `git push --tags`
 8. `poetry publish`
-   - Create PyPi API token: https://pypi.org/manage/account/token/
+   - Create PyPi API token: <https://pypi.org/manage/account/token/>
    - Setup: `poetry config pypi-token.pypi your-api-token`
 9. Create a release on GitHub with the changelog
 
