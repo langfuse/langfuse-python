@@ -16,6 +16,7 @@ class ModelUsageUnit(str, enum.Enum):
     MILLISECONDS = "MILLISECONDS"
     SECONDS = "SECONDS"
     IMAGES = "IMAGES"
+    REQUESTS = "REQUESTS"
 
     def visit(
         self,
@@ -24,6 +25,7 @@ class ModelUsageUnit(str, enum.Enum):
         milliseconds: typing.Callable[[], T_Result],
         seconds: typing.Callable[[], T_Result],
         images: typing.Callable[[], T_Result],
+        requests: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is ModelUsageUnit.CHARACTERS:
             return characters()
@@ -35,3 +37,5 @@ class ModelUsageUnit(str, enum.Enum):
             return seconds()
         if self is ModelUsageUnit.IMAGES:
             return images()
+        if self is ModelUsageUnit.REQUESTS:
+            return requests()
