@@ -576,6 +576,20 @@ class OpenAILangfuse:
     def flush(cls):
         cls._langfuse.flush()
 
+    def langfuse_auth_check(self):
+        """Check if the provided Langfuse credentials (public and secret key) are valid.
+
+        Raises:
+            Exception: If no projects were found for the provided credentials.
+
+        Note:
+            This method is blocking. It is discouraged to use it in production code.
+        """
+        if self._langfuse is None:
+            self.initialize()
+
+        return self._langfuse.auth_check()
+
     def register_tracing(self):
         resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
 
@@ -593,6 +607,7 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_host", None)
         setattr(openai, "langfuse_debug", None)
         setattr(openai, "langfuse_enabled", True)
+        setattr(openai, "langfuse_auth_check", self.langfuse_auth_check)
         setattr(openai, "flush_langfuse", self.flush)
 
 
@@ -600,6 +615,7 @@ modifier = OpenAILangfuse()
 modifier.register_tracing()
 
 
+# DEPRECATED: Use `openai.langfuse_auth_check()` instead
 def auth_check():
     if modifier._langfuse is None:
         modifier.initialize()
