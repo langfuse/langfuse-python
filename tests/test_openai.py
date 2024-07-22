@@ -28,6 +28,12 @@ expected_err_msg = (
 )
 
 
+def test_auth_check():
+    auth_check = openai.langfuse_auth_check()
+
+    assert auth_check is True
+
+
 def test_openai_chat_completion():
     api = get_api()
     generation_name = create_uuid()
