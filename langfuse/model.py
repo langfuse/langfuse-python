@@ -83,7 +83,20 @@ class BasePromptClient(ABC):
 
     @staticmethod
     def _get_langchain_prompt_string(content: str):
-        return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
+        # replace single `{` with the temporary replacement content
+        content = re.sub(r'(?<!{){(?!{)', '<LANGFUSE_REPLACE_OPEN>', content)
+        
+        # replace single `}` with the temporary replacement content
+        content = re.sub(r'(?<!})}(?!})', '<LANGFUSE_REPLACE_CLOSE>', content)
+        
+        # replace all double braces with single braces for langchain vars
+        content = re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
+        
+        # replace temporary replacements with double braces
+        content = re.sub('<LANGFUSE_REPLACE_OPEN>', '{{', content)
+        content = re.sub('<LANGFUSE_REPLACE_CLOSE>', '}}', content)
+        
+        return content
 
     @staticmethod
     def _compile_template_string(content: str, data: Dict[str, Any] = {}) -> str:
