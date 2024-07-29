@@ -8,10 +8,10 @@ import threading
 from queue import Empty, Queue
 import time
 from typing import List, Any
-from datetime import datetime, timezone
 import typing
 
 from langfuse.request import APIError
+from langfuse.utils import _get_timestamp
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -312,7 +312,7 @@ class TaskManager(object):
 
         try:
             json.dumps(event, cls=EventSerializer)
-            event["timestamp"] = datetime.now(timezone.utc)
+            event["timestamp"] = _get_timestamp()
 
             self._queue.put(event, block=False)
         except queue.Full:
