@@ -647,6 +647,8 @@ class LangfuseDecorator:
     def update_current_trace(
         self,
         name: Optional[str] = None,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         version: Optional[str] = None,
@@ -663,6 +665,8 @@ class LangfuseDecorator:
 
         Arguments:
             name (Optional[str]): Identifier of the trace. Useful for sorting/filtering in the UI..
+            input (Optional[Any]): The input parameters of the trace, providing context about the observed operation or function call.
+            output (Optional[Any]): The output or result of the trace
             user_id (Optional[str]): The id of the user that triggered the execution. Used to provide user-level analytics.
             session_id (Optional[str]): Used to group multiple traces into a session in Langfuse. Use your own session/thread identifier.
             version (Optional[str]): The version of the trace type. Used to understand how changes to the trace type affect metrics. Useful in debugging.
@@ -689,6 +693,8 @@ class LangfuseDecorator:
             k: v
             for k, v in {
                 "name": name,
+                "input": input,
+                "output": output,
                 "user_id": user_id,
                 "session_id": session_id,
                 "version": version,
