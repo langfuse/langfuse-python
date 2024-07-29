@@ -312,7 +312,7 @@ class TaskManager(object):
 
         try:
             json.dumps(event, cls=EventSerializer)
-            event["timestamp"] = datetime.utcnow().replace(tzinfo=timezone.utc)
+            event["timestamp"] = datetime.now(timezone.utc)
 
             self._queue.put(event, block=False)
         except queue.Full:
