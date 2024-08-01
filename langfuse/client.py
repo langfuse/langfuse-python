@@ -922,39 +922,39 @@ class Langfuse(object):
             self.log.exception(e)
             raise e
 
-    def fetch_sessions(
+    def fetch_scores(
         self,
         *,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-    ) -> FetchSessionsResponse:
-        """Get a list of sessions in the current project.
+    ) -> FetchScoresResponse:
+        """Get a list of scores in the current project.
 
         Args:
-            page (Optional[int]): Page number of the sessions to return. Defaults to None.
-            limit (Optional[int]): Maximum number of sessions to return. Defaults to None.
-            from_timestamp (Optional[dt.datetime]): Retrieve only sessions with a timestamp on or after this datetime. Defaults to None.
-            to_timestamp (Optional[dt.datetime]): Retrieve only sessions with a timestamp before this datetime. Defaults to None.
+            page (Optional[int]): Page number of the scores to return. Defaults to None.
+            limit (Optional[int]): Maximum number of scores to return. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only scores with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only scores with a timestamp before this datetime. Defaults to None.
 
         Returns:
-            FetchSessionsResponse, list of sessions on `data` and metadata on `meta`.
+            FetchScoresResponse, list of scores on `data` and metadata on `meta`.
 
         Raises:
             Exception: If an error occurred during the request.
         """
         try:
             self.log.debug(
-                f"Getting sessions... {page}, {limit}, {from_timestamp}, {to_timestamp}"
+                f"Getting scores... {page}, {limit}, {from_timestamp}, {to_timestamp}"
             )
-            res = self.client.sessions.list(
+            res = self.client.scores.list(
                 page=page,
                 limit=limit,
                 from_timestamp=from_timestamp,
                 to_timestamp=to_timestamp,
             )
-            return FetchSessionsResponse(data=res.data, meta=res.meta)
+            return FetchScoresResponse(data=res.data, meta=res.meta)
         except Exception as e:
             self.log.exception(e)
             raise e
