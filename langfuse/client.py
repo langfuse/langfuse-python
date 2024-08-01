@@ -948,7 +948,7 @@ class Langfuse(object):
             self.log.debug(
                 f"Getting scores... {page}, {limit}, {from_timestamp}, {to_timestamp}"
             )
-            res = self.client.scores.list(
+            res = self.client.score.list(
                 page=page,
                 limit=limit,
                 from_timestamp=from_timestamp,
