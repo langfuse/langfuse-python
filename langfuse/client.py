@@ -28,6 +28,7 @@ from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
 )
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
+from langfuse.api.resources.commons.types.score_source import ScoreSource
 from langfuse.api.resources.commons.types.session import Session
 from langfuse.api.resources.commons.types.trace_with_details import TraceWithDetails
 from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
@@ -937,16 +938,35 @@ class Langfuse(object):
         *,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        user_id: str | None = None,
+        name: str | None = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
+        source: ScoreSource | None = None,
+        operator: str | None = None,
+        value: float | None = None,
+        score_ids: str | None = None,
+        config_id: str | None = None,
+        data_type: ScoreDataType | None = None,
+        request_options: RequestOptions | None = None,
+
     ) -> FetchScoresResponse:
         """Get a list of scores in the current project.
 
         Args:
             page (Optional[int]): Page number of the scores to return. Defaults to None.
             limit (Optional[int]): Maximum number of scores to return. Defaults to None.
+            user_id (Optional[str]): User identifier. Defaults to None.
+            name (Optional[str]): Name of the scores to return. Defaults to None.
             from_timestamp (Optional[dt.datetime]): Retrieve only scores with a timestamp on or after this datetime. Defaults to None.
             to_timestamp (Optional[dt.datetime]): Retrieve only scores with a timestamp before this datetime. Defaults to None.
+            source (Optional[ScoreSource]): Source of the scores. Defaults to None.
+            operator (Optional[str]): Operator of the scores. Defaults to None.
+            value (Optional[float]): Value of the scores. Defaults to None.
+            score_ids (Optional[str]): Score identifier. Defaults to None.
+            config_id (Optional[str]): Configuration identifier. Defaults to None.
+            data_type (Optional[ScoreDataType]): Data type of the scores. Defaults to None.
+            request_options (Optional[RequestOptions]): Type of the score. Defaults to None.
 
         Returns:
             FetchScoresResponse, list of scores on `data` and metadata on `meta`.
@@ -956,13 +976,22 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting scores... {page}, {limit}, {from_timestamp}, {to_timestamp}"
+                f"Getting scores... {page}, {limit}, {user_id}, {name}, {from_timestamp}, {to_timestamp}, {source}, {operator}, {value}, {score_ids}, {config_id}, {data_type}, {request_options}"
             )
-            res = self.client.score.list(
+            res = self.client.score.get(
                 page=page,
                 limit=limit,
+                user_id=user_id,
+                name=name,
                 from_timestamp=from_timestamp,
                 to_timestamp=to_timestamp,
+                source=source,
+                operator=operator,
+                value=value,
+                score_ids=score_ids,
+                config_id=config_id,
+                data_type=data_type,
+                request_options=request_options,
             )
             return FetchScoresResponse(data=res.data, meta=res.meta)
         except Exception as e:
