@@ -1504,19 +1504,37 @@ def test_fetch_scores():
 def test_fetch_prompts():
     langfuse = Langfuse()
 
-    # Create a prompt
+    # Create multiple versions of a prompt
     langfuse.create_prompt(
-        name="event-planner",
-        prompt="Plan an event titled {{Event Name}}. The event will be about: {{Event Description}}. "
-        "The event will be held in {{Location}} on {{Date}}. "
-        "Consider the following factors: audience, budget, venue, catering options, and entertainment. "
-        "Provide a detailed plan including potential vendors and logistics.",
+        name="simple-prompt",
+        prompt="What is the weather like today?",
         config={
             "model": "gpt-3.5-turbo-1106",
             "temperature": 0,
         },
         labels=["production"],
     )
+
+    langfuse.create_prompt(
+        name="simple-prompt",
+        prompt="What is the weather like today?",
+        config={
+            "model": "gpt-3.5-turbo-1106",
+            "temperature": 0.7,
+        },
+        labels=["staging"],
+    )
+
+    langfuse.create_prompt(
+        name="simple-prompt",
+        prompt="What is the weather like today?",
+        config={
+            "model": "gpt-4o-mini",
+            "temperature": 0.5,
+        },
+        labels=["development"],
+    )
+
     langfuse.flush()
 
     # Fetch prompts
@@ -1527,9 +1545,15 @@ def test_fetch_prompts():
     assert hasattr(response, "data")
     assert hasattr(response, "meta")
     assert isinstance(response.data, list)
-    assert response.data[0].name == "event-planner"
-    assert (
-        response.data[0].prompt
-        == "Plan an event titled {{Event Name}}. The event will be about: {{Event Description}}. The event will be held in {{Location}} on {{Date}}. Consider the following factors: audience, budget, venue, catering options, and entertainment. Provide a detailed plan including potential vendors and logistics."
-    )
-    assert response.data[0].labels == ["production"]
+    
+    # Check that all versions and labels are present
+    assert response.data[0].name == "simple-prompt"
+    assert response.data[0].labels == ["development"]
+    assert response.data[0].version == 3
+    assert response.data[1].name == "simple-prompt"
+    assert response.data[1].labels == ["staging"]
+    assert response.data[1].version == 2
+    assert response.data[2].name == "simple-prompt"
+    assert response.data[2].labels == ["production"]
+    assert response.data[2].version == 1
+    assert len(response.data) == 3
