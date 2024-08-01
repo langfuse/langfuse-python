@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
+    FetchScoresResponse,
     FetchSessionsResponse,
     FetchTraceResponse,
     FetchTracesResponse,
@@ -1465,3 +1466,39 @@ def test_fetch_sessions():
     response = langfuse.fetch_sessions(limit=1, page=2)
     assert len(response.data) == 1
     assert response.data[0].id in [session1, session2, session3]
+
+def test_fetch_scores():
+    langfuse = Langfuse()
+
+    # Create a trace with a score
+    name = create_uuid()
+    trace = langfuse
+    trace = langfuse.trace(name=name)
+    trace.score(name="harmfulness", value=0.5)
+    trace.score(name="quality", value=1)
+    trace.score(name="relevance", value=0.8)
+    langfuse.flush()
+
+    # Fetch scores
+    response = langfuse.fetch_scores()
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchScoresResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert len(response.data) == 3
+    assert response.meta.total_items == 3
+    assert response.data[0].name == "harmfulness"
+    assert response.data[0].value == 0.5
+    assert response.data[1].name == "quality"
+    assert response.data[1].value == 1
+    assert response.data[2].name == "relevance"
+    assert response.data[2].value == 0.8
+
+    # fetch only one
+    response = langfuse.fetch_scores(limit=1, page=2)
+    assert len(response.data) == 1
+    
+
+    
