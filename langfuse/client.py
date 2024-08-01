@@ -21,6 +21,7 @@ from typing import (
 import urllib.parse
 import warnings
 from dataclasses import dataclass
+from langfuse.api.core.request_options import RequestOptions
 
 
 from langfuse.api.resources.commons.types.dataset_run_with_items import (
@@ -130,6 +131,13 @@ class FetchScoresResponse:
     """Response object for fetch_scores method."""
 
     data: typing.List[ScoreBody]
+    meta: MetaResponse
+
+@dataclass
+class FetchPromptsResponse:
+    """Response object for fetch_prompts method."""
+
+    data: typing.List[Union[Prompt_Text, Prompt_Chat]]
     meta: MetaResponse
 
 
@@ -955,6 +963,54 @@ class Langfuse(object):
                 to_timestamp=to_timestamp,
             )
             return FetchScoresResponse(data=res.data, meta=res.meta)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+    def fetch_prompts(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> FetchPromptsResponse:
+        """Get a list of prompts in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number of the prompts to return. Defaults to None.
+            limit (Optional[int]): Maximum number of prompts to return. Defaults to None.
+            name (Optional[str]): Name of the prompts to return. Defaults to None.
+            user_id (Optional[str]): User identifier of the prompts to return. Defaults to None.
+            trace_id (Optional[str]): Trace identifier
+            from_start_time (Optional[dt.datetime]): Retrieve only prompts with a start_time on or after this datetime. Defaults to None.
+            to_start_time (Optional[dt.datetime]): Retrieve only prompts with a start_time before this datetime. Defaults to None.
+            request_options (Optional[RequestOptions]): Type of the prompt. Defaults to None.
+        
+        Returns:
+            FetchPromptsResponse, list of prompts on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting prompts... {page}, {limit}, {name}, {user_id}, {trace_id}, {from_start_time}, {to_start_time}, {request_options}"
+            )
+            res = self.client.prompts.list(
+                page=page,
+                limit=limit,
+                name=name,
+                user_id=user_id,
+                trace_id=trace_id,
+                from_start_time=from_start_time,
+                to_start_time=to_start_time,
+                request_options=request_options,
+            )
+            return FetchPromptsResponse(data=res.data, meta=res.meta)
         except Exception as e:
             self.log.exception(e)
             raise e
