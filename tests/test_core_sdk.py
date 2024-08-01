@@ -1548,12 +1548,12 @@ def test_fetch_prompts():
     
     # Check that all versions and labels are present
     assert response.data[0].name == "simple-prompt"
-    assert response.data[0].labels == ["development"]
+    assert response.data[0].labels == ["latest", "production", "staging", "development"]
     assert response.data[0].version == 3
     assert response.data[1].name == "simple-prompt"
-    assert response.data[1].labels == ["staging"]
+    assert response.data[1].labels == ["production", "staging", "development"]
     assert response.data[1].version == 2
     assert response.data[2].name == "simple-prompt"
-    assert response.data[2].labels == ["production"]
+    assert response.data[2].labels == ["production", "staging", "development"]
     assert response.data[2].version == 1
     assert len(response.data) == 3
