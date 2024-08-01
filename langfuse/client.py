@@ -126,12 +126,14 @@ class FetchSessionsResponse:
     data: typing.List[Session]
     meta: MetaResponse
 
+
 @dataclass
 class FetchScoresResponse:
     """Response object for fetch_scores method."""
 
     data: typing.List[ScoreBody]
     meta: MetaResponse
+
 
 @dataclass
 class FetchPromptsResponse:
@@ -966,6 +968,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+
     def fetch_prompts(
         self,
         *,
@@ -989,7 +992,7 @@ class Langfuse(object):
             from_start_time (Optional[dt.datetime]): Retrieve only prompts with a start_time on or after this datetime. Defaults to None.
             to_start_time (Optional[dt.datetime]): Retrieve only prompts with a start_time before this datetime. Defaults to None.
             request_options (Optional[RequestOptions]): Type of the prompt. Defaults to None.
-        
+
         Returns:
             FetchPromptsResponse, list of prompts on `data` and metadata on `meta`.
 
@@ -1014,7 +1017,7 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
-        
+
     @overload
     def get_prompt(
         self,
