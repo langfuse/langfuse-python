@@ -228,7 +228,11 @@ class Consumer(threading.Thread):
             try:
                 self._client.batch_post(batch=batch, metadata=metadata)
             except Exception as e:
-                if isinstance(e, APIError) and 400 <= int(e.status) < 500:
+                if (
+                    isinstance(e, APIError)
+                    and 400 <= int(e.status) < 500
+                    and int(e.status) != 429
+                ):
                     self._log.warn(
                         f"Received {e.status} error by Langfuse server, not retrying: {e.message}"
                     )
