@@ -1502,7 +1502,10 @@ def test_fetch_scores():
 
 
 def test_fetch_prompts():
-    langfuse = Langfuse()
+    langfuse = Langfuse(
+        public_key="pk-lf-1234567890",
+        secret_key="sk-lf-1234567890",
+    )
 
     # Create multiple versions of a prompt
     langfuse.create_prompt(
@@ -1545,7 +1548,6 @@ def test_fetch_prompts():
     assert hasattr(response, "data")
     assert hasattr(response, "meta")
     assert isinstance(response.data, list)
-    
     # Check that all versions and labels are present
     assert response.data[0].name == "simple-prompt"
     assert set(response.data[0].labels) == {"latest", "production", "staging", "development"}
