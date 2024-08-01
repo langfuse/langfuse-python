@@ -1502,10 +1502,7 @@ def test_fetch_scores():
 
 
 def test_fetch_prompts():
-    langfuse = Langfuse(
-        public_key="pk-lf-1234567890",
-        secret_key="sk-lf-1234567890",
-    )
+    langfuse = Langfuse()
 
     # Create multiple versions of a prompt
     langfuse.create_prompt(
