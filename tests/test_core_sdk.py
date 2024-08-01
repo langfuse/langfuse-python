@@ -1538,7 +1538,7 @@ def test_fetch_prompts():
     langfuse.flush()
 
     # Fetch prompts
-    response = langfuse.fetch_prompts()
+    response = langfuse.fetch_prompts(name="simple-prompt")
 
     # Assert the structure of the response
     assert isinstance(response, FetchPromptsResponse)
