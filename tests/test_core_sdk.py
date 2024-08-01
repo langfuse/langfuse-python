@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
+    FetchPromptsResponse,
     FetchScoresResponse,
     FetchSessionsResponse,
     FetchTraceResponse,
@@ -1497,3 +1498,25 @@ def test_fetch_scores():
     # fetch only one
     response = langfuse.fetch_scores(limit=1, page=2)
     assert len(response.data) == 1
+
+def test_fetch_prompts():
+    langfuse = Langfuse()
+
+    # Create a trace with a prompt
+    name = create_uuid()
+    trace = langfuse
+    trace = langfuse.trace(name=name)
+    trace.prompt(name="prompt", input="prompt input", output="prompt output")
+    langfuse.flush()
+
+    # Fetch prompts
+    response = langfuse.fetch_prompts()
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchPromptsResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert response.data[0].name == "prompt"
+    assert response.data[0].input == "prompt input"
+    assert response.data[0].output == "prompt output"
