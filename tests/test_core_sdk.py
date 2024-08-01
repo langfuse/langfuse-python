@@ -1468,6 +1468,7 @@ def test_fetch_sessions():
     assert len(response.data) == 1
     assert response.data[0].id in [session1, session2, session3]
 
+
 def test_fetch_scores():
     langfuse = Langfuse()
 
@@ -1499,14 +1500,24 @@ def test_fetch_scores():
     response = langfuse.fetch_scores(limit=1, page=2)
     assert len(response.data) == 1
 
+
 def test_fetch_prompts():
     langfuse = Langfuse()
 
     # Create a trace with a prompt
     name = create_uuid()
-    trace = langfuse
-    trace = langfuse.trace(name=name)
-    trace.prompt(name="prompt", input="prompt input", output="prompt output")
+    langfuse.create_prompt(
+        name="event-planner",
+        prompt="Plan an event titled {{Event Name}}. The event will be about: {{Event Description}}. "
+        "The event will be held in {{Location}} on {{Date}}. "
+        "Consider the following factors: audience, budget, venue, catering options, and entertainment. "
+        "Provide a detailed plan including potential vendors and logistics.",
+        config={
+            "model": "gpt-3.5-turbo-1106",
+            "temperature": 0,
+        },
+        labels=["production"],
+    )
     langfuse.flush()
 
     # Fetch prompts
@@ -1517,6 +1528,9 @@ def test_fetch_prompts():
     assert hasattr(response, "data")
     assert hasattr(response, "meta")
     assert isinstance(response.data, list)
-    assert response.data[0].name == "prompt"
-    assert response.data[0].input == "prompt input"
-    assert response.data[0].output == "prompt output"
+    assert response.data[0].name == "event-planner"
+    assert (
+        response.data[0].prompt
+        == "Plan an event titled {{Event Name}}. The event will be about: {{Event Description}}. The event will be held in {{Location}} on {{Date}}. Consider the following factors: audience, budget, venue, catering options, and entertainment. Provide a detailed plan including potential vendors and logistics."
+    )
+    assert response.data[0].labels == ["production"]
