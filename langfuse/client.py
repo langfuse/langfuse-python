@@ -975,10 +975,8 @@ class Langfuse(object):
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         name: typing.Optional[str] = None,
-        user_id: typing.Optional[str] = None,
-        trace_id: typing.Optional[str] = None,
-        from_start_time: typing.Optional[dt.datetime] = None,
-        to_start_time: typing.Optional[dt.datetime] = None,
+        label: typing.Optional[str] = None,
+        tag: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> FetchPromptsResponse:
         """Get a list of prompts in the current project matching the given parameters.
@@ -987,10 +985,8 @@ class Langfuse(object):
             page (Optional[int]): Page number of the prompts to return. Defaults to None.
             limit (Optional[int]): Maximum number of prompts to return. Defaults to None.
             name (Optional[str]): Name of the prompts to return. Defaults to None.
-            user_id (Optional[str]): User identifier of the prompts to return. Defaults to None.
-            trace_id (Optional[str]): Trace identifier
-            from_start_time (Optional[dt.datetime]): Retrieve only prompts with a start_time on or after this datetime. Defaults to None.
-            to_start_time (Optional[dt.datetime]): Retrieve only prompts with a start_time before this datetime. Defaults to None.
+            label (Optional[str]): Label of the prompts to return. Defaults to None.
+            tag (Optional[str]): Tag of the prompts to return. Defaults to None.
             request_options (Optional[RequestOptions]): Type of the prompt. Defaults to None.
 
         Returns:
@@ -1001,16 +997,14 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting prompts... {page}, {limit}, {name}, {user_id}, {trace_id}, {from_start_time}, {to_start_time}, {request_options}"
+                f"Getting prompts... {page}, {limit}, {name}, {label}, {tag}, {request_options}"
             )
             res = self.client.prompts.list(
                 page=page,
                 limit=limit,
                 name=name,
-                user_id=user_id,
-                trace_id=trace_id,
-                from_start_time=from_start_time,
-                to_start_time=to_start_time,
+                label=label,
+                tag=tag,
                 request_options=request_options,
             )
             return FetchPromptsResponse(data=res.data, meta=res.meta)
