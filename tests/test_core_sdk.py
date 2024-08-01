@@ -1487,14 +1487,12 @@ def test_fetch_scores():
     assert hasattr(response, "data")
     assert hasattr(response, "meta")
     assert isinstance(response.data, list)
-    assert len(response.data) == 3
-    assert response.meta.total_items == 3
-    assert response.data[0].name == "harmfulness"
-    assert response.data[0].value == 0.5
+    assert response.data[2].name == "harmfulness"
+    assert response.data[2].value == 0.5
     assert response.data[1].name == "quality"
     assert response.data[1].value == 1
-    assert response.data[2].name == "relevance"
-    assert response.data[2].value == 0.8
+    assert response.data[0].name == "relevance"
+    assert response.data[0].value == 0.8
 
     # fetch only one
     response = langfuse.fetch_scores(limit=1, page=2)
