@@ -1504,8 +1504,7 @@ def test_fetch_scores():
 def test_fetch_prompts():
     langfuse = Langfuse()
 
-    # Create a trace with a prompt
-    name = create_uuid()
+    # Create a prompt
     langfuse.create_prompt(
         name="event-planner",
         prompt="Plan an event titled {{Event Name}}. The event will be about: {{Event Description}}. "
