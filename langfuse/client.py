@@ -368,6 +368,26 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+        
+    def get_datasets(
+        self, *, page: Optional[int] = None, limit: Optional[int] = None, request_options: Optional[RequestOptions] = None
+    ) -> typing.List[Dataset]:
+        """Get all datasets.
+
+        Args:
+            page (Optional[int]): Page number of the datasets to return, starts at 1. Defaults to None.
+            limit (Optional[int]): Maximum number of datasets to return. Defaults to 50.
+            request_options (Optional[RequestOptions]): Request options. Defaults to None.
+
+        Returns:
+            List[Dataset]: The datasets.
+        """
+        try:
+            self.log.debug("Getting datasets")
+            return self.client.datasets.list(page=page, limit=limit, request_options=request_options)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def get_dataset_item(self, id: str) -> "DatasetItemClient":
         """Get the dataset item with the given id."""
@@ -539,6 +559,38 @@ class Langfuse(object):
         except Exception as e:
             self.log.exception(e)
             raise e
+        
+    def get_dataset_items(
+        self,
+        dataset_name: typing.Optional[str] = None,
+        source_trace_id: typing.Optional[str] = None,
+        source_observation_id: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.List[DatasetItem]:
+        """Get all dataset items.
+
+        Args:
+            dataset_name (Optional[str]): Name of the dataset.
+            source_trace_id (Optional[str]): Source trace id.
+            source_observation_id (Optional[str]): Source observation id.
+            page (Optional[int]): Page number of the dataset items to return, starts at 1. Defaults to None.
+            limit (Optional[int]): Maximum number of dataset items to return. Defaults to 50.
+            request_options (Optional[RequestOptions]): Request options. Defaults to None.
+
+        Returns:
+            List[DatasetItem]: The dataset items.
+        """
+        try:
+            self.log.debug("Getting dataset items")
+            return self.client.dataset_items.list(
+                dataset_name=dataset_name, source_trace_id=source_trace_id, source_observation_id=source_observation_id, page=page, limit=limit, request_options=request_options
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+        
 
     def fetch_trace(
         self,
