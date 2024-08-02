@@ -127,6 +127,12 @@ class FetchSessionsResponse:
     data: typing.List[Session]
     meta: MetaResponse
 
+@dataclass
+class FetchScoreResponse:
+    """Response object for fetch_score method."""
+
+    data: ScoreBody
+    meta: MetaResponse
 
 @dataclass
 class FetchScoresResponse:
@@ -981,6 +987,29 @@ class Langfuse(object):
                 to_timestamp=to_timestamp,
             )
             return FetchSessionsResponse(data=res.data, meta=res.meta)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+        
+    def fetch_score(
+        self,
+        id: str,
+    ) -> FetchScoreResponse:
+        """Get a score in the current project with the given identifier.
+
+        Args:
+            id: The identifier of the score to fetch.
+
+        Returns:
+            FetchScoreResponse: The score with the given id on `data`.
+
+        Raises:
+            Exception: If the score with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
+        try:
+            self.log.debug(f"Getting score {id}")
+            res = self.client.score.get_by_id(id)
+            return FetchScoreResponse(data=res.data, meta=res.meta)
         except Exception as e:
             self.log.exception(e)
             raise e
