@@ -1500,6 +1500,31 @@ def test_fetch_scores():
     response = langfuse.fetch_scores(limit=1, page=2)
     assert len(response.data) == 1
 
+def test_fetch_score_by_id():
+    langfuse = Langfuse(        public_key="pk-lf-1234567890",
+        secret_key="sk-lf-1234567890",)
+
+    # Create a trace with a score
+    name = create_uuid()
+    trace = langfuse.trace(name=name)
+    score_1 = trace.score(name="harmfulness", value=0.5)
+    score_2 = trace.score(name="quality", value=1)
+    langfuse.flush()
+
+    # Fetch scores
+    res_1 = langfuse.fetch_score(id=score_1.id)
+    res_2 = langfuse.fetch_score(id=score_2.id)
+
+    # Assert the structure of the response
+    assert isinstance(res_1, FetchScoresResponse)
+    assert hasattr(res_1, "data")
+    assert hasattr(res_1, "meta")
+
+    # Check that the correct score is returned
+    assert res_1.data[0].name == "harmfulness"
+    assert res_1.data[0].value == 0.5
+    assert res_2.data[0].name == "quality"
+    assert res_2.data[0].value == 1
 
 def test_fetch_prompts():
     langfuse = Langfuse()
