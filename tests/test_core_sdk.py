@@ -6,6 +6,9 @@ from datetime import datetime, timedelta, timezone
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
+    FetchPromptsResponse,
+    FetchScoreResponse,
+    FetchScoresResponse,
     FetchSessionsResponse,
     FetchTraceResponse,
     FetchTracesResponse,
@@ -1465,3 +1468,186 @@ def test_fetch_sessions():
     response = langfuse.fetch_sessions(limit=1, page=2)
     assert len(response.data) == 1
     assert response.data[0].id in [session1, session2, session3]
+
+
+def test_fetch_scores():
+    langfuse = Langfuse()
+
+    # Create a trace with a score
+    name = create_uuid()
+    trace = langfuse
+    trace = langfuse.trace(name=name)
+    trace.score(name="harmfulness", value=0.5)
+    trace.score(name="quality", value=1)
+    trace.score(name="relevance", value=0.8)
+    langfuse.flush()
+
+    # Fetch scores
+    response = langfuse.fetch_scores()
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchScoresResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    assert response.data[2].name == "harmfulness"
+    assert response.data[2].value == 0.5
+    assert response.data[1].name == "quality"
+    assert response.data[1].value == 1
+    assert response.data[0].name == "relevance"
+    assert response.data[0].value == 0.8
+
+    # fetch only one
+    response = langfuse.fetch_scores(limit=1, page=2)
+    assert len(response.data) == 1
+
+def test_fetch_score_by_id():
+    langfuse = Langfuse(        public_key="pk-lf-1234567890",
+        secret_key="sk-lf-1234567890",)
+
+    # Create a trace with a score
+    name = create_uuid()
+    trace = langfuse.trace(name=name)
+    trace.score(name="harmfulness", value=0.55)
+    trace.score(name="quality", value=0.99)
+    langfuse.flush()
+
+    scores = langfuse.fetch_scores()
+    score_1 = scores.data[1]
+    score_2 = scores.data[0]
+    # Fetch scores
+    res_1 = langfuse.fetch_score(id=score_1.id)
+    res_2 = langfuse.fetch_score(id=score_2.id)
+
+    # Assert the structure of the response
+    assert isinstance(res_1, FetchScoreResponse)
+    assert hasattr(res_1, "data")
+
+    # Check that the correct score is returned
+    assert res_1.data.name == "harmfulness"
+    assert res_1.data.value == 0.55
+    assert res_2.data.name == "quality"
+    assert res_2.data.value == 0.99
+
+def test_fetch_prompts():
+    langfuse = Langfuse()
+
+    # Create multiple versions of a prompt
+    langfuse.create_prompt(
+        name="simple-prompt",
+        prompt="What is the weather like today?",
+        config={
+            "model": "gpt-3.5-turbo-1106",
+            "temperature": 0,
+        },
+        labels=["production"],
+    )
+
+    langfuse.create_prompt(
+        name="simple-prompt",
+        prompt="What is the weather like today?",
+        config={
+            "model": "gpt-3.5-turbo-1106",
+            "temperature": 0.7,
+        },
+        labels=["staging"],
+    )
+
+    langfuse.create_prompt(
+        name="simple-prompt",
+        prompt="What is the weather like today?",
+        config={
+            "model": "gpt-4o-mini",
+            "temperature": 0.5,
+        },
+        labels=["development"],
+    )
+
+    langfuse.flush()
+
+    # Fetch prompts
+    response = langfuse.fetch_prompts(name="simple-prompt")
+
+    # Assert the structure of the response
+    assert isinstance(response, FetchPromptsResponse)
+    assert hasattr(response, "data")
+    assert hasattr(response, "meta")
+    assert isinstance(response.data, list)
+    # Check that all versions and labels are present
+    assert response.data[0].name == "simple-prompt"
+    assert set(response.data[0].labels) == {"latest", "production", "staging", "development"}
+    assert response.data[0].versions == [1, 2, 3]
+    assert len(response.data[0].versions) == 3
+
+def test_get_dataset_items():
+    langfuse = Langfuse()
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    input = {"input": "Hello World"}
+    for _ in range(99):
+        langfuse.create_dataset_item(dataset_name=name, input=input)
+
+    # Fetch all dataset items without pagination
+    dataset_items = langfuse.get_dataset_items(name)
+    assert len(dataset_items.data) == 50
+    assert dataset_items.meta.total_items == 99
+    assert dataset_items.meta.total_pages == 2
+    assert dataset_items.meta.page == 1
+    assert dataset_items.meta.limit == 50
+
+    # Fetch dataset items with pagination
+    dataset_items_2 = langfuse.get_dataset_items(dataset_name=name, page=1, limit=49)
+    assert len(dataset_items_2.data) == 49
+    assert dataset_items_2.meta.total_items == 99
+    assert dataset_items_2.meta.total_pages == 3
+    assert dataset_items_2.meta.page == 1
+    assert dataset_items_2.meta.limit == 49
+
+    dataset_items_3 = langfuse.get_dataset_items(name, page=2, limit=50)
+    assert len(dataset_items_3.data) == 49
+    assert dataset_items_3.meta.total_items == 99
+    assert dataset_items_3.meta.total_pages == 2
+    assert dataset_items_3.meta.page == 2
+    assert dataset_items_3.meta.limit == 50
+
+
+def test_get_datasets():
+    langfuse = Langfuse()
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    # Fetch datasets, considering that datasets from previous tests might still exist
+    datasets = langfuse.get_datasets()
+    initial_count = len(datasets.data)
+    assert datasets.meta.total_items == initial_count
+    assert datasets.meta.total_pages == (initial_count // 50) + 1
+    assert datasets.meta.page == 1
+    assert datasets.meta.limit == 50
+
+    name_2 = create_uuid()
+    langfuse.create_dataset(name=name_2)
+
+    datasets_2 = langfuse.get_datasets()
+    assert len(datasets_2.data) == initial_count + 1
+    assert datasets_2.meta.total_items == initial_count + 1
+    assert datasets_2.meta.total_pages == ((initial_count + 1) // 50) + 1
+    assert datasets_2.meta.page == 1
+    assert datasets_2.meta.limit == 50
+
+    name_3 = create_uuid()
+    langfuse.create_dataset(name=name_3)
+
+    datasets_3 = langfuse.get_datasets(page=1, limit=2)
+    assert len(datasets_3.data) == 2
+    assert datasets_3.meta.total_items == initial_count + 2
+    assert datasets_3.meta.total_pages == ((initial_count + 2) // 2)
+    assert datasets_3.meta.page == 1
+    assert datasets_3.meta.limit == 2
+
+    datasets_4 = langfuse.get_datasets(page=2, limit=2)
+    assert len(datasets_4.data) == min(2, initial_count + 2 - 2)
+    assert datasets_4.meta.total_items == initial_count + 2
+    assert datasets_4.meta.total_pages == ((initial_count + 2) // 2)
+    assert datasets_4.meta.page == 2
+    assert datasets_4.meta.limit == 2
