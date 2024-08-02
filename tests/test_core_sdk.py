@@ -1550,3 +1550,76 @@ def test_fetch_prompts():
     assert set(response.data[0].labels) == {"latest", "production", "staging", "development"}
     assert response.data[0].versions == [1, 2, 3]
     assert len(response.data[0].versions) == 3
+
+def test_get_dataset_items():
+    langfuse = Langfuse()
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    input = {"input": "Hello World"}
+    for _ in range(99):
+        langfuse.create_dataset_item(dataset_name=name, input=input)
+
+    # Fetch all dataset items without pagination
+    dataset_items = langfuse.get_dataset_items(name)
+    assert len(dataset_items.data) == 50
+    assert dataset_items.meta.total_items == 99
+    assert dataset_items.meta.total_pages == 2
+    assert dataset_items.meta.page == 1
+    assert dataset_items.meta.limit == 50
+
+    # Fetch dataset items with pagination
+    dataset_items_2 = langfuse.get_dataset_items(dataset_name=name, page=1, limit=49)
+    assert len(dataset_items_2.data) == 49
+    assert dataset_items_2.meta.total_items == 99
+    assert dataset_items_2.meta.total_pages == 3
+    assert dataset_items_2.meta.page == 1
+    assert dataset_items_2.meta.limit == 49
+
+    dataset_items_3 = langfuse.get_dataset_items(name, page=2, limit=50)
+    assert len(dataset_items_3.data) == 49
+    assert dataset_items_3.meta.total_items == 99
+    assert dataset_items_3.meta.total_pages == 2
+    assert dataset_items_3.meta.page == 2
+    assert dataset_items_3.meta.limit == 50
+
+
+def test_get_datasets():
+    langfuse = Langfuse()
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    datasets = langfuse.get_datasets()
+    print(datasets)
+    assert len(datasets.data) == 1
+    assert datasets.meta.total_items == 1
+    assert datasets.meta.total_pages == 1
+    assert datasets.meta.page == 1
+    assert datasets.meta.limit == 50
+
+    name_2 = create_uuid()
+    langfuse.create_dataset(name=name_2)
+
+    datasets_2 = langfuse.get_datasets()
+    assert len(datasets_2.data) == 2
+    assert datasets_2.meta.total_items == 2
+    assert datasets_2.meta.total_pages == 1
+    assert datasets_2.meta.page == 1
+    assert datasets_2.meta.limit == 50
+
+    name_3 = create_uuid()
+    langfuse.create_dataset(name=name_3)
+
+    datasets_3 = langfuse.get_datasets(page=1, limit=2)
+    assert len(datasets_3.data) == 2
+    assert datasets_3.meta.total_items == 3
+    assert datasets_3.meta.total_pages == 2
+    assert datasets_3.meta.page == 1
+    assert datasets_3.meta.limit == 2
+
+    datasets_4 = langfuse.get_datasets(page=2, limit=2)
+    assert len(datasets_4.data) == 1
+    assert datasets_4.meta.total_items == 3
+    assert datasets_4.meta.total_pages == 2
+    assert datasets_4.meta.page == 2
+    assert datasets_4.meta.limit == 2
