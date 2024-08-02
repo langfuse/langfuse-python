@@ -1603,7 +1603,7 @@ def test_get_datasets():
     datasets_2 = langfuse.get_datasets()
     assert len(datasets_2.data) == initial_count + 1
     assert datasets_2.meta.total_items == initial_count + 1
-    assert datasets_2.meta.total_pages == ((initial_count + 1) // 50)
+    assert datasets_2.meta.total_pages == ((initial_count + 1) // 50) + 1
     assert datasets_2.meta.page == 1
     assert datasets_2.meta.limit == 50
 
