@@ -565,14 +565,15 @@ def test_get_dataset_items():
     for _ in range(99):
         langfuse.create_dataset_item(dataset_name=name, input=input)
 
-
+    # Fetch all dataset items without pagination
     dataset_items = langfuse.get_dataset_items(name)
     assert len(dataset_items.data) == 99
     assert dataset_items.meta.total_items == 99
-    assert dataset_items.meta.total_pages == 1
+    assert dataset_items.meta.total_pages == 2
     assert dataset_items.meta.page == 1
     assert dataset_items.meta.limit == 50
 
+    # Fetch dataset items with pagination
     dataset_items_2 = langfuse.get_dataset_items(name, page=1, limit=50)
     assert len(dataset_items_2.data) == 50
     assert dataset_items_2.meta.total_items == 99
@@ -586,6 +587,7 @@ def test_get_dataset_items():
     assert dataset_items_3.meta.total_pages == 2
     assert dataset_items_3.meta.page == 2
     assert dataset_items_3.meta.limit == 50
+
 
 def test_get_datasets():
     langfuse = Langfuse(debug=False)
