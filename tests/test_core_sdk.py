@@ -1589,11 +1589,12 @@ def test_get_datasets():
     name = create_uuid()
     langfuse.create_dataset(name=name)
 
+    # Fetch datasets, considering that datasets from previous tests might still exist
     datasets = langfuse.get_datasets()
+    initial_count = len(datasets.data)
     print(datasets)
-    assert len(datasets.data) == 1
-    assert datasets.meta.total_items == 1
-    assert datasets.meta.total_pages == 1
+    assert datasets.meta.total_items == initial_count
+    assert datasets.meta.total_pages == (initial_count // 50) + 1
     assert datasets.meta.page == 1
     assert datasets.meta.limit == 50
 
@@ -1601,9 +1602,9 @@ def test_get_datasets():
     langfuse.create_dataset(name=name_2)
 
     datasets_2 = langfuse.get_datasets()
-    assert len(datasets_2.data) == 2
-    assert datasets_2.meta.total_items == 2
-    assert datasets_2.meta.total_pages == 1
+    assert len(datasets_2.data) == initial_count + 1
+    assert datasets_2.meta.total_items == initial_count + 1
+    assert datasets_2.meta.total_pages == ((initial_count + 1) // 50) + 1
     assert datasets_2.meta.page == 1
     assert datasets_2.meta.limit == 50
 
@@ -1612,14 +1613,14 @@ def test_get_datasets():
 
     datasets_3 = langfuse.get_datasets(page=1, limit=2)
     assert len(datasets_3.data) == 2
-    assert datasets_3.meta.total_items == 3
-    assert datasets_3.meta.total_pages == 2
+    assert datasets_3.meta.total_items == initial_count + 2
+    assert datasets_3.meta.total_pages == ((initial_count + 2) // 2) + 1
     assert datasets_3.meta.page == 1
     assert datasets_3.meta.limit == 2
 
     datasets_4 = langfuse.get_datasets(page=2, limit=2)
-    assert len(datasets_4.data) == 1
-    assert datasets_4.meta.total_items == 3
-    assert datasets_4.meta.total_pages == 2
+    assert len(datasets_4.data) == min(2, initial_count + 2 - 2)
+    assert datasets_4.meta.total_items == initial_count + 2
+    assert datasets_4.meta.total_pages == ((initial_count + 2) // 2) + 1
     assert datasets_4.meta.page == 2
     assert datasets_4.meta.limit == 2
