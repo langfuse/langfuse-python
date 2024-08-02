@@ -132,7 +132,6 @@ class FetchScoreResponse:
     """Response object for fetch_score method."""
 
     data: ScoreBody
-    meta: MetaResponse
 
 @dataclass
 class FetchScoresResponse:
@@ -1009,7 +1008,7 @@ class Langfuse(object):
         try:
             self.log.debug(f"Getting score {id}")
             res = self.client.score.get_by_id(id)
-            return FetchScoreResponse(data=res.data, meta=res.meta)
+            return FetchScoreResponse(data=res)
         except Exception as e:
             self.log.exception(e)
             raise e

@@ -7,6 +7,7 @@ from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
     FetchPromptsResponse,
+    FetchScoreResponse,
     FetchScoresResponse,
     FetchSessionsResponse,
     FetchTraceResponse,
@@ -1507,24 +1508,26 @@ def test_fetch_score_by_id():
     # Create a trace with a score
     name = create_uuid()
     trace = langfuse.trace(name=name)
-    score_1 = trace.score(name="harmfulness", value=0.5)
-    score_2 = trace.score(name="quality", value=1)
+    trace.score(name="harmfulness", value=0.55)
+    trace.score(name="quality", value=0.99)
     langfuse.flush()
 
+    scores = langfuse.fetch_scores()
+    score_1 = scores.data[1]
+    score_2 = scores.data[0]
     # Fetch scores
     res_1 = langfuse.fetch_score(id=score_1.id)
     res_2 = langfuse.fetch_score(id=score_2.id)
 
     # Assert the structure of the response
-    assert isinstance(res_1, FetchScoresResponse)
+    assert isinstance(res_1, FetchScoreResponse)
     assert hasattr(res_1, "data")
-    assert hasattr(res_1, "meta")
 
     # Check that the correct score is returned
-    assert res_1.data[0].name == "harmfulness"
-    assert res_1.data[0].value == 0.5
-    assert res_2.data[0].name == "quality"
-    assert res_2.data[0].value == 1
+    assert res_1.data.name == "harmfulness"
+    assert res_1.data.value == 0.55
+    assert res_2.data.name == "quality"
+    assert res_2.data.value == 0.99
 
 def test_fetch_prompts():
     langfuse = Langfuse()
