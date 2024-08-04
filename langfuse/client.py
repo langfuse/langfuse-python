@@ -174,6 +174,7 @@ class Langfuse(object):
         sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
+        sample_rate: Optional[float] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -212,6 +213,7 @@ class Langfuse(object):
         self.enabled = enabled
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+        sample_rate = sample_rate or os.environ.get("LANGFUSE_SAMPLE_RATE")
 
         threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
         flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT", 15))
@@ -291,6 +293,7 @@ class Langfuse(object):
             "sdk_version": version,
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
+            "sample_rate": sample_rate,
         }
 
         self.task_manager = TaskManager(**args)

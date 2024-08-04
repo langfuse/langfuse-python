@@ -4,13 +4,13 @@ import atexit
 import json
 import logging
 import queue
-import random
 import threading
 from queue import Empty, Queue
 import time
 from typing import List, Any
 import typing
 
+from langfuse.Sampler import Sampler
 from langfuse.request import APIError
 from langfuse.utils import _get_timestamp
 
@@ -260,6 +260,7 @@ class TaskManager(object):
     _sdk_name: str
     _sdk_version: str
     _sdk_integration: str
+    _sampler: Sampler
 
     def __init__(
         self,
@@ -274,6 +275,7 @@ class TaskManager(object):
         sdk_integration: str,
         enabled: bool = True,
         max_task_queue_size: int = 100_000,
+        sample_rate: float = 1,
     ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
@@ -288,6 +290,7 @@ class TaskManager(object):
         self._sdk_version = sdk_version
         self._sdk_integration = sdk_integration
         self._enabled = enabled
+        self._sampler = Sampler(sample_rate)
 
         self.init_resources()
 
@@ -365,34 +368,3 @@ class TaskManager(object):
         self.join()
 
         self._log.debug("shutdown completed")
-
-
-class Sampler:
-    sample_rate: float
-
-    def __init__(self, sample_rate: float):
-        self.sample_rate = sample_rate
-        random.seed(42)  # Fixed seed for reproducibility
-
-    def sample_event(self, event: dict):
-        # need to get trace_id from a given event
-
-        if "type" in event and "body" in event:
-            event_type = event["type"]
-
-            trace_id = None
-
-            if event_type == "trace-create" and "id" in event["body"]:
-                trace_id = event["body"]["id"]
-            elif "trace_id" in event["body"]:
-                trace_id = event["body"]["trace_id"]
-
-            return self.deterministic_sample(trace_id, self.sample_rate)
-
-        else:
-            raise Exception("Unexpected event properties")
-
-    def deterministic_sample(self, trace_id: str, sample_rate: float):
-        hash_value = hash(trace_id)
-        normalized_hash = (hash_value & 0xFFFFFFFF) / 2**32  # Normalize to [0, 1)
-        return normalized_hash < sample_rate
