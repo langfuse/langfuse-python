@@ -210,13 +210,13 @@ class Langfuse(object):
             langfuse = Langfuse()
             ```
         """
-        self.log.warning(f"Initializing Langfuse client... {sample_rate}")
         self.enabled = enabled
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         sample_rate = (
             sample_rate
-            if sample_rate is not None
+            if sample_rate
+            is not None  # needs explicit None check, as 0 is a valid value
             else os.environ.get("LANGFUSE_SAMPLE_RATE")
         )
 
