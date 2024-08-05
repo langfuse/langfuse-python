@@ -20,6 +20,8 @@ class Sampler:
                 trace_id = event["body"]["id"]
             elif "trace_id" in event["body"]:
                 trace_id = event["body"]["trace_id"]
+            else:
+                raise Exception("Unexpected event properties")
 
             return self.deterministic_sample(trace_id, self.sample_rate)
 

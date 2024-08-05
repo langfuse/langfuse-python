@@ -11,6 +11,31 @@ class TestSampler(unittest.TestCase):
         result = self.sampler.sample_event(event)
         self.assertIsInstance(result, bool)
 
+        event = {
+            "type": "trace-create",
+            "body": {"id": "trace_123", "something": "else"},
+        }
+        result_two = self.sampler.sample_event(event)
+        self.assertIsInstance(result, bool)
+
+        assert result == result_two
+
+    def test_multiple_events_of_different_types(self):
+        event = {"type": "trace-create", "body": {"id": "trace_123"}}
+
+        result = self.sampler.sample_event(event)
+        self.assertIsInstance(result, bool)
+
+        event = {"type": "generation-create", "body": {"trace_id": "trace_123"}}
+        result_two = self.sampler.sample_event(event)
+        self.assertIsInstance(result, bool)
+
+        event = event = {"type": "score-create", "body": {"trace_id": "trace_123"}}
+        result_three = self.sampler.sample_event(event)
+        self.assertIsInstance(result, bool)
+
+        assert result == result_two == result_three
+
     def test_sample_event_trace_id(self):
         event = {"type": "some-other-type", "body": {"trace_id": "trace_456"}}
         result = self.sampler.sample_event(event)
@@ -36,7 +61,3 @@ class TestSampler(unittest.TestCase):
         trace_id = "trace_789"
         result = self.sampler.deterministic_sample(trace_id, 0.0)
         self.assertFalse(result)
-
-
-if __name__ == "__main__":
-    unittest.main()
