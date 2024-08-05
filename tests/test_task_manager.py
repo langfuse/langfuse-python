@@ -136,7 +136,7 @@ def test_task_manager_fail(httpserver: HTTPServer):
         langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
     )
 
-    tm.add_task({"foo": "bar"})
+    tm.add_task({"type": "bar", "body": {"trace_id": "trace_123"}})
     tm.flush()
 
     assert count == 3
@@ -201,7 +201,10 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
         langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
     )
     threads = [
-        threading.Thread(target=add_task_concurrently, args=(tm, {"foo": "bar"}))
+        threading.Thread(
+            target=add_task_concurrently,
+            args=(tm, {"type": "bar", "body": {"trace_id": "trace_123"}}),
+        )
         for i in range(10)
     ]
     for t in threads:
@@ -411,10 +414,15 @@ def test_large_events_i_o_dropped(httpserver: HTTPServer):
         langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
     )
 
-    tm.add_task({"body": "bar"})
+    tm.add_task({"type": "bar", "body": {"trace_id": "trace_123"}})
     # create task with extremely long string for bar
     long_string = "a" * 1_000_000
-    tm.add_task({"body": {"input": long_string}})
+    tm.add_task(
+        {
+            "body": {"input": long_string, "trace_id": "trace_123"},
+            "type": "bar",
+        }
+    )
 
     # We can't reliably assert that the queue is non-empty here; that's
     # a race condition. We do our best to load it up though.
