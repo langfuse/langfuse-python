@@ -26,7 +26,6 @@ class Sampler:
             elif "traceId" in event["body"]:
                 trace_id = event["body"]["traceId"]
             else:
-                log.error(event)
                 raise Exception("No trace id found in event")
 
             return self.deterministic_sample(trace_id, self.sample_rate)

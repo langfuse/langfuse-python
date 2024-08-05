@@ -49,7 +49,7 @@ class TestSampler(unittest.TestCase):
         event = {"type": "some-type", "body": {}}
         with self.assertRaises(Exception) as context:
             self.sampler.sample_event(event)
-        self.assertTrue("Unexpected event properties" in str(context.exception))
+        self.assertTrue("No trace id found in event" in str(context.exception))
 
     def test_deterministic_sample(self):
         trace_id = "trace_789"
