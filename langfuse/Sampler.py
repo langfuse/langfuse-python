@@ -1,5 +1,6 @@
+import hashlib
 import logging
-import random
+
 
 log = logging.getLogger("langfuse")
 
@@ -9,7 +10,6 @@ class Sampler:
 
     def __init__(self, sample_rate: float):
         self.sample_rate = sample_rate
-        random.seed(42)  # Fixed seed for reproducibility
 
     def sample_event(self, event: dict):
         # need to get trace_id from a given event
@@ -38,8 +38,17 @@ class Sampler:
         log.debug(
             f"Applying deterministic sampling to trace_id: {trace_id} with rate {sample_rate}"
         )
-        hash_value = hash(trace_id)
-        normalized_hash = (hash_value & 0xFFFFFFFF) / 2**32  # Normalize to [0, 1)
+
+        # Use SHA-256 to hash the trace_id
+        hash_object = hashlib.sha256(trace_id.encode())
+        # Get the hexadecimal representation of the hash
+        hash_hex = hash_object.hexdigest()
+
+        # Take the first 8 characters of the hex digest and convert to integer
+        hash_int = int(hash_hex[:8], 16)
+
+        # Normalize the integer to a float in the range [0, 1)
+        normalized_hash = hash_int / 0xFFFFFFFF
 
         result = normalized_hash < sample_rate
 
