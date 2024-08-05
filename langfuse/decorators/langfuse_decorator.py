@@ -22,6 +22,7 @@ from typing import (
     Generator,
     TypeVar,
     cast,
+    ParamSpec
 )
 
 from langfuse.client import (
@@ -82,7 +83,8 @@ _root_trace_id_context: ContextVar[Optional[str]] = ContextVar(
 # Docs: https://mypy.readthedocs.io/en/stable/generics.html#declaring-decorators
 F = TypeVar("F", bound=Callable[..., Any])
 
-
+P = ParamSpec("P")
+R = TypeVar("R")
 class LangfuseDecorator:
     _log = logging.getLogger("langfuse")
 
@@ -94,7 +96,7 @@ class LangfuseDecorator:
         capture_input: bool = True,
         capture_output: bool = True,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ) -> Callable[[F], F]:
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
         It captures the function's execution context, including start/end times, input/output data, and automatically handles trace/span generation within the Langfuse observation context.
