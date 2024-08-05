@@ -64,3 +64,25 @@ class TestSampler(unittest.TestCase):
         trace_id = "trace_789"
         result = self.sampler.deterministic_sample(trace_id, 0.0)
         self.assertFalse(result)
+
+    def test_deterministic_sample_50_percent_rate(self):
+        trace_ids = [f"trace_{i}" for i in range(1000)]
+        sampled_count = sum(
+            self.sampler.deterministic_sample(trace_id, 0.5) for trace_id in trace_ids
+        )
+        print(sampled_count)
+        self.assertTrue(
+            450 <= sampled_count <= 550,
+            f"Sampled count {sampled_count} is not within the expected range",
+        )
+
+    def test_deterministic_sample_10_percent_rate(self):
+        trace_ids = [f"trace_{i}" for i in range(1000)]
+        sampled_count = sum(
+            self.sampler.deterministic_sample(trace_id, 0.1) for trace_id in trace_ids
+        )
+        print(sampled_count)
+        self.assertTrue(
+            90 <= sampled_count <= 110,
+            f"Sampled count {sampled_count} is not within the expected range",
+        )
