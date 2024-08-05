@@ -320,7 +320,7 @@ class TaskManager(object):
 
         try:
             if not self._sampler.sample_event(event):
-                return
+                return  # event was sampled out
 
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = _get_timestamp()
