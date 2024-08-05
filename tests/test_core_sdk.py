@@ -215,7 +215,7 @@ def test_create_categorical_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
