@@ -57,7 +57,7 @@ class Sampler:
 
         if not result:
             log.debug(
-                f"event with trace_id: {trace_id} and rate ${sample_rate} was sampled and not sent to the server"
+                f"event with trace_id: {trace_id} and rate {sample_rate} was sampled and not sent to the server"
             )
 
         return result

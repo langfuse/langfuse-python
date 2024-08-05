@@ -569,6 +569,7 @@ class OpenAILangfuse:
             debug=openai.langfuse_debug,
             enabled=openai.langfuse_enabled,
             sdk_integration="openai",
+            sample_rate=openai.langfuse_sample_rate,
         )
 
         return self._langfuse
@@ -607,6 +608,7 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_host", None)
         setattr(openai, "langfuse_debug", None)
         setattr(openai, "langfuse_enabled", True)
+        setattr(openai, "langfuse_sample_rate", None)
         setattr(openai, "langfuse_auth_check", self.langfuse_auth_check)
         setattr(openai, "flush_langfuse", self.flush)
 
