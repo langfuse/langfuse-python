@@ -220,7 +220,9 @@ class Langfuse(object):
             else os.environ.get("LANGFUSE_SAMPLE_RATE")
         )
 
-        if sample_rate is not None and (sample_rate > 1 or sample_rate < 0):
+        if sample_rate is not None and (
+            sample_rate > 1 or sample_rate < 0
+        ):  # default value 1 will be set in the taskmanager
             self.enabled = False
             self.log.warning(
                 "Langfuse client is disabled since the sample rate provided is not between 0 and 1."
