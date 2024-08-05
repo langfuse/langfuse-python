@@ -562,7 +562,6 @@ class OpenAILangfuse:
     _langfuse: Optional[Langfuse] = None
 
     def initialize(self):
-        log.error(f"Initializing Langfuse {openai.langfuse_sample_rate}")
         self._langfuse = LangfuseSingleton().get(
             public_key=openai.langfuse_public_key,
             secret_key=openai.langfuse_secret_key,
