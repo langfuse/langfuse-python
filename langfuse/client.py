@@ -192,6 +192,7 @@ class Langfuse(object):
             httpx_client: Pass your own httpx client for more customizability of requests.
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
+            sample_rate: Sampling rate for tracing. If set to 0.5, only 50% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -217,7 +218,7 @@ class Langfuse(object):
             sample_rate
             if sample_rate
             is not None  # needs explicit None check, as 0 is a valid value
-            else os.environ.get("LANGFUSE_SAMPLE_RATE")
+            else float(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
         )
 
         if sample_rate is not None and (
