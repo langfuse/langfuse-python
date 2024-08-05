@@ -34,7 +34,11 @@ class TestSampler(unittest.TestCase):
         result_three = self.sampler.sample_event(event)
         self.assertIsInstance(result, bool)
 
-        assert result == result_two == result_three
+        event = {"type": "generation-update", "body": {"traceId": "trace_123"}}
+        result_four = self.sampler.sample_event(event)
+        self.assertIsInstance(result, bool)
+
+        assert result == result_two == result_three == result_four
 
     def test_sample_event_trace_id(self):
         event = {"type": "some-other-type", "body": {"trace_id": "trace_456"}}
