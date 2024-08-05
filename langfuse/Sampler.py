@@ -13,6 +13,7 @@ class Sampler:
 
     def sample_event(self, event: dict):
         # need to get trace_id from a given event
+        # returns true if
 
         if "type" in event and "body" in event:
             event_type = event["type"]
@@ -26,14 +27,17 @@ class Sampler:
             elif "traceId" in event["body"]:
                 trace_id = event["body"]["traceId"]
             else:
-                raise Exception("No trace id found in event")
+                log.error("Unexpected event format: No trace id found in event")
+                return True
 
             return self.deterministic_sample(trace_id, self.sample_rate)
 
         else:
-            raise Exception("Event has no type or body")
+            log.error("Unexpected event format: No trace id found in event")
+            return True
 
     def deterministic_sample(self, trace_id: str, sample_rate: float):
+        """determins if an event should be sampled based on the trace_id and sample_rate. Event will be sent to server if True"""
         log.debug(
             f"Applying deterministic sampling to trace_id: {trace_id} with rate {sample_rate}"
         )
