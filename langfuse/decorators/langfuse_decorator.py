@@ -134,7 +134,7 @@ class LangfuseDecorator:
         - To update observation or trace parameters (e.g., metadata, session_id), use `langfuse.update_current_observation` and `langfuse.update_current_trace` methods within the wrapped function.
         """
 
-        def decorator(func: F) -> F:
+        def decorator(func: Callable[P, R]) -> Callable[P, R]:
             return (
                 self._async_observe(
                     func,
