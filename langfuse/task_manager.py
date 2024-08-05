@@ -297,6 +297,8 @@ class TaskManager(object):
         # cleans up when the python interpreter closes
         atexit.register(self.join)
 
+        self._log.debug(f"TaskManager initialized with {sample_rate}")
+
     def init_resources(self):
         for i in range(self._threads):
             consumer = Consumer(
@@ -319,6 +321,9 @@ class TaskManager(object):
             return
 
         try:
+            if not self._sampler.sample_event(event):
+                return
+
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = _get_timestamp()
 

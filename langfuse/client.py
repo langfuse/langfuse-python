@@ -210,10 +210,21 @@ class Langfuse(object):
             langfuse = Langfuse()
             ```
         """
+        self.log.warning(f"Initializing Langfuse client... {sample_rate}")
         self.enabled = enabled
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
-        sample_rate = sample_rate or os.environ.get("LANGFUSE_SAMPLE_RATE")
+        sample_rate = (
+            sample_rate
+            if sample_rate is not None
+            else os.environ.get("LANGFUSE_SAMPLE_RATE")
+        )
+
+        if sample_rate is not None and (sample_rate > 1 or sample_rate < 0):
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since the sample rate provided is not between 0 and 1."
+            )
 
         threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
         flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT", 15))
