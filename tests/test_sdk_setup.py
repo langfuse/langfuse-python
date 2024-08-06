@@ -213,6 +213,15 @@ def test_callback_default_host():
     os.environ["LANGFUSE_HOST"] = host
 
 
+def test_callback_sampling():
+    os.environ["LANGFUSE_SAMPLE_RATE"] = "0.2"
+
+    handler = CallbackHandler()
+    assert handler.langfuse.task_manager._sampler.sample_rate == 0.2
+
+    os.environ.pop("LANGFUSE_SAMPLE_RATE")
+
+
 def test_callback_setup():
     public_key, secret_key, host = get_env_variables()
 
