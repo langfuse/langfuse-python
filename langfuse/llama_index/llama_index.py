@@ -555,12 +555,15 @@ class LlamaIndexCallbackHandler(
         metadata = (
             extracted_metadata if extracted_output != extracted_metadata else None
         )
-
+        # update name to the actual tool's name used by openai agent
+        if (name := start_event.event_type.value) == "function_call":
+            if (tool := start_event.payload.get("tool")):
+                name = tool.name
         span = parent.span(
             id=event_id,
             trace_id=trace_id,
             start_time=start_event.time,
-            name=start_event.event_type.value,
+            name=name,
             version=self.version,
             session_id=self.session_id,
             input=extracted_input,
