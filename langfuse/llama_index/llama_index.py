@@ -18,6 +18,7 @@ from langfuse.utils.error_logging import (
 from langfuse.types import TraceMetadata
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 from .utils import CallbackEvent, ParsedLLMEndPayload
+from pydantic import BaseModel
 
 try:
     from llama_index.core.callbacks.base_handler import (
@@ -463,8 +464,10 @@ class LlamaIndexCallbackHandler(
         if hasattr(response, "raw") and response.raw is not None:
             if isinstance(response.raw, dict):
                 raw_dict = response.raw
-            else:
+            elif isinstance(response.raw, BaseModel):
                 raw_dict = response.raw.model_dump()
+            else:
+                raw_dict = {}
 
             model = raw_dict.get("model", None)
             token_usage = raw_dict.get("usage", {})
