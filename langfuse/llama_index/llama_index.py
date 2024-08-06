@@ -85,6 +85,7 @@ class LlamaIndexCallbackHandler(
         enabled: Optional[bool] = None,
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
+        sample_rate: Optional[float] = None,
     ) -> None:
         LlamaIndexBaseCallbackHandler.__init__(
             self,
@@ -112,6 +113,7 @@ class LlamaIndexCallbackHandler(
             enabled=enabled,
             httpx_client=httpx_client,
             sdk_integration=sdk_integration or "llama-index_callback",
+            sample_rate=sample_rate,
         )
 
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
