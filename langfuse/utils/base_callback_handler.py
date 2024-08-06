@@ -59,7 +59,7 @@ class LangfuseBaseCallbackHandler:
         prio_sample_rate = (
             sample_rate
             if sample_rate is not None
-            else int(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
+            else float(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
         )
 
         if stateful_client and isinstance(stateful_client, StatefulTraceClient):
