@@ -174,6 +174,7 @@ class Langfuse(object):
         sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
+        sample_rate: Optional[float] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -191,6 +192,7 @@ class Langfuse(object):
             httpx_client: Pass your own httpx client for more customizability of requests.
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
+            sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -212,6 +214,20 @@ class Langfuse(object):
         self.enabled = enabled
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+        sample_rate = (
+            sample_rate
+            if sample_rate
+            is not None  # needs explicit None check, as 0 is a valid value
+            else float(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
+        )
+
+        if sample_rate is not None and (
+            sample_rate > 1 or sample_rate < 0
+        ):  # default value 1 will be set in the taskmanager
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since the sample rate provided is not between 0 and 1."
+            )
 
         threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
         flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT", 15))
@@ -291,6 +307,7 @@ class Langfuse(object):
             "sdk_version": version,
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
+            "sample_rate": sample_rate,
         }
 
         self.task_manager = TaskManager(**args)

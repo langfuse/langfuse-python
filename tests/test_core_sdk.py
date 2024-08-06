@@ -215,9 +215,7 @@ def test_create_categorical_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(
-        debug=False,
-    )
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -1465,3 +1463,28 @@ def test_fetch_sessions():
     response = langfuse.fetch_sessions(limit=1, page=2)
     assert len(response.data) == 1
     assert response.data[0].id in [session1, session2, session3]
+
+
+def test_create_trace_sampling_zero():
+    langfuse = Langfuse(debug=True, sample_rate=0)
+    api_wrapper = LangfuseAPI()
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(
+        name=trace_name,
+        user_id="test",
+        metadata={"key": "value"},
+        tags=["tag1", "tag2"],
+        public=True,
+    )
+
+    trace.generation(name="generation")
+    trace.score(name="score", value=0.5)
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace.id)
+    assert trace == {
+        "error": "LangfuseNotFoundError",
+        "message": "Trace not found within authorized project",
+    }
