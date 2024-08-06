@@ -22,8 +22,9 @@ from typing import (
     Generator,
     TypeVar,
     cast,
-    ParamSpec
 )
+
+from typing_extensions import ParamSpec
 
 from langfuse.client import (
     Langfuse,
@@ -85,6 +86,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
 class LangfuseDecorator:
     _log = logging.getLogger("langfuse")
 
