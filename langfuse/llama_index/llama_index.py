@@ -461,7 +461,7 @@ class LlamaIndexCallbackHandler(
 
         response = event_payload.get(EventPayload.RESPONSE)
 
-        if hasattr(response, "raw") and response.raw is not None:
+        if response and hasattr(response, "raw") and response.raw is not None:
             if isinstance(response.raw, dict):
                 raw_dict = response.raw
             elif isinstance(response.raw, BaseModel):
@@ -470,7 +470,14 @@ class LlamaIndexCallbackHandler(
                 raw_dict = {}
 
             model = raw_dict.get("model", None)
-            token_usage = raw_dict.get("usage", {})
+            raw_token_usage = raw_dict.get("usage", {})
+
+            if isinstance(raw_token_usage, dict):
+                token_usage = raw_token_usage
+            elif isinstance(raw_token_usage, BaseModel):
+                token_usage = raw_token_usage.model_dump()
+            else:
+                token_usage = {}
 
             if token_usage:
                 usage = {
