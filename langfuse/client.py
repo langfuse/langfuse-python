@@ -218,7 +218,7 @@ class Langfuse(object):
             sample_rate
             if sample_rate
             is not None  # needs explicit None check, as 0 is a valid value
-            else int(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
+            else float(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
         )
 
         if sample_rate is not None and (
