@@ -1659,7 +1659,23 @@ def test_get_langchain_prompt_with_jinja2():
         langfuse_prompt.get_langchain_prompt()
         == 'this is a {template} template that should remain unchanged: {{ handle_text(payload["Name"], "Name is") }}'
     )
+    
+def test_get_langchain_prompt_with_braces():
+    langfuse = Langfuse()
 
+    prompt = 'This is a {{test}} with another {{test} that leads to {this}'
+    langfuse.create_prompt(
+        name="test_braces",
+        prompt=prompt,
+        labels=["production"],
+    )
+
+    langfuse_prompt = langfuse.get_prompt("test_braces")
+
+    assert (
+        langfuse_prompt.get_langchain_prompt()
+        == 'This is a {test} with another {{test}} that leads to {{this}}'
+    )
 
 def test_get_langchain_prompt():
     langfuse = Langfuse()
