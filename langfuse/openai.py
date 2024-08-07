@@ -131,7 +131,11 @@ class OpenAiArgsExtractor:
     ):
         self.args = {}
         self.args["name"] = name
-        self.args["metadata"] = metadata
+        self.args["metadata"] = (
+            metadata
+            if "response_format" not in kwargs
+            else {**(metadata or {}), "response_format": kwargs["response_format"]}
+        )
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
         self.args["user_id"] = user_id
