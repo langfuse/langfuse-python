@@ -5,6 +5,7 @@ import os
 import typing
 import uuid
 import httpx
+import urllib.parse
 from enum import Enum
 import time
 import tracemalloc
@@ -348,7 +349,8 @@ class Langfuse(object):
         """
         try:
             self.log.debug(f"Getting datasets {name}")
-            dataset = self.client.datasets.get(dataset_name=name)
+            encoded_name = urllib.parse.quote(name)
+            dataset = self.client.datasets.get(dataset_name=encoded_name)
 
             dataset_items = []
             page = 1
