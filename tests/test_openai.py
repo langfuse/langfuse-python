@@ -64,6 +64,7 @@ def test_openai_chat_completion():
         {
             "content": "You are an expert mathematician",
             "function_call": None,
+            "refusal": None,
             "role": "assistant",
             "tool_calls": None,
         },
@@ -92,6 +93,7 @@ def test_openai_chat_completion():
         {
             "content": "You are an expert mathematician",
             "function_call": None,
+            "refusal": None,
             "role": "assistant",
             "tool_calls": None,
         },
