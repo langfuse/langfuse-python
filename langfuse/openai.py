@@ -24,6 +24,8 @@ import types
 from collections import defaultdict
 from typing import List, Optional
 
+import openai.resources
+from openai._types import NotGiven
 from packaging.version import Version
 from wrapt import wrap_function_wrapper
 
@@ -286,12 +288,42 @@ def _get_langfuse_data_from_kwargs(
             ).id
         )
 
+    parsed_temperature = (
+        kwargs.get("temperature", 1)
+        if not isinstance(kwargs.get("temperature", 1), NotGiven)
+        else 1
+    )
+
+    parsed_max_tokens = (
+        kwargs.get("max_tokens", float("inf"))
+        if not isinstance(kwargs.get("max_tokens", float("inf")), NotGiven)
+        else float("inf")
+    )
+
+    parsed_top_p = (
+        kwargs.get("top_p", 1)
+        if not isinstance(kwargs.get("top_p", 1), NotGiven)
+        else 1
+    )
+
+    parsed_frequency_penalty = (
+        kwargs.get("frequency_penalty", 0)
+        if not isinstance(kwargs.get("frequency_penalty", 0), NotGiven)
+        else 0
+    )
+
+    parsed_presence_penalty = (
+        kwargs.get("presence_penalty", 0)
+        if not isinstance(kwargs.get("presence_penalty", 0), NotGiven)
+        else 0
+    )
+
     modelParameters = {
-        "temperature": kwargs.get("temperature", 1),
-        "max_tokens": kwargs.get("max_tokens", float("inf")),  # casing?
-        "top_p": kwargs.get("top_p", 1),
-        "frequency_penalty": kwargs.get("frequency_penalty", 0),
-        "presence_penalty": kwargs.get("presence_penalty", 0),
+        "temperature": parsed_temperature,
+        "max_tokens": parsed_max_tokens,  # casing?
+        "top_p": parsed_top_p,
+        "frequency_penalty": parsed_frequency_penalty,
+        "presence_penalty": parsed_presence_penalty,
     }
 
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
