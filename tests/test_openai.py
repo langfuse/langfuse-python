@@ -1330,10 +1330,12 @@ def test_structured_output_response_format_kwarg():
 
 
 def test_structured_output_beta_completions_parse():
+    from typing import List
+
     class CalendarEvent(BaseModel):
         name: str
         date: str
-        participants: list[str]
+        participants: List[str]
 
     openai.beta.chat.completions.parse(
         model="gpt-4o-2024-08-06",
