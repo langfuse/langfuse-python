@@ -1230,7 +1230,13 @@ def test_disabled_langfuse():
     assert len(generations.data) == 0
 
     # Reimport to reset the state
+    LangfuseSingleton().reset()
+    openai.langfuse_enabled = True
+
+    import importlib
     from langfuse.openai import openai
+
+    importlib.reload(openai)
 
 
 def test_langchain_integration():
