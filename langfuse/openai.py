@@ -752,6 +752,17 @@ class LangfuseResponseGeneratorAsync:
         self.langfuse = langfuse
         self.is_nested_trace = is_nested_trace
 
+    async def __anext__(self):
+        if not self.items:
+            try:
+                item = await anext(self.response)
+                self.items.append(item)
+                return item
+            except StopAsyncIteration:
+                await self._finalize()
+                raise StopAsyncIteration
+        return self.items.pop(0)
+
     async def __aiter__(self):
         try:
             async for i in self.response:
