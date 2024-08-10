@@ -558,13 +558,13 @@ async def _wrap_async(
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
         if _is_streaming_response(openai_response):
-            return LangfuseResponseGeneratorAsync(
+            return aiter(LangfuseResponseGeneratorAsync(
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
                 langfuse=new_langfuse,
                 is_nested_trace=is_nested_trace,
-            )
+            ))
 
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(
