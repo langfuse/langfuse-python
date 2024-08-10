@@ -711,6 +711,8 @@ async def test_async_chat_stream():
         stream=True,
     )
 
+    # Make sure that stream is consumed through iterator protocol: __anext__() and __aiter__()
+    await anext(completion)
     async for c in completion:
         print(c)
 
