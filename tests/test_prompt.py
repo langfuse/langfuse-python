@@ -453,6 +453,34 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
     langfuse.log.exception.assert_called_once()
 
 
+def test_using_custom_prompt_timeouts(langfuse):
+    prompt_name = "test"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.return_value = prompt
+
+    result = langfuse.get_prompt(
+        prompt_name, fallback="fallback", fetch_timeout_seconds=1000
+    )
+    mock_server_call.assert_called_once_with(
+        prompt_name,
+        version=None,
+        label=None,
+        request_options={"max_retries": 2, "timeout": 1000},
+    )
+
+    assert result == TextPromptClient(prompt)
+
+
 # Should throw an error if cache_ttl_seconds is passed as positional rather than keyword argument
 def test_throw_if_cache_ttl_seconds_positional_argument(langfuse):
     prompt_name = "test"

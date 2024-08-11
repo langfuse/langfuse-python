@@ -273,7 +273,7 @@ def test_create_generation():
         name="query-generation",
         start_time=timestamp,
         end_time=timestamp,
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-0125",
         model_parameters={
             "max_tokens": "1000",
             "temperature": "0.9",
