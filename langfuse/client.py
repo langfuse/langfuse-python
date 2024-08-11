@@ -188,7 +188,7 @@ class Langfuse(object):
             flush_at: Max batch size that's sent to the API.
             flush_interval: Max delay until a new batch is sent to the API.
             max_retries: Max number of retries in case of API/network errors.
-            timeout: Timeout of API requests in seconds.
+            timeout: Timeout of API requests in seconds. Defaults to 20 seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
@@ -943,6 +943,7 @@ class Langfuse(object):
         cache_ttl_seconds: Optional[int] = None,
         fallback: Optional[List[ChatMessageDict]] = None,
         max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -956,6 +957,7 @@ class Langfuse(object):
         cache_ttl_seconds: Optional[int] = None,
         fallback: Optional[str] = None,
         max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
     ) -> TextPromptClient: ...
 
     def get_prompt(
@@ -968,6 +970,7 @@ class Langfuse(object):
         cache_ttl_seconds: Optional[int] = None,
         fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
         max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
     ) -> PromptClient:
         """Get a prompt.
 
@@ -987,6 +990,7 @@ class Langfuse(object):
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
+            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 10 seconds per default.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -1020,6 +1024,7 @@ class Langfuse(object):
                     label=label,
                     ttl_seconds=cache_ttl_seconds,
                     max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
                 )
             except Exception as e:
                 if fallback:
@@ -1059,6 +1064,7 @@ class Langfuse(object):
                     label=label,
                     ttl_seconds=cache_ttl_seconds,
                     max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
                 )
 
             except Exception as e:
@@ -1078,6 +1084,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
         max_retries: int,
+        fetch_timeout_seconds,
     ) -> PromptClient:
         try:
             cache_key = PromptCache.generate_cache_key(
@@ -1089,7 +1096,10 @@ class Langfuse(object):
                 self._url_encode(name),
                 version=version,
                 label=label,
-                request_options={"max_retries": max_retries},
+                request_options={
+                    "max_retries": max_retries,
+                    "timeout": fetch_timeout_seconds,
+                },
             )
 
             if promptResponse.type == "chat":
