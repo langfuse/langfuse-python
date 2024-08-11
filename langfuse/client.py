@@ -2391,10 +2391,13 @@ class StatefulGenerationClient(StatefulClient):
         id: str,
         state_type: StateType,
         trace_id: str,
+        start_time: dt.datetime,
         task_manager: TaskManager,
     ):
         """Initialize the StatefulGenerationClient."""
         super().__init__(client, id, state_type, trace_id, task_manager)
+
+        self.start_time = start_time
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2420,7 +2423,6 @@ class StatefulGenerationClient(StatefulClient):
 
         Args:
             name (Optional[str]): Identifier of the generation. Useful for sorting/filtering in the UI.
-            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time.
             end_time (Optional[datetime.datetime]): The time at which the generation ended. Automatically set by `generation.end()`.
             completion_start_time (Optional[datetime.datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
             metadata (Optional[dict]): Additional metadata of the generation. Can be any JSON object. Metadata is merged when being updated via the API.
@@ -2434,6 +2436,9 @@ class StatefulGenerationClient(StatefulClient):
             usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
             prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
+
+        Deprecated Args:
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time. Setting it has no effect anymore. Plese use generation(start_time='') instead.
 
         Returns:
             StatefulGenerationClient: The updated generation. Passthrough for chaining.
@@ -2459,7 +2464,7 @@ class StatefulGenerationClient(StatefulClient):
                 "id": self.id,
                 "trace_id": self.trace_id,  # Included to avoid relying on the order of events sent to the API
                 "name": name,
-                "start_time": start_time,
+                "start_time": self.start_time,
                 "metadata": metadata,
                 "level": level,
                 "status_message": status_message,
@@ -2537,6 +2542,9 @@ class StatefulGenerationClient(StatefulClient):
             prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
+        Deprecated Args:
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time. Setting it has no effect anymore. Plese use generation(start_time='') instead.
+
         Returns:
             StatefulGenerationClient: The ended generation. Passthrough for chaining.
 
@@ -2558,7 +2566,6 @@ class StatefulGenerationClient(StatefulClient):
         """
         return self.update(
             name=name,
-            start_time=start_time,
             end_time=end_time or _get_timestamp(),
             metadata=metadata,
             level=level,
@@ -2594,10 +2601,12 @@ class StatefulSpanClient(StatefulClient):
         id: str,
         state_type: StateType,
         trace_id: str,
+        start_time: dt.datetime,
         task_manager: TaskManager,
     ):
         """Initialize the StatefulSpanClient."""
         super().__init__(client, id, state_type, trace_id, task_manager)
+        self.start_time = start_time
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2628,6 +2637,9 @@ class StatefulSpanClient(StatefulClient):
             version (Optional[str]): The version of the span type. Used to understand how changes to the span type affect metrics. Useful in debugging.
             **kwargs: Additional keyword arguments to include in the span.
 
+        Deprecated Args:
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time. Setting it has no effect anymore. Plese use span(start_time='') instead.
+
         Returns:
             StatefulSpanClient: The updated span. Passthrough for chaining.
 
@@ -2652,7 +2664,7 @@ class StatefulSpanClient(StatefulClient):
                 "id": self.id,
                 "trace_id": self.trace_id,  # Included to avoid relying on the order of events sent to the API
                 "name": name,
-                "start_time": start_time,
+                "start_time": self.start_time,
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -2712,6 +2724,9 @@ class StatefulSpanClient(StatefulClient):
             version (Optional[str]): The version of the span type. Used to understand how changes to the span type affect metrics. Useful in debugging.
             **kwargs: Additional keyword arguments to include in the span.
 
+        Deprecated Args:
+            start_time (Optional[datetime.datetime]): The time at which the generation started, defaults to the current time. Setting it has no effect anymore. Plese use span(start_time='') instead.
+
         Returns:
             StatefulSpanClient: The updated span. Passthrough for chaining.
 
@@ -2734,7 +2749,6 @@ class StatefulSpanClient(StatefulClient):
         try:
             span_body = {
                 "name": name,
-                "start_time": start_time,
                 "metadata": metadata,
                 "input": input,
                 "output": output,
@@ -2792,11 +2806,13 @@ class StatefulTraceClient(StatefulClient):
         id: str,
         state_type: StateType,
         trace_id: str,
+        timestamp: dt.datetime,
         task_manager: TaskManager,
     ):
         """Initialize the StatefulTraceClient."""
         super().__init__(client, id, state_type, trace_id, task_manager)
         self.task_manager = task_manager
+        self.timestamp = timestamp
 
     def update(
         self,
@@ -2857,6 +2873,7 @@ class StatefulTraceClient(StatefulClient):
                 "userId": user_id,
                 "sessionId": session_id
                 or kwargs.get("sessionId", None),  # backward compatibility
+                "timestamp": self.timestamp,
                 "version": version,
                 "release": release,
                 "input": input,
