@@ -7,7 +7,6 @@ from langfuse.prompt_cache import PromptCacheItem, DEFAULT_PROMPT_CACHE_TTL_SECO
 from tests.utils import create_uuid, get_api
 from langfuse.api.resources.prompts import Prompt_Text, Prompt_Chat
 from langfuse.model import TextPromptClient, ChatPromptClient
-from unittest.mock import ANY
 
 
 def test_create_prompt():
