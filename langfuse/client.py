@@ -4,6 +4,7 @@ import logging
 import os
 import typing
 import uuid
+import backoff
 import httpx
 from enum import Enum
 import time
@@ -1092,20 +1093,26 @@ class Langfuse(object):
             )
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
-            promptResponse = self.client.prompts.get(
-                self._url_encode(name),
-                version=version,
-                label=label,
-                request_options={
-                    "max_retries": max_retries,
-                    "timeout": fetch_timeout_seconds,
-                },
-            )
 
-            if promptResponse.type == "chat":
-                prompt = ChatPromptClient(promptResponse)
+            @backoff.on_exception(backoff.constant, Exception, max_tries=max_retries)
+            def fetch_prompts():
+                return self.client.prompts.get(
+                    self._url_encode(name),
+                    version=version,
+                    label=label,
+                    request_options={
+                        "timeout_in_seconds": fetch_timeout_seconds,
+                    }
+                    if fetch_timeout_seconds is not None
+                    else None,
+                )
+
+            prompt_response = fetch_prompts()
+
+            if prompt_response.type == "chat":
+                prompt = ChatPromptClient(prompt_response)
             else:
-                prompt = TextPromptClient(promptResponse)
+                prompt = TextPromptClient(prompt_response)
 
             self.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
