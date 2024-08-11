@@ -1329,7 +1329,12 @@ class Langfuse(object):
             self._log_memory_usage()
 
             return StatefulTraceClient(
-                self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                self.client,
+                new_id,
+                StateType.TRACE,
+                new_id,
+                new_body.timestamp,
+                self.task_manager,
             )
 
     def _log_memory_usage(self):
@@ -1605,6 +1610,7 @@ class Langfuse(object):
                 new_span_id,
                 StateType.OBSERVATION,
                 new_trace_id,
+                span_body.start_time,
                 self.task_manager,
             )
 
@@ -1702,6 +1708,7 @@ class Langfuse(object):
                 event_id,
                 StateType.OBSERVATION,
                 new_trace_id,
+                request.start_time,
                 self.task_manager,
             )
 
@@ -1840,6 +1847,7 @@ class Langfuse(object):
                 new_generation_id,
                 StateType.OBSERVATION,
                 new_trace_id,
+                request.start_time,
                 self.task_manager,
             )
 
@@ -2076,6 +2084,7 @@ class StatefulClient(object):
                 generation_id,
                 StateType.OBSERVATION,
                 self.trace_id,
+                new_body.start_time,
                 task_manager=self.task_manager,
             )
 
@@ -2165,6 +2174,7 @@ class StatefulClient(object):
                 span_id,
                 StateType.OBSERVATION,
                 self.trace_id,
+                event.start_time,
                 task_manager=self.task_manager,
             )
 
@@ -2501,6 +2511,7 @@ class StatefulGenerationClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
+                request.start_time,
                 task_manager=self.task_manager,
             )
 
@@ -2693,6 +2704,7 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
+                request.start_time,
                 task_manager=self.task_manager,
             )
 
@@ -2903,6 +2915,7 @@ class StatefulTraceClient(StatefulClient):
                 self.id,
                 StateType.TRACE,
                 self.trace_id,
+                request.timestamp,
                 task_manager=self.task_manager,
             )
 
