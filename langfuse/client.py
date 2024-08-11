@@ -2162,7 +2162,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-create",
-                "body": event.dict(exclude_none=True),
+                "body": body.dict(exclude_none=True),
             }
 
             self.task_manager.add_task(event)
