@@ -1,3 +1,5 @@
+import logging
+import backoff
 import pytest
 from unittest.mock import Mock, patch
 
@@ -7,6 +9,7 @@ from langfuse.prompt_cache import PromptCacheItem, DEFAULT_PROMPT_CACHE_TTL_SECO
 from tests.utils import create_uuid, get_api
 from langfuse.api.resources.prompts import Prompt_Text, Prompt_Chat
 from langfuse.model import TextPromptClient, ChatPromptClient
+from unittest.mock import ANY
 
 
 def test_create_prompt():
@@ -426,7 +429,7 @@ def test_get_fresh_prompt(langfuse):
         prompt_name,
         version=None,
         label=None,
-        request_options={"max_retries": 2, "timeout": None},
+        request_options=None,
     )
 
     assert result == TextPromptClient(prompt)
@@ -478,7 +481,7 @@ def test_using_custom_prompt_timeouts(langfuse):
         prompt_name,
         version=None,
         label=None,
-        request_options={"max_retries": 2, "timeout": 1000},
+        request_options={"timeout_in_seconds": 1000},
     )
 
     assert result == TextPromptClient(prompt)
@@ -734,7 +737,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
 
     mock_server_call.side_effect = Exception("Server error")
 
-    result_call_2 = langfuse.get_prompt(prompt_name)
+    result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
     assert mock_server_call.call_count == 2
     assert result_call_2 == prompt_client
 

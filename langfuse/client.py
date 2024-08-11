@@ -1019,9 +1019,6 @@ class Langfuse(object):
         if cached_prompt is None:
             self.log.debug(f"Prompt '{cache_key}' not found in cache.")
             try:
-                logging.error(
-                    f"Fetching prompt '{cache_key}' from server with {fetch_timeout_seconds} timeout."
-                )
                 return self._fetch_prompt_and_update_cache(
                     name,
                     version=version,
@@ -1097,7 +1094,7 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
 
-            @backoff.on_exception(backoff.expo, Exception, max_tries=max_retries)
+            @backoff.on_exception(backoff.constant, Exception, max_tries=max_retries)
             def fetch_prompts():
                 return self.client.prompts.get(
                     self._url_encode(name),
@@ -1105,7 +1102,9 @@ class Langfuse(object):
                     label=label,
                     request_options={
                         "timeout_in_seconds": fetch_timeout_seconds,
-                    },
+                    }
+                    if fetch_timeout_seconds is not None
+                    else None,
                 )
 
             prompt_response = fetch_prompts()
