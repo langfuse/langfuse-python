@@ -2758,30 +2758,17 @@ class StatefulSpanClient(StatefulClient):
             span = span.end(metadata={"interface": "whatsapp"})
             ```
         """
-        try:
-            span_body = {
-                "name": name,
-                "metadata": metadata,
-                "input": input,
-                "output": output,
-                "level": level,
-                "status_message": status_message,
-                "version": version,
-                "end_time": end_time or _get_timestamp(),
-                **kwargs,
-            }
-            return self.update(**span_body)
-
-        except Exception as e:
-            self.log.warning(e)
-        finally:
-            return StatefulSpanClient(
-                self.client,
-                self.id,
-                StateType.OBSERVATION,
-                self.trace_id,
-                task_manager=self.task_manager,
-            )
+        return self.update(
+            name=name,
+            metadata=metadata,
+            input=input,
+            output=output,
+            level=level,
+            status_message=status_message,
+            version=version,
+            end_time=end_time or _get_timestamp(),
+            **kwargs,
+        )
 
     def get_langchain_handler(self, update_parent: bool = False):
         """Get langchain callback handler associated with the current span.
