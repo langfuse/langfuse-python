@@ -2157,7 +2157,7 @@ class StatefulClient(object):
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
 
-            event = CreateSpanBody(**new_body)
+            body = CreateSpanBody(**new_body)
 
             event = {
                 "id": str(uuid.uuid4()),
@@ -2174,7 +2174,7 @@ class StatefulClient(object):
                 span_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                event.start_time,
+                body.start_time,
                 task_manager=self.task_manager,
             )
 
