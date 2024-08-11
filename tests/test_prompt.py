@@ -1,5 +1,3 @@
-import logging
-import backoff
 import pytest
 from unittest.mock import Mock, patch
 
