@@ -1807,6 +1807,7 @@ class Langfuse(object):
                     "id": new_trace_id,
                     "release": self.release,
                     "name": name,
+                    "timestamp": _get_timestamp(),
                 }
                 request = TraceBody(**trace)
 
@@ -1848,6 +1849,7 @@ class Langfuse(object):
             "id": trace_id,
             "release": self.release,
             "name": name,
+            "timestamp": _get_timestamp(),
         }
 
         trace_body = TraceBody(**trace_dict)
