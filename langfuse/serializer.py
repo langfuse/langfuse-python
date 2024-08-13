@@ -32,7 +32,7 @@ class EventSerializer(JSONEncoder):
             return serialize_datetime(obj)
 
         if isinstance(obj, Exception):
-            return obj.message
+            return str(obj)
 
         # LlamaIndex StreamingAgentChatResponse and StreamingResponse is not serializable by default as it is a generator
         # Attention: These LlamaIndex objects are a also a dataclasses, so check for it first
