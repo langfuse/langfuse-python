@@ -761,6 +761,18 @@ class LangfuseResponseGeneratorAsync:
         finally:
             await self._finalize()
 
+    async def __anext__(self):
+        try:
+            item = await self.response.__anext__()
+            self.items.append(item)
+
+            return item
+
+        except StopAsyncIteration:
+            await self._finalize()
+
+            raise
+
     async def __aenter__(self):
         return self.__aiter__()
 
