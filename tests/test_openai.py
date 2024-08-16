@@ -413,6 +413,33 @@ def test_openai_chat_completion_two_calls():
     assert generation_2.data[0].input == [{"content": "2 + 2 = ", "role": "user"}]
 
 
+def test_openai_chat_completion_with_seed():
+    api = get_api()
+    generation_name = create_uuid()
+    completion = chat_func(
+        name=generation_name,
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        seed=123,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+        "seed": 123,
+    }
+    assert len(completion.choices) != 0
+
+
 def test_openai_completion():
     api = get_api()
     generation_name = create_uuid()
