@@ -318,6 +318,12 @@ def _get_langfuse_data_from_kwargs(
         else 0
     )
 
+    parsed_seed = (
+        kwargs.get("seed", None)
+        if not isinstance(kwargs.get("seed", None), NotGiven)
+        else None
+    )
+
     modelParameters = {
         "temperature": parsed_temperature,
         "max_tokens": parsed_max_tokens,  # casing?
@@ -325,6 +331,8 @@ def _get_langfuse_data_from_kwargs(
         "frequency_penalty": parsed_frequency_penalty,
         "presence_penalty": parsed_presence_penalty,
     }
+    if parsed_seed is not None:
+        modelParameters["seed"] = parsed_seed
 
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
 
