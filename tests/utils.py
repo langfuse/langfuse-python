@@ -10,14 +10,11 @@ except ImportError:
 from langfuse.api.client import FernLangfuse
 
 from llama_index.core import (
-    Settings,
     VectorStoreIndex,
     SimpleDirectoryReader,
     load_index_from_storage,
     StorageContext,
 )
-
-from llama_index.core.callbacks import CallbackManager
 
 
 def create_uuid():
@@ -88,8 +85,7 @@ class LlmUsage(pydantic.BaseModel):
         return super().dict(**kwargs_with_defaults)
 
 
-def get_llama_index_index(callback, force_rebuild: bool = False):
-    Settings.callback_manager = CallbackManager([callback])
+def get_llama_index_index(handler, force_rebuild: bool = False):
     PERSIST_DIR = "tests/mocks/llama-index-storage"
 
     if not os.path.exists(PERSIST_DIR) or force_rebuild:
