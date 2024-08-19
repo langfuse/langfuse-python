@@ -1,7 +1,8 @@
 import httpx
 import inspect
+from contextvars import ContextVar
 from types import GeneratorType
-from typing import Optional, Callable, Any, List
+from typing import Optional, Callable, Any, List, Union
 import uuid
 
 from langfuse.client import (
@@ -32,6 +33,10 @@ except ImportError:
     raise ModuleNotFoundError(
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
+
+context_root: ContextVar[Union[tuple[str, str], tuple[None, None]]] = ContextVar(
+    "context_root", default=(None, None)
+)
 
 
 class LangfuseSpan(BaseSpan):
@@ -77,9 +82,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         self.metadata: Optional[Any] = metadata
         self.trace_name: Optional[str] = trace_name
 
-        self.trace_id: Optional[str] = None
-        self.trace_id = None
-        self.root_span_id = None
+        self.current_trace_id: Optional[str] = None
 
         self._langfuse = LangfuseSingleton().get(
             public_key=public_key,
@@ -111,20 +114,25 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         logger.debug(
             f"{_get_timestamp()} - New span with data \ninstance: {instance.__class__.__name__} \nid: {id_}  \nparent_span_id: {parent_span_id} \nkwargs: {kwargs}"
         )
+
         name = instance.__class__.__name__
+
+        trace_id, root_span_id = context_root.get()
 
         # Create wrapper trace for the first span
         if not parent_span_id:
-            if self.trace_id is not None:
+            if trace_id is not None:
                 logger.warning(
-                    f"Trace ID {self.trace_id} already exists, but no parent span ID was provided. This span will be treated as a new trace."
+                    f"Trace ID {trace_id} already exists, but no parent span ID was provided. This span will be treated as a new trace."
                 )
 
-            self.trace_id = str(uuid.uuid4())
-            self.root_span_id = id_
+            trace_id = str(uuid.uuid4())
+            root_span_id = id_
+            self.current_trace_id = trace_id
+            context_root.set((trace_id, root_span_id))
 
             self._langfuse.trace(
-                id=self.trace_id,
+                id=trace_id,
                 name=self.trace_name or name,
                 input=bound_args.arguments,
                 metadata=self.metadata,
@@ -136,7 +144,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
                 timestamp=_get_timestamp(),
             )
 
-        if not self.trace_id:
+        if not trace_id:
             logger.warning(
                 f"Span ID {id_} is being dropped without a trace ID. This span will not be recorded."
             )
@@ -145,7 +153,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         if self._is_generation(instance):
             self._langfuse.generation(
                 id=id_,
-                trace_id=self.trace_id,
+                trace_id=trace_id,
                 start_time=_get_timestamp(),
                 parent_observation_id=parent_span_id,
                 name=name,
@@ -156,7 +164,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         else:
             self._langfuse.span(
                 id=id_,
-                trace_id=self.trace_id,
+                trace_id=trace_id,
                 start_time=_get_timestamp(),
                 parent_observation_id=parent_span_id,
                 name=name,
@@ -176,7 +184,8 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
             f"{_get_timestamp()} - Prepare to exit span with data \ninstance: {instance.__class__.__name__} \nid: {id_} \nkwargs: {kwargs} \nresult: {result} \nbound_args: {bound_args.arguments}"
         )
 
-        if not self.trace_id:
+        trace_id, root_span_id = context_root.get()
+        if not trace_id:
             logger.warning(
                 f"Span ID {id_} is being dropped without a trace ID. This span will not be recorded."
             )
@@ -186,18 +195,16 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
             result = "".join(list(result))
 
         # Reset the context root if the span is the root span
-        if id_ == self.root_span_id:
-            self._langfuse.trace(id=self.trace_id, output=result)
-
-            self.trace_id = None
-            self.root_span_id = None
+        if id_ == root_span_id:
+            self._langfuse.trace(id=self.current_trace_id, output=result)
+            context_root.set((None, None))
 
         if self._is_generation(instance):
-            generationClient = self._get_generation_client(id_, self.trace_id)
+            generationClient = self._get_generation_client(id_, trace_id)
             generationClient.end(output=self._parse_generation_output(result, instance))
 
         else:
-            spanClient = self._get_span_client(id_, self.trace_id)
+            spanClient = self._get_span_client(id_, trace_id)
             spanClient.end(output=result)
 
     def prepare_to_drop_span(
@@ -212,25 +219,27 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
             f"Prepare to drop span with data \ninstance: {instance.__class__.__name__} \nid: {id_} \nerr: {err} \nkwargs: {kwargs}"
         )
 
-        if not self.trace_id:
+        trace_id, root_span_id = context_root.get()
+        if not trace_id:
             logger.warning(
                 f"Span ID {id_} is being dropped without a trace ID. This span will not be recorded."
             )
             return
 
         # Reset the context root if the span is the root span
-        if id_ == self.root_span_id:
-            self._langfuse.trace(id=self.trace_id, output=str(err))
+        if id_ == root_span_id:
+            self._langfuse.trace(id=trace_id, output=str(err))
+            context_root.set((None, None))
 
         if self._is_generation(instance):
-            generationClient = self._get_generation_client(id_, self.trace_id)
+            generationClient = self._get_generation_client(id_, trace_id)
             generationClient.end(
                 level="ERROR",
                 status_message=str(err),
             )
 
         else:
-            spanClient = self._get_span_client(id_, self.trace_id)
+            spanClient = self._get_span_client(id_, trace_id)
             spanClient.end(
                 level="ERROR",
                 status_message=str(err),
@@ -243,9 +252,9 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
     def _is_generation(self, instance: Optional[Any]) -> bool:
         return isinstance(instance, (BaseEmbedding, LLM))
 
-    def get_latest_trace_id(self) -> Optional[str]:
+    def get_current_trace_id(self) -> Optional[str]:
         """Get the latest trace id. This can be the the ID of an ongoing or completed trace."""
-        return self.trace_id
+        return self.current_trace_id
 
     def _get_generation_client(
         self, id: str, trace_id: str

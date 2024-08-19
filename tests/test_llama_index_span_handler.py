@@ -94,7 +94,7 @@ def test_callback_from_index_construction():
     spanHandler = get_span_handler()
     get_llama_index_index(spanHandler, force_rebuild=True)
 
-    trace_id = spanHandler.get_latest_trace_id()
+    trace_id = spanHandler.get_current_trace_id()
     assert trace_id is not None
 
     spanHandler.flush()
@@ -124,7 +124,7 @@ def test_callback_from_query_engine():
     )
 
     spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_latest_trace_id())
+    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
 
     # Test LLM generation
     generations = sorted(
@@ -148,7 +148,7 @@ def test_callback_from_chat_engine():
     )
 
     spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_latest_trace_id())
+    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
 
     # Test LLM generation
     generations = sorted(
@@ -176,7 +176,7 @@ def test_callback_from_query_engine_stream():
         print(token, end="")
 
     spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_latest_trace_id())
+    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
 
     # Test LLM generation
     generations = sorted(
@@ -203,7 +203,7 @@ def test_callback_from_chat_stream():
         print(token, end="")
 
     spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_latest_trace_id())
+    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
 
     # Test LLM generation
     generations = sorted(
