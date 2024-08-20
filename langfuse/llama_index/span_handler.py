@@ -300,7 +300,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
 
     def _parse_output_metadata(
         self, instance: Optional[Any], result: Optional[Any]
-    ) -> tuple[Optional[Any], Optional[Any]]:
+    ) -> Tuple[Optional[Any], Optional[Any]]:
         if not result or isinstance(result, StreamingAgentChatResponse):
             # Todo: use event handler to populate IO
             return None, None
