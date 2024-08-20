@@ -47,7 +47,7 @@ def before_all():
 
 def test_callback_from_index_construction():
     spanHandler = get_span_handler()
-    get_llama_index_index(spanHandler, force_rebuild=True)
+    get_llama_index_index(None, force_rebuild=True)
 
     trace_id = spanHandler.get_current_trace_id()
     assert trace_id is not None
@@ -73,7 +73,7 @@ def test_callback_from_index_construction():
 
 def test_callback_from_query_engine():
     spanHandler = get_span_handler()
-    index = get_llama_index_index(spanHandler)
+    index = get_llama_index_index(None)
     index.as_query_engine().query(
         "What did the speaker achieve in the past twelve months?"
     )
@@ -97,7 +97,7 @@ def test_callback_from_query_engine():
 
 def test_callback_from_chat_engine():
     spanHandler = get_span_handler()
-    index = get_llama_index_index(spanHandler)
+    index = get_llama_index_index(None)
     index.as_chat_engine().chat(
         "What did the speaker achieve in the past twelve months?"
     )
@@ -122,7 +122,7 @@ def test_callback_from_chat_engine():
 
 def test_callback_from_query_engine_stream():
     spanHandler = get_span_handler()
-    index = get_llama_index_index(spanHandler)
+    index = get_llama_index_index(None)
     stream_response = index.as_query_engine(streaming=True).query(
         "What did the speaker achieve in the past twelve months?"
     )
