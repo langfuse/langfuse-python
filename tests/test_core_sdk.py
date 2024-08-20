@@ -1500,8 +1500,7 @@ def test_fetch_scores():
     assert len(response.data) == 1
 
 def test_fetch_score_by_id():
-    langfuse = Langfuse(        public_key="pk-lf-1234567890",
-        secret_key="sk-lf-1234567890",)
+    langfuse = Langfuse()
 
     # Create a trace with a score
     name = create_uuid()
