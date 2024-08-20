@@ -2,7 +2,7 @@ import httpx
 import inspect
 from contextvars import ContextVar
 from types import GeneratorType
-from typing import Optional, Callable, Any, List, Union
+from typing import Optional, Callable, Any, List, Union, Tuple
 import uuid
 
 from langfuse.client import (
@@ -36,7 +36,7 @@ except ImportError:
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
 
-context_root: ContextVar[Union[tuple[str, str], tuple[None, None]]] = ContextVar(
+context_root: ContextVar[Union[Tuple[str, str], Tuple[None, None]]] = ContextVar(
     "context_root", default=(None, None)
 )
 
