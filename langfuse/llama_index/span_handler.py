@@ -26,6 +26,8 @@ try:
     from llama_index.core.instrumentation.span import BaseSpan
     from llama_index.core.utilities.token_counting import TokenCounter
     from llama_index.core.base.embeddings.base import BaseEmbedding
+    from llama_index.core.base.base_query_engine import BaseQueryEngine
+    from llama_index.core.chat_engine.types import StreamingAgentChatResponse
     from llama_index.core.llms import LLM
 
 
@@ -46,7 +48,22 @@ class LangfuseSpan(BaseSpan):
 
 
 class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
-    """Langfuse Span Handler."""
+    """[BETA] Span Handler for exporting LlamaIndex instrumentation module spans to Langfuse.
+
+    This beta integration is currently under active development and subject to change. Please provide feedback to [the Langfuse team](https://github.com/langfuse/langfuse/issues/1931).
+
+    For production setups, please use the existing callback-based integration (LlamaIndexCallbackHandler).
+
+    Usage:
+
+    ```python
+    import llama_index.core.instrumentation as instrument
+    from langfuse.llama_index import LlamaIndexSpanHandler
+
+    handler = LlamaIndexSpanHandler()
+    instrument.get_dispatcher().add_span_handler(get_span_handler())
+    ```
+    """
 
     def __init__(
         self,
@@ -112,12 +129,10 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
         logger.debug(
-            f"{_get_timestamp()} - New span with data \ninstance: {instance.__class__.__name__} \nid: {id_}  \nparent_span_id: {parent_span_id} \nkwargs: {kwargs}"
+            f"Creating new span {instance.__class__.__name__} with ID {id_} and parend ID {parent_span_id}"
         )
-
-        name = instance.__class__.__name__
-
         trace_id, root_span_id = context_root.get()
+        name = instance.__class__.__name__
 
         # Create wrapper trace for the first span
         if not parent_span_id:
@@ -180,32 +195,31 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         result: Optional[Any] = None,
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
-        logger.debug(
-            f"{_get_timestamp()} - Prepare to exit span with data \ninstance: {instance.__class__.__name__} \nid: {id_} \nkwargs: {kwargs} \nresult: {result} \nbound_args: {bound_args.arguments}"
-        )
-
+        logger.debug(f"Exiting span {instance.__class__.__name__} with ID {id_}")
         trace_id, root_span_id = context_root.get()
+
         if not trace_id:
             logger.warning(
                 f"Span ID {id_} is being dropped without a trace ID. This span will not be recorded."
             )
             return
 
-        if isinstance(result, GeneratorType):
-            result = "".join(list(result))
+        output, metadata = self._parse_output_metadata(instance, result)
 
         # Reset the context root if the span is the root span
         if id_ == root_span_id:
-            self._langfuse.trace(id=self.current_trace_id, output=result)
+            self._langfuse.trace(
+                id=self.current_trace_id, output=output, metadata=metadata
+            )
             context_root.set((None, None))
 
         if self._is_generation(instance):
             generationClient = self._get_generation_client(id_, trace_id)
-            generationClient.end(output=self._parse_generation_output(result, instance))
+            generationClient.end(output=output, metadata=metadata)
 
         else:
             spanClient = self._get_span_client(id_, trace_id)
-            spanClient.end(output=result)
+            spanClient.end(output=output, metadata=metadata)
 
     def prepare_to_drop_span(
         self,
@@ -215,11 +229,9 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
         err: Optional[BaseException] = None,
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
-        logger.debug(
-            f"Prepare to drop span with data \ninstance: {instance.__class__.__name__} \nid: {id_} \nerr: {err} \nkwargs: {kwargs}"
-        )
-
+        logger.debug(f"Dropping span {instance.__class__.__name__} with ID {id_}")
         trace_id, root_span_id = context_root.get()
+
         if not trace_id:
             logger.warning(
                 f"Span ID {id_} is being dropped without a trace ID. This span will not be recorded."
@@ -286,12 +298,28 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
 
         return bound_args.arguments
 
-    def _parse_generation_output(
-        self,
-        result: Any,
-        instance: Optional[Any] = None,
-    ):
-        if isinstance(instance, BaseEmbedding) and isinstance(result, list):
-            return {"num_embeddings": len(result)}
+    def _parse_output_metadata(
+        self, instance: Optional[Any], result: Optional[Any]
+    ) -> tuple[Optional[Any], Optional[Any]]:
+        if not result or isinstance(result, StreamingAgentChatResponse):
+            # Todo: use event handler to populate IO
+            return None, None
 
-        return result
+        if isinstance(instance, BaseEmbedding) and isinstance(result, list):
+            return {
+                "num_embeddings": 1
+                if len(result) > 0 and not isinstance(result[0], list)
+                else len(result)
+            }, None
+
+        if isinstance(result, GeneratorType):
+            return "".join(list(result)), None
+
+        if isinstance(instance, BaseQueryEngine) and "response" in result.__dict__:
+            metadata_dict = {
+                key: val for key, val in result.__dict__.items() if key != "response"
+            }
+
+            return result.response, metadata_dict
+
+        return result, None
