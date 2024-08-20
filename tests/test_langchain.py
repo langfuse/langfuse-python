@@ -1653,7 +1653,9 @@ def test_get_langchain_prompt_with_jinja2():
         labels=["production"],
     )
 
-    langfuse_prompt = langfuse.get_prompt("test_jinja2")
+    langfuse_prompt = langfuse.get_prompt(
+        "test_jinja2", fetch_timeout_seconds=1, max_retries=3
+    )
 
     assert (
         langfuse_prompt.get_langchain_prompt()

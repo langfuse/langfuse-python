@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from pydantic import BaseModel
 from openai import APIConnectionError
 
 from langfuse.client import Langfuse
@@ -15,6 +16,7 @@ from langfuse.openai import (
 from openai.types.chat.chat_completion import ChatCompletionMessage
 
 from tests.utils import create_uuid, get_api
+
 
 chat_func = (
     openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
@@ -62,6 +64,7 @@ def test_openai_chat_completion():
         {
             "content": "You are an expert mathematician",
             "function_call": None,
+            "refusal": None,
             "role": "assistant",
             "tool_calls": None,
         },
@@ -90,6 +93,7 @@ def test_openai_chat_completion():
         {
             "content": "You are an expert mathematician",
             "function_call": None,
+            "refusal": None,
             "role": "assistant",
             "tool_calls": None,
         },
@@ -407,6 +411,33 @@ def test_openai_chat_completion_two_calls():
     assert len(completion_2.choices) != 0
 
     assert generation_2.data[0].input == [{"content": "2 + 2 = ", "role": "user"}]
+
+
+def test_openai_chat_completion_with_seed():
+    api = get_api()
+    generation_name = create_uuid()
+    completion = chat_func(
+        name=generation_name,
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        seed=123,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+        "seed": 123,
+    }
+    assert len(completion.choices) != 0
 
 
 def test_openai_completion():
@@ -1226,7 +1257,13 @@ def test_disabled_langfuse():
     assert len(generations.data) == 0
 
     # Reimport to reset the state
+    LangfuseSingleton().reset()
+    openai.langfuse_enabled = True
+
+    import importlib
     from langfuse.openai import openai
+
+    importlib.reload(openai)
 
 
 def test_langchain_integration():
@@ -1241,3 +1278,108 @@ def test_langchain_integration():
 
     print(result)
     assert result != ""
+
+
+def test_structured_output_response_format_kwarg():
+    api = get_api()
+    generation_name = (
+        "test_structured_output_response_format_kwarg" + create_uuid()[0:10]
+    )
+
+    json_schema = {
+        "name": "math_response",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "explanation": {"type": "string"},
+                            "output": {"type": "string"},
+                        },
+                        "required": ["explanation", "output"],
+                        "additionalProperties": False,
+                    },
+                },
+                "final_answer": {"type": "string"},
+            },
+            "required": ["steps", "final_answer"],
+            "additionalProperties": False,
+        },
+    }
+
+    openai.chat.completions.create(
+        name=generation_name,
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {"role": "system", "content": "You are a helpful math tutor."},
+            {"role": "user", "content": "solve 8x + 31 = 2"},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": json_schema,
+        },
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].metadata == {
+        "someKey": "someResponse",
+        "response_format": {"type": "json_schema", "json_schema": json_schema},
+    }
+
+    assert generation.data[0].input == [
+        {"role": "system", "content": "You are a helpful math tutor."},
+        {"content": "solve 8x + 31 = 2", "role": "user"},
+    ]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-4o-2024-08-06"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 1,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    assert generation.data[0].output["role"] == "assistant"
+
+    trace = api.trace.get(generation.data[0].trace_id)
+    assert trace.output is not None
+    assert trace.input is not None
+
+
+def test_structured_output_beta_completions_parse():
+    from typing import List
+
+    class CalendarEvent(BaseModel):
+        name: str
+        date: str
+        participants: List[str]
+
+    openai.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {"role": "system", "content": "Extract the event information."},
+            {
+                "role": "user",
+                "content": "Alice and Bob are going to a science fair on Friday.",
+            },
+        ],
+        response_format=CalendarEvent,
+    )
+
+    openai.flush_langfuse()

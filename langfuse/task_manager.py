@@ -10,6 +10,7 @@ import time
 from typing import List, Any
 import typing
 
+from langfuse.Sampler import Sampler
 from langfuse.request import APIError
 from langfuse.utils import _get_timestamp
 
@@ -259,6 +260,7 @@ class TaskManager(object):
     _sdk_name: str
     _sdk_version: str
     _sdk_integration: str
+    _sampler: Sampler
 
     def __init__(
         self,
@@ -273,6 +275,7 @@ class TaskManager(object):
         sdk_integration: str,
         enabled: bool = True,
         max_task_queue_size: int = 100_000,
+        sample_rate: float = 1,
     ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
@@ -287,6 +290,7 @@ class TaskManager(object):
         self._sdk_version = sdk_version
         self._sdk_integration = sdk_integration
         self._enabled = enabled
+        self._sampler = Sampler(sample_rate)
 
         self.init_resources()
 
@@ -315,6 +319,9 @@ class TaskManager(object):
             return
 
         try:
+            if not self._sampler.sample_event(event):
+                return  # event was sampled out
+
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = _get_timestamp()
 

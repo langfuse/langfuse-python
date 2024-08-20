@@ -71,6 +71,7 @@ def _extract_model_name(
         ("ChatFireworks", "model", None),
         ("ChatPerplexity", "model", None),
         ("VLLM", "model", None),
+        ("Xinference", "model_uid", None),
     ]
 
     for model_name, pattern, default in models_by_pattern:

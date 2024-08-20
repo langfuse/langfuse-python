@@ -18,6 +18,7 @@ from langfuse.utils.error_logging import (
 from langfuse.types import TraceMetadata
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 from .utils import CallbackEvent, ParsedLLMEndPayload
+from pydantic import BaseModel
 
 try:
     from llama_index.core.callbacks.base_handler import (
@@ -85,6 +86,7 @@ class LlamaIndexCallbackHandler(
         enabled: Optional[bool] = None,
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
+        sample_rate: Optional[float] = None,
     ) -> None:
         LlamaIndexBaseCallbackHandler.__init__(
             self,
@@ -112,6 +114,7 @@ class LlamaIndexCallbackHandler(
             enabled=enabled,
             httpx_client=httpx_client,
             sdk_integration=sdk_integration or "llama-index_callback",
+            sample_rate=sample_rate,
         )
 
         self.event_map: Dict[str, List[CallbackEvent]] = defaultdict(list)
@@ -458,15 +461,29 @@ class LlamaIndexCallbackHandler(
 
         response = event_payload.get(EventPayload.RESPONSE)
 
-        if hasattr(response, "raw") and response.raw is not None:
-            model = response.raw.get("model", None)
-            token_usage = response.raw.get("usage", {})
+        if response and hasattr(response, "raw") and response.raw is not None:
+            if isinstance(response.raw, dict):
+                raw_dict = response.raw
+            elif isinstance(response.raw, BaseModel):
+                raw_dict = response.raw.model_dump()
+            else:
+                raw_dict = {}
+
+            model = raw_dict.get("model", None)
+            raw_token_usage = raw_dict.get("usage", {})
+
+            if isinstance(raw_token_usage, dict):
+                token_usage = raw_token_usage
+            elif isinstance(raw_token_usage, BaseModel):
+                token_usage = raw_token_usage.model_dump()
+            else:
+                token_usage = {}
 
             if token_usage:
                 usage = {
-                    "input": getattr(token_usage, "prompt_tokens", None),
-                    "output": getattr(token_usage, "completion_tokens", None),
-                    "total": getattr(token_usage, "total_tokens", None),
+                    "input": token_usage.get("prompt_tokens", None),
+                    "output": token_usage.get("completion_tokens", None),
+                    "total": token_usage.get("total_tokens", None),
                 }
 
         return model, usage
@@ -539,11 +556,21 @@ class LlamaIndexCallbackHandler(
             extracted_metadata if extracted_output != extracted_metadata else None
         )
 
+        name = start_event.event_type.value
+
+        # Update name to the actual tool's name used by openai agent if available
+        if (
+            name == "function_call"
+            and start_event.payload
+            and start_event.payload.get("tool", None)
+        ):
+            name = start_event.payload.get("tool", name)
+
         span = parent.span(
             id=event_id,
             trace_id=trace_id,
             start_time=start_event.time,
-            name=start_event.event_type.value,
+            name=name,
             version=self.version,
             session_id=self.session_id,
             input=extracted_input,

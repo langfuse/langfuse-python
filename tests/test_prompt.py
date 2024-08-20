@@ -423,7 +423,10 @@ def test_get_fresh_prompt(langfuse):
 
     result = langfuse.get_prompt(prompt_name, fallback="fallback")
     mock_server_call.assert_called_once_with(
-        prompt_name, version=None, label=None, request_options={"max_retries": 2}
+        prompt_name,
+        version=None,
+        label=None,
+        request_options=None,
     )
 
     assert result == TextPromptClient(prompt)
@@ -451,6 +454,34 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
 
     assert "Prompt not found" in str(exc_info.value)
     langfuse.log.exception.assert_called_once()
+
+
+def test_using_custom_prompt_timeouts(langfuse):
+    prompt_name = "test"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.return_value = prompt
+
+    result = langfuse.get_prompt(
+        prompt_name, fallback="fallback", fetch_timeout_seconds=1000
+    )
+    mock_server_call.assert_called_once_with(
+        prompt_name,
+        version=None,
+        label=None,
+        request_options={"timeout_in_seconds": 1000},
+    )
+
+    assert result == TextPromptClient(prompt)
 
 
 # Should throw an error if cache_ttl_seconds is passed as positional rather than keyword argument
@@ -703,7 +734,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
 
     mock_server_call.side_effect = Exception("Server error")
 
-    result_call_2 = langfuse.get_prompt(prompt_name)
+    result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
     assert mock_server_call.call_count == 2
     assert result_call_2 == prompt_client
 

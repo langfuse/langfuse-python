@@ -36,6 +36,7 @@ class LangfuseBaseCallbackHandler:
         enabled: Optional[bool] = None,
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: str,
+        sample_rate: Optional[float] = None,
     ) -> None:
         self.version = version
         self.session_id = session_id
@@ -53,6 +54,12 @@ class LangfuseBaseCallbackHandler:
         prio_secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         prio_host = host or os.environ.get(
             "LANGFUSE_HOST", "https://cloud.langfuse.com"
+        )
+
+        prio_sample_rate = (
+            sample_rate
+            if sample_rate is not None
+            else float(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
         )
 
         if stateful_client and isinstance(stateful_client, StatefulTraceClient):
@@ -97,6 +104,8 @@ class LangfuseBaseCallbackHandler:
             args["enabled"] = enabled
         if httpx_client is not None:
             args["httpx_client"] = httpx_client
+        if prio_sample_rate is not None:
+            args["sample_rate"] = prio_sample_rate
 
         args["sdk_integration"] = sdk_integration
 

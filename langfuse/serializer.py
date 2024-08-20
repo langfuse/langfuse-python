@@ -31,6 +31,9 @@ class EventSerializer(JSONEncoder):
             # Timezone-awareness check
             return serialize_datetime(obj)
 
+        if isinstance(obj, (Exception, KeyboardInterrupt)):
+            return f"{type(obj).__name__}: {str(obj)}"
+
         # LlamaIndex StreamingAgentChatResponse and StreamingResponse is not serializable by default as it is a generator
         # Attention: These LlamaIndex objects are a also a dataclasses, so check for it first
         if "Streaming" in type(obj).__name__:
@@ -65,11 +68,17 @@ class EventSerializer(JSONEncoder):
             return obj.to_json()
 
         # Standard JSON-encodable types
-        if isinstance(obj, (dict, list, str, int, float, type(None))):
+        if isinstance(obj, (str, int, float, type(None))):
             return obj
 
         if isinstance(obj, (tuple, set, frozenset)):
             return list(obj)
+
+        if isinstance(obj, dict):
+            return {self.default(k): self.default(v) for k, v in obj.items()}
+
+        if isinstance(obj, list):
+            return [self.default(item) for item in obj]
 
         # Important: this needs to be always checked after str and bytes types
         # Useful for serializing protobuf messages

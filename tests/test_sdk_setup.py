@@ -213,6 +213,15 @@ def test_callback_default_host():
     os.environ["LANGFUSE_HOST"] = host
 
 
+def test_callback_sampling():
+    os.environ["LANGFUSE_SAMPLE_RATE"] = "0.2"
+
+    handler = CallbackHandler()
+    assert handler.langfuse.task_manager._sampler.sample_rate == 0.2
+
+    os.environ.pop("LANGFUSE_SAMPLE_RATE")
+
+
 def test_callback_setup():
     public_key, secret_key, host = get_env_variables()
 
@@ -413,6 +422,7 @@ def test_openai_configured(httpserver: HTTPServer):
     openai.langfuse_public_key = "pk-lf-asdfghjkl"
     openai.langfuse_secret_key = "sk-lf-asdfghjkl"
     openai.langfuse_host = host
+    openai.langfuse_sample_rate = 0.2
 
     chat_func(
         model="gpt-3.5-turbo",
@@ -426,6 +436,7 @@ def test_openai_configured(httpserver: HTTPServer):
     assert modifier._langfuse.client._client_wrapper._password == "sk-lf-asdfghjkl"
     assert modifier._langfuse.client._client_wrapper._base_url == host
     assert modifier._langfuse.task_manager._client._base_url == host
+    assert modifier._langfuse.task_manager._sampler.sample_rate == 0.2
 
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key

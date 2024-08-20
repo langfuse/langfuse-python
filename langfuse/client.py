@@ -4,6 +4,7 @@ import logging
 import os
 import typing
 import uuid
+import backoff
 import httpx
 from enum import Enum
 import time
@@ -197,6 +198,7 @@ class Langfuse(object):
         sdk_integration: Optional[str] = "default",
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
+        sample_rate: Optional[float] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -210,10 +212,11 @@ class Langfuse(object):
             flush_at: Max batch size that's sent to the API.
             flush_interval: Max delay until a new batch is sent to the API.
             max_retries: Max number of retries in case of API/network errors.
-            timeout: Timeout of API requests in seconds.
+            timeout: Timeout of API requests in seconds. Defaults to 20 seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
+            sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -235,6 +238,20 @@ class Langfuse(object):
         self.enabled = enabled
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+        sample_rate = (
+            sample_rate
+            if sample_rate
+            is not None  # needs explicit None check, as 0 is a valid value
+            else float(os.environ.get("LANGFUSE_SAMPLE_RATE", 1.0))
+        )
+
+        if sample_rate is not None and (
+            sample_rate > 1 or sample_rate < 0
+        ):  # default value 1 will be set in the taskmanager
+            self.enabled = False
+            self.log.warning(
+                "Langfuse client is disabled since the sample rate provided is not between 0 and 1."
+            )
 
         threads = threads or int(os.environ.get("LANGFUSE_THREADS", 1))
         flush_at = flush_at or int(os.environ.get("LANGFUSE_FLUSH_AT", 15))
@@ -314,6 +331,7 @@ class Langfuse(object):
             "sdk_version": version,
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
+            "sample_rate": sample_rate,
         }
 
         self.task_manager = TaskManager(**args)
@@ -1132,6 +1150,7 @@ class Langfuse(object):
         cache_ttl_seconds: Optional[int] = None,
         fallback: Optional[List[ChatMessageDict]] = None,
         max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -1145,6 +1164,7 @@ class Langfuse(object):
         cache_ttl_seconds: Optional[int] = None,
         fallback: Optional[str] = None,
         max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
     ) -> TextPromptClient: ...
 
     def get_prompt(
@@ -1157,6 +1177,7 @@ class Langfuse(object):
         cache_ttl_seconds: Optional[int] = None,
         fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
         max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
     ) -> PromptClient:
         """Get a prompt.
 
@@ -1176,6 +1197,7 @@ class Langfuse(object):
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
+            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 10 seconds per default.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -1209,6 +1231,7 @@ class Langfuse(object):
                     label=label,
                     ttl_seconds=cache_ttl_seconds,
                     max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
                 )
             except Exception as e:
                 if fallback:
@@ -1248,6 +1271,7 @@ class Langfuse(object):
                     label=label,
                     ttl_seconds=cache_ttl_seconds,
                     max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
                 )
 
             except Exception as e:
@@ -1267,6 +1291,7 @@ class Langfuse(object):
         label: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
         max_retries: int,
+        fetch_timeout_seconds,
     ) -> PromptClient:
         try:
             cache_key = PromptCache.generate_cache_key(
@@ -1274,17 +1299,26 @@ class Langfuse(object):
             )
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
-            promptResponse = self.client.prompts.get(
-                self._url_encode(name),
-                version=version,
-                label=label,
-                request_options={"max_retries": max_retries},
-            )
 
-            if promptResponse.type == "chat":
-                prompt = ChatPromptClient(promptResponse)
+            @backoff.on_exception(backoff.constant, Exception, max_tries=max_retries)
+            def fetch_prompts():
+                return self.client.prompts.get(
+                    self._url_encode(name),
+                    version=version,
+                    label=label,
+                    request_options={
+                        "timeout_in_seconds": fetch_timeout_seconds,
+                    }
+                    if fetch_timeout_seconds is not None
+                    else None,
+                )
+
+            prompt_response = fetch_prompts()
+
+            if prompt_response.type == "chat":
+                prompt = ChatPromptClient(prompt_response)
             else:
-                prompt = TextPromptClient(promptResponse)
+                prompt = TextPromptClient(prompt_response)
 
             self.prompt_cache.set(cache_key, prompt, ttl_seconds)
 

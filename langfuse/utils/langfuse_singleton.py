@@ -34,6 +34,7 @@ class LangfuseSingleton:
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
         enabled: Optional[bool] = None,
+        sample_rate: Optional[float] = None,
     ) -> Langfuse:
         if self._langfuse:
             return self._langfuse
@@ -56,6 +57,7 @@ class LangfuseSingleton:
                 "httpx_client": httpx_client,
                 "sdk_integration": sdk_integration,
                 "enabled": enabled,
+                "sample_rate": sample_rate,
             }
 
             self._langfuse = Langfuse(

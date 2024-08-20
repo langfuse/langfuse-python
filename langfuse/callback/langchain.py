@@ -79,6 +79,7 @@ class LangchainCallbackHandler(
         enabled: Optional[bool] = None,
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
+        sample_rate: Optional[float] = None,
     ) -> None:
         LangfuseBaseCallbackHandler.__init__(
             self,
@@ -103,6 +104,7 @@ class LangchainCallbackHandler(
             enabled=enabled,
             httpx_client=httpx_client,
             sdk_integration=sdk_integration or "langchain",
+            sample_rate=sample_rate,
         )
 
         self.runs = {}

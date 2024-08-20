@@ -218,9 +218,7 @@ def test_create_categorical_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(
-        debug=False,
-    )
+    langfuse = Langfuse(debug=False)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -278,7 +276,7 @@ def test_create_generation():
         name="query-generation",
         start_time=timestamp,
         end_time=timestamp,
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-0125",
         model_parameters={
             "max_tokens": "1000",
             "temperature": "0.9",
@@ -315,7 +313,7 @@ def test_create_generation():
     assert generation.name == "query-generation"
     assert generation.start_time is not None
     assert generation.end_time is not None
-    assert generation.model == "gpt-3.5-turbo"
+    assert generation.model == "gpt-3.5-turbo-0125"
     assert generation.model_parameters == {
         "max_tokens": "1000",
         "temperature": "0.9",
@@ -1651,3 +1649,26 @@ def test_get_datasets():
     assert datasets_4.meta.total_pages == ((initial_count + 2) // 2)
     assert datasets_4.meta.page == 2
     assert datasets_4.meta.limit == 2
+def test_create_trace_sampling_zero():
+    langfuse = Langfuse(debug=True, sample_rate=0)
+    api_wrapper = LangfuseAPI()
+    trace_name = create_uuid()
+
+    trace = langfuse.trace(
+        name=trace_name,
+        user_id="test",
+        metadata={"key": "value"},
+        tags=["tag1", "tag2"],
+        public=True,
+    )
+
+    trace.generation(name="generation")
+    trace.score(name="score", value=0.5)
+
+    langfuse.flush()
+
+    trace = api_wrapper.get_trace(trace.id)
+    assert trace == {
+        "error": "LangfuseNotFoundError",
+        "message": "Trace not found within authorized project",
+    }
