@@ -89,7 +89,8 @@ class LlmUsage(pydantic.BaseModel):
 
 
 def get_llama_index_index(callback, force_rebuild: bool = False):
-    Settings.callback_manager = CallbackManager([callback])
+    if callback:
+        Settings.callback_manager = CallbackManager([callback])
     PERSIST_DIR = "tests/mocks/llama-index-storage"
 
     if not os.path.exists(PERSIST_DIR) or force_rebuild:
