@@ -16,8 +16,6 @@ from langfuse.utils import _get_timestamp
 
 from logging import getLogger
 
-from pydantic.v1 import Extra
-
 
 logger = getLogger("Langfuse_LlamaIndexSpanHandler")
 
@@ -47,7 +45,7 @@ class LangfuseSpan(BaseSpan):
     client: StatefulClient
 
 
-class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
+class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
     """[BETA] Span Handler for exporting LlamaIndex instrumentation module spans to Langfuse.
 
     This beta integration is currently under active development and subject to change. Please provide feedback to [the Langfuse team](https://github.com/langfuse/langfuse/issues/1931).
