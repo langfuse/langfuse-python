@@ -60,8 +60,8 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra=Extra.allow):
     import llama_index.core.instrumentation as instrument
     from langfuse.llama_index import LlamaIndexSpanHandler
 
-    handler = LlamaIndexSpanHandler()
-    instrument.get_dispatcher().add_span_handler(get_span_handler())
+    langfuse_span_handler = LlamaIndexSpanHandler()
+    instrument.get_dispatcher().add_span_handler(langfuse_span_handler)
     ```
     """
 
