@@ -26,6 +26,8 @@ class Sampler:
                 trace_id = event["body"]["trace_id"]
             elif "traceId" in event["body"]:
                 trace_id = event["body"]["traceId"]
+            elif "id" in event["body"]:
+                trace_id = event["body"]["id"]
             else:
                 log.error("Unexpected event format: No trace id found in event")
                 return True

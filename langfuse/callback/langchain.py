@@ -641,24 +641,7 @@ class LangchainCallbackHandler(
                 "input": prompts,
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "model": model_name,
-                "model_parameters": {
-                    key: value
-                    for key, value in {
-                        "temperature": kwargs["invocation_params"].get("temperature"),
-                        "max_tokens": kwargs["invocation_params"].get("max_tokens"),
-                        "top_p": kwargs["invocation_params"].get("top_p"),
-                        "frequency_penalty": kwargs["invocation_params"].get(
-                            "frequency_penalty"
-                        ),
-                        "presence_penalty": kwargs["invocation_params"].get(
-                            "presence_penalty"
-                        ),
-                        "request_timeout": kwargs["invocation_params"].get(
-                            "request_timeout"
-                        ),
-                    }.items()
-                    if value is not None
-                },
+                "model_parameters": self._parse_model_parameters(kwargs),
                 "version": self.version,
             }
 
@@ -671,6 +654,37 @@ class LangchainCallbackHandler(
 
         except Exception as e:
             self.log.exception(e)
+
+    @staticmethod
+    def _parse_model_parameters(kwargs):
+        """Parse the model parameters from the kwargs."""
+        if (
+            kwargs["invocation_params"].get("_type") == "IBM watsonx.ai"
+            and "params" in kwargs["invocation_params"]
+        ):
+            kwargs["invocation_params"] = {
+                **kwargs["invocation_params"],
+                **kwargs["invocation_params"]["params"],
+            }
+            del kwargs["invocation_params"]["params"]
+        return {
+            key: value
+            for key, value in {
+                "temperature": kwargs["invocation_params"].get("temperature"),
+                "max_tokens": kwargs["invocation_params"].get("max_tokens"),
+                "top_p": kwargs["invocation_params"].get("top_p"),
+                "frequency_penalty": kwargs["invocation_params"].get(
+                    "frequency_penalty"
+                ),
+                "presence_penalty": kwargs["invocation_params"].get("presence_penalty"),
+                "request_timeout": kwargs["invocation_params"].get("request_timeout"),
+                "decoding_method": kwargs["invocation_params"].get("decoding_method"),
+                "min_new_tokens": kwargs["invocation_params"].get("min_new_tokens"),
+                "max_new_tokens": kwargs["invocation_params"].get("max_new_tokens"),
+                "stop_sequences": kwargs["invocation_params"].get("stop_sequences"),
+            }.items()
+            if value is not None
+        }
 
     def _parse_model_and_log_errors(self, serialized, kwargs):
         """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
