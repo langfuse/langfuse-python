@@ -564,7 +564,16 @@ class LlamaIndexCallbackHandler(
             and start_event.payload
             and start_event.payload.get("tool", None)
         ):
-            name = start_event.payload.get("tool", name)
+            tool_name = start_event.payload.get("tool", name)
+            name = (
+                tool_name
+                if isinstance(tool_name, str)
+                else (
+                    tool_name.name
+                    if hasattr(tool_name, "name")
+                    else tool_name.__class__.__name__
+                )
+            )
 
         span = parent.span(
             id=event_id,
