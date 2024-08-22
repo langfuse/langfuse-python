@@ -903,6 +903,8 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # https://pypi.org/project/langchain-anthropic/ (works also for Bedrock-Anthropic)
         ("input_tokens", "input"),
         ("output_tokens", "output"),
+        # ("cache_read_input_tokens", "cache_read"),
+        # ("cache_creation_input_tokens", "cache_write"),
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),

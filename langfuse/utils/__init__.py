@@ -56,6 +56,25 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
     if hasattr(usage, "__dict__"):
         usage = usage.__dict__
 
+    is_anthropic_cached_usage = any(
+        k in usage
+        for k in (
+            "cache_read_input_tokens",
+            "cache_creation_input_tokens",
+        )
+    )
+    if is_anthropic_cached_usage:
+        # temporary solution to account for anthropic prompt caching
+        # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#pricing
+        # luckily it is the same 125%/10% cost of input token price for all models
+        # it would be much cleaner to keep the original input token count and manipulate the price
+        # but unfortunately we don't have the inference cost here, since it is calculated on the backend
+        usage["input"] = sum([
+            usage["input"],
+            1.25 * usage.get("cache_creation_input_tokens", 0),
+            0.1 * usage.get("cache_read_input_tokens", 0),
+        ])
+
     # validate that usage object has input, output, total, usage
     is_langfuse_usage = any(k in usage for k in ("input", "output", "total", "unit"))
 
