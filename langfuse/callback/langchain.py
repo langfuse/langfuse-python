@@ -658,10 +658,9 @@ class LangchainCallbackHandler(
     @staticmethod
     def _parse_model_parameters(kwargs):
         """Parse the model parameters from the kwargs."""
-        if (
-            kwargs["invocation_params"].get("_type") == "IBM watsonx.ai"
-            and "params" in kwargs["invocation_params"]
-        ):
+        if kwargs["invocation_params"].get("_type") == "IBM watsonx.ai" and kwargs[
+            "invocation_params"
+        ].get("params"):
             kwargs["invocation_params"] = {
                 **kwargs["invocation_params"],
                 **kwargs["invocation_params"]["params"],
