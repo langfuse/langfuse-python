@@ -1164,59 +1164,31 @@ def test_callback_openai_functions_python():
     assert handler.langfuse.base_url == "http://localhost:3000"
 
     llm = ChatOpenAI(model="gpt-4", temperature=0)
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a world class algorithm for extracting information in structured formats.",
-            ),
-            (
-                "human",
-                "Use the given format to extract information from the following input: {input}",
-            ),
-            ("human", "Tip: Make sure to answer in the correct format"),
-        ]
-    )
+    from langchain_core.pydantic_v1 import BaseModel, Field
 
-    class OptionalFavFood(BaseModel):
-        """Either a food or null."""
+    # Note that the docstrings here are crucial, as they will be passed along
+    # to the model along with the class name.
+    class add(BaseModel):
+        """Add two integers together."""
 
-        food: Optional[str] = Field(
-            None,
-            description="Either the name of a food or null. Should be null if the food isn't known.",
-        )
+        a: int = Field(..., description="First integer")
+        b: int = Field(..., description="Second integer")
 
-    def record_person(name: str, age: int, fav_food: OptionalFavFood) -> str:
-        """Record some basic identifying information about a person.
+    class multiply(BaseModel):
+        """Multiply two integers together."""
 
-        Args:
-            name: The person's name.
-            age: The person's age in years.
-            fav_food: An OptionalFavFood object that either contains the person's favorite food or a null value.
-            Food should be null if it's not known.
-        """
-        return (
-            f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
-        )
+        a: int = Field(..., description="First integer")
+        b: int = Field(..., description="Second integer")
 
-    def record_dog(name: str, color: str, fav_food: OptionalFavFood) -> str:
-        """Record some basic identifying information about a dog.
+    tools = [add, multiply]
 
-        Args:
-            name: The dog's name.
-            color: The dog's color.
-            fav_food: An OptionalFavFood object that either contains the dog's favorite food or a null value.
-            Food should be null if it's not known.
-        """
-        return f"Recording dog {name} of color {color} with favorite food {fav_food}!"
+    llm_with_tools = llm.bind_tools(tools)
 
-    chain = create_openai_fn_chain(
-        [record_person, record_dog], llm, prompt, callbacks=[handler]
-    )
-    chain.run(
-        "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
-        callbacks=[handler],
-    )
+    always_call_tool_llm = llm.bind_tools([add, multiply], tool_choice="any")
+
+    query = "What is 3 * 12? Also, what is 11 + 49?"
+
+    llm_with_tools.invoke(query).tool_calls
 
     handler.langfuse.flush()
 
