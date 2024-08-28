@@ -14,3 +14,10 @@ updates:
       prefix: chore
       prefix-development: chore
       include: scope
+    groups:
+      langchain:
+        patterns:
+          - "langchain*"
+      llama-index:
+        patterns:
+          - "llama-index*"

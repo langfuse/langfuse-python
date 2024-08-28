@@ -85,7 +85,9 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
         usage = {
             "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"], int),
             "output": extract_by_priority(
-                usage, ["completionTokens", "completion_tokens"], int
+                usage,
+                ["completionTokens", "completion_tokens"],
+                int,
             ),
             "total": extract_by_priority(usage, ["totalTokens", "total_tokens"], int),
             "unit": "TOKENS",
