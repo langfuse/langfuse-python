@@ -33,6 +33,7 @@ def _extract_model_name(
         ("Bedrock", ["kwargs", "model_id"], "serialized"),
         ("ChatBedrock", ["kwargs", "model_id"], "serialized"),
         ("LlamaCpp", ["invocation_params", "model_path"], "kwargs"),
+        ("WatsonxLLM", ["invocation_params", "model_id"], "kwargs"),
     ]
 
     for model_name, keys, select_from in models_by_id:
