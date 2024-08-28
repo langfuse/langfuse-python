@@ -922,6 +922,9 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-cw.html#runtime-cloudwatch-metrics
         ("inputTokenCount", "input"),
         ("outputTokenCount", "output"),
+        # langchain-ibm https://pypi.org/project/langchain-ibm/
+        ("input_token_count", "input"),
+        ("generated_token_count", "output"),
     ]
 
     usage_model = usage.copy()  # Copy all existing key-value pairs

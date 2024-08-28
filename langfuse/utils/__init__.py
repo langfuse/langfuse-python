@@ -67,10 +67,8 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
         for k in (
             "promptTokens",
             "prompt_tokens",
-            "input_token_count",
             "completionTokens",
             "completion_tokens",
-            "generated_token_count",
             "totalTokens",
             "total_tokens",
             "inputCost",
@@ -85,12 +83,10 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
     if is_openai_usage:
         # convert to langfuse usage
         usage = {
-            "input": extract_by_priority(
-                usage, ["promptTokens", "prompt_tokens", "input_token_count"], int
-            ),
+            "input": extract_by_priority(usage, ["promptTokens", "prompt_tokens"], int),
             "output": extract_by_priority(
                 usage,
-                ["completionTokens", "completion_tokens", "generated_token_count"],
+                ["completionTokens", "completion_tokens"],
                 int,
             ),
             "total": extract_by_priority(usage, ["totalTokens", "total_tokens"], int),
