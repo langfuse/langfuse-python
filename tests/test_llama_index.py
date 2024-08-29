@@ -1,3 +1,4 @@
+from langchain_anthropic import Anthropic
 import pytest
 from llama_index.core import (
     Settings,
@@ -5,7 +6,6 @@ from llama_index.core import (
 )
 from llama_index.core.callbacks import CallbackManager
 from llama_index.llms.openai import OpenAI
-from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
 
 from langfuse.llama_index import LlamaIndexCallbackHandler
