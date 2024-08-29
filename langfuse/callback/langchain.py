@@ -964,6 +964,11 @@ def _parse_usage(response: LLMResult):
                     break
 
                 message_chunk = getattr(generation_chunk, "message", {})
+
+                if hasattr(message_chunk, "usage_metadata") and message_chunk.usage_metadata is not None: #for ChatGoogleGenerativeAI
+                    llm_usage = _parse_usage_model(message_chunk.usage_metadata)
+                    break
+                
                 response_metadata = getattr(message_chunk, "response_metadata", {})
 
                 chunk_usage = (
