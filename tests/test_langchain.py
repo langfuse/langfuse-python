@@ -1163,6 +1163,8 @@ def test_callback_openai_functions_python():
     handler = CallbackHandler(debug=False)
     assert handler.langfuse.base_url == "http://localhost:3000"
 
+    from pydantic.v1 import BaseModel, Field
+
     llm = ChatOpenAI(model="gpt-4", temperature=0)
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -1250,8 +1252,8 @@ def test_callback_openai_functions_python():
             "content": "",
             "additional_kwargs": {
                 "function_call": {
+                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": {\n    "food": null\n  }\n}',
                     "name": "record_dog",
-                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": null\n}',
                 }
             },
         }
