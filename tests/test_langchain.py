@@ -23,7 +23,7 @@ from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
-from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
 from langchain.schema import HumanMessage, SystemMessage
 from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
@@ -1250,8 +1250,8 @@ def test_callback_openai_functions_python():
             "content": "",
             "additional_kwargs": {
                 "function_call": {
+                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": {\n    "food": null\n  }\n}',
                     "name": "record_dog",
-                    "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": null\n}',
                 }
             },
         }
