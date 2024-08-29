@@ -18,6 +18,7 @@ from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
     StatefulSpanClient,
     StatefulTraceClient,
+    StatefulGenerationClient,
 )
 from langfuse.extract_model import _extract_model_name
 from langfuse.utils import _get_timestamp
@@ -111,6 +112,7 @@ class LangchainCallbackHandler(
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs[stateful_client.id] = stateful_client
+        self.update_first_token = False
 
     def setNextSpan(self, id: str):
         warnings.warn(
@@ -132,6 +134,13 @@ class LangchainCallbackHandler(
         self.log.debug(
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
+        if not self.update_first_token:
+            if run_id is not None and run_id in self.runs:
+                if isinstance(self.runs[run_id], StatefulGenerationClient):
+                    self.runs[run_id].update(
+                        completion_start_time=_get_timestamp())
+                    self.log.debug(f"update generation completion_start_time for {run_id}")
+            self.update_first_token = True
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
         """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
