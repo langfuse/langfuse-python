@@ -14,7 +14,7 @@ backoff = ">=1.10.0"
 openai = { version = ">=0.27.8", optional = true }
 wrapt = "^1.14"
 langchain = { version = ">=0.0.309", optional = true }
-llama-index = {version = ">=0.10.12, <2.0.0", optional = true}
+llama-index = "^0.11.2"
 packaging = "^24.1"
 idna = "^3.7"
 anyio = "^4.4.0"
@@ -43,7 +43,6 @@ langchain-google-vertexai = ">=0.0.5,<1.0.5"
 langchain-openai = ">=0.0.5,<0.1.8"
 dashscope = "^1.14.1"
 pymongo = "^4.6.1"
-llama-index-llms-anthropic = "^0.1.1"
 bson = "^0.5.10"
 langchain-anthropic = "^0.1.4"
 langchain-groq = "^0.1.3"
