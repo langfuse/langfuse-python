@@ -23,7 +23,7 @@ from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import Chroma
-from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
 from langchain.schema import HumanMessage, SystemMessage
 from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
@@ -1162,8 +1162,6 @@ Title: {title}
 def test_callback_openai_functions_python():
     handler = CallbackHandler(debug=False)
     assert handler.langfuse.base_url == "http://localhost:3000"
-
-    from pydantic.v1 import BaseModel, Field
 
     llm = ChatOpenAI(model="gpt-4", temperature=0)
     prompt = ChatPromptTemplate.from_messages(
