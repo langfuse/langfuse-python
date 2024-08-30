@@ -1370,7 +1370,7 @@ def test_agent_executor_chain():
 #         },
 #         "required": [
 #             "Main character",
-#             "Cummary",
+#             "Summary",
 #         ],
 #     }
 #     chain = create_extraction_chain(schema, llm)
@@ -1401,7 +1401,7 @@ def test_aws_bedrock_chain():
     import os
 
     import boto3
-    from langchain.llms.bedrock import Bedrock
+    from langchain_aws import Bedrock
 
     api_wrapper = LangfuseAPI()
     handler = CallbackHandler(debug=False)

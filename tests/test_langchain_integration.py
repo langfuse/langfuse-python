@@ -1,6 +1,6 @@
 from langchain_openai import ChatOpenAI, OpenAI
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 import pytest
 import types
 from langfuse.callback import CallbackHandler
@@ -8,7 +8,7 @@ from tests.utils import get_api
 from .utils import create_uuid
 
 
-# to avoid the instanciation of langfuse in side langfuse.openai.
+# to avoid the instantiation of langfuse in side langfuse.openai.
 def _is_streaming_response(response):
     return isinstance(response, types.GeneratorType) or isinstance(
         response, types.AsyncGeneratorType
