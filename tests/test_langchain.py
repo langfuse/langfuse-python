@@ -1370,7 +1370,7 @@ def test_agent_executor_chain():
 #         },
 #         "required": [
 #             "Main character",
-#             "Cummary",
+#             "Summary",
 #         ],
 #     }
 #     chain = create_extraction_chain(schema, llm)
