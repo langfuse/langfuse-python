@@ -787,3 +787,10 @@ class LangfuseResponseGeneratorAsync:
         _create_langfuse_update(
             completion, self.generation, completion_start_time, model=model
         )
+
+    async def close(self) -> None:
+        """Close the response and release the connection.
+
+        Automatically called if the response body is read to completion.
+        """
+        await self.response.close()
