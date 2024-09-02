@@ -26,7 +26,8 @@ class TraceClient:
     def get(
         self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> TraceWithFullDetails:
-        """Get a specific trace
+        """
+        Get a specific trace
 
         Parameters
         ----------
@@ -36,11 +37,11 @@ class TraceClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         TraceWithFullDetails
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -141,7 +142,8 @@ class TraceClient:
         release: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
-        """Get list of traces
+        """
+        Get list of traces
 
         Parameters
         ----------
@@ -178,11 +180,11 @@ class TraceClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Traces
 
-        Examples:
+        Examples
         --------
         import datetime
 
@@ -308,7 +310,8 @@ class AsyncTraceClient:
     async def get(
         self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> TraceWithFullDetails:
-        """Get a specific trace
+        """
+        Get a specific trace
 
         Parameters
         ----------
@@ -318,11 +321,11 @@ class AsyncTraceClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         TraceWithFullDetails
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -431,7 +434,8 @@ class AsyncTraceClient:
         release: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
-        """Get list of traces
+        """
+        Get list of traces
 
         Parameters
         ----------
@@ -468,11 +472,11 @@ class AsyncTraceClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Traces
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime

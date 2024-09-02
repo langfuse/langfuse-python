@@ -30,9 +30,11 @@ class IngestionClient:
         metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
-        """Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+        """
+        Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
 
         Notes:
+
         - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
         - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 
@@ -47,11 +49,11 @@ class IngestionClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         IngestionResponse
 
-        Examples:
+        Examples
         --------
         import datetime
 
@@ -179,9 +181,11 @@ class AsyncIngestionClient:
         metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
-        """Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+        """
+        Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
 
         Notes:
+
         - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
         - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 
@@ -196,11 +200,11 @@ class AsyncIngestionClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         IngestionResponse
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime

@@ -2,7 +2,7 @@
 
 import typing
 from ...core.client_wrapper import SyncClientWrapper
-from ..commons.types.dataset_status import DatasetStatus
+from .types.create_dataset_item_request import CreateDatasetItemRequest
 from ...core.request_options import RequestOptions
 from ..commons.types.dataset_item import DatasetItem
 from ...core.pydantic_utilities import parse_obj_as
@@ -28,48 +28,27 @@ class DatasetItemsClient:
     def create(
         self,
         *,
-        dataset_name: str,
-        input: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        expected_output: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        source_trace_id: typing.Optional[str] = OMIT,
-        source_observation_id: typing.Optional[str] = OMIT,
-        id: typing.Optional[str] = OMIT,
-        status: typing.Optional[DatasetStatus] = OMIT,
+        request: CreateDatasetItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetItem:
-        """Create a dataset item
+        """
+        Create a dataset item
 
         Parameters
         ----------
-        dataset_name : str
-
-        input : typing.Optional[typing.Optional[typing.Any]]
-
-        expected_output : typing.Optional[typing.Optional[typing.Any]]
-
-        metadata : typing.Optional[typing.Optional[typing.Any]]
-
-        source_trace_id : typing.Optional[str]
-
-        source_observation_id : typing.Optional[str]
-
-        id : typing.Optional[str]
-            Dataset items are upserted on their id. Id needs to be unique (project-level) and cannot be reused across datasets.
-
-        status : typing.Optional[DatasetStatus]
-            Defaults to ACTIVE for newly created items
+        request : CreateDatasetItemRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetItem
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
+        from finto.resources.dataset_items import CreateDatasetItemRequest
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -80,29 +59,22 @@ class DatasetItemsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.dataset_items.create(
-            dataset_name="string",
-            input={"key": "value"},
-            expected_output={"key": "value"},
-            metadata={"key": "value"},
-            source_trace_id="string",
-            source_observation_id="string",
-            id="string",
-            status="ACTIVE",
+            request=CreateDatasetItemRequest(
+                dataset_name="string",
+                input={"key": "value"},
+                expected_output={"key": "value"},
+                metadata={"key": "value"},
+                source_trace_id="string",
+                source_observation_id="string",
+                id="string",
+                status="ACTIVE",
+            ),
         )
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/dataset-items",
             method="POST",
-            json={
-                "datasetName": dataset_name,
-                "input": input,
-                "expectedOutput": expected_output,
-                "metadata": metadata,
-                "sourceTraceId": source_trace_id,
-                "sourceObservationId": source_observation_id,
-                "id": id,
-                "status": status,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -173,7 +145,8 @@ class DatasetItemsClient:
     def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
-        """Get a dataset item
+        """
+        Get a dataset item
 
         Parameters
         ----------
@@ -182,11 +155,11 @@ class DatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetItem
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -281,7 +254,8 @@ class DatasetItemsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetItems:
-        """Get dataset items
+        """
+        Get dataset items
 
         Parameters
         ----------
@@ -300,11 +274,11 @@ class DatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedDatasetItems
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -408,50 +382,29 @@ class AsyncDatasetItemsClient:
     async def create(
         self,
         *,
-        dataset_name: str,
-        input: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        expected_output: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        source_trace_id: typing.Optional[str] = OMIT,
-        source_observation_id: typing.Optional[str] = OMIT,
-        id: typing.Optional[str] = OMIT,
-        status: typing.Optional[DatasetStatus] = OMIT,
+        request: CreateDatasetItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetItem:
-        """Create a dataset item
+        """
+        Create a dataset item
 
         Parameters
         ----------
-        dataset_name : str
-
-        input : typing.Optional[typing.Optional[typing.Any]]
-
-        expected_output : typing.Optional[typing.Optional[typing.Any]]
-
-        metadata : typing.Optional[typing.Optional[typing.Any]]
-
-        source_trace_id : typing.Optional[str]
-
-        source_observation_id : typing.Optional[str]
-
-        id : typing.Optional[str]
-            Dataset items are upserted on their id. Id needs to be unique (project-level) and cannot be reused across datasets.
-
-        status : typing.Optional[DatasetStatus]
-            Defaults to ACTIVE for newly created items
+        request : CreateDatasetItemRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetItem
 
-        Examples:
+        Examples
         --------
         import asyncio
 
         from finto import AsyncFernLangfuse
+        from finto.resources.dataset_items import CreateDatasetItemRequest
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -465,14 +418,16 @@ class AsyncDatasetItemsClient:
 
         async def main() -> None:
             await client.dataset_items.create(
-                dataset_name="string",
-                input={"key": "value"},
-                expected_output={"key": "value"},
-                metadata={"key": "value"},
-                source_trace_id="string",
-                source_observation_id="string",
-                id="string",
-                status="ACTIVE",
+                request=CreateDatasetItemRequest(
+                    dataset_name="string",
+                    input={"key": "value"},
+                    expected_output={"key": "value"},
+                    metadata={"key": "value"},
+                    source_trace_id="string",
+                    source_observation_id="string",
+                    id="string",
+                    status="ACTIVE",
+                ),
             )
 
 
@@ -481,16 +436,7 @@ class AsyncDatasetItemsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/dataset-items",
             method="POST",
-            json={
-                "datasetName": dataset_name,
-                "input": input,
-                "expectedOutput": expected_output,
-                "metadata": metadata,
-                "sourceTraceId": source_trace_id,
-                "sourceObservationId": source_observation_id,
-                "id": id,
-                "status": status,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -561,7 +507,8 @@ class AsyncDatasetItemsClient:
     async def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
-        """Get a dataset item
+        """
+        Get a dataset item
 
         Parameters
         ----------
@@ -570,11 +517,11 @@ class AsyncDatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetItem
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -677,7 +624,8 @@ class AsyncDatasetItemsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetItems:
-        """Get dataset items
+        """
+        Get dataset items
 
         Parameters
         ----------
@@ -696,11 +644,11 @@ class AsyncDatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedDatasetItems
 
-        Examples:
+        Examples
         --------
         import asyncio
 

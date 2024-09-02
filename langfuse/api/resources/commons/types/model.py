@@ -9,7 +9,8 @@ from ....core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class Model(UniversalBaseModel):
-    """Model definition used for transforming usage into USD cost and/or tokenization.
+    """
+    Model definition used for transforming usage into USD cost and/or tokenization.
     """
 
     id: str

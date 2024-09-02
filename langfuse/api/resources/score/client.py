@@ -2,8 +2,7 @@
 
 import typing
 from ...core.client_wrapper import SyncClientWrapper
-from ..commons.types.create_score_value import CreateScoreValue
-from ..commons.types.score_data_type import ScoreDataType
+from .types.create_score_request import CreateScoreRequest
 from ...core.request_options import RequestOptions
 from .types.create_score_response import CreateScoreResponse
 from ...core.pydantic_utilities import parse_obj_as
@@ -16,6 +15,7 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
 import datetime as dt
 from ..commons.types.score_source import ScoreSource
+from ..commons.types.score_data_type import ScoreDataType
 from .types.scores import Scores
 from ...core.datetime_utils import serialize_datetime
 from ..commons.types.score import Score
@@ -33,49 +33,27 @@ class ScoreClient:
     def create(
         self,
         *,
-        trace_id: str,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
+        request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
-        """Create a score
+        """
+        Create a score
 
         Parameters
         ----------
-        trace_id : str
-
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)
-
-        id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+        request : CreateScoreRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         CreateScoreResponse
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
+        from finto.resources.score import CreateScoreRequest
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -86,24 +64,17 @@ class ScoreClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.score.create(
-            name="novelty",
-            value=0.9,
-            trace_id="cdef-1234-5678-90ab",
+            request=CreateScoreRequest(
+                name="novelty",
+                value=0.9,
+                trace_id="cdef-1234-5678-90ab",
+            ),
         )
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/scores",
             method="POST",
-            json={
-                "id": id,
-                "traceId": trace_id,
-                "name": name,
-                "value": value,
-                "observationId": observation_id,
-                "comment": comment,
-                "dataType": data_type,
-                "configId": config_id,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -188,7 +159,8 @@ class ScoreClient:
         data_type: typing.Optional[ScoreDataType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
-        """Get a list of scores
+        """
+        Get a list of scores
 
         Parameters
         ----------
@@ -231,11 +203,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Scores
 
-        Examples:
+        Examples
         --------
         import datetime
 
@@ -358,7 +330,8 @@ class ScoreClient:
     def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
-        """Get a score
+        """
+        Get a score
 
         Parameters
         ----------
@@ -368,11 +341,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Score
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -460,7 +433,8 @@ class ScoreClient:
     def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """Delete a score
+        """
+        Delete a score
 
         Parameters
         ----------
@@ -470,11 +444,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         None
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -561,51 +535,29 @@ class AsyncScoreClient:
     async def create(
         self,
         *,
-        trace_id: str,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
+        request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
-        """Create a score
+        """
+        Create a score
 
         Parameters
         ----------
-        trace_id : str
-
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)
-
-        id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+        request : CreateScoreRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         CreateScoreResponse
 
-        Examples:
+        Examples
         --------
         import asyncio
 
         from finto import AsyncFernLangfuse
+        from finto.resources.score import CreateScoreRequest
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -619,9 +571,11 @@ class AsyncScoreClient:
 
         async def main() -> None:
             await client.score.create(
-                name="novelty",
-                value=0.9,
-                trace_id="cdef-1234-5678-90ab",
+                request=CreateScoreRequest(
+                    name="novelty",
+                    value=0.9,
+                    trace_id="cdef-1234-5678-90ab",
+                ),
             )
 
 
@@ -630,16 +584,7 @@ class AsyncScoreClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/scores",
             method="POST",
-            json={
-                "id": id,
-                "traceId": trace_id,
-                "name": name,
-                "value": value,
-                "observationId": observation_id,
-                "comment": comment,
-                "dataType": data_type,
-                "configId": config_id,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -724,7 +669,8 @@ class AsyncScoreClient:
         data_type: typing.Optional[ScoreDataType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
-        """Get a list of scores
+        """
+        Get a list of scores
 
         Parameters
         ----------
@@ -767,11 +713,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Scores
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime
@@ -901,7 +847,8 @@ class AsyncScoreClient:
     async def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
-        """Get a score
+        """
+        Get a score
 
         Parameters
         ----------
@@ -911,11 +858,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Score
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -1011,7 +958,8 @@ class AsyncScoreClient:
     async def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """Delete a score
+        """
+        Delete a score
 
         Parameters
         ----------
@@ -1021,11 +969,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         None
 
-        Examples:
+        Examples
         --------
         import asyncio
 

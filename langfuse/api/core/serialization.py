@@ -7,7 +7,8 @@ import typing_extensions
 
 
 class FieldMetadata:
-    """Metadata class used to annotate fields to provide additional information.
+    """
+    Metadata class used to annotate fields to provide additional information.
 
     Example:
     class MyDict(TypedDict):
@@ -29,7 +30,8 @@ def convert_and_respect_annotation_metadata(
     annotation: typing.Any,
     inner_type: typing.Optional[typing.Any] = None,
 ) -> typing.Any:
-    """Respect the metadata annotations on a field, such as aliasing. This function effectively
+    """
+    Respect the metadata annotations on a field, such as aliasing. This function effectively
     manipulates the dict-form of an object to respect the metadata annotations. This is primarily used for
     TypedDicts, which cannot support aliasing out of the box, and can be extended for additional
     utilities, such as defaults.
@@ -43,10 +45,11 @@ def convert_and_respect_annotation_metadata(
 
     inner_type : typing.Optional[type]
 
-    Returns:
+    Returns
     -------
     typing.Any
     """
+
     if object_ is None:
         return None
     if inner_type is None:

@@ -33,7 +33,8 @@ class MetricsClient:
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DailyMetrics:
-        """Get daily metrics of the Langfuse project
+        """
+        Get daily metrics of the Langfuse project
 
         Parameters
         ----------
@@ -61,11 +62,11 @@ class MetricsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DailyMetrics
 
-        Examples:
+        Examples
         --------
         import datetime
 
@@ -192,7 +193,8 @@ class AsyncMetricsClient:
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DailyMetrics:
-        """Get daily metrics of the Langfuse project
+        """
+        Get daily metrics of the Langfuse project
 
         Parameters
         ----------
@@ -220,11 +222,11 @@ class AsyncMetricsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DailyMetrics
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime

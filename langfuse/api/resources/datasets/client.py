@@ -14,6 +14,7 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
 from ..commons.types.dataset import Dataset
 from ...core.jsonable_encoder import jsonable_encoder
+from .types.create_dataset_request import CreateDatasetRequest
 from ..commons.types.dataset_run_with_items import DatasetRunWithItems
 from .types.paginated_dataset_runs import PaginatedDatasetRuns
 from ...core.client_wrapper import AsyncClientWrapper
@@ -33,7 +34,8 @@ class DatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasets:
-        """Get all datasets
+        """
+        Get all datasets
 
         Parameters
         ----------
@@ -46,11 +48,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedDatasets
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -146,7 +148,8 @@ class DatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Get a dataset
+        """
+        Get a dataset
 
         Parameters
         ----------
@@ -155,11 +158,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Dataset
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -247,31 +250,27 @@ class DatasetsClient:
     def create(
         self,
         *,
-        name: str,
-        description: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        request: CreateDatasetRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Create a dataset
+        """
+        Create a dataset
 
         Parameters
         ----------
-        name : str
-
-        description : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Optional[typing.Any]]
+        request : CreateDatasetRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Dataset
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
+        from finto.resources.datasets import CreateDatasetRequest
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -282,19 +281,17 @@ class DatasetsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.datasets.create(
-            name="string",
-            description="string",
-            metadata={"key": "value"},
+            request=CreateDatasetRequest(
+                name="string",
+                description="string",
+                metadata={"key": "value"},
+            ),
         )
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/v2/datasets",
             method="POST",
-            json={
-                "name": name,
-                "description": description,
-                "metadata": metadata,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -369,7 +366,8 @@ class DatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunWithItems:
-        """Get a dataset run and its items
+        """
+        Get a dataset run and its items
 
         Parameters
         ----------
@@ -380,11 +378,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetRunWithItems
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -478,7 +476,8 @@ class DatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetRuns:
-        """Get dataset runs
+        """
+        Get dataset runs
 
         Parameters
         ----------
@@ -493,11 +492,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedDatasetRuns
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -600,7 +599,8 @@ class AsyncDatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasets:
-        """Get all datasets
+        """
+        Get all datasets
 
         Parameters
         ----------
@@ -613,11 +613,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedDatasets
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -721,7 +721,8 @@ class AsyncDatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Get a dataset
+        """
+        Get a dataset
 
         Parameters
         ----------
@@ -730,11 +731,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Dataset
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -830,33 +831,29 @@ class AsyncDatasetsClient:
     async def create(
         self,
         *,
-        name: str,
-        description: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        request: CreateDatasetRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """Create a dataset
+        """
+        Create a dataset
 
         Parameters
         ----------
-        name : str
-
-        description : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Optional[typing.Any]]
+        request : CreateDatasetRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Dataset
 
-        Examples:
+        Examples
         --------
         import asyncio
 
         from finto import AsyncFernLangfuse
+        from finto.resources.datasets import CreateDatasetRequest
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -870,9 +867,11 @@ class AsyncDatasetsClient:
 
         async def main() -> None:
             await client.datasets.create(
-                name="string",
-                description="string",
-                metadata={"key": "value"},
+                request=CreateDatasetRequest(
+                    name="string",
+                    description="string",
+                    metadata={"key": "value"},
+                ),
             )
 
 
@@ -881,11 +880,7 @@ class AsyncDatasetsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/v2/datasets",
             method="POST",
-            json={
-                "name": name,
-                "description": description,
-                "metadata": metadata,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -960,7 +955,8 @@ class AsyncDatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunWithItems:
-        """Get a dataset run and its items
+        """
+        Get a dataset run and its items
 
         Parameters
         ----------
@@ -971,11 +967,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetRunWithItems
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -1077,7 +1073,8 @@ class AsyncDatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetRuns:
-        """Get dataset runs
+        """
+        Get dataset runs
 
         Parameters
         ----------
@@ -1092,11 +1089,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedDatasetRuns
 
-        Examples:
+        Examples
         --------
         import asyncio
 

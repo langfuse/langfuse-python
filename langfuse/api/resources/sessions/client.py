@@ -32,7 +32,8 @@ class SessionsClient:
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedSessions:
-        """Get sessions
+        """
+        Get sessions
 
         Parameters
         ----------
@@ -51,11 +52,11 @@ class SessionsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedSessions
 
-        Examples:
+        Examples
         --------
         import datetime
 
@@ -165,7 +166,8 @@ class SessionsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SessionWithTraces:
-        """Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
+        """
+        Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
 
         Parameters
         ----------
@@ -175,11 +177,11 @@ class SessionsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         SessionWithTraces
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -278,7 +280,8 @@ class AsyncSessionsClient:
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedSessions:
-        """Get sessions
+        """
+        Get sessions
 
         Parameters
         ----------
@@ -297,11 +300,11 @@ class AsyncSessionsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedSessions
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime
@@ -418,7 +421,8 @@ class AsyncSessionsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SessionWithTraces:
-        """Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
+        """
+        Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
 
         Parameters
         ----------
@@ -428,11 +432,11 @@ class AsyncSessionsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         SessionWithTraces
 
-        Examples:
+        Examples
         --------
         import asyncio
 

@@ -29,7 +29,8 @@ class ObservationsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsView:
-        """Get a observation
+        """
+        Get a observation
 
         Parameters
         ----------
@@ -39,11 +40,11 @@ class ObservationsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         ObservationsView
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -143,7 +144,8 @@ class ObservationsClient:
         version: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
-        """Get a list of observations
+        """
+        Get a list of observations
 
         Parameters
         ----------
@@ -175,11 +177,11 @@ class ObservationsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         ObservationsViews
 
-        Examples:
+        Examples
         --------
         import datetime
 
@@ -306,7 +308,8 @@ class AsyncObservationsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsView:
-        """Get a observation
+        """
+        Get a observation
 
         Parameters
         ----------
@@ -316,11 +319,11 @@ class AsyncObservationsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         ObservationsView
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -428,7 +431,8 @@ class AsyncObservationsClient:
         version: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
-        """Get a list of observations
+        """
+        Get a list of observations
 
         Parameters
         ----------
@@ -460,11 +464,11 @@ class AsyncObservationsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         ObservationsViews
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime

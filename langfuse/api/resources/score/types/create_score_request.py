@@ -9,7 +9,8 @@ from ....core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class CreateScoreRequest(UniversalBaseModel):
-    """Examples:
+    """
+    Examples
     --------
     from finto.resources.score import CreateScoreRequest
 

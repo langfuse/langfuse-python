@@ -2,6 +2,7 @@
 
 import typing
 from ...core.client_wrapper import SyncClientWrapper
+from .types.create_dataset_run_item_request import CreateDatasetRunItemRequest
 from ...core.request_options import RequestOptions
 from ..commons.types.dataset_run_item import DatasetRunItem
 from ...core.pydantic_utilities import parse_obj_as
@@ -25,43 +26,27 @@ class DatasetRunItemsClient:
     def create(
         self,
         *,
-        run_name: str,
-        dataset_item_id: str,
-        run_description: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
+        request: CreateDatasetRunItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """Create a dataset run item
+        """
+        Create a dataset run item
 
         Parameters
         ----------
-        run_name : str
-
-        dataset_item_id : str
-
-        run_description : typing.Optional[str]
-            Description of the run. If run exists, description will be updated.
-
-        metadata : typing.Optional[typing.Optional[typing.Any]]
-            Metadata of the dataset run, updates run if run already exists
-
-        observation_id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-            traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.
+        request : CreateDatasetRunItemRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetRunItem
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
+        from finto.resources.dataset_run_items import CreateDatasetRunItemRequest
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -72,25 +57,20 @@ class DatasetRunItemsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.dataset_run_items.create(
-            run_name="string",
-            run_description="string",
-            metadata={"key": "value"},
-            dataset_item_id="string",
-            observation_id="string",
-            trace_id="string",
+            request=CreateDatasetRunItemRequest(
+                run_name="string",
+                run_description="string",
+                metadata={"key": "value"},
+                dataset_item_id="string",
+                observation_id="string",
+                trace_id="string",
+            ),
         )
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/dataset-run-items",
             method="POST",
-            json={
-                "runName": run_name,
-                "runDescription": run_description,
-                "metadata": metadata,
-                "datasetItemId": dataset_item_id,
-                "observationId": observation_id,
-                "traceId": trace_id,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -166,45 +146,29 @@ class AsyncDatasetRunItemsClient:
     async def create(
         self,
         *,
-        run_name: str,
-        dataset_item_id: str,
-        run_description: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Optional[typing.Any]] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
+        request: CreateDatasetRunItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """Create a dataset run item
+        """
+        Create a dataset run item
 
         Parameters
         ----------
-        run_name : str
-
-        dataset_item_id : str
-
-        run_description : typing.Optional[str]
-            Description of the run. If run exists, description will be updated.
-
-        metadata : typing.Optional[typing.Optional[typing.Any]]
-            Metadata of the dataset run, updates run if run already exists
-
-        observation_id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-            traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.
+        request : CreateDatasetRunItemRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         DatasetRunItem
 
-        Examples:
+        Examples
         --------
         import asyncio
 
         from finto import AsyncFernLangfuse
+        from finto.resources.dataset_run_items import CreateDatasetRunItemRequest
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -218,12 +182,14 @@ class AsyncDatasetRunItemsClient:
 
         async def main() -> None:
             await client.dataset_run_items.create(
-                run_name="string",
-                run_description="string",
-                metadata={"key": "value"},
-                dataset_item_id="string",
-                observation_id="string",
-                trace_id="string",
+                request=CreateDatasetRunItemRequest(
+                    run_name="string",
+                    run_description="string",
+                    metadata={"key": "value"},
+                    dataset_item_id="string",
+                    observation_id="string",
+                    trace_id="string",
+                ),
             )
 
 
@@ -232,14 +198,7 @@ class AsyncDatasetRunItemsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/dataset-run-items",
             method="POST",
-            json={
-                "runName": run_name,
-                "runDescription": run_description,
-                "metadata": metadata,
-                "datasetItemId": dataset_item_id,
-                "observationId": observation_id,
-                "traceId": trace_id,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )

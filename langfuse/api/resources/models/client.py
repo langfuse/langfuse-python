@@ -2,8 +2,7 @@
 
 import typing
 from ...core.client_wrapper import SyncClientWrapper
-from ..commons.types.model_usage_unit import ModelUsageUnit
-import datetime as dt
+from .types.create_model_request import CreateModelRequest
 from ...core.request_options import RequestOptions
 from ..commons.types.model import Model
 from ...core.pydantic_utilities import parse_obj_as
@@ -29,60 +28,29 @@ class ModelsClient:
     def create(
         self,
         *,
-        model_name: str,
-        match_pattern: str,
-        unit: ModelUsageUnit,
-        start_date: typing.Optional[dt.date] = OMIT,
-        input_price: typing.Optional[float] = OMIT,
-        output_price: typing.Optional[float] = OMIT,
-        total_price: typing.Optional[float] = OMIT,
-        tokenizer_id: typing.Optional[str] = OMIT,
-        tokenizer_config: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        request: CreateModelRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
-        """Create a model
+        """
+        Create a model
 
         Parameters
         ----------
-        model_name : str
-            Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
-
-        match_pattern : str
-            Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
-
-        unit : ModelUsageUnit
-            Unit used by this model.
-
-        start_date : typing.Optional[dt.date]
-            Apply only to generations which are newer than this ISO date.
-
-        input_price : typing.Optional[float]
-            Price (USD) per input unit
-
-        output_price : typing.Optional[float]
-            Price (USD) per output unit
-
-        total_price : typing.Optional[float]
-            Price (USD) per total units. Cannot be set if input or output price is set.
-
-        tokenizer_id : typing.Optional[str]
-            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
-
-        tokenizer_config : typing.Optional[typing.Optional[typing.Any]]
-            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+        request : CreateModelRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Model
 
-        Examples:
+        Examples
         --------
         import datetime
 
         from finto import FernLangfuse
+        from finto.resources.models import CreateModelRequest
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -93,33 +61,25 @@ class ModelsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.models.create(
-            model_name="string",
-            match_pattern="string",
-            start_date=datetime.date.fromisoformat(
-                "2023-01-15",
+            request=CreateModelRequest(
+                model_name="string",
+                match_pattern="string",
+                start_date=datetime.date.fromisoformat(
+                    "2023-01-15",
+                ),
+                unit="CHARACTERS",
+                input_price=1.1,
+                output_price=1.1,
+                total_price=1.1,
+                tokenizer_id="string",
+                tokenizer_config={"key": "value"},
             ),
-            unit="CHARACTERS",
-            input_price=1.1,
-            output_price=1.1,
-            total_price=1.1,
-            tokenizer_id="string",
-            tokenizer_config={"key": "value"},
         )
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/models",
             method="POST",
-            json={
-                "modelName": model_name,
-                "matchPattern": match_pattern,
-                "startDate": start_date,
-                "unit": unit,
-                "inputPrice": input_price,
-                "outputPrice": output_price,
-                "totalPrice": total_price,
-                "tokenizerId": tokenizer_id,
-                "tokenizerConfig": tokenizer_config,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -194,7 +154,8 @@ class ModelsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedModels:
-        """Get all models
+        """
+        Get all models
 
         Parameters
         ----------
@@ -207,11 +168,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedModels
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -304,7 +265,8 @@ class ModelsClient:
     def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Model:
-        """Get a model
+        """
+        Get a model
 
         Parameters
         ----------
@@ -313,11 +275,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Model
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -405,7 +367,8 @@ class ModelsClient:
     def delete(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+        """
+        Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
         Parameters
         ----------
@@ -414,11 +377,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         None
 
-        Examples:
+        Examples
         --------
         from finto import FernLangfuse
 
@@ -505,61 +468,30 @@ class AsyncModelsClient:
     async def create(
         self,
         *,
-        model_name: str,
-        match_pattern: str,
-        unit: ModelUsageUnit,
-        start_date: typing.Optional[dt.date] = OMIT,
-        input_price: typing.Optional[float] = OMIT,
-        output_price: typing.Optional[float] = OMIT,
-        total_price: typing.Optional[float] = OMIT,
-        tokenizer_id: typing.Optional[str] = OMIT,
-        tokenizer_config: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        request: CreateModelRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
-        """Create a model
+        """
+        Create a model
 
         Parameters
         ----------
-        model_name : str
-            Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
-
-        match_pattern : str
-            Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
-
-        unit : ModelUsageUnit
-            Unit used by this model.
-
-        start_date : typing.Optional[dt.date]
-            Apply only to generations which are newer than this ISO date.
-
-        input_price : typing.Optional[float]
-            Price (USD) per input unit
-
-        output_price : typing.Optional[float]
-            Price (USD) per output unit
-
-        total_price : typing.Optional[float]
-            Price (USD) per total units. Cannot be set if input or output price is set.
-
-        tokenizer_id : typing.Optional[str]
-            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
-
-        tokenizer_config : typing.Optional[typing.Optional[typing.Any]]
-            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+        request : CreateModelRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Model
 
-        Examples:
+        Examples
         --------
         import asyncio
         import datetime
 
         from finto import AsyncFernLangfuse
+        from finto.resources.models import CreateModelRequest
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -573,17 +505,19 @@ class AsyncModelsClient:
 
         async def main() -> None:
             await client.models.create(
-                model_name="string",
-                match_pattern="string",
-                start_date=datetime.date.fromisoformat(
-                    "2023-01-15",
+                request=CreateModelRequest(
+                    model_name="string",
+                    match_pattern="string",
+                    start_date=datetime.date.fromisoformat(
+                        "2023-01-15",
+                    ),
+                    unit="CHARACTERS",
+                    input_price=1.1,
+                    output_price=1.1,
+                    total_price=1.1,
+                    tokenizer_id="string",
+                    tokenizer_config={"key": "value"},
                 ),
-                unit="CHARACTERS",
-                input_price=1.1,
-                output_price=1.1,
-                total_price=1.1,
-                tokenizer_id="string",
-                tokenizer_config={"key": "value"},
             )
 
 
@@ -592,17 +526,7 @@ class AsyncModelsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/models",
             method="POST",
-            json={
-                "modelName": model_name,
-                "matchPattern": match_pattern,
-                "startDate": start_date,
-                "unit": unit,
-                "inputPrice": input_price,
-                "outputPrice": output_price,
-                "totalPrice": total_price,
-                "tokenizerId": tokenizer_id,
-                "tokenizerConfig": tokenizer_config,
-            },
+            json=request,
             request_options=request_options,
             omit=OMIT,
         )
@@ -677,7 +601,8 @@ class AsyncModelsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedModels:
-        """Get all models
+        """
+        Get all models
 
         Parameters
         ----------
@@ -690,11 +615,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         PaginatedModels
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -795,7 +720,8 @@ class AsyncModelsClient:
     async def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Model:
-        """Get a model
+        """
+        Get a model
 
         Parameters
         ----------
@@ -804,11 +730,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         Model
 
-        Examples:
+        Examples
         --------
         import asyncio
 
@@ -904,7 +830,8 @@ class AsyncModelsClient:
     async def delete(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+        """
+        Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
         Parameters
         ----------
@@ -913,11 +840,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns:
+        Returns
         -------
         None
 
-        Examples:
+        Examples
         --------
         import asyncio
 
