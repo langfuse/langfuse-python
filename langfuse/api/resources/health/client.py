@@ -23,19 +23,18 @@ class HealthClient:
     def health(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HealthResponse:
-        """
-        Check health of API and database
+        """Check health of API and database
 
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         HealthResponse
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -128,19 +127,18 @@ class AsyncHealthClient:
     async def health(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HealthResponse:
-        """
-        Check health of API and database
+        """Check health of API and database
 
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         HealthResponse
 
-        Examples
+        Examples:
         --------
         import asyncio
 

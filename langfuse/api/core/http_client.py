@@ -24,8 +24,7 @@ MAX_RETRY_DELAY_SECONDS_FROM_HEADER = 30
 
 
 def _parse_retry_after(response_headers: httpx.Headers) -> typing.Optional[float]:
-    """
-    This function parses the `Retry-After` header in a HTTP response and returns the number of seconds to wait.
+    """This function parses the `Retry-After` header in a HTTP response and returns the number of seconds to wait.
 
     Inspired by the urllib3 retry implementation.
     """
@@ -65,12 +64,10 @@ def _parse_retry_after(response_headers: httpx.Headers) -> typing.Optional[float
 
 
 def _retry_timeout(response: httpx.Response, retries: int) -> float:
-    """
-    Determine the amount of time to wait before retrying a request.
+    """Determine the amount of time to wait before retrying a request.
     This function begins by trying to parse a retry-after header from the response, and then proceeds to use exponential backoff
     with a jitter to determine the number of seconds to wait.
     """
-
     # If the API asks us to wait a certain amount of time (and it's a reasonable amount), just do what it says.
     retry_after = _parse_retry_after(response.headers)
     if retry_after is not None and retry_after <= MAX_RETRY_DELAY_SECONDS_FROM_HEADER:

@@ -7,8 +7,7 @@ from ....core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class UsageByModel(UniversalBaseModel):
-    """
-    Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
+    """Daily usage of a given model. Usage corresponds to the unit set for the specific model (e.g. tokens).
     """
 
     model: typing.Optional[str] = None

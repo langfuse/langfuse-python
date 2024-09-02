@@ -37,8 +37,7 @@ class ScoreConfigsClient:
         description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ScoreConfig:
-        """
-        Create a score configuration (config). Score configs are used to define the structure of scores
+        """Create a score configuration (config). Score configs are used to define the structure of scores
 
         Parameters
         ----------
@@ -61,11 +60,11 @@ class ScoreConfigsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         ScoreConfig
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
         from finto.resources.commons import ConfigCategory
@@ -177,8 +176,7 @@ class ScoreConfigsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ScoreConfigs:
-        """
-        Get all score configs
+        """Get all score configs
 
         Parameters
         ----------
@@ -191,11 +189,11 @@ class ScoreConfigsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         ScoreConfigs
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -288,8 +286,7 @@ class ScoreConfigsClient:
     def get_by_id(
         self, config_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ScoreConfig:
-        """
-        Get a score config
+        """Get a score config
 
         Parameters
         ----------
@@ -299,11 +296,11 @@ class ScoreConfigsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         ScoreConfig
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -404,8 +401,7 @@ class AsyncScoreConfigsClient:
         description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ScoreConfig:
-        """
-        Create a score configuration (config). Score configs are used to define the structure of scores
+        """Create a score configuration (config). Score configs are used to define the structure of scores
 
         Parameters
         ----------
@@ -428,11 +424,11 @@ class AsyncScoreConfigsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         ScoreConfig
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -552,8 +548,7 @@ class AsyncScoreConfigsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ScoreConfigs:
-        """
-        Get all score configs
+        """Get all score configs
 
         Parameters
         ----------
@@ -566,11 +561,11 @@ class AsyncScoreConfigsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         ScoreConfigs
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -671,8 +666,7 @@ class AsyncScoreConfigsClient:
     async def get_by_id(
         self, config_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ScoreConfig:
-        """
-        Get a score config
+        """Get a score config
 
         Parameters
         ----------
@@ -682,11 +676,11 @@ class AsyncScoreConfigsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         ScoreConfig
 
-        Examples
+        Examples:
         --------
         import asyncio
 

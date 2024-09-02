@@ -10,8 +10,7 @@ from ....core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class ScoreConfig(UniversalBaseModel):
-    """
-    Configuration for a score
+    """Configuration for a score
     """
 
     id: str

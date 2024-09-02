@@ -35,8 +35,7 @@ from .resources.trace.client import AsyncTraceClient
 
 
 class FernLangfuse:
-    """
-    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
+    """Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
     Parameters
     ----------
@@ -57,7 +56,7 @@ class FernLangfuse:
     httpx_client : typing.Optional[httpx.Client]
         The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
 
-    Examples
+    Examples:
     --------
     from finto import FernLangfuse
 
@@ -122,8 +121,7 @@ class FernLangfuse:
 
 
 class AsyncFernLangfuse:
-    """
-    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
+    """Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
     Parameters
     ----------
@@ -144,7 +142,7 @@ class AsyncFernLangfuse:
     httpx_client : typing.Optional[httpx.AsyncClient]
         The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
 
-    Examples
+    Examples:
     --------
     from finto import AsyncFernLangfuse
 

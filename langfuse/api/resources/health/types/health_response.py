@@ -7,8 +7,7 @@ import typing
 
 
 class HealthResponse(UniversalBaseModel):
-    """
-    Examples
+    """Examples:
     --------
     from finto.resources.health import HealthResponse
 

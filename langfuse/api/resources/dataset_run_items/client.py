@@ -33,8 +33,7 @@ class DatasetRunItemsClient:
         trace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """
-        Create a dataset run item
+        """Create a dataset run item
 
         Parameters
         ----------
@@ -56,11 +55,11 @@ class DatasetRunItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetRunItem
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -175,8 +174,7 @@ class AsyncDatasetRunItemsClient:
         trace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """
-        Create a dataset run item
+        """Create a dataset run item
 
         Parameters
         ----------
@@ -198,11 +196,11 @@ class AsyncDatasetRunItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetRunItem
 
-        Examples
+        Examples:
         --------
         import asyncio
 
