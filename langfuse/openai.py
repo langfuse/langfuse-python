@@ -722,6 +722,18 @@ class LangfuseResponseGeneratorSync:
         finally:
             self._finalize()
 
+    def __next__(self):
+        try:
+            item = self.response.__next__()
+            self.items.append(item)
+
+            return item
+
+        except StopIteration:
+            self._finalize()
+
+            raise
+
     def __enter__(self):
         return self.__iter__()
 
