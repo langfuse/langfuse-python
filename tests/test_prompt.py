@@ -710,10 +710,10 @@ def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
 
     # Ensure that only one refresh is triggered despite multiple calls
     # Cannot check for value as the prompt might have already been updated
-    stale_result_2 = langfuse.get_prompt(prompt_name)
-    stale_result_3 = langfuse.get_prompt(prompt_name)
-    stale_result_4 = langfuse.get_prompt(prompt_name)
-    stale_result_5 = langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
 
     assert mock_server_call.call_count == 2  # Only one new call to server
 
