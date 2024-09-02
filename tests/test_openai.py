@@ -1501,3 +1501,51 @@ def test_structured_output_beta_completions_parse():
     )
 
     openai.flush_langfuse()
+
+
+@pytest.mark.asyncio
+async def test_close_async_stream():
+    client = AsyncOpenAI()
+    generation_name = create_uuid()
+    api = get_api()
+
+    stream = await client.chat.completions.create(
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        model="gpt-3.5-turbo",
+        name=generation_name,
+        stream=True,
+    )
+
+    async for token in stream:
+        print(token)
+
+    await stream.close()
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 1,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    assert "2" in generation.data[0].output
+
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time
