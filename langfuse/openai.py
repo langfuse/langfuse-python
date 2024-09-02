@@ -722,6 +722,18 @@ class LangfuseResponseGeneratorSync:
         finally:
             self._finalize()
 
+    def __next__(self):
+        try:
+            item = self.response.__next__()
+            self.items.append(item)
+
+            return item
+
+        except StopIteration:
+            self._finalize()
+
+            raise
+
     def __enter__(self):
         return self.__iter__()
 
@@ -768,6 +780,18 @@ class LangfuseResponseGeneratorAsync:
                 yield i
         finally:
             await self._finalize()
+
+    async def __anext__(self):
+        try:
+            item = await self.response.__anext__()
+            self.items.append(item)
+
+            return item
+
+        except StopAsyncIteration:
+            await self._finalize()
+
+            raise
 
     async def __aenter__(self):
         return self.__aiter__()
