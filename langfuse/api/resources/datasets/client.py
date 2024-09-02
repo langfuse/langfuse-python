@@ -34,8 +34,7 @@ class DatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasets:
-        """
-        Get all datasets
+        """Get all datasets
 
         Parameters
         ----------
@@ -48,11 +47,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedDatasets
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -148,8 +147,7 @@ class DatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """
-        Get a dataset
+        """Get a dataset
 
         Parameters
         ----------
@@ -158,11 +156,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Dataset
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -253,8 +251,7 @@ class DatasetsClient:
         request: CreateDatasetRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """
-        Create a dataset
+        """Create a dataset
 
         Parameters
         ----------
@@ -263,11 +260,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Dataset
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
         from finto.resources.datasets import CreateDatasetRequest
@@ -366,8 +363,7 @@ class DatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunWithItems:
-        """
-        Get a dataset run and its items
+        """Get a dataset run and its items
 
         Parameters
         ----------
@@ -378,11 +374,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetRunWithItems
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -476,8 +472,7 @@ class DatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetRuns:
-        """
-        Get dataset runs
+        """Get dataset runs
 
         Parameters
         ----------
@@ -492,11 +487,11 @@ class DatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedDatasetRuns
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -599,8 +594,7 @@ class AsyncDatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasets:
-        """
-        Get all datasets
+        """Get all datasets
 
         Parameters
         ----------
@@ -613,11 +607,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedDatasets
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -721,8 +715,7 @@ class AsyncDatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """
-        Get a dataset
+        """Get a dataset
 
         Parameters
         ----------
@@ -731,11 +724,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Dataset
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -834,8 +827,7 @@ class AsyncDatasetsClient:
         request: CreateDatasetRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Dataset:
-        """
-        Create a dataset
+        """Create a dataset
 
         Parameters
         ----------
@@ -844,11 +836,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Dataset
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -955,8 +947,7 @@ class AsyncDatasetsClient:
         *,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunWithItems:
-        """
-        Get a dataset run and its items
+        """Get a dataset run and its items
 
         Parameters
         ----------
@@ -967,11 +958,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetRunWithItems
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -1073,8 +1064,7 @@ class AsyncDatasetsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetRuns:
-        """
-        Get dataset runs
+        """Get dataset runs
 
         Parameters
         ----------
@@ -1089,11 +1079,11 @@ class AsyncDatasetsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedDatasetRuns
 
-        Examples
+        Examples:
         --------
         import asyncio
 

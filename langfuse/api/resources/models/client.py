@@ -31,8 +31,7 @@ class ModelsClient:
         request: CreateModelRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
-        """
-        Create a model
+        """Create a model
 
         Parameters
         ----------
@@ -41,11 +40,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Model
 
-        Examples
+        Examples:
         --------
         import datetime
 
@@ -154,8 +153,7 @@ class ModelsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedModels:
-        """
-        Get all models
+        """Get all models
 
         Parameters
         ----------
@@ -168,11 +166,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedModels
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -265,8 +263,7 @@ class ModelsClient:
     def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Model:
-        """
-        Get a model
+        """Get a model
 
         Parameters
         ----------
@@ -275,11 +272,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Model
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -367,8 +364,7 @@ class ModelsClient:
     def delete(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """
-        Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+        """Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
         Parameters
         ----------
@@ -377,11 +373,11 @@ class ModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         None
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -471,8 +467,7 @@ class AsyncModelsClient:
         request: CreateModelRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
-        """
-        Create a model
+        """Create a model
 
         Parameters
         ----------
@@ -481,11 +476,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Model
 
-        Examples
+        Examples:
         --------
         import asyncio
         import datetime
@@ -601,8 +596,7 @@ class AsyncModelsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedModels:
-        """
-        Get all models
+        """Get all models
 
         Parameters
         ----------
@@ -615,11 +609,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedModels
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -720,8 +714,7 @@ class AsyncModelsClient:
     async def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Model:
-        """
-        Get a model
+        """Get a model
 
         Parameters
         ----------
@@ -730,11 +723,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Model
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -830,8 +823,7 @@ class AsyncModelsClient:
     async def delete(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """
-        Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+        """Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
         Parameters
         ----------
@@ -840,11 +832,11 @@ class AsyncModelsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         None
 
-        Examples
+        Examples:
         --------
         import asyncio
 

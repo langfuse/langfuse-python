@@ -29,8 +29,7 @@ class DatasetRunItemsClient:
         request: CreateDatasetRunItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """
-        Create a dataset run item
+        """Create a dataset run item
 
         Parameters
         ----------
@@ -39,11 +38,11 @@ class DatasetRunItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetRunItem
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
         from finto.resources.dataset_run_items import CreateDatasetRunItemRequest
@@ -149,8 +148,7 @@ class AsyncDatasetRunItemsClient:
         request: CreateDatasetRunItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
-        """
-        Create a dataset run item
+        """Create a dataset run item
 
         Parameters
         ----------
@@ -159,11 +157,11 @@ class AsyncDatasetRunItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetRunItem
 
-        Examples
+        Examples:
         --------
         import asyncio
 

@@ -35,8 +35,7 @@ class PromptsClient:
         label: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Get a prompt
+        """Get a prompt
 
         Parameters
         ----------
@@ -52,11 +51,11 @@ class PromptsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Prompt
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -159,8 +158,7 @@ class PromptsClient:
         to_updated_at: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptMetaListResponse:
-        """
-        Get a list of prompt names with versions and labels
+        """Get a list of prompt names with versions and labels
 
         Parameters
         ----------
@@ -185,11 +183,11 @@ class PromptsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PromptMetaListResponse
 
-        Examples
+        Examples:
         --------
         import datetime
 
@@ -305,8 +303,7 @@ class PromptsClient:
         request: CreatePromptRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Create a new version for the prompt with the given `name`
+        """Create a new version for the prompt with the given `name`
 
         Parameters
         ----------
@@ -315,11 +312,11 @@ class PromptsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Prompt
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
         from finto.resources.prompts import ChatMessage, CreatePromptRequest_Chat
@@ -431,8 +428,7 @@ class AsyncPromptsClient:
         label: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Get a prompt
+        """Get a prompt
 
         Parameters
         ----------
@@ -448,11 +444,11 @@ class AsyncPromptsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Prompt
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -563,8 +559,7 @@ class AsyncPromptsClient:
         to_updated_at: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptMetaListResponse:
-        """
-        Get a list of prompt names with versions and labels
+        """Get a list of prompt names with versions and labels
 
         Parameters
         ----------
@@ -589,11 +584,11 @@ class AsyncPromptsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PromptMetaListResponse
 
-        Examples
+        Examples:
         --------
         import asyncio
         import datetime
@@ -716,8 +711,7 @@ class AsyncPromptsClient:
         request: CreatePromptRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
-        """
-        Create a new version for the prompt with the given `name`
+        """Create a new version for the prompt with the given `name`
 
         Parameters
         ----------
@@ -726,11 +720,11 @@ class AsyncPromptsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Prompt
 
-        Examples
+        Examples:
         --------
         import asyncio
 

@@ -8,8 +8,7 @@ from ....core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class Usage(UniversalBaseModel):
-    """
-    Standard interface for usage and cost
+    """Standard interface for usage and cost
     """
 
     input: typing.Optional[int] = pydantic.Field(default=None)

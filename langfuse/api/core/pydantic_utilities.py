@@ -95,8 +95,7 @@ class UniversalBaseModel(pydantic.BaseModel):
             return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        """
-        Override the default dict method to `exclude_unset` by default. This function patches
+        """Override the default dict method to `exclude_unset` by default. This function patches
         `exclude_unset` to work include fields within non-None default values.
         """
         _fields_set = self.__fields_set__

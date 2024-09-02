@@ -31,8 +31,7 @@ class DatasetItemsClient:
         request: CreateDatasetItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetItem:
-        """
-        Create a dataset item
+        """Create a dataset item
 
         Parameters
         ----------
@@ -41,11 +40,11 @@ class DatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetItem
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
         from finto.resources.dataset_items import CreateDatasetItemRequest
@@ -145,8 +144,7 @@ class DatasetItemsClient:
     def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
-        """
-        Get a dataset item
+        """Get a dataset item
 
         Parameters
         ----------
@@ -155,11 +153,11 @@ class DatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetItem
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -254,8 +252,7 @@ class DatasetItemsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetItems:
-        """
-        Get dataset items
+        """Get dataset items
 
         Parameters
         ----------
@@ -274,11 +271,11 @@ class DatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedDatasetItems
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -385,8 +382,7 @@ class AsyncDatasetItemsClient:
         request: CreateDatasetItemRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetItem:
-        """
-        Create a dataset item
+        """Create a dataset item
 
         Parameters
         ----------
@@ -395,11 +391,11 @@ class AsyncDatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetItem
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -507,8 +503,7 @@ class AsyncDatasetItemsClient:
     async def get(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
-        """
-        Get a dataset item
+        """Get a dataset item
 
         Parameters
         ----------
@@ -517,11 +512,11 @@ class AsyncDatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         DatasetItem
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -624,8 +619,7 @@ class AsyncDatasetItemsClient:
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedDatasetItems:
-        """
-        Get dataset items
+        """Get dataset items
 
         Parameters
         ----------
@@ -644,11 +638,11 @@ class AsyncDatasetItemsClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         PaginatedDatasetItems
 
-        Examples
+        Examples:
         --------
         import asyncio
 

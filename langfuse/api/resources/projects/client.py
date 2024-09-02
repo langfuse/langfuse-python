@@ -22,19 +22,18 @@ class ProjectsClient:
     def get(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Projects:
-        """
-        Get Project associated with API key
+        """Get Project associated with API key
 
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Projects
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -125,19 +124,18 @@ class AsyncProjectsClient:
     async def get(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Projects:
-        """
-        Get Project associated with API key
+        """Get Project associated with API key
 
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Projects
 
-        Examples
+        Examples:
         --------
         import asyncio
 

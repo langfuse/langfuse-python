@@ -36,8 +36,7 @@ class ScoreClient:
         request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
-        """
-        Create a score
+        """Create a score
 
         Parameters
         ----------
@@ -46,11 +45,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         CreateScoreResponse
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
         from finto.resources.score import CreateScoreRequest
@@ -159,8 +158,7 @@ class ScoreClient:
         data_type: typing.Optional[ScoreDataType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
-        """
-        Get a list of scores
+        """Get a list of scores
 
         Parameters
         ----------
@@ -203,11 +201,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Scores
 
-        Examples
+        Examples:
         --------
         import datetime
 
@@ -330,8 +328,7 @@ class ScoreClient:
     def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
-        """
-        Get a score
+        """Get a score
 
         Parameters
         ----------
@@ -341,11 +338,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Score
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -433,8 +430,7 @@ class ScoreClient:
     def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """
-        Delete a score
+        """Delete a score
 
         Parameters
         ----------
@@ -444,11 +440,11 @@ class ScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         None
 
-        Examples
+        Examples:
         --------
         from finto import FernLangfuse
 
@@ -538,8 +534,7 @@ class AsyncScoreClient:
         request: CreateScoreRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
-        """
-        Create a score
+        """Create a score
 
         Parameters
         ----------
@@ -548,11 +543,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         CreateScoreResponse
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -669,8 +664,7 @@ class AsyncScoreClient:
         data_type: typing.Optional[ScoreDataType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Scores:
-        """
-        Get a list of scores
+        """Get a list of scores
 
         Parameters
         ----------
@@ -713,11 +707,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Scores
 
-        Examples
+        Examples:
         --------
         import asyncio
         import datetime
@@ -847,8 +841,7 @@ class AsyncScoreClient:
     async def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
-        """
-        Get a score
+        """Get a score
 
         Parameters
         ----------
@@ -858,11 +851,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         Score
 
-        Examples
+        Examples:
         --------
         import asyncio
 
@@ -958,8 +951,7 @@ class AsyncScoreClient:
     async def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
-        """
-        Delete a score
+        """Delete a score
 
         Parameters
         ----------
@@ -969,11 +961,11 @@ class AsyncScoreClient:
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
-        Returns
+        Returns:
         -------
         None
 
-        Examples
+        Examples:
         --------
         import asyncio
 
