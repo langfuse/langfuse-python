@@ -1059,20 +1059,26 @@ class Langfuse(object):
 
         if cached_prompt.is_expired():
             try:
-                return self._fetch_prompt_and_update_cache(
-                    name,
-                    version=version,
-                    label=label,
-                    ttl_seconds=cache_ttl_seconds,
-                    max_retries=bounded_max_retries,
-                    fetch_timeout_seconds=fetch_timeout_seconds,
+                # refresh prompt in background thread, refresh_prompt deduplicates tasks
+                self.prompt_cache.refresh_prompt(
+                    cache_key,
+                    lambda: self._fetch_prompt_and_update_cache(
+                        name,
+                        version=version,
+                        label=label,
+                        ttl_seconds=cache_ttl_seconds,
+                        max_retries=bounded_max_retries,
+                        fetch_timeout_seconds=fetch_timeout_seconds,
+                    ),
                 )
+                # return stale prompt
+                return cached_prompt.value
 
             except Exception as e:
                 self.log.warn(
-                    f"Returning expired prompt cache for '{cache_key}' due to fetch error: {e}"
+                    f"Error when refreshing stale prompt '{cache_key}', returning stale prompt cache. Error: {e}"
                 )
-
+                # creation of refresh prompt task failed, return stale prompt
                 return cached_prompt.value
 
         return cached_prompt.value
