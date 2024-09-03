@@ -111,8 +111,9 @@ class PromptCacheTaskManager(object):
 
     def shutdown(self):
         self._log.debug(
-            f"Shutting down prompt cache refresh task manager, {len(self._consumers)} consumers..."
+            f"Shutting down prompt refresh task manager, {len(self._consumers)} consumers,..."
         )
+
         for consumer in self._consumers:
             consumer.pause()
 
@@ -123,7 +124,7 @@ class PromptCacheTaskManager(object):
                 # consumer thread has not started
                 pass
 
-        self._log.debug("Consumers joined.")
+        self._log.debug("Shutdown of prompt refresh task manager completed.")
 
 
 class PromptCache:
@@ -139,7 +140,6 @@ class PromptCache:
     ):
         self._cache = {}
         self._task_manager = PromptCacheTaskManager(threads=max_prompt_refresh_workers)
-        atexit.register(self._shutdown_task_manager)
         self._log.debug("Prompt cache initialized.")
 
     def get(self, key: str) -> Optional[PromptCacheItem]:
@@ -154,11 +154,6 @@ class PromptCache:
     def add_refresh_prompt_task(self, key: str, fetch_func):
         self._log.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
-
-    def _shutdown_task_manager(self):
-        self._log.debug("Shutting down prompt refresh task manager...")
-        self._task_manager.shutdown()
-        self._log.debug("Shutdown of prompt refresh task manager completed.")
 
     @staticmethod
     def generate_cache_key(

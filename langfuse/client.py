@@ -1079,7 +1079,7 @@ class Langfuse(object):
 
             except Exception as e:
                 self.log.warning(
-                    f"Error when refreshing stale prompt '{cache_key}', returning stale prompt cache. Error: {e}"
+                    f"Error when refreshing cached prompt '{cache_key}', returning cached version. Error: {e}"
                 )
                 # creation of refresh prompt task failed, return stale prompt
                 return cached_prompt.value
