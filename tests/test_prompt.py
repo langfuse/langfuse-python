@@ -676,6 +676,9 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
 # Should return stale prompt immediately if cached one is expired according to default TTL and add to refresh promise map
 @patch.object(PromptCacheItem, "get_epoch_seconds")
 def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)
     mock_time.return_value = 0
 
     prompt_name = "test"
