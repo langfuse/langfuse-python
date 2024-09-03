@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import List, Optional, Dict, Set
-from threading import Thread, Event
+from threading import Thread
 import atexit
 import logging
 from queue import Empty, Queue
