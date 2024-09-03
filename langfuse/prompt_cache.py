@@ -129,9 +129,6 @@ class PromptCacheTaskManager(object):
 class PromptCache:
     _cache: Dict[str, PromptCacheItem]
 
-    _refreshing_keys: Dict[str, Event]
-    """Keys that are currently being refreshed"""
-
     _task_manager: PromptCacheTaskManager
     """Task manager for refreshing cache"""
 
