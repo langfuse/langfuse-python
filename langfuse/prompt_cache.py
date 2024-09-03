@@ -51,8 +51,8 @@ class PromptCacheRefreshConsumer(Thread):
                     task()
                 # Task failed, but we still consider it processed
                 except Exception as e:
-                    self._log.exception(
-                        f"PromptCacheRefreshConsumer encountered an error: {self._identifier}, {e}"
+                    self._log.warning(
+                        f"PromptCacheRefreshConsumer encountered an error, cache was not refreshed: {self._identifier}, {e}"
                     )
 
                 self._queue.task_done()
