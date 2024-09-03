@@ -1062,7 +1062,7 @@ class Langfuse(object):
             try:
                 # refresh prompt in background thread, refresh_prompt deduplicates tasks
                 self.log.debug(f"Refreshing prompt '{cache_key}' in background.")
-                self.prompt_cache.refresh_prompt(
+                self.prompt_cache.add_refresh_prompt_task(
                     cache_key,
                     lambda: self._fetch_prompt_and_update_cache(
                         name,

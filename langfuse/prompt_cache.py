@@ -44,15 +44,20 @@ class PromptCacheRefreshConsumer(Thread):
         while self.running:
             try:
                 task = self._queue.get(timeout=1)
-                task()
+                self._log.debug(
+                    f"PromptCacheRefreshConsumer {self._identifier} processing task"
+                )
+                try:
+                    task()
+                # Task failed, but we still consider it processed
+                except Exception as e:
+                    self._log.exception(
+                        f"PromptCacheRefreshConsumer {self._identifier} encountered an error: {e}"
+                    )
+
+                self._queue.task_done()
             except Empty:
                 pass
-            except Exception as e:
-                self._log.exception(
-                    f"PromptCacheRefreshConsumer: Error processing task: {e}"
-                )
-            finally:
-                self._queue.task_done()
 
     def pause(self):
         """Pause the consumer."""
@@ -149,7 +154,7 @@ class PromptCache:
 
         self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
-    def refresh_prompt(self, key: str, fetch_func):
+    def add_refresh_prompt_task(self, key: str, fetch_func):
         self._log.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
 
