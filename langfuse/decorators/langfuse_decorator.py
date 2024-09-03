@@ -785,7 +785,7 @@ class LangfuseDecorator:
         observation = stack[-1] if stack else None
 
         if not observation:
-            self._log.warn("No observation found in the current context")
+            self._log.warning("No observation found in the current context")
 
             return
 
