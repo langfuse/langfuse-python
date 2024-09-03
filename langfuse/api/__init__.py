@@ -132,9 +132,11 @@ from .resources import (
     trace,
     utils,
 )
+from .client import AsyncFernLangfuse, FernLangfuse
 
 __all__ = [
     "AccessDeniedError",
+    "AsyncFernLangfuse",
     "BaseEvent",
     "BasePrompt",
     "BaseScore",
@@ -172,6 +174,7 @@ __all__ = [
     "DatasetRunWithItems",
     "DatasetStatus",
     "Error",
+    "FernLangfuse",
     "HealthResponse",
     "IngestionError",
     "IngestionEvent",
