@@ -26,7 +26,7 @@ def wait_2_sec():
 
 # 8 times
 for i in range(8):
-    prompt_cache.refresh_prompt(f"key_wait_2_sec_i_{i}", lambda: wait_2_sec())
+    prompt_cache.add_refresh_prompt_task(f"key_wait_2_sec_i_{i}", lambda: wait_2_sec())
 """
 
     process = subprocess.Popen(
@@ -80,7 +80,7 @@ async def main():
         time.sleep(2)
 
     async def add_new_prompt_refresh(i: int):
-        prompt_cache.refresh_prompt(f"key_wait_2_sec_i_{i}", lambda: wait_2_sec())
+        prompt_cache.add_refresh_prompt_task(f"key_wait_2_sec_i_{i}", lambda: wait_2_sec())
     
     # 8 times
     tasks = [add_new_prompt_refresh(i) for i in range(8)]
