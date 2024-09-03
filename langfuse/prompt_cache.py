@@ -28,7 +28,7 @@ class PromptCacheItem:
         return int(datetime.now().timestamp())
 
 
-class PromptCacheConsumer(Thread):
+class PromptCacheRefreshConsumer(Thread):
     _log = logging.getLogger("langfuse")
     _queue: Queue
     _identifier: int
@@ -44,11 +44,15 @@ class PromptCacheConsumer(Thread):
         while self.running:
             try:
                 task = self._queue.get(timeout=1)
-                self._log.debug(f"Consumer {self._identifier} processing task")
                 task()
-                self._queue.task_done()
             except Empty:
                 pass
+            except Exception as e:
+                self._log.exception(
+                    f"PromptCacheRefreshConsumer: Error processing task: {e}"
+                )
+            finally:
+                self._queue.task_done()
 
     def pause(self):
         """Pause the consumer."""
@@ -57,7 +61,7 @@ class PromptCacheConsumer(Thread):
 
 class PromptCacheTaskManager(object):
     _log = logging.getLogger("langfuse")
-    _consumers: List[PromptCacheConsumer]
+    _consumers: List[PromptCacheRefreshConsumer]
     _threads: int
     _queue: Queue
     _processing_keys: Set[str]
@@ -69,7 +73,7 @@ class PromptCacheTaskManager(object):
         self._processing_keys = set()
 
         for i in range(self._threads):
-            consumer = PromptCacheConsumer(self._queue, i)
+            consumer = PromptCacheRefreshConsumer(self._queue, i)
             consumer.start()
             self._consumers.append(consumer)
 
@@ -77,12 +81,14 @@ class PromptCacheTaskManager(object):
 
     def add_task(self, key: str, task):
         if key not in self._processing_keys:
-            self._log.debug(f"Adding refresh task for key: {key}")
+            self._log.debug(f"Adding prompt cache refresh task for key: {key}")
             self._processing_keys.add(key)
             wrapped_task = self._wrap_task(key, task)
             self._queue.put((wrapped_task))
         else:
-            self._log.debug(f"Refresh task already submitted for key: {key}")
+            self._log.debug(
+                f"Prompt cache refresh task already submitted for key: {key}"
+            )
 
     def active_tasks(self) -> int:
         return len(self._processing_keys)

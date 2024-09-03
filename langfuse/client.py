@@ -1013,11 +1013,11 @@ class Langfuse(object):
             max_retries, default_max_retries=2, max_retries_upper_bound=4
         )
 
-        self.log.warning(f"Getting prompt '{cache_key}'")
+        self.log.debug(f"Getting prompt '{cache_key}'")
         cached_prompt = self.prompt_cache.get(cache_key)
 
         if cached_prompt is None:
-            self.log.warning(f"Prompt '{cache_key}' not found in cache.")
+            self.log.debug(f"Prompt '{cache_key}' not found in cache.")
             try:
                 return self._fetch_prompt_and_update_cache(
                     name,
@@ -1058,7 +1058,7 @@ class Langfuse(object):
                 raise e
 
         if cached_prompt.is_expired():
-            self.log.warning(f"Stale prompt '{cache_key}' found in cache.")
+            self.log.debug(f"Stale prompt '{cache_key}' found in cache.")
             try:
                 # refresh prompt in background thread, refresh_prompt deduplicates tasks
                 self.log.debug(f"Refreshing prompt '{cache_key}' in background.")
@@ -1073,7 +1073,7 @@ class Langfuse(object):
                         fetch_timeout_seconds=fetch_timeout_seconds,
                     ),
                 )
-                self.log.warning(f"Returning stale prompt '{cache_key}' from cache.")
+                self.log.debug(f"Returning stale prompt '{cache_key}' from cache.")
                 # return stale prompt
                 return cached_prompt.value
 
