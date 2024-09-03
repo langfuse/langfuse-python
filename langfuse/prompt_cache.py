@@ -45,14 +45,14 @@ class PromptCacheRefreshConsumer(Thread):
             try:
                 task = self._queue.get(timeout=1)
                 self._log.debug(
-                    f"PromptCacheRefreshConsumer {self._identifier} processing task"
+                    f"PromptCacheRefreshConsumer processing task, {self._identifier}"
                 )
                 try:
                     task()
                 # Task failed, but we still consider it processed
                 except Exception as e:
                     self._log.exception(
-                        f"PromptCacheRefreshConsumer {self._identifier} encountered an error: {e}"
+                        f"PromptCacheRefreshConsumer encountered an error: {self._identifier}, {e}"
                     )
 
                 self._queue.task_done()
