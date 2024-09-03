@@ -234,7 +234,7 @@ class Consumer(threading.Thread):
                     and 400 <= int(e.status) < 500
                     and int(e.status) != 429
                 ):
-                    self._log.warn(
+                    self._log.warning(
                         f"Received {e.status} error by Langfuse server, not retrying: {e.message}"
                     )
                     return
