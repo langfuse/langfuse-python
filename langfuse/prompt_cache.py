@@ -143,7 +143,7 @@ class PromptCache:
         self._cache = {}
         self._task_manager = PromptCacheTaskManager(threads=max_prompt_refresh_workers)
         atexit.register(self._shutdown_task_manager)
-        self._log.debug(f"Prompt cache initialized.")
+        self._log.debug("Prompt cache initialized.")
 
     def get(self, key: str) -> Optional[PromptCacheItem]:
         return self._cache.get(key, None)
@@ -159,9 +159,9 @@ class PromptCache:
         self._task_manager.add_task(key, fetch_func)
 
     def _shutdown_task_manager(self):
-        self._log.debug(f"Shutting down prompt refresh task manager...")
+        self._log.debug("Shutting down prompt refresh task manager...")
         self._task_manager.shutdown()
-        self._log.debug(f"Shutdown of prompt refresh task manager completed.")
+        self._log.debug("Shutdown of prompt refresh task manager completed.")
 
     @staticmethod
     def generate_cache_key(
