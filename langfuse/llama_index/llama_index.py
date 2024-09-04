@@ -673,7 +673,7 @@ class LlamaIndexCallbackHandler(
             payload["num_chunks"] = len(chunks)
 
         if EventPayload.COMPLETION in payload:
-            return payload.get(EventPayload.COMPLETION)
+            return str(payload.get(EventPayload.COMPLETION))
 
         if EventPayload.RESPONSE in payload:
             response = payload.get(EventPayload.RESPONSE)
