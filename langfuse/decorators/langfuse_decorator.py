@@ -296,6 +296,7 @@ class LangfuseDecorator:
                 # Create wrapper trace if generation is top-level
                 # Do not add wrapper trace to stack, as it does not have a corresponding end that will pop it off again
                 trace = langfuse.trace(id=id, name=name, start_time=start_time)
+                self._set_root_trace_id(trace.id)
                 observation = langfuse.generation(
                     name=name, start_time=start_time, input=input, trace_id=trace.id
                 )
