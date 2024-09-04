@@ -36,8 +36,9 @@ class EventSerializer(JSONEncoder):
                 return f"{type(obj).__name__}: {str(obj)}"
 
             # LlamaIndex StreamingAgentChatResponse and StreamingResponse is not serializable by default as it is a generator
+            # LlamaIndex CompletionResponse is also not serializable by default
             # Attention: These LlamaIndex objects are a also a dataclasses, so check for it first
-            if "Streaming" in type(obj).__name__:
+            if "Streaming" in type(obj).__name__ or "CompletionResponse" == type(obj).__name__:
                 return str(obj)
 
             if isinstance(obj, enum.Enum):
