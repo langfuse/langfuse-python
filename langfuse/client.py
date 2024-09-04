@@ -1029,7 +1029,7 @@ class Langfuse(object):
                 )
             except Exception as e:
                 if fallback:
-                    self.log.warn(
+                    self.log.warning(
                         f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
                     )
 
@@ -1058,21 +1058,30 @@ class Langfuse(object):
                 raise e
 
         if cached_prompt.is_expired():
+            self.log.debug(f"Stale prompt '{cache_key}' found in cache.")
             try:
-                return self._fetch_prompt_and_update_cache(
-                    name,
-                    version=version,
-                    label=label,
-                    ttl_seconds=cache_ttl_seconds,
-                    max_retries=bounded_max_retries,
-                    fetch_timeout_seconds=fetch_timeout_seconds,
+                # refresh prompt in background thread, refresh_prompt deduplicates tasks
+                self.log.debug(f"Refreshing prompt '{cache_key}' in background.")
+                self.prompt_cache.add_refresh_prompt_task(
+                    cache_key,
+                    lambda: self._fetch_prompt_and_update_cache(
+                        name,
+                        version=version,
+                        label=label,
+                        ttl_seconds=cache_ttl_seconds,
+                        max_retries=bounded_max_retries,
+                        fetch_timeout_seconds=fetch_timeout_seconds,
+                    ),
                 )
+                self.log.debug(f"Returning stale prompt '{cache_key}' from cache.")
+                # return stale prompt
+                return cached_prompt.value
 
             except Exception as e:
-                self.log.warn(
-                    f"Returning expired prompt cache for '{cache_key}' due to fetch error: {e}"
+                self.log.warning(
+                    f"Error when refreshing cached prompt '{cache_key}', returning cached version. Error: {e}"
                 )
-
+                # creation of refresh prompt task failed, return stale prompt
                 return cached_prompt.value
 
         return cached_prompt.value
