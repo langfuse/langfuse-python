@@ -2,7 +2,6 @@
 
 import datetime as dt
 import typing
-import urllib.parse
 from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
@@ -10,7 +9,6 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.datetime_utils import serialize_datetime
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import pydantic_v1
-from ...core.remove_none_from_dict import remove_none_from_dict
 from ...core.request_options import RequestOptions
 from ..commons.errors.access_denied_error import AccessDeniedError
 from ..commons.errors.error import Error
@@ -33,19 +31,24 @@ class ScoreClient:
         self._client_wrapper = client_wrapper
 
     def create(
-        self,
-        *,
-        request: CreateScoreRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateScoreRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> CreateScoreResponse:
         """
         Create a score
 
-        Parameters:
-            - request: CreateScoreRequest.
+        Parameters
+        ----------
+        request : CreateScoreRequest
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateScoreResponse
+
+        Examples
+        --------
         from finto import CreateScoreRequest
         from finto.client import FernLangfuse
 
@@ -66,68 +69,21 @@ class ScoreClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/scores"
-            ),
-            params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
-            ),
-            json=jsonable_encoder(request)
-            if request_options is None
-            or request_options.get("additional_body_parameters") is None
-            else {
-                **jsonable_encoder(request),
-                **(
-                    jsonable_encoder(
-                        remove_none_from_dict(
-                            request_options.get("additional_body_parameters", {})
-                        )
-                    )
-                ),
-            },
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            "api/public/scores", method="POST", json=request, request_options=request_options, omit=OMIT
         )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(CreateScoreResponse, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(CreateScoreResponse, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -153,33 +109,53 @@ class ScoreClient:
         """
         Get a list of scores
 
-        Parameters:
-            - page: typing.Optional[int]. Page number, starts at 1.
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            Page number, starts at 1.
 
-            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+        limit : typing.Optional[int]
+            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
-            - user_id: typing.Optional[str]. Retrieve only scores with this userId associated to the trace.
+        user_id : typing.Optional[str]
+            Retrieve only scores with this userId associated to the trace.
 
-            - name: typing.Optional[str]. Retrieve only scores with this name.
+        name : typing.Optional[str]
+            Retrieve only scores with this name.
 
-            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created on or after a certain datetime (ISO 8601)
+        from_timestamp : typing.Optional[dt.datetime]
+            Optional filter to only include scores created on or after a certain datetime (ISO 8601)
 
-            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created before a certain datetime (ISO 8601)
+        to_timestamp : typing.Optional[dt.datetime]
+            Optional filter to only include scores created before a certain datetime (ISO 8601)
 
-            - source: typing.Optional[ScoreSource]. Retrieve only scores from a specific source.
+        source : typing.Optional[ScoreSource]
+            Retrieve only scores from a specific source.
 
-            - operator: typing.Optional[str]. Retrieve only scores with <operator> value.
+        operator : typing.Optional[str]
+            Retrieve only scores with <operator> value.
 
-            - value: typing.Optional[float]. Retrieve only scores with <operator> value.
+        value : typing.Optional[float]
+            Retrieve only scores with <operator> value.
 
-            - score_ids: typing.Optional[str]. Comma-separated list of score IDs to limit the results to.
+        score_ids : typing.Optional[str]
+            Comma-separated list of score IDs to limit the results to.
 
-            - config_id: typing.Optional[str]. Retrieve only scores with a specific configId.
+        config_id : typing.Optional[str]
+            Retrieve only scores with a specific configId.
 
-            - data_type: typing.Optional[ScoreDataType]. Retrieve only scores with a specific dataType.
+        data_type : typing.Optional[ScoreDataType]
+            Retrieve only scores with a specific dataType.
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Scores
+
+        Examples
+        --------
         import datetime
 
         from finto import ScoreDataType, ScoreSource
@@ -213,93 +189,60 @@ class ScoreClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/scores"
-            ),
-            params=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        "page": page,
-                        "limit": limit,
-                        "userId": user_id,
-                        "name": name,
-                        "fromTimestamp": serialize_datetime(from_timestamp)
-                        if from_timestamp is not None
-                        else None,
-                        "toTimestamp": serialize_datetime(to_timestamp)
-                        if to_timestamp is not None
-                        else None,
-                        "source": source,
-                        "operator": operator,
-                        "value": value,
-                        "scoreIds": score_ids,
-                        "configId": config_id,
-                        "dataType": data_type,
-                        **(
-                            request_options.get("additional_query_parameters", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            "api/public/scores",
+            method="GET",
+            params={
+                "page": page,
+                "limit": limit,
+                "userId": user_id,
+                "name": name,
+                "fromTimestamp": serialize_datetime(from_timestamp) if from_timestamp is not None else None,
+                "toTimestamp": serialize_datetime(to_timestamp) if to_timestamp is not None else None,
+                "source": source,
+                "operator": operator,
+                "value": value,
+                "scoreIds": score_ids,
+                "configId": config_id,
+                "dataType": data_type,
+            },
+            request_options=request_options,
         )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Scores, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Scores, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get_by_id(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Score:
+    def get_by_id(self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Score:
         """
         Get a score
 
-        Parameters:
-            - score_id: str. The unique langfuse identifier of a score
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Score
+
+        Examples
+        --------
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -315,72 +258,44 @@ class ScoreClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/scores/{jsonable_encoder(score_id)}",
-            ),
-            params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            f"api/public/scores/{jsonable_encoder(score_id)}", method="GET", request_options=request_options
         )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Score, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Score, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def delete(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    def delete(self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         Delete a score
 
-        Parameters:
-            - score_id: str. The unique langfuse identifier of a score
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
         from finto.client import FernLangfuse
 
         client = FernLangfuse(
@@ -396,56 +311,21 @@ class ScoreClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "DELETE",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/scores/{jsonable_encoder(score_id)}",
-            ),
-            params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            f"api/public/scores/{jsonable_encoder(score_id)}", method="DELETE", request_options=request_options
         )
-        if 200 <= _response.status_code < 300:
-            return
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -457,19 +337,26 @@ class AsyncScoreClient:
         self._client_wrapper = client_wrapper
 
     async def create(
-        self,
-        *,
-        request: CreateScoreRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateScoreRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> CreateScoreResponse:
         """
         Create a score
 
-        Parameters:
-            - request: CreateScoreRequest.
+        Parameters
+        ----------
+        request : CreateScoreRequest
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateScoreResponse
+
+        Examples
+        --------
+        import asyncio
+
         from finto import CreateScoreRequest
         from finto.client import AsyncFernLangfuse
 
@@ -481,77 +368,36 @@ class AsyncScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        await client.score.create(
-            request=CreateScoreRequest(
-                name="novelty",
-                value=0.9,
-                trace_id="cdef-1234-5678-90ab",
-            ),
-        )
+
+
+        async def main() -> None:
+            await client.score.create(
+                request=CreateScoreRequest(
+                    name="novelty",
+                    value=0.9,
+                    trace_id="cdef-1234-5678-90ab",
+                ),
+            )
+
+
+        asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "POST",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/scores"
-            ),
-            params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
-            ),
-            json=jsonable_encoder(request)
-            if request_options is None
-            or request_options.get("additional_body_parameters") is None
-            else {
-                **jsonable_encoder(request),
-                **(
-                    jsonable_encoder(
-                        remove_none_from_dict(
-                            request_options.get("additional_body_parameters", {})
-                        )
-                    )
-                ),
-            },
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            "api/public/scores", method="POST", json=request, request_options=request_options, omit=OMIT
         )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(CreateScoreResponse, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(CreateScoreResponse, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -577,33 +423,54 @@ class AsyncScoreClient:
         """
         Get a list of scores
 
-        Parameters:
-            - page: typing.Optional[int]. Page number, starts at 1.
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            Page number, starts at 1.
 
-            - limit: typing.Optional[int]. Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+        limit : typing.Optional[int]
+            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
-            - user_id: typing.Optional[str]. Retrieve only scores with this userId associated to the trace.
+        user_id : typing.Optional[str]
+            Retrieve only scores with this userId associated to the trace.
 
-            - name: typing.Optional[str]. Retrieve only scores with this name.
+        name : typing.Optional[str]
+            Retrieve only scores with this name.
 
-            - from_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created on or after a certain datetime (ISO 8601)
+        from_timestamp : typing.Optional[dt.datetime]
+            Optional filter to only include scores created on or after a certain datetime (ISO 8601)
 
-            - to_timestamp: typing.Optional[dt.datetime]. Optional filter to only include scores created before a certain datetime (ISO 8601)
+        to_timestamp : typing.Optional[dt.datetime]
+            Optional filter to only include scores created before a certain datetime (ISO 8601)
 
-            - source: typing.Optional[ScoreSource]. Retrieve only scores from a specific source.
+        source : typing.Optional[ScoreSource]
+            Retrieve only scores from a specific source.
 
-            - operator: typing.Optional[str]. Retrieve only scores with <operator> value.
+        operator : typing.Optional[str]
+            Retrieve only scores with <operator> value.
 
-            - value: typing.Optional[float]. Retrieve only scores with <operator> value.
+        value : typing.Optional[float]
+            Retrieve only scores with <operator> value.
 
-            - score_ids: typing.Optional[str]. Comma-separated list of score IDs to limit the results to.
+        score_ids : typing.Optional[str]
+            Comma-separated list of score IDs to limit the results to.
 
-            - config_id: typing.Optional[str]. Retrieve only scores with a specific configId.
+        config_id : typing.Optional[str]
+            Retrieve only scores with a specific configId.
 
-            - data_type: typing.Optional[ScoreDataType]. Retrieve only scores with a specific dataType.
+        data_type : typing.Optional[ScoreDataType]
+            Retrieve only scores with a specific dataType.
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Scores
+
+        Examples
+        --------
+        import asyncio
         import datetime
 
         from finto import ScoreDataType, ScoreSource
@@ -617,113 +484,88 @@ class AsyncScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        await client.score.get(
-            page=1,
-            limit=1,
-            user_id="string",
-            name="string",
-            from_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            to_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            source=ScoreSource.ANNOTATION,
-            operator="string",
-            value=1.1,
-            score_ids="string",
-            config_id="string",
-            data_type=ScoreDataType.NUMERIC,
-        )
+
+
+        async def main() -> None:
+            await client.score.get(
+                page=1,
+                limit=1,
+                user_id="string",
+                name="string",
+                from_timestamp=datetime.datetime.fromisoformat(
+                    "2024-01-15 09:30:00+00:00",
+                ),
+                to_timestamp=datetime.datetime.fromisoformat(
+                    "2024-01-15 09:30:00+00:00",
+                ),
+                source=ScoreSource.ANNOTATION,
+                operator="string",
+                value=1.1,
+                score_ids="string",
+                config_id="string",
+                data_type=ScoreDataType.NUMERIC,
+            )
+
+
+        asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/", "api/public/scores"
-            ),
-            params=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        "page": page,
-                        "limit": limit,
-                        "userId": user_id,
-                        "name": name,
-                        "fromTimestamp": serialize_datetime(from_timestamp)
-                        if from_timestamp is not None
-                        else None,
-                        "toTimestamp": serialize_datetime(to_timestamp)
-                        if to_timestamp is not None
-                        else None,
-                        "source": source,
-                        "operator": operator,
-                        "value": value,
-                        "scoreIds": score_ids,
-                        "configId": config_id,
-                        "dataType": data_type,
-                        **(
-                            request_options.get("additional_query_parameters", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            "api/public/scores",
+            method="GET",
+            params={
+                "page": page,
+                "limit": limit,
+                "userId": user_id,
+                "name": name,
+                "fromTimestamp": serialize_datetime(from_timestamp) if from_timestamp is not None else None,
+                "toTimestamp": serialize_datetime(to_timestamp) if to_timestamp is not None else None,
+                "source": source,
+                "operator": operator,
+                "value": value,
+                "scoreIds": score_ids,
+                "configId": config_id,
+                "dataType": data_type,
+            },
+            request_options=request_options,
         )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Scores, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Scores, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get_by_id(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Score:
+    async def get_by_id(self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Score:
         """
         Get a score
 
-        Parameters:
-            - score_id: str. The unique langfuse identifier of a score
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Score
+
+        Examples
+        --------
+        import asyncio
+
         from finto.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -734,77 +576,57 @@ class AsyncScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        await client.score.get_by_id(
-            score_id="string",
-        )
+
+
+        async def main() -> None:
+            await client.score.get_by_id(
+                score_id="string",
+            )
+
+
+        asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "GET",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/scores/{jsonable_encoder(score_id)}",
-            ),
-            params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            f"api/public/scores/{jsonable_encoder(score_id)}", method="GET", request_options=request_options
         )
-        if 200 <= _response.status_code < 300:
-            return pydantic_v1.parse_obj_as(Score, _response.json())  # type: ignore
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Score, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def delete(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    async def delete(self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         Delete a score
 
-        Parameters:
-            - score_id: str. The unique langfuse identifier of a score
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
 
-            - request_options: typing.Optional[RequestOptions]. Request-specific configuration.
-        ---
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
         from finto.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -815,61 +637,32 @@ class AsyncScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        await client.score.delete(
-            score_id="string",
-        )
+
+
+        async def main() -> None:
+            await client.score.delete(
+                score_id="string",
+            )
+
+
+        asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "DELETE",
-            urllib.parse.urljoin(
-                f"{self._client_wrapper.get_base_url()}/",
-                f"api/public/scores/{jsonable_encoder(score_id)}",
-            ),
-            params=jsonable_encoder(
-                request_options.get("additional_query_parameters")
-                if request_options is not None
-                else None
-            ),
-            headers=jsonable_encoder(
-                remove_none_from_dict(
-                    {
-                        **self._client_wrapper.get_headers(),
-                        **(
-                            request_options.get("additional_headers", {})
-                            if request_options is not None
-                            else {}
-                        ),
-                    }
-                )
-            ),
-            timeout=request_options.get("timeout_in_seconds")
-            if request_options is not None
-            and request_options.get("timeout_in_seconds") is not None
-            else self._client_wrapper.get_timeout(),
-            retries=0,
-            max_retries=request_options.get("max_retries")
-            if request_options is not None
-            else 0,  # type: ignore
+            f"api/public/scores/{jsonable_encoder(score_id)}", method="DELETE", request_options=request_options
         )
-        if 200 <= _response.status_code < 300:
-            return
-        if _response.status_code == 400:
-            raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-        if _response.status_code == 401:
-            raise UnauthorizedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 403:
-            raise AccessDeniedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 405:
-            raise MethodNotAllowedError(
-                pydantic_v1.parse_obj_as(typing.Any, _response.json())
-            )  # type: ignore
-        if _response.status_code == 404:
-            raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
         try:
+            if 200 <= _response.status_code < 300:
+                return
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)

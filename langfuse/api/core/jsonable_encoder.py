@@ -8,6 +8,7 @@ Taken from FastAPI, and made a bit simpler
 https://github.com/tiangolo/fastapi/blob/master/fastapi/encoders.py
 """
 
+import base64
 import dataclasses
 import datetime as dt
 from collections import defaultdict
@@ -24,24 +25,18 @@ DictIntStrAny = Dict[Union[int, str], Any]
 
 
 def generate_encoders_by_class_tuples(
-    type_encoder_map: Dict[Any, Callable[[Any], Any]],
+    type_encoder_map: Dict[Any, Callable[[Any], Any]]
 ) -> Dict[Callable[[Any], Any], Tuple[Any, ...]]:
-    encoders_by_class_tuples: Dict[Callable[[Any], Any], Tuple[Any, ...]] = defaultdict(
-        tuple
-    )
+    encoders_by_class_tuples: Dict[Callable[[Any], Any], Tuple[Any, ...]] = defaultdict(tuple)
     for type_, encoder in type_encoder_map.items():
         encoders_by_class_tuples[encoder] += (type_,)
     return encoders_by_class_tuples
 
 
-encoders_by_class_tuples = generate_encoders_by_class_tuples(
-    pydantic_v1.json.ENCODERS_BY_TYPE
-)
+encoders_by_class_tuples = generate_encoders_by_class_tuples(pydantic_v1.json.ENCODERS_BY_TYPE)
 
 
-def jsonable_encoder(
-    obj: Any, custom_encoder: Optional[Dict[Any, Callable[[Any], Any]]] = None
-) -> Any:
+def jsonable_encoder(obj: Any, custom_encoder: Optional[Dict[Any, Callable[[Any], Any]]] = None) -> Any:
     custom_encoder = custom_encoder or {}
     if custom_encoder:
         if type(obj) in custom_encoder:
@@ -61,6 +56,8 @@ def jsonable_encoder(
     if dataclasses.is_dataclass(obj):
         obj_dict = dataclasses.asdict(obj)
         return jsonable_encoder(obj_dict, custom_encoder=custom_encoder)
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode("utf-8")
     if isinstance(obj, Enum):
         return obj.value
     if isinstance(obj, PurePath):

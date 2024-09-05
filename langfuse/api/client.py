@@ -6,10 +6,7 @@ import httpx
 
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .resources.dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
-from .resources.dataset_run_items.client import (
-    AsyncDatasetRunItemsClient,
-    DatasetRunItemsClient,
-)
+from .resources.dataset_run_items.client import AsyncDatasetRunItemsClient, DatasetRunItemsClient
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.health.client import AsyncHealthClient, HealthClient
 from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
@@ -26,27 +23,29 @@ from .resources.trace.client import AsyncTraceClient, TraceClient
 
 class FernLangfuse:
     """
-    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propogate to these functions.
+    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
-    Parameters:
-        - base_url: str. The base url to use for requests from the client.
+    Parameters
+    ----------
+    base_url : str
+        The base url to use for requests from the client.
 
-        - x_langfuse_sdk_name: typing.Optional[str].
+    x_langfuse_sdk_name : typing.Optional[str]
+    x_langfuse_sdk_version : typing.Optional[str]
+    x_langfuse_public_key : typing.Optional[str]
+    username : typing.Optional[typing.Union[str, typing.Callable[[], str]]]
+    password : typing.Optional[typing.Union[str, typing.Callable[[], str]]]
+    timeout : typing.Optional[float]
+        The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx client is used, in which case this default is not enforced.
 
-        - x_langfuse_sdk_version: typing.Optional[str].
+    follow_redirects : typing.Optional[bool]
+        Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
 
-        - x_langfuse_public_key: typing.Optional[str].
+    httpx_client : typing.Optional[httpx.Client]
+        The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
 
-        - username: typing.Optional[typing.Union[str, typing.Callable[[], str]]].
-
-        - password: typing.Optional[typing.Union[str, typing.Callable[[], str]]].
-
-        - timeout: typing.Optional[float]. The timeout to be used, in seconds, for requests by default the timeout is 60 seconds, unless a custom httpx client is used, in which case a default is not set.
-
-        - follow_redirects: typing.Optional[bool]. Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
-
-        - httpx_client: typing.Optional[httpx.Client]. The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
-    ---
+    Examples
+    --------
     from finto.client import FernLangfuse
 
     client = FernLangfuse(
@@ -69,12 +68,10 @@ class FernLangfuse:
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         timeout: typing.Optional[float] = None,
-        follow_redirects: typing.Optional[bool] = None,
-        httpx_client: typing.Optional[httpx.Client] = None,
+        follow_redirects: typing.Optional[bool] = True,
+        httpx_client: typing.Optional[httpx.Client] = None
     ):
-        _defaulted_timeout = (
-            timeout if timeout is not None else 60 if httpx_client is None else None
-        )
+        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
         self._client_wrapper = SyncClientWrapper(
             base_url=base_url,
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -84,17 +81,13 @@ class FernLangfuse:
             password=password,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.Client(
-                timeout=_defaulted_timeout, follow_redirects=follow_redirects
-            )
+            else httpx.Client(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
             if follow_redirects is not None
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
         self.dataset_items = DatasetItemsClient(client_wrapper=self._client_wrapper)
-        self.dataset_run_items = DatasetRunItemsClient(
-            client_wrapper=self._client_wrapper
-        )
+        self.dataset_run_items = DatasetRunItemsClient(client_wrapper=self._client_wrapper)
         self.datasets = DatasetsClient(client_wrapper=self._client_wrapper)
         self.health = HealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
@@ -111,27 +104,29 @@ class FernLangfuse:
 
 class AsyncFernLangfuse:
     """
-    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propogate to these functions.
+    Use this class to access the different functions within the SDK. You can instantiate any number of clients with different configuration that will propagate to these functions.
 
-    Parameters:
-        - base_url: str. The base url to use for requests from the client.
+    Parameters
+    ----------
+    base_url : str
+        The base url to use for requests from the client.
 
-        - x_langfuse_sdk_name: typing.Optional[str].
+    x_langfuse_sdk_name : typing.Optional[str]
+    x_langfuse_sdk_version : typing.Optional[str]
+    x_langfuse_public_key : typing.Optional[str]
+    username : typing.Optional[typing.Union[str, typing.Callable[[], str]]]
+    password : typing.Optional[typing.Union[str, typing.Callable[[], str]]]
+    timeout : typing.Optional[float]
+        The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx client is used, in which case this default is not enforced.
 
-        - x_langfuse_sdk_version: typing.Optional[str].
+    follow_redirects : typing.Optional[bool]
+        Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
 
-        - x_langfuse_public_key: typing.Optional[str].
+    httpx_client : typing.Optional[httpx.AsyncClient]
+        The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
 
-        - username: typing.Optional[typing.Union[str, typing.Callable[[], str]]].
-
-        - password: typing.Optional[typing.Union[str, typing.Callable[[], str]]].
-
-        - timeout: typing.Optional[float]. The timeout to be used, in seconds, for requests by default the timeout is 60 seconds, unless a custom httpx client is used, in which case a default is not set.
-
-        - follow_redirects: typing.Optional[bool]. Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
-
-        - httpx_client: typing.Optional[httpx.AsyncClient]. The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
-    ---
+    Examples
+    --------
     from finto.client import AsyncFernLangfuse
 
     client = AsyncFernLangfuse(
@@ -154,12 +149,10 @@ class AsyncFernLangfuse:
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         timeout: typing.Optional[float] = None,
-        follow_redirects: typing.Optional[bool] = None,
-        httpx_client: typing.Optional[httpx.AsyncClient] = None,
+        follow_redirects: typing.Optional[bool] = True,
+        httpx_client: typing.Optional[httpx.AsyncClient] = None
     ):
-        _defaulted_timeout = (
-            timeout if timeout is not None else 60 if httpx_client is None else None
-        )
+        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
         self._client_wrapper = AsyncClientWrapper(
             base_url=base_url,
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -169,19 +162,13 @@ class AsyncFernLangfuse:
             password=password,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.AsyncClient(
-                timeout=_defaulted_timeout, follow_redirects=follow_redirects
-            )
+            else httpx.AsyncClient(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
             if follow_redirects is not None
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self.dataset_items = AsyncDatasetItemsClient(
-            client_wrapper=self._client_wrapper
-        )
-        self.dataset_run_items = AsyncDatasetRunItemsClient(
-            client_wrapper=self._client_wrapper
-        )
+        self.dataset_items = AsyncDatasetItemsClient(client_wrapper=self._client_wrapper)
+        self.dataset_run_items = AsyncDatasetRunItemsClient(client_wrapper=self._client_wrapper)
         self.datasets = AsyncDatasetsClient(client_wrapper=self._client_wrapper)
         self.health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
@@ -190,9 +177,7 @@ class AsyncFernLangfuse:
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
-        self.score_configs = AsyncScoreConfigsClient(
-            client_wrapper=self._client_wrapper
-        )
+        self.score_configs = AsyncScoreConfigsClient(client_wrapper=self._client_wrapper)
         self.score = AsyncScoreClient(client_wrapper=self._client_wrapper)
         self.sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
         self.trace = AsyncTraceClient(client_wrapper=self._client_wrapper)
