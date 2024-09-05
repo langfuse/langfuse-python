@@ -14,7 +14,6 @@ def _extract_model_name(
     **kwargs: Any,
 ):
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
-
     # In this function we return on the first match, so the order of operations is important
 
     # First, extract known models where we know the model name aka id
