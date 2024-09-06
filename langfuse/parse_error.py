@@ -1,9 +1,20 @@
 import logging
 from typing import Union
 
-from openai import APIError
+# our own api errors
+from langfuse.request import APIErrors, APIError
 
-from langfuse.request import APIErrors
+# fern api errors
+from langfuse.api.resources.commons.errors import (
+    AccessDeniedError,
+    Error,
+    MethodNotAllowedError,
+    NotFoundError,
+    UnauthorizedError,
+)
+from langfuse.api.core import ApiError
+from langfuse.api.resources.health.errors import ServiceUnavailableError
+
 
 SUPPORT_URL = "https://langfuse.com/support"
 API_DOCS_URL = "https://api.reference.langfuse.com"
@@ -34,6 +45,28 @@ errorResponseByCode = {
 }
 
 
+def generate_error_messge_fern(error: Error) -> str:
+    if isinstance(error, AccessDeniedError):
+        return errorResponseByCode.get(403, defaultErrorResponse)
+    elif isinstance(error, MethodNotAllowedError):
+        return errorResponseByCode.get(405, defaultErrorResponse)
+    elif isinstance(error, NotFoundError):
+        return errorResponseByCode.get(404, defaultErrorResponse)
+    elif isinstance(error, UnauthorizedError):
+        return errorResponseByCode.get(401, defaultErrorResponse)
+    elif isinstance(error, ServiceUnavailableError):
+        return errorResponseByCode.get(503, defaultErrorResponse)
+    elif isinstance(error, ApiError):
+        status_code = (
+            int(error.status_code)
+            if isinstance(error.status_code, str)
+            else error.status_code
+        )
+        return errorResponseByCode.get(status_code, defaultErrorResponse)
+    else:
+        return defaultErrorResponse
+
+
 def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> str:
     if isinstance(exception, APIError):
         status_code = (
@@ -51,8 +84,6 @@ def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> 
             for error in exception.errors
         ]
         return "API errors occurred: " + "\n".join(error_messages)
-    elif isinstance(exception, Exception):
-        return defaultErrorResponse
     else:
         return defaultErrorResponse
 
