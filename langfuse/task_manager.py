@@ -203,10 +203,6 @@ class Consumer(threading.Thread):
 
         try:
             self._upload_batch(batch)
-        except APIError as e:
-            handle_exception(e)
-        except APIErrors as e:
-            handle_exception(e)
         except Exception as e:
             handle_exception(e)
         finally:
@@ -239,7 +235,7 @@ class Consumer(threading.Thread):
                 if (
                     isinstance(e, APIError)
                     and 400 <= int(e.status) < 500
-                    and int(e.status) != 429
+                    and int(e.status) != 429  # retry if rate-limited
                 ):
                     return
 
