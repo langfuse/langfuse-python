@@ -45,7 +45,7 @@ def handle_exception(exception: Union[APIError, APIErrors, Exception]) -> None:
             errorResponseByCode.get(error.status, defaultErrorResponse)
             for error in exception.errors
         ]
-        combined_error_message = f"API errors occurred: " + "\n".join(error_messages)
+        combined_error_message = "API errors occurred: " + "\n".join(error_messages)
         log.error(combined_error_message)
     elif isinstance(exception, Exception):
         log.error(defaultErrorResponse)
