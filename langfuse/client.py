@@ -1103,7 +1103,9 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
 
-            @backoff.on_exception(backoff.constant, Exception, max_tries=max_retries)
+            @backoff.on_exception(
+                backoff.constant, Exception, max_tries=max_retries, logger=None
+            )
             def fetch_prompts():
                 return self.client.prompts.get(
                     self._url_encode(name),
