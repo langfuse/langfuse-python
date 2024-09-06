@@ -45,7 +45,7 @@ errorResponseByCode = {
 }
 
 
-def generate_error_messge_fern(error: Error) -> str:
+def generate_error_message_fern(error: Error) -> str:
     if isinstance(error, AccessDeniedError):
         return errorResponseByCode.get(403, defaultErrorResponse)
     elif isinstance(error, MethodNotAllowedError):
@@ -65,6 +65,13 @@ def generate_error_messge_fern(error: Error) -> str:
         return errorResponseByCode.get(status_code, defaultErrorResponse)
     else:
         return defaultErrorResponse
+
+
+def handle_fern_exception(exception: Error) -> None:
+    log = logging.getLogger("langfuse")
+    log.debug(exception)
+    error_message = generate_error_message_fern(exception)
+    log.error(error_message)
 
 
 def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> str:
