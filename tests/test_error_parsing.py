@@ -1,9 +1,9 @@
-import logging
+"""@private"""
+
 from langfuse.request import APIErrors, APIError
 from langfuse.parse_error import (
     generate_error_message,
     generate_error_messge_fern,
-    handle_exception,
 )
 from langfuse.api.resources.commons.errors import (
     AccessDeniedError,

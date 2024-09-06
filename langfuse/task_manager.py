@@ -12,7 +12,7 @@ import typing
 
 from langfuse.Sampler import Sampler
 from langfuse.parse_error import handle_exception
-from langfuse.request import APIError, APIErrors
+from langfuse.request import APIError
 from langfuse.utils import _get_timestamp
 
 try:
