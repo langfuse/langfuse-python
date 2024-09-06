@@ -987,7 +987,7 @@ class Langfuse(object):
             version (Optional[int]): The version of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             label: Optional[str]: The label of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
-            keyword argument. If not set, defaults to 60 seconds.
+            keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
@@ -1016,8 +1016,10 @@ class Langfuse(object):
         self.log.debug(f"Getting prompt '{cache_key}'")
         cached_prompt = self.prompt_cache.get(cache_key)
 
-        if cached_prompt is None:
-            self.log.debug(f"Prompt '{cache_key}' not found in cache.")
+        if cached_prompt is None or cache_ttl_seconds == 0:
+            self.log.debug(
+                f"Prompt '{cache_key}' not found in cache or caching disabled."
+            )
             try:
                 return self._fetch_prompt_and_update_cache(
                     name,
