@@ -21,11 +21,11 @@ API_DOCS_URL = "https://api.reference.langfuse.com"
 RBAC_DOCS_URL = "https://langfuse.com/docs/rbac"
 INSTALLATION_DOCS_URL = "https://langfuse.com/docs/sdk/typescript/guide"
 RATE_LIMITS_URL = "https://langfuse.com/faq/all/api-limits"
-NPM_PACKAGE_URL = "https://www.npmjs.com/package/langfuse"
+PYPI_PACKAGE_URL = "https://pypi.org/project/langfuse/"
 
 # Error messages
 updatePromptResponse = (
-    f"Make sure to keep your SDK updated, refer to {NPM_PACKAGE_URL} for details."
+    f"Make sure to keep your SDK updated, refer to {PYPI_PACKAGE_URL} for details."
 )
 defaultServerErrorPrompt = f"This is an unusual occurrence and we are monitoring it closely. For help, please contact support: {SUPPORT_URL}."
 defaultErrorResponse = f"Unexpected error occurred. Please check your request and contact support: {SUPPORT_URL}."
