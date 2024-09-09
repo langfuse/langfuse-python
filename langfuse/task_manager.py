@@ -11,6 +11,7 @@ from typing import List, Any
 import typing
 
 from langfuse.Sampler import Sampler
+from langfuse.parse_error import handle_exception
 from langfuse.request import APIError
 from langfuse.utils import _get_timestamp
 
@@ -203,7 +204,7 @@ class Consumer(threading.Thread):
         try:
             self._upload_batch(batch)
         except Exception as e:
-            self._log.exception("error uploading: %s", e)
+            handle_exception(e)
         finally:
             # mark items as acknowledged from queue
             for _ in batch:
@@ -224,7 +225,9 @@ class Consumer(threading.Thread):
             public_key=self._public_key,
         ).dict()
 
-        @backoff.on_exception(backoff.expo, Exception, max_tries=self._max_retries)
+        @backoff.on_exception(
+            backoff.expo, Exception, max_tries=self._max_retries, logger=None
+        )
         def execute_task_with_backoff(batch: List[Any]):
             try:
                 self._client.batch_post(batch=batch, metadata=metadata)
@@ -232,11 +235,8 @@ class Consumer(threading.Thread):
                 if (
                     isinstance(e, APIError)
                     and 400 <= int(e.status) < 500
-                    and int(e.status) != 429
+                    and int(e.status) != 429  # retry if rate-limited
                 ):
-                    self._log.warning(
-                        f"Received {e.status} error by Langfuse server, not retrying: {e.message}"
-                    )
                     return
 
                 raise e
