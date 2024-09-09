@@ -3,7 +3,7 @@
 from langfuse.request import APIErrors, APIError
 from langfuse.parse_error import (
     generate_error_message,
-    generate_error_messge_fern,
+    generate_error_message_fern,
 )
 from langfuse.api.resources.commons.errors import (
     AccessDeniedError,
@@ -74,4 +74,4 @@ def test_generate_error_message_service_unavailable_error():
 def test_generate_error_message_generic():
     exception = ApiError(status_code=503)
     expected_message = "Service unavailable. This is an unusual occurrence and we are monitoring it closely. For help, please contact support: https://langfuse.com/support."
-    assert generate_error_messge_fern(exception) == expected_message
+    assert generate_error_message_fern(exception) == expected_message
