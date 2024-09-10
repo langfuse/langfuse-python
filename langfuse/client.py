@@ -70,6 +70,9 @@ from langfuse.model import (
     ChatPromptClient,
     TextPromptClient,
 )
+from langfuse.parse_error import (
+    handle_fern_exception,
+)
 from langfuse.prompt_cache import PromptCache
 
 try:
@@ -366,7 +369,7 @@ class Langfuse(object):
 
             return DatasetClient(dataset, items=items)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_dataset_item(self, id: str) -> "DatasetItemClient":
@@ -376,7 +379,7 @@ class Langfuse(object):
             dataset_item = self.client.dataset_items.get(id=id)
             return DatasetItemClient(dataset_item, langfuse=self)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def auth_check(self) -> bool:
@@ -400,7 +403,7 @@ class Langfuse(object):
             return True
 
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_dataset_runs(
@@ -426,7 +429,7 @@ class Langfuse(object):
                 dataset_name=dataset_name, page=page, limit=limit
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_dataset_run(
@@ -451,7 +454,7 @@ class Langfuse(object):
                 dataset_name=dataset_name, run_name=dataset_run_name
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def create_dataset(
@@ -477,7 +480,7 @@ class Langfuse(object):
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def create_dataset_item(
@@ -537,7 +540,7 @@ class Langfuse(object):
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_trace(
@@ -560,7 +563,7 @@ class Langfuse(object):
             trace = self.client.trace.get(id)
             return FetchTraceResponse(data=trace)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_trace(
@@ -587,7 +590,7 @@ class Langfuse(object):
             self.log.debug(f"Getting trace {id}")
             return self.client.trace.get(id)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_traces(
@@ -639,7 +642,7 @@ class Langfuse(object):
             )
             return FetchTracesResponse(data=res.data, meta=res.meta)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_traces(
@@ -694,7 +697,7 @@ class Langfuse(object):
                 tags=tags,
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_observations(
@@ -801,7 +804,7 @@ class Langfuse(object):
                 type=type,
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_generations(
@@ -870,7 +873,7 @@ class Langfuse(object):
             observation = self.client.observations.get(id)
             return FetchObservationResponse(data=observation)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_observation(
@@ -893,7 +896,7 @@ class Langfuse(object):
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_sessions(
@@ -930,7 +933,7 @@ class Langfuse(object):
             )
             return FetchSessionsResponse(data=res.data, meta=res.meta)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     @overload
@@ -987,7 +990,7 @@ class Langfuse(object):
             version (Optional[int]): The version of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             label: Optional[str]: The label of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
-            keyword argument. If not set, defaults to 60 seconds.
+            keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
@@ -1016,8 +1019,10 @@ class Langfuse(object):
         self.log.debug(f"Getting prompt '{cache_key}'")
         cached_prompt = self.prompt_cache.get(cache_key)
 
-        if cached_prompt is None:
-            self.log.debug(f"Prompt '{cache_key}' not found in cache.")
+        if cached_prompt is None or cache_ttl_seconds == 0:
+            self.log.debug(
+                f"Prompt '{cache_key}' not found in cache or caching disabled."
+            )
             try:
                 return self._fetch_prompt_and_update_cache(
                     name,
@@ -1103,7 +1108,9 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
 
-            @backoff.on_exception(backoff.constant, Exception, max_tries=max_retries)
+            @backoff.on_exception(
+                backoff.constant, Exception, max_tries=max_retries, logger=None
+            )
             def fetch_prompts():
                 return self.client.prompts.get(
                     self._url_encode(name),
@@ -1244,7 +1251,7 @@ class Langfuse(object):
             return TextPromptClient(prompt=server_prompt)
 
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def _url_encode(self, url: str) -> str:
