@@ -22,6 +22,7 @@ from typing import (
     Generator,
     TypeVar,
     cast,
+    overload,
 )
 
 from typing_extensions import ParamSpec
@@ -91,8 +92,27 @@ R = TypeVar("R")
 class LangfuseDecorator:
     _log = logging.getLogger("langfuse")
 
+    # Type overload for observe decorator with no arguments
+    @overload
+    def observe(self, func: F) -> F: ...
+
+    # Type overload for observe decorator with arguments
+    @overload
     def observe(
         self,
+        func: None = None,
+        *,
+        name: Optional[str] = None,
+        as_type: Optional[Literal["generation"]] = None,
+        capture_input: bool = True,
+        capture_output: bool = True,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+    # Implementation of observe decorator
+    def observe(
+        self,
+        func: Optional[Callable[P, R]] = None,
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
@@ -158,7 +178,15 @@ class LangfuseDecorator:
                 )
             )
 
-        return decorator
+        """
+        If the decorator is called without arguments, return the decorator function itself. 
+        This allows the decorator to be used with or without arguments. 
+        Python calls the decorator function with the decorated function as an argument when the decorator is used without arguments.
+        """
+        if func is None:
+            return decorator
+        else:
+            return decorator(func)
 
     def _async_observe(
         self,

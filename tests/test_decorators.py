@@ -102,6 +102,90 @@ def test_nested_observations():
     assert level_3_observation.version == "version-1"
 
 
+def test_nested_observations_with_non_parentheses_decorator():
+    mock_name = "test_nested_observations"
+    mock_trace_id = create_uuid()
+
+    @observe(as_type="generation", name="level_3_to_be_overwritten")
+    def level_3_function():
+        langfuse_context.update_current_observation(metadata=mock_metadata)
+        langfuse_context.update_current_observation(
+            metadata=mock_deep_metadata,
+            usage={"input": 150, "output": 50, "total": 300},
+            model="gpt-3.5-turbo",
+            output="mock_output",
+        )
+        langfuse_context.update_current_observation(
+            version="version-1", name="overwritten_level_3"
+        )
+
+        langfuse_context.update_current_trace(
+            session_id=mock_session_id, name=mock_name
+        )
+
+        langfuse_context.update_current_trace(
+            user_id="user_id",
+        )
+
+        return "level_3"
+
+    @observe
+    def level_2_function():
+        level_3_function()
+        langfuse_context.update_current_observation(metadata=mock_metadata)
+
+        return "level_2"
+
+    @observe
+    def level_1_function(*args, **kwargs):
+        level_2_function()
+
+        return "level_1"
+
+    result = level_1_function(
+        *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
+    )
+    langfuse_context.flush()
+
+    assert result == "level_1"  # Wrapped function returns correctly
+
+    # ID setting for span or trace
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert (
+        len(trace_data.observations) == 2
+    )  # Top-most function is trace, so it's not an observations
+
+    assert trace_data.input == {"args": list(mock_args), "kwargs": mock_kwargs}
+    assert trace_data.output == "level_1"
+
+    # trace parameters if set anywhere in the call stack
+    assert trace_data.session_id == mock_session_id
+    assert trace_data.user_id == "user_id"
+    assert trace_data.name == mock_name
+
+    # Check correct nesting
+    adjacencies = defaultdict(list)
+    for o in trace_data.observations:
+        adjacencies[o.parent_observation_id or o.trace_id].append(o)
+
+    assert len(adjacencies[mock_trace_id]) == 1  # Trace has only one child
+    assert len(adjacencies) == 2  # Only trace and one observation have children
+
+    level_2_observation = adjacencies[mock_trace_id][0]
+    level_3_observation = adjacencies[level_2_observation.id][0]
+
+    assert level_2_observation.name == "level_2_function"
+    assert level_2_observation.metadata == mock_metadata
+
+    assert level_3_observation.name == "overwritten_level_3"
+    assert level_3_observation.metadata == mock_deep_metadata
+    assert level_3_observation.type == "GENERATION"
+    assert level_3_observation.calculated_total_cost > 0
+    assert level_3_observation.output == "mock_output"
+    assert level_3_observation.version == "version-1"
+
+
 # behavior on exceptions
 def test_exception_in_wrapped_function():
     mock_name = "test_exception_in_wrapped_function"
