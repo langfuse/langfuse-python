@@ -837,6 +837,14 @@ class LangchainCallbackHandler(
             else:
                 self.trace = self.trace.update(output=output, **kwargs)
 
+        elif parent_run_id is None and self.langfuse is not None:
+            """
+            For batch runs, self.trace.id == str(run_id) only for the last run
+            For the rest of the runs, the trace must be manually updated
+            The check for self.langfuse ensures that no stateful client was provided by the user
+            """
+            self.langfuse.trace(id=str(run_id)).update(output=output, **kwargs)
+
         if not keep_state:
             del self.runs[run_id]
 
