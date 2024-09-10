@@ -59,7 +59,9 @@ class EventSerializer(JSONEncoder):
                 return obj.isoformat()
 
             if isinstance(obj, BaseModel):
-                return obj.dict()
+                obj.model_rebuild()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
+
+                return obj.model_dump()
 
             if isinstance(obj, Path):
                 return str(obj)
