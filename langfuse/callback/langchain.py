@@ -967,15 +967,19 @@ def _parse_usage(response: LLMResult):
                 response_metadata = getattr(message_chunk, "response_metadata", {})
 
                 chunk_usage = (
-                    response_metadata.get("usage", None)  # for Bedrock-Anthropic
-                    if isinstance(response_metadata, dict)
-                    else None
-                ) or (
-                    response_metadata.get(
-                        "amazon-bedrock-invocationMetrics", None
-                    )  # for Bedrock-Titan
-                    if isinstance(response_metadata, dict)
-                    else None
+                    (
+                        response_metadata.get("usage", None)  # for Bedrock-Anthropic
+                        if isinstance(response_metadata, dict)
+                        else None
+                    )
+                    or (
+                        response_metadata.get(
+                            "amazon-bedrock-invocationMetrics", None
+                        )  # for Bedrock-Titan
+                        if isinstance(response_metadata, dict)
+                        else None
+                    )
+                    or getattr(message_chunk, "usage_metadata", None)  # for Ollama
                 )
 
                 if chunk_usage:
