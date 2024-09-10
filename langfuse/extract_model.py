@@ -27,6 +27,7 @@ def _extract_model_name(
         ("ChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
+        ("AzureChatOpenAI", ["invocation_params", "azure_deployment"], "kwargs"),
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
         ("BedrockChat", ["kwargs", "model_id"], "serialized"),
         ("Bedrock", ["kwargs", "model_id"], "serialized"),

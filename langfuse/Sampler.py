@@ -18,6 +18,9 @@ class Sampler:
         if "type" in event and "body" in event:
             event_type = event["type"]
 
+            if event_type == "sdk-log":
+                return True
+
             trace_id = None
 
             if event_type == "trace-create" and "id" in event["body"]:
