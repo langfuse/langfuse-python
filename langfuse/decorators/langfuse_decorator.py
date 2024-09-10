@@ -518,12 +518,12 @@ class LangfuseDecorator:
         observation = _observation_stack_context.get()[-1]
 
         if observation is None:
-            self._log.warn("No observation found in the current context")
+            self._log.warning("No observation found in the current context")
 
             return None
 
         if isinstance(observation, StatefulGenerationClient):
-            self._log.warn(
+            self._log.warning(
                 "Current observation is of type GENERATION, LlamaIndex handler is not supported for this type of observation"
             )
 
@@ -552,12 +552,12 @@ class LangfuseDecorator:
         observation = _observation_stack_context.get()[-1]
 
         if observation is None:
-            self._log.warn("No observation found in the current context")
+            self._log.warning("No observation found in the current context")
 
             return None
 
         if isinstance(observation, StatefulGenerationClient):
-            self._log.warn(
+            self._log.warning(
                 "Current observation is of type GENERATION, Langchain handler is not supported for this type of observation"
             )
 
@@ -585,7 +585,7 @@ class LangfuseDecorator:
 
         if not stack:
             if should_log_warning:
-                self._log.warn("No trace found in the current context")
+                self._log.warning("No trace found in the current context")
 
             return None
 
@@ -595,7 +595,7 @@ class LangfuseDecorator:
         try:
             caller_module = inspect.getmodule(inspect.stack()[2][0])
         except Exception as e:
-            self._log.warn(f"Failed to get caller module: {e}")
+            self._log.warning(f"Failed to get caller module: {e}")
 
             return None
 
@@ -643,7 +643,7 @@ class LangfuseDecorator:
 
         if not stack:
             if should_log_warning:
-                self._log.warn("No observation found in the current context")
+                self._log.warning("No observation found in the current context")
 
             return None
 
@@ -690,7 +690,7 @@ class LangfuseDecorator:
         trace_id = self.get_current_trace_id()
 
         if trace_id is None:
-            self._log.warn("No trace found in the current context")
+            self._log.warning("No trace found in the current context")
 
             return
 
@@ -785,7 +785,7 @@ class LangfuseDecorator:
         observation = stack[-1] if stack else None
 
         if not observation:
-            self._log.warn("No observation found in the current context")
+            self._log.warning("No observation found in the current context")
 
             return
 
@@ -943,7 +943,7 @@ class LangfuseDecorator:
         if langfuse:
             langfuse.flush()
         else:
-            self._log.warn("No langfuse object found in the current context")
+            self._log.warning("No langfuse object found in the current context")
 
     def configure(
         self,
@@ -1002,7 +1002,7 @@ class LangfuseDecorator:
 
     def _set_root_trace_id(self, trace_id: str):
         if _observation_stack_context.get():
-            self._log.warn(
+            self._log.warning(
                 "Root Trace ID cannot be set on a already running trace. Skipping root trace ID assignment."
             )
             return

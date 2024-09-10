@@ -48,7 +48,6 @@ class LangfuseClient:
 
     def batch_post(self, **kwargs) -> httpx.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
-
         log = logging.getLogger("langfuse")
         log.debug("uploading data: %s", kwargs)
 
@@ -90,7 +89,6 @@ class LangfuseClient:
                 try:
                     return res.json()
                 except json.JSONDecodeError:
-                    log.error("Response is not valid JSON.")
                     raise APIError(res.status_code, "Invalid JSON response received")
             else:
                 return res
@@ -112,11 +110,10 @@ class LangfuseClient:
                 else:
                     return res.json() if return_json else res
             except json.JSONDecodeError:
-                log.error("Response is not valid JSON.")
                 raise APIError(res.status_code, "Invalid JSON response received")
+
         try:
             payload = res.json()
-            log.error("received error response: %s", payload)
             raise APIError(res.status_code, payload)
         except (KeyError, ValueError):
             raise APIError(res.status_code, res.text)
