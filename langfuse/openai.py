@@ -417,16 +417,30 @@ def _extract_streamed_openai_response(resource, chunks):
                     )
 
                     if not curr:
-                        completion["tool_calls"] = {
-                            "name": getattr(tool_call_chunk, "name", ""),
-                            "arguments": getattr(tool_call_chunk, "arguments", ""),
-                        }
+                        completion["tool_calls"] = [
+                            {
+                                "name": getattr(tool_call_chunk, "name", ""),
+                                "arguments": getattr(tool_call_chunk, "arguments", ""),
+                            }
+                        ]
+
+                    elif getattr(tool_call_chunk, "name", None) is not None:
+                        curr.append(
+                            {
+                                "name": getattr(tool_call_chunk, "name", None),
+                                "arguments": getattr(
+                                    tool_call_chunk, "arguments", None
+                                ),
+                            }
+                        )
 
                     else:
-                        curr["name"] = curr["name"] or getattr(
+                        curr[-1]["name"] = curr[-1]["name"] or getattr(
                             tool_call_chunk, "name", None
                         )
-                        curr["arguments"] += getattr(tool_call_chunk, "arguments", None)
+                        curr[-1]["arguments"] += getattr(
+                            tool_call_chunk, "arguments", None
+                        )
 
             if resource.type == "completion":
                 completion += choice.get("text", None)
@@ -445,7 +459,10 @@ def _extract_streamed_openai_response(resource, chunks):
                 completion["tool_calls"]
                 and {
                     "role": "assistant",
-                    "tool_calls": [{"function": completion["tool_calls"]}],
+                    # "tool_calls": [{"function": completion["tool_calls"]}],
+                    "tool_calls": [
+                        {"function": data} for data in completion["tool_calls"]
+                    ],
                 }
             )
             or None
