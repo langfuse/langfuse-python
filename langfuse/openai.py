@@ -743,6 +743,9 @@ class LangfuseResponseGeneratorSync:
             item = self.response.__next__()
             self.items.append(item)
 
+            if self.completion_start_time is None:
+                self.completion_start_time = _get_timestamp()
+
             return item
 
         except StopIteration:
@@ -803,6 +806,9 @@ class LangfuseResponseGeneratorAsync:
         try:
             item = await self.response.__anext__()
             self.items.append(item)
+
+            if self.completion_start_time is None:
+                self.completion_start_time = _get_timestamp()
 
             return item
 
