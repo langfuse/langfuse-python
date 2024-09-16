@@ -31,6 +31,7 @@ from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
+from langchain_core.output_parsers import StrOutputParser
 
 
 def test_callback_init():
@@ -1763,68 +1764,246 @@ def test_disabled_langfuse():
         api.trace.get(trace_id)
 
 
-# # Enable this test when the ChatBedrock is available in CI
-# def test_chat_bedrock():
-#     handler = CallbackHandler(debug=True)
+def test_link_langfuse_prompts_invoke():
+    langfuse = Langfuse()
+    trace_name = "test_link_langfuse_prompts_invoke"
 
-#     llm = ChatBedrock(
-#         model_id="anthropic.claude-3-sonnet-20240229-v1:0",
-#         # model_id="amazon.titan-text-lite-v1",
-#         region_name="eu-central-1",
-#         callbacks=[handler],
-#     )
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
 
-#     messages = [
-#         (
-#             "system",
-#             "You are a expert software engineer.",
-#         ),
-#         ("human", "Give me fizzbuzz algo in C++"),
-#     ]
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
 
-#     ai_msg = llm.stream("Give me fizzbuzz algo in C++")
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
 
-#     for chunk in ai_msg:
-#         print(chunk)
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
+
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
+
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
+
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
+
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler(debug=True)
+
+    output = chain.invoke(
+        {"animal": "dog"},
+        config={
+            "callbacks": [langfuse_handler],
+            "run_name": trace_name,
+        },
+    )
+
+    langfuse_handler.flush()
+
+    observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+
+    generations = sorted(
+        list(filter(lambda x: x.type == "GENERATION", observations)),
+        key=lambda x: x.start_time,
+    )
+
+    assert len(generations) == 2
+    assert generations[0].input == "Tell me a joke involving the animal dog"
+    assert "Explain the joke to me like I'm a 5 year old" in generations[1].input
+
+    assert generations[0].prompt_name == joke_prompt_name
+    assert generations[1].prompt_name == explain_prompt_name
+
+    assert generations[0].prompt_version == langfuse_joke_prompt.version
+    assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+    assert generations[1].output == output.strip()
 
 
-# def test_langchain_anthropic_package():
-#     langfuse_handler = CallbackHandler(debug=False)
-#     from langchain_anthropic import ChatAnthropic
+def test_link_langfuse_prompts_stream():
+    langfuse = Langfuse()
+    trace_name = "test_link_langfuse_prompts_stream"
 
-#     chat = ChatAnthropic(
-#         model="claude-3-sonnet-20240229",
-#         temperature=0.1,
-#     )
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
 
-#     system = "You are a helpful assistant that translates {input_language} to {output_language}."
-#     human = "{text}"
-#     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
 
-#     chain = prompt | chat
-#     chain.invoke(
-#         {
-#             "input_language": "English",
-#             "output_language": "Korean",
-#             "text": "I love Python",
-#         },
-#         config={"callbacks": [langfuse_handler]},
-#     )
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
 
-#     langfuse_handler.flush()
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
 
-#     observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
 
-#     assert len(observations) == 3
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
 
-#     generation = list(filter(lambda x: x.type == "GENERATION", observations))[0]
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
 
-#     assert generation.output is not None
-#     assert generation.output != ""
-#     assert generation.input is not None
-#     assert generation.input != ""
-#     assert generation.usage is not None
-#     assert generation.usage.input is not None
-#     assert generation.usage.output is not None
-#     assert generation.usage.total is not None
-#     assert generation.model == "claude-3-sonnet-20240229"
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler(debug=True)
+
+    stream = chain.stream(
+        {"animal": "dog"},
+        config={
+            "callbacks": [langfuse_handler],
+            "run_name": trace_name,
+        },
+    )
+
+    output = ""
+    for chunk in stream:
+        output += chunk
+
+    langfuse_handler.flush()
+
+    observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+
+    generations = sorted(
+        list(filter(lambda x: x.type == "GENERATION", observations)),
+        key=lambda x: x.start_time,
+    )
+
+    assert len(generations) == 2
+    assert generations[0].input == "Tell me a joke involving the animal dog"
+    assert "Explain the joke to me like I'm a 5 year old" in generations[1].input
+
+    assert generations[0].prompt_name == joke_prompt_name
+    assert generations[1].prompt_name == explain_prompt_name
+
+    assert generations[0].prompt_version == langfuse_joke_prompt.version
+    assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+    assert generations[1].output == output.strip()
+
+
+def test_link_langfuse_prompts_batch():
+    langfuse = Langfuse()
+    trace_name = "test_link_langfuse_prompts_batch_" + create_uuid()[:8]
+
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
+
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
+
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
+
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
+
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
+
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
+
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
+
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler(debug=True)
+
+    chain.batch(
+        [{"animal": "dog"}, {"animal": "cat"}, {"animal": "elephant"}],
+        config={
+            "callbacks": [langfuse_handler],
+            "run_name": trace_name,
+        },
+    )
+
+    langfuse_handler.flush()
+
+    traces = get_api().trace.list(name=trace_name).data
+
+    assert len(traces) == 3
+
+    for trace in traces:
+        observations = get_api().trace.get(trace.id).observations
+
+        generations = sorted(
+            list(filter(lambda x: x.type == "GENERATION", observations)),
+            key=lambda x: x.start_time,
+        )
+
+        assert len(generations) == 2
+
+        assert generations[0].prompt_name == joke_prompt_name
+        assert generations[1].prompt_name == explain_prompt_name
+
+        assert generations[0].prompt_version == langfuse_joke_prompt.version
+        assert generations[1].prompt_version == langfuse_explain_prompt.version
