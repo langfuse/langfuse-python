@@ -228,7 +228,12 @@ class LangchainCallbackHandler(
     def _register_langfuse_prompt(
         self, parent_run_id: Optional[UUID], metadata: Optional[Dict[str, Any]]
     ):
-        if metadata and "langfuse_prompt" in metadata:
+        """We need to register any passed Langfuse prompt to the parent_run_id so that we can link following generations with that prompt.
+
+        If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
+        Otherwise it would have been traced in with a parent run consisting of the prompt template formatting and the LLM invocation.
+        """
+        if metadata and "langfuse_prompt" in metadata and parent_run_id:
             self.prompt_to_parent_run_map[parent_run_id] = metadata["langfuse_prompt"]
 
     def _deregister_langfuse_prompt(self, run_id: Optional[UUID]):
