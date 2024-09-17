@@ -108,6 +108,7 @@ class LangchainCallbackHandler(
         )
 
         self.runs = {}
+        self.prompt_to_parent_run_map = {}
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs[stateful_client.id] = stateful_client
@@ -203,6 +204,7 @@ class LangchainCallbackHandler(
                 version=self.version,
                 **kwargs,
             )
+            self._register_langfuse_prompt(parent_run_id, metadata)
 
             content = {
                 "id": self.next_span_id,
@@ -222,6 +224,21 @@ class LangchainCallbackHandler(
 
         except Exception as e:
             self.log.exception(e)
+
+    def _register_langfuse_prompt(
+        self, parent_run_id: Optional[UUID], metadata: Optional[Dict[str, Any]]
+    ):
+        """We need to register any passed Langfuse prompt to the parent_run_id so that we can link following generations with that prompt.
+
+        If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
+        Otherwise it would have been traced in with a parent run consisting of the prompt template formatting and the LLM invocation.
+        """
+        if metadata and "langfuse_prompt" in metadata and parent_run_id:
+            self.prompt_to_parent_run_map[parent_run_id] = metadata["langfuse_prompt"]
+
+    def _deregister_langfuse_prompt(self, run_id: Optional[UUID]):
+        if run_id in self.prompt_to_parent_run_map:
+            del self.prompt_to_parent_run_map[run_id]
 
     def __generate_trace_and_parent(
         self,
@@ -384,6 +401,7 @@ class LangchainCallbackHandler(
             self._update_trace_and_remove_state(
                 run_id, parent_run_id, outputs, input=kwargs.get("inputs")
             )
+            self._deregister_langfuse_prompt(run_id)
         except Exception as e:
             self.log.exception(e)
 
@@ -635,6 +653,10 @@ class LangchainCallbackHandler(
             model_name = None
 
             model_name = self._parse_model_and_log_errors(serialized, kwargs)
+            registered_prompt = self.prompt_to_parent_run_map.get(parent_run_id, None)
+
+            if registered_prompt:
+                self._deregister_langfuse_prompt(parent_run_id)
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
@@ -643,6 +665,7 @@ class LangchainCallbackHandler(
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
                 "version": self.version,
+                "prompt": registered_prompt,
             }
 
             if parent_run_id in self.runs:
@@ -794,7 +817,7 @@ class LangchainCallbackHandler(
             final_dict.update(metadata)
         if trace_metadata is not None:
             final_dict.update(trace_metadata)
-        return final_dict if final_dict != {} else None
+        return _strip_langfuse_keys_from_dict(final_dict) if final_dict != {} else None
 
     def _report_error(self, error: dict):
         event = SdkLogBody(log=error)
@@ -1008,3 +1031,16 @@ def _parse_model(response: LLMResult):
                 break
 
     return llm_model
+
+
+def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]):
+    if metadata is None or not isinstance(metadata, dict):
+        return metadata
+
+    langfuse_keys = ["langfuse_prompt"]
+    metadata_copy = metadata.copy()
+
+    for key in langfuse_keys:
+        metadata_copy.pop(key, None)
+
+    return metadata_copy
