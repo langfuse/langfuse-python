@@ -333,7 +333,9 @@ class LangfuseDecorator:
                     "Ignoring langfuse_parent_observation_id as langfuse_parent_trace_id is not set."
                 )
 
-            elif provided_parent_observation_id:
+            elif provided_parent_observation_id and (
+                provided_parent_observation_id != provided_parent_trace_id
+            ):
                 parent = StatefulSpanClient(
                     id=provided_parent_observation_id,
                     trace_id=provided_parent_trace_id,
