@@ -1267,3 +1267,133 @@ def test_update_trace_io():
     assert level_3_observation.calculated_total_cost > 0
     assert level_3_observation.output == "mock_output"
     assert level_3_observation.version == "version-1"
+
+
+def test_parent_trace_id():
+    # Create a parent trace
+    parent_trace_id = create_uuid()
+    observation_id = create_uuid()
+    trace_name = "test_parent_trace_id"
+
+    langfuse = langfuse_context.client_instance
+    langfuse.trace(id=parent_trace_id, name=trace_name)
+
+    @observe()
+    def decorated_function():
+        return "decorated_function"
+
+    decorated_function(
+        langfuse_parent_trace_id=parent_trace_id, langfuse_observation_id=observation_id
+    )
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(parent_trace_id)
+
+    assert trace_data.id == parent_trace_id
+    assert trace_data.name == trace_name
+
+    assert len(trace_data.observations) == 1
+    assert trace_data.observations[0].id == observation_id
+
+
+def test_parent_observation_id():
+    parent_trace_id = create_uuid()
+    parent_span_id = create_uuid()
+    observation_id = create_uuid()
+    trace_name = "test_parent_observation_id"
+    mock_metadata = {"key": "value"}
+
+    langfuse = langfuse_context.client_instance
+    trace = langfuse.trace(id=parent_trace_id, name=trace_name)
+    trace.span(id=parent_span_id, name="parent_span")
+
+    @observe()
+    def decorated_function():
+        langfuse_context.update_current_trace(metadata=mock_metadata)
+        langfuse_context.score_current_trace(value=1, name="score_name")
+
+        return "decorated_function"
+
+    decorated_function(
+        langfuse_parent_trace_id=parent_trace_id,
+        langfuse_parent_observation_id=parent_span_id,
+        langfuse_observation_id=observation_id,
+    )
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(parent_trace_id)
+
+    assert trace_data.id == parent_trace_id
+    assert trace_data.name == trace_name
+    assert trace_data.metadata == mock_metadata
+    assert trace_data.scores[0].name == "score_name"
+    assert trace_data.scores[0].value == 1
+
+    assert len(trace_data.observations) == 2
+
+    parent_span = next(
+        (o for o in trace_data.observations if o.id == parent_span_id), None
+    )
+    assert parent_span is not None
+    assert parent_span.parent_observation_id is None
+
+    execution_span = next(
+        (o for o in trace_data.observations if o.id == observation_id), None
+    )
+    assert execution_span is not None
+    assert execution_span.parent_observation_id == parent_span_id
+
+
+def test_ignore_parent_observation_id_if_parent_trace_id_is_not_set():
+    parent_trace_id = create_uuid()
+    parent_span_id = create_uuid()
+    observation_id = create_uuid()
+    trace_name = "test_parent_observation_id"
+
+    langfuse = langfuse_context.client_instance
+    trace = langfuse.trace(id=parent_trace_id, name=trace_name)
+    trace.span(id=parent_span_id, name="parent_span")
+
+    @observe()
+    def decorated_function():
+        return "decorated_function"
+
+    decorated_function(
+        langfuse_parent_observation_id=parent_span_id,
+        langfuse_observation_id=observation_id,
+        # No parent trace id set
+    )
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(observation_id)
+
+    assert trace_data.id == observation_id
+    assert trace_data.name == "decorated_function"
+
+    assert len(trace_data.observations) == 0
+
+
+def test_top_level_generation():
+    mock_trace_id = create_uuid()
+    mock_output = "Hello, World!"
+
+    @observe(as_type="generation")
+    def main():
+        langfuse_context.update_current_trace(name="updated_name")
+
+        return mock_output
+
+    main(langfuse_observation_id=mock_trace_id)
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert trace_data.name == "updated_name"
+
+    assert len(trace_data.observations) == 1
+    assert trace_data.observations[0].name == "main"
+    assert trace_data.observations[0].type == "GENERATION"
+    assert trace_data.observations[0].output == mock_output
