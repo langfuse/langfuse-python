@@ -1397,3 +1397,63 @@ def test_top_level_generation():
     assert trace_data.observations[0].name == "main"
     assert trace_data.observations[0].type == "GENERATION"
     assert trace_data.observations[0].output == mock_output
+
+
+def test_threadpool_executor():
+    mock_trace_id = create_uuid()
+    mock_parent_observation_id = create_uuid()
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from langfuse.decorators import langfuse_context, observe
+
+    @observe()
+    def execute_task(*args):
+        return args
+
+    @observe()
+    def execute_groups(task_args):
+        trace_id = langfuse_context.get_current_trace_id()
+        observation_id = langfuse_context.get_current_observation_id()
+
+        with ThreadPoolExecutor(3) as executor:
+            futures = [
+                executor.submit(
+                    execute_task,
+                    *task_arg,
+                    langfuse_parent_trace_id=trace_id,
+                    langfuse_parent_observation_id=observation_id,
+                )
+                for task_arg in task_args
+            ]
+
+            for future in as_completed(futures):
+                future.result()
+
+        return [f.result() for f in futures]
+
+    @observe()
+    def main():
+        task_args = [["a", "b"], ["c", "d"]]
+
+        execute_groups(task_args, langfuse_observation_id=mock_parent_observation_id)
+
+    main(langfuse_observation_id=mock_trace_id)
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert len(trace_data.observations) == 3
+
+    parent_observation = next(
+        (o for o in trace_data.observations if o.id == mock_parent_observation_id), None
+    )
+
+    assert parent_observation is not None
+
+    child_observations = [
+        o
+        for o in trace_data.observations
+        if o.parent_observation_id == mock_parent_observation_id
+    ]
+    assert len(child_observations) == 2
