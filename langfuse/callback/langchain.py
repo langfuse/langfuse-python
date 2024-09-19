@@ -204,7 +204,9 @@ class LangchainCallbackHandler(
                 version=self.version,
                 **kwargs,
             )
-            self._register_langfuse_prompt(parent_run_id, metadata)
+            self._register_langfuse_prompt(
+                run_id=run_id, parent_run_id=parent_run_id, metadata=metadata
+            )
 
             content = {
                 "id": self.next_span_id,
@@ -226,15 +228,30 @@ class LangchainCallbackHandler(
             self.log.exception(e)
 
     def _register_langfuse_prompt(
-        self, parent_run_id: Optional[UUID], metadata: Optional[Dict[str, Any]]
+        self,
+        *,
+        run_id,
+        parent_run_id: Optional[UUID],
+        metadata: Optional[Dict[str, Any]],
     ):
         """We need to register any passed Langfuse prompt to the parent_run_id so that we can link following generations with that prompt.
 
         If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
         Otherwise it would have been traced in with a parent run consisting of the prompt template formatting and the LLM invocation.
         """
-        if metadata and "langfuse_prompt" in metadata and parent_run_id:
-            self.prompt_to_parent_run_map[parent_run_id] = metadata["langfuse_prompt"]
+        if not parent_run_id:
+            return
+
+        langfuse_prompt = metadata and metadata.get("langfuse_prompt", None)
+
+        if langfuse_prompt:
+            self.prompt_to_parent_run_map[parent_run_id] = langfuse_prompt
+
+        # If we have a registered prompt that has not been linked to a generation yet, we need to allow _children_ of that chain to link to it.
+        # Otherwise, we only allow generations on the same level of the prompt rendering to be linked, not if they are nested.
+        elif parent_run_id in self.prompt_to_parent_run_map:
+            registered_prompt = self.prompt_to_parent_run_map[parent_run_id]
+            self.prompt_to_parent_run_map[run_id] = registered_prompt
 
     def _deregister_langfuse_prompt(self, run_id: Optional[UUID]):
         if run_id in self.prompt_to_parent_run_map:
