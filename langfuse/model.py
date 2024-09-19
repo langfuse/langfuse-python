@@ -146,16 +146,26 @@ class TextPromptClient(BasePromptClient):
 
         return False
 
-    def get_langchain_prompt(self):
+    def get_langchain_prompt(self, **kwargs) -> str:
         """Convert Langfuse prompt into string compatible with Langchain PromptTemplate.
 
-        It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
+        This method adapts the mustache-style double curly braces {{variable}} used in Langfuse
         to the single curly brace {variable} format expected by Langchain.
+
+        kwargs: Optional keyword arguments to precompile the template string. Variables that match
+                the provided keyword arguments will be precompiled. Remaining variables must then be
+                handled by Langchain's prompt template.
 
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        return self._get_langchain_prompt_string(self.prompt)
+        prompt = (
+            self._compile_template_string(self.prompt, kwargs)
+            if kwargs
+            else self.prompt
+        )
+
+        return self._get_langchain_prompt_string(prompt)
 
 
 class ChatPromptClient(BasePromptClient):
@@ -188,17 +198,28 @@ class ChatPromptClient(BasePromptClient):
 
         return False
 
-    def get_langchain_prompt(self):
+    def get_langchain_prompt(self, **kwargs):
         """Convert Langfuse prompt into string compatible with Langchain ChatPromptTemplate.
 
         It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
         to the single curly brace {variable} format expected by Langchain.
 
+        kwargs: Optional keyword arguments to precompile the template string. Variables that match
+                the provided keyword arguments will be precompiled. Remaining variables must then be
+                handled by Langchain's prompt template.
+
         Returns:
             List of messages in the format expected by Langchain's ChatPromptTemplate: (role, content) tuple.
         """
         return [
-            (msg["role"], self._get_langchain_prompt_string(msg["content"]))
+            (
+                msg["role"],
+                self._get_langchain_prompt_string(
+                    self._compile_template_string(msg["content"], kwargs)
+                    if kwargs
+                    else msg["content"]
+                ),
+            )
             for msg in self.prompt
         ]
 

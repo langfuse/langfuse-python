@@ -2007,3 +2007,57 @@ def test_link_langfuse_prompts_batch():
 
         assert generations[0].prompt_version == langfuse_joke_prompt.version
         assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+
+def test_get_langchain_text_prompt_with_precompiled_prompt():
+    langfuse = Langfuse()
+
+    prompt_name = "test_precompiled_langchain_prompt"
+    test_prompt = (
+        "This is a {{pre_compiled_var}}. This is a langchain {{langchain_var}}"
+    )
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt=test_prompt,
+        labels=["production"],
+    )
+
+    langfuse_prompt = langfuse.get_prompt(prompt_name)
+    langchain_prompt = PromptTemplate.from_template(
+        langfuse_prompt.get_langchain_prompt(pre_compiled_var="dog")
+    )
+
+    assert (
+        langchain_prompt.format(langchain_var="chain")
+        == "This is a dog. This is a langchain chain"
+    )
+
+
+def test_get_langchain_chat_prompt_with_precompiled_prompt():
+    langfuse = Langfuse()
+
+    prompt_name = "test_precompiled_langchain_chat_prompt"
+    test_prompt = [
+        {"role": "system", "content": "This is a {{pre_compiled_var}}."},
+        {"role": "user", "content": "This is a langchain {{langchain_var}}."},
+    ]
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt=test_prompt,
+        type="chat",
+        labels=["production"],
+    )
+
+    langfuse_prompt = langfuse.get_prompt(prompt_name, type="chat")
+    langchain_prompt = ChatPromptTemplate.from_messages(
+        langfuse_prompt.get_langchain_prompt(pre_compiled_var="dog")
+    )
+
+    system_message, user_message = langchain_prompt.format_messages(
+        langchain_var="chain"
+    )
+
+    assert system_message.content == "This is a dog."
+    assert user_message.content == "This is a langchain chain."
