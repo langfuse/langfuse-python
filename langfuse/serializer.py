@@ -147,7 +147,4 @@ class EventSerializer(JSONEncoder):
         max_safe_int = 2**53 - 1
         min_safe_int = -(2**53) + 1
 
-        check = min_safe_int <= value <= max_safe_int
-        print(f"🚨 Value {value} is within safe integer range: {check}")
-
         return min_safe_int <= value <= max_safe_int and value == int(value)
