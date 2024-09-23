@@ -5,7 +5,7 @@ from datetime import date, datetime
 from dataclasses import is_dataclass, asdict
 import enum
 from json import JSONEncoder
-from typing import Any
+from typing import Any, Union
 from uuid import UUID
 from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
@@ -81,8 +81,14 @@ class EventSerializer(JSONEncoder):
             if Serializable is not None and isinstance(obj, Serializable):
                 return obj.to_json()
 
+            # 64-bit integers might overflow the JavaScript safe integer range.
+            # Since Node.js is run on the server that handles the serialized value,
+            # we need to ensure that integers outside the safe range are converted to strings.
+            if isinstance(obj, (int, float)):
+                return obj if self.is_js_safe_integer(obj) else str(obj)
+
             # Standard JSON-encodable types
-            if isinstance(obj, (str, int, float, type(None))):
+            if isinstance(obj, (str, type(None))):
                 return obj
 
             if isinstance(obj, (tuple, set, frozenset)):
@@ -127,6 +133,21 @@ class EventSerializer(JSONEncoder):
         self.seen.clear()  # Clear seen objects before each encode call
 
         try:
-            return super().encode(obj)
+            return super().encode(self.default(obj))
         except Exception:
             return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
+
+    @staticmethod
+    def is_js_safe_integer(value: Union[int, float]) -> bool:
+        """Ensure the value is within JavaScript's safe range for integers.
+
+        Python's 64-bit integers can exceed this range, necessitating this check.
+        https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
+        """
+        max_safe_int = 2**53 - 1
+        min_safe_int = -(2**53) + 1
+
+        check = min_safe_int <= value <= max_safe_int
+        print(f"🚨 Value {value} is within safe integer range: {check}")
+
+        return min_safe_int <= value <= max_safe_int and value == int(value)
