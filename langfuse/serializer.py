@@ -20,6 +20,12 @@ except ImportError:
     # If Serializable is not available, set it to NoneType
     Serializable = type(None)
 
+# Attempt to import numpy
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 
 class EventSerializer(JSONEncoder):
     def __init__(self, *args, **kwargs):
@@ -31,6 +37,11 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
                 return serialize_datetime(obj)
+
+            # Check if numpy is available and if the object is a numpy scalar
+            # If so, convert it to a Python scalar using the item() method
+            if np is not None and isinstance(obj, np.generic):
+                return obj.item()
 
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
