@@ -546,7 +546,8 @@ class LlamaIndexCallbackHandler(
         ],
         trace_id: str,
     ) -> StatefulSpanClient:
-        start_event, end_event = self.event_map[event_id]
+        events = self.event_map[event_id]
+        start_event, end_event = events[0], events[-1]
 
         extracted_input = self._parse_input_from_event(start_event)
         extracted_output = self._parse_output_from_event(end_event)
