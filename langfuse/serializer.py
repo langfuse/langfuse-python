@@ -5,7 +5,7 @@ from datetime import date, datetime
 from dataclasses import is_dataclass, asdict
 import enum
 from json import JSONEncoder
-from typing import Any, Union
+from typing import Any
 from uuid import UUID
 from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
@@ -84,11 +84,11 @@ class EventSerializer(JSONEncoder):
             # 64-bit integers might overflow the JavaScript safe integer range.
             # Since Node.js is run on the server that handles the serialized value,
             # we need to ensure that integers outside the safe range are converted to strings.
-            if isinstance(obj, (int, float)):
+            if isinstance(obj, (int)):
                 return obj if self.is_js_safe_integer(obj) else str(obj)
 
             # Standard JSON-encodable types
-            if isinstance(obj, (str, type(None))):
+            if isinstance(obj, (str, float, type(None))):
                 return obj
 
             if isinstance(obj, (tuple, set, frozenset)):
@@ -138,7 +138,7 @@ class EventSerializer(JSONEncoder):
             return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
 
     @staticmethod
-    def is_js_safe_integer(value: Union[int, float]) -> bool:
+    def is_js_safe_integer(value: int) -> bool:
         """Ensure the value is within JavaScript's safe range for integers.
 
         Python's 64-bit integers can exceed this range, necessitating this check.
@@ -147,4 +147,4 @@ class EventSerializer(JSONEncoder):
         max_safe_int = 2**53 - 1
         min_safe_int = -(2**53) + 1
 
-        return min_safe_int <= value <= max_safe_int and value == int(value)
+        return min_safe_int <= value <= max_safe_int
