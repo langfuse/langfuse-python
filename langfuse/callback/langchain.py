@@ -556,17 +556,38 @@ class LangchainCallbackHandler(
             self._log_debug_event(
                 "on_retriever_start", run_id, parent_run_id, query=query
             )
-            if parent_run_id is None or parent_run_id not in self.runs:
-                raise Exception("parent run not found")
-
-            self.runs[run_id] = self.runs[parent_run_id].span(
-                id=self.next_span_id,
-                name=self.get_langchain_run_name(serialized, **kwargs),
-                input=query,
-                metadata=self.__join_tags_and_metadata(tags, metadata),
-                version=self.version,
-            )
-            self.next_span_id = None
+            if parent_run_id is None:
+                self.__generate_trace_and_parent(
+                    serialized=serialized,
+                    inputs=query,
+                    run_id=run_id,
+                    parent_run_id=parent_run_id,
+                    tags=tags,
+                    metadata=metadata,
+                    version=self.version,
+                    **kwargs,
+                )
+                content = {
+                    "id": self.next_span_id,
+                    "trace_id": self.trace.id,
+                    "name": self.get_langchain_run_name(serialized, **kwargs),
+                    "metadata": self.__join_tags_and_metadata(tags, metadata),
+                    "input": query,
+                    "version": self.version,
+                }
+                if self.root_span is None:
+                    self.runs[run_id] = self.trace.span(**content)
+                else:
+                    self.runs[run_id] = self.root_span.span(**content)
+            else:
+                self.runs[run_id] = self.runs[parent_run_id].span(
+                    id=self.next_span_id,
+                    name=self.get_langchain_run_name(serialized, **kwargs),
+                    input=query,
+                    metadata=self.__join_tags_and_metadata(tags, metadata),
+                    version=self.version,
+                )
+                self.next_span_id = None
         except Exception as e:
             self.log.exception(e)
 
