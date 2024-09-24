@@ -20,6 +20,12 @@ except ImportError:
     # If Serializable is not available, set it to NoneType
     Serializable = type(None)
 
+# Attempt to import numpy
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 
 class EventSerializer(JSONEncoder):
     def __init__(self, *args, **kwargs):
@@ -31,6 +37,11 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
                 return serialize_datetime(obj)
+
+            # Check if numpy is available and if the object is a numpy scalar
+            # If so, convert it to a Python scalar using the item() method
+            if np is not None and isinstance(obj, np.generic):
+                return obj.item()
 
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
@@ -59,7 +70,9 @@ class EventSerializer(JSONEncoder):
                 return obj.isoformat()
 
             if isinstance(obj, BaseModel):
-                return obj.dict()
+                obj.model_rebuild()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
+
+                return obj.model_dump()
 
             if isinstance(obj, Path):
                 return str(obj)
@@ -68,8 +81,14 @@ class EventSerializer(JSONEncoder):
             if Serializable is not None and isinstance(obj, Serializable):
                 return obj.to_json()
 
+            # 64-bit integers might overflow the JavaScript safe integer range.
+            # Since Node.js is run on the server that handles the serialized value,
+            # we need to ensure that integers outside the safe range are converted to strings.
+            if isinstance(obj, (int)):
+                return obj if self.is_js_safe_integer(obj) else str(obj)
+
             # Standard JSON-encodable types
-            if isinstance(obj, (str, int, float, type(None))):
+            if isinstance(obj, (str, float, type(None))):
                 return obj
 
             if isinstance(obj, (tuple, set, frozenset)):
@@ -114,6 +133,18 @@ class EventSerializer(JSONEncoder):
         self.seen.clear()  # Clear seen objects before each encode call
 
         try:
-            return super().encode(obj)
+            return super().encode(self.default(obj))
         except Exception:
             return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
+
+    @staticmethod
+    def is_js_safe_integer(value: int) -> bool:
+        """Ensure the value is within JavaScript's safe range for integers.
+
+        Python's 64-bit integers can exceed this range, necessitating this check.
+        https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
+        """
+        max_safe_int = 2**53 - 1
+        min_safe_int = -(2**53) + 1
+
+        return min_safe_int <= value <= max_safe_int

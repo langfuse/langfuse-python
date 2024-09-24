@@ -18,6 +18,9 @@ class Sampler:
         if "type" in event and "body" in event:
             event_type = event["type"]
 
+            if event_type == "sdk-log":
+                return True
+
             trace_id = None
 
             if event_type == "trace-create" and "id" in event["body"]:
@@ -37,7 +40,7 @@ class Sampler:
             return True
 
     def deterministic_sample(self, trace_id: str, sample_rate: float):
-        """determins if an event should be sampled based on the trace_id and sample_rate. Event will be sent to server if True"""
+        """Determins if an event should be sampled based on the trace_id and sample_rate. Event will be sent to server if True"""
         log.debug(
             f"Applying deterministic sampling to trace_id: {trace_id} with rate {sample_rate}"
         )

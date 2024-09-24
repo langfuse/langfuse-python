@@ -108,6 +108,7 @@ class LangchainCallbackHandler(
         )
 
         self.runs = {}
+        self.prompt_to_parent_run_map = {}
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs[stateful_client.id] = stateful_client
@@ -203,6 +204,9 @@ class LangchainCallbackHandler(
                 version=self.version,
                 **kwargs,
             )
+            self._register_langfuse_prompt(
+                run_id=run_id, parent_run_id=parent_run_id, metadata=metadata
+            )
 
             content = {
                 "id": self.next_span_id,
@@ -222,6 +226,36 @@ class LangchainCallbackHandler(
 
         except Exception as e:
             self.log.exception(e)
+
+    def _register_langfuse_prompt(
+        self,
+        *,
+        run_id,
+        parent_run_id: Optional[UUID],
+        metadata: Optional[Dict[str, Any]],
+    ):
+        """We need to register any passed Langfuse prompt to the parent_run_id so that we can link following generations with that prompt.
+
+        If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
+        Otherwise it would have been traced in with a parent run consisting of the prompt template formatting and the LLM invocation.
+        """
+        if not parent_run_id:
+            return
+
+        langfuse_prompt = metadata and metadata.get("langfuse_prompt", None)
+
+        if langfuse_prompt:
+            self.prompt_to_parent_run_map[parent_run_id] = langfuse_prompt
+
+        # If we have a registered prompt that has not been linked to a generation yet, we need to allow _children_ of that chain to link to it.
+        # Otherwise, we only allow generations on the same level of the prompt rendering to be linked, not if they are nested.
+        elif parent_run_id in self.prompt_to_parent_run_map:
+            registered_prompt = self.prompt_to_parent_run_map[parent_run_id]
+            self.prompt_to_parent_run_map[run_id] = registered_prompt
+
+    def _deregister_langfuse_prompt(self, run_id: Optional[UUID]):
+        if run_id in self.prompt_to_parent_run_map:
+            del self.prompt_to_parent_run_map[run_id]
 
     def __generate_trace_and_parent(
         self,
@@ -384,6 +418,7 @@ class LangchainCallbackHandler(
             self._update_trace_and_remove_state(
                 run_id, parent_run_id, outputs, input=kwargs.get("inputs")
             )
+            self._deregister_langfuse_prompt(run_id)
         except Exception as e:
             self.log.exception(e)
 
@@ -635,31 +670,19 @@ class LangchainCallbackHandler(
             model_name = None
 
             model_name = self._parse_model_and_log_errors(serialized, kwargs)
+            registered_prompt = self.prompt_to_parent_run_map.get(parent_run_id, None)
+
+            if registered_prompt:
+                self._deregister_langfuse_prompt(parent_run_id)
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "model": model_name,
-                "model_parameters": {
-                    key: value
-                    for key, value in {
-                        "temperature": kwargs["invocation_params"].get("temperature"),
-                        "max_tokens": kwargs["invocation_params"].get("max_tokens"),
-                        "top_p": kwargs["invocation_params"].get("top_p"),
-                        "frequency_penalty": kwargs["invocation_params"].get(
-                            "frequency_penalty"
-                        ),
-                        "presence_penalty": kwargs["invocation_params"].get(
-                            "presence_penalty"
-                        ),
-                        "request_timeout": kwargs["invocation_params"].get(
-                            "request_timeout"
-                        ),
-                    }.items()
-                    if value is not None
-                },
+                "model_parameters": self._parse_model_parameters(kwargs),
                 "version": self.version,
+                "prompt": registered_prompt,
             }
 
             if parent_run_id in self.runs:
@@ -671,6 +694,36 @@ class LangchainCallbackHandler(
 
         except Exception as e:
             self.log.exception(e)
+
+    @staticmethod
+    def _parse_model_parameters(kwargs):
+        """Parse the model parameters from the kwargs."""
+        if kwargs["invocation_params"].get("_type") == "IBM watsonx.ai" and kwargs[
+            "invocation_params"
+        ].get("params"):
+            kwargs["invocation_params"] = {
+                **kwargs["invocation_params"],
+                **kwargs["invocation_params"]["params"],
+            }
+            del kwargs["invocation_params"]["params"]
+        return {
+            key: value
+            for key, value in {
+                "temperature": kwargs["invocation_params"].get("temperature"),
+                "max_tokens": kwargs["invocation_params"].get("max_tokens"),
+                "top_p": kwargs["invocation_params"].get("top_p"),
+                "frequency_penalty": kwargs["invocation_params"].get(
+                    "frequency_penalty"
+                ),
+                "presence_penalty": kwargs["invocation_params"].get("presence_penalty"),
+                "request_timeout": kwargs["invocation_params"].get("request_timeout"),
+                "decoding_method": kwargs["invocation_params"].get("decoding_method"),
+                "min_new_tokens": kwargs["invocation_params"].get("min_new_tokens"),
+                "max_new_tokens": kwargs["invocation_params"].get("max_new_tokens"),
+                "stop_sequences": kwargs["invocation_params"].get("stop_sequences"),
+            }.items()
+            if value is not None
+        }
 
     def _parse_model_and_log_errors(self, serialized, kwargs):
         """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
@@ -781,7 +834,7 @@ class LangchainCallbackHandler(
             final_dict.update(metadata)
         if trace_metadata is not None:
             final_dict.update(trace_metadata)
-        return final_dict if final_dict != {} else None
+        return _strip_langfuse_keys_from_dict(final_dict) if final_dict != {} else None
 
     def _report_error(self, error: dict):
         event = SdkLogBody(log=error)
@@ -823,6 +876,14 @@ class LangchainCallbackHandler(
                 self.root_span = self.root_span.update(output=output, **kwargs)
             else:
                 self.trace = self.trace.update(output=output, **kwargs)
+
+        elif parent_run_id is None and self.langfuse is not None:
+            """
+            For batch runs, self.trace.id == str(run_id) only for the last run
+            For the rest of the runs, the trace must be manually updated
+            The check for self.langfuse ensures that no stateful client was provided by the user
+            """
+            self.langfuse.trace(id=str(run_id)).update(output=output, **kwargs)
 
         if not keep_state:
             del self.runs[run_id]
@@ -911,6 +972,9 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-cw.html#runtime-cloudwatch-metrics
         ("inputTokenCount", "input"),
         ("outputTokenCount", "output"),
+        # langchain-ibm https://pypi.org/project/langchain-ibm/
+        ("input_token_count", "input"),
+        ("generated_token_count", "output"),
     ]
 
     usage_model = usage.copy()  # Copy all existing key-value pairs
@@ -953,15 +1017,19 @@ def _parse_usage(response: LLMResult):
                 response_metadata = getattr(message_chunk, "response_metadata", {})
 
                 chunk_usage = (
-                    response_metadata.get("usage", None)  # for Bedrock-Anthropic
-                    if isinstance(response_metadata, dict)
-                    else None
-                ) or (
-                    response_metadata.get(
-                        "amazon-bedrock-invocationMetrics", None
-                    )  # for Bedrock-Titan
-                    if isinstance(response_metadata, dict)
-                    else None
+                    (
+                        response_metadata.get("usage", None)  # for Bedrock-Anthropic
+                        if isinstance(response_metadata, dict)
+                        else None
+                    )
+                    or (
+                        response_metadata.get(
+                            "amazon-bedrock-invocationMetrics", None
+                        )  # for Bedrock-Titan
+                        if isinstance(response_metadata, dict)
+                        else None
+                    )
+                    or getattr(message_chunk, "usage_metadata", None)  # for Ollama
                 )
 
                 if chunk_usage:
@@ -982,3 +1050,16 @@ def _parse_model(response: LLMResult):
                 break
 
     return llm_model
+
+
+def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]):
+    if metadata is None or not isinstance(metadata, dict):
+        return metadata
+
+    langfuse_keys = ["langfuse_prompt"]
+    metadata_copy = metadata.copy()
+
+    for key in langfuse_keys:
+        metadata_copy.pop(key, None)
+
+    return metadata_copy

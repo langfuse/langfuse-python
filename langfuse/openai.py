@@ -367,18 +367,14 @@ def _create_langfuse_update(
 def _extract_streamed_openai_response(resource, chunks):
     completion = defaultdict(str) if resource.type == "chat" else ""
     model = None
-    completion_start_time = None
 
-    for index, i in enumerate(chunks):
-        if index == 0:
-            completion_start_time = _get_timestamp()
-
+    for chunk in chunks:
         if _is_openai_v1():
-            i = i.__dict__
+            chunk = chunk.__dict__
 
-        model = model or i.get("model", None) or None
+        model = model or chunk.get("model", None) or None
 
-        choices = i.get("choices", [])
+        choices = chunk.get("choices", [])
 
         for choice in choices:
             if _is_openai_v1():
@@ -421,16 +417,30 @@ def _extract_streamed_openai_response(resource, chunks):
                     )
 
                     if not curr:
-                        completion["tool_calls"] = {
-                            "name": getattr(tool_call_chunk, "name", ""),
-                            "arguments": getattr(tool_call_chunk, "arguments", ""),
-                        }
+                        completion["tool_calls"] = [
+                            {
+                                "name": getattr(tool_call_chunk, "name", ""),
+                                "arguments": getattr(tool_call_chunk, "arguments", ""),
+                            }
+                        ]
+
+                    elif getattr(tool_call_chunk, "name", None) is not None:
+                        curr.append(
+                            {
+                                "name": getattr(tool_call_chunk, "name", None),
+                                "arguments": getattr(
+                                    tool_call_chunk, "arguments", None
+                                ),
+                            }
+                        )
 
                     else:
-                        curr["name"] = curr["name"] or getattr(
+                        curr[-1]["name"] = curr[-1]["name"] or getattr(
                             tool_call_chunk, "name", None
                         )
-                        curr["arguments"] += getattr(tool_call_chunk, "arguments", None)
+                        curr[-1]["arguments"] += getattr(
+                            tool_call_chunk, "arguments", None
+                        )
 
             if resource.type == "completion":
                 completion += choice.get("text", None)
@@ -449,7 +459,10 @@ def _extract_streamed_openai_response(resource, chunks):
                 completion["tool_calls"]
                 and {
                     "role": "assistant",
-                    "tool_calls": [{"function": completion["tool_calls"]}],
+                    # "tool_calls": [{"function": completion["tool_calls"]}],
+                    "tool_calls": [
+                        {"function": data} for data in completion["tool_calls"]
+                    ],
                 }
             )
             or None
@@ -457,7 +470,6 @@ def _extract_streamed_openai_response(resource, chunks):
 
     return (
         model,
-        completion_start_time,
         get_response_for_chat() if resource.type == "chat" else completion,
     )
 
@@ -712,15 +724,34 @@ class LangfuseResponseGeneratorSync:
         self.generation = generation
         self.langfuse = langfuse
         self.is_nested_trace = is_nested_trace
+        self.completion_start_time = None
 
     def __iter__(self):
         try:
             for i in self.response:
                 self.items.append(i)
 
+                if self.completion_start_time is None:
+                    self.completion_start_time = _get_timestamp()
+
                 yield i
         finally:
             self._finalize()
+
+    def __next__(self):
+        try:
+            item = self.response.__next__()
+            self.items.append(item)
+
+            if self.completion_start_time is None:
+                self.completion_start_time = _get_timestamp()
+
+            return item
+
+        except StopIteration:
+            self._finalize()
+
+            raise
 
     def __enter__(self):
         return self.__iter__()
@@ -729,16 +760,14 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self):
-        model, completion_start_time, completion = _extract_streamed_openai_response(
-            self.resource, self.items
-        )
+        model, completion = _extract_streamed_openai_response(self.resource, self.items)
 
         # Avoiding the trace-update if trace-id is provided by user.
         if not self.is_nested_trace:
             self.langfuse.trace(id=self.generation.trace_id, output=completion)
 
         _create_langfuse_update(
-            completion, self.generation, completion_start_time, model=model
+            completion, self.generation, self.completion_start_time, model=model
         )
 
 
@@ -759,15 +788,34 @@ class LangfuseResponseGeneratorAsync:
         self.generation = generation
         self.langfuse = langfuse
         self.is_nested_trace = is_nested_trace
+        self.completion_start_time = None
 
     async def __aiter__(self):
         try:
             async for i in self.response:
                 self.items.append(i)
 
+                if self.completion_start_time is None:
+                    self.completion_start_time = _get_timestamp()
+
                 yield i
         finally:
             await self._finalize()
+
+    async def __anext__(self):
+        try:
+            item = await self.response.__anext__()
+            self.items.append(item)
+
+            if self.completion_start_time is None:
+                self.completion_start_time = _get_timestamp()
+
+            return item
+
+        except StopAsyncIteration:
+            await self._finalize()
+
+            raise
 
     async def __aenter__(self):
         return self.__aiter__()
@@ -776,14 +824,19 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self):
-        model, completion_start_time, completion = _extract_streamed_openai_response(
-            self.resource, self.items
-        )
+        model, completion = _extract_streamed_openai_response(self.resource, self.items)
 
         # Avoiding the trace-update if trace-id is provided by user.
         if not self.is_nested_trace:
             self.langfuse.trace(id=self.generation.trace_id, output=completion)
 
         _create_langfuse_update(
-            completion, self.generation, completion_start_time, model=model
+            completion, self.generation, self.completion_start_time, model=model
         )
+
+    async def close(self) -> None:
+        """Close the response and release the connection.
+
+        Automatically called if the response body is read to completion.
+        """
+        await self.response.close()

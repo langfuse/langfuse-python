@@ -87,12 +87,14 @@ def test_callback_from_query_engine():
         key=lambda o: o.start_time,
     )
     assert (
-        len(generations) == 2
+        len(generations) == 4
     )  # One generation event for embedding call of query, one for LLM call
 
-    embedding_generation, llm_generation = generations
-    assert validate_embedding_generation(embedding_generation)
-    assert validate_llm_generation(llm_generation)
+    embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
+    llm_generations = [g for g in generations if g.name == "OpenAI"]
+
+    assert all([validate_embedding_generation(g) for g in embedding_generations])
+    assert all([validate_llm_generation(g) for g in llm_generations])
 
 
 def test_callback_from_chat_engine():
@@ -113,7 +115,7 @@ def test_callback_from_chat_engine():
     embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
     llm_generations = [g for g in generations if g.name == "OpenAI"]
 
-    assert len(embedding_generations) == 1
+    assert len(embedding_generations) == 2
     assert len(llm_generations) > 0
 
     assert all([validate_embedding_generation(g) for g in embedding_generations])
@@ -141,7 +143,7 @@ def test_callback_from_query_engine_stream():
     embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
     llm_generations = [g for g in generations if g.name == "OpenAI"]
 
-    assert len(embedding_generations) == 1
+    assert len(embedding_generations) == 2
     assert len(llm_generations) > 0
 
     assert all([validate_embedding_generation(g) for g in embedding_generations])

@@ -14,7 +14,6 @@ def _extract_model_name(
     **kwargs: Any,
 ):
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
-
     # In this function we return on the first match, so the order of operations is important
 
     # First, extract known models where we know the model name aka id
@@ -28,11 +27,13 @@ def _extract_model_name(
         ("ChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
+        ("AzureChatOpenAI", ["invocation_params", "azure_deployment"], "kwargs"),
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
         ("BedrockChat", ["kwargs", "model_id"], "serialized"),
         ("Bedrock", ["kwargs", "model_id"], "serialized"),
         ("ChatBedrock", ["kwargs", "model_id"], "serialized"),
         ("LlamaCpp", ["invocation_params", "model_path"], "kwargs"),
+        ("WatsonxLLM", ["invocation_params", "model_id"], "kwargs"),
     ]
 
     for model_name, keys, select_from in models_by_id:

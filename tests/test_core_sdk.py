@@ -263,7 +263,7 @@ def test_create_update_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse(debug=True)
     api = get_api()
 
     timestamp = _get_timestamp()
