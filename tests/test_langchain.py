@@ -14,10 +14,9 @@ from langchain.chains import (
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.llms import OpenAI
+from langchain_openai import OpenAI, AzureChatOpenAI, ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import Document
@@ -1767,6 +1766,8 @@ def test_disabled_langfuse():
 def test_link_langfuse_prompts_invoke():
     langfuse = Langfuse()
     trace_name = "test_link_langfuse_prompts_invoke"
+    session_id = "session_" + create_uuid()[:8]
+    user_id = "user_" + create_uuid()[:8]
 
     # Create prompts
     joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
@@ -1819,12 +1820,23 @@ def test_link_langfuse_prompts_invoke():
         config={
             "callbacks": [langfuse_handler],
             "run_name": trace_name,
+            "tags": ["langchain-tag"],
+            "metadata": {
+                "langfuse_session_id": session_id,
+                "langfuse_user_id": user_id,
+            },
         },
     )
 
     langfuse_handler.flush()
 
-    observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+    trace = get_api().trace.get(langfuse_handler.get_trace_id())
+
+    assert trace.tags == ["langchain-tag"]
+    assert trace.session_id == session_id
+    assert trace.user_id == user_id
+
+    observations = trace.observations
 
     generations = sorted(
         list(filter(lambda x: x.type == "GENERATION", observations)),
@@ -1847,6 +1859,8 @@ def test_link_langfuse_prompts_invoke():
 def test_link_langfuse_prompts_stream():
     langfuse = Langfuse()
     trace_name = "test_link_langfuse_prompts_stream"
+    session_id = "session_" + create_uuid()[:8]
+    user_id = "user_" + create_uuid()[:8]
 
     # Create prompts
     joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
@@ -1899,6 +1913,11 @@ def test_link_langfuse_prompts_stream():
         config={
             "callbacks": [langfuse_handler],
             "run_name": trace_name,
+            "tags": ["langchain-tag"],
+            "metadata": {
+                "langfuse_session_id": session_id,
+                "langfuse_user_id": user_id,
+            },
         },
     )
 
@@ -1908,7 +1927,13 @@ def test_link_langfuse_prompts_stream():
 
     langfuse_handler.flush()
 
-    observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+    trace = get_api().trace.get(langfuse_handler.get_trace_id())
+
+    assert trace.tags == ["langchain-tag"]
+    assert trace.session_id == session_id
+    assert trace.user_id == user_id
+
+    observations = trace.observations
 
     generations = sorted(
         list(filter(lambda x: x.type == "GENERATION", observations)),
@@ -1931,6 +1956,8 @@ def test_link_langfuse_prompts_stream():
 def test_link_langfuse_prompts_batch():
     langfuse = Langfuse()
     trace_name = "test_link_langfuse_prompts_batch_" + create_uuid()[:8]
+    session_id = "session_" + create_uuid()[:8]
+    user_id = "user_" + create_uuid()[:8]
 
     # Create prompts
     joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
@@ -1983,6 +2010,11 @@ def test_link_langfuse_prompts_batch():
         config={
             "callbacks": [langfuse_handler],
             "run_name": trace_name,
+            "tags": ["langchain-tag"],
+            "metadata": {
+                "langfuse_session_id": session_id,
+                "langfuse_user_id": user_id,
+            },
         },
     )
 
@@ -1993,7 +2025,13 @@ def test_link_langfuse_prompts_batch():
     assert len(traces) == 3
 
     for trace in traces:
-        observations = get_api().trace.get(trace.id).observations
+        trace = get_api().trace.get(trace.id)
+
+        assert trace.tags == ["langchain-tag"]
+        assert trace.session_id == session_id
+        assert trace.user_id == user_id
+
+        observations = trace.observations
 
         generations = sorted(
             list(filter(lambda x: x.type == "GENERATION", observations)),
