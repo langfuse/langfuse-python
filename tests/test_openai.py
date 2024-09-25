@@ -908,7 +908,7 @@ def test_openai_function_call():
 
     response = openai.chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-0613",
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
@@ -948,7 +948,7 @@ def test_openai_function_call_streamed():
 
     response = openai.chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-0613",
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
