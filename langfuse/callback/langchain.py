@@ -12,12 +12,13 @@ except ImportError as e:
     log.error(
         f"Could not import langchain. The langchain integration will not work. {e}"
     )
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union, cast
 from uuid import UUID, uuid4
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
     StatefulSpanClient,
     StatefulTraceClient,
+    StatefulGenerationClient,
 )
 from langfuse.extract_model import _extract_model_name
 from langfuse.utils import _get_timestamp
@@ -133,6 +134,11 @@ class LangchainCallbackHandler(
         self.log.debug(
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
+        if run_id in self.runs and isinstance(
+            self.runs[run_id], StatefulGenerationClient
+        ):
+            current_generation = cast(StatefulGenerationClient, self.runs[run_id])
+            current_generation.update(completion_start_time=_get_timestamp())
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
         """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
