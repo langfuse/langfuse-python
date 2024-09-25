@@ -1857,7 +1857,7 @@ def test_link_langfuse_prompts_invoke():
 
 
 def test_link_langfuse_prompts_stream():
-    langfuse = Langfuse()
+    langfuse = Langfuse(debug=True)
     trace_name = "test_link_langfuse_prompts_stream"
     session_id = "session_" + create_uuid()[:8]
     user_id = "user_" + create_uuid()[:8]
@@ -1949,6 +1949,9 @@ def test_link_langfuse_prompts_stream():
 
     assert generations[0].prompt_version == langfuse_joke_prompt.version
     assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+    assert generations[0].time_to_first_token is not None
+    assert generations[1].time_to_first_token is not None
 
     assert generations[1].output == output.strip()
 
