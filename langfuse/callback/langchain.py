@@ -709,7 +709,9 @@ class LangchainCallbackHandler(
 
             model_name = None
 
-            model_name = self._parse_model_and_log_errors(serialized, kwargs)
+            model_name = self._parse_model_and_log_errors(
+                serialized=serialized, metadata=metadata, kwargs=kwargs
+            )
             registered_prompt = self.prompt_to_parent_run_map.get(parent_run_id, None)
 
             if registered_prompt:
@@ -765,29 +767,18 @@ class LangchainCallbackHandler(
             if value is not None
         }
 
-    def _parse_model_and_log_errors(self, serialized, kwargs):
-        """Parse the model name from the serialized object or kwargs. If it fails, send the error log to the server and return None."""
+    def _parse_model_and_log_errors(self, *, serialized, metadata, kwargs):
+        """Parse the model name and log errors if parsing fails."""
         try:
-            model_name = _extract_model_name(serialized, **kwargs)
+            model_name = _parse_model_name_from_metadata(
+                metadata
+            ) or _extract_model_name(serialized, **kwargs)
+
             if model_name:
                 return model_name
 
-            if model_name is None:
-                self.log.warning(
-                    "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-                )
-                self._report_error(
-                    {
-                        "log": "unable to parse model name",
-                        "kwargs": str(kwargs),
-                        "serialized": str(serialized),
-                    }
-                )
         except Exception as e:
             self.log.exception(e)
-            self.log.warning(
-                "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue so we can fix your integration: https://github.com/langfuse/langfuse/issues/new/choose"
-            )
             self._report_error(
                 {
                     "log": "unable to parse model name",
@@ -797,7 +788,15 @@ class LangchainCallbackHandler(
                 }
             )
 
-            return None
+        self._log_model_parse_warning()
+
+    def _log_model_parse_warning(self):
+        if not hasattr(self, "_model_parse_warning_logged"):
+            self.log.warning(
+                "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue: https://github.com/langfuse/langfuse/issues/new/choose"
+            )
+
+            self._model_parse_warning_logged = True
 
     def on_llm_end(
         self,
@@ -1098,6 +1097,13 @@ def _parse_model(response: LLMResult):
                 break
 
     return llm_model
+
+
+def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]):
+    if metadata is None or not isinstance(metadata, dict):
+        return None
+
+    return metadata.get("ls_model_name", None)
 
 
 def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]):
