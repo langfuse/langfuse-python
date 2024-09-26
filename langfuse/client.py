@@ -1135,7 +1135,7 @@ class Langfuse(object):
             return prompt
 
         except Exception as e:
-            self.log.exception(f"Error while fetching prompt '{cache_key}': {e}")
+            self.log.error(f"Error while fetching prompt '{cache_key}': {str(e)}")
             raise e
 
     def _get_bounded_max_retries(
