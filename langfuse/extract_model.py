@@ -73,6 +73,7 @@ def _extract_model_name(
         ("ChatPerplexity", "model", None),
         ("VLLM", "model", None),
         ("Xinference", "model_uid", None),
+        ("ChatOCIGenAI", "model_id", None),
     ]
 
     for model_name, pattern, default in models_by_pattern:
