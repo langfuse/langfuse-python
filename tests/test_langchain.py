@@ -4,7 +4,8 @@ from typing import Any, List, Mapping, Optional
 import pytest
 from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
-from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.agents import AgentType, initialize_agent
+from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
@@ -14,14 +15,14 @@ from langchain.chains import (
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain.document_loaders import TextLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_openai import OpenAI, AzureChatOpenAI, ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from pydantic.v1 import BaseModel, Field
 from langchain.schema import HumanMessage, SystemMessage
 from langfuse.callback import CallbackHandler
