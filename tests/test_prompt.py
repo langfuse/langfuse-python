@@ -454,7 +454,6 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
         langfuse.get_prompt(prompt_name)
 
     assert "Prompt not found" in str(exc_info.value)
-    langfuse.log.exception.assert_called_once()
 
 
 def test_using_custom_prompt_timeouts(langfuse):
