@@ -112,6 +112,7 @@ class LangchainCallbackHandler(
         self.runs = {}
         self.prompt_to_parent_run_map = {}
         self.trace_updates = defaultdict(dict)
+        self.run_updates = defaultdict(dict)
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs[stateful_client.id] = stateful_client
@@ -139,8 +140,13 @@ class LangchainCallbackHandler(
         if run_id in self.runs and isinstance(
             self.runs[run_id], StatefulGenerationClient
         ):
-            current_generation = cast(StatefulGenerationClient, self.runs[run_id])
-            current_generation.update(completion_start_time=_get_timestamp())
+            if (
+                run_id not in self.run_updates
+                or "completion_start_time" not in self.run_updates[run_id]
+            ):
+                current_generation = cast(StatefulGenerationClient, self.runs[run_id])
+                current_generation.update(completion_start_time=_get_timestamp())
+                self.run_updates[run_id]["completion_start_time"] = _get_timestamp()
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
         """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
