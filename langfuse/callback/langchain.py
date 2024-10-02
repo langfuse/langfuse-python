@@ -112,6 +112,7 @@ class LangchainCallbackHandler(
         self.runs = {}
         self.prompt_to_parent_run_map = {}
         self.trace_updates = defaultdict(dict)
+        self.updated_completion_start_time_memo = set()
 
         if stateful_client and isinstance(stateful_client, StatefulSpanClient):
             self.runs[stateful_client.id] = stateful_client
@@ -132,15 +133,18 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
-        # Nothing needs to happen here for langfuse. Once the streaming is done,
         self.log.debug(
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
-        if run_id in self.runs and isinstance(
-            self.runs[run_id], StatefulGenerationClient
+        if (
+            run_id in self.runs
+            and isinstance(self.runs[run_id], StatefulGenerationClient)
+            and run_id not in self.updated_completion_start_time_memo
         ):
             current_generation = cast(StatefulGenerationClient, self.runs[run_id])
             current_generation.update(completion_start_time=_get_timestamp())
+
+            self.updated_completion_start_time_memo.add(run_id)
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
         """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
@@ -838,6 +842,9 @@ class LangchainCallbackHandler(
 
         except Exception as e:
             self.log.exception(e)
+
+        finally:
+            self.updated_completion_start_time_memo.discard(run_id)
 
     def on_llm_error(
         self,
