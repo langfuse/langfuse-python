@@ -740,6 +740,9 @@ class LangchainCallbackHandler(
             else:
                 self.runs[run_id] = self.trace.generation(**content)
 
+            # remembering model name to use it in on_llm_end
+            self.run_updates[run_id] = content
+
         except Exception as e:
             self.log.exception(e)
 
@@ -826,10 +829,11 @@ class LangchainCallbackHandler(
                     else _extract_raw_esponse(generation)
                 )
 
-                llm_usage = _parse_usage(response)
-
                 # e.g. azure returns the model name in the response
-                model = _parse_model(response)
+                model = _parse_model(response) or self.run_updates[run_id]["model"]
+
+                llm_usage = _parse_usage(response, model)
+
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response,
                     usage=llm_usage,
@@ -942,6 +946,8 @@ class LangchainCallbackHandler(
 
         if not keep_state:
             del self.runs[run_id]
+            if run_id in self.run_updates:
+                del self.run_updates[run_id]
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
@@ -1007,7 +1013,62 @@ def _flatten_comprehension(matrix):
     return [item for row in matrix for item in row]
 
 
-def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
+# https://docs.anthropic.com/en/docs/about-claude/models
+def _normalize_anthropic_name(name: str | None) -> str | None:
+    if name is None:
+        return None
+    if name.startswith("anthropic.") and name.endswith("-v1:0"):
+        # AWS Bedrock names
+        return name[10:-5]
+    elif "@" in name:
+        # GCP Vertex AI
+        return name.replace("@", "-")
+    return name
+
+
+# https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#pricing
+ANTHROPIC_COSTS = {
+    "claude-3-5-sonnet-20240620": {
+        "input": 0.003,
+        "cache_creation_input_tokens": 0.00375,
+        "cache_read_input_tokens": 0.0003,
+        "output": 0.015,
+    },
+    "claude-3-haiku-20240307": {
+        "input": 0.00025,
+        "cache_creation_input_tokens": 0.0003,
+        "cache_read_input_tokens": 0.00003,
+        "output": 0.00125,
+    },
+    "claude-3-opus-20240229": {
+        "input": 0.015,
+        "cache_creation_input_tokens": 0.01875,
+        "cache_read_input_tokens": 0.0015,
+        "output": 0.075,
+    },
+}
+
+
+def _adjust_anthropic_costs(usage: Dict[str, Any], model: str | None) -> Dict[str, Any]:
+    costs = ANTHROPIC_COSTS.get(_normalize_anthropic_name(model))
+
+    if costs and "cache_read_input_tokens" in usage:
+        # It's anthropic prompt cache, calculate adjusted input cost based on cache usage
+        all_inputs = ["input", "cache_read_input_tokens", "cache_creation_input_tokens"]
+        total_price = sum(costs[i] * usage[i] for i in all_inputs)
+        total_input = sum(usage[i] for i in all_inputs)
+        return {
+            "input": total_input,
+            "output": usage["output"],
+            "input_cost": total_price / total_input,
+            "output_cost": costs["output"],
+        }
+    return usage
+
+
+def _parse_usage_model(
+    usage: typing.Union[pydantic.BaseModel, dict], model: str | None
+) -> Dict[str, Any] | None:
     # maintains a list of key translations. For each key, the usage model is checked
     # and a new object will be created with the new key if the key exists in the usage model
     # All non matched keys will remain on the object.
@@ -1042,17 +1103,18 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
 
             usage_model[langfuse_key] = final_count  # Translate key and keep the value
 
+    usage_model = _adjust_anthropic_costs(usage_model, model)
     return usage_model if usage_model else None
 
 
-def _parse_usage(response: LLMResult):
+def _parse_usage(response: LLMResult, model: str | None) -> Dict[str, Any]:
     # langchain-anthropic uses the usage field
     llm_usage_keys = ["token_usage", "usage"]
     llm_usage = None
     if response.llm_output is not None:
         for key in llm_usage_keys:
             if key in response.llm_output and response.llm_output[key]:
-                llm_usage = _parse_usage_model(response.llm_output[key])
+                llm_usage = _parse_usage_model(response.llm_output[key], model)
                 break
 
     if hasattr(response, "generations"):
@@ -1062,7 +1124,8 @@ def _parse_usage(response: LLMResult):
                     "usage_metadata" in generation_chunk.generation_info
                 ):
                     llm_usage = _parse_usage_model(
-                        generation_chunk.generation_info["usage_metadata"]
+                        generation_chunk.generation_info["usage_metadata"],
+                        model,
                     )
                     break
 
@@ -1086,13 +1149,13 @@ def _parse_usage(response: LLMResult):
                 )
 
                 if chunk_usage:
-                    llm_usage = _parse_usage_model(chunk_usage)
+                    llm_usage = _parse_usage_model(chunk_usage, model)
                     break
 
     return llm_usage
 
 
-def _parse_model(response: LLMResult):
+def _parse_model(response: LLMResult) -> str | None:
     # langchain-anthropic uses the usage field
     llm_model_keys = ["model_name"]
     llm_model = None
