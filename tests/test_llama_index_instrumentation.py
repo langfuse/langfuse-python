@@ -1,16 +1,21 @@
-import pytest
+from typing import Optional
+from langfuse.llama_index import LlamaIndexInstrumentor
 
-import llama_index.core.instrumentation as instrument
+from tests.utils import get_api, get_llama_index_index, create_uuid
 
-from langfuse.llama_index import LlamaIndexSpanHandler
 
-from tests.utils import get_api, get_llama_index_index
+def is_embedding_generation_name(name: Optional[str]) -> bool:
+    return name is not None and "OpenAIEmbedding." in name
+
+
+def is_llm_generation_name(name: Optional[str]) -> bool:
+    return name is not None and "OpenAI." in name
 
 
 def validate_embedding_generation(generation):
     return all(
         [
-            generation.name == "OpenAIEmbedding",
+            is_embedding_generation_name(generation.name),
             # generation.usage.input == 0,
             # generation.usage.output == 0,
             # generation.usage.total > 0,  # For embeddings, only total tokens are logged
@@ -23,44 +28,32 @@ def validate_embedding_generation(generation):
 def validate_llm_generation(generation, model_name="OpenAI"):
     return all(
         [
-            generation.name == model_name,
-            # generation.usage.input > 0,
-            # generation.usage.output > 0,
-            # generation.usage.total > 0,
+            is_llm_generation_name(generation.name),
+            generation.usage.input > 0,
+            generation.usage.output > 0,
+            generation.usage.total > 0,
             bool(generation.input),
             bool(generation.output),
         ]
     )
 
 
-def get_span_handler():
-    if not hasattr(get_span_handler, "handler"):
-        get_span_handler.handler = LlamaIndexSpanHandler()
-
-    return get_span_handler.handler
-
-
-@pytest.fixture(scope="session", autouse=True)
-def before_all():
-    instrument.get_dispatcher().add_span_handler(get_span_handler())
-
-
 def test_callback_from_index_construction():
-    spanHandler = get_span_handler()
-    get_llama_index_index(None, force_rebuild=True)
+    trace_id = create_uuid()
+    instrumentor = LlamaIndexInstrumentor()
+    instrumentor.instrument()
 
-    trace_id = spanHandler.get_current_trace_id()
-    assert trace_id is not None
+    with instrumentor.observe(trace_id=trace_id):
+        get_llama_index_index(None, force_rebuild=True)
 
-    spanHandler.flush()
+    instrumentor.flush()
+
     trace_data = get_api().trace.get(trace_id)
     assert trace_data is not None
 
     observations = trace_data.observations
+    assert any("OpenAIEmbedding." in o.name for o in observations if o.name is not None)
 
-    assert any(o.name == "OpenAIEmbedding" for o in observations)
-
-    # Test embedding generation
     generations = sorted(
         [o for o in trace_data.observations if o.type == "GENERATION"],
         key=lambda o: o.start_time,
@@ -72,14 +65,28 @@ def test_callback_from_index_construction():
 
 
 def test_callback_from_query_engine():
-    spanHandler = get_span_handler()
-    index = get_llama_index_index(None)
-    index.as_query_engine().query(
-        "What did the speaker achieve in the past twelve months?"
-    )
+    trace_id = create_uuid()
+    instrumentor = LlamaIndexInstrumentor(debug=True)
+    instrumentor.instrument()
 
-    spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
+    with instrumentor.observe(
+        trace_id=trace_id,
+        user_id="test_user_id",
+        session_id="test_session_id",
+        version="test_version",
+        release="test_release",
+        metadata={"test_metadata": "test_metadata"},
+        tags=["test_tag"],
+        public=True,
+    ):
+        index = get_llama_index_index(None, force_rebuild=True)
+        index.as_query_engine().query(
+            "What did the speaker achieve in the past twelve months?"
+        )
+
+    instrumentor.flush()
+
+    trace_data = get_api().trace.get(trace_id)
 
     # Test LLM generation
     generations = sorted(
@@ -87,35 +94,44 @@ def test_callback_from_query_engine():
         key=lambda o: o.start_time,
     )
     assert (
-        len(generations) == 4
+        len(generations) == 2
     )  # One generation event for embedding call of query, one for LLM call
 
-    embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
-    llm_generations = [g for g in generations if g.name == "OpenAI"]
+    embedding_generations = [
+        g for g in generations if is_embedding_generation_name(g.name)
+    ]
+    llm_generations = [g for g in generations if is_llm_generation_name(g.name)]
 
     assert all([validate_embedding_generation(g) for g in embedding_generations])
     assert all([validate_llm_generation(g) for g in llm_generations])
 
 
 def test_callback_from_chat_engine():
-    spanHandler = get_span_handler()
-    index = get_llama_index_index(None)
-    index.as_chat_engine().chat(
-        "What did the speaker achieve in the past twelve months?"
-    )
+    trace_id = create_uuid()
+    instrumentor = LlamaIndexInstrumentor()
+    instrumentor.instrument()
 
-    spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
+    with instrumentor.observe(trace_id=trace_id):
+        index = get_llama_index_index(None)
+        index.as_chat_engine().chat(
+            "What did the speaker achieve in the past twelve months?"
+        )
+
+    instrumentor.flush()
+    trace_data = get_api().trace.get(trace_id)
 
     # Test LLM generation
     generations = sorted(
         [o for o in trace_data.observations if o.type == "GENERATION"],
         key=lambda o: o.start_time,
     )
-    embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
-    llm_generations = [g for g in generations if g.name == "OpenAI"]
 
-    assert len(embedding_generations) == 2
+    embedding_generations = [
+        g for g in generations if is_embedding_generation_name(g.name)
+    ]
+    llm_generations = [g for g in generations if is_llm_generation_name(g.name)]
+
+    assert len(embedding_generations) == 1
     assert len(llm_generations) > 0
 
     assert all([validate_embedding_generation(g) for g in embedding_generations])
@@ -123,58 +139,70 @@ def test_callback_from_chat_engine():
 
 
 def test_callback_from_query_engine_stream():
-    spanHandler = get_span_handler()
-    index = get_llama_index_index(None)
-    stream_response = index.as_query_engine(streaming=True).query(
-        "What did the speaker achieve in the past twelve months?"
-    )
+    trace_id = create_uuid()
 
-    for token in stream_response.response_gen:
+    instrumentor = LlamaIndexInstrumentor(debug=True)
+    instrumentor.instrument()
+
+    with instrumentor.observe(trace_id=trace_id):
+        index = get_llama_index_index(None)
+        stream_response = index.as_query_engine(streaming=True).query(
+            "What did the speaker achieve in the past twelve months?"
+        )
+
+    for token in stream_response:
         print(token, end="")
 
-    spanHandler.flush()
-    trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
+    instrumentor.flush()
+    trace_data = get_api().trace.get(trace_id)
 
     # Test LLM generation
     generations = sorted(
         [o for o in trace_data.observations if o.type == "GENERATION"],
         key=lambda o: o.start_time,
     )
-    embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
-    llm_generations = [g for g in generations if g.name == "OpenAI"]
+    embedding_generations = [
+        g for g in generations if is_embedding_generation_name(g.name)
+    ]
+    llm_generations = [g for g in generations if is_llm_generation_name(g.name)]
 
-    assert len(embedding_generations) == 2
+    assert len(embedding_generations) == 1
     assert len(llm_generations) > 0
 
     assert all([validate_embedding_generation(g) for g in embedding_generations])
 
 
-# def test_callback_from_chat_stream():
-#     spanHandler = get_span_handler()
-#     index = get_llama_index_index(spanHandler)
-#     stream_response = index.as_chat_engine().stream_chat(
-#         "What did the speaker achieve in the past twelve months?"
-#     )
+def test_callback_from_chat_stream():
+    trace_id = create_uuid()
+    instrumentor = LlamaIndexInstrumentor()
 
-#     for token in stream_response.response_gen:
-#         print(token, end="")
+    with instrumentor.observe(trace_id=trace_id):
+        index = get_llama_index_index(None)
+        stream_response = index.as_chat_engine().stream_chat(
+            "What did the speaker achieve in the past twelve months?"
+        )
 
-#     spanHandler.flush()
-#     trace_data = get_api().trace.get(spanHandler.get_current_trace_id())
+        for token in stream_response.response_gen:
+            print(token, end="")
 
-#     # Test LLM generation
-#     generations = sorted(
-#         [o for o in trace_data.observations if o.type == "GENERATION"],
-#         key=lambda o: o.start_time,
-#     )
-#     embedding_generations = [g for g in generations if g.name == "OpenAIEmbedding"]
-#     llm_generations = [g for g in generations if g.name == "openai_llm"]
+    instrumentor.flush()
+    trace_data = get_api().trace.get(trace_id)
 
-#     assert len(embedding_generations) == 1
-#     assert len(llm_generations) > 0
+    # Test LLM generation
+    generations = sorted(
+        [o for o in trace_data.observations if o.type == "GENERATION"],
+        key=lambda o: o.start_time,
+    )
+    embedding_generations = [
+        g for g in generations if is_embedding_generation_name(g.name)
+    ]
+    llm_generations = [g for g in generations if is_llm_generation_name(g.name)]
 
-#     assert all([validate_embedding_generation(g) for g in embedding_generations])
-#     assert all([validate_llm_generation(g) for g in llm_generations])
+    assert len(embedding_generations) == 1
+    assert len(llm_generations) > 0
+
+    assert all([validate_embedding_generation(g) for g in embedding_generations])
+    assert all([validate_llm_generation(g) for g in llm_generations])
 
 
 # def test_callback_from_query_pipeline():
