@@ -2210,19 +2210,32 @@ pydantic = ">=1.10"
 
 [[package]]
 name = "llama-index"
+<<<<<<< Updated upstream
 version = "0.10.68"
+=======
+version = "0.10.38"
+>>>>>>> Stashed changes
 description = "Interface between LLMs and your data"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
+<<<<<<< Updated upstream
     {file = "llama_index-0.10.68-py3-none-any.whl", hash = "sha256:e2a1919707260c07f9c10a239a576a399e8c50b2ddcd8d0ad8b4ffb4ad5c5c60"},
     {file = "llama_index-0.10.68.tar.gz", hash = "sha256:89f79e7ece951f40d753ee6e5a2273ca3728d800cbb2213f65b7e1d58abff0e5"},
+=======
+    {file = "llama_index-0.10.38-py3-none-any.whl", hash = "sha256:5d521b0ea7111679521292432960d3b9fb53c98d55414bd42d753bc6271d234d"},
+    {file = "llama_index-0.10.38.tar.gz", hash = "sha256:5281cfa8b6e7f0f5f12897c00adcd790f7b51c130037f3561fd5630fca37bfb3"},
+>>>>>>> Stashed changes
 ]
 
 [package.dependencies]
 llama-index-agent-openai = ">=0.1.4,<0.3.0"
 llama-index-cli = ">=0.1.2,<0.2.0"
+<<<<<<< Updated upstream
 llama-index-core = ">=0.10.68,<0.11.0"
+=======
+llama-index-core = ">=0.10.38,<0.11.0"
+>>>>>>> Stashed changes
 llama-index-embeddings-openai = ">=0.1.5,<0.2.0"
 llama-index-indices-managed-llama-cloud = ">=0.2.0"
 llama-index-legacy = ">=0.9.48,<0.10.0"
@@ -2237,7 +2250,7 @@ llama-index-readers-llama-parse = ">=0.1.2"
 name = "llama-index-agent-openai"
 version = "0.2.9"
 description = "llama-index agent openai integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_agent_openai-0.2.9-py3-none-any.whl", hash = "sha256:d7f0fd4c87124781acd783be603871f8808b1a3969e876a9c96e2ed0844d46ac"},
@@ -2253,7 +2266,7 @@ openai = ">=1.14.0"
 name = "llama-index-cli"
 version = "0.1.13"
 description = "llama-index cli"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_cli-0.1.13-py3-none-any.whl", hash = "sha256:5e05bc3ce55ee1bf6e5af7e87631a71d6b6cf8fc2af10cd3947b09b1bac6788d"},
@@ -2304,7 +2317,7 @@ wrapt = "*"
 name = "llama-index-embeddings-openai"
 version = "0.1.11"
 description = "llama-index embeddings openai integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_embeddings_openai-0.1.11-py3-none-any.whl", hash = "sha256:e20806fc4baff6b8f5274decf2c1ca7c5c737648e01865475ffada164e32e173"},
@@ -2318,7 +2331,7 @@ llama-index-core = ">=0.10.1,<0.11.0"
 name = "llama-index-indices-managed-llama-cloud"
 version = "0.2.7"
 description = "llama-index indices llama-cloud integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_indices_managed_llama_cloud-0.2.7-py3-none-any.whl", hash = "sha256:94335504eab2a6baf7361bbd8bda3ae20a68c7d0111587c9a0793440e9edff21"},
@@ -2333,7 +2346,11 @@ llama-index-core = ">=0.10.48.post1,<0.11.0"
 name = "llama-index-legacy"
 version = "0.9.48.post3"
 description = "Interface between LLMs and your data"
+<<<<<<< Updated upstream
 optional = true
+=======
+optional = false
+>>>>>>> Stashed changes
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_legacy-0.9.48.post3-py3-none-any.whl", hash = "sha256:04221320d84d96ba9ee3e21e5055bd8527cbd769e8f1c60cf0368ed907e012a2"},
@@ -2387,7 +2404,7 @@ llama-index-core = ">=0.10.57,<0.11.0"
 name = "llama-index-llms-openai"
 version = "0.1.31"
 description = "llama-index llms openai integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_llms_openai-0.1.31-py3-none-any.whl", hash = "sha256:800815b1b964b7d8dddd0e02a09fb57ac5f2ec6f80db92cd704dae718846023f"},
@@ -2402,7 +2419,7 @@ openai = ">=1.40.0,<2.0.0"
 name = "llama-index-multi-modal-llms-openai"
 version = "0.1.9"
 description = "llama-index multi-modal-llms openai integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_multi_modal_llms_openai-0.1.9-py3-none-any.whl", hash = "sha256:614f40427a4671e72742780be8fda77297dbf2942519bffcb2c9de8696a9edff"},
@@ -2417,7 +2434,7 @@ llama-index-llms-openai = ">=0.1.1,<0.2.0"
 name = "llama-index-program-openai"
 version = "0.1.7"
 description = "llama-index program openai integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_program_openai-0.1.7-py3-none-any.whl", hash = "sha256:33489b573c1050a3f583ff68fcbc4bcbd49f29e74f3e5baea08ab0d5f363403c"},
@@ -2433,7 +2450,7 @@ llama-index-llms-openai = ">=0.1.1"
 name = "llama-index-question-gen-openai"
 version = "0.1.3"
 description = "llama-index question_gen openai integration"
-optional = true
+optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
     {file = "llama_index_question_gen_openai-0.1.3-py3-none-any.whl", hash = "sha256:1f83b49e8b2e665030d1ec8c54687d6985d9fa8426147b64e46628a9e489b302"},
@@ -2449,7 +2466,7 @@ llama-index-program-openai = ">=0.1.1,<0.2.0"
 name = "llama-index-readers-file"
 version = "0.1.33"
 description = "llama-index readers file integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_readers_file-0.1.33-py3-none-any.whl", hash = "sha256:c968308497c1355acf61fe7e3f05ad8e308bb6487dddd3bd2a60e102225d0b38"},
@@ -2469,7 +2486,7 @@ pymupdf = ["pymupdf (>=1.23.21,<2.0.0)"]
 name = "llama-index-readers-llama-parse"
 version = "0.1.6"
 description = "llama-index readers llama-parse integration"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_index_readers_llama_parse-0.1.6-py3-none-any.whl", hash = "sha256:71d445a2357ce4c632e0fada7c913ac62790e77c062f12d916dd86378380ff1f"},
@@ -2484,7 +2501,7 @@ llama-parse = ">=0.4.0"
 name = "llama-parse"
 version = "0.4.9"
 description = "Parse files into RAG-Optimized formats."
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
     {file = "llama_parse-0.4.9-py3-none-any.whl", hash = "sha256:71974a57a73d642608cc406942bee4e7fc1a713fa410f51df67da509479ba544"},
@@ -3860,7 +3877,7 @@ zstd = ["zstandard"]
 name = "pypdf"
 version = "4.3.1"
 description = "A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files"
-optional = true
+optional = false
 python-versions = ">=3.6"
 files = [
     {file = "pypdf-4.3.1-py3-none-any.whl", hash = "sha256:64b31da97eda0771ef22edb1bfecd5deee4b72c3d1736b7df2689805076d6418"},
@@ -4539,7 +4556,7 @@ full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7
 name = "striprtf"
 version = "0.0.26"
 description = "A simple library to convert rtf to text"
-optional = true
+optional = false
 python-versions = "*"
 files = [
     {file = "striprtf-0.0.26-py3-none-any.whl", hash = "sha256:8c8f9d32083cdc2e8bfb149455aa1cc5a4e0a035893bedc75db8b73becb3a1bb"},
@@ -5373,10 +5390,14 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-it
 
 [extras]
 langchain = ["langchain"]
-llama-index = ["llama-index"]
+llama-index = []
 openai = ["openai"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
+<<<<<<< Updated upstream
 content-hash = "90de8d5f0fa43cef64136016f2722a3db17eb68184a09c66376f1abe9f118f33"
+=======
+content-hash = "8522623ca8603ddf969182f9e5e66952e687c745e4f8015bca694acff44fee2c"
+>>>>>>> Stashed changes
