@@ -78,7 +78,7 @@ class EventSerializer(JSONEncoder):
                 return str(obj)
 
             # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not None and isinstance(obj, Serializable):
+            if Serializable is not type(None) and isinstance(obj, Serializable):
                 return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.
