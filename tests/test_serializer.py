@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from pydantic import BaseModel
 import json
+import pytest
 import threading
+import langfuse.serializer
 from langfuse.serializer import (
     EventSerializer,
 )
@@ -158,6 +160,12 @@ def test_exception():
 
 
 def test_none():
+    serializer = EventSerializer()
+    assert serializer.encode(None) == "null"
+
+
+def test_none_without_langchain(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(langfuse.serializer, "Serializable", type(None), raising=True)
     serializer = EventSerializer()
     assert serializer.encode(None) == "null"
 
