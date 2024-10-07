@@ -225,9 +225,13 @@ class LangchainCallbackHandler(
             if parent_run_id is None and (tags or metadata):
                 self.trace_updates[run_id].update(
                     {
-                        "tags": tags and [str(tag) for tag in tags],
-                        "session_id": metadata and metadata.get("langfuse_session_id"),
-                        "user_id": metadata and metadata.get("langfuse_user_id"),
+                        "tags": [str(tag) for tag in tags] if tags else None,
+                        "session_id": metadata.get("langfuse_session_id")
+                        if metadata
+                        else None,
+                        "user_id": metadata.get("langfuse_user_id")
+                        if metadata
+                        else None,
                     }
                 )
 

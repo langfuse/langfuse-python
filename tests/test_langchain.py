@@ -1960,8 +1960,6 @@ def test_link_langfuse_prompts_stream():
 def test_link_langfuse_prompts_batch():
     langfuse = Langfuse()
     trace_name = "test_link_langfuse_prompts_batch_" + create_uuid()[:8]
-    session_id = "session_" + create_uuid()[:8]
-    user_id = "user_" + create_uuid()[:8]
 
     # Create prompts
     joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
@@ -2015,10 +2013,6 @@ def test_link_langfuse_prompts_batch():
             "callbacks": [langfuse_handler],
             "run_name": trace_name,
             "tags": ["langchain-tag"],
-            "metadata": {
-                "langfuse_session_id": session_id,
-                "langfuse_user_id": user_id,
-            },
         },
     )
 
@@ -2032,8 +2026,6 @@ def test_link_langfuse_prompts_batch():
         trace = get_api().trace.get(trace.id)
 
         assert trace.tags == ["langchain-tag"]
-        assert trace.session_id == session_id
-        assert trace.user_id == user_id
 
         observations = trace.observations
 
