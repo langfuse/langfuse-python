@@ -22,6 +22,7 @@ import logging
 import types
 
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import List, Optional
 
 import openai.resources
@@ -34,6 +35,7 @@ from langfuse.client import StatefulGenerationClient
 from langfuse.decorators import langfuse_context
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
+from pydantic import BaseModel
 
 try:
     import openai
@@ -53,19 +55,14 @@ except ImportError:
 log = logging.getLogger("langfuse")
 
 
+@dataclass
 class OpenAiDefinition:
     module: str
     object: str
     method: str
     type: str
     sync: bool
-
-    def __init__(self, module: str, object: str, method: str, type: str, sync: bool):
-        self.module = module
-        self.object = object
-        self.method = method
-        self.type = type
-        self.sync = sync
+    min_version: Optional[str] = None
 
 
 OPENAI_METHODS_V0 = [
@@ -115,6 +112,22 @@ OPENAI_METHODS_V1 = [
         type="completion",
         sync=False,
     ),
+    OpenAiDefinition(
+        module="openai.resources.beta.chat.completions",
+        object="Completions",
+        method="parse",
+        type="chat",
+        sync=True,
+        min_version="1.50.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.chat.completions",
+        object="AsyncCompletions",
+        method="parse",
+        type="chat",
+        sync=False,
+        min_version="1.50.0",
+    ),
 ]
 
 
@@ -136,7 +149,12 @@ class OpenAiArgsExtractor:
         self.args["metadata"] = (
             metadata
             if "response_format" not in kwargs
-            else {**(metadata or {}), "response_format": kwargs["response_format"]}
+            else {
+                **(metadata or {}),
+                "response_format": kwargs["response_format"].model_json_schema()
+                if issubclass(kwargs["response_format"], BaseModel)
+                else kwargs["response_format"],
+            }
         )
         self.args["trace_id"] = trace_id
         self.args["session_id"] = session_id
@@ -651,6 +669,11 @@ class OpenAILangfuse:
         resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
 
         for resource in resources:
+            if resource.min_version is not None and Version(
+                openai.__version__
+            ) < Version(resource.min_version):
+                continue
+
             wrap_function_wrapper(
                 resource.module,
                 f"{resource.object}.{resource.method}",
