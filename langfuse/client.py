@@ -270,7 +270,6 @@ class Langfuse(object):
 
             clean_logger()
         else:
-            self.log.setLevel(logging.WARNING)
             clean_logger()
 
         self.base_url = (

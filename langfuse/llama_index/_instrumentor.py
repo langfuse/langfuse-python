@@ -20,7 +20,7 @@ except ImportError:
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
     )
 
-logger = getLogger("Langfuse_LlamaIndexInstrumentor")
+logger = getLogger(__name__)
 
 
 class LlamaIndexInstrumentor:
@@ -59,12 +59,10 @@ class LlamaIndexInstrumentor:
         self._span_handler = LlamaIndexSpanHandler(
             langfuse_client=self._langfuse,
             observation_updates=self._observation_updates,
-            debug=debug,
         )
         self._event_handler = LlamaIndexEventHandler(
             langfuse_client=self._langfuse,
             observation_updates=self._observation_updates,
-            debug=debug,
         )
         self._context = InstrumentorContext()
 

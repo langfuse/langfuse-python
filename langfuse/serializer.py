@@ -10,7 +10,7 @@ from uuid import UUID
 from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
 from pathlib import Path
-
+from logging import getLogger
 from pydantic import BaseModel
 
 # Attempt to import Serializable
@@ -25,6 +25,8 @@ try:
     import numpy as np
 except ImportError:
     np = None
+
+logger = getLogger(__name__)
 
 
 class EventSerializer(JSONEncoder):
@@ -126,7 +128,11 @@ class EventSerializer(JSONEncoder):
                 # Return object type rather than JSONEncoder.default(obj) which simply raises a TypeError
                 return f"<{type(obj).__name__}>"
 
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                f"Serialization failed for object of type {type(obj).__name__}",
+                exc_info=e,
+            )
             return f'"<not serializable object of type: {type(obj).__name__}>"'
 
     def encode(self, obj: Any) -> str:

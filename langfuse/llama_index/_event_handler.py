@@ -26,7 +26,7 @@ except ImportError:
 
 from logging import getLogger
 
-logger = getLogger("Langfuse_LlamaIndexEventHandler")
+logger = getLogger(__name__)
 
 
 class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
@@ -35,13 +35,11 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
         *,
         langfuse_client: Langfuse,
         observation_updates: Dict[str, Dict[str, Any]],
-        debug: Optional[bool] = False,
     ):
         super().__init__()
 
         self._langfuse = langfuse_client
         self._observation_updates = observation_updates
-        self._debug = debug
 
     @classmethod
     def class_name(cls) -> str:
@@ -49,6 +47,8 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
         return "LangfuseEventHandler"
 
     def handle(self, event: BaseEvent) -> None:
+        logger.debug(f"Event {type(event).__name__} received: {event}")
+
         if isinstance(event, (LLMCompletionStartEvent, LLMChatStartEvent)):
             self.update_generation_from_start_event(event)
         elif isinstance(event, (LLMCompletionEndEvent, LLMChatEndEvent)):
@@ -58,7 +58,7 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
         self, event: Union[LLMCompletionStartEvent, LLMChatStartEvent]
     ) -> None:
         if event.span_id is None:
-            self._log_warning("Span ID is not set")
+            logger.warning("Span ID is not set")
             return
 
         model_data = event.model_dict
@@ -87,7 +87,7 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
         self, event: Union[LLMCompletionEndEvent, LLMChatEndEvent]
     ) -> None:
         if event.span_id is None:
-            self._log_warning("Span ID is not set")
+            logger.warning("Span ID is not set")
             return
 
         usage = self._parse_token_usage(event.response) if event.response else None
@@ -112,13 +112,6 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
 
         if additional_kwargs := getattr(response, "additional_kwargs", None):
             return _parse_usage_from_mapping(additional_kwargs)
-
-    def _log_debug(self, message: str):
-        if self._debug:
-            logger.debug(message)
-
-    def _log_warning(self, message: str):
-        logger.warning(message)
 
 
 def _parse_usage_from_mapping(

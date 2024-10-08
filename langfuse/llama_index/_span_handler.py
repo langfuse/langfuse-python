@@ -1,6 +1,5 @@
 import inspect
-from types import GeneratorType
-from typing import Optional, Any, Tuple, Dict
+from typing import Optional, Any, Tuple, Dict, Generator, AsyncGenerator
 import uuid
 
 from langfuse.client import (
@@ -14,16 +13,18 @@ from langfuse.client import (
 from logging import getLogger
 from ._context import InstrumentorContext
 
-logger = getLogger("Langfuse_LlamaIndexSpanHandler")
+logger = getLogger(__name__)
 
 try:
     from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
     from llama_index.core.instrumentation.span import BaseSpan
     from llama_index.core.base.embeddings.base import BaseEmbedding
     from llama_index.core.base.base_query_engine import BaseQueryEngine
-    from llama_index.core.chat_engine.types import StreamingAgentChatResponse
-    from llama_index.core.llms import LLM
-
+    from llama_index.core.llms import LLM, ChatResponse
+    from llama_index.core.base.response.schema import (
+        StreamingResponse,
+        AsyncStreamingResponse,
+    )
 
 except ImportError:
     raise ModuleNotFoundError(
@@ -60,14 +61,12 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         *,
         langfuse_client: Langfuse,
         observation_updates: Dict[str, Dict[str, Any]],
-        debug: Optional[bool] = False,
     ):
         super().__init__()
 
         self._langfuse_client = langfuse_client
         self._observation_updates = observation_updates
         self._context = InstrumentorContext()
-        self._debug = debug
 
     def new_span(
         self,
@@ -77,7 +76,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         parent_span_id: Optional[str] = None,
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
-        self._log_debug(
+        logger.debug(
             f"Creating new span {instance.__class__.__name__} with ID {id_} and parent ID {parent_span_id}"
         )
         trace_id = self._context.trace_id
@@ -100,7 +99,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
                     )
 
         if not trace_id:
-            self._log_warning(
+            logger.warning(
                 f"Span ID {id_} is being dropped without a trace ID. This span will not be recorded."
             )
             return
@@ -138,7 +137,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         result: Optional[Any] = None,
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
-        self._log_debug(f"Exiting span {instance.__class__.__name__} with ID {id_}")
+        logger.debug(f"Exiting span {instance.__class__.__name__} with ID {id_}")
 
         observation_updates = self._observation_updates.pop(id_, {})
         output, metadata = self._parse_output_metadata(instance, result)
@@ -177,7 +176,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         err: Optional[BaseException] = None,
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
-        self._log_debug(f"Dropping span {instance.__class__.__name__} with ID {id_}")
+        logger.debug(f"Dropping span {instance.__class__.__name__} with ID {id_}")
 
         observation_updates = self._observation_updates.pop(id_, {})
 
@@ -271,9 +270,14 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
     def _parse_output_metadata(
         self, instance: Optional[Any], result: Optional[Any]
     ) -> Tuple[Optional[Any], Optional[Any]]:
-        if not result or isinstance(result, StreamingAgentChatResponse):
-            # Todo: use event handler to populate IO
+        if not result or isinstance(
+            result,
+            (Generator, AsyncGenerator, StreamingResponse, AsyncStreamingResponse),
+        ):
             return None, None
+
+        if isinstance(result, ChatResponse):
+            return result.message, None
 
         if isinstance(instance, BaseEmbedding) and isinstance(result, list):
             return {
@@ -282,12 +286,12 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
                 else len(result)
             }, None
 
-        if isinstance(result, GeneratorType):
-            return "".join(list(result)), None
-
         if isinstance(instance, BaseQueryEngine) and "response" in result.__dict__:
             metadata_dict = {
-                key: val for key, val in result.__dict__.items() if key != "response"
+                key: val
+                for key, val in result.__dict__.items()
+                if key != "response"
+                and not isinstance(val, (Generator, AsyncGenerator))
             }
 
             return result.response, metadata_dict
@@ -296,10 +300,3 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
 
     def _parse_qualname(self, id_: str) -> Optional[str]:
         return id_.split("-")[0] if "-" in id_ else None
-
-    def _log_debug(self, message: str):
-        if self._debug:
-            logger.debug(message)
-
-    def _log_warning(self, message: str):
-        logger.warning(message)
