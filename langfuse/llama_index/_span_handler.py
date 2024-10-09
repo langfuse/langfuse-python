@@ -298,3 +298,5 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
 
         if "nodes" in arguments:
             return {"num_nodes": len(arguments["nodes"])}
+
+        return arguments
