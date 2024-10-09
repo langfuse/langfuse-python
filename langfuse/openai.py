@@ -19,6 +19,7 @@ See docs for more details: https://langfuse.com/docs/integrations/openai
 
 import copy
 import logging
+from inspect import isclass
 import types
 
 from collections import defaultdict
@@ -152,7 +153,8 @@ class OpenAiArgsExtractor:
             else {
                 **(metadata or {}),
                 "response_format": kwargs["response_format"].model_json_schema()
-                if issubclass(kwargs["response_format"], BaseModel)
+                if isclass(kwargs["response_format"])
+                and issubclass(kwargs["response_format"], BaseModel)
                 else kwargs["response_format"],
             }
         )

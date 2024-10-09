@@ -1482,6 +1482,7 @@ def test_structured_output_response_format_kwarg():
 
 def test_structured_output_beta_completions_parse():
     from typing import List
+    from packaging.version import Version
 
     class CalendarEvent(BaseModel):
         name: str
@@ -1491,51 +1492,58 @@ def test_structured_output_beta_completions_parse():
     generation_name = create_uuid()
     api = get_api()
 
-    openai.beta.chat.completions.parse(
-        model="gpt-4o-2024-08-06",
-        messages=[
+    params = {
+        "model": "gpt-4o-2024-08-06",
+        "messages": [
             {"role": "system", "content": "Extract the event information."},
             {
                 "role": "user",
                 "content": "Alice and Bob are going to a science fair on Friday.",
             },
         ],
-        response_format=CalendarEvent,
-        name=generation_name,
-    )
+        "response_format": CalendarEvent,
+        "name": generation_name,
+    }
+
+    # The beta API is only wrapped for this version range. prior to that, implicitly another wrapped method was called
+    if Version(openai.__version__) < Version("1.50.0"):
+        params.pop("name")
+
+    openai.beta.chat.completions.parse(**params)
 
     openai.flush_langfuse()
 
-    # Check the trace and observation properties
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    if Version(openai.__version__) >= Version("1.50.0"):
+        # Check the trace and observation properties
+        generation = api.observations.get_many(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) == 1
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-4o-2024-08-06"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
+        assert len(generation.data) == 1
+        assert generation.data[0].name == generation_name
+        assert generation.data[0].type == "GENERATION"
+        assert generation.data[0].model == "gpt-4o-2024-08-06"
+        assert generation.data[0].start_time is not None
+        assert generation.data[0].end_time is not None
+        assert generation.data[0].start_time < generation.data[0].end_time
 
-    # Check input and output
-    assert len(generation.data[0].input) == 2
-    assert generation.data[0].input[0]["role"] == "system"
-    assert generation.data[0].input[1]["role"] == "user"
-    assert isinstance(generation.data[0].output, dict)
-    assert "name" in generation.data[0].output["content"]
-    assert "date" in generation.data[0].output["content"]
-    assert "participants" in generation.data[0].output["content"]
+        # Check input and output
+        assert len(generation.data[0].input) == 2
+        assert generation.data[0].input[0]["role"] == "system"
+        assert generation.data[0].input[1]["role"] == "user"
+        assert isinstance(generation.data[0].output, dict)
+        assert "name" in generation.data[0].output["content"]
+        assert "date" in generation.data[0].output["content"]
+        assert "participants" in generation.data[0].output["content"]
 
-    # Check usage
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
+        # Check usage
+        assert generation.data[0].usage.input is not None
+        assert generation.data[0].usage.output is not None
+        assert generation.data[0].usage.total is not None
 
-    # Check trace
-    trace = api.trace.get(generation.data[0].trace_id)
+        # Check trace
+        trace = api.trace.get(generation.data[0].trace_id)
 
-    assert trace.input is not None
-    assert trace.output is not None
+        assert trace.input is not None
+        assert trace.output is not None
 
 
 @pytest.mark.asyncio
