@@ -39,23 +39,6 @@ class LangfuseSpan(BaseSpan):
 
 
 class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
-    """[BETA] Span Handler for exporting LlamaIndex instrumentation module spans to Langfuse.
-
-    This beta integration is currently under active development and subject to change. Please provide feedback to [the Langfuse team](https://github.com/langfuse/langfuse/issues/1931).
-
-    For production setups, please use the existing callback-based integration (LlamaIndexCallbackHandler).
-
-    Usage:
-
-    ```python
-    import llama_index.core.instrumentation as instrument
-    from langfuse.llama_index import LlamaIndexSpanHandler
-
-    langfuse_span_handler = LlamaIndexSpanHandler()
-    instrument.get_dispatcher().add_span_handler(langfuse_span_handler)
-    ```
-    """
-
     def __init__(
         self,
         *,

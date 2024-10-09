@@ -24,6 +24,45 @@ logger = getLogger(__name__)
 
 
 class LlamaIndexInstrumentor:
+    """[BETA] Instrumentor for exporting LlamaIndex instrumentation module spans to Langfuse.
+
+    This beta integration is currently under active development and subject to change.
+    Please provide feedback to the Langfuse team: https://github.com/langfuse/langfuse/issues/1931
+
+    For production setups, please use the existing callback-based integration (LlamaIndexCallbackHandler).
+
+    Usage:
+        instrumentor = LlamaIndexInstrumentor()
+        instrumentor.start()
+
+        # After calling start(), all LlamaIndex executions will be automatically traced
+
+        # To trace a specific execution or set custom trace ID/params, use the context manager:
+        with instrumentor.observe(trace_id="unique_trace_id", user_id="user123"):
+            # Your LlamaIndex code here
+            index = get_llama_index_index()
+            response = index.as_query_engine().query("Your query here")
+
+        instrumentor.flush()
+
+    The instrumentor will automatically capture and log events and spans from LlamaIndex
+    to Langfuse, providing detailed observability into your LLM application.
+
+    Args:
+        public_key (Optional[str]): Langfuse public key
+        secret_key (Optional[str]): Langfuse secret key
+        host (Optional[str]): Langfuse API host
+        debug (Optional[bool]): Enable debug logging
+        threads (Optional[int]): Number of threads for async operations
+        flush_at (Optional[int]): Number of items to flush at
+        flush_interval (Optional[int]): Flush interval in seconds
+        max_retries (Optional[int]): Maximum number of retries for failed requests
+        timeout (Optional[int]): Timeout for requests in seconds
+        httpx_client (Optional[httpx.Client]): Custom HTTPX client
+        enabled (Optional[bool]): Enable/disable the instrumentor
+        sample_rate (Optional[float]): Sample rate for logging (0.0 to 1.0)
+    """
+
     def __init__(
         self,
         *,
@@ -67,6 +106,25 @@ class LlamaIndexInstrumentor:
         self._context = InstrumentorContext()
 
     def start(self):
+        """Start the automatic tracing of LlamaIndex operations.
+
+        Once called, all subsequent LlamaIndex executions will be automatically traced
+        and logged to Langfuse without any additional code changes required.
+
+        Example:
+            ```python
+            instrumentor = LlamaIndexInstrumentor()
+            instrumentor.start()
+
+            # From this point, all LlamaIndex operations are automatically traced
+            index = VectorStoreIndex.from_documents(documents)
+            query_engine = index.as_query_engine()
+            response = query_engine.query("What is the capital of France?")
+
+            # The above operations will be automatically logged to Langfuse
+            instrumentor.flush()
+            ```
+        """
         self._context.reset()
         dispatcher = get_dispatcher()
 
@@ -85,6 +143,26 @@ class LlamaIndexInstrumentor:
             dispatcher.add_event_handler(self._event_handler)
 
     def stop(self):
+        """Stop the automatic tracing of LlamaIndex operations.
+
+        This method removes the span and event handlers from the LlamaIndex dispatcher,
+        effectively stopping the automatic tracing and logging to Langfuse.
+
+        After calling this method, LlamaIndex operations will no longer be automatically
+        traced unless `start()` is called again.
+
+        Example:
+            ```python
+            instrumentor = LlamaIndexInstrumentor()
+            instrumentor.start()
+
+            # LlamaIndex operations are automatically traced here
+
+            instrumentor.stop()
+
+            # LlamaIndex operations are no longer automatically traced
+            ```
+        """
         self._context.reset()
         dispatcher = get_dispatcher()
 
@@ -116,6 +194,45 @@ class LlamaIndexInstrumentor:
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
     ):
+        """Access context manager for observing and tracing LlamaIndex operations.
+
+        This method allows you to wrap LlamaIndex operations in a context that
+        automatically traces and logs them to Langfuse. It provides fine-grained
+        control over the trace properties and ensures proper instrumentation.
+
+        Args:
+            trace_id (Optional[str]): Unique identifier for the trace. If not provided, a UUID will be generated.
+            parent_observation_id (Optional[str]): ID of the parent observation, if any.
+            update_parent (Optional[bool]): Whether to update the parent trace.
+            trace_name (Optional[str]): Name of the trace.
+            user_id (Optional[str]): ID of the user associated with this trace.
+            session_id (Optional[str]): ID of the session associated with this trace.
+            version (Optional[str]): Version information for this trace.
+            release (Optional[str]): Release information for this trace.
+            metadata (Optional[Dict[str, Any]]): Additional metadata for the trace.
+            tags (Optional[List[str]]): Tags associated with this trace.
+            public (Optional[bool]): Whether this trace should be public.
+
+        Yields:
+            StatefulTraceClient: A client for interacting with the current trace.
+
+        Example:
+            ```python
+            instrumentor = LlamaIndexInstrumentor()
+
+            with instrumentor.observe(trace_id="unique_id", user_id="user123"):
+                # LlamaIndex operations here will be traced
+                index.as_query_engine().query("What is the capital of France?")
+
+            # Tracing stops after the context manager exits
+
+            instrumentor.flush()
+            ```
+
+        Note:
+            If the instrumentor is not already started, this method will start it
+            for the duration of the context and stop it afterwards.
+        """
         was_instrumented = self._is_instrumented
 
         if not was_instrumented:
@@ -175,9 +292,34 @@ class LlamaIndexInstrumentor:
 
     @property
     def client_instance(self) -> Langfuse:
-        """Get the Langfuse client instance."""
+        """Return the Langfuse client instance associated with this instrumentor.
+
+        This property provides access to the underlying Langfuse client, allowing
+        direct interaction with Langfuse functionality if needed.
+
+        Returns:
+            Langfuse: The Langfuse client instance.
+        """
         return self._langfuse
 
     def flush(self) -> None:
-        """Flushes the Langfuse client."""
+        """Flush any pending tasks in the task manager.
+
+        This method ensures that all queued tasks are sent to Langfuse immediately.
+        It's useful for scenarios where you want to guarantee that all instrumentation
+        data has been transmitted before your application terminates or moves on to
+        a different phase.
+
+        Note:
+            This method is a wrapper around the `flush()` method of the underlying
+            Langfuse client instance. It's provided here for convenience and to maintain
+            a consistent interface within the instrumentor.
+
+        Example:
+            ```python
+            instrumentor = LlamaIndexInstrumentor(langfuse_client)
+            # ... perform some operations ...
+            instrumentor.flush()  # Ensure all data is sent to Langfuse
+            ```
+        """
         self.client_instance.flush()
