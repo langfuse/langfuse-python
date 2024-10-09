@@ -9,7 +9,10 @@ from tests.utils import get_api, get_llama_index_index, create_uuid
 
 
 def is_embedding_generation_name(name: Optional[str]) -> bool:
-    return name is not None and "OpenAIEmbedding." in name
+    return name is not None and any(
+        embedding_class in name
+        for embedding_class in ("OpenAIEmbedding.", "BaseEmbedding")
+    )
 
 
 def is_llm_generation_name(name: Optional[str], model_name: str = "OpenAI") -> bool:
@@ -56,7 +59,9 @@ def test_instrumentor_from_index_construction():
     assert trace_data is not None
 
     observations = trace_data.observations
-    assert any("OpenAIEmbedding." in o.name for o in observations if o.name is not None)
+    assert any(
+        is_embedding_generation_name(o.name) for o in observations if o.name is not None
+    )
 
     generations = sorted(
         [o for o in trace_data.observations if o.type == "GENERATION"],
