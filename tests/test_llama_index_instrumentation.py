@@ -48,7 +48,7 @@ def validate_llm_generation(generation, model_name="OpenAI"):
 def test_instrumentor_from_index_construction():
     trace_id = create_uuid()
     instrumentor = LlamaIndexInstrumentor()
-    instrumentor.instrument()
+    instrumentor.start()
 
     with instrumentor.observe(trace_id=trace_id):
         get_llama_index_index(None, force_rebuild=True)
@@ -76,7 +76,7 @@ def test_instrumentor_from_index_construction():
 def test_instrumentor_from_query_engine():
     trace_id = create_uuid()
     instrumentor = LlamaIndexInstrumentor()
-    instrumentor.instrument()
+    instrumentor.start()
 
     with instrumentor.observe(
         trace_id=trace_id,
@@ -118,7 +118,7 @@ def test_instrumentor_from_query_engine():
 def test_instrumentor_from_chat_engine():
     trace_id = create_uuid()
     instrumentor = LlamaIndexInstrumentor()
-    instrumentor.instrument()
+    instrumentor.start()
 
     with instrumentor.observe(trace_id=trace_id):
         index = get_llama_index_index(None)
@@ -151,7 +151,7 @@ def test_instrumentor_from_query_engine_stream():
     trace_id = create_uuid()
 
     instrumentor = LlamaIndexInstrumentor()
-    instrumentor.instrument()
+    instrumentor.start()
 
     with instrumentor.observe(trace_id=trace_id):
         index = get_llama_index_index(None)

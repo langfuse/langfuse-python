@@ -66,7 +66,7 @@ class LlamaIndexInstrumentor:
         )
         self._context = InstrumentorContext()
 
-    def instrument(self):
+    def start(self):
         self._context.reset()
         dispatcher = get_dispatcher()
 
@@ -84,7 +84,7 @@ class LlamaIndexInstrumentor:
         ):
             dispatcher.add_event_handler(self._event_handler)
 
-    def uninstrument(self):
+    def stop(self):
         self._context.reset()
         dispatcher = get_dispatcher()
 
@@ -116,10 +116,10 @@ class LlamaIndexInstrumentor:
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
     ):
-        was_instrumented = self.is_instrumented
+        was_instrumented = self._is_instrumented
 
         if not was_instrumented:
-            self.instrument()
+            self.start()
 
         if parent_observation_id is not None and trace_id is None:
             logger.warning(
@@ -149,10 +149,10 @@ class LlamaIndexInstrumentor:
         self._context.reset()
 
         if not was_instrumented:
-            self.uninstrument()
+            self.stop()
 
     @property
-    def is_instrumented(self) -> bool:
+    def _is_instrumented(self) -> bool:
         """Check if the dispatcher is instrumented."""
         dispatcher = get_dispatcher()
 
