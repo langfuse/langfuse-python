@@ -9,15 +9,17 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.8.1,<4.0"
 httpx = ">=0.15.4,<1.0"
-pydantic = ">=1.10.7, <3.0"
+pydantic = ">=1.10.7,<3.0"
 backoff = ">=1.10.0"
-openai = { version = ">=0.27.8", optional = true }
-wrapt = "^1.14"
-langchain = { version = ">=0.0.309", optional = true }
-llama-index = {version = ">=0.10.12, <2.0.0", optional = true}
 packaging = ">=23.2,<25.0"
 idna = "^3.7"
 anyio = "^4.4.0"
+
+# Optional dependencies
+openai = { version = ">=0.27.8", optional = true }
+langchain = { version = ">=0.0.309", optional = true }
+llama-index = { version = ">=0.10.12,<2.0.0", optional = true }
+wrapt = "^1.14"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"
@@ -48,10 +50,11 @@ bson = "^0.5.10"
 langchain-anthropic = "^0.1.4"
 langchain-groq = "^0.1.3"
 langchain-aws = "^0.1.3"
-
 langchain-community = "^0.2.14"
+
 [tool.poetry.group.docs.dependencies]
 pdoc = "^14.4.0"
+# Consider adding Sphinx or MkDocs if needed for documentation
 
 [tool.poetry.extras]
 openai = ["openai"]
@@ -66,6 +69,7 @@ build-backend = "poetry.core.masonry.api"
 log_cli = true
 
 [tool.poetry_bumpversion.file."langfuse/version.py"]
+# Ensure this section defines version handling appropriately
 
 [tool.poetry.scripts]
 release = "scripts.release:main"
