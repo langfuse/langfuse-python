@@ -12,6 +12,10 @@ try:
         CompletionResponse,
     )
     from llama_index.core.instrumentation.events import BaseEvent
+    from llama_index.core.instrumentation.events.embedding import (
+        EmbeddingStartEvent,
+        EmbeddingEndEvent,
+    )
     from llama_index.core.instrumentation.event_handlers import BaseEventHandler
     from llama_index.core.instrumentation.events.llm import (
         LLMCompletionEndEvent,
@@ -19,6 +23,8 @@ try:
         LLMChatEndEvent,
         LLMChatStartEvent,
     )
+    from llama_index.core.utilities.token_counting import TokenCounter
+
 except ImportError:
     raise ModuleNotFoundError(
         "Please install llama-index to use the Langfuse llama-index integration: 'pip install llama-index'"
@@ -40,29 +46,35 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
 
         self._langfuse = langfuse_client
         self._observation_updates = observation_updates
+        self._token_counter = TokenCounter()
 
     @classmethod
     def class_name(cls) -> str:
         """Class name."""
-        return "LangfuseEventHandler"
+        return "LlamaIndexEventHandler"
 
     def handle(self, event: BaseEvent) -> None:
         logger.debug(f"Event {type(event).__name__} received: {event}")
 
-        if isinstance(event, (LLMCompletionStartEvent, LLMChatStartEvent)):
+        if isinstance(
+            event, (LLMCompletionStartEvent, LLMChatStartEvent, EmbeddingStartEvent)
+        ):
             self.update_generation_from_start_event(event)
-        elif isinstance(event, (LLMCompletionEndEvent, LLMChatEndEvent)):
+        elif isinstance(
+            event, (LLMCompletionEndEvent, LLMChatEndEvent, EmbeddingEndEvent)
+        ):
             self.update_generation_from_end_event(event)
 
     def update_generation_from_start_event(
-        self, event: Union[LLMCompletionStartEvent, LLMChatStartEvent]
+        self,
+        event: Union[LLMCompletionStartEvent, LLMChatStartEvent, EmbeddingStartEvent],
     ) -> None:
         if event.span_id is None:
             logger.warning("Span ID is not set")
             return
 
         model_data = event.model_dict
-        model = model_data.pop("model", None)
+        model = model_data.pop("model", None) or model_data.pop("model_name", None)
         traced_model_data = {
             k: str(v)
             for k, v in model_data.items()
@@ -76,6 +88,7 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
                 "strict",
                 "top_logprobs",
                 "logprobs",
+                "embed_batch_size",
             ]
         }
 
@@ -84,13 +97,27 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
         )
 
     def update_generation_from_end_event(
-        self, event: Union[LLMCompletionEndEvent, LLMChatEndEvent]
+        self, event: Union[LLMCompletionEndEvent, LLMChatEndEvent, EmbeddingEndEvent]
     ) -> None:
         if event.span_id is None:
             logger.warning("Span ID is not set")
             return
 
-        usage = self._parse_token_usage(event.response) if event.response else None
+        usage = None
+
+        if isinstance(event, (LLMCompletionEndEvent, LLMChatEndEvent)):
+            usage = self._parse_token_usage(event.response) if event.response else None
+
+        if isinstance(event, EmbeddingEndEvent):
+            token_count = sum(
+                self._token_counter.get_string_tokens(chunk) for chunk in event.chunks
+            )
+
+            usage = {
+                "input": 0,
+                "output": 0,
+                "total": token_count or None,
+            }
 
         self._update_observation_updates(event.span_id, usage=usage)
 
@@ -119,8 +146,8 @@ def _parse_usage_from_mapping(
 ) -> ModelUsage:
     if isinstance(usage, Mapping):
         return _get_token_counts_from_mapping(usage)
-    if isinstance(usage, object):
-        return _parse_usage_from_object(usage)
+
+    return _parse_usage_from_object(usage)
 
 
 def _parse_usage_from_object(usage: object) -> ModelUsage:

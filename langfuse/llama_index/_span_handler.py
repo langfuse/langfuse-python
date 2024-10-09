@@ -225,12 +225,9 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         return (
             qual_name is not None
             and isinstance(instance, (BaseEmbedding, LLM))
+            and not (isinstance(instance, LLM) and "LLM" in qual_name)
             and not (
-                any(
-                    base_class_name in qual_name
-                    for base_class_name in ("BaseEmbedding", "LLM")
-                )
-                and qual_name not in ("BaseEmbedding.get_text_embedding_batch")
+                isinstance(instance, BaseEmbedding) and "BaseEmbedding" not in qual_name
             )
         )
 
