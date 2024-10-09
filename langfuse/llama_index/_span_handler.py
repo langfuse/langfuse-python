@@ -95,7 +95,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
                         **self._context.trace_data,
                         id=trace_id,
                         name=self._context.trace_name or instance_name,
-                        input=bound_args.arguments,
+                        input=self._parse_input(bound_args=bound_args),
                     )
 
         if not trace_id:
@@ -122,7 +122,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
                 parent_observation_id=parent_span_id
                 or self._context.parent_observation_id,
                 name=qual_name or instance_name,
-                input=bound_args.arguments,
+                input=self._parse_input(bound_args=bound_args),
                 metadata=kwargs,
             )
 
@@ -296,7 +296,22 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
 
             return result.response, metadata_dict
 
+        if isinstance(result, list):
+            return {"num_items": len(result)}, None
+
         return result, None
 
     def _parse_qualname(self, id_: str) -> Optional[str]:
         return id_.split("-")[0] if "-" in id_ else None
+
+    def _parse_input(self, *, bound_args: inspect.BoundArguments):
+        arguments = bound_args.arguments
+
+        if "metadata_str" in arguments:
+            return {"metadata_str": arguments["metadata_str"]}
+
+        if "texts" in arguments:
+            return {"num_texts": len(arguments["texts"])}
+
+        if "nodes" in arguments:
+            return {"num_nodes": len(arguments["nodes"])}
