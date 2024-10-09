@@ -1,4 +1,7 @@
 from .llama_index import LlamaIndexCallbackHandler
-from .span_handler import LlamaIndexSpanHandler
+from ._instrumentor import LlamaIndexInstrumentor
 
-__all__ = ["LlamaIndexCallbackHandler", "LlamaIndexSpanHandler"]
+__all__ = [
+    "LlamaIndexCallbackHandler",
+    "LlamaIndexInstrumentor",
+]
