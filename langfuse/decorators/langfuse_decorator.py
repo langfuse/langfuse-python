@@ -1110,7 +1110,9 @@ class LangfuseDecorator:
         try:
             return self.client_instance.auth_check()
         except Exception as e:
-            self._log.error("No Langfuse object found in the current context", e)
+            self._log.error(
+                "No Langfuse object found in the current context", exc_info=e
+            )
 
             return False
 
