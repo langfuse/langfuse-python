@@ -1,6 +1,6 @@
 # Finto Python Library
 
-[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-SDK%20generated%20by%20Fern-brightgreen)](https://github.com/fern-api/fern)
+[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Finto%2FPython)
 [![pypi](https://img.shields.io/pypi/v/finto)](https://pypi.python.org/pypi/finto)
 
 The Finto Python library provides convenient access to the Finto API from Python.

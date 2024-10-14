@@ -1061,7 +1061,7 @@ client.metrics.daily(
 <dl>
 <dd>
 
-**from_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces on or after a certain datetime (ISO 8601)
+**from_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces and observations on or after a certain datetime (ISO 8601)
     
 </dd>
 </dl>
@@ -1069,7 +1069,7 @@ client.metrics.daily(
 <dl>
 <dd>
 
-**to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces before a certain datetime (ISO 8601)
+**to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces and observations before a certain datetime (ISO 8601)
     
 </dd>
 </dl>
@@ -1134,8 +1134,8 @@ client.models.create(
     request=CreateModelRequest(
         model_name="string",
         match_pattern="string",
-        start_date=datetime.date.fromisoformat(
-            "2023-01-15",
+        start_date=datetime.datetime.fromisoformat(
+            "2024-01-15 09:30:00+00:00",
         ),
         unit=ModelUsageUnit.CHARACTERS,
         input_price=1.1,
