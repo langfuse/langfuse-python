@@ -13,6 +13,7 @@ from langchain.chains import (
     SimpleSequentialChain,
     ConversationChain,
 )
+from langchain_core.tools import StructuredTool
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import TextLoader
@@ -2095,3 +2096,65 @@ def test_get_langchain_chat_prompt_with_precompiled_prompt():
 
     assert system_message.content == "This is a dog."
     assert user_message.content == "This is a langchain chain."
+
+
+def test_callback_openai_functions_with_tools():
+    handler = CallbackHandler()
+
+    llm = ChatOpenAI(model="gpt-4", temperature=0, callbacks=[handler])
+
+    class StandardizedAddress(BaseModel):
+        street: str = Field(description="The street name and number")
+        city: str = Field(description="The city name")
+        state: str = Field(description="The state or province")
+        zip_code: str = Field(description="The postal code")
+
+    class GetWeather(BaseModel):
+        city: str = Field(description="The city name")
+        state: str = Field(description="The state or province")
+        zip_code: str = Field(description="The postal code")
+
+    address_tool = StructuredTool.from_function(
+        func=lambda **kwargs: StandardizedAddress(**kwargs),
+        name="standardize_address",
+        description="Standardize the given address",
+        args_schema=StandardizedAddress,
+    )
+
+    weather_tool = StructuredTool.from_function(
+        func=lambda **kwargs: GetWeather(**kwargs),
+        name="get_weather",
+        description="Get the weather for the given city",
+        args_schema=GetWeather,
+    )
+
+    messages = [
+        {
+            "role": "user",
+            "content": "Please standardize this address: 123 Main St, Springfield, IL 62701",
+        }
+    ]
+
+    llm.bind_tools([address_tool, weather_tool]).invoke(messages)
+
+    handler.flush()
+
+    api = get_api()
+    trace = api.trace.get(handler.get_trace_id())
+
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
+
+    for generation in generations:
+        assert generation.input is not None
+        tool_messages = [msg for msg in generation.input if msg["role"] == "tool"]
+        assert len(tool_messages) == 2
+        assert any(
+            "standardize_address" == msg["content"]["function"]["name"]
+            for msg in tool_messages
+        )
+        assert any(
+            "get_weather" == msg["content"]["function"]["name"] for msg in tool_messages
+        )
+
+        assert generation.output is not None
