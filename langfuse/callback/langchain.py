@@ -53,7 +53,7 @@ except ImportError:
 class LangchainCallbackHandler(
     LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
-    log = logging.getLogger("langfuse")
+    log = logging.getLogger(__name__)
     next_span_id: Optional[str] = None
 
     def __init__(
@@ -704,6 +704,10 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ):
         try:
+            tools = kwargs.get("invocation_params", {}).get("tools", None)
+            if tools and isinstance(tools, list):
+                prompts.extend([{"role": "tool", "content": tool} for tool in tools])
+
             self.__generate_trace_and_parent(
                 serialized,
                 inputs=prompts[0] if len(prompts) == 1 else prompts,
