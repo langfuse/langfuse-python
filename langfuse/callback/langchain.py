@@ -53,7 +53,7 @@ except ImportError:
 class LangchainCallbackHandler(
     LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
-    log = logging.getLogger(__name__)
+    log = logging.getLogger("langfuse")
     next_span_id: Optional[str] = None
 
     def __init__(
