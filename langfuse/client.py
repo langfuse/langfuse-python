@@ -22,12 +22,14 @@ from typing import (
 import urllib.parse
 import warnings
 from dataclasses import dataclass
+from langfuse.api.core.request_options import RequestOptions
 
 
 from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
 )
 from langfuse.api.resources.commons.types.observations_view import ObservationsView
+from langfuse.api.resources.commons.types.score_source import ScoreSource
 from langfuse.api.resources.commons.types.session import Session
 from langfuse.api.resources.commons.types.trace_with_details import TraceWithDetails
 from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
@@ -127,6 +129,27 @@ class FetchSessionsResponse:
     """Response object for fetch_sessions method."""
 
     data: typing.List[Session]
+    meta: MetaResponse
+
+@dataclass
+class FetchScoreResponse:
+    """Response object for fetch_score method."""
+
+    data: ScoreBody
+
+@dataclass
+class FetchScoresResponse:
+    """Response object for fetch_scores method."""
+
+    data: typing.List[ScoreBody]
+    meta: MetaResponse
+
+
+@dataclass
+class FetchPromptsResponse:
+    """Response object for fetch_prompts method."""
+
+    data: typing.List[Union[Prompt_Text, Prompt_Chat]]
     meta: MetaResponse
 
 
@@ -371,6 +394,26 @@ class Langfuse(object):
         except Exception as e:
             handle_fern_exception(e)
             raise e
+        
+    def get_datasets(
+        self, *, page: Optional[int] = None, limit: Optional[int] = None, request_options: Optional[RequestOptions] = None
+    ) -> typing.List[Dataset]:
+        """Get all datasets.
+
+        Args:
+            page (Optional[int]): Page number of the datasets to return, starts at 1. Defaults to None.
+            limit (Optional[int]): Maximum number of datasets to return. Defaults to 50.
+            request_options (Optional[RequestOptions]): Request options. Defaults to None.
+
+        Returns:
+            List[Dataset]: The datasets.
+        """
+        try:
+            self.log.debug("Getting datasets")
+            return self.client.datasets.list(page=page, limit=limit, request_options=request_options)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
 
     def get_dataset_item(self, id: str) -> "DatasetItemClient":
         """Get the dataset item with the given id."""
@@ -542,6 +585,38 @@ class Langfuse(object):
         except Exception as e:
             handle_fern_exception(e)
             raise e
+        
+    def get_dataset_items(
+        self,
+        dataset_name: typing.Optional[str] = None,
+        source_trace_id: typing.Optional[str] = None,
+        source_observation_id: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.List[DatasetItem]:
+        """Get all dataset items.
+
+        Args:
+            dataset_name (Optional[str]): Name of the dataset.
+            source_trace_id (Optional[str]): Source trace id.
+            source_observation_id (Optional[str]): Source observation id.
+            page (Optional[int]): Page number of the dataset items to return, starts at 1. Defaults to None.
+            limit (Optional[int]): Maximum number of dataset items to return. Defaults to 50.
+            request_options (Optional[RequestOptions]): Request options. Defaults to None.
+
+        Returns:
+            List[DatasetItem]: The dataset items.
+        """
+        try:
+            self.log.debug("Getting dataset items")
+            return self.client.dataset_items.list(
+                dataset_name=dataset_name, source_trace_id=source_trace_id, source_observation_id=source_observation_id, page=page, limit=limit, request_options=request_options
+            )
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+        
 
     def fetch_trace(
         self,
@@ -934,6 +1009,137 @@ class Langfuse(object):
             return FetchSessionsResponse(data=res.data, meta=res.meta)
         except Exception as e:
             handle_fern_exception(e)
+            raise e
+        
+    def fetch_score(
+        self,
+        id: str,
+    ) -> FetchScoreResponse:
+        """Get a score in the current project with the given identifier.
+
+        Args:
+            id: The identifier of the score to fetch.
+
+        Returns:
+            FetchScoreResponse: The score with the given id on `data`.
+
+        Raises:
+            Exception: If the score with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
+        try:
+            self.log.debug(f"Getting score {id}")
+            res = self.client.score.get_by_id(id)
+            return FetchScoreResponse(data=res)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def fetch_scores(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        user_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
+        source: typing.Optional[ScoreSource] = None,
+        operator: typing.Optional[str] = None,
+        value: typing.Optional[float] = None,
+        score_ids: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        data_type: typing.Optional[ScoreDataType] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+
+    ) -> FetchScoresResponse:
+        """Get a list of scores in the current project.
+
+        Args:
+            page (Optional[int]): Page number of the scores to return. Defaults to None.
+            limit (Optional[int]): Maximum number of scores to return. Defaults to None.
+            user_id (Optional[str]): User identifier. Defaults to None.
+            name (Optional[str]): Name of the scores to return. Defaults to None.
+            from_timestamp (Optional[dt.datetime]): Retrieve only scores with a timestamp on or after this datetime. Defaults to None.
+            to_timestamp (Optional[dt.datetime]): Retrieve only scores with a timestamp before this datetime. Defaults to None.
+            source (Optional[ScoreSource]): Source of the scores. Defaults to None.
+            operator (Optional[str]): Operator of the scores. Defaults to None.
+            value (Optional[float]): Value of the scores. Defaults to None.
+            score_ids (Optional[str]): Score identifier. Defaults to None.
+            config_id (Optional[str]): Configuration identifier. Defaults to None.
+            data_type (Optional[ScoreDataType]): Data type of the scores. Defaults to None.
+            request_options (Optional[RequestOptions]): Type of the score. Defaults to None.
+
+        Returns:
+            FetchScoresResponse, list of scores on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting scores... {page}, {limit}, {user_id}, {name}, {from_timestamp}, {to_timestamp}, {source}, {operator}, {value}, {score_ids}, {config_id}, {data_type}, {request_options}"
+            )
+            res = self.client.score.get(
+                page=page,
+                limit=limit,
+                user_id=user_id,
+                name=name,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+                source=source,
+                operator=operator,
+                value=value,
+                score_ids=score_ids,
+                config_id=config_id,
+                data_type=data_type,
+                request_options=request_options,
+            )
+            return FetchScoresResponse(data=res.data, meta=res.meta)
+        except Exception as e:
+            self.log.exception(e)
+            raise e
+
+    def fetch_prompts(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+        label: typing.Optional[str] = None,
+        tag: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> FetchPromptsResponse:
+        """Get a list of prompts in the current project matching the given parameters.
+
+        Args:
+            page (Optional[int]): Page number of the prompts to return. Defaults to None.
+            limit (Optional[int]): Maximum number of prompts to return. Defaults to None.
+            name (Optional[str]): Name of the prompts to return. Defaults to None.
+            label (Optional[str]): Label of the prompts to return. Defaults to None.
+            tag (Optional[str]): Tag of the prompts to return. Defaults to None.
+            request_options (Optional[RequestOptions]): Type of the prompt. Defaults to None.
+
+        Returns:
+            FetchPromptsResponse, list of prompts on `data` and metadata on `meta`.
+
+        Raises:
+            Exception: If an error occurred during the request.
+        """
+        try:
+            self.log.debug(
+                f"Getting prompts... {page}, {limit}, {name}, {label}, {tag}, {request_options}"
+            )
+            res = self.client.prompts.list(
+                page=page,
+                limit=limit,
+                name=name,
+                label=label,
+                tag=tag,
+                request_options=request_options,
+            )
+            return FetchPromptsResponse(data=res.data, meta=res.meta)
+        except Exception as e:
+            self.log.exception(e)
             raise e
 
     @overload
