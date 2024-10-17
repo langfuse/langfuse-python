@@ -1,4 +1,6 @@
 from unittest.mock import Mock
+from typing import Any, Callable
+
 from langfuse.api.client import FernLangfuse
 from langfuse.client import (
     StatefulClient,
@@ -82,3 +84,25 @@ def test_stateful_client_returning_if_taskmanager_fails(
     mock_task_manager.assert_called()
 
     assert isinstance(result, expected_client)
+
+
+@pytest.mark.parametrize("method", ["trace", "span", "event", "generation"])
+def test_mask_input(langfuse, method: str):
+    def mask(data: Any) -> Any:
+        return {**data, "key": "masked"} if isinstance(data, dict) else data
+
+    langfuse.mask = mask
+
+    mock_task_manager = langfuse.task_manager.add_task
+
+    method_to_call: Callable = getattr(langfuse, method)
+    method_to_call(
+        user_id="test",
+        input={"key": "value"},
+        output={"key": "pii-data"},
+        tags=["tag1", "tag2"],
+        public=True,
+    )
+
+    assert mock_task_manager.call_args[0][0]["body"]["input"] == {"key": "masked"}
+    assert mock_task_manager.call_args[0][0]["body"]["output"] == {"key": "masked"}
