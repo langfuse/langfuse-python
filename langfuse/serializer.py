@@ -11,7 +11,11 @@ from collections.abc import Sequence
 from langfuse.api.core import serialize_datetime
 from pathlib import Path
 from logging import getLogger
-from pydantic import BaseModel
+
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic
 
 # Attempt to import Serializable
 try:
@@ -71,10 +75,13 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (date)):
                 return obj.isoformat()
 
-            if isinstance(obj, BaseModel):
-                obj.model_rebuild()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
+            if isinstance(obj, pydantic.BaseModel):
+                # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
+                # Use update_forward_refs() instead of model_rebuild() as model_rebuild is not available in pydantic v1
+                obj.update_forward_refs()
 
-                return obj.model_dump()
+                # Use dict() instead of model_dump() as model_dump is not available in pydantic v1
+                return obj.dict()
 
             if isinstance(obj, Path):
                 return str(obj)
