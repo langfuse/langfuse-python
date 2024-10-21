@@ -1040,6 +1040,7 @@ class LangfuseDecorator:
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = None,
+        mask: Optional[Callable] = None,
     ):
         """Configure the Langfuse client.
 
@@ -1058,6 +1059,8 @@ class LangfuseDecorator:
             timeout: Timeout of API requests in seconds. Default is 20 seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
             enabled: Enables or disables the Langfuse client. Defaults to True. If disabled, no observability data will be sent to Langfuse. If data is requested while disabled, an error will be raised.
+            mask (Callable): Function that masks sensitive information from input and output in log messages.
+
         """
         langfuse_singleton = LangfuseSingleton()
         langfuse_singleton.reset()
@@ -1075,6 +1078,7 @@ class LangfuseDecorator:
             timeout=timeout,
             httpx_client=httpx_client,
             enabled=enabled,
+            mask=mask,
         )
 
     @property
