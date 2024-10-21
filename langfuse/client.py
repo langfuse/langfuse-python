@@ -317,6 +317,7 @@ class Langfuse(object):
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
             "sample_rate": sample_rate,
+            "mask": mask,
         }
 
         self.task_manager = TaskManager(**args)
