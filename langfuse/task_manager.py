@@ -223,7 +223,7 @@ class Consumer(threading.Thread):
             sdk_name=self._sdk_name,
             sdk_version=self._sdk_version,
             public_key=self._public_key,
-        ).dict()
+        ).model_dump()
 
         @backoff.on_exception(
             backoff.expo, Exception, max_tries=self._max_retries, logger=None
