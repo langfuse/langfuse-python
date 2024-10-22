@@ -57,7 +57,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
 class LlamaIndexCallbackHandler(
     LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
-    """LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
+    """[Deprecated] LlamaIndex callback handler for Langfuse. Deprecated, please use the LlamaIndexInstrumentor instead."""
 
     log = logging.getLogger("langfuse")
 
@@ -88,6 +88,9 @@ class LlamaIndexCallbackHandler(
         sdk_integration: Optional[str] = None,
         sample_rate: Optional[float] = None,
     ) -> None:
+        self.log.warning(
+            "LlamaIndexCallbackHandler is deprecated, please use the LlamaIndexInstrumentor instead."
+        )
         LlamaIndexBaseCallbackHandler.__init__(
             self,
             event_starts_to_ignore=event_starts_to_ignore or [],
