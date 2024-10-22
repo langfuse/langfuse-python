@@ -49,7 +49,7 @@ def extract_by_priority(
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
     """Converts any usage input to a usage object"""
     if isinstance(usage, pydantic.BaseModel):
-        usage = usage.dict()
+        usage = usage.model_dump()
 
     # sometimes we do not match the pydantic usage object
     # in these cases, we convert to dict manually
