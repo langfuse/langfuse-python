@@ -88,9 +88,6 @@ class LlamaIndexCallbackHandler(
         sdk_integration: Optional[str] = None,
         sample_rate: Optional[float] = None,
     ) -> None:
-        self.log.warning(
-            "LlamaIndexCallbackHandler is deprecated, please use the LlamaIndexInstrumentor instead."
-        )
         LlamaIndexBaseCallbackHandler.__init__(
             self,
             event_starts_to_ignore=event_starts_to_ignore or [],
