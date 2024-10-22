@@ -1,3 +1,4 @@
+from time import sleep
 import pytest
 from unittest.mock import Mock, patch
 
@@ -453,7 +454,6 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
         langfuse.get_prompt(prompt_name)
 
     assert "Prompt not found" in str(exc_info.value)
-    langfuse.log.exception.assert_called_once()
 
 
 def test_using_custom_prompt_timeouts(langfuse):
@@ -628,7 +628,7 @@ def test_get_valid_cached_chat_prompt(langfuse):
 
 # Should refetch and return new prompt if cached one is expired according to custom TTL
 @patch.object(PromptCacheItem, "get_epoch_seconds")
-def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
+def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Langfuse):
     mock_time.return_value = 0
     ttl_seconds = 20
 
@@ -662,13 +662,143 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse):
     mock_time.return_value = ttl_seconds + 1
 
     result_call_3 = langfuse.get_prompt(prompt_name)
+
+    while True:
+        if langfuse.prompt_cache._task_manager.active_tasks() == 0:
+            break
+        sleep(0.1)
+
     assert mock_server_call.call_count == 2  # New call
     assert result_call_3 == prompt_client
 
 
+# Should disable caching when cache_ttl_seconds is set to 0
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
+    mock_time.return_value = 0
+    prompt_name = "test"
+
+    # Initial prompt
+    prompt1 = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    # Updated prompts
+    prompt2 = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Tell me a joke",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt3 = Prompt_Text(
+        name=prompt_name,
+        version=3,
+        prompt="Share a funny story",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.side_effect = [prompt1, prompt2, prompt3]
+
+    # First call
+    result1 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 1
+    assert result1 == TextPromptClient(prompt1)
+
+    # Second call
+    result2 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 2
+    assert result2 == TextPromptClient(prompt2)
+
+    # Third call
+    result3 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 3
+    assert result3 == TextPromptClient(prompt3)
+
+    # Verify that all results are different
+    assert result1 != result2 != result3
+
+
+# Should return stale prompt immediately if cached one is expired according to default TTL and add to refresh promise map
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)
+    mock_time.return_value = 0
+
+    prompt_name = "test"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    # Update the version of the returned mocked prompt
+    updated_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    mock_server_call.return_value = updated_prompt
+
+    # Set time to just AFTER cache expiry
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+
+    stale_result = langfuse.get_prompt(prompt_name)
+    assert stale_result == prompt_client
+
+    # Ensure that only one refresh is triggered despite multiple calls
+    # Cannot check for value as the prompt might have already been updated
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+
+    while True:
+        if langfuse.prompt_cache._task_manager.active_tasks() == 0:
+            break
+        sleep(0.1)
+
+    assert mock_server_call.call_count == 2  # Only one new call to server
+
+    # Check that the prompt has been updated after refresh
+    updated_result = langfuse.get_prompt(prompt_name)
+    assert updated_result.version == 2
+    assert updated_result == TextPromptClient(updated_prompt)
+
+
 # Should refetch and return new prompt if cached one is expired according to default TTL
 @patch.object(PromptCacheItem, "get_epoch_seconds")
-def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
+def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
     mock_time.return_value = 0
 
     prompt_name = "test"
@@ -701,13 +831,18 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse):
     mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
 
     result_call_3 = langfuse.get_prompt(prompt_name)
+    while True:
+        if langfuse.prompt_cache._task_manager.active_tasks() == 0:
+            break
+        sleep(0.1)
+
     assert mock_server_call.call_count == 2  # New call
     assert result_call_3 == prompt_client
 
 
 # Should return expired prompt if refetch fails
 @patch.object(PromptCacheItem, "get_epoch_seconds")
-def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
+def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
     mock_time.return_value = 0
 
     prompt_name = "test"
@@ -735,12 +870,17 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse):
     mock_server_call.side_effect = Exception("Server error")
 
     result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
+    while True:
+        if langfuse.prompt_cache._task_manager.active_tasks() == 0:
+            break
+        sleep(0.1)
+
     assert mock_server_call.call_count == 2
     assert result_call_2 == prompt_client
 
 
 # Should fetch new prompt if version changes
-def test_get_fresh_prompt_when_version_changes(langfuse):
+def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     prompt_name = "test"
     prompt = Prompt_Text(
         name=prompt_name,

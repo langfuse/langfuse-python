@@ -161,6 +161,70 @@ def test_openai_chat_completion_stream():
     assert trace.output == chat_content
 
 
+def test_openai_chat_completion_stream_with_next_iteration():
+    api = get_api()
+    generation_name = create_uuid()
+    completion = chat_func(
+        name=generation_name,
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        metadata={"someKey": "someResponse"},
+        stream=True,
+    )
+
+    assert iter(completion)
+
+    chat_content = ""
+
+    while True:
+        try:
+            c = next(completion)
+            chat_content += c.choices[0].delta.content or ""
+
+        except StopIteration:
+            break
+
+    assert len(chat_content) > 0
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].metadata == {"someKey": "someResponse"}
+
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    assert generation.data[0].output == "2"
+    assert isinstance(generation.data[0].output, str) is True
+    assert generation.data[0].completion_start_time is not None
+
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+
+    trace = api.trace.get(generation.data[0].trace_id)
+    assert trace.input == [{"role": "user", "content": "1 + 1 = "}]
+    assert trace.output == chat_content
+
+
 def test_openai_chat_completion_stream_fail():
     api = get_api()
     generation_name = create_uuid()
@@ -411,6 +475,33 @@ def test_openai_chat_completion_two_calls():
     assert len(completion_2.choices) != 0
 
     assert generation_2.data[0].input == [{"content": "2 + 2 = ", "role": "user"}]
+
+
+def test_openai_chat_completion_with_seed():
+    api = get_api()
+    generation_name = create_uuid()
+    completion = chat_func(
+        name=generation_name,
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        temperature=0,
+        seed=123,
+        metadata={"someKey": "someResponse"},
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert generation.data[0].model_parameters == {
+        "temperature": 0,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+        "seed": 123,
+    }
+    assert len(completion.choices) != 0
 
 
 def test_openai_completion():
@@ -669,7 +760,6 @@ async def test_async_chat():
     )
 
     openai.flush_langfuse()
-    print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
 
@@ -715,7 +805,6 @@ async def test_async_chat_stream():
         print(c)
 
     openai.flush_langfuse()
-    print(completion)
 
     generation = api.observations.get_many(name=generation_name, type="GENERATION")
 
@@ -745,6 +834,64 @@ async def test_async_chat_stream():
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
+@pytest.mark.asyncio
+async def test_async_chat_stream_with_anext():
+    api = get_api()
+    client = AsyncOpenAI()
+
+    generation_name = create_uuid()
+
+    completion = await client.chat.completions.create(
+        messages=[{"role": "user", "content": "Give me a one-liner joke"}],
+        model="gpt-3.5-turbo",
+        name=generation_name,
+        stream=True,
+    )
+
+    result = ""
+
+    while True:
+        try:
+            c = await completion.__anext__()
+
+            result += c.choices[0].delta.content or ""
+
+        except StopAsyncIteration:
+            break
+
+    openai.flush_langfuse()
+
+    print(result)
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].input == [
+        {"content": "Give me a one-liner joke", "role": "user"}
+    ]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 1,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+
+
 def test_openai_function_call():
     from typing import List
 
@@ -761,7 +908,7 @@ def test_openai_function_call():
 
     response = openai.chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-0613",
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
@@ -801,7 +948,7 @@ def test_openai_function_call_streamed():
 
     response = openai.chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-0613",
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
@@ -853,15 +1000,13 @@ def test_openai_tool_call():
         }
     ]
     messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
-    completion = openai.chat.completions.create(
+    openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=messages,
         tools=tools,
         tool_choice="auto",
         name=generation_name,
     )
-
-    print(completion)
 
     openai.flush_langfuse()
 
@@ -1337,22 +1482,113 @@ def test_structured_output_response_format_kwarg():
 
 def test_structured_output_beta_completions_parse():
     from typing import List
+    from packaging.version import Version
 
     class CalendarEvent(BaseModel):
         name: str
         date: str
         participants: List[str]
 
-    openai.beta.chat.completions.parse(
-        model="gpt-4o-2024-08-06",
-        messages=[
+    generation_name = create_uuid()
+    api = get_api()
+
+    params = {
+        "model": "gpt-4o-2024-08-06",
+        "messages": [
             {"role": "system", "content": "Extract the event information."},
             {
                 "role": "user",
                 "content": "Alice and Bob are going to a science fair on Friday.",
             },
         ],
-        response_format=CalendarEvent,
-    )
+        "response_format": CalendarEvent,
+        "name": generation_name,
+    }
+
+    # The beta API is only wrapped for this version range. prior to that, implicitly another wrapped method was called
+    if Version(openai.__version__) < Version("1.50.0"):
+        params.pop("name")
+
+    openai.beta.chat.completions.parse(**params)
 
     openai.flush_langfuse()
+
+    if Version(openai.__version__) >= Version("1.50.0"):
+        # Check the trace and observation properties
+        generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+        assert len(generation.data) == 1
+        assert generation.data[0].name == generation_name
+        assert generation.data[0].type == "GENERATION"
+        assert generation.data[0].model == "gpt-4o-2024-08-06"
+        assert generation.data[0].start_time is not None
+        assert generation.data[0].end_time is not None
+        assert generation.data[0].start_time < generation.data[0].end_time
+
+        # Check input and output
+        assert len(generation.data[0].input) == 2
+        assert generation.data[0].input[0]["role"] == "system"
+        assert generation.data[0].input[1]["role"] == "user"
+        assert isinstance(generation.data[0].output, dict)
+        assert "name" in generation.data[0].output["content"]
+        assert "date" in generation.data[0].output["content"]
+        assert "participants" in generation.data[0].output["content"]
+
+        # Check usage
+        assert generation.data[0].usage.input is not None
+        assert generation.data[0].usage.output is not None
+        assert generation.data[0].usage.total is not None
+
+        # Check trace
+        trace = api.trace.get(generation.data[0].trace_id)
+
+        assert trace.input is not None
+        assert trace.output is not None
+
+
+@pytest.mark.asyncio
+async def test_close_async_stream():
+    client = AsyncOpenAI()
+    generation_name = create_uuid()
+    api = get_api()
+
+    stream = await client.chat.completions.create(
+        messages=[{"role": "user", "content": "1 + 1 = "}],
+        model="gpt-3.5-turbo",
+        name=generation_name,
+        stream=True,
+    )
+
+    async for token in stream:
+        print(token)
+
+    await stream.close()
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation.data[0].type == "GENERATION"
+    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].model_parameters == {
+        "temperature": 1,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "max_tokens": "inf",
+        "presence_penalty": 0,
+    }
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    assert "2" in generation.data[0].output
+
+    # Completion start time for time-to-first-token
+    assert generation.data[0].completion_start_time is not None
+    assert generation.data[0].completion_start_time >= generation.data[0].start_time
+    assert generation.data[0].completion_start_time <= generation.data[0].end_time

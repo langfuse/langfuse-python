@@ -57,7 +57,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
 class LlamaIndexCallbackHandler(
     LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
-    """LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
+    """[Deprecated] LlamaIndex callback handler for Langfuse. Deprecated, please use the LlamaIndexInstrumentor instead."""
 
     log = logging.getLogger("langfuse")
 
@@ -546,7 +546,8 @@ class LlamaIndexCallbackHandler(
         ],
         trace_id: str,
     ) -> StatefulSpanClient:
-        start_event, end_event = self.event_map[event_id]
+        events = self.event_map[event_id]
+        start_event, end_event = events[0], events[-1]
 
         extracted_input = self._parse_input_from_event(start_event)
         extracted_output = self._parse_output_from_event(end_event)
@@ -564,7 +565,16 @@ class LlamaIndexCallbackHandler(
             and start_event.payload
             and start_event.payload.get("tool", None)
         ):
-            name = start_event.payload.get("tool", name)
+            tool_name = start_event.payload.get("tool", name)
+            name = (
+                tool_name
+                if isinstance(tool_name, str)
+                else (
+                    tool_name.name
+                    if hasattr(tool_name, "name")
+                    else tool_name.__class__.__name__
+                )
+            )
 
         span = parent.span(
             id=event_id,
