@@ -57,7 +57,7 @@ context_trace_metadata: ContextVar[TraceMetadata] = ContextVar(
 class LlamaIndexCallbackHandler(
     LlamaIndexBaseCallbackHandler, LangfuseBaseCallbackHandler
 ):
-    """LlamaIndex callback handler for Langfuse. This version is in alpha and may change in the future."""
+    """[Deprecated] LlamaIndex callback handler for Langfuse. Deprecated, please use the LlamaIndexInstrumentor instead."""
 
     log = logging.getLogger("langfuse")
 

@@ -24,7 +24,7 @@ logger = getLogger(__name__)
 
 
 class LlamaIndexInstrumentor:
-    """[BETA] Instrumentor for exporting LlamaIndex instrumentation module spans to Langfuse.
+    """Instrumentor for exporting LlamaIndex instrumentation module spans to Langfuse.
 
     This beta integration is currently under active development and subject to change.
     Please provide feedback to the Langfuse team: https://github.com/langfuse/langfuse/issues/1931
