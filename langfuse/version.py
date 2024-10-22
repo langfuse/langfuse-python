@@ -1,3 +1,3 @@
 """@private"""
 
-__version__ = "2.52.1"
+__version__ = "2.52.2"
