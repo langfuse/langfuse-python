@@ -495,6 +495,9 @@ def _extract_streamed_openai_response(resource, chunks):
 
 
 def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
+    if response is None:
+        return None, "<NoneType response returned from OpenAI>", None
+
     model = response.get("model", None) or None
 
     completion = None
@@ -558,7 +561,9 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(
                 open_ai_resource,
-                openai_response.__dict__ if _is_openai_v1() else openai_response,
+                (openai_response and openai_response.__dict__)
+                if _is_openai_v1()
+                else openai_response,
             )
             generation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
@@ -609,7 +614,9 @@ async def _wrap_async(
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(
                 open_ai_resource,
-                openai_response.__dict__ if _is_openai_v1() else openai_response,
+                (openai_response and openai_response.__dict__)
+                if _is_openai_v1()
+                else openai_response,
             )
             generation.update(
                 model=model,
