@@ -595,7 +595,8 @@ class LangfuseDecorator:
 
             return None
 
-        observation = _observation_stack_context.get()[-1]
+        stack = _observation_stack_context.get()
+        observation = stack[-1] if stack else None
 
         if observation is None:
             self._log.warning("No observation found in the current context")
@@ -629,7 +630,8 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., within a function wrapped by @observe) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
-        observation = _observation_stack_context.get()[-1]
+        stack = _observation_stack_context.get()
+        observation = stack[-1] if stack else None
 
         if observation is None:
             self._log.warning("No observation found in the current context")
