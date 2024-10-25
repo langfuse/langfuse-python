@@ -1,4 +1,4 @@
-from typing import Optional, Union, List, Any
+from typing import Optional, Union, List, Any, Callable
 import httpx
 import logging
 import os
@@ -37,6 +37,7 @@ class LangfuseBaseCallbackHandler:
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: str,
         sample_rate: Optional[float] = None,
+        mask: Optional[Callable] = None,
     ) -> None:
         self.version = version
         self.session_id = session_id
@@ -106,6 +107,8 @@ class LangfuseBaseCallbackHandler:
             args["httpx_client"] = httpx_client
         if prio_sample_rate is not None:
             args["sample_rate"] = prio_sample_rate
+        if mask is not None:
+            args["mask"] = mask
 
         args["sdk_integration"] = sdk_integration
 

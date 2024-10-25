@@ -697,6 +697,7 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_debug", None)
         setattr(openai, "langfuse_enabled", True)
         setattr(openai, "langfuse_sample_rate", None)
+        setattr(openai, "langfuse_mask", None)
         setattr(openai, "langfuse_auth_check", self.langfuse_auth_check)
         setattr(openai, "flush_langfuse", self.flush)
 

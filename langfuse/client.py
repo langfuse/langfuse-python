@@ -87,7 +87,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel, ScoreDataType
+from langfuse.types import SpanLevel, ScoreDataType, MaskFunction
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -180,7 +180,7 @@ class Langfuse(object):
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
         sample_rate: Optional[float] = None,
-        mask: Optional[Callable[[Any], Any]] = None,
+        mask: Optional[MaskFunction] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -199,7 +199,7 @@ class Langfuse(object):
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
             sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
-            mask (Callable): Function that masks sensitive information from input and output in log messages.
+            mask (langfuse.types.MaskFunction): Masking function for 'input' and 'output' fields in events. Function must take a single keyword argument `data` and return a serializable, masked version of the data.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -294,8 +294,6 @@ class Langfuse(object):
             httpx_client=self.httpx_client,
         )
 
-        self.mask = mask
-
         langfuse_client = LangfuseClient(
             public_key=public_key,
             secret_key=secret_key,
@@ -327,11 +325,6 @@ class Langfuse(object):
         self.release = self._get_release_value(release)
 
         self.prompt_cache = PromptCache()
-
-    def _apply_mask(self, data: Any) -> Any:
-        if self.mask:
-            return self.mask(data)
-        return data
 
     def _get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
@@ -1328,8 +1321,8 @@ class Langfuse(object):
                 "release": self.release,
                 "version": version,
                 "metadata": metadata,
-                "input": self._apply_mask(input),
-                "output": self._apply_mask(output),
+                "input": input,
+                "output": output,
                 "tags": tags,
                 "timestamp": timestamp or _get_timestamp(),
                 "public": public,
@@ -1595,8 +1588,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
-                "input": self._apply_mask(input),
-                "output": self._apply_mask(output),
+                "input": input,
+                "output": output,
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,
@@ -1697,8 +1690,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
-                "input": self._apply_mask(input),
-                "output": self._apply_mask(output),
+                "input": input,
+                "output": output,
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,
@@ -1813,8 +1806,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
-                "input": self._apply_mask(input),
-                "output": self._apply_mask(output),
+                "input": input,
+                "output": output,
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,

@@ -24,6 +24,7 @@ from langfuse.client import (
 from langfuse.extract_model import _extract_model_name
 from langfuse.utils import _get_timestamp
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
+from langfuse.types import MaskFunction
 
 try:
     from langchain.callbacks.base import (
@@ -82,6 +83,7 @@ class LangchainCallbackHandler(
         httpx_client: Optional[httpx.Client] = None,
         sdk_integration: Optional[str] = None,
         sample_rate: Optional[float] = None,
+        mask: Optional[MaskFunction] = None,
     ) -> None:
         LangfuseBaseCallbackHandler.__init__(
             self,
@@ -107,6 +109,7 @@ class LangchainCallbackHandler(
             httpx_client=httpx_client,
             sdk_integration=sdk_integration or "langchain",
             sample_rate=sample_rate,
+            mask=mask,
         )
 
         self.runs = {}

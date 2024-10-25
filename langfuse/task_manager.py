@@ -14,6 +14,7 @@ from langfuse.Sampler import Sampler
 from langfuse.parse_error import handle_exception
 from langfuse.request import APIError
 from langfuse.utils import _get_timestamp
+from langfuse.types import MaskFunction
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
@@ -261,7 +262,7 @@ class TaskManager(object):
     _sdk_version: str
     _sdk_integration: str
     _sampler: Sampler
-    _mask: Optional[Callable[[Any], Any]]
+    _mask: Optional[MaskFunction]
 
     def __init__(
         self,
@@ -277,7 +278,7 @@ class TaskManager(object):
         enabled: bool = True,
         max_task_queue_size: int = 100_000,
         sample_rate: float = 1,
-        mask: Optional[Callable[[Any], Any]] = None,
+        mask: Optional[MaskFunction] = None,
     ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
@@ -325,12 +326,7 @@ class TaskManager(object):
             if not self._sampler.sample_event(event):
                 return  # event was sampled out
 
-            # mask input/output
-            if self._mask:
-                body = event["body"]
-                for key in ("input", "output"):
-                    if key in body:
-                        body[key] = self._mask(body[key])
+            self._apply_mask_in_place(event)
 
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = _get_timestamp()
@@ -344,8 +340,22 @@ class TaskManager(object):
 
             return False
 
+    def _apply_mask_in_place(self, event: dict):
+        """Apply the mask function to the event. This is done in place."""
+        if not self._mask:
+            return
+
+        body = event["body"]
+        for key in ("input", "output"):
+            if key in body:
+                try:
+                    body[key] = self._mask(data=body[key])
+                except Exception as e:
+                    self._log.error(f"Mask function failed with error: {e}")
+                    body[key] = "<fully masked due to failed mask function>"
+
     def flush(self):
-        """Forces a flush from the internal queue to the server"""
+        """Force a flush from the internal queue to the server."""
         self._log.debug("flushing queue")
         queue = self._queue
         size = queue.qsize()
@@ -354,7 +364,8 @@ class TaskManager(object):
         self._log.debug("successfully flushed about %s items.", size)
 
     def join(self):
-        """Ends the consumer threads once the queue is empty.
+        """End the consumer threads once the queue is empty.
+
         Blocks execution until finished
         """
         self._log.debug(f"joining {len(self._consumers)} consumer threads")
@@ -374,7 +385,7 @@ class TaskManager(object):
             self._log.debug(f"consumer thread {consumer._identifier} joined")
 
     def shutdown(self):
-        """Flush all messages and cleanly shutdown the client"""
+        """Flush all messages and cleanly shutdown the client."""
         self._log.debug("shutdown initiated")
 
         self.flush()

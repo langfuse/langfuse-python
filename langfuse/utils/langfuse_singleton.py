@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 
 from langfuse import Langfuse
+from langfuse.types import MaskFunction
 
 
 class LangfuseSingleton:
@@ -35,7 +36,7 @@ class LangfuseSingleton:
         sdk_integration: Optional[str] = None,
         enabled: Optional[bool] = None,
         sample_rate: Optional[float] = None,
-        mask: Optional[Callable] = None,
+        mask: Optional[MaskFunction] = None,
     ) -> Langfuse:
         if self._langfuse:
             return self._langfuse

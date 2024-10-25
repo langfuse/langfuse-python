@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from langfuse.client import PromptClient, ModelUsage, MapValue
-from typing import Any, List, Optional, TypedDict, Literal, Dict, Union
+from typing import Any, List, Optional, TypedDict, Literal, Dict, Union, Protocol
 from pydantic import BaseModel
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
@@ -33,3 +33,16 @@ class ObservationParams(TraceMetadata, TypedDict):
     model_parameters: Optional[Dict[str, MapValue]]
     usage: Optional[Union[BaseModel, ModelUsage]]
     prompt: Optional[PromptClient]
+
+
+class MaskFunction(Protocol):
+    """A function that masks data.
+
+    Keyword Args:
+        data: The data to mask.
+
+    Returns:
+        The masked data that must be serializable to JSON.
+    """
+
+    def __call__(self, *, data: Any) -> Any: ...
