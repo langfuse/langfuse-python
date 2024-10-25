@@ -86,7 +86,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel, ScoreDataType
+from langfuse.types import SpanLevel, ScoreDataType, MaskFunction
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -179,6 +179,7 @@ class Langfuse(object):
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
         sample_rate: Optional[float] = None,
+        mask: Optional[MaskFunction] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -197,6 +198,7 @@ class Langfuse(object):
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
             sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
+            mask (langfuse.types.MaskFunction): Masking function for 'input' and 'output' fields in events. Function must take a single keyword argument `data` and return a serializable, masked version of the data.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -312,6 +314,7 @@ class Langfuse(object):
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
             "sample_rate": sample_rate,
+            "mask": mask,
         }
 
         self.task_manager = TaskManager(**args)

@@ -1488,3 +1488,53 @@ def test_create_trace_sampling_zero():
         "error": "LangfuseNotFoundError",
         "message": "Trace not found within authorized project",
     }
+
+
+def test_mask_function():
+    def mask_func(data):
+        if isinstance(data, dict):
+            return {k: "MASKED" for k in data}
+        elif isinstance(data, str):
+            return "MASKED"
+        return data
+
+    langfuse = Langfuse(debug=True, mask=mask_func)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    trace.update(output={"more": "sensitive"})
+
+    gen = trace.generation(name="test_gen", input={"prompt": "secret"})
+    gen.update(output="new_confidential")
+
+    span = trace.span(name="test_span", input={"data": "private"})
+    span.update(output="new_classified")
+
+    langfuse.flush()
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["input"] == {"sensitive": "MASKED"}
+    assert fetched_trace["output"] == {"more": "MASKED"}
+
+    fetched_gen = [
+        o for o in fetched_trace["observations"] if o["type"] == "GENERATION"
+    ][0]
+    assert fetched_gen["input"] == {"prompt": "MASKED"}
+    assert fetched_gen["output"] == "MASKED"
+
+    fetched_span = [o for o in fetched_trace["observations"] if o["type"] == "SPAN"][0]
+    assert fetched_span["input"] == {"data": "MASKED"}
+    assert fetched_span["output"] == "MASKED"
+
+    def faulty_mask_func(data):
+        raise Exception("Masking error")
+
+    langfuse = Langfuse(debug=True, mask=faulty_mask_func)
+
+    trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    trace.update(output={"more": "sensitive"})
+    langfuse.flush()
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["input"] == "<fully masked due to failed mask function>"
+    assert fetched_trace["output"] == "<fully masked due to failed mask function>"
