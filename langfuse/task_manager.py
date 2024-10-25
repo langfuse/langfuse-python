@@ -7,7 +7,7 @@ import queue
 import threading
 from queue import Empty, Queue
 import time
-from typing import Callable, List, Any, Optional
+from typing import List, Any, Optional
 import typing
 
 from langfuse.Sampler import Sampler

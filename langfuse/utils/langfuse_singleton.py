@@ -1,6 +1,6 @@
 import httpx
 import threading
-from typing import Callable, Optional
+from typing import Optional
 
 
 from langfuse import Langfuse

@@ -11,7 +11,6 @@ import time
 import tracemalloc
 from typing import (
     Any,
-    Callable,
     Dict,
     Optional,
     Literal,
