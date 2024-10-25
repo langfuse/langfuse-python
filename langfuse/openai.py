@@ -519,7 +519,7 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
 
     usage = response.get("usage", None)
 
-    return model, completion, usage.__dict__ if _is_openai_v1() else usage
+    return model, completion, usage.__dict__ if _is_openai_v1() and usage is not None else usage
 
 
 def _is_openai_v1():
