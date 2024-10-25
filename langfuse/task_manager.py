@@ -345,7 +345,7 @@ class TaskManager(object):
         if not self._mask:
             return
 
-        body = event["body"]
+        body = event["body"] if "body" in event else {}
         for key in ("input", "output"):
             if key in body:
                 try:
