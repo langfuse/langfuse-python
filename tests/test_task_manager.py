@@ -1,3 +1,4 @@
+from unittest.mock import Mock, ANY
 import logging
 import subprocess
 import threading
@@ -544,3 +545,48 @@ def test_truncate_item_in_place(httpserver):
         <= MAX_MSG_SIZE
     )
     assert complex_item["body"]["input"] is None
+
+
+def test_mask_body_input_output(httpserver: HTTPServer):
+    langfuse_client = setup_langfuse_client(
+        get_host(httpserver.url_for("/api/public/ingestion"))
+    )
+
+    def mask(data):
+        return {**data, "foo": "redacted"}
+
+    tm = TaskManager(
+        langfuse_client,
+        10,
+        0.1,
+        3,
+        100,
+        "public_key",
+        "test-sdk",
+        "1.0.0",
+        "default",
+        True,
+        10,
+        1,
+        mask,
+    )
+
+    tm._queue = Mock()
+
+    mock_body = {
+        "input": {"foo": "bar"},
+        "output": {"foo": "bar"},
+    }
+
+    tm.add_task({"body": mock_body.copy()})
+
+    tm._queue.put.assert_called_with(
+        {
+            "body": {
+                "input": {"foo": "redacted"},
+                "output": {"foo": "redacted"},
+            },
+            "timestamp": ANY,
+        },
+        block=False,
+    )

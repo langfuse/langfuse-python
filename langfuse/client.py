@@ -11,6 +11,7 @@ import time
 import tracemalloc
 from typing import (
     Any,
+    Callable,
     Dict,
     Optional,
     Literal,
@@ -179,6 +180,7 @@ class Langfuse(object):
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
         sample_rate: Optional[float] = None,
+        mask: Optional[Callable[[Any], Any]] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -197,6 +199,7 @@ class Langfuse(object):
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
             sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
+            mask (Callable): Function that masks sensitive information from input and output in log messages.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -291,6 +294,8 @@ class Langfuse(object):
             httpx_client=self.httpx_client,
         )
 
+        self.mask = mask
+
         langfuse_client = LangfuseClient(
             public_key=public_key,
             secret_key=secret_key,
@@ -312,6 +317,7 @@ class Langfuse(object):
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
             "sample_rate": sample_rate,
+            "mask": mask,
         }
 
         self.task_manager = TaskManager(**args)
@@ -321,6 +327,11 @@ class Langfuse(object):
         self.release = self._get_release_value(release)
 
         self.prompt_cache = PromptCache()
+
+    def _apply_mask(self, data: Any) -> Any:
+        if self.mask:
+            return self.mask(data)
+        return data
 
     def _get_release_value(self, release: Optional[str] = None) -> Optional[str]:
         if release:
@@ -1317,8 +1328,8 @@ class Langfuse(object):
                 "release": self.release,
                 "version": version,
                 "metadata": metadata,
-                "input": input,
-                "output": output,
+                "input": self._apply_mask(input),
+                "output": self._apply_mask(output),
                 "tags": tags,
                 "timestamp": timestamp or _get_timestamp(),
                 "public": public,
@@ -1584,8 +1595,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
-                "input": input,
-                "output": output,
+                "input": self._apply_mask(input),
+                "output": self._apply_mask(output),
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,
@@ -1686,8 +1697,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
-                "input": input,
-                "output": output,
+                "input": self._apply_mask(input),
+                "output": self._apply_mask(output),
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,
@@ -1802,8 +1813,8 @@ class Langfuse(object):
                 "name": name,
                 "start_time": start_time or _get_timestamp(),
                 "metadata": metadata,
-                "input": input,
-                "output": output,
+                "input": self._apply_mask(input),
+                "output": self._apply_mask(output),
                 "level": level,
                 "status_message": status_message,
                 "parent_observation_id": parent_observation_id,

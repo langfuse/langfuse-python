@@ -1,6 +1,6 @@
 import httpx
 import threading
-from typing import Optional
+from typing import Callable, Optional
 
 
 from langfuse import Langfuse
@@ -35,6 +35,7 @@ class LangfuseSingleton:
         sdk_integration: Optional[str] = None,
         enabled: Optional[bool] = None,
         sample_rate: Optional[float] = None,
+        mask: Optional[Callable] = None,
     ) -> Langfuse:
         if self._langfuse:
             return self._langfuse
@@ -58,6 +59,7 @@ class LangfuseSingleton:
                 "sdk_integration": sdk_integration,
                 "enabled": enabled,
                 "sample_rate": sample_rate,
+                "mask": mask,
             }
 
             self._langfuse = Langfuse(

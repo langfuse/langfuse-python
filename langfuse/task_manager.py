@@ -7,7 +7,7 @@ import queue
 import threading
 from queue import Empty, Queue
 import time
-from typing import List, Any
+from typing import Callable, List, Any, Optional
 import typing
 
 from langfuse.Sampler import Sampler
@@ -261,6 +261,7 @@ class TaskManager(object):
     _sdk_version: str
     _sdk_integration: str
     _sampler: Sampler
+    _mask: Optional[Callable[[Any], Any]]
 
     def __init__(
         self,
@@ -276,6 +277,7 @@ class TaskManager(object):
         enabled: bool = True,
         max_task_queue_size: int = 100_000,
         sample_rate: float = 1,
+        mask: Optional[Callable[[Any], Any]] = None,
     ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
@@ -291,6 +293,7 @@ class TaskManager(object):
         self._sdk_integration = sdk_integration
         self._enabled = enabled
         self._sampler = Sampler(sample_rate)
+        self._mask = mask
 
         self.init_resources()
 
@@ -321,6 +324,13 @@ class TaskManager(object):
         try:
             if not self._sampler.sample_event(event):
                 return  # event was sampled out
+
+            # mask input/output
+            if self._mask:
+                body = event["body"]
+                for key in ("input", "output"):
+                    if key in body:
+                        body[key] = self._mask(body[key])
 
             json.dumps(event, cls=EventSerializer)
             event["timestamp"] = _get_timestamp()
