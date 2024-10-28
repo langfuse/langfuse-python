@@ -74,6 +74,10 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, BaseModel):
                 obj.model_rebuild()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
 
+                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
+                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
+                    raw.model_rebuild()
+
                 return obj.model_dump()
 
             if isinstance(obj, Path):
@@ -129,6 +133,7 @@ class EventSerializer(JSONEncoder):
                 return f"<{type(obj).__name__}>"
 
         except Exception as e:
+            print(obj.__dict__)
             logger.warning(
                 f"Serialization failed for object of type {type(obj).__name__}",
                 exc_info=e,
