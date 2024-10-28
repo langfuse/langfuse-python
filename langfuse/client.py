@@ -361,7 +361,9 @@ class Langfuse(object):
             page = 1
             while True:
                 new_items = self.client.dataset_items.list(
-                    dataset_name=name, page=page, limit=fetch_items_page_size
+                    dataset_name=self._url_encode(name),
+                    page=page,
+                    limit=fetch_items_page_size,
                 )
                 dataset_items.extend(new_items.data)
                 if new_items.meta.total_pages <= page:
@@ -429,7 +431,7 @@ class Langfuse(object):
         try:
             self.log.debug("Getting dataset runs")
             return self.client.datasets.get_runs(
-                dataset_name=dataset_name, page=page, limit=limit
+                dataset_name=self._url_encode(dataset_name), page=page, limit=limit
             )
         except Exception as e:
             handle_fern_exception(e)
@@ -454,7 +456,8 @@ class Langfuse(object):
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
             )
             return self.client.datasets.get_run(
-                dataset_name=dataset_name, run_name=dataset_run_name
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(dataset_run_name),
             )
         except Exception as e:
             handle_fern_exception(e)
@@ -478,7 +481,7 @@ class Langfuse(object):
         """
         try:
             body = CreateDatasetRequest(
-                name=name, description=description, metadata=metadata
+                name=self._url_encode(name), description=description, metadata=metadata
             )
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
@@ -531,7 +534,7 @@ class Langfuse(object):
         """
         try:
             body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
+                datasetName=self._url_encode(dataset_name),
                 input=input,
                 expectedOutput=expected_output,
                 metadata=metadata,
