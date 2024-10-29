@@ -1,10 +1,14 @@
-from typing import Optional, Any, Union, Dict, Mapping
+from typing import Optional, Any, Union, Mapping
 
 from langfuse.client import (
     Langfuse,
+    StatefulGenerationClient,
+    StateType,
 )
+from langfuse.utils import _get_timestamp
 from langfuse.model import ModelUsage
-
+from ._context import InstrumentorContext
+from uuid import uuid4 as create_uuid
 
 try:
     from llama_index.core.base.llms.types import (
@@ -36,17 +40,12 @@ logger = getLogger(__name__)
 
 
 class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
-    def __init__(
-        self,
-        *,
-        langfuse_client: Langfuse,
-        observation_updates: Dict[str, Dict[str, Any]],
-    ):
+    def __init__(self, *, langfuse_client: Langfuse):
         super().__init__()
 
         self._langfuse = langfuse_client
-        self._observation_updates = observation_updates
         self._token_counter = TokenCounter()
+        self._context = InstrumentorContext()
 
     @classmethod
     def class_name(cls) -> str:
@@ -92,8 +91,8 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
             ]
         }
 
-        self._update_observation_updates(
-            event.span_id, model=model, model_parameters=traced_model_data
+        self._get_generation_client(event.span_id).update(
+            model=model, model_parameters=traced_model_data
         )
 
     def update_generation_from_end_event(
@@ -119,13 +118,9 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
                 "total": token_count or None,
             }
 
-        self._update_observation_updates(event.span_id, usage=usage)
-
-    def _update_observation_updates(self, id_: str, **kwargs) -> None:
-        if id_ not in self._observation_updates:
-            return
-
-        self._observation_updates[id_].update(kwargs)
+        self._get_generation_client(event.span_id).update(
+            usage=usage, end_time=_get_timestamp()
+        )
 
     def _parse_token_usage(
         self, response: Union[ChatResponse, CompletionResponse]
@@ -139,6 +134,22 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
 
         if additional_kwargs := getattr(response, "additional_kwargs", None):
             return _parse_usage_from_mapping(additional_kwargs)
+
+    def _get_generation_client(self, id: str) -> StatefulGenerationClient:
+        trace_id = self._context.trace_id
+        if trace_id is None:
+            logger.warning(
+                "Trace ID is not set. Creating generation client with new trace id."
+            )
+            trace_id = str(create_uuid())
+
+        return StatefulGenerationClient(
+            client=self._langfuse.client,
+            id=id,
+            trace_id=trace_id,
+            task_manager=self._langfuse.task_manager,
+            state_type=StateType.OBSERVATION,
+        )
 
 
 def _parse_usage_from_mapping(

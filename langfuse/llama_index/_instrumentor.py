@@ -98,15 +98,8 @@ class LlamaIndexInstrumentor:
             mask=mask,
             sdk_integration="llama-index_instrumentation",
         )
-        self._observation_updates = {}
-        self._span_handler = LlamaIndexSpanHandler(
-            langfuse_client=self._langfuse,
-            observation_updates=self._observation_updates,
-        )
-        self._event_handler = LlamaIndexEventHandler(
-            langfuse_client=self._langfuse,
-            observation_updates=self._observation_updates,
-        )
+        self._span_handler = LlamaIndexSpanHandler(langfuse_client=self._langfuse)
+        self._event_handler = LlamaIndexEventHandler(langfuse_client=self._langfuse)
         self._context = InstrumentorContext()
 
     def start(self):

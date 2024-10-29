@@ -1,5 +1,5 @@
 import inspect
-from typing import Optional, Any, Tuple, Dict, Generator, AsyncGenerator
+from typing import Optional, Any, Tuple, Generator, AsyncGenerator
 import uuid
 
 from langfuse.client import (
@@ -39,16 +39,10 @@ class LangfuseSpan(BaseSpan):
 
 
 class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
-    def __init__(
-        self,
-        *,
-        langfuse_client: Langfuse,
-        observation_updates: Dict[str, Dict[str, Any]],
-    ):
+    def __init__(self, *, langfuse_client: Langfuse):
         super().__init__()
 
         self._langfuse_client = langfuse_client
-        self._observation_updates = observation_updates
         self._context = InstrumentorContext()
 
     def new_span(
@@ -109,9 +103,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
                 metadata=kwargs,
             )
 
-        # Initialize observation update for the span to be populated by event handler
-        self._observation_updates[id_] = {}
-
     def prepare_to_exit_span(
         self,
         id_: str,
@@ -122,7 +113,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
     ) -> Optional[LangfuseSpan]:
         logger.debug(f"Exiting span {instance.__class__.__name__} with ID {id_}")
 
-        observation_updates = self._observation_updates.pop(id_, {})
         output, metadata = self._parse_output_metadata(instance, result)
 
         # Reset the context root if the span is the root span
@@ -138,7 +128,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         if self._is_generation(id_, instance):
             generationClient = self._get_generation_client(id_)
             generationClient.end(
-                **observation_updates,
                 output=output,
                 metadata=metadata,
             )
@@ -146,7 +135,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         else:
             spanClient = self._get_span_client(id_)
             spanClient.end(
-                **observation_updates,
                 output=output,
                 metadata=metadata,
             )
@@ -160,8 +148,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         **kwargs: Any,
     ) -> Optional[LangfuseSpan]:
         logger.debug(f"Dropping span {instance.__class__.__name__} with ID {id_}")
-
-        observation_updates = self._observation_updates.pop(id_, {})
 
         # Reset the context root if the span is the root span
         if id_ == self._context.root_llama_index_span_id:
@@ -177,7 +163,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         if self._is_generation(id_, instance):
             generationClient = self._get_generation_client(id_)
             generationClient.end(
-                **observation_updates,
                 level="ERROR",
                 status_message=str(err),
             )
@@ -185,7 +170,6 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
         else:
             spanClient = self._get_span_client(id_)
             spanClient.end(
-                **observation_updates,
                 level="ERROR",
                 status_message=str(err),
             )
@@ -217,7 +201,10 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
     def _get_generation_client(self, id: str) -> StatefulGenerationClient:
         trace_id = self._context.trace_id
         if trace_id is None:
-            raise ValueError("Trace ID is not set")
+            logger.warning(
+                "Trace ID is not set. Creating generation client with new trace id."
+            )
+            trace_id = str(uuid.uuid4())
 
         return StatefulGenerationClient(
             client=self._langfuse_client.client,
@@ -230,7 +217,10 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
     def _get_span_client(self, id: str) -> StatefulSpanClient:
         trace_id = self._context.trace_id
         if trace_id is None:
-            raise ValueError("Trace ID is not set")
+            logger.warning(
+                "Trace ID is not set. Creating generation client with new trace id."
+            )
+            trace_id = str(uuid.uuid4())
 
         return StatefulSpanClient(
             client=self._langfuse_client.client,
