@@ -8,7 +8,7 @@ from json import JSONEncoder
 from typing import Any
 from uuid import UUID
 from collections.abc import Sequence
-from langfuse.api.core import serialize_datetime
+from langfuse.api.core import serialize_datetime, pydantic_utilities
 from pathlib import Path
 from logging import getLogger
 from pydantic import BaseModel
@@ -72,13 +72,17 @@ class EventSerializer(JSONEncoder):
                 return obj.isoformat()
 
             if isinstance(obj, BaseModel):
-                obj.model_rebuild()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
+                obj.model_rebuild() if pydantic_utilities.IS_PYDANTIC_V2 else obj.update_forward_refs()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
 
                 # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
                 if isinstance(raw := getattr(obj, "raw", None), BaseModel):
-                    raw.model_rebuild()
+                    raw.model_rebuild() if pydantic_utilities.IS_PYDANTIC_V2 else raw.update_forward_refs()
 
-                return obj.model_dump()
+                return (
+                    obj.model_dump()
+                    if pydantic_utilities.IS_PYDANTIC_V2
+                    else obj.dict()
+                )
 
             if isinstance(obj, Path):
                 return str(obj)
