@@ -170,6 +170,17 @@ class OpenAiArgsExtractor:
         return {**self.args, **self.kwargs}
 
     def get_openai_args(self):
+        # OpenAI returns streaming usage not by default but only if stream_options has include_usage set
+        if self.kwargs.get("stream") and "stream_options" not in self.kwargs:
+            self.kwargs["stream_options"] = {"include_usage": True}
+
+        if (
+            self.kwargs.get("stream")
+            and "stream_options" in self.kwargs
+            and "include_usage" not in self.kwargs["stream_options"]
+        ):
+            self.kwargs["stream_options"]["include_usage"] = True
+
         return self.kwargs
 
 
