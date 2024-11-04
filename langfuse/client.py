@@ -86,7 +86,7 @@ from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel, ScoreDataType
+from langfuse.types import SpanLevel, ScoreDataType, MaskFunction
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -179,6 +179,7 @@ class Langfuse(object):
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
         sample_rate: Optional[float] = None,
+        mask: Optional[MaskFunction] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -197,6 +198,7 @@ class Langfuse(object):
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
             sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
+            mask (langfuse.types.MaskFunction): Masking function for 'input' and 'output' fields in events. Function must take a single keyword argument `data` and return a serializable, masked version of the data.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -312,6 +314,7 @@ class Langfuse(object):
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
             "sample_rate": sample_rate,
+            "mask": mask,
         }
 
         self.task_manager = TaskManager(**args)
@@ -358,7 +361,9 @@ class Langfuse(object):
             page = 1
             while True:
                 new_items = self.client.dataset_items.list(
-                    dataset_name=name, page=page, limit=fetch_items_page_size
+                    dataset_name=self._url_encode(name),
+                    page=page,
+                    limit=fetch_items_page_size,
                 )
                 dataset_items.extend(new_items.data)
                 if new_items.meta.total_pages <= page:
@@ -426,7 +431,7 @@ class Langfuse(object):
         try:
             self.log.debug("Getting dataset runs")
             return self.client.datasets.get_runs(
-                dataset_name=dataset_name, page=page, limit=limit
+                dataset_name=self._url_encode(dataset_name), page=page, limit=limit
             )
         except Exception as e:
             handle_fern_exception(e)
@@ -451,7 +456,8 @@ class Langfuse(object):
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
             )
             return self.client.datasets.get_run(
-                dataset_name=dataset_name, run_name=dataset_run_name
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(dataset_run_name),
             )
         except Exception as e:
             handle_fern_exception(e)
@@ -475,7 +481,7 @@ class Langfuse(object):
         """
         try:
             body = CreateDatasetRequest(
-                name=name, description=description, metadata=metadata
+                name=self._url_encode(name), description=description, metadata=metadata
             )
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
@@ -528,7 +534,7 @@ class Langfuse(object):
         """
         try:
             body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
+                datasetName=self._url_encode(dataset_name),
                 input=input,
                 expectedOutput=expected_output,
                 metadata=metadata,

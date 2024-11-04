@@ -595,7 +595,8 @@ class LangfuseDecorator:
 
             return None
 
-        observation = _observation_stack_context.get()[-1]
+        stack = _observation_stack_context.get()
+        observation = stack[-1] if stack else None
 
         if observation is None:
             self._log.warning("No observation found in the current context")
@@ -629,7 +630,8 @@ class LangfuseDecorator:
             - This method should be called within the context of a trace (i.e., within a function wrapped by @observe) to ensure that an observation context exists.
             - If no observation is found in the current context (e.g., if called outside of a trace or if the observation stack is empty), the method logs a warning and returns None.
         """
-        observation = _observation_stack_context.get()[-1]
+        stack = _observation_stack_context.get()
+        observation = stack[-1] if stack else None
 
         if observation is None:
             self._log.warning("No observation found in the current context")
@@ -1040,6 +1042,7 @@ class LangfuseDecorator:
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = None,
+        mask: Optional[Callable] = None,
     ):
         """Configure the Langfuse client.
 
@@ -1058,6 +1061,8 @@ class LangfuseDecorator:
             timeout: Timeout of API requests in seconds. Default is 20 seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
             enabled: Enables or disables the Langfuse client. Defaults to True. If disabled, no observability data will be sent to Langfuse. If data is requested while disabled, an error will be raised.
+            mask (Callable): Function that masks sensitive information from input and output in log messages.
+
         """
         langfuse_singleton = LangfuseSingleton()
         langfuse_singleton.reset()
@@ -1075,6 +1080,7 @@ class LangfuseDecorator:
             timeout=timeout,
             httpx_client=httpx_client,
             enabled=enabled,
+            mask=mask,
         )
 
     @property

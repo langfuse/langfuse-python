@@ -80,6 +80,10 @@ class EventSerializer(JSONEncoder):
                 # Use update_forward_refs() instead of model_rebuild() as model_rebuild is not available in pydantic v1
                 obj.update_forward_refs()
 
+                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
+                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
+                    raw.update_forward_refs()
+                    
                 # Use dict() instead of model_dump() as model_dump is not available in pydantic v1
                 return obj.dict()
 
@@ -136,6 +140,7 @@ class EventSerializer(JSONEncoder):
                 return f"<{type(obj).__name__}>"
 
         except Exception as e:
+            print(obj.__dict__)
             logger.warning(
                 f"Serialization failed for object of type {type(obj).__name__}",
                 exc_info=e,

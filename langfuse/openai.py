@@ -170,6 +170,17 @@ class OpenAiArgsExtractor:
         return {**self.args, **self.kwargs}
 
     def get_openai_args(self):
+        # OpenAI returns streaming usage not by default but only if stream_options has include_usage set
+        if self.kwargs.get("stream") and "stream_options" not in self.kwargs:
+            self.kwargs["stream_options"] = {"include_usage": True}
+
+        if (
+            self.kwargs.get("stream")
+            and "stream_options" in self.kwargs
+            and "include_usage" not in self.kwargs["stream_options"]
+        ):
+            self.kwargs["stream_options"]["include_usage"] = True
+
         return self.kwargs
 
 
@@ -371,7 +382,11 @@ def _get_langfuse_data_from_kwargs(
 
 
 def _create_langfuse_update(
-    completion, generation: StatefulGenerationClient, completion_start_time, model=None
+    completion,
+    generation: StatefulGenerationClient,
+    completion_start_time,
+    model=None,
+    usage=None,
 ):
     update = {
         "end_time": _get_timestamp(),
@@ -380,6 +395,9 @@ def _create_langfuse_update(
     }
     if model is not None:
         update["model"] = model
+
+    if usage is not None:
+        update["usage"] = usage
 
     generation.update(**update)
 
@@ -393,6 +411,7 @@ def _extract_streamed_openai_response(resource, chunks):
             chunk = chunk.__dict__
 
         model = model or chunk.get("model", None) or None
+        usage = chunk.get("usage", None)
 
         choices = chunk.get("choices", [])
 
@@ -491,10 +510,14 @@ def _extract_streamed_openai_response(resource, chunks):
     return (
         model,
         get_response_for_chat() if resource.type == "chat" else completion,
+        usage.__dict__ if _is_openai_v1() and usage is not None else usage,
     )
 
 
 def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
+    if response is None:
+        return None, "<NoneType response returned from OpenAI>", None
+
     model = response.get("model", None) or None
 
     completion = None
@@ -516,7 +539,11 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
 
     usage = response.get("usage", None)
 
-    return model, completion, usage.__dict__ if _is_openai_v1() else usage
+    return (
+        model,
+        completion,
+        usage.__dict__ if _is_openai_v1() and usage is not None else usage,
+    )
 
 
 def _is_openai_v1():
@@ -558,7 +585,9 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(
                 open_ai_resource,
-                openai_response.__dict__ if _is_openai_v1() else openai_response,
+                (openai_response and openai_response.__dict__)
+                if _is_openai_v1()
+                else openai_response,
             )
             generation.update(
                 model=model, output=completion, end_time=_get_timestamp(), usage=usage
@@ -609,7 +638,9 @@ async def _wrap_async(
         else:
             model, completion, usage = _get_langfuse_data_from_default_response(
                 open_ai_resource,
-                openai_response.__dict__ if _is_openai_v1() else openai_response,
+                (openai_response and openai_response.__dict__)
+                if _is_openai_v1()
+                else openai_response,
             )
             generation.update(
                 model=model,
@@ -690,6 +721,7 @@ class OpenAILangfuse:
         setattr(openai, "langfuse_debug", None)
         setattr(openai, "langfuse_enabled", True)
         setattr(openai, "langfuse_sample_rate", None)
+        setattr(openai, "langfuse_mask", None)
         setattr(openai, "langfuse_auth_check", self.langfuse_auth_check)
         setattr(openai, "flush_langfuse", self.flush)
 
@@ -785,14 +817,20 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self):
-        model, completion = _extract_streamed_openai_response(self.resource, self.items)
+        model, completion, usage = _extract_streamed_openai_response(
+            self.resource, self.items
+        )
 
         # Avoiding the trace-update if trace-id is provided by user.
         if not self.is_nested_trace:
             self.langfuse.trace(id=self.generation.trace_id, output=completion)
 
         _create_langfuse_update(
-            completion, self.generation, self.completion_start_time, model=model
+            completion,
+            self.generation,
+            self.completion_start_time,
+            model=model,
+            usage=usage,
         )
 
 
@@ -849,14 +887,20 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self):
-        model, completion = _extract_streamed_openai_response(self.resource, self.items)
+        model, completion, usage = _extract_streamed_openai_response(
+            self.resource, self.items
+        )
 
         # Avoiding the trace-update if trace-id is provided by user.
         if not self.is_nested_trace:
             self.langfuse.trace(id=self.generation.trace_id, output=completion)
 
         _create_langfuse_update(
-            completion, self.generation, self.completion_start_time, model=model
+            completion,
+            self.generation,
+            self.completion_start_time,
+            model=model,
+            usage=usage,
         )
 
     async def close(self) -> None:
