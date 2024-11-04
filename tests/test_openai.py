@@ -119,7 +119,8 @@ def test_openai_chat_completion_stream():
 
     chat_content = ""
     for i in completion:
-        chat_content += i.choices[0].delta.content or ""
+        print("\n", i)
+        chat_content += (i.choices[0].delta.content or "") if i.choices else ""
 
     assert len(chat_content) > 0
 
@@ -180,7 +181,7 @@ def test_openai_chat_completion_stream_with_next_iteration():
     while True:
         try:
             c = next(completion)
-            chat_content += c.choices[0].delta.content or ""
+            chat_content += (c.choices[0].delta.content or "") if c.choices else ""
 
         except StopIteration:
             break
@@ -562,7 +563,7 @@ def test_openai_completion_stream():
     assert iter(completion)
     content = ""
     for i in completion:
-        content += i.choices[0].text
+        content += (i.choices[0].text or "") if i.choices else ""
 
     openai.flush_langfuse()
 
@@ -854,7 +855,7 @@ async def test_async_chat_stream_with_anext():
         try:
             c = await completion.__anext__()
 
-            result += c.choices[0].delta.content or ""
+            result += (c.choices[0].delta.content or "") if c.choices else ""
 
         except StopAsyncIteration:
             break
