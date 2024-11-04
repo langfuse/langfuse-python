@@ -371,7 +371,11 @@ def _get_langfuse_data_from_kwargs(
 
 
 def _create_langfuse_update(
-    completion, generation: StatefulGenerationClient, completion_start_time, model=None
+    completion,
+    generation: StatefulGenerationClient,
+    completion_start_time,
+    model=None,
+    usage=None,
 ):
     update = {
         "end_time": _get_timestamp(),
@@ -380,6 +384,9 @@ def _create_langfuse_update(
     }
     if model is not None:
         update["model"] = model
+
+    if usage is not None:
+        update["usage"] = usage
 
     generation.update(**update)
 
@@ -393,6 +400,7 @@ def _extract_streamed_openai_response(resource, chunks):
             chunk = chunk.__dict__
 
         model = model or chunk.get("model", None) or None
+        usage = chunk.get("usage", None)
 
         choices = chunk.get("choices", [])
 
@@ -491,6 +499,7 @@ def _extract_streamed_openai_response(resource, chunks):
     return (
         model,
         get_response_for_chat() if resource.type == "chat" else completion,
+        usage.__dict__ if _is_openai_v1() and usage is not None else usage,
     )
 
 
@@ -519,7 +528,11 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
 
     usage = response.get("usage", None)
 
-    return model, completion, usage.__dict__ if _is_openai_v1() and usage is not None else usage
+    return (
+        model,
+        completion,
+        usage.__dict__ if _is_openai_v1() and usage is not None else usage,
+    )
 
 
 def _is_openai_v1():
@@ -793,14 +806,20 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self):
-        model, completion = _extract_streamed_openai_response(self.resource, self.items)
+        model, completion, usage = _extract_streamed_openai_response(
+            self.resource, self.items
+        )
 
         # Avoiding the trace-update if trace-id is provided by user.
         if not self.is_nested_trace:
             self.langfuse.trace(id=self.generation.trace_id, output=completion)
 
         _create_langfuse_update(
-            completion, self.generation, self.completion_start_time, model=model
+            completion,
+            self.generation,
+            self.completion_start_time,
+            model=model,
+            usage=usage,
         )
 
 
@@ -857,14 +876,20 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self):
-        model, completion = _extract_streamed_openai_response(self.resource, self.items)
+        model, completion, usage = _extract_streamed_openai_response(
+            self.resource, self.items
+        )
 
         # Avoiding the trace-update if trace-id is provided by user.
         if not self.is_nested_trace:
             self.langfuse.trace(id=self.generation.trace_id, output=completion)
 
         _create_langfuse_update(
-            completion, self.generation, self.completion_start_time, model=model
+            completion,
+            self.generation,
+            self.completion_start_time,
+            model=model,
+            usage=usage,
         )
 
     async def close(self) -> None:
