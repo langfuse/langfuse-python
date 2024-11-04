@@ -1229,13 +1229,13 @@ protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4
 
 [[package]]
 name = "google-cloud-storage"
-version = "2.16.0"
+version = "2.18.1"
 description = "Google Cloud Storage API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google-cloud-storage-2.16.0.tar.gz", hash = "sha256:dda485fa503710a828d01246bd16ce9db0823dc51bbca742ce96a6817d58669f"},
-    {file = "google_cloud_storage-2.16.0-py2.py3-none-any.whl", hash = "sha256:91a06b96fb79cf9cdfb4e759f178ce11ea885c79938f89590344d079305f5852"},
+    {file = "google_cloud_storage-2.18.1-py2.py3-none-any.whl", hash = "sha256:9d8db6bde3a979cca7150511cd0e4cb363e5f69d31259d890ba1124fa109418c"},
+    {file = "google_cloud_storage-2.18.1.tar.gz", hash = "sha256:6707a6f30a05aee36faca81296419ca2907ac750af1c0457f278bc9a6fb219ad"},
 ]
 
 [package.dependencies]
@@ -1247,7 +1247,8 @@ google-resumable-media = ">=2.6.0"
 requests = ">=2.18.0,<3.0.0dev"
 
 [package.extras]
-protobuf = ["protobuf (<5.0.0dev)"]
+protobuf = ["protobuf (<6.0.0dev)"]
+tracing = ["opentelemetry-api (>=1.1.0)"]
 
 [[package]]
 name = "google-crc32c"
@@ -1994,29 +1995,29 @@ tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
 
 [[package]]
 name = "langchain-anthropic"
-version = "0.1.13"
+version = "0.1.22"
 description = "An integration package connecting AnthropicMessages and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_anthropic-0.1.13-py3-none-any.whl", hash = "sha256:121f6f480da7685c239573d98322adb94fe486d40651ac341637f65da36881de"},
-    {file = "langchain_anthropic-0.1.13.tar.gz", hash = "sha256:32e7ac51e1874c47e1a20493e75f5bfc88b0ffeaf5f1aed6091547e1ae44bb85"},
+    {file = "langchain_anthropic-0.1.22-py3-none-any.whl", hash = "sha256:149c4056efbdeddde901c9ff301b0d30ea4fd6bb951f9469ac74cd5efcc86bff"},
+    {file = "langchain_anthropic-0.1.22.tar.gz", hash = "sha256:8d46ea715e2f80911ceca299b4249e01461f36c22cda82e08f49bdb07a785b1d"},
 ]
 
 [package.dependencies]
-anthropic = ">=0.26.0,<1"
+anthropic = ">=0.28.0,<1"
 defusedxml = ">=0.7.1,<0.8.0"
-langchain-core = ">=0.1.43,<0.3"
+langchain-core = ">=0.2.26,<0.3.0"
 
 [[package]]
 name = "langchain-aws"
-version = "0.1.17"
+version = "0.1.18"
 description = "An integration package connecting AWS and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_aws-0.1.17-py3-none-any.whl", hash = "sha256:192a94eb3fa510ed7850cb7ab599fef47776ca872545dd37a0d7dc6a2887ae46"},
-    {file = "langchain_aws-0.1.17.tar.gz", hash = "sha256:829cbcd8b3ffde6c2d7afd423da51c4bd03423db29b25ae7bc224979876d853e"},
+    {file = "langchain_aws-0.1.18-py3-none-any.whl", hash = "sha256:54c65157c67837cd932a6a8c536b52e2308c4e917bccd187d6f42651943cdd51"},
+    {file = "langchain_aws-0.1.18.tar.gz", hash = "sha256:2e59efc95ef6758581b7e769cd610b750c76635c437a4f43c454a14cfab67c64"},
 ]
 
 [package.dependencies]
@@ -2029,21 +2030,21 @@ numpy = [
 
 [[package]]
 name = "langchain-community"
-version = "0.2.16"
+version = "0.2.17"
 description = "Community contributed LangChain integrations."
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_community-0.2.16-py3-none-any.whl", hash = "sha256:115e1419c176091d4e00240cb5a38612a249e70f213516b6cacae61a8794a868"},
-    {file = "langchain_community-0.2.16.tar.gz", hash = "sha256:ab416b793a7aed1fa46ebaffd29993296b02286a99819eabc43be2ea8e41ae78"},
+    {file = "langchain_community-0.2.17-py3-none-any.whl", hash = "sha256:d07c31b641e425fb8c3e7148ad6a62e1b54a9adac6e1173021a7dd3148266063"},
+    {file = "langchain_community-0.2.17.tar.gz", hash = "sha256:b0745c1fcf1bd532ed4388f90b47139d6a6c6ba48a87aa68aa32d4d6bb97259d"},
 ]
 
 [package.dependencies]
 aiohttp = ">=3.8.3,<4.0.0"
 dataclasses-json = ">=0.5.7,<0.7"
 langchain = ">=0.2.16,<0.3.0"
-langchain-core = ">=0.2.38,<0.3.0"
-langsmith = ">=0.1.0,<0.2.0"
+langchain-core = ">=0.2.39,<0.3.0"
+langsmith = ">=0.1.112,<0.2.0"
 numpy = [
     {version = ">=1,<2", markers = "python_version < \"3.12\""},
     {version = ">=1.26.0,<2.0.0", markers = "python_version >= \"3.12\""},
@@ -2055,18 +2056,18 @@ tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
 
 [[package]]
 name = "langchain-core"
-version = "0.2.38"
+version = "0.2.43"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_core-0.2.38-py3-none-any.whl", hash = "sha256:8a5729bc7e68b4af089af20eff44fe4e7ca21d0e0c87ec21cef7621981fd1a4a"},
-    {file = "langchain_core-0.2.38.tar.gz", hash = "sha256:eb69dbedd344f2ee1f15bcea6c71a05884b867588fadc42d04632e727c1238f3"},
+    {file = "langchain_core-0.2.43-py3-none-any.whl", hash = "sha256:619601235113298ebf8252a349754b7c28d3cf7166c7c922da24944b78a9363a"},
+    {file = "langchain_core-0.2.43.tar.gz", hash = "sha256:42c2ef6adedb911f4254068b6adc9eb4c4075f6c8cb3d83590d3539a815695f5"},
 ]
 
 [package.dependencies]
 jsonpatch = ">=1.33,<2.0"
-langsmith = ">=0.1.75,<0.2.0"
+langsmith = ">=0.1.112,<0.2.0"
 packaging = ">=23.2,<25"
 pydantic = [
     {version = ">=1,<3", markers = "python_full_version < \"3.12.4\""},
@@ -2078,69 +2079,72 @@ typing-extensions = ">=4.7"
 
 [[package]]
 name = "langchain-google-vertexai"
-version = "1.0.4"
+version = "1.0.10"
 description = "An integration package connecting Google VertexAI and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_google_vertexai-1.0.4-py3-none-any.whl", hash = "sha256:f9d217df2d5cfafb2e551ddd5f1c43611222f542ee0df0cc3b5faed82e657ee3"},
-    {file = "langchain_google_vertexai-1.0.4.tar.gz", hash = "sha256:bb2d2e93cc2896b9bdc96789c2df247f6392184dffc0c3dddc06889f2b530465"},
+    {file = "langchain_google_vertexai-1.0.10-py3-none-any.whl", hash = "sha256:7b745378c17ed22d8c38003a1da994bd0dd44d3288e2c3c9f82dba5ed4b3de6b"},
+    {file = "langchain_google_vertexai-1.0.10.tar.gz", hash = "sha256:8c163d198a084217a21c7e4c0e40954876e0bc1de08364f2e6f4b160a8652217"},
 ]
 
 [package.dependencies]
-google-cloud-aiplatform = ">=1.47.0,<2.0.0"
-google-cloud-storage = ">=2.14.0,<3.0.0"
-langchain-core = ">=0.1.42,<0.3"
+google-cloud-aiplatform = ">=1.56.0,<2.0.0"
+google-cloud-storage = ">=2.17.0,<3.0.0"
+httpx = ">=0.27.0,<0.28.0"
+httpx-sse = ">=0.4.0,<0.5.0"
+langchain-core = ">=0.2.33,<0.3"
 
 [package.extras]
-anthropic = ["anthropic[vertexai] (>=0.23.0,<1)"]
+anthropic = ["anthropic[vertexai] (>=0.30.0,<1)"]
+mistral = ["langchain-mistralai (>=0.1.12,<1)"]
 
 [[package]]
 name = "langchain-groq"
-version = "0.1.5"
+version = "0.1.10"
 description = "An integration package connecting Groq and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_groq-0.1.5-py3-none-any.whl", hash = "sha256:f13fbec6143047a352ff2bbd2241e4b4b9559c6f799a26e6da5f2b0d6e02bff5"},
-    {file = "langchain_groq-0.1.5.tar.gz", hash = "sha256:af166fd30c60006dba4345bc9a59edfa2745edcb5b3e0bd957abd3d09416bbc5"},
+    {file = "langchain_groq-0.1.10-py3-none-any.whl", hash = "sha256:ef18331ba31b13ea44b7ac5467ad31b7efdf5bfe7c219cdf585311811b06f6b8"},
+    {file = "langchain_groq-0.1.10.tar.gz", hash = "sha256:a5e69190fd89420ab759845956f64230473c8229446c8e7022b1cbc269a51078"},
 ]
 
 [package.dependencies]
 groq = ">=0.4.1,<1"
-langchain-core = ">=0.1.45,<0.3"
+langchain-core = ">=0.2.39,<0.3.0"
 
 [[package]]
 name = "langchain-mistralai"
-version = "0.1.7"
+version = "0.1.13"
 description = "An integration package connecting Mistral and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_mistralai-0.1.7-py3-none-any.whl", hash = "sha256:4ab08ebafc5398767dbc4d6d371f4f2bc0974b01b02cb0ee71d351871a370479"},
-    {file = "langchain_mistralai-0.1.7.tar.gz", hash = "sha256:44d3fb15ab10b5a04a2cc544d1292af3f884288a59de08a8d7bdd74ce50ddf75"},
+    {file = "langchain_mistralai-0.1.13-py3-none-any.whl", hash = "sha256:1286c204ed668c021ee7dde60e391b628ef48533599e7c7423394ac15c11c78e"},
+    {file = "langchain_mistralai-0.1.13.tar.gz", hash = "sha256:a6a3039ff82af72613db8855858e61ec5e819d76c31fed9506cc674871bd9739"},
 ]
 
 [package.dependencies]
 httpx = ">=0.25.2,<1"
 httpx-sse = ">=0.3.1,<1"
-langchain-core = ">=0.1.46,<0.3"
+langchain-core = ">=0.2.38,<0.3.0"
 tokenizers = ">=0.15.1,<1"
 
 [[package]]
 name = "langchain-openai"
-version = "0.1.7"
+version = "0.1.25"
 description = "An integration package connecting OpenAI and LangChain"
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langchain_openai-0.1.7-py3-none-any.whl", hash = "sha256:39c3cb22bb739900ae8294d4d9939a6138c0ca7ad11198e57038eb14c08d04ec"},
-    {file = "langchain_openai-0.1.7.tar.gz", hash = "sha256:fd7e1c33ba8e2cab4b2154f3a2fd4a0d9cc6518b41cf49bb87255f9f732a4896"},
+    {file = "langchain_openai-0.1.25-py3-none-any.whl", hash = "sha256:f0b34a233d0d9cb8fce6006c903e57085c493c4f0e32862b99063b96eaedb109"},
+    {file = "langchain_openai-0.1.25.tar.gz", hash = "sha256:eb116f744f820247a72f54313fb7c01524fba0927120d4e899e5e4ab41ad3928"},
 ]
 
 [package.dependencies]
-langchain-core = ">=0.1.46,<0.3"
-openai = ">=1.24.0,<2.0.0"
+langchain-core = ">=0.2.40,<0.3.0"
+openai = ">=1.40.0,<2.0.0"
 tiktoken = ">=0.7,<1"
 
 [[package]]
@@ -2159,13 +2163,13 @@ langchain-core = ">=0.2.10,<0.3.0"
 
 [[package]]
 name = "langsmith"
-version = "0.1.106"
+version = "0.1.139"
 description = "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform."
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langsmith-0.1.106-py3-none-any.whl", hash = "sha256:a418161c98de72ee2c6eea6667c6217814b67db4b9a3a024788013384216ff35"},
-    {file = "langsmith-0.1.106.tar.gz", hash = "sha256:64a890a05640d64692f5515ebb444b0457332a9cf9e7605c4651de6737a7d3a0"},
+    {file = "langsmith-0.1.139-py3-none-any.whl", hash = "sha256:2a4a541bfbd0a9727255df28a60048c85bc8c4c6a276975923785c3fd82dc879"},
+    {file = "langsmith-0.1.139.tar.gz", hash = "sha256:2f9e4d32fef3ad7ef42c8506448cce3a31ad6b78bb4f3310db04ddaa1e9d744d"},
 ]
 
 [package.dependencies]
@@ -2176,6 +2180,7 @@ pydantic = [
     {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
 ]
 requests = ">=2,<3"
+requests-toolbelt = ">=1.0.0,<2.0.0"
 
 [[package]]
 name = "lark"
@@ -4239,6 +4244,20 @@ requests = ">=2.0.0"
 rsa = ["oauthlib[signedtoken] (>=3.0.0)"]
 
 [[package]]
+name = "requests-toolbelt"
+version = "1.0.0"
+description = "A utility belt for advanced users of python-requests"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+files = [
+    {file = "requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6"},
+    {file = "requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06"},
+]
+
+[package.dependencies]
+requests = ">=2.0.1,<3.0.0"
+
+[[package]]
 name = "respx"
 version = "0.21.1"
 description = "A utility for mocking out the Python HTTPX and HTTP Core libraries."
@@ -5394,4 +5413,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "90de8d5f0fa43cef64136016f2722a3db17eb68184a09c66376f1abe9f118f33"
+content-hash = "cd6b53707120642bd88a539445d8c4a1440b49bd5f2f1424b64e6aef80cce17d"
