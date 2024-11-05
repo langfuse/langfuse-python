@@ -14,7 +14,7 @@ from tests.utils import create_uuid, get_api, get_llama_index_index
 def test_create_and_get_dataset():
     langfuse = Langfuse(debug=False)
 
-    name = create_uuid()
+    name = "Text with spaces " + create_uuid()[:5]
     langfuse.create_dataset(name=name)
     dataset = langfuse.get_dataset(name)
     assert dataset.name == name
@@ -55,6 +55,7 @@ def test_create_dataset_item():
     )
 
     dataset = langfuse.get_dataset(name)
+
     assert len(dataset.items) == 3
     assert dataset.items[2].input == input
     assert dataset.items[2].expected_output is None
