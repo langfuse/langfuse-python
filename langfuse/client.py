@@ -481,7 +481,7 @@ class Langfuse(object):
         """
         try:
             body = CreateDatasetRequest(
-                name=self._url_encode(name), description=description, metadata=metadata
+                name=name, description=description, metadata=metadata
             )
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
@@ -534,7 +534,7 @@ class Langfuse(object):
         """
         try:
             body = CreateDatasetItemRequest(
-                datasetName=self._url_encode(dataset_name),
+                datasetName=dataset_name,
                 input=input,
                 expectedOutput=expected_output,
                 metadata=metadata,
