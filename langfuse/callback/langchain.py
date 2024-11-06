@@ -991,14 +991,8 @@ class LangchainCallbackHandler(
         parent_run_id: Optional[UUID] = None,
         **kwargs,
     ):
-        kwargs_log = (
-            ", " + ", ".join([f"{key}: {value}" for key, value in kwargs.items()])
-            if len(kwargs) > 0
-            else ""
-        )
         self.log.debug(
             f"Event: {event_name}, run_id: {str(run_id)[:5]}, parent_run_id: {str(parent_run_id)[:5]}"
-            + kwargs_log
         )
 
 

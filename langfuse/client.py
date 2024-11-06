@@ -1334,11 +1334,11 @@ class Langfuse(object):
 
             new_body = TraceBody(**new_dict)
 
-            self.log.debug(f"Creating trace {new_body}")
+            self.log.debug(f"Creating trace {_filter_io_from_event_body(new_dict)}")
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "trace-create",
-                "body": new_body.dict(exclude_none=True),
+                "body": new_body,
             }
 
             self.task_manager.add_task(
@@ -1503,7 +1503,7 @@ class Langfuse(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": new_body.dict(exclude_none=True),
+                "body": new_body,
             }
             self.task_manager.add_task(event)
 
@@ -1604,17 +1604,16 @@ class Langfuse(object):
             if trace_id is None:
                 self._generate_trace(new_trace_id, name or new_trace_id)
 
-            self.log.debug(f"Creating span {span_body}...")
+            self.log.debug(f"Creating span {_filter_io_from_event_body(span_body)}...")
 
             span_body = CreateSpanBody(**span_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-create",
-                "body": span_body.dict(exclude_none=True),
+                "body": span_body,
             }
 
-            self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -1710,10 +1709,12 @@ class Langfuse(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "event-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
-            self.log.debug(f"Creating event {event}...")
+            self.log.debug(
+                f"Creating event {_filter_io_from_event_body(event_body)} ..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -1835,23 +1836,24 @@ class Langfuse(object):
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": request.dict(exclude_none=True),
+                    "body": request,
                 }
 
-                self.log.debug(f"Creating trace {event}...")
+                self.log.debug("Creating trace...")
 
                 self.task_manager.add_task(event)
 
-            self.log.debug(f"Creating generation max {generation_body} {usage}...")
+            self.log.debug(
+                f"Creating generation max {_filter_io_from_event_body(generation_body)}..."
+            )
             request = CreateGenerationBody(**generation_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "generation-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
-            self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -1877,10 +1879,10 @@ class Langfuse(object):
         event = {
             "id": str(uuid.uuid4()),
             "type": "trace-create",
-            "body": trace_body.dict(exclude_none=True),
+            "body": trace_body,
         }
 
-        self.log.debug(f"Creating trace {event}...")
+        self.log.debug(f"Creating trace {_filter_io_from_event_body(trace_dict)}...")
         self.task_manager.add_task(event)
 
     def join(self):
@@ -2087,7 +2089,9 @@ class StatefulClient(object):
                 "body": new_body.dict(exclude_none=True, exclude_unset=False),
             }
 
-            self.log.debug(f"Creating generation {new_body}...")
+            self.log.debug(
+                f"Creating generation {_filter_io_from_event_body(generation_body)}..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -2165,7 +2169,7 @@ class StatefulClient(object):
                 **kwargs,
             }
 
-            self.log.debug(f"Creating span {span_body}...")
+            self.log.debug(f"Creating span {_filter_io_from_event_body(span_body)}...")
 
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
@@ -2175,7 +2179,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-create",
-                "body": event.dict(exclude_none=True),
+                "body": event,
             }
 
             self.task_manager.add_task(event)
@@ -2284,7 +2288,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
             self.task_manager.add_task(event)
@@ -2369,10 +2373,12 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "event-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
-            self.log.debug(f"Creating event {event}...")
+            self.log.debug(
+                f"Creating event {_filter_io_from_event_body(event_body)}..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -2497,7 +2503,9 @@ class StatefulGenerationClient(StatefulClient):
                 **kwargs,
             }
 
-            self.log.debug(f"Update generation {generation_body}...")
+            self.log.debug(
+                f"Update generation {_filter_io_from_event_body(generation_body)}..."
+            )
 
             request = UpdateGenerationBody(**generation_body)
 
@@ -2507,7 +2515,9 @@ class StatefulGenerationClient(StatefulClient):
                 "body": request.dict(exclude_none=True, exclude_unset=False),
             }
 
-            self.log.debug(f"Update generation {event}...")
+            self.log.debug(
+                f"Update generation {_filter_io_from_event_body(generation_body)}..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -2684,14 +2694,14 @@ class StatefulSpanClient(StatefulClient):
                 "end_time": end_time,
                 **kwargs,
             }
-            self.log.debug(f"Update span {span_body}...")
+            self.log.debug(f"Update span {_filter_io_from_event_body(span_body)}...")
 
             request = UpdateSpanBody(**span_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-update",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
             self.task_manager.add_task(event)
@@ -2888,14 +2898,14 @@ class StatefulTraceClient(StatefulClient):
                 "tags": tags,
                 **kwargs,
             }
-            self.log.debug(f"Update trace {trace_body}...")
+            self.log.debug(f"Update trace {_filter_io_from_event_body(trace_body)}...")
 
             request = TraceBody(**trace_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "trace-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
             self.task_manager.add_task(event)
@@ -3350,3 +3360,9 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
+
+
+def _filter_io_from_event_body(event_body: Dict[str, Any]):
+    return {
+        k: v for k, v in event_body.items() if k not in ("input", "output", "metadata")
+    }
