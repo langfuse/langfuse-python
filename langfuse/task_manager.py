@@ -115,7 +115,7 @@ class Consumer(threading.Thread):
 
                 # convert pydantic models to dicts
                 if "body" in item and isinstance(item["body"], pydantic.BaseModel):
-                    item["body"] = item["body"].dict()
+                    item["body"] = item["body"].dict(exclude_none=True)
 
                 # sample event
                 if not self._sampler.sample_event(item):
