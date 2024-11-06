@@ -58,6 +58,7 @@ class Consumer(threading.Thread):
     _sdk_name: str
     _sdk_version: str
     _sdk_integration: str
+    _mask: Optional[MaskFunction]
 
     def __init__(
         self,
@@ -71,6 +72,7 @@ class Consumer(threading.Thread):
         sdk_name: str,
         sdk_version: str,
         sdk_integration: str,
+        mask: Optional[MaskFunction] = None,
     ):
         """Create a consumer thread."""
         threading.Thread.__init__(self)
@@ -91,6 +93,7 @@ class Consumer(threading.Thread):
         self._sdk_name = sdk_name
         self._sdk_version = sdk_version
         self._sdk_integration = sdk_integration
+        self._mask = mask
 
     def _next(self):
         """Return the next batch of items to upload."""
@@ -107,13 +110,24 @@ class Consumer(threading.Thread):
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
 
+                if "body" in item and isinstance(item["body"], pydantic.BaseModel):
+                    item["body"] = item["body"].dict()
+
                 item_size = self._truncate_item_in_place(
                     item=item,
                     max_size=MAX_MSG_SIZE,
                     log_message="<truncated due to size exceeding limit>",
                 )
+                self._apply_mask_in_place(item)
+
+                try:
+                    json.dumps(item, cls=EventSerializer)
+                except Exception as e:
+                    self._log.error(f"Error serializing item, skipping: {e}")
+                    continue
 
                 items.append(item)
+
                 total_size += item_size
                 if total_size >= BATCH_SIZE_LIMIT:
                     self._log.debug("hit batch size limit (size: %d)", total_size)
@@ -189,6 +203,20 @@ class Consumer(threading.Thread):
     def _get_item_size(self, item: typing.Any) -> int:
         """Return the size of the item in bytes."""
         return len(json.dumps(item, cls=EventSerializer).encode())
+
+    def _apply_mask_in_place(self, event: dict):
+        """Apply the mask function to the event. This is done in place."""
+        if not self._mask:
+            return
+
+        body = event["body"] if "body" in event else {}
+        for key in ("input", "output"):
+            if key in body:
+                try:
+                    body[key] = self._mask(data=body[key])
+                except Exception as e:
+                    self._log.error(f"Mask function failed with error: {e}")
+                    body[key] = "<fully masked due to failed mask function>"
 
     def run(self):
         """Runs the consumer."""
@@ -314,6 +342,7 @@ class TaskManager(object):
                 sdk_name=self._sdk_name,
                 sdk_version=self._sdk_version,
                 sdk_integration=self._sdk_integration,
+                mask=self._mask,
             )
             consumer.start()
             self._consumers.append(consumer)
@@ -326,9 +355,6 @@ class TaskManager(object):
             if not self._sampler.sample_event(event):
                 return  # event was sampled out
 
-            self._apply_mask_in_place(event)
-
-            json.dumps(event, cls=EventSerializer)
             event["timestamp"] = _get_timestamp()
 
             self._queue.put(event, block=False)
@@ -339,20 +365,6 @@ class TaskManager(object):
             self._log.exception(f"Exception in adding task {e}")
 
             return False
-
-    def _apply_mask_in_place(self, event: dict):
-        """Apply the mask function to the event. This is done in place."""
-        if not self._mask:
-            return
-
-        body = event["body"] if "body" in event else {}
-        for key in ("input", "output"):
-            if key in body:
-                try:
-                    body[key] = self._mask(data=body[key])
-                except Exception as e:
-                    self._log.error(f"Mask function failed with error: {e}")
-                    body[key] = "<fully masked due to failed mask function>"
 
     def flush(self):
         """Force a flush from the internal queue to the server."""
