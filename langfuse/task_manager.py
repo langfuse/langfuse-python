@@ -119,6 +119,8 @@ class Consumer(threading.Thread):
 
                 # sample event
                 if not self._sampler.sample_event(item):
+                    queue.task_done()
+
                     continue
 
                 # truncate item if it exceeds size limit
@@ -136,6 +138,8 @@ class Consumer(threading.Thread):
                     json.dumps(item, cls=EventSerializer)
                 except Exception as e:
                     self._log.error(f"Error serializing item, skipping: {e}")
+                    queue.task_done()
+
                     continue
 
                 items.append(item)
