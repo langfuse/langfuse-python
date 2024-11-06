@@ -217,7 +217,7 @@ def test_callback_sampling():
     os.environ["LANGFUSE_SAMPLE_RATE"] = "0.2"
 
     handler = CallbackHandler()
-    assert handler.langfuse.task_manager._sampler.sample_rate == 0.2
+    assert handler.langfuse.task_manager._sample_rate == 0.2
 
     os.environ.pop("LANGFUSE_SAMPLE_RATE")
 
@@ -436,7 +436,7 @@ def test_openai_configured(httpserver: HTTPServer):
     assert modifier._langfuse.client._client_wrapper._password == "sk-lf-asdfghjkl"
     assert modifier._langfuse.client._client_wrapper._base_url == host
     assert modifier._langfuse.task_manager._client._base_url == host
-    assert modifier._langfuse.task_manager._sampler.sample_rate == 0.2
+    assert modifier._langfuse.task_manager._sample_rate == 0.2
 
     os.environ["LANGFUSE_PUBLIC_KEY"] = public_key
     os.environ["LANGFUSE_SECRET_KEY"] = secret_key
