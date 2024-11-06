@@ -59,6 +59,7 @@ class Consumer(threading.Thread):
     _sdk_version: str
     _sdk_integration: str
     _mask: Optional[MaskFunction]
+    _sampler: Sampler
 
     def __init__(
         self,
@@ -72,6 +73,7 @@ class Consumer(threading.Thread):
         sdk_name: str,
         sdk_version: str,
         sdk_integration: str,
+        sample_rate: float,
         mask: Optional[MaskFunction] = None,
     ):
         """Create a consumer thread."""
@@ -94,6 +96,7 @@ class Consumer(threading.Thread):
         self._sdk_version = sdk_version
         self._sdk_integration = sdk_integration
         self._mask = mask
+        self._sampler = Sampler(sample_rate)
 
     def _next(self):
         """Return the next batch of items to upload."""
@@ -110,16 +113,25 @@ class Consumer(threading.Thread):
             try:
                 item = queue.get(block=True, timeout=self._flush_interval - elapsed)
 
+                # convert pydantic models to dicts
                 if "body" in item and isinstance(item["body"], pydantic.BaseModel):
                     item["body"] = item["body"].dict()
 
+                # sample event
+                if not self._sampler.sample_event(item):
+                    continue
+
+                # truncate item if it exceeds size limit
                 item_size = self._truncate_item_in_place(
                     item=item,
                     max_size=MAX_MSG_SIZE,
                     log_message="<truncated due to size exceeding limit>",
                 )
+
+                # apply mask
                 self._apply_mask_in_place(item)
 
+                # check for serialization errors
                 try:
                     json.dumps(item, cls=EventSerializer)
                 except Exception as e:
@@ -289,7 +301,7 @@ class TaskManager(object):
     _sdk_name: str
     _sdk_version: str
     _sdk_integration: str
-    _sampler: Sampler
+    _sample_rate: float
     _mask: Optional[MaskFunction]
 
     def __init__(
@@ -321,7 +333,7 @@ class TaskManager(object):
         self._sdk_version = sdk_version
         self._sdk_integration = sdk_integration
         self._enabled = enabled
-        self._sampler = Sampler(sample_rate)
+        self._sample_rate = sample_rate
         self._mask = mask
 
         self.init_resources()
@@ -342,6 +354,7 @@ class TaskManager(object):
                 sdk_name=self._sdk_name,
                 sdk_version=self._sdk_version,
                 sdk_integration=self._sdk_integration,
+                sample_rate=self._sample_rate,
                 mask=self._mask,
             )
             consumer.start()
@@ -352,9 +365,6 @@ class TaskManager(object):
             return
 
         try:
-            if not self._sampler.sample_event(event):
-                return  # event was sampled out
-
             event["timestamp"] = _get_timestamp()
 
             self._queue.put(event, block=False)

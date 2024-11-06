@@ -1,5 +1,9 @@
 import os
-from typing import Any, List, Mapping, Optional
+import random
+import string
+import time
+
+from typing import Any, List, Mapping, Optional, Dict
 
 import pytest
 from langchain_community.llms.anthropic import Anthropic
@@ -14,6 +18,7 @@ from langchain.chains import (
     ConversationChain,
 )
 from langchain_core.tools import StructuredTool
+from langchain_core.runnables.base import RunnableLambda
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import TextLoader
@@ -2158,3 +2163,51 @@ def test_callback_openai_functions_with_tools():
         )
 
         assert generation.output is not None
+
+
+def test_langfuse_overhead():
+    def _generate_random_dict(n: int, key_length: int = 8) -> Dict[str, Any]:
+        result = {}
+        value_generators = [
+            lambda: "".join(
+                random.choices(string.ascii_letters, k=random.randint(3, 15))
+            ),
+            lambda: random.randint(0, 1000),
+            lambda: round(random.uniform(0, 100), 2),
+            lambda: [random.randint(0, 100) for _ in range(random.randint(1, 5))],
+            lambda: random.choice([True, False]),
+        ]
+        while len(result) < n:
+            key = "".join(
+                random.choices(string.ascii_letters + string.digits, k=key_length)
+            )
+            if key in result:
+                continue
+            value = random.choice(value_generators)()
+            result[key] = value
+        return result
+
+    # Test performance overhead of langfuse tracing
+    inputs = _generate_random_dict(10000, 20000)
+    test_chain = RunnableLambda(lambda x: None)
+
+    start = time.monotonic()
+    test_chain.invoke(inputs)
+    duration_without_langfuse = (time.monotonic() - start) * 1000
+
+    start = time.monotonic()
+    handler = CallbackHandler()
+    test_chain.invoke(inputs, config={"callbacks": [handler]})
+    duration_with_langfuse = (time.monotonic() - start) * 1000
+
+    overhead = duration_with_langfuse - duration_without_langfuse
+    print(f"Langfuse overhead: {overhead}ms")
+
+    assert overhead < 10, f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
+
+    handler.flush()
+
+    duration_full = (time.monotonic() - start) * 1000
+    print(f"Full execution took {duration_full}ms")
+
+    assert duration_full > 1000, "Full execution should take longer than 1 second"
