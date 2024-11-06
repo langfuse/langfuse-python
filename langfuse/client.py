@@ -3363,4 +3363,6 @@ class DatasetClient:
 
 
 def _filter_io_from_event_body(event_body: Dict[str, Any]):
-    return {k: v for k, v in event_body.items() if k not in ("input", "output")}
+    return {
+        k: v for k, v in event_body.items() if k not in ("input", "output", "metadata")
+    }
