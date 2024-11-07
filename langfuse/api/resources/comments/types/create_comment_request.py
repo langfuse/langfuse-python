@@ -5,32 +5,34 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .score_source import ScoreSource
 
 
-class BaseScore(pydantic_v1.BaseModel):
-    id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    timestamp: dt.datetime
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+class CreateCommentRequest(pydantic_v1.BaseModel):
+    project_id: str = pydantic_v1.Field(alias="projectId")
+    """
+    The id of the project to attach the comment to.
+    """
+
+    object_type: str = pydantic_v1.Field(alias="objectType")
+    """
+    The type of the object to attach the comment to (trace, observation, session, prompt).
+    """
+
+    object_id: str = pydantic_v1.Field(alias="objectId")
+    """
+    The id of the object to attach the comment to. If this does not reference a valid existing object, an error will be thrown.
+    """
+
+    content: str = pydantic_v1.Field()
+    """
+    The content of the comment. May include markdown. Currently limited to 500 characters.
+    """
+
     author_user_id: typing.Optional[str] = pydantic_v1.Field(
         alias="authorUserId", default=None
     )
-    comment: typing.Optional[str] = None
-    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     """
-    Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
-    """
-
-    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    """
-    Reference an annotation queue on a score. Populated if the score was initially created in an annotation queue.
+    The id of the user who created the comment.
     """
 
     def json(self, **kwargs: typing.Any) -> str:

@@ -5,33 +5,20 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .score_source import ScoreSource
+from .comment_object_type import CommentObjectType
 
 
-class BaseScore(pydantic_v1.BaseModel):
+class Comment(pydantic_v1.BaseModel):
     id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    timestamp: dt.datetime
+    project_id: str = pydantic_v1.Field(alias="projectId")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+    object_type: CommentObjectType = pydantic_v1.Field(alias="objectType")
+    object_id: str = pydantic_v1.Field(alias="objectId")
+    content: str
     author_user_id: typing.Optional[str] = pydantic_v1.Field(
         alias="authorUserId", default=None
     )
-    comment: typing.Optional[str] = None
-    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
-    """
-    Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
-    """
-
-    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    """
-    Reference an annotation queue on a score. Populated if the score was initially created in an annotation queue.
-    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

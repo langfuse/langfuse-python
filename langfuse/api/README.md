@@ -16,7 +16,7 @@ pip install finto
 Instantiate and use the client with the following:
 
 ```python
-from finto import CreateDatasetItemRequest, DatasetStatus
+from finto import CreateCommentRequest
 from finto.client import FernLangfuse
 
 client = FernLangfuse(
@@ -27,16 +27,13 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.dataset_items.create(
-    request=CreateDatasetItemRequest(
-        dataset_name="string",
-        input={"key": "value"},
-        expected_output={"key": "value"},
-        metadata={"key": "value"},
-        source_trace_id="string",
-        source_observation_id="string",
-        id="string",
-        status=DatasetStatus.ACTIVE,
+client.comments.create(
+    request=CreateCommentRequest(
+        project_id="string",
+        object_type="string",
+        object_id="string",
+        content="string",
+        author_user_id="string",
     ),
 )
 ```
@@ -48,7 +45,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 ```python
 import asyncio
 
-from finto import CreateDatasetItemRequest, DatasetStatus
+from finto import CreateCommentRequest
 from finto.client import AsyncFernLangfuse
 
 client = AsyncFernLangfuse(
@@ -62,16 +59,13 @@ client = AsyncFernLangfuse(
 
 
 async def main() -> None:
-    await client.dataset_items.create(
-        request=CreateDatasetItemRequest(
-            dataset_name="string",
-            input={"key": "value"},
-            expected_output={"key": "value"},
-            metadata={"key": "value"},
-            source_trace_id="string",
-            source_observation_id="string",
-            id="string",
-            status=DatasetStatus.ACTIVE,
+    await client.comments.create(
+        request=CreateCommentRequest(
+            project_id="string",
+            object_type="string",
+            object_id="string",
+            content="string",
+            author_user_id="string",
         ),
     )
 
@@ -88,7 +82,7 @@ will be thrown.
 from .api_error import ApiError
 
 try:
-    client.dataset_items.create(...)
+    client.comments.create(...)
 except ApiError as e:
     print(e.status_code)
     print(e.body)
@@ -111,7 +105,7 @@ A request is deemed retriable when any of the following HTTP status codes is ret
 Use the `max_retries` request option to configure this behavior.
 
 ```python
-client.dataset_items.create(...,{
+client.comments.create(...,{
     max_retries=1
 })
 ```
@@ -128,7 +122,7 @@ client = FernLangfuse(..., { timeout=20.0 }, )
 
 
 # Override timeout for a specific method
-client.dataset_items.create(...,{
+client.comments.create(...,{
     timeout_in_seconds=1
 })
 ```

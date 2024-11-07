@@ -7,10 +7,12 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .score_source import ScoreSource
+from ...commons.types.score_source import ScoreSource
+from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 
-class Score_Numeric(pydantic_v1.BaseModel):
+class GetScoresResponseData_Numeric(pydantic_v1.BaseModel):
+    trace: GetScoresResponseTraceData
     value: float
     id: str
     trace_id: str = pydantic_v1.Field(alias="traceId")
@@ -66,7 +68,8 @@ class Score_Numeric(pydantic_v1.BaseModel):
         json_encoders = {dt.datetime: serialize_datetime}
 
 
-class Score_Categorical(pydantic_v1.BaseModel):
+class GetScoresResponseData_Categorical(pydantic_v1.BaseModel):
+    trace: GetScoresResponseTraceData
     value: typing.Optional[float] = None
     string_value: str = pydantic_v1.Field(alias="stringValue")
     id: str
@@ -123,7 +126,8 @@ class Score_Categorical(pydantic_v1.BaseModel):
         json_encoders = {dt.datetime: serialize_datetime}
 
 
-class Score_Boolean(pydantic_v1.BaseModel):
+class GetScoresResponseData_Boolean(pydantic_v1.BaseModel):
+    trace: GetScoresResponseTraceData
     value: float
     string_value: str = pydantic_v1.Field(alias="stringValue")
     id: str
@@ -180,4 +184,8 @@ class Score_Boolean(pydantic_v1.BaseModel):
         json_encoders = {dt.datetime: serialize_datetime}
 
 
-Score = typing.Union[Score_Numeric, Score_Categorical, Score_Boolean]
+GetScoresResponseData = typing.Union[
+    GetScoresResponseData_Numeric,
+    GetScoresResponseData_Categorical,
+    GetScoresResponseData_Boolean,
+]

@@ -5,32 +5,39 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .score_source import ScoreSource
 
 
-class BaseScore(pydantic_v1.BaseModel):
-    id: str
+class GetMediaUploadUrlRequest(pydantic_v1.BaseModel):
     trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
+    """
+    The trace ID associated with the media record
+    """
+
     observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="observationId", default=None
     )
-    timestamp: dt.datetime
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
-    comment: typing.Optional[str] = None
-    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     """
-    Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
+    The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
     """
 
-    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
+    content_type: str = pydantic_v1.Field(alias="contentType")
     """
-    Reference an annotation queue on a score. Populated if the score was initially created in an annotation queue.
+    The MIME type of the media record
+    """
+
+    content_length: int = pydantic_v1.Field(alias="contentLength")
+    """
+    The size of the media record in bytes
+    """
+
+    sha_256_hash: str = pydantic_v1.Field(alias="sha256Hash")
+    """
+    The SHA-256 hash of the media record
+    """
+
+    field: str = pydantic_v1.Field()
+    """
+    The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`
     """
 
     def json(self, **kwargs: typing.Any) -> str:

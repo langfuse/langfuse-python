@@ -5,32 +5,37 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .score_source import ScoreSource
 
 
-class BaseScore(pydantic_v1.BaseModel):
-    id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    timestamp: dt.datetime
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
-    comment: typing.Optional[str] = None
-    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
+class GetMediaResponse(pydantic_v1.BaseModel):
+    media_id: str = pydantic_v1.Field(alias="mediaId")
     """
-    Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
+    The unique langfuse identifier of a media record
     """
 
-    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
+    content_type: str = pydantic_v1.Field(alias="contentType")
     """
-    Reference an annotation queue on a score. Populated if the score was initially created in an annotation queue.
+    The MIME type of the media record
+    """
+
+    content_length: int = pydantic_v1.Field(alias="contentLength")
+    """
+    The size of the media record in bytes
+    """
+
+    uploaded_at: dt.datetime = pydantic_v1.Field(alias="uploadedAt")
+    """
+    The date and time when the media record was uploaded
+    """
+
+    url: str = pydantic_v1.Field()
+    """
+    The download URL of the media record
+    """
+
+    url_expiry: str = pydantic_v1.Field(alias="urlExpiry")
+    """
+    The expiry date and time of the media record download URL
     """
 
     def json(self, **kwargs: typing.Any) -> str:
