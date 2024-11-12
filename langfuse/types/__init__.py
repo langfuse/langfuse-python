@@ -1,9 +1,11 @@
 """@private"""
 
 from datetime import datetime
-from langfuse.client import PromptClient, ModelUsage, MapValue
-from typing import Any, List, Optional, TypedDict, Literal, Dict, Union, Protocol
+from typing import Any, Dict, List, Literal, Optional, Protocol, TypedDict, Union
+
 from pydantic import BaseModel
+
+from langfuse.model import MapValue, ModelUsage, PromptClient
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 

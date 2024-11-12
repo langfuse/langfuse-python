@@ -2,42 +2,41 @@ import os
 import random
 import string
 import time
-
-from typing import Any, List, Mapping, Optional, Dict
+from typing import Any, Dict, List, Mapping, Optional
 
 import pytest
-from langchain_community.llms.anthropic import Anthropic
-from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain.agents import AgentType, initialize_agent
-from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain.chains import (
     ConversationalRetrievalChain,
+    ConversationChain,
     LLMChain,
     RetrievalQA,
     SimpleSequentialChain,
-    ConversationChain,
 )
-from langchain_core.tools import StructuredTool
-from langchain_core.runnables.base import RunnableLambda
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain_community.document_loaders import TextLoader
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_openai import OpenAI, AzureChatOpenAI, ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import Document
+from langchain.schema import Document, HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.agent_toolkits.load_tools import load_tools
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.llms.anthropic import Anthropic
+from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.vectorstores import Chroma
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables.base import RunnableLambda
+from langchain_core.tools import StructuredTool
+from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
 from pydantic.v1 import BaseModel, Field
-from langchain.schema import HumanMessage, SystemMessage
+
 from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
-from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from langchain_core.language_models.llms import LLM
-from langchain_core.output_parsers import StrOutputParser
 
 
 def test_callback_init():
@@ -1760,7 +1759,7 @@ def test_disabled_langfuse():
         },
     )
 
-    assert handler.langfuse.task_manager._queue.empty()
+    assert handler.langfuse.task_manager._ingestion_queue.empty()
 
     handler.flush()
 
@@ -2211,3 +2210,36 @@ def test_langfuse_overhead():
     print(f"Full execution took {duration_full}ms")
 
     assert duration_full > 1000, "Full execution should take longer than 1 second"
+
+
+def test_multimodal():
+    import base64
+
+    from langsmith.wrappers import wrap_openai
+    from openai import OpenAI
+
+    client = wrap_openai(OpenAI())
+
+    def encode_image(image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    image_path = "static/puton.jpg"
+    base64_image = encode_image(image_path)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What’s in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                    },
+                ],
+            }
+        ],
+    )
+    print(response.choices[0])

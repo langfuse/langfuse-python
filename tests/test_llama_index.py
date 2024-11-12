@@ -1,16 +1,12 @@
 import pytest
-from llama_index.core import (
-    Settings,
-    PromptTemplate,
-)
+from llama_index.core import PromptTemplate, Settings
 from llama_index.core.callbacks import CallbackManager
-from llama_index.llms.openai import OpenAI
-from llama_index.llms.anthropic import Anthropic
 from llama_index.core.query_pipeline import QueryPipeline
+from llama_index.llms.anthropic import Anthropic
+from llama_index.llms.openai import OpenAI
 
-from langfuse.llama_index import LlamaIndexCallbackHandler
 from langfuse.client import Langfuse
-
+from langfuse.llama_index import LlamaIndexCallbackHandler
 from tests.utils import create_uuid, get_api, get_llama_index_index
 
 
@@ -540,7 +536,7 @@ def test_disabled_langfuse():
     trace_id = callback.trace.id
     assert trace_id is not None
 
-    assert callback.langfuse.task_manager._queue.empty()
+    assert callback.langfuse.task_manager._ingestion_queue.empty()
 
     callback.flush()
 

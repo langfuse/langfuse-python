@@ -17,18 +17,17 @@ The integration is fully interoperable with the `observe()` decorator and the lo
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
-import copy
 import logging
-from inspect import isclass
 import types
-
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List, Optional
+from inspect import isclass
+from typing import Optional
 
 import openai.resources
 from openai._types import NotGiven
 from packaging.version import Version
+from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
@@ -36,7 +35,6 @@ from langfuse.client import StatefulGenerationClient
 from langfuse.decorators import langfuse_context
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
-from pydantic import BaseModel
 
 try:
     import openai
@@ -200,13 +198,13 @@ def _extract_chat_prompt(kwargs: any):
         # uf user provided functions, we need to send these together with messages to langfuse
         prompt.update(
             {
-                "messages": _filter_image_data(kwargs.get("messages", [])),
+                "messages": kwargs.get("messages", []),
             }
         )
         return prompt
     else:
         # vanilla case, only send messages in openai format to langfuse
-        return _filter_image_data(kwargs.get("messages", []))
+        return kwargs.get("messages", [])
 
 
 def _extract_chat_response(kwargs: any):
@@ -215,15 +213,31 @@ def _extract_chat_response(kwargs: any):
         "role": kwargs.get("role", None),
     }
 
+    audio_content = None
+
     if kwargs.get("function_call") is not None:
         response.update({"function_call": kwargs["function_call"]})
 
     if kwargs.get("tool_calls") is not None:
         response.update({"tool_calls": kwargs["tool_calls"]})
 
+    if kwargs.get("audio") is not None:
+        audio = kwargs["audio"].__dict__
+
+        audio_content = [
+            {"type": "text", "text": audio.get("transcript", None)},
+            {
+                "type": "output_audio",
+                "output_audio": {
+                    "data": audio.get("data", None),
+                    "format": audio.get("format", "wav"),
+                },
+            },
+        ]
+
     response.update(
         {
-            "content": kwargs.get("content", None),
+            "content": kwargs.get("content", None) or audio_content,
         }
     )
     return response
@@ -725,32 +739,6 @@ def auth_check():
         modifier.initialize()
 
     return modifier._langfuse.auth_check()
-
-
-def _filter_image_data(messages: List[dict]):
-    """https://platform.openai.com/docs/guides/vision?lang=python
-
-    The messages array remains the same, but the 'image_url' is removed from the 'content' array.
-    It should only be removed if the value starts with 'data:image/jpeg;base64,'
-
-    """
-    output_messages = copy.deepcopy(messages)
-
-    for message in output_messages:
-        content = (
-            message.get("content", None)
-            if isinstance(message, dict)
-            else getattr(message, "content", None)
-        )
-
-        if content is not None:
-            for index, item in enumerate(content):
-                if isinstance(item, dict) and item.get("image_url", None) is not None:
-                    url = item["image_url"]["url"]
-                    if url.startswith("data:image/"):
-                        del content[index]["image_url"]
-
-    return output_messages
 
 
 class LangfuseResponseGeneratorSync:

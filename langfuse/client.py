@@ -1,28 +1,19 @@
-from contextlib import contextmanager
 import datetime as dt
 import logging
 import os
-import typing
-import uuid
-import backoff
-import httpx
-from enum import Enum
 import time
 import tracemalloc
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Literal,
-    Union,
-    List,
-    Sequence,
-    overload,
-)
+import typing
 import urllib.parse
+import uuid
 import warnings
+from contextlib import contextmanager
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Sequence, Union, overload
 
+import backoff
+import httpx
 
 from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
@@ -39,8 +30,8 @@ from langfuse.api.resources.ingestion.types.create_generation_body import (
 )
 from langfuse.api.resources.ingestion.types.create_span_body import CreateSpanBody
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.ingestion.types.trace_body import TraceBody
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
+from langfuse.api.resources.ingestion.types.trace_body import TraceBody
 from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
@@ -51,28 +42,26 @@ from langfuse.api.resources.observations.types.observations_views import (
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
-    Prompt_Text,
     Prompt_Chat,
+    Prompt_Text,
 )
 from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
     MetaResponse,
 )
 from langfuse.model import (
+    ChatMessageDict,
+    ChatPromptClient,
     CreateDatasetItemRequest,
     CreateDatasetRequest,
     CreateDatasetRunItemRequest,
-    ChatMessageDict,
     DatasetItem,
     DatasetStatus,
     ModelUsage,
     PromptClient,
-    ChatPromptClient,
     TextPromptClient,
 )
-from langfuse.parse_error import (
-    handle_fern_exception,
-)
+from langfuse.parse_error import handle_fern_exception
 from langfuse.prompt_cache import PromptCache
 
 try:
@@ -80,13 +69,13 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
+from langfuse._task_manager.task_manager import TaskManager
 from langfuse.api.client import FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
-from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel, ScoreDataType, MaskFunction
+from langfuse.types import MaskFunction, ScoreDataType, SpanLevel
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
 
 from .version import __version__ as version
@@ -308,6 +297,7 @@ class Langfuse(object):
             "flush_interval": flush_interval,
             "max_retries": max_retries,
             "client": langfuse_client,
+            "api_client": self.client,
             "public_key": public_key,
             "sdk_name": "python",
             "sdk_version": version,
@@ -1383,7 +1373,7 @@ class Langfuse(object):
                     :top_k_items
                 ],
                 "total_usage": f"{total_memory_usage:.2f} MB",
-                "langfuse_queue_length": self.task_manager._queue.qsize(),
+                "langfuse_queue_length": self.task_manager._ingestion_queue.qsize(),
             }
 
             self.log.debug("Memory usage: ", logged_memory_usage)

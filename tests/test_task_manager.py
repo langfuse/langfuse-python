@@ -2,14 +2,14 @@ import logging
 import subprocess
 import threading
 from urllib.parse import urlparse, urlunparse
-import httpx
 
+import httpx
 import pytest
 from pytest_httpserver import HTTPServer
 from werkzeug.wrappers import Request, Response
 
+from langfuse._task_manager.task_manager import TaskManager
 from langfuse.request import LangfuseClient
-from langfuse.task_manager import TaskManager
 
 logging.basicConfig()
 log = logging.getLogger("langfuse")
@@ -109,7 +109,7 @@ def test_disabled_task_manager(httpserver: HTTPServer):
     tm.add_task({"foo": "bar"})
     tm.add_task({"foo": "bar"})
 
-    assert tm._queue.empty()
+    assert tm._ingestion_queue.empty()
 
     tm.flush()
     assert not request_fired
@@ -298,7 +298,7 @@ def test_flush(httpserver: HTTPServer):
     # a race condition. We do our best to load it up though.
     tm.flush()
     # Make sure that the client queue is empty after flushing
-    assert tm._queue.empty()
+    assert tm._ingestion_queue.empty()
     assert not failed
 
 
@@ -338,12 +338,12 @@ def test_shutdown(httpserver: HTTPServer):
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
-    assert tm._queue.empty()
+    assert tm._ingestion_queue.empty()
 
-    assert len(tm._consumers) == 5
-    for c in tm._consumers:
+    assert len(tm._ingestion_consumers) == 5
+    for c in tm._ingestion_consumers:
         assert not c.is_alive()
-    assert tm._queue.empty()
+    assert tm._ingestion_queue.empty()
     assert not failed
 
 
@@ -382,7 +382,7 @@ def test_large_events_dropped_if_random(httpserver: HTTPServer):
     # a race condition. We do our best to load it up though.
     tm.flush()
     # Make sure that the client queue is empty after flushing
-    assert tm._queue.empty()
+    assert tm._ingestion_queue.empty()
     assert not failed
 
 
@@ -428,7 +428,7 @@ def test_large_events_i_o_dropped(httpserver: HTTPServer):
     # a race condition. We do our best to load it up though.
     tm.flush()
     # Make sure that the client queue is empty after flushing
-    assert tm._queue.empty()
+    assert tm._ingestion_queue.empty()
     assert not failed
     assert count == 2
 
@@ -442,14 +442,14 @@ def test_truncate_item_in_place(httpserver):
         langfuse_client, 10, 0.1, 3, 1, 100, "test-sdk", "1.0.0", "default"
     )
 
-    consumer = tm._consumers[0]
+    consumer = tm._ingestion_consumers[0]
 
     # Item size within limit
     MAX_MSG_SIZE = 100
 
     small_item = {"body": {"input": "small"}}
     assert (
-        consumer._truncate_item_in_place(item=small_item, max_size=MAX_MSG_SIZE)
+        consumer._truncate_item_in_place(event=small_item, max_size=MAX_MSG_SIZE)
         <= MAX_MSG_SIZE
     )
     assert small_item["body"]["input"] == "small"  # unchanged
@@ -457,7 +457,7 @@ def test_truncate_item_in_place(httpserver):
     # Item size exceeding limit
     large_item = {"body": {"input": "a" * (MAX_MSG_SIZE + 10)}}
     truncated_size = consumer._truncate_item_in_place(
-        item=large_item, max_size=MAX_MSG_SIZE
+        event=large_item, max_size=MAX_MSG_SIZE
     )
 
     assert truncated_size <= MAX_MSG_SIZE
@@ -466,7 +466,7 @@ def test_truncate_item_in_place(httpserver):
     # Logs message if item is truncated
     large_item = {"body": {"input": "a" * (MAX_MSG_SIZE + 10)}}
     truncated_size = consumer._truncate_item_in_place(
-        item=large_item, max_size=MAX_MSG_SIZE, log_message="truncated"
+        event=large_item, max_size=MAX_MSG_SIZE, log_message="truncated"
     )
 
     assert truncated_size <= MAX_MSG_SIZE
@@ -481,7 +481,7 @@ def test_truncate_item_in_place(httpserver):
         }
     }
     truncated_size = consumer._truncate_item_in_place(
-        item=full_item, max_size=MAX_MSG_SIZE
+        event=full_item, max_size=MAX_MSG_SIZE
     )
 
     assert truncated_size <= MAX_MSG_SIZE
@@ -497,7 +497,7 @@ def test_truncate_item_in_place(httpserver):
             "metadata": "c" * 10,
         }
     }
-    consumer._truncate_item_in_place(item=input_largest, max_size=MAX_MSG_SIZE)
+    consumer._truncate_item_in_place(event=input_largest, max_size=MAX_MSG_SIZE)
     assert input_largest["body"]["input"] is None
     assert input_largest["body"]["output"] is not None
     assert input_largest["body"]["metadata"] is not None
@@ -510,7 +510,7 @@ def test_truncate_item_in_place(httpserver):
             "metadata": "c" * 20,
         }
     }
-    consumer._truncate_item_in_place(item=mixed_size, max_size=MAX_MSG_SIZE)
+    consumer._truncate_item_in_place(event=mixed_size, max_size=MAX_MSG_SIZE)
     assert mixed_size["body"]["input"] is not None
     assert mixed_size["body"]["output"] is None
     assert mixed_size["body"]["metadata"] is not None
@@ -523,14 +523,14 @@ def test_truncate_item_in_place(httpserver):
             "metadata": "c" * 50,
         }
     }
-    consumer._truncate_item_in_place(item=very_large, max_size=MAX_MSG_SIZE)
+    consumer._truncate_item_in_place(event=very_large, max_size=MAX_MSG_SIZE)
     assert very_large["body"]["input"] is None
     assert very_large["body"]["output"] is None
     assert very_large["body"]["metadata"] is not None
 
     # Return value
     assert isinstance(
-        consumer._truncate_item_in_place(item=small_item, max_size=MAX_MSG_SIZE), int
+        consumer._truncate_item_in_place(event=small_item, max_size=MAX_MSG_SIZE), int
     )
 
     # JSON serialization
@@ -540,7 +540,7 @@ def test_truncate_item_in_place(httpserver):
         }
     }
     assert (
-        consumer._truncate_item_in_place(item=complex_item, max_size=MAX_MSG_SIZE)
+        consumer._truncate_item_in_place(event=complex_item, max_size=MAX_MSG_SIZE)
         <= MAX_MSG_SIZE
     )
     assert complex_item["body"]["input"] is None
