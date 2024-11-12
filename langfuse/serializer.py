@@ -1,17 +1,20 @@
 """@private"""
 
-from asyncio import Queue
-from datetime import date, datetime
-from dataclasses import is_dataclass, asdict
 import enum
+from asyncio import Queue
+from collections.abc import Sequence
+from dataclasses import asdict, is_dataclass
+from datetime import date, datetime
 from json import JSONEncoder
+from logging import getLogger
+from pathlib import Path
 from typing import Any
 from uuid import UUID
-from collections.abc import Sequence
-from langfuse.api.core import serialize_datetime, pydantic_utilities
-from pathlib import Path
-from logging import getLogger
+
 from pydantic import BaseModel
+
+from langfuse.api.core import pydantic_utilities, serialize_datetime
+from langfuse.langfuse_media import MediaWrapper
 
 # Attempt to import Serializable
 try:
@@ -39,6 +42,12 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
                 return serialize_datetime(obj)
+
+            if isinstance(obj, MediaWrapper):
+                return (
+                    obj._reference_string
+                    or "<Failed to generate reference string for LangfuseMediaWrapper>"
+                )
 
             # Check if numpy is available and if the object is a numpy scalar
             # If so, convert it to a Python scalar using the item() method

@@ -118,7 +118,7 @@ class IngestionConsumer(threading.Thread):
                     continue
 
                 # handle multimodal data
-                self._media_manager.process_multimodal_event_in_place(event)
+                self._media_manager.process_media_in_event(event)
 
                 # truncate item if it exceeds size limit
                 item_size = self._truncate_item_in_place(

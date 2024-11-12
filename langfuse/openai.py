@@ -33,6 +33,7 @@ from wrapt import wrap_function_wrapper
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
 from langfuse.decorators import langfuse_context
+from langfuse.langfuse_media import MediaWrapper
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
@@ -198,13 +199,52 @@ def _extract_chat_prompt(kwargs: any):
         # uf user provided functions, we need to send these together with messages to langfuse
         prompt.update(
             {
-                "messages": kwargs.get("messages", []),
+                "messages": [
+                    _process_message(message) for message in kwargs.get("messages", [])
+                ],
             }
         )
         return prompt
     else:
         # vanilla case, only send messages in openai format to langfuse
-        return kwargs.get("messages", [])
+        return [_process_message(message) for message in kwargs.get("messages", [])]
+
+
+def _process_message(message):
+    if not isinstance(message, dict):
+        return message
+
+    processed_message = {**message}
+
+    content = processed_message.get("content", None)
+    if not isinstance(content, list):
+        return processed_message
+
+    processed_content = []
+
+    for content_part in content:
+        if content_part.get("type") == "input_audio":
+            audio_base64 = content_part.get("input_audio", {}).get("data", None)
+            format = content_part.get("input_audio", {}).get("format", "wav")
+
+            if audio_base64 is not None:
+                base64_data_uri = f"data:audio/{format};base64,{audio_base64}"
+
+                processed_content.append(
+                    {
+                        "type": "input_audio",
+                        "input_audio": {
+                            "data": MediaWrapper(None, base64_data_uri=base64_data_uri),
+                            "format": format,
+                        },
+                    }
+                )
+        else:
+            processed_content.append(content_part)
+
+    processed_message["content"] = processed_content
+
+    return processed_message
 
 
 def _extract_chat_response(kwargs: any):
@@ -224,12 +264,19 @@ def _extract_chat_response(kwargs: any):
     if kwargs.get("audio") is not None:
         audio = kwargs["audio"].__dict__
 
+        base64_data_uri = (
+            f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"
+        )
+
         audio_content = [
             {"type": "text", "text": audio.get("transcript", None)},
             {
                 "type": "output_audio",
                 "output_audio": {
-                    "data": audio.get("data", None),
+                    "data": MediaWrapper(
+                        None,
+                        base64_data_uri=base64_data_uri,
+                    ),
                     "format": audio.get("format", "wav"),
                 },
             },
@@ -240,6 +287,7 @@ def _extract_chat_response(kwargs: any):
             "content": kwargs.get("content", None) or audio_content,
         }
     )
+
     return response
 
 
