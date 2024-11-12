@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 
-class MediaWrapper:
+class LangfuseMedia:
     """A class for wrapping media objects for upload to Langfuse.
 
     This class handles the preparation and formatting of media content for Langfuse,

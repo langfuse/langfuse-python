@@ -14,7 +14,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from langfuse.api.core import pydantic_utilities, serialize_datetime
-from langfuse.langfuse_media import MediaWrapper
+from langfuse.media import LangfuseMedia
 
 # Attempt to import Serializable
 try:
@@ -43,7 +43,7 @@ class EventSerializer(JSONEncoder):
                 # Timezone-awareness check
                 return serialize_datetime(obj)
 
-            if isinstance(obj, MediaWrapper):
+            if isinstance(obj, LangfuseMedia):
                 return (
                     obj._reference_string
                     or "<Failed to generate reference string for LangfuseMediaWrapper>"

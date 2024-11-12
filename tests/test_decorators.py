@@ -9,7 +9,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_models import ChatOpenAI
 
 from langfuse.decorators import langfuse_context, observe
-from langfuse.langfuse_media import MediaWrapper
+from langfuse.media import LangfuseMedia
 from langfuse.openai import AsyncOpenAI
 from tests.utils import create_uuid, get_api, get_llama_index_index
 
@@ -1472,7 +1472,7 @@ def test_pdf_in_metadata():
     def main():
         langfuse_context.update_current_trace(
             metadata={
-                "context": MediaWrapper(
+                "context": LangfuseMedia(
                     pdf_bytes, content_bytes=pdf_bytes, content_type="application/pdf"
                 )
             },

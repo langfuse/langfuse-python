@@ -33,7 +33,7 @@ from wrapt import wrap_function_wrapper
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
 from langfuse.decorators import langfuse_context
-from langfuse.langfuse_media import MediaWrapper
+from langfuse.media import LangfuseMedia
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
@@ -234,7 +234,9 @@ def _process_message(message):
                     {
                         "type": "input_audio",
                         "input_audio": {
-                            "data": MediaWrapper(None, base64_data_uri=base64_data_uri),
+                            "data": LangfuseMedia(
+                                None, base64_data_uri=base64_data_uri
+                            ),
                             "format": format,
                         },
                     }
@@ -273,7 +275,7 @@ def _extract_chat_response(kwargs: any):
             {
                 "type": "output_audio",
                 "output_audio": {
-                    "data": MediaWrapper(
+                    "data": LangfuseMedia(
                         None,
                         base64_data_uri=base64_data_uri,
                     ),

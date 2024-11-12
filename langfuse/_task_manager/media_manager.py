@@ -6,7 +6,7 @@ import requests
 
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
 from langfuse.api.client import FernLangfuse
-from langfuse.langfuse_media import MediaWrapper
+from langfuse.media import LangfuseMedia
 from langfuse.utils import _get_timestamp
 
 from .media_upload_queue import MediaUploadQueue, UploadMediaJob
@@ -87,7 +87,7 @@ class MediaManager:
 
             seen.add(id(data))
 
-            if isinstance(data, MediaWrapper):
+            if isinstance(data, LangfuseMedia):
                 self._process_media(
                     media=data,
                     trace_id=trace_id,
@@ -98,7 +98,7 @@ class MediaManager:
                 return data
 
             if isinstance(data, str) and data.startswith("data:"):
-                media = MediaWrapper(
+                media = LangfuseMedia(
                     obj=data,
                     base64_data_uri=data,
                 )
@@ -127,7 +127,7 @@ class MediaManager:
     def _process_media(
         self,
         *,
-        media: MediaWrapper,
+        media: LangfuseMedia,
         trace_id: str,
         observation_id: Optional[str],
         field: str,
