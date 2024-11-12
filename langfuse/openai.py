@@ -521,12 +521,21 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
     elif resource.type == "chat":
         choices = response.get("choices", [])
         if len(choices) > 0:
-            choice = choices[-1]
-            completion = (
-                _extract_chat_response(choice.message.__dict__)
-                if _is_openai_v1()
-                else choice.get("message", None)
-            )
+            # If multiple choices were generated, we'll show all of them in the UI as a list.
+            if len(choices) > 1:
+                completion = [
+                    _extract_chat_response(choice.message.__dict__)
+                    if _is_openai_v1()
+                    else choice.get("message", None)
+                    for choice in choices
+                ]
+            else:
+                choice = choices[0]
+                completion = (
+                    _extract_chat_response(choice.message.__dict__)
+                    if _is_openai_v1()
+                    else choice.get("message", None)
+                )
 
     usage = response.get("usage", None)
 
