@@ -36,7 +36,7 @@ from pydantic.v1 import BaseModel, Field
 from langfuse.callback import CallbackHandler
 from langfuse.client import Langfuse
 from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid, get_api
+from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 
 def test_callback_init():
@@ -2210,3 +2210,39 @@ def test_langfuse_overhead():
     print(f"Full execution took {duration_full}ms")
 
     assert duration_full > 1000, "Full execution should take longer than 1 second"
+
+
+def test_multimodal():
+    api = get_api()
+    handler = CallbackHandler()
+    model = ChatOpenAI(model="gpt-4o-mini")
+
+    image_data = encode_file_to_base64("static/puton.jpg")
+
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": "What's in this image?"},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+            },
+        ],
+    )
+
+    response = model.invoke([message], config={"callbacks": [handler]})
+
+    print(response.content)
+
+    handler.flush()
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    assert len(trace.observations) == 1
+    assert trace.observations[0].type == "GENERATION"
+
+    print(trace.observations[0].input)
+
+    assert (
+        "@@@langfuseMedia:type=image/jpeg|id="
+        in trace.observations[0].input[0]["content"][1]["image_url"]["url"]
+    )

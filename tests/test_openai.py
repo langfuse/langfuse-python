@@ -1,4 +1,3 @@
-import base64
 import os
 
 import pytest
@@ -14,7 +13,7 @@ from langfuse.openai import (
     _is_openai_v1,
     openai,
 )
-from tests.utils import create_uuid, get_api
+from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 chat_func = (
     openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
@@ -1482,7 +1481,7 @@ def test_base_64_image_input():
     content_path = "static/puton.jpg"
     content_type = "image/jpeg"
 
-    base64_image = encode_file(content_path)
+    base64_image = encode_file_to_base64(content_path)
 
     client.chat.completions.create(
         name=generation_name,
@@ -1532,7 +1531,7 @@ def test_audio_input_and_output():
     generation_name = "test_audio_input_and_output" + create_uuid()[:8]
 
     content_path = "static/joke_prompt.wav"
-    base64_string = encode_file(content_path)
+    base64_string = encode_file_to_base64(content_path)
 
     client.chat.completions.create(
         name=generation_name,
@@ -1580,8 +1579,3 @@ def test_audio_input_and_output():
         "@@@langfuseMedia:type=audio/wav|id="
         in generation.data[0].output["content"][1]["output_audio"]["data"]
     )
-
-
-def encode_file(image_path):
-    with open(image_path, "rb") as file:
-        return base64.b64encode(file.read()).decode("utf-8")
