@@ -351,8 +351,10 @@ def _get_langfuse_data_from_kwargs(
         "top_p": parsed_top_p,
         "frequency_penalty": parsed_frequency_penalty,
         "presence_penalty": parsed_presence_penalty,
-        "n": parsed_n,
     }
+    if parsed_n is not None and parsed_n > 1:
+        modelParameters["n"] = parsed_n
+
     if parsed_seed is not None:
         modelParameters["seed"] = parsed_seed
 
