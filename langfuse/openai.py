@@ -19,16 +19,16 @@ See docs for more details: https://langfuse.com/docs/integrations/openai
 
 import copy
 import logging
-from inspect import isclass
 import types
-
 from collections import defaultdict
 from dataclasses import dataclass
+from inspect import isclass
 from typing import List, Optional
 
 import openai.resources
 from openai._types import NotGiven
 from packaging.version import Version
+from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
 
 from langfuse import Langfuse
@@ -36,7 +36,6 @@ from langfuse.client import StatefulGenerationClient
 from langfuse.decorators import langfuse_context
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
-from pydantic import BaseModel
 
 try:
     import openai
@@ -344,12 +343,15 @@ def _get_langfuse_data_from_kwargs(
         else None
     )
 
+    parsed_n = kwargs.get("n", 1) if not isinstance(kwargs.get("n", 1), NotGiven) else 1
+
     modelParameters = {
         "temperature": parsed_temperature,
         "max_tokens": parsed_max_tokens,  # casing?
         "top_p": parsed_top_p,
         "frequency_penalty": parsed_frequency_penalty,
         "presence_penalty": parsed_presence_penalty,
+        "n": parsed_n,
     }
     if parsed_seed is not None:
         modelParameters["seed"] = parsed_seed
@@ -519,12 +521,21 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
     elif resource.type == "chat":
         choices = response.get("choices", [])
         if len(choices) > 0:
-            choice = choices[-1]
-            completion = (
-                _extract_chat_response(choice.message.__dict__)
-                if _is_openai_v1()
-                else choice.get("message", None)
-            )
+            # If multiple choices were generated, we'll show all of them in the UI as a list.
+            if len(choices) > 1:
+                completion = [
+                    _extract_chat_response(choice.message.__dict__)
+                    if _is_openai_v1()
+                    else choice.get("message", None)
+                    for choice in choices
+                ]
+            else:
+                choice = choices[0]
+                completion = (
+                    _extract_chat_response(choice.message.__dict__)
+                    if _is_openai_v1()
+                    else choice.get("message", None)
+                )
 
     usage = response.get("usage", None)
 
