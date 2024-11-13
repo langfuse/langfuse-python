@@ -138,6 +138,7 @@ class MediaClient:
                 ),
                 upload_http_status=1,
                 upload_http_error="string",
+                upload_time_ms=1,
             ),
         )
         """
@@ -382,6 +383,7 @@ class AsyncMediaClient:
                     ),
                     upload_http_status=1,
                     upload_http_error="string",
+                    upload_time_ms=1,
                 ),
             )
 

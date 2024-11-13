@@ -1346,6 +1346,7 @@ client.media.patch(
         ),
         upload_http_status=1,
         upload_http_error="string",
+        upload_time_ms=1,
     ),
 )
 

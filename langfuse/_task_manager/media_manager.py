@@ -2,6 +2,7 @@ import logging
 from queue import Empty
 from typing import Any, Optional
 
+import time
 import requests
 
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
@@ -172,6 +173,7 @@ class MediaManager:
         *,
         data: UploadMediaJob,
     ):
+        upload_start_time = time.time()
         upload_response = requests.put(
             data["upload_url"],
             headers={
@@ -180,6 +182,7 @@ class MediaManager:
             },
             data=data["content_bytes"],
         )
+        upload_time_ms = int((time.time() - upload_start_time) * 1000)
 
         self._api_client.media.patch(
             media_id=data["media_id"],
@@ -187,5 +190,6 @@ class MediaManager:
                 uploadedAt=_get_timestamp(),
                 uploadHttpStatus=upload_response.status_code,
                 uploadHttpError=upload_response.text,
+                uploadTimeMs=upload_time_ms,
             ),
         )

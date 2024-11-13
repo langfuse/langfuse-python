@@ -25,6 +25,13 @@ class PatchMediaBody(pydantic_v1.BaseModel):
     The HTTP error message of the upload
     """
 
+    upload_time_ms: typing.Optional[int] = pydantic_v1.Field(
+        alias="uploadTimeMs", default=None
+    )
+    """
+    The time in milliseconds it took to upload the media record
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,
