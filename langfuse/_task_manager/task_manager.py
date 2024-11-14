@@ -163,9 +163,6 @@ class TaskManager(object):
         for ingestion_consumer in self._ingestion_consumers:
             ingestion_consumer.pause()
 
-        for media_upload_consumer in self._media_upload_consumers:
-            media_upload_consumer.pause()
-
         for ingestion_consumer in self._ingestion_consumers:
             try:
                 ingestion_consumer.join()
@@ -180,6 +177,8 @@ class TaskManager(object):
         self._log.debug(
             f"joining {len(self._media_upload_consumers)} media upload consumer threads"
         )
+        for media_upload_consumer in self._media_upload_consumers:
+            media_upload_consumer.pause()
 
         for media_upload_consumer in self._media_upload_consumers:
             try:
