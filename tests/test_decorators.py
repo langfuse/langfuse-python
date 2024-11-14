@@ -1473,7 +1473,7 @@ def test_pdf_in_metadata():
         langfuse_context.update_current_trace(
             metadata={
                 "context": LangfuseMedia(
-                    pdf_bytes, content_bytes=pdf_bytes, content_type="application/pdf"
+                    content_bytes=pdf_bytes, content_type="application/pdf"
                 )
             },
         )
