@@ -110,6 +110,7 @@ from .media import (
     GetMediaResponse,
     GetMediaUploadUrlRequest,
     GetMediaUploadUrlResponse,
+    MediaContentType,
     PatchMediaBody,
 )
 from .metrics import DailyMetrics, DailyMetricsDetails, UsageByModel
@@ -222,6 +223,7 @@ __all__ = [
     "IngestionSuccess",
     "IngestionUsage",
     "MapValue",
+    "MediaContentType",
     "MethodNotAllowedError",
     "Model",
     "ModelUsageUnit",

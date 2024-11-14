@@ -1434,7 +1434,6 @@ client.media.get_upload_url(
     request=GetMediaUploadUrlRequest(
         trace_id="string",
         observation_id="string",
-        content_type="string",
         content_length=1,
         sha_256_hash="string",
         field="string",

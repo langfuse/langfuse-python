@@ -3,11 +3,13 @@
 from .get_media_response import GetMediaResponse
 from .get_media_upload_url_request import GetMediaUploadUrlRequest
 from .get_media_upload_url_response import GetMediaUploadUrlResponse
+from .media_content_type import MediaContentType
 from .patch_media_body import PatchMediaBody
 
 __all__ = [
     "GetMediaResponse",
     "GetMediaUploadUrlRequest",
     "GetMediaUploadUrlResponse",
+    "MediaContentType",
     "PatchMediaBody",
 ]

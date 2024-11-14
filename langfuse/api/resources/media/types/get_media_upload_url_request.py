@@ -5,6 +5,7 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .media_content_type import MediaContentType
 
 
 class GetMediaUploadUrlRequest(pydantic_v1.BaseModel):
@@ -20,11 +21,7 @@ class GetMediaUploadUrlRequest(pydantic_v1.BaseModel):
     The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
     """
 
-    content_type: str = pydantic_v1.Field(alias="contentType")
-    """
-    The MIME type of the media record
-    """
-
+    content_type: MediaContentType = pydantic_v1.Field(alias="contentType")
     content_length: int = pydantic_v1.Field(alias="contentLength")
     """
     The size of the media record in bytes

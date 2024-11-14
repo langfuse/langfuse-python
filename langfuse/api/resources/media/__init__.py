@@ -4,6 +4,7 @@ from .types import (
     GetMediaResponse,
     GetMediaUploadUrlRequest,
     GetMediaUploadUrlResponse,
+    MediaContentType,
     PatchMediaBody,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "GetMediaResponse",
     "GetMediaUploadUrlRequest",
     "GetMediaUploadUrlResponse",
+    "MediaContentType",
     "PatchMediaBody",
 ]
