@@ -1,6 +1,7 @@
 import logging
 from queue import Empty
-from typing import Any, Callable, Optional, TypeVar, ParamSpec
+from typing import Any, Callable, Optional, TypeVar
+from typing_extensions import ParamSpec
 
 import time
 import requests
