@@ -14,7 +14,6 @@ class MediaUploadConsumer(threading.Thread):
         self,
         *,
         identifier: int,
-        max_retries: int,
         media_manager: MediaManager,
     ):
         """Create a consumer thread."""
@@ -27,7 +26,6 @@ class MediaUploadConsumer(threading.Thread):
         # forever.
         self.running = True
         self._identifier = identifier
-        self._max_retries = max_retries
         self._media_manager = media_manager
 
     def run(self):

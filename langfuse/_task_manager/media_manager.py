@@ -1,11 +1,13 @@
 import logging
 from queue import Empty
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar, ParamSpec
 
 import time
 import requests
+import backoff
 
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
+from langfuse.api.core import ApiError
 from langfuse.api.client import FernLangfuse
 from langfuse.media import LangfuseMedia
 from langfuse.utils import _get_timestamp
@@ -13,14 +15,23 @@ from langfuse.utils import _get_timestamp
 from .media_upload_queue import MediaUploadQueue, UploadMediaJob
 
 
+T = TypeVar("T")
+P = ParamSpec("P")
+
+
 class MediaManager:
     _log = logging.getLogger(__name__)
 
     def __init__(
-        self, *, api_client: FernLangfuse, media_upload_queue: MediaUploadQueue
+        self,
+        *,
+        api_client: FernLangfuse,
+        media_upload_queue: MediaUploadQueue,
+        max_retries: Optional[int] = 3,
     ):
         self._api_client = api_client
         self._queue = media_upload_queue
+        self._max_retries = max_retries
 
     def process_next_media_upload(self):
         try:
@@ -141,7 +152,8 @@ class MediaManager:
         ):
             return
 
-        upload_url_response = self._api_client.media.get_upload_url(
+        upload_url_response = self._request_with_backoff(
+            self._api_client.media.get_upload_url,
             request=GetMediaUploadUrlRequest(
                 contentLength=media._content_length,
                 contentType=media._content_type,
@@ -149,7 +161,7 @@ class MediaManager:
                 field=field,
                 traceId=trace_id,
                 observationId=observation_id,
-            )
+            ),
         )
 
         upload_url = upload_url_response.upload_url
@@ -174,7 +186,8 @@ class MediaManager:
         data: UploadMediaJob,
     ):
         upload_start_time = time.time()
-        upload_response = requests.put(
+        upload_response = self._request_with_backoff(
+            requests.put,
             data["upload_url"],
             headers={
                 "Content-Type": data["content_type"],
@@ -184,7 +197,8 @@ class MediaManager:
         )
         upload_time_ms = int((time.time() - upload_start_time) * 1000)
 
-        self._api_client.media.patch(
+        self._request_with_backoff(
+            self._api_client.media.patch,
             media_id=data["media_id"],
             request=PatchMediaBody(
                 uploadedAt=_get_timestamp(),
@@ -193,3 +207,26 @@ class MediaManager:
                 uploadTimeMs=upload_time_ms,
             ),
         )
+
+    def _request_with_backoff(
+        self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    ) -> T:
+        @backoff.on_exception(
+            backoff.expo, Exception, max_tries=self._max_retries, logger=None
+        )
+        def execute_task_with_backoff() -> T:
+            try:
+                return func(*args, **kwargs)
+            except ApiError as e:
+                if (
+                    e.status_code is not None
+                    and 400 <= e.status_code < 500
+                    and (e.status_code) != 429
+                ):
+                    raise e
+            except Exception as e:
+                raise e
+
+            raise Exception("Failed to execute task")
+
+        return execute_task_with_backoff()

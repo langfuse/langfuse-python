@@ -63,7 +63,9 @@ class TaskManager(object):
         self._ingestion_queue = queue.Queue(self._max_task_queue_size)
         self._media_upload_queue = MediaUploadQueue(self._max_task_queue_size)
         self._media_manager = MediaManager(
-            api_client=api_client, media_upload_queue=self._media_upload_queue
+            api_client=api_client,
+            media_upload_queue=self._media_upload_queue,
+            max_retries=max_retries,
         )
         self._ingestion_consumers = []
         self._media_upload_consumers = []
@@ -108,7 +110,6 @@ class TaskManager(object):
         for i in range(self._media_upload_threads):
             media_upload_consumer = MediaUploadConsumer(
                 identifier=i,
-                max_retries=self._max_retries,
                 media_manager=self._media_manager,
             )
             media_upload_consumer.start()
