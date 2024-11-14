@@ -72,15 +72,21 @@ class LangfuseMedia:
             self._content_bytes = content_bytes
             self._source = "bytes"
         elif (
-            file_path is not None and content_type is None and os.path.exists(file_path)
+            file_path is not None
+            and content_type is not None
+            and os.path.exists(file_path)
         ):
             self._content_bytes = self._read_file(file_path)
             self._content_type = content_type if self._content_bytes else None
             self._source = "file" if self._content_bytes else None
         else:
-            raise ValueError(
-                "base64_data_uri or content_bytes and content_type, or file_path must be provided"
+            self._log.error(
+                "base64_data_uri, or content_bytes and content_type, or file_path must be provided to LangfuseMedia"
             )
+
+            self._content_bytes = None
+            self._content_type = None
+            self._source = None
 
     def _read_file(self, file_path: str) -> Optional[bytes]:
         try:

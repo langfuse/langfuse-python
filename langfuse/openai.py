@@ -235,9 +235,7 @@ def _process_message(message):
                     {
                         "type": "input_audio",
                         "input_audio": {
-                            "data": LangfuseMedia(
-                                None, base64_data_uri=base64_data_uri
-                            ),
+                            "data": LangfuseMedia(base64_data_uri=base64_data_uri),
                             "format": format,
                         },
                     }
@@ -268,10 +266,8 @@ def _extract_chat_response(kwargs: any):
         audio = kwargs["audio"].__dict__
 
         if "data" in audio and audio["data"] is not None:
-            # base64_data_uri is detected in ingestion_consumer and handled accordingly
-            audio["data"] = (
-                f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"
-            )
+            base64_data_uri = f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"
+            audio["data"] = LangfuseMedia(base64_data_uri=base64_data_uri)
 
     response.update(
         {
