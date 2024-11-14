@@ -220,7 +220,7 @@ class MediaClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/media/upload-url",
+            "api/public/media",
             method="POST",
             json=request,
             request_options=request_options,
@@ -476,7 +476,7 @@ class AsyncMediaClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/media/upload-url",
+            "api/public/media",
             method="POST",
             json=request,
             request_options=request_options,
