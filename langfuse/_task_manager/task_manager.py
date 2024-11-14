@@ -154,7 +154,9 @@ class TaskManager(object):
 
         Blocks execution until finished
         """
-        self._log.debug(f"joining {len(self._ingestion_consumers)} consumer threads")
+        self._log.debug(
+            f"joining {len(self._ingestion_consumers)} ingestion consumer threads"
+        )
 
         # pause all consumers before joining them so we don't have to wait for multiple
         # flush intervals to join them all.
@@ -174,6 +176,10 @@ class TaskManager(object):
             self._log.debug(
                 f"IngestionConsumer thread {ingestion_consumer._identifier} joined"
             )
+
+        self._log.debug(
+            f"joining {len(self._media_upload_consumers)} media upload consumer threads"
+        )
 
         for media_upload_consumer in self._media_upload_consumers:
             try:

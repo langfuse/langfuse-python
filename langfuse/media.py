@@ -98,11 +98,11 @@ class LangfuseMedia:
             return None
 
     @property
-    def _content_length(self) -> int | None:
+    def _content_length(self) -> Optional[int]:
         return len(self._content_bytes) if self._content_bytes else None
 
     @property
-    def _content_sha256_hash(self) -> str | None:
+    def _content_sha256_hash(self) -> Optional[str]:
         if self._content_bytes is None:
             return None
 
@@ -111,7 +111,7 @@ class LangfuseMedia:
         return base64.b64encode(sha256_hash_bytes).decode("utf-8")
 
     @property
-    def _reference_string(self) -> str | None:
+    def _reference_string(self) -> Optional[str]:
         if self._content_type is None or self._source is None or self._media_id is None:
             return None
 
