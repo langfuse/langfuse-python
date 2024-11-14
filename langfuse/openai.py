@@ -22,7 +22,7 @@ import types
 from collections import defaultdict
 from dataclasses import dataclass
 from inspect import isclass
-from typing import List, Optional
+from typing import Optional
 
 
 import openai.resources
@@ -256,7 +256,7 @@ def _extract_chat_response(kwargs: any):
         "role": kwargs.get("role", None),
     }
 
-    audio_content = None
+    audio = None
 
     if kwargs.get("function_call") is not None:
         response.update({"function_call": kwargs["function_call"]})
@@ -267,29 +267,20 @@ def _extract_chat_response(kwargs: any):
     if kwargs.get("audio") is not None:
         audio = kwargs["audio"].__dict__
 
-        base64_data_uri = (
-            f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"
-        )
-
-        audio_content = [
-            {"type": "text", "text": audio.get("transcript", None)},
-            {
-                "type": "output_audio",
-                "output_audio": {
-                    "data": LangfuseMedia(
-                        None,
-                        base64_data_uri=base64_data_uri,
-                    ),
-                    "format": audio.get("format", "wav"),
-                },
-            },
-        ]
+        if "data" in audio and audio["data"] is not None:
+            # base64_data_uri is detected in ingestion_consumer and handled accordingly
+            audio["data"] = (
+                f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"
+            )
 
     response.update(
         {
-            "content": kwargs.get("content", None) or audio_content,
+            "content": kwargs.get("content", None),
         }
     )
+
+    if audio is not None:
+        response.update({"audio": audio})
 
     return response
 
