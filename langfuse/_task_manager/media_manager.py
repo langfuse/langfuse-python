@@ -36,10 +36,12 @@ class MediaManager:
     def process_next_media_upload(self):
         try:
             upload_job = self._queue.get(block=True, timeout=1)
+            self._log.debug(f"Processing upload for {upload_job['media_id']}")
             self._process_upload_media_job(data=upload_job)
 
             self._queue.task_done()
         except Empty:
+            self._log.debug("Media upload queue is empty")
             pass
         except Exception as e:
             self._log.error(f"Error uploading media: {e}")
@@ -168,6 +170,7 @@ class MediaManager:
         media._media_id = upload_url_response.media_id  # Important as this is will be used in the media reference string in serializer
 
         if upload_url is not None:
+            self._log.debug(f"Scheduling upload for {media._media_id}")
             self._queue.put(
                 item={
                     "upload_url": upload_url,
@@ -179,6 +182,9 @@ class MediaManager:
                 block=True,
                 timeout=1,
             )
+
+        else:
+            self._log.debug(f"Media {media._media_id} already uploaded")
 
     def _process_upload_media_job(
         self,
@@ -206,6 +212,10 @@ class MediaManager:
                 uploadHttpError=upload_response.text,
                 uploadTimeMs=upload_time_ms,
             ),
+        )
+
+        self._log.debug(
+            f"Media upload completed for {data['media_id']} in {upload_time_ms}ms"
         )
 
     def _request_with_backoff(
