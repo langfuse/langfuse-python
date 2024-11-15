@@ -22,7 +22,6 @@ class TaskManager(object):
     _ingestion_consumers: List[IngestionConsumer]
     _enabled: bool
     _threads: int
-    _media_upload_threads: int
     _max_task_queue_size: int
     _ingestion_queue: Queue
     _media_upload_queue: MediaUploadQueue
@@ -47,7 +46,6 @@ class TaskManager(object):
         flush_interval: float,
         max_retries: int,
         threads: int,
-        media_upload_threads: int = 1,
         public_key: str,
         sdk_name: str,
         sdk_version: str,
@@ -59,7 +57,6 @@ class TaskManager(object):
     ):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
-        self._media_upload_threads = media_upload_threads
         self._ingestion_queue = queue.Queue(self._max_task_queue_size)
         self._media_upload_queue = MediaUploadQueue(self._max_task_queue_size)
         self._media_manager = MediaManager(
@@ -107,7 +104,7 @@ class TaskManager(object):
             ingestion_consumer.start()
             self._ingestion_consumers.append(ingestion_consumer)
 
-        for i in range(self._media_upload_threads):
+        for i in range(self._threads):
             media_upload_consumer = MediaUploadConsumer(
                 identifier=i,
                 media_manager=self._media_manager,
