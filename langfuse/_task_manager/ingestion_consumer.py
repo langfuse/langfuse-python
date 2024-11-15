@@ -13,7 +13,6 @@ try:
 except ImportError:
     import pydantic
 
-from langfuse.api.client import FernLangfuse
 from langfuse.parse_error import handle_exception
 from langfuse.request import APIError, LangfuseClient
 from langfuse.Sampler import Sampler
@@ -28,10 +27,10 @@ MAX_BATCH_SIZE_BYTES = 2_500_000
 
 class IngestionMetadata(pydantic.BaseModel):
     batch_size: int
-    sdk_integration: Optional[str] = None
-    sdk_name: Optional[str] = None
-    sdk_version: Optional[str] = None
-    public_key: Optional[str] = None
+    sdk_integration: str
+    sdk_name: str
+    sdk_version: str
+    public_key: str
 
 
 class IngestionConsumer(threading.Thread):
@@ -39,7 +38,6 @@ class IngestionConsumer(threading.Thread):
     _ingestion_queue: Queue
     _identifier: int
     _client: LangfuseClient
-    _api_client: FernLangfuse
     _flush_at: int
     _flush_interval: float
     _max_retries: int
