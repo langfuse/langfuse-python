@@ -89,6 +89,7 @@ def test_openai_chat_completion():
     assert trace.input == [
         {
             "content": "You are an expert mathematician",
+            "audio": None,
             "function_call": None,
             "refusal": None,
             "role": "assistant",
