@@ -89,7 +89,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false LANGFUSE_AUTO_POSTGRES_MIGRATION_DISABLED=true LANGFUSE_ASYNC_INGESTION_PROCESSING=false LANGFUSE_ASYNC_CLICKHOUSE_INGESTION_PROCESSING=false docker compose -f docker-compose.v3preview.yml up -d
+          TELEMETRY_ENABLED=false CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000 LANGFUSE_ASYNC_INGESTION_PROCESSING=false LANGFUSE_ASYNC_CLICKHOUSE_INGESTION_PROCESSING=false docker compose -f docker-compose.v3preview.yml up -d
           echo "::endgroup::"
 
       # Add this step to check the health of the container
