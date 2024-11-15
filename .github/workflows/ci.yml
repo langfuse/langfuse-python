@@ -71,11 +71,11 @@ jobs:
           cd ./langfuse-server
 
           echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker compose up -d db
+          TELEMETRY_ENABLED=false docker compose -f docker-compose.v3beta up -d postgres
           echo "::endgroup::"
 
           echo "::group::Logs from langfuse server"
-          TELEMETRY_ENABLED=false docker compose logs
+          TELEMETRY_ENABLED=false docker compose -f docker-compose.v3beta logs
           echo "::endgroup::"
 
           echo "::group::Install dependencies (necessary to run seeder)"
@@ -89,7 +89,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false docker compose up -d langfuse-server
+          TELEMETRY_ENABLED=false LANGFUSE_ASYNC_INGESTION_PROCESSING=false LANGFUSE_ASYNC_CLICKHOUSE_INGESTION_PROCESSING=false docker compose -f docker-compose.v3beta up -d
           echo "::endgroup::"
 
       # Add this step to check the health of the container
