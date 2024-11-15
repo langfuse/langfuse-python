@@ -150,7 +150,7 @@ class LangfuseMedia:
         if not reference_string.endswith("@@@"):
             raise ValueError("Reference string does not end with '@@@'")
 
-        content = reference_string.removeprefix("@@@langfuseMedia:").removesuffix("@@@")
+        content = reference_string[len("@@@langfuseMedia:") :].rstrip("@@@")
 
         # Split into key-value pairs
         pairs = content.split("|")
