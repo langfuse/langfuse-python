@@ -2,7 +2,7 @@ import json
 import logging
 import threading
 import time
-import typing
+
 from queue import Empty, Queue
 from typing import Any, List, Optional
 
@@ -149,6 +149,13 @@ class IngestionConsumer(threading.Thread):
             except Empty:
                 break
 
+            except Exception as e:
+                self._log.warning(
+                    "Failed to process event in IngestionConsumer, skipping",
+                    exc_info=e,
+                )
+                self._ingestion_queue.task_done()
+
         self._log.debug(
             "~%d items in the Langfuse queue", self._ingestion_queue.qsize()
         )
@@ -158,9 +165,9 @@ class IngestionConsumer(threading.Thread):
     def _truncate_item_in_place(
         self,
         *,
-        event: typing.Any,
+        event: Any,
         max_size: int,
-        log_message: typing.Optional[str] = None,
+        log_message: Optional[str] = None,
     ) -> int:
         """Truncate the item in place to fit within the size limit."""
         item_size = self._get_item_size(event)
@@ -216,7 +223,7 @@ class IngestionConsumer(threading.Thread):
 
         return self._get_item_size(event)
 
-    def _get_item_size(self, item: typing.Any) -> int:
+    def _get_item_size(self, item: Any) -> int:
         """Return the size of the item in bytes."""
         return len(json.dumps(item, cls=EventSerializer).encode())
 
