@@ -257,11 +257,12 @@ class Langfuse(object):
             # Otherwise, defaults to WARNING level.
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
-            self.log.setLevel(logging.DEBUG)
+            # Set level for all loggers under langfuse package
+            logging.getLogger("langfuse").setLevel(logging.DEBUG)
 
             clean_logger()
         else:
-            self.log.setLevel(logging.WARNING)
+            logging.getLogger("langfuse").setLevel(logging.WARNING)
             clean_logger()
 
         self.base_url = (
