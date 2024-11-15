@@ -173,6 +173,7 @@ class LangfuseMedia:
     def _parse_base64_data_uri(
         self, data: str
     ) -> tuple[Optional[bytes], Optional[MediaContentType]]:
+        # Example data URI: data:image/jpeg;base64,/9j/4AAQ...
         try:
             if not data or not isinstance(data, str):
                 raise ValueError("Data URI is not a string")
@@ -180,15 +181,17 @@ class LangfuseMedia:
             if not data.startswith("data:"):
                 raise ValueError("Data URI does not start with 'data:'")
 
-            header, _, actual_data = data[5:].partition(",")
+            header, actual_data = data[5:].split(",", 1)
             if not header or not actual_data:
                 raise ValueError("Invalid URI")
 
-            is_base64 = header.endswith(";base64")
-            if not is_base64:
+            # Split header into parts and check for base64
+            header_parts = header.split(";")
+            if "base64" not in header_parts:
                 raise ValueError("Data is not base64 encoded")
 
-            content_type = header[:-7]
+            # Content type is the first part
+            content_type = header_parts[0]
             if not content_type:
                 raise ValueError("Content type is empty")
 
