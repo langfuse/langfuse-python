@@ -95,9 +95,10 @@ class MediaManager:
         field: str,
     ):
         seen = set()
+        max_levels = 10
 
-        def _process_data_recursively(data: Any):
-            if id(data) in seen:
+        def _process_data_recursively(data: Any, level: int):
+            if id(data) in seen or level > max_levels:
                 return data
 
             seen.add(id(data))
@@ -128,16 +129,17 @@ class MediaManager:
                 return media
 
             if isinstance(data, list):
-                return [_process_data_recursively(item) for item in data]
+                return [_process_data_recursively(item, level + 1) for item in data]
 
             if isinstance(data, dict):
                 return {
-                    key: _process_data_recursively(value) for key, value in data.items()
+                    key: _process_data_recursively(value, level + 1)
+                    for key, value in data.items()
                 }
 
             return data
 
-        return _process_data_recursively(data)
+        return _process_data_recursively(data, 1)
 
     def _process_media(
         self,

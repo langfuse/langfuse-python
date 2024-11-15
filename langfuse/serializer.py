@@ -46,7 +46,7 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, LangfuseMedia):
                 return (
                     obj._reference_string
-                    or "<Failed to generate reference string for LangfuseMediaWrapper>"
+                    or f"<Upload handling failed for LangfuseMedia of type {obj._content_type}>"
                 )
 
             # Check if numpy is available and if the object is a numpy scalar
