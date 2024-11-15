@@ -1462,19 +1462,21 @@ def test_threadpool_executor():
     assert len(child_observations) == 2
 
 
-def test_pdf_in_metadata():
+def test_media():
     mock_trace_id = create_uuid()
 
     with open("static/bitcoin.pdf", "rb") as pdf_file:
         pdf_bytes = pdf_file.read()
 
+    media = LangfuseMedia(content_bytes=pdf_bytes, content_type="application/pdf")
+
     @observe()
     def main():
         langfuse_context.update_current_trace(
             metadata={
-                "context": LangfuseMedia(
-                    content_bytes=pdf_bytes, content_type="application/pdf"
-                )
+                "context": {
+                    "nested": media,
+                },
             },
         )
 
@@ -1484,4 +1486,13 @@ def test_pdf_in_metadata():
 
     trace_data = get_api().trace.get(mock_trace_id)
 
-    assert "@@@langfuseMedia:type=application/pdf|id=" in trace_data.metadata["context"]
+    assert (
+        "@@@langfuseMedia:type=application/pdf|id="
+        in trace_data.metadata["context"]["nested"]
+    )
+    parsed_reference_string = LangfuseMedia.parse_reference_string(
+        trace_data.metadata["context"]["nested"]
+    )
+    assert parsed_reference_string["content_type"] == "application/pdf"
+    assert parsed_reference_string["media_id"] is not None
+    assert parsed_reference_string["source"] == "bytes"

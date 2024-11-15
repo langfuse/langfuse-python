@@ -5,6 +5,7 @@ from datetime import datetime
 from functools import wraps
 import httpx
 import inspect
+import json
 import logging
 from typing import (
     Any,
@@ -37,6 +38,7 @@ from langfuse.client import (
     ScoreDataType,
     StateType,
 )
+from langfuse.serializer import EventSerializer
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
@@ -388,10 +390,14 @@ class LangfuseDecorator:
     ) -> Any:
         # Remove implicitly passed "self" or "cls" argument for instance or class methods
         logged_args = func_args[1:] if is_method else func_args
-        return {
+        raw_input = {
             "args": logged_args,
             "kwargs": func_kwargs,
         }
+
+        # Serialize and deserialize to ensure proper JSON serialization.
+        # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
+        return json.loads(json.dumps(raw_input, cls=EventSerializer))
 
     def _finalize_call(
         self,
@@ -440,10 +446,13 @@ class LangfuseDecorator:
             )
 
             end_time = observation_params["end_time"] or _get_timestamp()
-            output = observation_params["output"] or (
+            raw_output = observation_params["output"] or (
                 result if result and capture_output else None
             )
 
+            # Serialize and deserialize to ensure proper JSON serialization.
+            # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
+            output = json.loads(json.dumps(raw_output, cls=EventSerializer))
             observation_params.update(end_time=end_time, output=output)
 
             if isinstance(observation, (StatefulSpanClient, StatefulGenerationClient)):
