@@ -4,7 +4,7 @@ import base64
 import hashlib
 import logging
 import os
-from typing import Optional, cast
+from typing import Optional, cast, Tuple
 
 from langfuse.api import MediaContentType
 from langfuse.types import ParsedMediaReference
@@ -164,15 +164,15 @@ class LangfuseMedia:
         if not all(key in parsed_data for key in ["type", "id", "source"]):
             raise ValueError("Missing required fields in reference string")
 
-        return {
-            "media_id": parsed_data["id"],
-            "source": parsed_data["source"],
-            "content_type": parsed_data["type"],
-        }
+        return ParsedMediaReference(
+            media_id=parsed_data["id"],
+            source=parsed_data["source"],
+            content_type=parsed_data["type"],
+        )
 
     def _parse_base64_data_uri(
         self, data: str
-    ) -> tuple[Optional[bytes], Optional[MediaContentType]]:
+    ) -> Tuple[Optional[bytes], Optional[MediaContentType]]:
         # Example data URI: data:image/jpeg;base64,/9j/4AAQ...
         try:
             if not data or not isinstance(data, str):
