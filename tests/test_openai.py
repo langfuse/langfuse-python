@@ -60,6 +60,7 @@ def test_openai_chat_completion():
     assert generation.data[0].input == [
         {
             "content": "You are an expert mathematician",
+            "audio": None,
             "function_call": None,
             "refusal": None,
             "role": "assistant",
