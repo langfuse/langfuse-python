@@ -97,7 +97,7 @@ jobs:
         run: |
           echo "Checking if the langfuse server is up..."
           retry_count=0
-          max_retries=5
+          max_retries=10
           until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health
           do
             retry_count=`expr $retry_count + 1`
