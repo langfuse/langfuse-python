@@ -14,7 +14,6 @@ from langfuse.utils import _get_timestamp
 from .ingestion_consumer import IngestionConsumer
 from .media_manager import MediaManager
 from .media_upload_consumer import MediaUploadConsumer
-from .media_upload_queue import MediaUploadQueue
 
 
 class TaskManager(object):
@@ -24,7 +23,7 @@ class TaskManager(object):
     _threads: int
     _max_task_queue_size: int
     _ingestion_queue: Queue
-    _media_upload_queue: MediaUploadQueue
+    _media_upload_queue: Queue
     _client: LangfuseClient
     _api_client: FernLangfuse
     _flush_at: int
@@ -58,7 +57,7 @@ class TaskManager(object):
         self._max_task_queue_size = max_task_queue_size
         self._threads = threads
         self._ingestion_queue = queue.Queue(self._max_task_queue_size)
-        self._media_upload_queue = MediaUploadQueue(self._max_task_queue_size)
+        self._media_upload_queue = Queue(self._max_task_queue_size)
         self._media_manager = MediaManager(
             api_client=api_client,
             media_upload_queue=self._media_upload_queue,

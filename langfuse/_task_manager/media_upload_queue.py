@@ -1,4 +1,3 @@
-from queue import Queue
 from typing import TypedDict
 
 
@@ -8,7 +7,3 @@ class UploadMediaJob(TypedDict):
     content_type: str
     content_bytes: bytes
     content_sha256_hash: str
-
-
-class MediaUploadQueue(Queue[UploadMediaJob]):
-    pass

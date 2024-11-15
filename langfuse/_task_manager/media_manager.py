@@ -1,20 +1,19 @@
 import logging
-from queue import Empty
+import time
+from queue import Empty, Queue
 from typing import Any, Callable, Optional, TypeVar
+
+import backoff
+import requests
 from typing_extensions import ParamSpec
 
-import time
-import requests
-import backoff
-
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
-from langfuse.api.core import ApiError
 from langfuse.api.client import FernLangfuse
+from langfuse.api.core import ApiError
 from langfuse.media import LangfuseMedia
 from langfuse.utils import _get_timestamp
 
-from .media_upload_queue import MediaUploadQueue, UploadMediaJob
-
+from .media_upload_queue import UploadMediaJob
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -27,7 +26,7 @@ class MediaManager:
         self,
         *,
         api_client: FernLangfuse,
-        media_upload_queue: MediaUploadQueue,
+        media_upload_queue: Queue,
         max_retries: Optional[int] = 3,
     ):
         self._api_client = api_client
