@@ -164,11 +164,11 @@ class LangfuseMedia:
         if not all(key in parsed_data for key in ["type", "id", "source"]):
             raise ValueError("Missing required fields in reference string")
 
-        return ParsedMediaReference(
-            media_id=parsed_data["id"],
-            source=parsed_data["source"],
-            content_type=parsed_data["type"],
-        )
+        return {
+            "media_id": parsed_data["id"],
+            "source": parsed_data["source"],
+            "content_type": parsed_data["type"],
+        }
 
     def _parse_base64_data_uri(
         self, data: str
