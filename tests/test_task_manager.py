@@ -60,7 +60,7 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=10,
         flush_interval=0.1,
         max_retries=3,
@@ -105,7 +105,7 @@ def test_disabled_task_manager(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=10,
         flush_interval=0.1,
         max_retries=3,
@@ -147,7 +147,7 @@ def test_task_manager_fail(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=10,
         flush_interval=0.1,
         max_retries=3,
@@ -190,7 +190,7 @@ def test_consumer_restart(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=10,
         flush_interval=0.1,
         max_retries=3,
@@ -232,7 +232,7 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=1,
         flush_interval=0.1,
         max_retries=3,
@@ -278,7 +278,7 @@ logging.basicConfig(
     ]
 )
 print("Adding task manager", TaskManager)
-manager = TaskManager(client=langfuse_client, api_client=None, public_key=None, flush_at=10, flush_interval=0.1, max_retries=3, threads=1, max_task_queue_size=10_000, sdk_name="test-sdk", sdk_version="1.0.0", sdk_integration="default")
+manager = TaskManager(client=langfuse_client, api_client=None, public_key='pk', flush_at=10, flush_interval=0.1, max_retries=3, threads=1, max_task_queue_size=10_000, sdk_name="test-sdk", sdk_version="1.0.0", sdk_integration="default")
 
 """
 
@@ -334,7 +334,7 @@ def test_flush(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=1,
         flush_interval=0.1,
         max_retries=3,
@@ -383,7 +383,7 @@ def test_shutdown(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=1,
         flush_interval=0.1,
         max_retries=3,
@@ -435,7 +435,7 @@ def test_large_events_dropped_if_random(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=1,
         flush_interval=0.1,
         max_retries=3,
@@ -486,7 +486,7 @@ def test_large_events_i_o_dropped(httpserver: HTTPServer):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=1,
         flush_interval=0.1,
         max_retries=3,
@@ -524,7 +524,7 @@ def test_truncate_item_in_place(httpserver):
     tm = TaskManager(
         client=langfuse_client,
         api_client=None,
-        public_key=None,
+        public_key="pk",
         flush_at=10,
         flush_interval=0.1,
         max_retries=3,
