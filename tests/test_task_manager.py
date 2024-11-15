@@ -58,7 +58,17 @@ def test_multiple_tasks_without_predecessor(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=10,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     tm.add_task({"foo": "bar"})
@@ -93,15 +103,17 @@ def test_disabled_task_manager(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client,
-        10,
-        0.1,
-        3,
-        1,
-        10_000,
-        "test-sdk",
-        "1.0.0",
-        "default",
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=10,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
         enabled=False,
     )
 
@@ -133,7 +145,17 @@ def test_task_manager_fail(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=10,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     tm.add_task({"type": "bar", "body": {"trace_id": "trace_123"}})
@@ -166,7 +188,17 @@ def test_consumer_restart(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=10,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     tm.add_task({"foo": "bar"})
@@ -198,7 +230,17 @@ def test_concurrent_task_additions(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=1,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
     threads = [
         threading.Thread(
@@ -222,7 +264,7 @@ def test_atexit():
     python_code = """
 import time
 import logging
-from langfuse.task_manager import TaskManager  # assuming task_manager is the module name
+from langfuse._task_manager.task_manager import TaskManager
 from langfuse.request import LangfuseClient
 import httpx
 
@@ -236,7 +278,7 @@ logging.basicConfig(
     ]
 )
 print("Adding task manager", TaskManager)
-manager = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default")
+manager = TaskManager(client=langfuse_client, api_client=None, public_key=None, flush_at=10, flush_interval=0.1, max_retries=3, threads=1, max_task_queue_size=10_000, sdk_name="test-sdk", sdk_version="1.0.0", sdk_integration="default")
 
 """
 
@@ -260,7 +302,8 @@ manager = TaskManager(langfuse_client, 10, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0
 
     print(process.stderr)
 
-    assert "consumer thread 0 joined" in logs
+    assert "MediaUploadConsumer thread 0 joined" in logs
+    assert "IngestionConsumer thread 0 joined" in logs
 
 
 def test_flush(httpserver: HTTPServer):
@@ -289,7 +332,17 @@ def test_flush(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=1,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     for _ in range(100):
@@ -328,7 +381,17 @@ def test_shutdown(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 1, 0.1, 3, 5, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=1,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=5,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     for _ in range(100):
@@ -370,7 +433,17 @@ def test_large_events_dropped_if_random(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=1,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     tm.add_task({"foo": "bar"})
@@ -411,7 +484,17 @@ def test_large_events_i_o_dropped(httpserver: HTTPServer):
     )
 
     tm = TaskManager(
-        langfuse_client, 1, 0.1, 3, 1, 10_000, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=1,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=10_000,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     tm.add_task({"type": "bar", "body": {"trace_id": "trace_123"}})
@@ -439,7 +522,17 @@ def test_truncate_item_in_place(httpserver):
     )
 
     tm = TaskManager(
-        langfuse_client, 10, 0.1, 3, 1, 100, "test-sdk", "1.0.0", "default"
+        client=langfuse_client,
+        api_client=None,
+        public_key=None,
+        flush_at=10,
+        flush_interval=0.1,
+        max_retries=3,
+        threads=1,
+        max_task_queue_size=100,
+        sdk_name="test-sdk",
+        sdk_version="1.0.0",
+        sdk_integration="default",
     )
 
     consumer = tm._ingestion_consumers[0]
