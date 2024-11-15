@@ -1579,5 +1579,5 @@ def test_audio_input_and_output():
     print(generation.data[0].output)
     assert (
         "@@@langfuseMedia:type=audio/wav|id="
-        in generation.data[0].output["content"][1]["output_audio"]["data"]
+        in generation.data[0].output["audio"]["data"]
     )

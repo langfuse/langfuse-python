@@ -224,6 +224,7 @@ def test_callback_generated_from_lcel_chain():
     )
 
     langfuse.flush()
+    handler.flush()
     trace_id = handler.get_trace_id()
     trace = api.trace.get(trace_id)
 
