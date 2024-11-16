@@ -1,15 +1,17 @@
 import asyncio
-from contextvars import ContextVar
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-import pytest
-
-from langchain_community.chat_models import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langfuse.openai import AsyncOpenAI
-from langfuse.decorators import langfuse_context, observe
-from tests.utils import create_uuid, get_api, get_llama_index_index
+from contextvars import ContextVar
 from typing import Optional
+
+import pytest
+from langchain.prompts import ChatPromptTemplate
+from langchain_community.chat_models import ChatOpenAI
+
+from langfuse.decorators import langfuse_context, observe
+from langfuse.media import LangfuseMedia
+from langfuse.openai import AsyncOpenAI
+from tests.utils import create_uuid, get_api, get_llama_index_index
 
 mock_metadata = "mock_metadata"
 mock_deep_metadata = "mock_deep_metadata"
@@ -1404,6 +1406,7 @@ def test_threadpool_executor():
     mock_parent_observation_id = create_uuid()
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from langfuse.decorators import langfuse_context, observe
 
     @observe()
@@ -1457,3 +1460,39 @@ def test_threadpool_executor():
         if o.parent_observation_id == mock_parent_observation_id
     ]
     assert len(child_observations) == 2
+
+
+def test_media():
+    mock_trace_id = create_uuid()
+
+    with open("static/bitcoin.pdf", "rb") as pdf_file:
+        pdf_bytes = pdf_file.read()
+
+    media = LangfuseMedia(content_bytes=pdf_bytes, content_type="application/pdf")
+
+    @observe()
+    def main():
+        langfuse_context.update_current_trace(
+            metadata={
+                "context": {
+                    "nested": media,
+                },
+            },
+        )
+
+    main(langfuse_observation_id=mock_trace_id)
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert (
+        "@@@langfuseMedia:type=application/pdf|id="
+        in trace_data.metadata["context"]["nested"]
+    )
+    parsed_reference_string = LangfuseMedia.parse_reference_string(
+        trace_data.metadata["context"]["nested"]
+    )
+    assert parsed_reference_string["content_type"] == "application/pdf"
+    assert parsed_reference_string["media_id"] is not None
+    assert parsed_reference_string["source"] == "bytes"

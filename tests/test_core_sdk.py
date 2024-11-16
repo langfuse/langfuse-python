@@ -3,6 +3,9 @@ import time
 from asyncio import gather
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
+from langfuse import Langfuse
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
@@ -11,11 +14,6 @@ from langfuse.client import (
     FetchTracesResponse,
 )
 from langfuse.utils import _get_timestamp
-
-
-import pytest
-
-from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import (
     CompletionUsage,
@@ -61,7 +59,7 @@ def test_flush():
 
     langfuse.flush()
     # Make sure that the client queue is empty after flushing
-    assert langfuse.task_manager._queue.empty()
+    assert langfuse.task_manager._ingestion_queue.empty()
 
 
 def test_shutdown():
@@ -76,7 +74,7 @@ def test_shutdown():
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
-    assert langfuse.task_manager._queue.empty()
+    assert langfuse.task_manager._ingestion_queue.empty()
 
 
 def test_invalid_score_data_does_not_raise_exception():
@@ -89,7 +87,7 @@ def test_invalid_score_data_does_not_raise_exception():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -102,7 +100,7 @@ def test_invalid_score_data_does_not_raise_exception():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
 
 def test_create_numeric_score():
@@ -116,7 +114,7 @@ def test_create_numeric_score():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -131,7 +129,7 @@ def test_create_numeric_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -152,7 +150,7 @@ def test_create_boolean_score():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -168,7 +166,7 @@ def test_create_boolean_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -189,7 +187,7 @@ def test_create_categorical_score():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -204,7 +202,7 @@ def test_create_categorical_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 

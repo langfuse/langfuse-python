@@ -17,13 +17,13 @@ The integration is fully interoperable with the `observe()` decorator and the lo
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
-import copy
 import logging
 import types
 from collections import defaultdict
 from dataclasses import dataclass
 from inspect import isclass
-from typing import List, Optional
+from typing import Optional
+
 
 import openai.resources
 from openai._types import NotGiven
@@ -34,6 +34,7 @@ from wrapt import wrap_function_wrapper
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient
 from langfuse.decorators import langfuse_context
+from langfuse.media import LangfuseMedia
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
@@ -199,13 +200,52 @@ def _extract_chat_prompt(kwargs: any):
         # uf user provided functions, we need to send these together with messages to langfuse
         prompt.update(
             {
-                "messages": _filter_image_data(kwargs.get("messages", [])),
+                "messages": [
+                    _process_message(message) for message in kwargs.get("messages", [])
+                ],
             }
         )
         return prompt
     else:
         # vanilla case, only send messages in openai format to langfuse
-        return _filter_image_data(kwargs.get("messages", []))
+        return [_process_message(message) for message in kwargs.get("messages", [])]
+
+
+def _process_message(message):
+    if not isinstance(message, dict):
+        return message
+
+    processed_message = {**message}
+
+    content = processed_message.get("content", None)
+    if not isinstance(content, list):
+        return processed_message
+
+    processed_content = []
+
+    for content_part in content:
+        if content_part.get("type") == "input_audio":
+            audio_base64 = content_part.get("input_audio", {}).get("data", None)
+            format = content_part.get("input_audio", {}).get("format", "wav")
+
+            if audio_base64 is not None:
+                base64_data_uri = f"data:audio/{format};base64,{audio_base64}"
+
+                processed_content.append(
+                    {
+                        "type": "input_audio",
+                        "input_audio": {
+                            "data": LangfuseMedia(base64_data_uri=base64_data_uri),
+                            "format": format,
+                        },
+                    }
+                )
+        else:
+            processed_content.append(content_part)
+
+    processed_message["content"] = processed_content
+
+    return processed_message
 
 
 def _extract_chat_response(kwargs: any):
@@ -214,17 +254,30 @@ def _extract_chat_response(kwargs: any):
         "role": kwargs.get("role", None),
     }
 
+    audio = None
+
     if kwargs.get("function_call") is not None:
         response.update({"function_call": kwargs["function_call"]})
 
     if kwargs.get("tool_calls") is not None:
         response.update({"tool_calls": kwargs["tool_calls"]})
 
+    if kwargs.get("audio") is not None:
+        audio = kwargs["audio"].__dict__
+
+        if "data" in audio and audio["data"] is not None:
+            base64_data_uri = f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"
+            audio["data"] = LangfuseMedia(base64_data_uri=base64_data_uri)
+
     response.update(
         {
             "content": kwargs.get("content", None),
         }
     )
+
+    if audio is not None:
+        response.update({"audio": audio})
+
     return response
 
 
@@ -738,32 +791,6 @@ def auth_check():
         modifier.initialize()
 
     return modifier._langfuse.auth_check()
-
-
-def _filter_image_data(messages: List[dict]):
-    """https://platform.openai.com/docs/guides/vision?lang=python
-
-    The messages array remains the same, but the 'image_url' is removed from the 'content' array.
-    It should only be removed if the value starts with 'data:image/jpeg;base64,'
-
-    """
-    output_messages = copy.deepcopy(messages)
-
-    for message in output_messages:
-        content = (
-            message.get("content", None)
-            if isinstance(message, dict)
-            else getattr(message, "content", None)
-        )
-
-        if content is not None:
-            for index, item in enumerate(content):
-                if isinstance(item, dict) and item.get("image_url", None) is not None:
-                    url = item["image_url"]["url"]
-                    if url.startswith("data:image/"):
-                        del content[index]["image_url"]
-
-    return output_messages
 
 
 class LangfuseResponseGeneratorSync:

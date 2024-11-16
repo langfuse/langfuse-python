@@ -1,8 +1,9 @@
 import os
 
 import pytest
-from pydantic import BaseModel
 from openai import APIConnectionError
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from pydantic import BaseModel
 
 from langfuse.client import Langfuse
 from langfuse.openai import (
@@ -10,13 +11,9 @@ from langfuse.openai import (
     AsyncOpenAI,
     AzureOpenAI,
     _is_openai_v1,
-    _filter_image_data,
     openai,
 )
-from openai.types.chat.chat_completion import ChatCompletionMessage
-
-from tests.utils import create_uuid, get_api
-
+from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 chat_func = (
     openai.chat.completions.create if _is_openai_v1() else openai.ChatCompletion.create
@@ -63,6 +60,7 @@ def test_openai_chat_completion():
     assert generation.data[0].input == [
         {
             "content": "You are an expert mathematician",
+            "audio": None,
             "function_call": None,
             "refusal": None,
             "role": "assistant",
@@ -92,6 +90,7 @@ def test_openai_chat_completion():
     assert trace.input == [
         {
             "content": "You are an expert mathematician",
+            "audio": None,
             "function_call": None,
             "refusal": None,
             "role": "assistant",
@@ -1171,127 +1170,6 @@ async def test_async_azure():
     assert generation.data[0].level == "ERROR"
 
 
-def test_image_data_filtered():
-    api = get_api()
-    generation_name = create_uuid()
-
-    openai.chat.completions.create(
-        name=generation_name,
-        model="gpt-4-vision-preview",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What is in this image?"},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
-                        },
-                    },
-                ],
-            }
-        ],
-        max_tokens=300,
-    )
-
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
-
-    assert len(generation.data) == 1
-    assert "data:image/jpeg;base64" not in generation.data[0].input
-
-
-def test_image_data_filtered_png():
-    api = get_api()
-    generation_name = create_uuid()
-
-    openai.chat.completions.create(
-        name=generation_name,
-        model="gpt-4-vision-preview",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What is in this image?"},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": "data:image/png;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
-                        },
-                    },
-                ],
-            }
-        ],
-        max_tokens=300,
-    )
-
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
-
-    assert len(generation.data) == 1
-    assert "data:image/jpeg;base64" not in generation.data[0].input
-
-
-def test_image_filter_base64():
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "What’s in this image?"},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "data:image/jpeg;base64,base64_image"},
-                },
-            ],
-        }
-    ]
-    result = _filter_image_data(messages)
-
-    print(result)
-
-    assert result == [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "What’s in this image?"},
-                {"type": "image_url"},
-            ],
-        }
-    ]
-
-
-def test_image_filter_url():
-    result = _filter_image_data(
-        [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What’s in this image?"},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-                        },
-                    },
-                ],
-            }
-        ]
-    )
-    assert result == [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "What’s in this image?"},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-                    },
-                },
-            ],
-        }
-    ]
-
-
 def test_openai_with_existing_trace_id():
     langfuse = Langfuse()
     trace = langfuse.trace(
@@ -1380,6 +1258,7 @@ def test_disabled_langfuse():
     openai.langfuse_enabled = True
 
     import importlib
+
     from langfuse.openai import openai
 
     importlib.reload(openai)
@@ -1483,6 +1362,7 @@ def test_structured_output_response_format_kwarg():
 
 def test_structured_output_beta_completions_parse():
     from typing import List
+
     from packaging.version import Version
 
     class CalendarEvent(BaseModel):
@@ -1593,3 +1473,111 @@ async def test_close_async_stream():
     assert generation.data[0].completion_start_time is not None
     assert generation.data[0].completion_start_time >= generation.data[0].start_time
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
+
+
+def test_base_64_image_input():
+    api = get_api()
+    client = openai.OpenAI()
+    generation_name = "test_base_64_image_input" + create_uuid()[:8]
+
+    content_path = "static/puton.jpg"
+    content_type = "image/jpeg"
+
+    base64_image = encode_file_to_base64(content_path)
+
+    client.chat.completions.create(
+        name=generation_name,
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What’s in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{content_type};base64,{base64_image}"
+                        },
+                    },
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert generation.data[0].input[0]["content"][0]["text"] == "What’s in this image?"
+    assert (
+        f"@@@langfuseMedia:type={content_type}|id="
+        in generation.data[0].input[0]["content"][1]["image_url"]["url"]
+    )
+    assert generation.data[0].type == "GENERATION"
+    assert "gpt-4o-mini" in generation.data[0].model
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    assert "dog" in generation.data[0].output["content"]
+
+
+def test_audio_input_and_output():
+    api = get_api()
+    client = openai.OpenAI()
+    generation_name = "test_audio_input_and_output" + create_uuid()[:8]
+
+    content_path = "static/joke_prompt.wav"
+    base64_string = encode_file_to_base64(content_path)
+
+    client.chat.completions.create(
+        name=generation_name,
+        model="gpt-4o-audio-preview",
+        modalities=["text", "audio"],
+        audio={"voice": "alloy", "format": "wav"},
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Do what this recording says."},
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": base64_string, "format": "wav"},
+                    },
+                ],
+            },
+        ],
+    )
+
+    openai.flush_langfuse()
+
+    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    assert generation.data[0].name == generation_name
+    assert (
+        generation.data[0].input[0]["content"][0]["text"]
+        == "Do what this recording says."
+    )
+    assert (
+        "@@@langfuseMedia:type=audio/wav|id="
+        in generation.data[0].input[0]["content"][1]["input_audio"]["data"]
+    )
+    assert generation.data[0].type == "GENERATION"
+    assert "gpt-4o-audio-preview" in generation.data[0].model
+    assert generation.data[0].start_time is not None
+    assert generation.data[0].end_time is not None
+    assert generation.data[0].start_time < generation.data[0].end_time
+    assert generation.data[0].usage.input is not None
+    assert generation.data[0].usage.output is not None
+    assert generation.data[0].usage.total is not None
+    print(generation.data[0].output)
+    assert (
+        "@@@langfuseMedia:type=audio/wav|id="
+        in generation.data[0].output["audio"]["data"]
+    )

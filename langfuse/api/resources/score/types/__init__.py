@@ -2,6 +2,28 @@
 
 from .create_score_request import CreateScoreRequest
 from .create_score_response import CreateScoreResponse
-from .scores import Scores
+from .get_scores_response import GetScoresResponse
+from .get_scores_response_data import (
+    GetScoresResponseData,
+    GetScoresResponseData_Boolean,
+    GetScoresResponseData_Categorical,
+    GetScoresResponseData_Numeric,
+)
+from .get_scores_response_data_boolean import GetScoresResponseDataBoolean
+from .get_scores_response_data_categorical import GetScoresResponseDataCategorical
+from .get_scores_response_data_numeric import GetScoresResponseDataNumeric
+from .get_scores_response_trace_data import GetScoresResponseTraceData
 
-__all__ = ["CreateScoreRequest", "CreateScoreResponse", "Scores"]
+__all__ = [
+    "CreateScoreRequest",
+    "CreateScoreResponse",
+    "GetScoresResponse",
+    "GetScoresResponseData",
+    "GetScoresResponseDataBoolean",
+    "GetScoresResponseDataCategorical",
+    "GetScoresResponseDataNumeric",
+    "GetScoresResponseData_Boolean",
+    "GetScoresResponseData_Categorical",
+    "GetScoresResponseData_Numeric",
+    "GetScoresResponseTraceData",
+]

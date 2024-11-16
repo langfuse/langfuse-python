@@ -5,11 +5,16 @@ import typing
 import httpx
 
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from .resources.comments.client import AsyncCommentsClient, CommentsClient
 from .resources.dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
-from .resources.dataset_run_items.client import AsyncDatasetRunItemsClient, DatasetRunItemsClient
+from .resources.dataset_run_items.client import (
+    AsyncDatasetRunItemsClient,
+    DatasetRunItemsClient,
+)
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.health.client import AsyncHealthClient, HealthClient
 from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
+from .resources.media.client import AsyncMediaClient, MediaClient
 from .resources.metrics.client import AsyncMetricsClient, MetricsClient
 from .resources.models.client import AsyncModelsClient, ModelsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
@@ -69,9 +74,11 @@ class FernLangfuse:
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         timeout: typing.Optional[float] = None,
         follow_redirects: typing.Optional[bool] = True,
-        httpx_client: typing.Optional[httpx.Client] = None
+        httpx_client: typing.Optional[httpx.Client] = None,
     ):
-        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
+        _defaulted_timeout = (
+            timeout if timeout is not None else 60 if httpx_client is None else None
+        )
         self._client_wrapper = SyncClientWrapper(
             base_url=base_url,
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -81,16 +88,22 @@ class FernLangfuse:
             password=password,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.Client(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
+            else httpx.Client(
+                timeout=_defaulted_timeout, follow_redirects=follow_redirects
+            )
             if follow_redirects is not None
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
+        self.comments = CommentsClient(client_wrapper=self._client_wrapper)
         self.dataset_items = DatasetItemsClient(client_wrapper=self._client_wrapper)
-        self.dataset_run_items = DatasetRunItemsClient(client_wrapper=self._client_wrapper)
+        self.dataset_run_items = DatasetRunItemsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.datasets = DatasetsClient(client_wrapper=self._client_wrapper)
         self.health = HealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
+        self.media = MediaClient(client_wrapper=self._client_wrapper)
         self.metrics = MetricsClient(client_wrapper=self._client_wrapper)
         self.models = ModelsClient(client_wrapper=self._client_wrapper)
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
@@ -150,9 +163,11 @@ class AsyncFernLangfuse:
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         timeout: typing.Optional[float] = None,
         follow_redirects: typing.Optional[bool] = True,
-        httpx_client: typing.Optional[httpx.AsyncClient] = None
+        httpx_client: typing.Optional[httpx.AsyncClient] = None,
     ):
-        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
+        _defaulted_timeout = (
+            timeout if timeout is not None else 60 if httpx_client is None else None
+        )
         self._client_wrapper = AsyncClientWrapper(
             base_url=base_url,
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -162,22 +177,32 @@ class AsyncFernLangfuse:
             password=password,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.AsyncClient(timeout=_defaulted_timeout, follow_redirects=follow_redirects)
+            else httpx.AsyncClient(
+                timeout=_defaulted_timeout, follow_redirects=follow_redirects
+            )
             if follow_redirects is not None
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self.dataset_items = AsyncDatasetItemsClient(client_wrapper=self._client_wrapper)
-        self.dataset_run_items = AsyncDatasetRunItemsClient(client_wrapper=self._client_wrapper)
+        self.comments = AsyncCommentsClient(client_wrapper=self._client_wrapper)
+        self.dataset_items = AsyncDatasetItemsClient(
+            client_wrapper=self._client_wrapper
+        )
+        self.dataset_run_items = AsyncDatasetRunItemsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.datasets = AsyncDatasetsClient(client_wrapper=self._client_wrapper)
         self.health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
+        self.media = AsyncMediaClient(client_wrapper=self._client_wrapper)
         self.metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         self.models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
-        self.score_configs = AsyncScoreConfigsClient(client_wrapper=self._client_wrapper)
+        self.score_configs = AsyncScoreConfigsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.score = AsyncScoreClient(client_wrapper=self._client_wrapper)
         self.sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
         self.trace = AsyncTraceClient(client_wrapper=self._client_wrapper)

@@ -1,9 +1,11 @@
 """@private"""
 
 from datetime import datetime
-from langfuse.client import PromptClient, ModelUsage, MapValue
-from typing import Any, List, Optional, TypedDict, Literal, Dict, Union, Protocol
+from typing import Any, Dict, List, Literal, Optional, Protocol, TypedDict, Union
+
 from pydantic import BaseModel
+from langfuse.api import MediaContentType
+from langfuse.model import MapValue, ModelUsage, PromptClient
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
@@ -46,3 +48,17 @@ class MaskFunction(Protocol):
     """
 
     def __call__(self, *, data: Any) -> Any: ...
+
+
+class ParsedMediaReference(TypedDict):
+    """A parsed media reference.
+
+    Attributes:
+        media_id: The media ID.
+        source: The original source of the media, e.g. a file path, bytes, base64 data URI, etc.
+        content_type: The content type of the media.
+    """
+
+    media_id: str
+    source: str
+    content_type: MediaContentType

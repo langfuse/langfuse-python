@@ -2,42 +2,41 @@ import os
 import random
 import string
 import time
-
-from typing import Any, List, Mapping, Optional, Dict
+from typing import Any, Dict, List, Mapping, Optional
 
 import pytest
-from langchain_community.llms.anthropic import Anthropic
-from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain.agents import AgentType, initialize_agent
-from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain.chains import (
     ConversationalRetrievalChain,
+    ConversationChain,
     LLMChain,
     RetrievalQA,
     SimpleSequentialChain,
-    ConversationChain,
 )
-from langchain_core.tools import StructuredTool
-from langchain_core.runnables.base import RunnableLambda
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain_community.document_loaders import TextLoader
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_openai import OpenAI, AzureChatOpenAI, ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import Document
+from langchain.schema import Document, HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.agent_toolkits.load_tools import load_tools
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.llms.anthropic import Anthropic
+from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.vectorstores import Chroma
-from pydantic.v1 import BaseModel, Field
-from langchain.schema import HumanMessage, SystemMessage
-from langfuse.callback import CallbackHandler
-from langfuse.client import Langfuse
-from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid, get_api
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables.base import RunnableLambda
+from langchain_core.tools import StructuredTool
+from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
+from pydantic.v1 import BaseModel, Field
+
+from langfuse.callback import CallbackHandler
+from langfuse.client import Langfuse
+from tests.api_wrapper import LangfuseAPI
+from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 
 def test_callback_init():
@@ -225,6 +224,7 @@ def test_callback_generated_from_lcel_chain():
     )
 
     langfuse.flush()
+    handler.flush()
     trace_id = handler.get_trace_id()
     trace = api.trace.get(trace_id)
 
@@ -1760,7 +1760,7 @@ def test_disabled_langfuse():
         },
     )
 
-    assert handler.langfuse.task_manager._queue.empty()
+    assert handler.langfuse.task_manager._ingestion_queue.empty()
 
     handler.flush()
 
@@ -2211,3 +2211,39 @@ def test_langfuse_overhead():
     print(f"Full execution took {duration_full}ms")
 
     assert duration_full > 1000, "Full execution should take longer than 1 second"
+
+
+def test_multimodal():
+    api = get_api()
+    handler = CallbackHandler()
+    model = ChatOpenAI(model="gpt-4o-mini")
+
+    image_data = encode_file_to_base64("static/puton.jpg")
+
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": "What's in this image?"},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+            },
+        ],
+    )
+
+    response = model.invoke([message], config={"callbacks": [handler]})
+
+    print(response.content)
+
+    handler.flush()
+
+    trace = api.trace.get(handler.get_trace_id())
+
+    assert len(trace.observations) == 1
+    assert trace.observations[0].type == "GENERATION"
+
+    print(trace.observations[0].input)
+
+    assert (
+        "@@@langfuseMedia:type=image/jpeg|id="
+        in trace.observations[0].input[0]["content"][1]["image_url"]["url"]
+    )

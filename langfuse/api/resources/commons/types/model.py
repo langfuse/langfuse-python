@@ -24,7 +24,7 @@ class Model(pydantic_v1.BaseModel):
     Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
     """
 
-    start_date: typing.Optional[dt.datetime] = pydantic_v1.Field(
+    start_date: typing.Optional[dt.date] = pydantic_v1.Field(
         alias="startDate", default=None
     )
     """

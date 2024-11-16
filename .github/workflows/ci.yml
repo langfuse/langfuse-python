@@ -25,7 +25,7 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       LANGFUSE_HOST: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
@@ -71,11 +71,11 @@ jobs:
           cd ./langfuse-server
 
           echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker compose up -d db
+          TELEMETRY_ENABLED=false docker compose -f docker-compose.v3preview.yml up -d postgres
           echo "::endgroup::"
 
           echo "::group::Logs from langfuse server"
-          TELEMETRY_ENABLED=false docker compose logs
+          TELEMETRY_ENABLED=false docker compose -f docker-compose.v3preview.yml logs
           echo "::endgroup::"
 
           echo "::group::Install dependencies (necessary to run seeder)"
@@ -89,7 +89,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false docker compose up -d langfuse-server
+          TELEMETRY_ENABLED=false CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000 LANGFUSE_ASYNC_INGESTION_PROCESSING=false LANGFUSE_ASYNC_CLICKHOUSE_INGESTION_PROCESSING=false docker compose -f docker-compose.v3preview.yml up -d
           echo "::endgroup::"
 
       # Add this step to check the health of the container
@@ -97,14 +97,14 @@ jobs:
         run: |
           echo "Checking if the langfuse server is up..."
           retry_count=0
-          max_retries=5
+          max_retries=10
           until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health
           do
             retry_count=`expr $retry_count + 1`
             echo "Attempt $retry_count of $max_retries..."
             if [ $retry_count -ge $max_retries ]; then
               echo "Langfuse server did not respond in time. Printing logs..."
-              docker logs langfuse-server_langfuse-server_1
+              docker logs langfuse-server-langfuse-web-1
               echo "Failing the step..."
               exit 1
             fi
