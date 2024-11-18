@@ -1530,6 +1530,7 @@ def test_base_64_image_input():
 def test_audio_input_and_output():
     api = get_api()
     client = openai.OpenAI()
+    openai.langfuse_debug = True
     generation_name = "test_audio_input_and_output" + create_uuid()[:8]
 
     content_path = "static/joke_prompt.wav"
