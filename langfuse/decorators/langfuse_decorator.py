@@ -446,13 +446,18 @@ class LangfuseDecorator:
             )
 
             end_time = observation_params["end_time"] or _get_timestamp()
-            raw_output = observation_params["output"] or (
-                result if result and capture_output else None
+
+            output = observation_params["output"] or (
+                # Serialize and deserialize to ensure proper JSON serialization.
+                # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
+                json.loads(
+                    json.dumps(
+                        result if result and capture_output else None,
+                        cls=EventSerializer,
+                    )
+                )
             )
 
-            # Serialize and deserialize to ensure proper JSON serialization.
-            # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
-            output = json.loads(json.dumps(raw_output, cls=EventSerializer))
             observation_params.update(end_time=end_time, output=output)
 
             if isinstance(observation, (StatefulSpanClient, StatefulGenerationClient)):
