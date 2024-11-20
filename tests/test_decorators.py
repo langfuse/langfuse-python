@@ -1473,6 +1473,16 @@ def test_media():
     @observe()
     def main():
         langfuse_context.update_current_trace(
+            input={
+                "context": {
+                    "nested": media,
+                },
+            },
+            output={
+                "context": {
+                    "nested": media,
+                },
+            },
             metadata={
                 "context": {
                     "nested": media,
@@ -1486,6 +1496,14 @@ def test_media():
 
     trace_data = get_api().trace.get(mock_trace_id)
 
+    assert (
+        "@@@langfuseMedia:type=application/pdf|id="
+        in trace_data.input["context"]["nested"]
+    )
+    assert (
+        "@@@langfuseMedia:type=application/pdf|id="
+        in trace_data.output["context"]["nested"]
+    )
     assert (
         "@@@langfuseMedia:type=application/pdf|id="
         in trace_data.metadata["context"]["nested"]
