@@ -81,7 +81,7 @@ class TaskManager(object):
         self.init_resources()
 
         # cleans up when the python interpreter closes
-        atexit.register(self.join)
+        atexit.register(self.shutdown)
 
     def init_resources(self):
         for i in range(self._threads):
