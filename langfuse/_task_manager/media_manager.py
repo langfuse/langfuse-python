@@ -200,6 +200,7 @@ class MediaManager:
             headers={
                 "Content-Type": data["content_type"],
                 "x-amz-checksum-sha256": data["content_sha256_hash"],
+                "x-ms-blob-type": "BlockBlob",
             },
             data=data["content_bytes"],
         )
