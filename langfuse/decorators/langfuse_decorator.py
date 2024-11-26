@@ -1065,7 +1065,7 @@ class LangfuseDecorator:
             max_retries: Max number of retries in case of API/network errors.
             timeout: Timeout of API requests in seconds. Default is 20 seconds.
             httpx_client: Pass your own httpx client for more customizability of requests.
-            enabled: Enables or disables the Langfuse client. Defaults to True. If disabled, no observability data will be sent to Langfuse. If data is requested while disabled, an error will be raised.
+            enabled: Enables or disables the Langfuse client. Defaults to True. If disabled, no observability data will be sent to Langfuse. If data is requested while disabled, an error will be raised. Non-tracing features such as fetching prompts from the server are not affected by this flag.
             mask (Callable): Function that masks sensitive information from input and output in log messages.
 
         """
