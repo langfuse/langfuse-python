@@ -46,7 +46,7 @@ class MediaClient:
 
         Examples
         --------
-        from finto.client import FernLangfuse
+        from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -120,7 +120,7 @@ class MediaClient:
         import datetime
 
         from finto import PatchMediaBody
-        from finto.client import FernLangfuse
+        from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -198,7 +198,7 @@ class MediaClient:
         Examples
         --------
         from finto import GetMediaUploadUrlRequest
-        from finto.client import FernLangfuse
+        from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -280,7 +280,7 @@ class AsyncMediaClient:
         --------
         import asyncio
 
-        from finto.client import AsyncFernLangfuse
+        from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -361,7 +361,7 @@ class AsyncMediaClient:
         import datetime
 
         from finto import PatchMediaBody
-        from finto.client import AsyncFernLangfuse
+        from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -447,7 +447,7 @@ class AsyncMediaClient:
         import asyncio
 
         from finto import GetMediaUploadUrlRequest
-        from finto.client import AsyncFernLangfuse
+        from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",

@@ -1,5 +1,7 @@
 # Reference
+
 ## Comments
+
 <details><summary><code>client.comments.<a href="src/finto/resources/comments/client.py">create</a>(...)</code></summary>
 <dl>
 <dd>
@@ -13,6 +15,7 @@
 <dd>
 
 Create a comment. Comments may be attached to different object types (trace, observation, session, prompt).
+
 </dd>
 </dl>
 </dd>
@@ -28,7 +31,7 @@ Create a comment. Comments may be attached to different object types (trace, obs
 
 ```python
 from finto import CreateCommentRequest
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -49,6 +52,7 @@ client.comments.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -62,8 +66,8 @@ client.comments.create(
 <dl>
 <dd>
 
-**request:** `CreateCommentRequest` 
-    
+**request:** `CreateCommentRequest`
+
 </dd>
 </dl>
 
@@ -71,12 +75,11 @@ client.comments.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -95,6 +98,7 @@ client.comments.create(
 <dd>
 
 Get all comments
+
 </dd>
 </dl>
 </dd>
@@ -109,7 +113,7 @@ Get all comments
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -128,6 +132,7 @@ client.comments.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -142,7 +147,7 @@ client.comments.get(
 <dd>
 
 **page:** `typing.Optional[int]` — Page number, starts at 1.
-    
+
 </dd>
 </dl>
 
@@ -150,7 +155,7 @@ client.comments.get(
 <dd>
 
 **limit:** `typing.Optional[int]` — Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit
-    
+
 </dd>
 </dl>
 
@@ -158,7 +163,7 @@ client.comments.get(
 <dd>
 
 **object_type:** `typing.Optional[str]` — Filter comments by object type (trace, observation, session, prompt).
-    
+
 </dd>
 </dl>
 
@@ -166,7 +171,7 @@ client.comments.get(
 <dd>
 
 **object_id:** `typing.Optional[str]` — Filter comments by object id. If objectType is not provided, an error will be thrown.
-    
+
 </dd>
 </dl>
 
@@ -174,7 +179,7 @@ client.comments.get(
 <dd>
 
 **author_user_id:** `typing.Optional[str]` — Filter comments by author user id.
-    
+
 </dd>
 </dl>
 
@@ -182,12 +187,11 @@ client.comments.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -206,6 +210,7 @@ client.comments.get(
 <dd>
 
 Get a comment by id
+
 </dd>
 </dl>
 </dd>
@@ -220,7 +225,7 @@ Get a comment by id
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -235,6 +240,7 @@ client.comments.get_by_id(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -249,7 +255,7 @@ client.comments.get_by_id(
 <dd>
 
 **comment_id:** `str` — The unique langfuse identifier of a comment
-    
+
 </dd>
 </dl>
 
@@ -257,18 +263,18 @@ client.comments.get_by_id(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## DatasetItems
+
 <details><summary><code>client.dataset_items.<a href="src/finto/resources/dataset_items/client.py">create</a>(...)</code></summary>
 <dl>
 <dd>
@@ -282,6 +288,7 @@ client.comments.get_by_id(
 <dd>
 
 Create a dataset item
+
 </dd>
 </dl>
 </dd>
@@ -297,7 +304,7 @@ Create a dataset item
 
 ```python
 from finto import CreateDatasetItemRequest, DatasetStatus
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -321,6 +328,7 @@ client.dataset_items.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -334,8 +342,8 @@ client.dataset_items.create(
 <dl>
 <dd>
 
-**request:** `CreateDatasetItemRequest` 
-    
+**request:** `CreateDatasetItemRequest`
+
 </dd>
 </dl>
 
@@ -343,12 +351,11 @@ client.dataset_items.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -367,6 +374,7 @@ client.dataset_items.create(
 <dd>
 
 Get a dataset item
+
 </dd>
 </dl>
 </dd>
@@ -381,7 +389,7 @@ Get a dataset item
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -396,6 +404,7 @@ client.dataset_items.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -409,8 +418,8 @@ client.dataset_items.get(
 <dl>
 <dd>
 
-**id:** `str` 
-    
+**id:** `str`
+
 </dd>
 </dl>
 
@@ -418,12 +427,11 @@ client.dataset_items.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -442,6 +450,7 @@ client.dataset_items.get(
 <dd>
 
 Get dataset items
+
 </dd>
 </dl>
 </dd>
@@ -456,7 +465,7 @@ Get dataset items
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -475,6 +484,7 @@ client.dataset_items.list(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -488,24 +498,24 @@ client.dataset_items.list(
 <dl>
 <dd>
 
-**dataset_name:** `typing.Optional[str]` 
-    
+**dataset_name:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**source_trace_id:** `typing.Optional[str]` 
-    
+**source_trace_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**source_observation_id:** `typing.Optional[str]` 
-    
+**source_observation_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
@@ -513,7 +523,7 @@ client.dataset_items.list(
 <dd>
 
 **page:** `typing.Optional[int]` — page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -521,7 +531,7 @@ client.dataset_items.list(
 <dd>
 
 **limit:** `typing.Optional[int]` — limit of items per page
-    
+
 </dd>
 </dl>
 
@@ -529,18 +539,18 @@ client.dataset_items.list(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## DatasetRunItems
+
 <details><summary><code>client.dataset_run_items.<a href="src/finto/resources/dataset_run_items/client.py">create</a>(...)</code></summary>
 <dl>
 <dd>
@@ -554,6 +564,7 @@ client.dataset_items.list(
 <dd>
 
 Create a dataset run item
+
 </dd>
 </dl>
 </dd>
@@ -569,7 +580,7 @@ Create a dataset run item
 
 ```python
 from finto import CreateDatasetRunItemRequest
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -591,6 +602,7 @@ client.dataset_run_items.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -604,8 +616,8 @@ client.dataset_run_items.create(
 <dl>
 <dd>
 
-**request:** `CreateDatasetRunItemRequest` 
-    
+**request:** `CreateDatasetRunItemRequest`
+
 </dd>
 </dl>
 
@@ -613,18 +625,18 @@ client.dataset_run_items.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Datasets
+
 <details><summary><code>client.datasets.<a href="src/finto/resources/datasets/client.py">list</a>(...)</code></summary>
 <dl>
 <dd>
@@ -638,6 +650,7 @@ client.dataset_run_items.create(
 <dd>
 
 Get all datasets
+
 </dd>
 </dl>
 </dd>
@@ -652,7 +665,7 @@ Get all datasets
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -668,6 +681,7 @@ client.datasets.list(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -682,7 +696,7 @@ client.datasets.list(
 <dd>
 
 **page:** `typing.Optional[int]` — page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -690,7 +704,7 @@ client.datasets.list(
 <dd>
 
 **limit:** `typing.Optional[int]` — limit of items per page
-    
+
 </dd>
 </dl>
 
@@ -698,12 +712,11 @@ client.datasets.list(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -722,6 +735,7 @@ client.datasets.list(
 <dd>
 
 Get a dataset
+
 </dd>
 </dl>
 </dd>
@@ -736,7 +750,7 @@ Get a dataset
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -751,6 +765,7 @@ client.datasets.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -764,8 +779,8 @@ client.datasets.get(
 <dl>
 <dd>
 
-**dataset_name:** `str` 
-    
+**dataset_name:** `str`
+
 </dd>
 </dl>
 
@@ -773,12 +788,11 @@ client.datasets.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -797,6 +811,7 @@ client.datasets.get(
 <dd>
 
 Create a dataset
+
 </dd>
 </dl>
 </dd>
@@ -812,7 +827,7 @@ Create a dataset
 
 ```python
 from finto import CreateDatasetRequest
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -831,6 +846,7 @@ client.datasets.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -844,8 +860,8 @@ client.datasets.create(
 <dl>
 <dd>
 
-**request:** `CreateDatasetRequest` 
-    
+**request:** `CreateDatasetRequest`
+
 </dd>
 </dl>
 
@@ -853,12 +869,11 @@ client.datasets.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -877,6 +892,7 @@ client.datasets.create(
 <dd>
 
 Get a dataset run and its items
+
 </dd>
 </dl>
 </dd>
@@ -891,7 +907,7 @@ Get a dataset run and its items
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -907,6 +923,7 @@ client.datasets.get_run(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -920,16 +937,16 @@ client.datasets.get_run(
 <dl>
 <dd>
 
-**dataset_name:** `str` 
-    
+**dataset_name:** `str`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**run_name:** `str` 
-    
+**run_name:** `str`
+
 </dd>
 </dl>
 
@@ -937,12 +954,11 @@ client.datasets.get_run(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -961,6 +977,7 @@ client.datasets.get_run(
 <dd>
 
 Get dataset runs
+
 </dd>
 </dl>
 </dd>
@@ -975,7 +992,7 @@ Get dataset runs
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -992,6 +1009,7 @@ client.datasets.get_runs(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1005,8 +1023,8 @@ client.datasets.get_runs(
 <dl>
 <dd>
 
-**dataset_name:** `str` 
-    
+**dataset_name:** `str`
+
 </dd>
 </dl>
 
@@ -1014,7 +1032,7 @@ client.datasets.get_runs(
 <dd>
 
 **page:** `typing.Optional[int]` — page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -1022,7 +1040,7 @@ client.datasets.get_runs(
 <dd>
 
 **limit:** `typing.Optional[int]` — limit of items per page
-    
+
 </dd>
 </dl>
 
@@ -1030,18 +1048,18 @@ client.datasets.get_runs(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Health
+
 <details><summary><code>client.health.<a href="src/finto/resources/health/client.py">health</a>()</code></summary>
 <dl>
 <dd>
@@ -1055,6 +1073,7 @@ client.datasets.get_runs(
 <dd>
 
 Check health of API and database
+
 </dd>
 </dl>
 </dd>
@@ -1069,7 +1088,7 @@ Check health of API and database
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1082,6 +1101,7 @@ client = FernLangfuse(
 client.health.health()
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1096,18 +1116,18 @@ client.health.health()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Ingestion
+
 <details><summary><code>client.ingestion.<a href="src/finto/resources/ingestion/client.py">batch</a>(...)</code></summary>
 <dl>
 <dd>
@@ -1143,7 +1163,7 @@ Notes:
 import datetime
 
 from finto import IngestionEvent_TraceCreate, TraceBody
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1181,6 +1201,7 @@ client.ingestion.batch(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1195,7 +1216,7 @@ client.ingestion.batch(
 <dd>
 
 **batch:** `typing.Sequence[IngestionEvent]` — Batch of tracing events to be ingested. Discriminated by attribute `type`.
-    
+
 </dd>
 </dl>
 
@@ -1203,7 +1224,7 @@ client.ingestion.batch(
 <dd>
 
 **metadata:** `typing.Optional[typing.Any]` — Optional. Metadata field used by the Langfuse SDKs for debugging.
-    
+
 </dd>
 </dl>
 
@@ -1211,18 +1232,18 @@ client.ingestion.batch(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Media
+
 <details><summary><code>client.media.<a href="src/finto/resources/media/client.py">get</a>(...)</code></summary>
 <dl>
 <dd>
@@ -1236,6 +1257,7 @@ client.ingestion.batch(
 <dd>
 
 Get a media record
+
 </dd>
 </dl>
 </dd>
@@ -1250,7 +1272,7 @@ Get a media record
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1265,6 +1287,7 @@ client.media.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1279,7 +1302,7 @@ client.media.get(
 <dd>
 
 **media_id:** `str` — The unique langfuse identifier of a media record
-    
+
 </dd>
 </dl>
 
@@ -1287,12 +1310,11 @@ client.media.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -1311,6 +1333,7 @@ client.media.get(
 <dd>
 
 Patch a media record
+
 </dd>
 </dl>
 </dd>
@@ -1328,7 +1351,7 @@ Patch a media record
 import datetime
 
 from finto import PatchMediaBody
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1351,6 +1374,7 @@ client.media.patch(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1365,15 +1389,15 @@ client.media.patch(
 <dd>
 
 **media_id:** `str` — The unique langfuse identifier of a media record
-    
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**request:** `PatchMediaBody` 
-    
+**request:** `PatchMediaBody`
+
 </dd>
 </dl>
 
@@ -1381,12 +1405,11 @@ client.media.patch(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -1405,6 +1428,7 @@ client.media.patch(
 <dd>
 
 Get a presigned upload URL for a media record
+
 </dd>
 </dl>
 </dd>
@@ -1420,7 +1444,7 @@ Get a presigned upload URL for a media record
 
 ```python
 from finto import GetMediaUploadUrlRequest
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1441,6 +1465,7 @@ client.media.get_upload_url(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1454,8 +1479,8 @@ client.media.get_upload_url(
 <dl>
 <dd>
 
-**request:** `GetMediaUploadUrlRequest` 
-    
+**request:** `GetMediaUploadUrlRequest`
+
 </dd>
 </dl>
 
@@ -1463,18 +1488,18 @@ client.media.get_upload_url(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Metrics
+
 <details><summary><code>client.metrics.<a href="src/finto/resources/metrics/client.py">daily</a>(...)</code></summary>
 <dl>
 <dd>
@@ -1488,6 +1513,7 @@ client.media.get_upload_url(
 <dd>
 
 Get daily metrics of the Langfuse project
+
 </dd>
 </dl>
 </dd>
@@ -1504,7 +1530,7 @@ Get daily metrics of the Langfuse project
 ```python
 import datetime
 
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1529,6 +1555,7 @@ client.metrics.daily(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1543,7 +1570,7 @@ client.metrics.daily(
 <dd>
 
 **page:** `typing.Optional[int]` — page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -1551,7 +1578,7 @@ client.metrics.daily(
 <dd>
 
 **limit:** `typing.Optional[int]` — limit of items per page
-    
+
 </dd>
 </dl>
 
@@ -1559,7 +1586,7 @@ client.metrics.daily(
 <dd>
 
 **trace_name:** `typing.Optional[str]` — Optional filter by the name of the trace
-    
+
 </dd>
 </dl>
 
@@ -1567,7 +1594,7 @@ client.metrics.daily(
 <dd>
 
 **user_id:** `typing.Optional[str]` — Optional filter by the userId associated with the trace
-    
+
 </dd>
 </dl>
 
@@ -1575,7 +1602,7 @@ client.metrics.daily(
 <dd>
 
 **tags:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for metrics where traces include all of these tags
-    
+
 </dd>
 </dl>
 
@@ -1583,7 +1610,7 @@ client.metrics.daily(
 <dd>
 
 **from_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces and observations on or after a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -1591,7 +1618,7 @@ client.metrics.daily(
 <dd>
 
 **to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces and observations before a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -1599,18 +1626,18 @@ client.metrics.daily(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Models
+
 <details><summary><code>client.models.<a href="src/finto/resources/models/client.py">create</a>(...)</code></summary>
 <dl>
 <dd>
@@ -1624,6 +1651,7 @@ client.metrics.daily(
 <dd>
 
 Create a model
+
 </dd>
 </dl>
 </dd>
@@ -1641,7 +1669,7 @@ Create a model
 import datetime
 
 from finto import CreateModelRequest, ModelUsageUnit
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1668,6 +1696,7 @@ client.models.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1681,8 +1710,8 @@ client.models.create(
 <dl>
 <dd>
 
-**request:** `CreateModelRequest` 
-    
+**request:** `CreateModelRequest`
+
 </dd>
 </dl>
 
@@ -1690,12 +1719,11 @@ client.models.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -1714,6 +1742,7 @@ client.models.create(
 <dd>
 
 Get all models
+
 </dd>
 </dl>
 </dd>
@@ -1728,7 +1757,7 @@ Get all models
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1744,6 +1773,7 @@ client.models.list(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1758,7 +1788,7 @@ client.models.list(
 <dd>
 
 **page:** `typing.Optional[int]` — page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -1766,7 +1796,7 @@ client.models.list(
 <dd>
 
 **limit:** `typing.Optional[int]` — limit of items per page
-    
+
 </dd>
 </dl>
 
@@ -1774,12 +1804,11 @@ client.models.list(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -1798,6 +1827,7 @@ client.models.list(
 <dd>
 
 Get a model
+
 </dd>
 </dl>
 </dd>
@@ -1812,7 +1842,7 @@ Get a model
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1827,6 +1857,7 @@ client.models.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1840,8 +1871,8 @@ client.models.get(
 <dl>
 <dd>
 
-**id:** `str` 
-    
+**id:** `str`
+
 </dd>
 </dl>
 
@@ -1849,12 +1880,11 @@ client.models.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -1873,6 +1903,7 @@ client.models.get(
 <dd>
 
 Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+
 </dd>
 </dl>
 </dd>
@@ -1887,7 +1918,7 @@ Delete a model. Cannot delete models managed by Langfuse. You can create your ow
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1902,6 +1933,7 @@ client.models.delete(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1915,8 +1947,8 @@ client.models.delete(
 <dl>
 <dd>
 
-**id:** `str` 
-    
+**id:** `str`
+
 </dd>
 </dl>
 
@@ -1924,18 +1956,18 @@ client.models.delete(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Observations
+
 <details><summary><code>client.observations.<a href="src/finto/resources/observations/client.py">get</a>(...)</code></summary>
 <dl>
 <dd>
@@ -1949,6 +1981,7 @@ client.models.delete(
 <dd>
 
 Get a observation
+
 </dd>
 </dl>
 </dd>
@@ -1963,7 +1996,7 @@ Get a observation
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1978,6 +2011,7 @@ client.observations.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -1992,7 +2026,7 @@ client.observations.get(
 <dd>
 
 **observation_id:** `str` — The unique langfuse identifier of an observation, can be an event, span or generation
-    
+
 </dd>
 </dl>
 
@@ -2000,12 +2034,11 @@ client.observations.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -2024,6 +2057,7 @@ client.observations.get(
 <dd>
 
 Get a list of observations
+
 </dd>
 </dl>
 </dd>
@@ -2040,7 +2074,7 @@ Get a list of observations
 ```python
 import datetime
 
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2068,6 +2102,7 @@ client.observations.get_many(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2082,7 +2117,7 @@ client.observations.get_many(
 <dd>
 
 **page:** `typing.Optional[int]` — Page number, starts at 1.
-    
+
 </dd>
 </dl>
 
@@ -2090,47 +2125,47 @@ client.observations.get_many(
 <dd>
 
 **limit:** `typing.Optional[int]` — Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
-    
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` 
-    
+**name:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**user_id:** `typing.Optional[str]` 
-    
+**user_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**type:** `typing.Optional[str]` 
-    
+**type:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**trace_id:** `typing.Optional[str]` 
-    
+**trace_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**parent_observation_id:** `typing.Optional[str]` 
-    
+**parent_observation_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
@@ -2138,7 +2173,7 @@ client.observations.get_many(
 <dd>
 
 **from_start_time:** `typing.Optional[dt.datetime]` — Retrieve only observations with a start_time or or after this datetime (ISO 8601).
-    
+
 </dd>
 </dl>
 
@@ -2146,7 +2181,7 @@ client.observations.get_many(
 <dd>
 
 **to_start_time:** `typing.Optional[dt.datetime]` — Retrieve only observations with a start_time before this datetime (ISO 8601).
-    
+
 </dd>
 </dl>
 
@@ -2154,7 +2189,7 @@ client.observations.get_many(
 <dd>
 
 **version:** `typing.Optional[str]` — Optional filter to only include observations with a certain version.
-    
+
 </dd>
 </dl>
 
@@ -2162,18 +2197,18 @@ client.observations.get_many(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Projects
+
 <details><summary><code>client.projects.<a href="src/finto/resources/projects/client.py">get</a>()</code></summary>
 <dl>
 <dd>
@@ -2187,6 +2222,7 @@ client.observations.get_many(
 <dd>
 
 Get Project associated with API key
+
 </dd>
 </dl>
 </dd>
@@ -2201,7 +2237,7 @@ Get Project associated with API key
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2214,6 +2250,7 @@ client = FernLangfuse(
 client.projects.get()
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2228,18 +2265,18 @@ client.projects.get()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Prompts
+
 <details><summary><code>client.prompts.<a href="src/finto/resources/prompts/client.py">get</a>(...)</code></summary>
 <dl>
 <dd>
@@ -2253,6 +2290,7 @@ client.projects.get()
 <dd>
 
 Get a prompt
+
 </dd>
 </dl>
 </dd>
@@ -2267,7 +2305,7 @@ Get a prompt
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2284,6 +2322,7 @@ client.prompts.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2298,7 +2337,7 @@ client.prompts.get(
 <dd>
 
 **prompt_name:** `str` — The name of the prompt
-    
+
 </dd>
 </dl>
 
@@ -2306,7 +2345,7 @@ client.prompts.get(
 <dd>
 
 **version:** `typing.Optional[int]` — Version of the prompt to be retrieved.
-    
+
 </dd>
 </dl>
 
@@ -2314,7 +2353,7 @@ client.prompts.get(
 <dd>
 
 **label:** `typing.Optional[str]` — Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
-    
+
 </dd>
 </dl>
 
@@ -2322,12 +2361,11 @@ client.prompts.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -2346,6 +2384,7 @@ client.prompts.get(
 <dd>
 
 Get a list of prompt names with versions and labels
+
 </dd>
 </dl>
 </dd>
@@ -2362,7 +2401,7 @@ Get a list of prompt names with versions and labels
 ```python
 import datetime
 
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2387,6 +2426,7 @@ client.prompts.list(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2400,24 +2440,24 @@ client.prompts.list(
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` 
-    
+**name:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**label:** `typing.Optional[str]` 
-    
+**label:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**tag:** `typing.Optional[str]` 
-    
+**tag:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
@@ -2425,7 +2465,7 @@ client.prompts.list(
 <dd>
 
 **page:** `typing.Optional[int]` — page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -2433,7 +2473,7 @@ client.prompts.list(
 <dd>
 
 **limit:** `typing.Optional[int]` — limit of items per page
-    
+
 </dd>
 </dl>
 
@@ -2441,7 +2481,7 @@ client.prompts.list(
 <dd>
 
 **from_updated_at:** `typing.Optional[dt.datetime]` — Optional filter to only include prompt versions created/updated on or after a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -2449,7 +2489,7 @@ client.prompts.list(
 <dd>
 
 **to_updated_at:** `typing.Optional[dt.datetime]` — Optional filter to only include prompt versions created/updated before a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -2457,12 +2497,11 @@ client.prompts.list(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -2481,6 +2520,7 @@ client.prompts.list(
 <dd>
 
 Create a new version for the prompt with the given `name`
+
 </dd>
 </dl>
 </dd>
@@ -2496,7 +2536,7 @@ Create a new version for the prompt with the given `name`
 
 ```python
 from finto import ChatMessage, CreatePromptRequest_Chat
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2522,6 +2562,7 @@ client.prompts.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2535,8 +2576,8 @@ client.prompts.create(
 <dl>
 <dd>
 
-**request:** `CreatePromptRequest` 
-    
+**request:** `CreatePromptRequest`
+
 </dd>
 </dl>
 
@@ -2544,18 +2585,18 @@ client.prompts.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## ScoreConfigs
+
 <details><summary><code>client.score_configs.<a href="src/finto/resources/score_configs/client.py">create</a>(...)</code></summary>
 <dl>
 <dd>
@@ -2569,6 +2610,7 @@ client.prompts.create(
 <dd>
 
 Create a score configuration (config). Score configs are used to define the structure of scores
+
 </dd>
 </dl>
 </dd>
@@ -2584,7 +2626,7 @@ Create a score configuration (config). Score configs are used to define the stru
 
 ```python
 from finto import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2611,6 +2653,7 @@ client.score_configs.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2624,8 +2667,8 @@ client.score_configs.create(
 <dl>
 <dd>
 
-**request:** `CreateScoreConfigRequest` 
-    
+**request:** `CreateScoreConfigRequest`
+
 </dd>
 </dl>
 
@@ -2633,12 +2676,11 @@ client.score_configs.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -2657,6 +2699,7 @@ client.score_configs.create(
 <dd>
 
 Get all score configs
+
 </dd>
 </dl>
 </dd>
@@ -2671,7 +2714,7 @@ Get all score configs
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2687,6 +2730,7 @@ client.score_configs.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2701,7 +2745,7 @@ client.score_configs.get(
 <dd>
 
 **page:** `typing.Optional[int]` — Page number, starts at 1.
-    
+
 </dd>
 </dl>
 
@@ -2709,7 +2753,7 @@ client.score_configs.get(
 <dd>
 
 **limit:** `typing.Optional[int]` — Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit
-    
+
 </dd>
 </dl>
 
@@ -2717,12 +2761,11 @@ client.score_configs.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -2741,6 +2784,7 @@ client.score_configs.get(
 <dd>
 
 Get a score config
+
 </dd>
 </dl>
 </dd>
@@ -2755,7 +2799,7 @@ Get a score config
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2770,6 +2814,7 @@ client.score_configs.get_by_id(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2784,7 +2829,7 @@ client.score_configs.get_by_id(
 <dd>
 
 **config_id:** `str` — The unique langfuse identifier of a score config
-    
+
 </dd>
 </dl>
 
@@ -2792,18 +2837,18 @@ client.score_configs.get_by_id(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Score
+
 <details><summary><code>client.score.<a href="src/finto/resources/score/client.py">create</a>(...)</code></summary>
 <dl>
 <dd>
@@ -2817,6 +2862,7 @@ client.score_configs.get_by_id(
 <dd>
 
 Create a score
+
 </dd>
 </dl>
 </dd>
@@ -2832,7 +2878,7 @@ Create a score
 
 ```python
 from finto import CreateScoreRequest
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2851,6 +2897,7 @@ client.score.create(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2864,8 +2911,8 @@ client.score.create(
 <dl>
 <dd>
 
-**request:** `CreateScoreRequest` 
-    
+**request:** `CreateScoreRequest`
+
 </dd>
 </dl>
 
@@ -2873,12 +2920,11 @@ client.score.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -2897,6 +2943,7 @@ client.score.create(
 <dd>
 
 Get a list of scores
+
 </dd>
 </dl>
 </dd>
@@ -2914,7 +2961,7 @@ Get a list of scores
 import datetime
 
 from finto import ScoreDataType, ScoreSource
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -2946,6 +2993,7 @@ client.score.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -2960,7 +3008,7 @@ client.score.get(
 <dd>
 
 **page:** `typing.Optional[int]` — Page number, starts at 1.
-    
+
 </dd>
 </dl>
 
@@ -2968,7 +3016,7 @@ client.score.get(
 <dd>
 
 **limit:** `typing.Optional[int]` — Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
-    
+
 </dd>
 </dl>
 
@@ -2976,7 +3024,7 @@ client.score.get(
 <dd>
 
 **user_id:** `typing.Optional[str]` — Retrieve only scores with this userId associated to the trace.
-    
+
 </dd>
 </dl>
 
@@ -2984,7 +3032,7 @@ client.score.get(
 <dd>
 
 **name:** `typing.Optional[str]` — Retrieve only scores with this name.
-    
+
 </dd>
 </dl>
 
@@ -2992,7 +3040,7 @@ client.score.get(
 <dd>
 
 **from_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include scores created on or after a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -3000,7 +3048,7 @@ client.score.get(
 <dd>
 
 **to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include scores created before a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -3008,7 +3056,7 @@ client.score.get(
 <dd>
 
 **source:** `typing.Optional[ScoreSource]` — Retrieve only scores from a specific source.
-    
+
 </dd>
 </dl>
 
@@ -3016,7 +3064,7 @@ client.score.get(
 <dd>
 
 **operator:** `typing.Optional[str]` — Retrieve only scores with <operator> value.
-    
+
 </dd>
 </dl>
 
@@ -3024,7 +3072,7 @@ client.score.get(
 <dd>
 
 **value:** `typing.Optional[float]` — Retrieve only scores with <operator> value.
-    
+
 </dd>
 </dl>
 
@@ -3032,7 +3080,7 @@ client.score.get(
 <dd>
 
 **score_ids:** `typing.Optional[str]` — Comma-separated list of score IDs to limit the results to.
-    
+
 </dd>
 </dl>
 
@@ -3040,7 +3088,7 @@ client.score.get(
 <dd>
 
 **config_id:** `typing.Optional[str]` — Retrieve only scores with a specific configId.
-    
+
 </dd>
 </dl>
 
@@ -3048,7 +3096,7 @@ client.score.get(
 <dd>
 
 **queue_id:** `typing.Optional[str]` — Retrieve only scores with a specific annotation queueId.
-    
+
 </dd>
 </dl>
 
@@ -3056,7 +3104,7 @@ client.score.get(
 <dd>
 
 **data_type:** `typing.Optional[ScoreDataType]` — Retrieve only scores with a specific dataType.
-    
+
 </dd>
 </dl>
 
@@ -3066,7 +3114,7 @@ client.score.get(
 **trace_tags:** `typing.Optional[
     typing.Union[typing.Sequence[str], typing.Sequence[typing.Sequence[str]]]
 ]` — Only scores linked to traces that include all of these tags will be returned.
-    
+
 </dd>
 </dl>
 
@@ -3074,12 +3122,11 @@ client.score.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -3098,6 +3145,7 @@ client.score.get(
 <dd>
 
 Get a score
+
 </dd>
 </dl>
 </dd>
@@ -3112,7 +3160,7 @@ Get a score
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -3127,6 +3175,7 @@ client.score.get_by_id(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -3141,7 +3190,7 @@ client.score.get_by_id(
 <dd>
 
 **score_id:** `str` — The unique langfuse identifier of a score
-    
+
 </dd>
 </dl>
 
@@ -3149,12 +3198,11 @@ client.score.get_by_id(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -3173,6 +3221,7 @@ client.score.get_by_id(
 <dd>
 
 Delete a score
+
 </dd>
 </dl>
 </dd>
@@ -3187,7 +3236,7 @@ Delete a score
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -3202,6 +3251,7 @@ client.score.delete(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -3216,7 +3266,7 @@ client.score.delete(
 <dd>
 
 **score_id:** `str` — The unique langfuse identifier of a score
-    
+
 </dd>
 </dl>
 
@@ -3224,18 +3274,18 @@ client.score.delete(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Sessions
+
 <details><summary><code>client.sessions.<a href="src/finto/resources/sessions/client.py">list</a>(...)</code></summary>
 <dl>
 <dd>
@@ -3249,6 +3299,7 @@ client.score.delete(
 <dd>
 
 Get sessions
+
 </dd>
 </dl>
 </dd>
@@ -3265,7 +3316,7 @@ Get sessions
 ```python
 import datetime
 
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -3287,6 +3338,7 @@ client.sessions.list(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -3301,7 +3353,7 @@ client.sessions.list(
 <dd>
 
 **page:** `typing.Optional[int]` — Page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -3309,7 +3361,7 @@ client.sessions.list(
 <dd>
 
 **limit:** `typing.Optional[int]` — Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
-    
+
 </dd>
 </dl>
 
@@ -3317,7 +3369,7 @@ client.sessions.list(
 <dd>
 
 **from_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include sessions created on or after a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -3325,7 +3377,7 @@ client.sessions.list(
 <dd>
 
 **to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include sessions created before a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -3333,12 +3385,11 @@ client.sessions.list(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -3357,6 +3408,7 @@ client.sessions.list(
 <dd>
 
 Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
+
 </dd>
 </dl>
 </dd>
@@ -3371,7 +3423,7 @@ Get a session. Please note that `traces` on this endpoint are not paginated, if 
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -3386,6 +3438,7 @@ client.sessions.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -3400,7 +3453,7 @@ client.sessions.get(
 <dd>
 
 **session_id:** `str` — The unique id of a session
-    
+
 </dd>
 </dl>
 
@@ -3408,18 +3461,18 @@ client.sessions.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Trace
+
 <details><summary><code>client.trace.<a href="src/finto/resources/trace/client.py">get</a>(...)</code></summary>
 <dl>
 <dd>
@@ -3433,6 +3486,7 @@ client.sessions.get(
 <dd>
 
 Get a specific trace
+
 </dd>
 </dl>
 </dd>
@@ -3447,7 +3501,7 @@ Get a specific trace
 <dd>
 
 ```python
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -3462,6 +3516,7 @@ client.trace.get(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -3476,7 +3531,7 @@ client.trace.get(
 <dd>
 
 **trace_id:** `str` — The unique langfuse identifier of a trace
-    
+
 </dd>
 </dl>
 
@@ -3484,12 +3539,11 @@ client.trace.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
@@ -3508,6 +3562,7 @@ client.trace.get(
 <dd>
 
 Get list of traces
+
 </dd>
 </dl>
 </dd>
@@ -3524,7 +3579,7 @@ Get list of traces
 ```python
 import datetime
 
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -3553,6 +3608,7 @@ client.trace.list(
 )
 
 ```
+
 </dd>
 </dl>
 </dd>
@@ -3567,7 +3623,7 @@ client.trace.list(
 <dd>
 
 **page:** `typing.Optional[int]` — Page number, starts at 1
-    
+
 </dd>
 </dl>
 
@@ -3575,31 +3631,31 @@ client.trace.list(
 <dd>
 
 **limit:** `typing.Optional[int]` — Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
-    
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**user_id:** `typing.Optional[str]` 
-    
+**user_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` 
-    
+**name:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**session_id:** `typing.Optional[str]` 
-    
+**session_id:** `typing.Optional[str]`
+
 </dd>
 </dl>
 
@@ -3607,7 +3663,7 @@ client.trace.list(
 <dd>
 
 **from_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces with a trace.timestamp on or after a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -3615,7 +3671,7 @@ client.trace.list(
 <dd>
 
 **to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include traces with a trace.timestamp before a certain datetime (ISO 8601)
-    
+
 </dd>
 </dl>
 
@@ -3623,7 +3679,7 @@ client.trace.list(
 <dd>
 
 **order_by:** `typing.Optional[str]` — Format of the string [field].[asc/desc]. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: timestamp.asc
-    
+
 </dd>
 </dl>
 
@@ -3631,7 +3687,7 @@ client.trace.list(
 <dd>
 
 **tags:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Only traces that include all of these tags will be returned.
-    
+
 </dd>
 </dl>
 
@@ -3639,7 +3695,7 @@ client.trace.list(
 <dd>
 
 **version:** `typing.Optional[str]` — Optional filter to only include traces with a certain version.
-    
+
 </dd>
 </dl>
 
@@ -3647,7 +3703,7 @@ client.trace.list(
 <dd>
 
 **release:** `typing.Optional[str]` — Optional filter to only include traces with a certain release.
-    
+
 </dd>
 </dl>
 
@@ -3655,14 +3711,12 @@ client.trace.list(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
 
+</dd>
+</dl>
+</dd>
+</dl>
 
 </dd>
 </dl>
 </details>
-

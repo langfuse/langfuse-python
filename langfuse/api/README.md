@@ -17,7 +17,7 @@ Instantiate and use the client with the following:
 
 ```python
 from finto import CreateCommentRequest
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -46,7 +46,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 import asyncio
 
 from finto import CreateCommentRequest
-from finto.client import AsyncFernLangfuse
+from langfuse.api.client import AsyncFernLangfuse
 
 client = AsyncFernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -116,7 +116,7 @@ The SDK defaults to a 60 second timeout. You can configure this with a timeout o
 
 ```python
 
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(..., { timeout=20.0 }, )
 
@@ -131,9 +131,10 @@ client.comments.create(...,{
 
 You can override the `httpx` client to customize it for your use-case. Some common use-cases include support for proxies
 and transports.
+
 ```python
 import httpx
-from finto.client import FernLangfuse
+from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
     ...,
