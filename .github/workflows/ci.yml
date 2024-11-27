@@ -87,9 +87,10 @@ jobs:
           pnpm run db:migrate          
           pnpm run db:seed
           echo "::endgroup::"
+          rm -rf .env
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000 LANGFUSE_ASYNC_INGESTION_PROCESSING=false LANGFUSE_ASYNC_CLICKHOUSE_INGESTION_PROCESSING=false docker compose -f docker-compose.v3preview.yml up -d
+          TELEMETRY_ENABLED=false CLICKHOUSE_CLUSTER_ENABLED=false LANGFUSE_ASYNC_INGESTION_PROCESSING=false LANGFUSE_ASYNC_CLICKHOUSE_INGESTION_PROCESSING=false LANGFUSE_READ_FROM_POSTGRES_ONLY=true LANGFUSE_READ_FROM_CLICKHOUSE_ONLY=false docker compose -f docker-compose.v3preview.yml up -d
           echo "::endgroup::"
 
       # Add this step to check the health of the container
