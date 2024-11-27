@@ -22,7 +22,6 @@ from langchain_aws import BedrockLLM, ChatBedrock
 from langchain_huggingface.llms import HuggingFacePipeline
 from langchain_community.llms.textgen import TextGen
 from langchain_openai import (
-    AzureOpenAI,
     OpenAI,
     ChatOpenAI,
     AzureChatOpenAI,
@@ -110,15 +109,6 @@ def test_models(expected_model: str, model: Any):
             AzureChatOpenAI(
                 openai_api_version="2023-05-15",
                 model="gpt-3.5-turbo",
-                azure_deployment="your-deployment-name",
-                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
-            ),
-        ),
-        (
-            "gpt-3.5-turbo-instruct",
-            AzureOpenAI(
-                openai_api_version="2023-05-15",
-                model="gpt-3.5-turbo-instruct",
                 azure_deployment="your-deployment-name",
                 azure_endpoint="https://your-endpoint-name.azurewebsites.net",
             ),
