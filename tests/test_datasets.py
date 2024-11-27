@@ -267,6 +267,8 @@ def test_linking_via_id_observation_arg_legacy():
 
         item.link(generation_id, run_name)
 
+    langfuse.flush()
+
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name
