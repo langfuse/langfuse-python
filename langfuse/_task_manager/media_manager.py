@@ -146,7 +146,9 @@ class MediaManager:
                     field=field,
                 )
 
-                return media
+                data["data"] = media
+
+                return data
 
             # Vertex
             if (
@@ -167,7 +169,9 @@ class MediaManager:
                     field=field,
                 )
 
-                return media
+                data["data"] = media
+
+                return data
 
             if isinstance(data, list):
                 return [_process_data_recursively(item, level + 1) for item in data]
