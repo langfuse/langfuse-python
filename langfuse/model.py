@@ -54,6 +54,11 @@ class ChatMessageDict(TypedDict):
     content: str
 
 
+class ChatMessageVariables(TypedDict):
+    role: str
+    variables: List[str]
+
+
 class BasePromptClient(ABC):
     name: str
     version: int
@@ -84,6 +89,28 @@ class BasePromptClient(ABC):
     @staticmethod
     def _get_langchain_prompt_string(content: str):
         return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
+
+    @staticmethod
+    def _find_variable_names(content: str) -> List[str]:
+        opening = "{{"
+        closing = "}}"
+        curr_idx = 0
+        names = []
+
+        while curr_idx < len(content):
+            var_start = content.find(opening, curr_idx)
+            if var_start == -1:
+                break
+
+            var_end = content.find(closing, var_start)
+            if var_end == -1:
+                break
+
+            variable_name = content[var_start + len(opening) : var_end].strip()
+            names.append(variable_name)
+            curr_idx = var_end + len(closing)
+
+        return names
 
     @staticmethod
     def _compile_template_string(content: str, data: Dict[str, Any] = {}) -> str:
@@ -135,6 +162,14 @@ class TextPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> str:
         return self._compile_template_string(self.prompt, kwargs)
 
+    def variable_names(self) -> List[str]:
+        """Find all the variable names in the prompt template
+
+        Returns:
+            List[str]: The list of variable names found in the prompt template
+        """
+        return self._find_variable_names(self.prompt)
+
     def __eq__(self, other):
         if isinstance(self, other.__class__):
             return (
@@ -179,6 +214,21 @@ class ChatPromptClient(BasePromptClient):
         return [
             ChatMessageDict(
                 content=self._compile_template_string(chat_message["content"], kwargs),
+                role=chat_message["role"],
+            )
+            for chat_message in self.prompt
+        ]
+
+    def variable_names(self) -> List[ChatMessageVariables]:
+        """Find all the variable names in the chat prompt template per each chat message item
+
+        Returns:
+            List[ChatMessageVariables]: The list of variable names found in the prompt
+                                        template coupled with the message role
+        """
+        return [
+            ChatMessageVariables(
+                variables=self._find_variable_names(chat_message["content"]),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
