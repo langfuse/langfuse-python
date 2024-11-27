@@ -452,7 +452,7 @@ class LangfuseDecorator:
                 # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
                 json.loads(
                     json.dumps(
-                        result if result and capture_output else None,
+                        result if result is not None and capture_output else None,
                         cls=EventSerializer,
                     )
                 )
