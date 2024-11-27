@@ -11,7 +11,7 @@ class HealthResponse(pydantic_v1.BaseModel):
     """
     Examples
     --------
-    from finto import HealthResponse
+    from langfuse.api import HealthResponse
 
     HealthResponse(
         version="1.25.0",

@@ -13,7 +13,7 @@ class ScoreBody(pydantic_v1.BaseModel):
     """
     Examples
     --------
-    from finto import ScoreBody
+    from langfuse.api import ScoreBody
 
     ScoreBody(
         name="novelty",

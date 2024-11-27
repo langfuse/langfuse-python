@@ -244,7 +244,7 @@ class PromptsClient:
 
         Examples
         --------
-        from finto import ChatMessage, CreatePromptRequest_Chat
+        from langfuse.api import ChatMessage, CreatePromptRequest_Chat
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -542,7 +542,7 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from finto import ChatMessage, CreatePromptRequest_Chat
+        from langfuse.api import ChatMessage, CreatePromptRequest_Chat
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

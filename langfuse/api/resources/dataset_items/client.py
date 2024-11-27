@@ -47,7 +47,7 @@ class DatasetItemsClient:
 
         Examples
         --------
-        from finto import CreateDatasetItemRequest, DatasetStatus
+        from langfuse.api import CreateDatasetItemRequest, DatasetStatus
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -289,7 +289,7 @@ class AsyncDatasetItemsClient:
         --------
         import asyncio
 
-        from finto import CreateDatasetItemRequest, DatasetStatus
+        from langfuse.api import CreateDatasetItemRequest, DatasetStatus
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

@@ -52,7 +52,7 @@ class ScoreClient:
 
         Examples
         --------
-        from finto import CreateScoreRequest
+        from langfuse.api import CreateScoreRequest
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -183,7 +183,7 @@ class ScoreClient:
         --------
         import datetime
 
-        from finto import ScoreDataType, ScoreSource
+        from langfuse.api import ScoreDataType, ScoreSource
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -425,7 +425,7 @@ class AsyncScoreClient:
         --------
         import asyncio
 
-        from finto import CreateScoreRequest
+        from langfuse.api import CreateScoreRequest
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -563,7 +563,7 @@ class AsyncScoreClient:
         import asyncio
         import datetime
 
-        from finto import ScoreDataType, ScoreSource
+        from langfuse.api import ScoreDataType, ScoreSource
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

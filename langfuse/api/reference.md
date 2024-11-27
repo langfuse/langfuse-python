@@ -30,7 +30,7 @@ Create a comment. Comments may be attached to different object types (trace, obs
 <dd>
 
 ```python
-from finto import CreateCommentRequest
+from langfuse.api import CreateCommentRequest
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -303,7 +303,7 @@ Create a dataset item
 <dd>
 
 ```python
-from finto import CreateDatasetItemRequest, DatasetStatus
+from langfuse.api import CreateDatasetItemRequest, DatasetStatus
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -579,7 +579,7 @@ Create a dataset run item
 <dd>
 
 ```python
-from finto import CreateDatasetRunItemRequest
+from langfuse.api import CreateDatasetRunItemRequest
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -826,7 +826,7 @@ Create a dataset
 <dd>
 
 ```python
-from finto import CreateDatasetRequest
+from langfuse.api import CreateDatasetRequest
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -1162,7 +1162,7 @@ Notes:
 ```python
 import datetime
 
-from finto import IngestionEvent_TraceCreate, TraceBody
+from langfuse.api import IngestionEvent_TraceCreate, TraceBody
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -1350,7 +1350,7 @@ Patch a media record
 ```python
 import datetime
 
-from finto import PatchMediaBody
+from langfuse.api import PatchMediaBody
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -1443,7 +1443,7 @@ Get a presigned upload URL for a media record
 <dd>
 
 ```python
-from finto import GetMediaUploadUrlRequest
+from langfuse.api import GetMediaUploadUrlRequest
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -1668,7 +1668,7 @@ Create a model
 ```python
 import datetime
 
-from finto import CreateModelRequest, ModelUsageUnit
+from langfuse.api import CreateModelRequest, ModelUsageUnit
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2535,7 +2535,7 @@ Create a new version for the prompt with the given `name`
 <dd>
 
 ```python
-from finto import ChatMessage, CreatePromptRequest_Chat
+from langfuse.api import ChatMessage, CreatePromptRequest_Chat
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2625,7 +2625,7 @@ Create a score configuration (config). Score configs are used to define the stru
 <dd>
 
 ```python
-from finto import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
+from langfuse.api import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2877,7 +2877,7 @@ Create a score
 <dd>
 
 ```python
-from finto import CreateScoreRequest
+from langfuse.api import CreateScoreRequest
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2960,7 +2960,7 @@ Get a list of scores
 ```python
 import datetime
 
-from finto import ScoreDataType, ScoreSource
+from langfuse.api import ScoreDataType, ScoreSource
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(

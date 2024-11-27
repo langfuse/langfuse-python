@@ -16,7 +16,7 @@ pip install finto
 Instantiate and use the client with the following:
 
 ```python
-from finto import CreateCommentRequest
+from langfuse.api import CreateCommentRequest
 from langfuse.api.client import FernLangfuse
 
 client = FernLangfuse(
@@ -45,7 +45,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 ```python
 import asyncio
 
-from finto import CreateCommentRequest
+from langfuse.api import CreateCommentRequest
 from langfuse.api.client import AsyncFernLangfuse
 
 client = AsyncFernLangfuse(

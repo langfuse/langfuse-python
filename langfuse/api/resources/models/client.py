@@ -49,7 +49,7 @@ class ModelsClient:
         --------
         import datetime
 
-        from finto import CreateModelRequest, ModelUsageUnit
+        from langfuse.api import CreateModelRequest, ModelUsageUnit
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -341,7 +341,7 @@ class AsyncModelsClient:
         import asyncio
         import datetime
 
-        from finto import CreateModelRequest, ModelUsageUnit
+        from langfuse.api import CreateModelRequest, ModelUsageUnit
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

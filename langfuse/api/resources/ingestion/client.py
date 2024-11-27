@@ -57,7 +57,7 @@ class IngestionClient:
         --------
         import datetime
 
-        from finto import IngestionEvent_TraceCreate, TraceBody
+        from langfuse.api import IngestionEvent_TraceCreate, TraceBody
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -168,7 +168,7 @@ class AsyncIngestionClient:
         import asyncio
         import datetime
 
-        from finto import IngestionEvent_TraceCreate, TraceBody
+        from langfuse.api import IngestionEvent_TraceCreate, TraceBody
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

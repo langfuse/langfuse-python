@@ -47,7 +47,7 @@ class ScoreConfigsClient:
 
         Examples
         --------
-        from finto import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
+        from langfuse.api import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -275,7 +275,7 @@ class AsyncScoreConfigsClient:
         --------
         import asyncio
 
-        from finto import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
+        from langfuse.api import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

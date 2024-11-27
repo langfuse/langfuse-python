@@ -48,7 +48,7 @@ class CommentsClient:
 
         Examples
         --------
-        from finto import CreateCommentRequest
+        from langfuse.api import CreateCommentRequest
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -294,7 +294,7 @@ class AsyncCommentsClient:
         --------
         import asyncio
 
-        from finto import CreateCommentRequest
+        from langfuse.api import CreateCommentRequest
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

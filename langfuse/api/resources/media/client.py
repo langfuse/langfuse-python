@@ -119,7 +119,7 @@ class MediaClient:
         --------
         import datetime
 
-        from finto import PatchMediaBody
+        from langfuse.api import PatchMediaBody
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -197,7 +197,7 @@ class MediaClient:
 
         Examples
         --------
-        from finto import GetMediaUploadUrlRequest
+        from langfuse.api import GetMediaUploadUrlRequest
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -360,7 +360,7 @@ class AsyncMediaClient:
         import asyncio
         import datetime
 
-        from finto import PatchMediaBody
+        from langfuse.api import PatchMediaBody
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -446,7 +446,7 @@ class AsyncMediaClient:
         --------
         import asyncio
 
-        from finto import GetMediaUploadUrlRequest
+        from langfuse.api import GetMediaUploadUrlRequest
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(

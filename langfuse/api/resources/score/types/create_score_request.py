@@ -13,7 +13,7 @@ class CreateScoreRequest(pydantic_v1.BaseModel):
     """
     Examples
     --------
-    from finto import CreateScoreRequest
+    from langfuse.api import CreateScoreRequest
 
     CreateScoreRequest(
         name="novelty",
