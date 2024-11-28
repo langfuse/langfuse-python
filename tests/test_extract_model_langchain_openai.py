@@ -14,6 +14,7 @@ from tests.utils import get_api
             "gpt-3.5-turbo",
             AzureChatOpenAI(
                 openai_api_version="2023-05-15",
+                model="gpt-3.5-turbo",
                 azure_deployment="your-deployment-name",
                 azure_endpoint="https://your-endpoint-name.azurewebsites.net",
             ),
