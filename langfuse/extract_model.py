@@ -31,6 +31,7 @@ def _extract_model_name(
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
         ("BedrockChat", ["kwargs", "model_id"], "serialized"),
         ("Bedrock", ["kwargs", "model_id"], "serialized"),
+        ("BedrockLLM", ["kwargs", "model_id"], "serialized"),
         ("ChatBedrock", ["kwargs", "model_id"], "serialized"),
         ("LlamaCpp", ["invocation_params", "model_path"], "kwargs"),
         ("WatsonxLLM", ["invocation_params", "model_id"], "kwargs"),
@@ -45,6 +46,9 @@ def _extract_model_name(
 
     # Second, we match AzureOpenAI as we need to extract the model name, fdeployment version and deployment name
     if serialized.get("id")[-1] == "AzureOpenAI":
+        if kwargs.get("invocation_params").get("model"):
+            return kwargs.get("invocation_params").get("model")
+
         if kwargs.get("invocation_params").get("model_name"):
             return kwargs.get("invocation_params").get("model_name")
 
@@ -68,6 +72,7 @@ def _extract_model_name(
         ("ChatAnyscale", "model_name", None),
         ("TextGen", "model", "text-gen"),
         ("Ollama", "model", None),
+        ("OllamaLLM", "model", None),
         ("ChatOllama", "model", None),
         ("ChatFireworks", "model", None),
         ("ChatPerplexity", "model", None),

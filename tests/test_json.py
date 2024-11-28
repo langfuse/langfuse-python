@@ -33,10 +33,9 @@ def test_json_encoder():
 
     result = json.dumps(obj, cls=EventSerializer)
     assert (
-        '{"foo": "bar", "bar": "2021-01-01T00:00:00Z", "date": "2024-01-01", "messages": [{"lc": 1, "type": "constructor", "id":'
+        '{"foo": "bar", "bar": "2021-01-01T00:00:00Z", "date": "2024-01-01", "messages": [{"content": "I love programming!", "additional_kwargs": {}, "response_metadata": {}, "type": "human", "name": null, "id": null, "example": false}]}'
         in result
     )
-    assert "HumanMessage" in result
 
 
 def test_json_decoder_pydantic():

@@ -1,4 +1,4 @@
-from langchain_openai import AzureChatOpenAI, AzureOpenAI, ChatOpenAI, OpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
 import pytest
 
 from langfuse.callback import CallbackHandler
@@ -14,18 +14,20 @@ from tests.utils import get_api
             "gpt-3.5-turbo",
             AzureChatOpenAI(
                 openai_api_version="2023-05-15",
+                model="gpt-3.5-turbo",
                 azure_deployment="your-deployment-name",
                 azure_endpoint="https://your-endpoint-name.azurewebsites.net",
             ),
         ),
-        (
-            "gpt-3.5-turbo-instruct",
-            AzureOpenAI(
-                openai_api_version="2023-05-15",
-                azure_deployment="your-deployment-name",
-                azure_endpoint="https://your-endpoint-name.azurewebsites.net",
-            ),
-        ),
+        # # default model is now set a s azure-deployment since langchain > 0.3.0
+        # (
+        #     "gpt-3.5-turbo-instruct",
+        #     AzureOpenAI(
+        #         openai_api_version="2023-05-15",
+        #         azure_deployment="your-deployment-name",
+        #         azure_endpoint="https://your-endpoint-name.azurewebsites.net",
+        #     ),
+        # ),
     ],
 )
 def test_entire_llm_call_using_langchain_openai(expected_model, model):
@@ -46,4 +48,4 @@ def test_entire_llm_call_using_langchain_openai(expected_model, model):
     assert len(trace.observations) == 1
 
     generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
-    assert generation.model == expected_model
+    assert expected_model in generation.model

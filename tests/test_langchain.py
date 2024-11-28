@@ -1259,7 +1259,8 @@ def test_callback_openai_functions_python():
                 "function_call": {
                     "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": {\n    "food": null\n  }\n}',
                     "name": "record_dog",
-                }
+                },
+                "refusal": None,
             },
         }
         assert generation.usage.total is not None

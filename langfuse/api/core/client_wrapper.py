@@ -17,7 +17,7 @@ class BaseClientWrapper:
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
-        timeout: typing.Optional[float] = None
+        timeout: typing.Optional[float] = None,
     ):
         self._x_langfuse_sdk_name = x_langfuse_sdk_name
         self._x_langfuse_sdk_version = x_langfuse_sdk_version
@@ -71,7 +71,7 @@ class SyncClientWrapper(BaseClientWrapper):
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
-        httpx_client: httpx.Client
+        httpx_client: httpx.Client,
     ):
         super().__init__(
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -101,7 +101,7 @@ class AsyncClientWrapper(BaseClientWrapper):
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
-        httpx_client: httpx.AsyncClient
+        httpx_client: httpx.AsyncClient,
     ):
         super().__init__(
             x_langfuse_sdk_name=x_langfuse_sdk_name,

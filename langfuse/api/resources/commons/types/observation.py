@@ -36,12 +36,16 @@ class Observation(pydantic_v1.BaseModel):
     The start time of the observation
     """
 
-    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="endTime", default=None)
+    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
+        alias="endTime", default=None
+    )
     """
     The end time of the observation.
     """
 
-    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="completionStartTime", default=None)
+    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
+        alias="completionStartTime", default=None
+    )
     """
     The completion start time of the observation
     """
@@ -88,12 +92,16 @@ class Observation(pydantic_v1.BaseModel):
     The level of the observation
     """
 
-    status_message: typing.Optional[str] = pydantic_v1.Field(alias="statusMessage", default=None)
+    status_message: typing.Optional[str] = pydantic_v1.Field(
+        alias="statusMessage", default=None
+    )
     """
     The status message of the observation
     """
 
-    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(alias="parentObservationId", default=None)
+    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="parentObservationId", default=None
+    )
     """
     The parent observation ID
     """
@@ -104,15 +112,28 @@ class Observation(pydantic_v1.BaseModel):
     """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
+        kwargs_with_defaults_exclude_unset: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
         )
 
     class Config:
