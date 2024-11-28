@@ -768,6 +768,9 @@ class LangchainCallbackHandler(
             for key, value in {
                 "temperature": kwargs["invocation_params"].get("temperature"),
                 "max_tokens": kwargs["invocation_params"].get("max_tokens"),
+                "max_completion_tokens": kwargs["invocation_params"].get(
+                    "max_completion_tokens"
+                ),
                 "top_p": kwargs["invocation_params"].get("top_p"),
                 "frequency_penalty": kwargs["invocation_params"].get(
                     "frequency_penalty"
