@@ -47,7 +47,10 @@ def extract_by_priority(
 
 
 def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
-    """Converts any usage input to a usage object"""
+    """Convert any usage input to a usage object.
+
+    Deprecated, only used for backwards compatibility with legacy 'usage' objects in generation create / update
+    """
     if isinstance(usage, pydantic.BaseModel):
         usage = usage.dict()
 
@@ -103,3 +106,75 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
         raise ValueError(
             "Usage object must have either {input, output, total, unit} or {promptTokens, completionTokens, totalTokens}"
         )
+
+
+def _extract_usage_details(usage_details: typing.Dict[str, typing.Any]):
+    if isinstance(usage_details, pydantic.BaseModel):
+        usage_details = usage_details.dict()
+
+    if hasattr(usage_details, "__dict__"):
+        usage_details = usage_details.__dict__
+
+    # Handle openai usage details
+    if all(
+        k in usage_details
+        for k in ("prompt_tokens", "completion_tokens", "total_tokens")
+    ) or all(
+        k in usage_details for k in ("promptTokens", "completionTokens", "totalTokens")
+    ):
+        openai_usage_details = {
+            "input": usage_details.get("prompt_tokens", None)
+            or usage_details.get("promptTokens", None),
+            "output": usage_details.get("completion_tokens", None)
+            or usage_details.get("completionTokens", None),
+            "total": usage_details.get("total_tokens", None)
+            or usage_details.get("totalTokens", None),
+        }
+
+        prompt_token_details = usage_details.get("prompt_token_details", {})
+        if isinstance(prompt_token_details, dict):
+            if "cached_tokens" in prompt_token_details:
+                openai_usage_details["input_cached"] = prompt_token_details[
+                    "cached_tokens"
+                ]
+                openai_usage_details["input"] = max(
+                    openai_usage_details.get("input", 0)
+                    - openai_usage_details["input_cached"],
+                    0,
+                )
+
+            if "audio_tokens" in prompt_token_details:
+                openai_usage_details["input_audio"] = prompt_token_details[
+                    "audio_tokens"
+                ]
+                openai_usage_details["input"] = max(
+                    openai_usage_details.get("input", 0)
+                    - openai_usage_details["input_audio"],
+                    0,
+                )
+
+        output_token_details = usage_details.get("completion_token_details", {})
+        if isinstance(output_token_details, dict):
+            if "audio_tokens" in output_token_details:
+                openai_usage_details["output_audio"] = output_token_details[
+                    "audio_tokens"
+                ]
+                openai_usage_details["output"] = max(
+                    openai_usage_details.get("output", 0)
+                    - openai_usage_details["output_audio"],
+                    0,
+                )
+
+            if "reasoning_tokens" in output_token_details:
+                openai_usage_details["output_reasoning"] = output_token_details[
+                    "reasoning_tokens"
+                ]
+                openai_usage_details["output"] = max(
+                    openai_usage_details.get("output", 0)
+                    - openai_usage_details["output_reasoning"],
+                    0,
+                )
+
+        return openai_usage_details
+
+    return usage_details
