@@ -22,6 +22,12 @@ class UpdateGenerationBody(UpdateSpanBody):
     prompt_name: typing.Optional[str] = pydantic_v1.Field(
         alias="promptName", default=None
     )
+    usage_details: typing.Optional[typing.Dict[str, int]] = pydantic_v1.Field(
+        alias="usageDetails", default=None
+    )
+    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(
+        alias="costDetails", default=None
+    )
     prompt_version: typing.Optional[int] = pydantic_v1.Field(
         alias="promptVersion", default=None
     )
