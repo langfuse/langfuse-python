@@ -178,12 +178,6 @@ def _extract_usage_details(usage_details: typing.Dict[str, typing.Any]):
                     0,
                 )
 
-        # Remove input and output if they are 0, i.e. all details add up to the total provided by OpenAI
-        if openai_usage_details["input"] == 0:
-            openai_usage_details.pop("input")
-        if openai_usage_details["output"] == 0:
-            openai_usage_details.pop("output")
-
         return openai_usage_details
 
     return usage_details
