@@ -4,12 +4,20 @@ import logging
 import typing
 from datetime import datetime, timezone
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+import pydantic
+
 
 from langfuse.model import ModelUsage, PromptClient
+
+IS_PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
+
+if IS_PYDANTIC_V2:
+    import pydantic.v1 as pydantic_v1  # noqa
+    import pydantic as pydantic_v2  # noqa
+else:
+    import pydantic as pydantic_v1  # noqa
+
+    pydantic_v2 = None  # type: ignore
 
 log = logging.getLogger("langfuse")
 
@@ -46,12 +54,12 @@ def extract_by_priority(
     return None
 
 
-def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
+def _convert_usage_input(usage: typing.Union[pydantic_v1.BaseModel, ModelUsage]):
     """Convert any usage input to a usage object.
 
     Deprecated, only used for backwards compatibility with legacy 'usage' objects in generation create / update
     """
-    if isinstance(usage, pydantic.BaseModel):
+    if isinstance(usage, pydantic_v1.BaseModel):
         usage = usage.dict()
 
     # sometimes we do not match the pydantic usage object
@@ -109,8 +117,11 @@ def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
 
 
 def _extract_usage_details(usage_details: typing.Dict[str, typing.Any]):
-    if isinstance(usage_details, pydantic.BaseModel):
+    if isinstance(usage_details, pydantic_v1.BaseModel):
         usage_details = usage_details.dict()
+
+    if pydantic_v2 is not None and isinstance(usage_details, pydantic_v2.BaseModel):
+        usage_details = usage_details.model_dump()
 
     if hasattr(usage_details, "__dict__"):
         usage_details = usage_details.__dict__
@@ -131,49 +142,47 @@ def _extract_usage_details(usage_details: typing.Dict[str, typing.Any]):
             or usage_details.get("totalTokens", None),
         }
 
-        prompt_token_details = usage_details.get("prompt_token_details", {})
-        if isinstance(prompt_token_details, dict):
-            if "cached_tokens" in prompt_token_details:
-                openai_usage_details["input_cached"] = prompt_token_details[
-                    "cached_tokens"
-                ]
+        # Handle input token details
+        prompt_tokens_details = usage_details.get("prompt_tokens_details", {})
+        if pydantic_v2 is not None and isinstance(
+            prompt_tokens_details, pydantic_v2.BaseModel
+        ):
+            prompt_tokens_details = prompt_tokens_details.model_dump()
+        elif hasattr(prompt_tokens_details, "__dict__"):
+            prompt_tokens_details = prompt_tokens_details.__dict__
+
+        if isinstance(prompt_tokens_details, dict):
+            for key in prompt_tokens_details:
+                openai_usage_details[f"input_{key}"] = prompt_tokens_details[key]
                 openai_usage_details["input"] = max(
                     openai_usage_details.get("input", 0)
-                    - openai_usage_details["input_cached"],
+                    - openai_usage_details[f"input_{key}"],
                     0,
                 )
 
-            if "audio_tokens" in prompt_token_details:
-                openai_usage_details["input_audio"] = prompt_token_details[
-                    "audio_tokens"
-                ]
-                openai_usage_details["input"] = max(
-                    openai_usage_details.get("input", 0)
-                    - openai_usage_details["input_audio"],
-                    0,
-                )
+        # Handle output token details
+        completion_tokens_details = usage_details.get("completion_tokens_details", {})
+        if pydantic_v2 is not None and isinstance(
+            completion_tokens_details, pydantic_v2.BaseModel
+        ):
+            completion_tokens_details = completion_tokens_details.model_dump()
+        elif hasattr(completion_tokens_details, "__dict__"):
+            completion_tokens_details = completion_tokens_details.__dict__
 
-        output_token_details = usage_details.get("completion_token_details", {})
-        if isinstance(output_token_details, dict):
-            if "audio_tokens" in output_token_details:
-                openai_usage_details["output_audio"] = output_token_details[
-                    "audio_tokens"
-                ]
+        if isinstance(completion_tokens_details, dict):
+            for key in completion_tokens_details:
+                openai_usage_details[f"output_{key}"] = completion_tokens_details[key]
                 openai_usage_details["output"] = max(
                     openai_usage_details.get("output", 0)
-                    - openai_usage_details["output_audio"],
+                    - openai_usage_details[f"output_{key}"],
                     0,
                 )
 
-            if "reasoning_tokens" in output_token_details:
-                openai_usage_details["output_reasoning"] = output_token_details[
-                    "reasoning_tokens"
-                ]
-                openai_usage_details["output"] = max(
-                    openai_usage_details.get("output", 0)
-                    - openai_usage_details["output_reasoning"],
-                    0,
-                )
+        # Remove input and output if they are 0, i.e. all details add up to the total provided by OpenAI
+        if openai_usage_details["input"] == 0:
+            openai_usage_details.pop("input")
+        if openai_usage_details["output"] == 0:
+            openai_usage_details.pop("output")
 
         return openai_usage_details
 
