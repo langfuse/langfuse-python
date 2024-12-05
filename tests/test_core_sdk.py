@@ -1536,3 +1536,17 @@ def test_mask_function():
     fetched_trace = api_wrapper.get_trace(trace.id)
     assert fetched_trace["input"] == "<fully masked due to failed mask function>"
     assert fetched_trace["output"] == "<fully masked due to failed mask function>"
+
+
+def test_generate_trace_id():
+    langfuse = Langfuse(debug=False)
+    trace_id = create_uuid()
+
+    trace = langfuse.trace(id=trace_id, name="test_trace")
+    langfuse.flush()
+
+    trace_url = langfuse.get_trace_url()
+    assert (
+        trace_url
+        == f"https://localhost:3000/7a88fb47-b4e2-43b8-a06c-a5ce950dc53a/traces/{trace_id}"
+    )

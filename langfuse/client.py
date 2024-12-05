@@ -152,6 +152,9 @@ class Langfuse(object):
     host: str
     """Host of Langfuse API."""
 
+    project_id: Optional[str]
+    """Project ID of the Langfuse project associated with the API keys provided."""
+
     def __init__(
         self,
         public_key: Optional[str] = None,
@@ -330,7 +333,14 @@ class Langfuse(object):
 
     def get_trace_url(self) -> str:
         """Get the URL of the current trace to view it in the Langfuse UI."""
-        return f"{self.base_url}/trace/{self.trace_id}"
+        if not self.trace_id:
+            proj = self.client.projects.get()
+            if not proj.data or not proj.data[0].id:
+                return f"{self.base_url}/trace/{self.trace_id}"
+
+            self.project_id = proj.data[0].id
+
+        return f"{self.base_url}/{self.project_id}/traces/{self.trace_id}"
 
     def get_dataset(
         self, name: str, *, fetch_items_page_size: Optional[int] = 50
