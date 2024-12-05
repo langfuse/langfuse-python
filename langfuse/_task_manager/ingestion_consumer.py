@@ -21,8 +21,8 @@ from langfuse.types import MaskFunction
 
 from .media_manager import MediaManager
 
-MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 10_000_000))
-MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 20_500_000))
+MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 20_000_000))
+MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 40_500_000))
 
 
 class IngestionMetadata(pydantic.BaseModel):
