@@ -1,7 +1,7 @@
 """@private"""
 
 from abc import ABC, abstractmethod
-from typing import Optional, TypedDict, Any, Dict, Union, List
+from typing import Optional, TypedDict, Any, Dict, Union, List, Tuple
 import re
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -59,6 +59,69 @@ class ChatMessageVariables(TypedDict):
     variables: List[str]
 
 
+class TemplateParser:
+    OPENING = "{{"
+    CLOSING = "}}"
+
+    @staticmethod
+    def _parse_next_variable(
+        content: str, start_idx: int
+    ) -> Optional[Tuple[str, int, int]]:
+        """Returns (variable_name, start_pos, end_pos) or None if no variable found"""
+        var_start = content.find(TemplateParser.OPENING, start_idx)
+        if var_start == -1:
+            return None
+
+        var_end = content.find(TemplateParser.CLOSING, var_start)
+        if var_end == -1:
+            return None
+
+        variable_name = content[
+            var_start + len(TemplateParser.OPENING) : var_end
+        ].strip()
+        return (variable_name, var_start, var_end + len(TemplateParser.CLOSING))
+
+    @staticmethod
+    def find_variable_names(content: str) -> List[str]:
+        names = []
+        curr_idx = 0
+
+        while curr_idx < len(content):
+            result = TemplateParser._parse_next_variable(content, curr_idx)
+            if not result:
+                break
+            names.append(result[0])
+            curr_idx = result[2]
+
+        return names
+
+    @staticmethod
+    def compile_template(content: str, data: Dict[str, Any] = {}) -> str:
+        result_list = []
+        curr_idx = 0
+
+        while curr_idx < len(content):
+            result = TemplateParser._parse_next_variable(content, curr_idx)
+
+            if not result:
+                result_list.append(content[curr_idx:])
+                break
+
+            variable_name, var_start, var_end = result
+            result_list.append(content[curr_idx:var_start])
+
+            if variable_name in data:
+                result_list.append(
+                    str(data[variable_name]) if data[variable_name] is not None else ""
+                )
+            else:
+                result_list.append(content[var_start:var_end])
+
+            curr_idx = var_end
+
+        return "".join(result_list)
+
+
 class BasePromptClient(ABC):
     name: str
     version: int
@@ -79,6 +142,10 @@ class BasePromptClient(ABC):
         pass
 
     @abstractmethod
+    def variable_names(self, **kwargs) -> Union[List[str], List[ChatMessageVariables]]:
+        pass
+
+    @abstractmethod
     def __eq__(self, other):
         pass
 
@@ -90,69 +157,6 @@ class BasePromptClient(ABC):
     def _get_langchain_prompt_string(content: str):
         return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
 
-    @staticmethod
-    def _find_variable_names(content: str) -> List[str]:
-        opening = "{{"
-        closing = "}}"
-        curr_idx = 0
-        names = []
-
-        while curr_idx < len(content):
-            var_start = content.find(opening, curr_idx)
-            if var_start == -1:
-                break
-
-            var_end = content.find(closing, var_start)
-            if var_end == -1:
-                break
-
-            variable_name = content[var_start + len(opening) : var_end].strip()
-            names.append(variable_name)
-            curr_idx = var_end + len(closing)
-
-        return names
-
-    @staticmethod
-    def _compile_template_string(content: str, data: Dict[str, Any] = {}) -> str:
-        opening = "{{"
-        closing = "}}"
-
-        result_list = []
-        curr_idx = 0
-
-        while curr_idx < len(content):
-            # Find the next opening tag
-            var_start = content.find(opening, curr_idx)
-
-            if var_start == -1:
-                result_list.append(content[curr_idx:])
-                break
-
-            # Find the next closing tag
-            var_end = content.find(closing, var_start)
-
-            if var_end == -1:
-                result_list.append(content[curr_idx:])
-                break
-
-            # Append the content before the variable
-            result_list.append(content[curr_idx:var_start])
-
-            # Extract the variable name
-            variable_name = content[var_start + len(opening) : var_end].strip()
-
-            # Append the variable value
-            if variable_name in data:
-                result_list.append(
-                    str(data[variable_name]) if data[variable_name] is not None else ""
-                )
-            else:
-                result_list.append(content[var_start : var_end + len(closing)])
-
-            curr_idx = var_end + len(closing)
-
-        return "".join(result_list)
-
 
 class TextPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Text, is_fallback: bool = False):
@@ -160,7 +164,7 @@ class TextPromptClient(BasePromptClient):
         self.prompt = prompt.prompt
 
     def compile(self, **kwargs) -> str:
-        return self._compile_template_string(self.prompt, kwargs)
+        return TemplateParser.compile_template(self.prompt, kwargs)
 
     def variable_names(self) -> List[str]:
         """Find all the variable names in the prompt template
@@ -168,7 +172,7 @@ class TextPromptClient(BasePromptClient):
         Returns:
             List[str]: The list of variable names found in the prompt template
         """
-        return self._find_variable_names(self.prompt)
+        return TemplateParser.find_variable_names(self.prompt)
 
     def __eq__(self, other):
         if isinstance(self, other.__class__):
@@ -195,7 +199,7 @@ class TextPromptClient(BasePromptClient):
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
         prompt = (
-            self._compile_template_string(self.prompt, kwargs)
+            TemplateParser.compile_template(self.prompt, kwargs)
             if kwargs
             else self.prompt
         )
@@ -213,7 +217,9 @@ class ChatPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> List[ChatMessageDict]:
         return [
             ChatMessageDict(
-                content=self._compile_template_string(chat_message["content"], kwargs),
+                content=TemplateParser.compile_template(
+                    chat_message["content"], kwargs
+                ),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
@@ -221,14 +227,13 @@ class ChatPromptClient(BasePromptClient):
 
     def variable_names(self) -> List[ChatMessageVariables]:
         """Find all the variable names in the chat prompt template per each chat message item
-
         Returns:
             List[ChatMessageVariables]: The list of variable names found in the prompt
                                         template coupled with the message role
         """
         return [
             ChatMessageVariables(
-                variables=self._find_variable_names(chat_message["content"]),
+                variables=TemplateParser.find_variable_names(chat_message["content"]),
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
@@ -265,7 +270,7 @@ class ChatPromptClient(BasePromptClient):
             (
                 msg["role"],
                 self._get_langchain_prompt_string(
-                    self._compile_template_string(msg["content"], kwargs)
+                    TemplateParser.compile_template(msg["content"], kwargs)
                     if kwargs
                     else msg["content"]
                 ),
