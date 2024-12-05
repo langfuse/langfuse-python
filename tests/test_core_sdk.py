@@ -1542,7 +1542,7 @@ def test_generate_trace_id():
     langfuse = Langfuse(debug=False)
     trace_id = create_uuid()
 
-    trace = langfuse.trace(id=trace_id, name="test_trace")
+    langfuse.trace(id=trace_id, name="test_trace")
     langfuse.flush()
 
     trace_url = langfuse.get_trace_url()
