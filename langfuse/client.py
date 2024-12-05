@@ -341,7 +341,7 @@ class Langfuse(object):
 
             self.project_id = proj.data[0].id
 
-        return f"{self.base_url}/{self.project_id}/traces/{self.trace_id}"
+        return f"{self.base_url}/project/{self.project_id}/traces/{self.trace_id}"
 
     def get_dataset(
         self, name: str, *, fetch_items_page_size: Optional[int] = 50
