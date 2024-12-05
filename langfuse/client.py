@@ -314,6 +314,7 @@ class Langfuse(object):
         self.task_manager = TaskManager(**args)
 
         self.trace_id = None
+        self.project_id = None
 
         self.release = self._get_release_value(release)
 
@@ -333,7 +334,7 @@ class Langfuse(object):
 
     def get_trace_url(self) -> str:
         """Get the URL of the current trace to view it in the Langfuse UI."""
-        if not self.trace_id:
+        if not self.project_id:
             proj = self.client.projects.get()
             if not proj.data or not proj.data[0].id:
                 return f"{self.base_url}/trace/{self.trace_id}"
