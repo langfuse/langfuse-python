@@ -9,6 +9,7 @@ from json import JSONEncoder
 from logging import getLogger
 from pathlib import Path
 from typing import Any
+import typing
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -123,6 +124,13 @@ class EventSerializer(JSONEncoder):
             # Useful for serializing protobuf messages
             if isinstance(obj, Sequence):
                 return [self.default(item) for item in obj]
+
+            # typing.get_origin only available in Python 3.8 and above
+            try:
+                if isinstance(obj, type) or typing.get_origin(obj) is not None:
+                    return f"<{getattr(obj, 'name', str(obj))}>"
+            except Exception:
+                pass
 
             if hasattr(obj, "__slots__"):
                 return self.default(
