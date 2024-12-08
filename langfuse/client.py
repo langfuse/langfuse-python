@@ -284,6 +284,7 @@ class Langfuse(object):
             x_langfuse_sdk_version=version,
             x_langfuse_public_key=public_key,
             httpx_client=self.httpx_client,
+            timeout=timeout,
         )
 
         langfuse_client = LangfuseClient(
