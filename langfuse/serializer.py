@@ -75,7 +75,10 @@ class EventSerializer(JSONEncoder):
                 return str(obj)
 
             if isinstance(obj, bytes):
-                return obj.decode("utf-8")
+                try:
+                    return obj.decode("utf-8")
+                except UnicodeDecodeError:
+                    return "<not serializable bytes>"
 
             if isinstance(obj, (date)):
                 return obj.isoformat()
