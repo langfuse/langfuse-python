@@ -84,7 +84,7 @@ class Observation(pydantic_v1.BaseModel):
 
     usage: typing.Optional[Usage] = pydantic_v1.Field(default=None)
     """
-    The usage data of the observation
+    (Deprecated. Use usageDetails and costDetails instead.) The usage data of the observation
     """
 
     level: ObservationLevel = pydantic_v1.Field()
@@ -109,6 +109,20 @@ class Observation(pydantic_v1.BaseModel):
     prompt_id: typing.Optional[str] = pydantic_v1.Field(alias="promptId", default=None)
     """
     The prompt ID associated with the observation
+    """
+
+    usage_details: typing.Optional[typing.Dict[str, int]] = pydantic_v1.Field(
+        alias="usageDetails", default=None
+    )
+    """
+    The usage details of the observation. Key is the name of the usage metric, value is the number of units consumed. The total key is the sum of all (non-total) usage metrics or the total value ingested.
+    """
+
+    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(
+        alias="costDetails", default=None
+    )
+    """
+    The cost details of the observation. Key is the name of the cost metric, value is the cost in USD. The total key is the sum of all (non-total) cost metrics or the total value ingested.
     """
 
     def json(self, **kwargs: typing.Any) -> str:

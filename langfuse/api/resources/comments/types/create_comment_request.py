@@ -25,7 +25,7 @@ class CreateCommentRequest(pydantic_v1.BaseModel):
 
     content: str = pydantic_v1.Field()
     """
-    The content of the comment. May include markdown. Currently limited to 500 characters.
+    The content of the comment. May include markdown. Currently limited to 3000 characters.
     """
 
     author_user_id: typing.Optional[str] = pydantic_v1.Field(
