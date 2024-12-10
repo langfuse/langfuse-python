@@ -150,23 +150,35 @@ class LangchainCallbackHandler(
             self.updated_completion_start_time_memo.add(run_id)
 
     def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
-        """Retrieves the 'run_name' for an entity based on Langchain convention, prioritizing the 'name'
-        key in 'kwargs' or falling back to the 'name' or 'id' in 'serialized'. Defaults to "<unknown>"
-        if none are available.
+        """Retrieve the name of a serialized LangChain runnable.
+
+        The prioritization for the determination of the run name is as follows:
+        - The value assigned to the "name" key in `kwargs`.
+        - The value assigned to the "name" key in `serialized`.
+        - The last entry of the value assigned to the "id" key in `serialized`.
+        - "<unknown>".
 
         Args:
-            serialized (Dict[str, Any]): A dictionary containing the entity's serialized data.
+            serialized (Dict[str, Any]): A dictionary containing the runnable's serialized data.
             **kwargs (Any): Additional keyword arguments, potentially including the 'name' override.
 
         Returns:
-            str: The determined Langchain run name for the entity.
+            str: The determined name of the Langchain runnable.
         """
-        # Check if 'name' is in kwargs and not None, otherwise use default fallback logic
         if "name" in kwargs and kwargs["name"] is not None:
             return kwargs["name"]
 
-        # Fallback to serialized 'name', 'id', or "<unknown>"
-        return serialized.get("name", serialized.get("id", ["<unknown>"])[-1])
+        try:
+            return serialized["name"]
+        except (KeyError, TypeError):
+            pass
+
+        try:
+            return serialized["id"][-1]
+        except (KeyError, TypeError):
+            pass
+
+        return "<unknown>"
 
     def on_retriever_error(
         self,
