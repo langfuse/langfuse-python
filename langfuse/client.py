@@ -885,6 +885,20 @@ class Langfuse(object):
             handle_fern_exception(e)
             raise e
 
+    def fetch_media(self, id: str):
+        """Get media content by ID.
+
+        Args:
+            id: The identifier of the media content to fetch.
+
+        Returns:
+            Media object
+
+        Raises:
+            Exception: If the media content could not be found or if an error occurred during the request.
+        """
+        return self.client.media.get(id)
+
     def get_observation(
         self,
         id: str,
