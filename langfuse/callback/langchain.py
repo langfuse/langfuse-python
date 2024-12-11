@@ -149,7 +149,7 @@ class LangchainCallbackHandler(
 
             self.updated_completion_start_time_memo.add(run_id)
 
-    def get_langchain_run_name(self, serialized: Dict[str, Any], **kwargs: Any) -> str:
+    def get_langchain_run_name(self, serialized: Optional[Dict[str, Any]], **kwargs: Any) -> str:
         """Retrieve the name of a serialized LangChain runnable.
 
         The prioritization for the determination of the run name is as follows:
@@ -159,7 +159,7 @@ class LangchainCallbackHandler(
         - "<unknown>".
 
         Args:
-            serialized (Dict[str, Any]): A dictionary containing the runnable's serialized data.
+            serialized (Optional[Dict[str, Any]]): A dictionary containing the runnable's serialized data.
             **kwargs (Any): Additional keyword arguments, potentially including the 'name' override.
 
         Returns:
@@ -208,7 +208,7 @@ class LangchainCallbackHandler(
 
     def on_chain_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         inputs: Dict[str, Any],
         *,
         run_id: UUID,
@@ -301,7 +301,7 @@ class LangchainCallbackHandler(
 
     def __generate_trace_and_parent(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         inputs: Union[Dict[str, Any], List[str], str, None],
         *,
         run_id: UUID,
@@ -491,7 +491,7 @@ class LangchainCallbackHandler(
 
     def on_chat_model_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         messages: List[List[BaseMessage]],
         *,
         run_id: UUID,
@@ -520,7 +520,7 @@ class LangchainCallbackHandler(
 
     def on_llm_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         prompts: List[str],
         *,
         run_id: UUID,
@@ -547,7 +547,7 @@ class LangchainCallbackHandler(
 
     def on_tool_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         input_str: str,
         *,
         run_id: UUID,
@@ -585,7 +585,7 @@ class LangchainCallbackHandler(
 
     def on_retriever_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         query: str,
         *,
         run_id: UUID,
@@ -710,7 +710,7 @@ class LangchainCallbackHandler(
 
     def __on_llm_action(
         self,
-        serialized: Dict[str, Any],
+        serialized: Optional[Dict[str, Any]],
         run_id: UUID,
         prompts: List[str],
         parent_run_id: Optional[UUID] = None,
