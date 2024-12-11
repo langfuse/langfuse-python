@@ -145,8 +145,8 @@ def test_replace_media_reference_string_in_object(tmp_path):
     )
 
     # Resolve media references back to base64
-    resolved_trace = LangfuseMedia.resolve_media_references(
-        obj=fetched_trace, langfuse_client=langfuse, resolve_with="base64_data_uri"
+    resolved_trace = langfuse.resolve_media_references(
+        obj=fetched_trace, resolve_with="base64_data_uri"
     )
 
     # Verify resolved base64 matches original
