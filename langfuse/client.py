@@ -364,7 +364,7 @@ class Langfuse(object):
             page = 1
             while True:
                 new_items = self.client.dataset_items.list(
-                    dataset_name=self._url_encode(name),
+                    dataset_name=name,
                     page=page,
                     limit=fetch_items_page_size,
                 )
