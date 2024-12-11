@@ -213,6 +213,7 @@ class LangfuseMedia:
         langfuse_client: Any,
         resolve_with: Literal["base64_data_uri"],
         max_depth: int = 10,
+        content_fetch_timeout_seconds: int = 10,
     ) -> T:
         """Replace media reference strings in an object with base64 data URIs.
 
@@ -258,7 +259,7 @@ class LangfuseMedia:
             if depth > max_depth:
                 return obj
 
-            # Handle string with potential media references
+            # Handle string
             if isinstance(obj, str):
                 regex = r"@@@langfuseMedia:.+?@@@"
                 reference_string_matches = re.findall(regex, obj)
@@ -275,8 +276,10 @@ class LangfuseMedia:
                         )
                         media_data = langfuse_client.fetch_media(
                             parsed_media_reference["media_id"]
+                        ).data
+                        media_content = requests.get(
+                            media_data.url, timeout=content_fetch_timeout_seconds
                         )
-                        media_content = requests.get(media_data.url)
                         if not media_content.ok:
                             raise Exception("Failed to fetch media content")
 
@@ -289,7 +292,7 @@ class LangfuseMedia:
                             base64_data_uri
                         )
                     except Exception as e:
-                        logging.warning(
+                        LangfuseMedia._log.warning(
                             f"Error fetching media content for reference string {reference_string}: {e}"
                         )
                         # Do not replace the reference string if there's an error

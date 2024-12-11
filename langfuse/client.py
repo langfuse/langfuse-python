@@ -49,6 +49,7 @@ from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
     MetaResponse,
 )
+from langfuse.api.resources.media import GetMediaResponse
 from langfuse.model import (
     ChatMessageDict,
     ChatPromptClient,
@@ -109,6 +110,13 @@ class FetchObservationResponse:
     """Response object for fetch_observation method."""
 
     data: Observation
+
+
+@dataclass
+class FetchMediaResponse:
+    """Response object for fetch_media method."""
+
+    data: GetMediaResponse
 
 
 @dataclass
@@ -885,19 +893,23 @@ class Langfuse(object):
             handle_fern_exception(e)
             raise e
 
-    def fetch_media(self, id: str):
+    def fetch_media(self, id: str) -> FetchMediaResponse:
         """Get media content by ID.
 
         Args:
             id: The identifier of the media content to fetch.
 
         Returns:
-            Media object
+            FetchMediaResponse: The media data of the given id on `data`.
 
         Raises:
-            Exception: If the media content could not be found or if an error occurred during the request.
+            Exception: If the media content with the given id could not be found within the authenticated project or if an error occurred during the request.
         """
-        return self.client.media.get(id)
+        try:
+            return FetchMediaResponse(data=self.client.media.get(id))
+        except Exception as e:
+            handle_fern_exception(e)
+            raise e
 
     def get_observation(
         self,
