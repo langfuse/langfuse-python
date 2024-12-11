@@ -75,6 +75,7 @@ from langfuse.api.client import FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
+from langfuse.media import LangfuseMedia
 from langfuse.request import LangfuseClient
 from langfuse.types import MaskFunction, ScoreDataType, SpanLevel
 from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
@@ -910,6 +911,61 @@ class Langfuse(object):
         except Exception as e:
             handle_fern_exception(e)
             raise e
+
+    def resolve_media_references(
+        self,
+        *,
+        obj: Any,
+        resolve_with: Literal["base64_data_uri"],
+        max_depth: int = 10,
+        content_fetch_timeout_seconds: int = 10,
+    ):
+        """Replace media reference strings in an object with base64 data URIs.
+
+        This method recursively traverses an object (up to max_depth) looking for media reference strings
+        in the format "@@@langfuseMedia:...@@@". When found, it (synchronously) fetches the actual media content using
+        the provided Langfuse client and replaces the reference string with a base64 data URI.
+
+        If fetching media content fails for a reference string, a warning is logged and the reference
+        string is left unchanged.
+
+        Args:
+            obj: The object to process. Can be a primitive value, array, or nested object.
+                If the object has a __dict__ attribute, a dict will be returned instead of the original object type.
+            resolve_with: The representation of the media content to replace the media reference string with.
+                Currently only "base64_data_uri" is supported.
+            max_depth: int: The maximum depth to traverse the object. Default is 10.
+            content_fetch_timeout_seconds: int: The timeout in seconds for fetching media content. Default is 10.
+
+        Returns:
+            A deep copy of the input object with all media references replaced with base64 data URIs where possible.
+            If the input object has a __dict__ attribute, a dict will be returned instead of the original object type.
+
+        Example:
+            obj = {
+                "image": "@@@langfuseMedia:type=image/jpeg|id=123|source=bytes@@@",
+                "nested": {
+                    "pdf": "@@@langfuseMedia:type=application/pdf|id=456|source=bytes@@@"
+                }
+            }
+
+            result = await LangfuseMedia.resolve_media_references(obj, langfuse_client)
+
+            # Result:
+            # {
+            #     "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+            #     "nested": {
+            #         "pdf": "data:application/pdf;base64,JVBERi0xLjcK..."
+            #     }
+            # }
+        """
+        return LangfuseMedia.resolve_media_references(
+            langfuse_client=self,
+            obj=obj,
+            resolve_with=resolve_with,
+            max_depth=max_depth,
+            content_fetch_timeout_seconds=content_fetch_timeout_seconds,
+        )
 
     def get_observation(
         self,
