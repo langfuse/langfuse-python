@@ -6,7 +6,6 @@ from langfuse.client import (
     StateType,
 )
 from langfuse.utils import _get_timestamp
-from langfuse.model import ModelUsage
 from ._context import InstrumentorContext
 from uuid import uuid4 as create_uuid
 
@@ -119,12 +118,12 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
             }
 
         self._get_generation_client(event.span_id).update(
-            usage=usage, end_time=_get_timestamp()
+            usage=usage, usage_details=usage, end_time=_get_timestamp()
         )
 
     def _parse_token_usage(
         self, response: Union[ChatResponse, CompletionResponse]
-    ) -> Optional[ModelUsage]:
+    ) -> Optional[dict]:
         if (
             (raw := getattr(response, "raw", None))
             and hasattr(raw, "get")
@@ -154,15 +153,15 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
 
 def _parse_usage_from_mapping(
     usage: Union[object, Mapping[str, Any]],
-) -> ModelUsage:
+):
     if isinstance(usage, Mapping):
         return _get_token_counts_from_mapping(usage)
 
     return _parse_usage_from_object(usage)
 
 
-def _parse_usage_from_object(usage: object) -> ModelUsage:
-    model_usage: ModelUsage = {
+def _parse_usage_from_object(usage: object):
+    model_usage = {
         "unit": None,
         "input": None,
         "output": None,
@@ -179,26 +178,43 @@ def _parse_usage_from_object(usage: object) -> ModelUsage:
     if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
         model_usage["total"] = total_tokens
 
+    if (
+        prompt_tokens_details := getattr(usage, "prompt_tokens_details", None)
+    ) is not None and isinstance(prompt_tokens_details, dict):
+        for key, value in prompt_tokens_details.items():
+            model_usage[f"input_{key}"] = value
+
+    if (
+        completion_tokens_details := getattr(usage, "completion_tokens_details", None)
+    ) is not None and isinstance(completion_tokens_details, dict):
+        for key, value in completion_tokens_details.items():
+            model_usage[f"output_{key}"] = value
+
     return model_usage
 
 
 def _get_token_counts_from_mapping(
     usage_mapping: Mapping[str, Any],
-) -> ModelUsage:
-    model_usage: ModelUsage = {
-        "unit": None,
-        "input": None,
-        "output": None,
-        "total": None,
-        "input_cost": None,
-        "output_cost": None,
-        "total_cost": None,
-    }
+):
+    model_usage = {}
+
     if (prompt_tokens := usage_mapping.get("prompt_tokens")) is not None:
         model_usage["input"] = prompt_tokens
     if (completion_tokens := usage_mapping.get("completion_tokens")) is not None:
         model_usage["output"] = completion_tokens
     if (total_tokens := usage_mapping.get("total_tokens")) is not None:
         model_usage["total"] = total_tokens
+
+    if (
+        prompt_tokens_details := usage_mapping.get("prompt_tokens_details")
+    ) is not None and isinstance(prompt_tokens_details, dict):
+        for key, value in prompt_tokens_details.items():
+            model_usage[f"input_{key}"] = value
+
+    if (
+        completion_tokens_details := usage_mapping.get("completion_tokens_details")
+    ) is not None and isinstance(completion_tokens_details, dict):
+        for key, value in completion_tokens_details.items():
+            model_usage[f"output_{key}"] = value
 
     return model_usage

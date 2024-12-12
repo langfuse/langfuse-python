@@ -53,21 +53,21 @@ class ObservationsView(Observation):
         alias="calculatedInputCost", default=None
     )
     """
-    The calculated cost of the input in USD
+    (Deprecated. Use usageDetails and costDetails instead.) The calculated cost of the input in USD
     """
 
     calculated_output_cost: typing.Optional[float] = pydantic_v1.Field(
         alias="calculatedOutputCost", default=None
     )
     """
-    The calculated cost of the output in USD
+    (Deprecated. Use usageDetails and costDetails instead.) The calculated cost of the output in USD
     """
 
     calculated_total_cost: typing.Optional[float] = pydantic_v1.Field(
         alias="calculatedTotalCost", default=None
     )
     """
-    The calculated total cost in USD
+    (Deprecated. Use usageDetails and costDetails instead.) The calculated total cost in USD
     """
 
     latency: typing.Optional[float] = pydantic_v1.Field(default=None)

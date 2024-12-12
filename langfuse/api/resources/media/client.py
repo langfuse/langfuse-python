@@ -197,7 +197,7 @@ class MediaClient:
 
         Examples
         --------
-        from langfuse.api import GetMediaUploadUrlRequest
+        from langfuse.api import GetMediaUploadUrlRequest, MediaContentType
         from langfuse.api.client import FernLangfuse
 
         client = FernLangfuse(
@@ -212,6 +212,7 @@ class MediaClient:
             request=GetMediaUploadUrlRequest(
                 trace_id="string",
                 observation_id="string",
+                content_type=MediaContentType.IMAGE_PNG,
                 content_length=1,
                 sha_256_hash="string",
                 field="string",
@@ -446,7 +447,7 @@ class AsyncMediaClient:
         --------
         import asyncio
 
-        from langfuse.api import GetMediaUploadUrlRequest
+        from langfuse.api import GetMediaUploadUrlRequest, MediaContentType
         from langfuse.api.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -464,6 +465,7 @@ class AsyncMediaClient:
                 request=GetMediaUploadUrlRequest(
                     trace_id="string",
                     observation_id="string",
+                    content_type=MediaContentType.IMAGE_PNG,
                     content_length=1,
                     sha_256_hash="string",
                     field="string",

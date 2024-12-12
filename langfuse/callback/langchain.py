@@ -845,6 +845,7 @@ class LangchainCallbackHandler(
                 self.runs[run_id] = self.runs[run_id].end(
                     output=extracted_response,
                     usage=llm_usage,
+                    usage_details=llm_usage,
                     version=self.version,
                     input=kwargs.get("inputs"),
                     model=model,
@@ -1028,12 +1029,14 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # https://pypi.org/project/langchain-anthropic/ (works also for Bedrock-Anthropic)
         ("input_tokens", "input"),
         ("output_tokens", "output"),
+        ("total_tokens", "total"),
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
         # Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-cw.html#runtime-cloudwatch-metrics
         ("inputTokenCount", "input"),
         ("outputTokenCount", "output"),
+        ("totalTokenCount", "total"),
         # langchain-ibm https://pypi.org/project/langchain-ibm/
         ("input_token_count", "input"),
         ("generated_token_count", "output"),
@@ -1050,6 +1053,19 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
             )  # For Bedrock, the token count is a list when streamed
 
             usage_model[langfuse_key] = final_count  # Translate key and keep the value
+
+    if isinstance(usage_model, dict):
+        if "input_token_details" in usage_model:
+            input_token_details = usage_model.pop("input_token_details", {})
+
+            for key, value in input_token_details.items():
+                usage_model[f"input_{key}"] = value
+
+        if "output_token_details" in usage_model:
+            output_token_details = usage_model.pop("output_token_details", {})
+
+            for key, value in output_token_details.items():
+                usage_model[f"output_{key}"] = value
 
     return usage_model if usage_model else None
 

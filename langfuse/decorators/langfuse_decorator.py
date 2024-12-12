@@ -27,6 +27,7 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
+from langfuse.api import UsageDetails
 from langfuse.client import (
     Langfuse,
     StatefulSpanClient,
@@ -71,6 +72,8 @@ _observation_params_context: ContextVar[DefaultDict[str, ObservationParams]] = (
                 "model": None,
                 "model_parameters": None,
                 "usage": None,
+                "usage_details": None,
+                "cost_details": None,
                 "prompt": None,
                 "public": None,
             },
@@ -823,6 +826,8 @@ class LangfuseDecorator:
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
         usage: Optional[Union[BaseModel, ModelUsage]] = None,
+        usage_details: Optional[UsageDetails] = None,
+        cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         public: Optional[bool] = None,
     ):
@@ -857,7 +862,9 @@ class LangfuseDecorator:
         Generation-specific params:
             - `completion_start_time` (Optional[datetime]): The time at which the completion started (streaming). Set it to get latency analytics broken down into time until completion started and completion duration.
             - `model_parameters` (Optional[Dict[str, MapValue]]): The parameters of the model used for the generation; can be any key-value pairs.
-            - `usage` (Optional[Union[BaseModel, ModelUsage]]): The usage object supports the OpenAi structure with {promptTokens, completionTokens, totalTokens} and a more generic version {input, output, total, unit, inputCost, outputCost, totalCost} where unit can be of value "TOKENS", "CHARACTERS", "MILLISECONDS", "SECONDS", or "IMAGES". Refer to the docs on how to automatically infer token usage and costs in Langfuse.
+            - `usage` (Optional[Union[BaseModel, ModelUsage]]): (Deprecated. Use `usage_details` and `cost_details` instead.) The usage object supports the OpenAi structure with {promptTokens, completionTokens, totalTokens} and a more generic version {input, output, total, unit, inputCost, outputCost, totalCost} where unit can be of value "TOKENS", "CHARACTERS", "MILLISECONDS", "SECONDS", or "IMAGES". Refer to the docs on how to automatically infer token usage and costs in Langfuse.
+            - `usage_details` (Optional[Dict[str, int]]): The usage details of the observation. Reflects the number of units consumed per usage type. All keys must sum up to the total key value. The total key holds the total number of units consumed.
+            - `cost_details` (Optional[Dict[str, float]]): The cost details of the observation. Reflects the USD cost of the observation per cost type. All keys must sum up to the total key value. The total key holds the total cost of the observation.
             - `prompt`(Optional[PromptClient]): The prompt object used for the generation.
 
         Returns:
@@ -899,6 +906,8 @@ class LangfuseDecorator:
                 "model": model,
                 "model_parameters": model_parameters,
                 "usage": usage,
+                "usage_details": usage_details,
+                "cost_details": cost_details,
                 "prompt": prompt,
                 "public": public,
             }.items()

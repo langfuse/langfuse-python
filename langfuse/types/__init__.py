@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Protocol, TypedDict, Union
 
 from pydantic import BaseModel
-from langfuse.api import MediaContentType
+from langfuse.api import MediaContentType, UsageDetails
 from langfuse.model import MapValue, ModelUsage, PromptClient
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
@@ -34,6 +34,8 @@ class ObservationParams(TraceMetadata, TypedDict):
     model: Optional[str]
     model_parameters: Optional[Dict[str, MapValue]]
     usage: Optional[Union[BaseModel, ModelUsage]]
+    usage_details: Optional[UsageDetails]
+    cost_details: Optional[Dict[str, float]]
     prompt: Optional[PromptClient]
 
 

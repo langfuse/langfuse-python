@@ -27,6 +27,7 @@ from .types import (
     ObservationBody,
     ObservationType,
     OpenAiUsage,
+    OpenAiUsageSchema,
     OptionalObservationBody,
     ScoreBody,
     ScoreEvent,
@@ -40,6 +41,7 @@ from .types import (
     UpdateObservationEvent,
     UpdateSpanBody,
     UpdateSpanEvent,
+    UsageDetails,
 )
 
 __all__ = [
@@ -69,6 +71,7 @@ __all__ = [
     "ObservationBody",
     "ObservationType",
     "OpenAiUsage",
+    "OpenAiUsageSchema",
     "OptionalObservationBody",
     "ScoreBody",
     "ScoreEvent",
@@ -82,4 +85,5 @@ __all__ = [
     "UpdateObservationEvent",
     "UpdateSpanBody",
     "UpdateSpanEvent",
+    "UsageDetails",
 ]

@@ -92,6 +92,7 @@ from .ingestion import (
     ObservationBody,
     ObservationType,
     OpenAiUsage,
+    OpenAiUsageSchema,
     OptionalObservationBody,
     ScoreBody,
     ScoreEvent,
@@ -105,6 +106,7 @@ from .ingestion import (
     UpdateObservationEvent,
     UpdateSpanBody,
     UpdateSpanEvent,
+    UsageDetails,
 )
 from .media import (
     GetMediaResponse,
@@ -237,6 +239,7 @@ __all__ = [
     "ObservationsView",
     "ObservationsViews",
     "OpenAiUsage",
+    "OpenAiUsageSchema",
     "OptionalObservationBody",
     "PaginatedDatasetItems",
     "PaginatedDatasetRuns",
@@ -283,6 +286,7 @@ __all__ = [
     "UpdateSpanEvent",
     "Usage",
     "UsageByModel",
+    "UsageDetails",
     "comments",
     "commons",
     "dataset_items",
