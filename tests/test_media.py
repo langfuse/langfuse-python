@@ -110,8 +110,7 @@ def test_nonexistent_file():
     assert media._content_type is None
 
 
-@pytest.mark.skip(reason="Docker networking issues. Enable once LFE-3159 is fixed.")
-def test_replace_media_reference_string_in_object(tmp_path):
+def test_replace_media_reference_string_in_object():
     # Create test audio file
     audio_file = "static/joke_prompt.wav"
     with open(audio_file, "rb") as f:
