@@ -2303,24 +2303,24 @@ pydantic = ">=1.10"
 
 [[package]]
 name = "llama-index"
-version = "0.12.2"
+version = "0.12.5"
 description = "Interface between LLMs and your data"
 optional = true
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index-0.12.2-py3-none-any.whl", hash = "sha256:971528db7889f5a0d15fd9039a403bc6f92bfafc2d4e1bab2d166657728ae94c"},
-    {file = "llama_index-0.12.2.tar.gz", hash = "sha256:da9738dd666e219689839c7451c9df8bed72e6510a6f7d6f7d9907bfdd4588eb"},
+    {file = "llama_index-0.12.5-py3-none-any.whl", hash = "sha256:2bb6d234cf6d7fdb6a308e9aff1a607e83a24210cc7325be62c65bc43493680f"},
+    {file = "llama_index-0.12.5.tar.gz", hash = "sha256:a816f18079c88e17b53fab6efc27f7c3dfb0a7af559afaaeaeef0577654235a4"},
 ]
 
 [package.dependencies]
 llama-index-agent-openai = ">=0.4.0,<0.5.0"
 llama-index-cli = ">=0.4.0,<0.5.0"
-llama-index-core = ">=0.12.2,<0.13.0"
+llama-index-core = ">=0.12.5,<0.13.0"
 llama-index-embeddings-openai = ">=0.3.0,<0.4.0"
 llama-index-indices-managed-llama-cloud = ">=0.4.0"
 llama-index-legacy = ">=0.9.48,<0.10.0"
 llama-index-llms-openai = ">=0.3.0,<0.4.0"
-llama-index-multi-modal-llms-openai = ">=0.3.0,<0.4.0"
+llama-index-multi-modal-llms-openai = ">=0.4.0,<0.5.0"
 llama-index-program-openai = ">=0.3.0,<0.4.0"
 llama-index-question-gen-openai = ">=0.3.0,<0.4.0"
 llama-index-readers-file = ">=0.4.0,<0.5.0"
@@ -2361,13 +2361,13 @@ llama-index-llms-openai = ">=0.3.0,<0.4.0"
 
 [[package]]
 name = "llama-index-core"
-version = "0.12.2"
+version = "0.12.5"
 description = "Interface between LLMs and your data"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index_core-0.12.2-py3-none-any.whl", hash = "sha256:27a5548523435a5c2b84f75c15894a44522b7f968e9f29a03f9a301ca09fb7fa"},
-    {file = "llama_index_core-0.12.2.tar.gz", hash = "sha256:a48b2de9c3a09608ab5c03c5a313428f119c86946acdefde555992b7c0b8a38e"},
+    {file = "llama_index_core-0.12.5-py3-none-any.whl", hash = "sha256:1fe6dd39b2dc5a945b4702d780a2f5962a553e187524a255429461dc92a664db"},
+    {file = "llama_index_core-0.12.5.tar.gz", hash = "sha256:1d967323891920579fad3d6497587c137894df3f76718a3ec134f9201f2f4fc0"},
 ]
 
 [package.dependencies]
@@ -2384,11 +2384,11 @@ networkx = ">=3.0"
 nltk = ">3.8.1"
 numpy = "*"
 pillow = ">=9.0.0"
-pydantic = ">=2.7.0,<2.10.0"
+pydantic = ">=2.8.0"
 PyYAML = ">=6.0.1"
 requests = ">=2.31.0"
 SQLAlchemy = {version = ">=1.4.49", extras = ["asyncio"]}
-tenacity = ">=8.2.0,<8.4.0 || >8.4.0,<9.0.0"
+tenacity = ">=8.2.0,<8.4.0 || >8.4.0,<10.0.0"
 tiktoken = ">=0.3.3"
 tqdm = ">=4.66.1,<5.0.0"
 typing-extensions = ">=4.5.0"
@@ -2496,17 +2496,17 @@ openai = ">=1.40.0,<2.0.0"
 
 [[package]]
 name = "llama-index-multi-modal-llms-openai"
-version = "0.3.0"
+version = "0.4.0"
 description = "llama-index multi-modal-llms openai integration"
 optional = true
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index_multi_modal_llms_openai-0.3.0-py3-none-any.whl", hash = "sha256:9b7e3e39b19b2668b9c75014bcb90795bb546f0f9e1af8b7f1087f8687805763"},
-    {file = "llama_index_multi_modal_llms_openai-0.3.0.tar.gz", hash = "sha256:71e983c7771c39088e4058cd78029219315a0fb631b9e12b903e53243b9a3fd6"},
+    {file = "llama_index_multi_modal_llms_openai-0.4.0-py3-none-any.whl", hash = "sha256:c5bda1b3c6d14eee87a819ba72b122d82877829695dce8f90a8c600ac16ce243"},
+    {file = "llama_index_multi_modal_llms_openai-0.4.0.tar.gz", hash = "sha256:11c3ac7e2d7ace9dbcdd9a662f27bca5fefce98c5682abaffb7dd01d59776658"},
 ]
 
 [package.dependencies]
-llama-index-core = ">=0.12.0,<0.13.0"
+llama-index-core = ">=0.12.3,<0.13.0"
 llama-index-llms-openai = ">=0.3.0,<0.4.0"
 
 [[package]]

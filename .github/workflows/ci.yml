@@ -90,7 +90,7 @@ jobs:
           rm -rf .env
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false LANGFUSE_SDK_CI_SYNC_PROCESSING_ENABLED=true LANGFUSE_READ_FROM_POSTGRES_ONLY=true LANGFUSE_READ_FROM_CLICKHOUSE_ONLY=false LANGFUSE_RETURN_FROM_CLICKHOUSE=false docker compose up -d
+          TELEMETRY_ENABLED=false LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://localhost:9090 LANGFUSE_SDK_CI_SYNC_PROCESSING_ENABLED=true LANGFUSE_READ_FROM_POSTGRES_ONLY=true LANGFUSE_READ_FROM_CLICKHOUSE_ONLY=false LANGFUSE_RETURN_FROM_CLICKHOUSE=false docker compose up -d
           echo "::endgroup::"
 
       # Add this step to check the health of the container
