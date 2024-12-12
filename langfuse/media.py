@@ -4,10 +4,14 @@ import base64
 import hashlib
 import logging
 import os
-from typing import Optional, cast, Tuple
+import re
+import requests
+from typing import Optional, cast, Tuple, Any, TypeVar, Literal
 
 from langfuse.api import MediaContentType
 from langfuse.types import ParsedMediaReference
+
+T = TypeVar("T")
 
 
 class LangfuseMedia:
@@ -201,3 +205,119 @@ class LangfuseMedia:
             self._log.error("Error parsing base64 data URI", exc_info=e)
 
             return None, None
+
+    @staticmethod
+    def resolve_media_references(
+        *,
+        obj: T,
+        langfuse_client: Any,
+        resolve_with: Literal["base64_data_uri"],
+        max_depth: int = 10,
+        content_fetch_timeout_seconds: int = 10,
+    ) -> T:
+        """Replace media reference strings in an object with base64 data URIs.
+
+        This method recursively traverses an object (up to max_depth) looking for media reference strings
+        in the format "@@@langfuseMedia:...@@@". When found, it (synchronously) fetches the actual media content using
+        the provided Langfuse client and replaces the reference string with a base64 data URI.
+
+        If fetching media content fails for a reference string, a warning is logged and the reference
+        string is left unchanged.
+
+        Args:
+            obj: The object to process. Can be a primitive value, array, or nested object.
+                If the object has a __dict__ attribute, a dict will be returned instead of the original object type.
+            langfuse_client: Langfuse client instance used to fetch media content.
+            resolve_with: The representation of the media content to replace the media reference string with.
+                Currently only "base64_data_uri" is supported.
+            max_depth: Optional. Default is 10. The maximum depth to traverse the object.
+
+        Returns:
+            A deep copy of the input object with all media references replaced with base64 data URIs where possible.
+            If the input object has a __dict__ attribute, a dict will be returned instead of the original object type.
+
+        Example:
+            obj = {
+                "image": "@@@langfuseMedia:type=image/jpeg|id=123|source=bytes@@@",
+                "nested": {
+                    "pdf": "@@@langfuseMedia:type=application/pdf|id=456|source=bytes@@@"
+                }
+            }
+
+            result = await LangfuseMedia.resolve_media_references(obj, langfuse_client)
+
+            # Result:
+            # {
+            #     "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+            #     "nested": {
+            #         "pdf": "data:application/pdf;base64,JVBERi0xLjcK..."
+            #     }
+            # }
+        """
+
+        def traverse(obj: Any, depth: int) -> Any:
+            if depth > max_depth:
+                return obj
+
+            # Handle string
+            if isinstance(obj, str):
+                regex = r"@@@langfuseMedia:.+?@@@"
+                reference_string_matches = re.findall(regex, obj)
+                if len(reference_string_matches) == 0:
+                    return obj
+
+                result = obj
+                reference_string_to_media_content = {}
+
+                for reference_string in reference_string_matches:
+                    try:
+                        parsed_media_reference = LangfuseMedia.parse_reference_string(
+                            reference_string
+                        )
+                        media_data = langfuse_client.fetch_media(
+                            parsed_media_reference["media_id"]
+                        ).data
+                        media_content = requests.get(
+                            media_data.url, timeout=content_fetch_timeout_seconds
+                        )
+                        if not media_content.ok:
+                            raise Exception("Failed to fetch media content")
+
+                        base64_media_content = base64.b64encode(
+                            media_content.content
+                        ).decode()
+                        base64_data_uri = f"data:{media_data.content_type};base64,{base64_media_content}"
+
+                        reference_string_to_media_content[reference_string] = (
+                            base64_data_uri
+                        )
+                    except Exception as e:
+                        LangfuseMedia._log.warning(
+                            f"Error fetching media content for reference string {reference_string}: {e}"
+                        )
+                        # Do not replace the reference string if there's an error
+                        continue
+
+                for ref_str, media_content in reference_string_to_media_content.items():
+                    result = result.replace(ref_str, media_content)
+
+                return result
+
+            # Handle arrays
+            if isinstance(obj, list):
+                return [traverse(item, depth + 1) for item in obj]
+
+            # Handle dictionaries
+            if isinstance(obj, dict):
+                return {key: traverse(value, depth + 1) for key, value in obj.items()}
+
+            # Handle objects:
+            if hasattr(obj, "__dict__"):
+                return {
+                    key: traverse(value, depth + 1)
+                    for key, value in obj.__dict__.items()
+                }
+
+            return obj
+
+        return traverse(obj, 0)

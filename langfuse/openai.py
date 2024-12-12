@@ -170,6 +170,11 @@ class OpenAiArgsExtractor:
         return {**self.args, **self.kwargs}
 
     def get_openai_args(self):
+        # If OpenAI model distillation is enabled, we need to add the metadata to the kwargs
+        # https://platform.openai.com/docs/guides/distillation
+        if self.kwargs.get("store", False):
+            self.kwargs["metadata"] = self.args.get("metadata", {})
+
         return self.kwargs
 
 
