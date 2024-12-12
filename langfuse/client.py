@@ -373,7 +373,7 @@ class Langfuse(object):
             page = 1
             while True:
                 new_items = self.client.dataset_items.list(
-                    dataset_name=self._url_encode(name),
+                    dataset_name=name,
                     page=page,
                     limit=fetch_items_page_size,
                 )
@@ -443,7 +443,7 @@ class Langfuse(object):
         try:
             self.log.debug("Getting dataset runs")
             return self.client.datasets.get_runs(
-                dataset_name=self._url_encode(dataset_name), page=page, limit=limit
+                dataset_name=dataset_name, page=page, limit=limit
             )
         except Exception as e:
             handle_fern_exception(e)
@@ -468,8 +468,8 @@ class Langfuse(object):
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
             )
             return self.client.datasets.get_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(dataset_run_name),
+                dataset_name=dataset_name,
+                run_name=dataset_run_name,
             )
         except Exception as e:
             handle_fern_exception(e)
@@ -1204,7 +1204,7 @@ class Langfuse(object):
             )
             def fetch_prompts():
                 return self.client.prompts.get(
-                    self._url_encode(name),
+                    name,
                     version=version,
                     label=label,
                     request_options={
