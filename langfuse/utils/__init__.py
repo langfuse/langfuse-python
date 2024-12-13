@@ -4,20 +4,12 @@ import logging
 import typing
 from datetime import datetime, timezone
 
-import pydantic
-
+try:
+    import pydantic.v1 as pydantic  # type: ignore
+except ImportError:
+    import pydantic  # type: ignore
 
 from langfuse.model import ModelUsage, PromptClient
-
-IS_PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
-
-if IS_PYDANTIC_V2:
-    import pydantic.v1 as pydantic_v1  # noqa
-    import pydantic as pydantic_v2  # noqa
-else:
-    import pydantic as pydantic_v1  # noqa
-
-    pydantic_v2 = None  # type: ignore
 
 log = logging.getLogger("langfuse")
 
@@ -54,12 +46,9 @@ def extract_by_priority(
     return None
 
 
-def _convert_usage_input(usage: typing.Union[pydantic_v1.BaseModel, ModelUsage]):
-    """Convert any usage input to a usage object.
-
-    Deprecated, only used for backwards compatibility with legacy 'usage' objects in generation create / update
-    """
-    if isinstance(usage, pydantic_v1.BaseModel):
+def _convert_usage_input(usage: typing.Union[pydantic.BaseModel, ModelUsage]):
+    """Converts any usage input to a usage object"""
+    if isinstance(usage, pydantic.BaseModel):
         usage = usage.dict()
 
     # sometimes we do not match the pydantic usage object
@@ -114,70 +103,3 @@ def _convert_usage_input(usage: typing.Union[pydantic_v1.BaseModel, ModelUsage])
         raise ValueError(
             "Usage object must have either {input, output, total, unit} or {promptTokens, completionTokens, totalTokens}"
         )
-
-
-def _extract_usage_details(usage_details: typing.Dict[str, typing.Any]):
-    if isinstance(usage_details, pydantic_v1.BaseModel):
-        usage_details = usage_details.dict()
-
-    if pydantic_v2 is not None and isinstance(usage_details, pydantic_v2.BaseModel):
-        usage_details = usage_details.model_dump()
-
-    if hasattr(usage_details, "__dict__"):
-        usage_details = usage_details.__dict__
-
-    # Handle openai usage details
-    if all(
-        k in usage_details
-        for k in ("prompt_tokens", "completion_tokens", "total_tokens")
-    ) or all(
-        k in usage_details for k in ("promptTokens", "completionTokens", "totalTokens")
-    ):
-        openai_usage_details = {
-            "input": usage_details.get("prompt_tokens", None)
-            or usage_details.get("promptTokens", None),
-            "output": usage_details.get("completion_tokens", None)
-            or usage_details.get("completionTokens", None),
-            "total": usage_details.get("total_tokens", None)
-            or usage_details.get("totalTokens", None),
-        }
-
-        # Handle input token details
-        prompt_tokens_details = usage_details.get("prompt_tokens_details", {})
-        if pydantic_v2 is not None and isinstance(
-            prompt_tokens_details, pydantic_v2.BaseModel
-        ):
-            prompt_tokens_details = prompt_tokens_details.model_dump()
-        elif hasattr(prompt_tokens_details, "__dict__"):
-            prompt_tokens_details = prompt_tokens_details.__dict__
-
-        if isinstance(prompt_tokens_details, dict):
-            for key in prompt_tokens_details:
-                openai_usage_details[f"input_{key}"] = prompt_tokens_details[key]
-                openai_usage_details["input"] = max(
-                    openai_usage_details.get("input", 0)
-                    - openai_usage_details[f"input_{key}"],
-                    0,
-                )
-
-        # Handle output token details
-        completion_tokens_details = usage_details.get("completion_tokens_details", {})
-        if pydantic_v2 is not None and isinstance(
-            completion_tokens_details, pydantic_v2.BaseModel
-        ):
-            completion_tokens_details = completion_tokens_details.model_dump()
-        elif hasattr(completion_tokens_details, "__dict__"):
-            completion_tokens_details = completion_tokens_details.__dict__
-
-        if isinstance(completion_tokens_details, dict):
-            for key in completion_tokens_details:
-                openai_usage_details[f"output_{key}"] = completion_tokens_details[key]
-                openai_usage_details["output"] = max(
-                    openai_usage_details.get("output", 0)
-                    - openai_usage_details[f"output_{key}"],
-                    0,
-                )
-
-        return openai_usage_details
-
-    return usage_details

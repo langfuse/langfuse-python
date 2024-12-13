@@ -82,7 +82,6 @@ from langfuse.utils import (
     _convert_usage_input,
     _create_prompt_context,
     _get_timestamp,
-    _extract_usage_details,
 )
 
 from .version import __version__ as version
@@ -1914,8 +1913,7 @@ class Langfuse(object):
                 "model": model,
                 "model_parameters": model_parameters,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
-                "usage_details": usage_details
-                and _extract_usage_details(usage_details),
+                "usage_details": usage_details,
                 "cost_details": cost_details,
                 "trace": {"release": self.release},
                 **_create_prompt_context(prompt),
@@ -2175,8 +2173,7 @@ class StatefulClient(object):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
-                "usage_details": usage_details
-                and _extract_usage_details(usage_details),
+                "usage_details": usage_details,
                 "cost_details": cost_details,
                 **_create_prompt_context(prompt),
                 **kwargs,
@@ -2607,8 +2604,7 @@ class StatefulGenerationClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
-                "usage_details": usage_details
-                and _extract_usage_details(usage_details),
+                "usage_details": usage_details,
                 "cost_details": cost_details,
                 **_create_prompt_context(prompt),
                 **kwargs,
@@ -2717,7 +2713,7 @@ class StatefulGenerationClient(StatefulClient):
             input=input,
             output=output,
             usage=usage,
-            usage_details=usage_details and _extract_usage_details(usage_details),
+            usage_details=usage_details,
             cost_details=cost_details,
             prompt=prompt,
             **kwargs,
