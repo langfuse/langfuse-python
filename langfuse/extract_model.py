@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 
 def _extract_model_name(
-    serialized: Dict[str, Any],
+    serialized: Optional[Dict[str, Any]],
     **kwargs: Any,
 ):
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
@@ -106,12 +106,17 @@ def _extract_model_name(
 
 
 def _extract_model_from_repr_by_pattern(
-    id: str, serialized: dict, pattern: str, default: Optional[str] = None
+    id: str, serialized: Optional[Dict[str, Any]], pattern: str, default: Optional[str] = None
 ):
+    if serialized is None:
+        return None
+
     if serialized.get("id")[-1] == id:
         if serialized.get("repr"):
             extracted = _extract_model_with_regex(pattern, serialized.get("repr"))
             return extracted if extracted else default if default else None
+
+    return None
 
 
 def _extract_model_with_regex(pattern: str, text: str):
@@ -123,21 +128,27 @@ def _extract_model_with_regex(pattern: str, text: str):
 
 def _extract_model_by_path_for_id(
     id: str,
-    serialized: dict,
+    serialized: Optional[Dict[str, Any]],
     kwargs: dict,
     keys: List[str],
-    select_from: str = Literal["serialized", "kwargs"],
+    select_from: Literal["serialized", "kwargs"],
 ):
+    if serialized is None and select_from == "serialized":
+        return None
+
     if serialized.get("id")[-1] == id:
         return _extract_model_by_path(serialized, kwargs, keys, select_from)
 
 
 def _extract_model_by_path(
-    serialized: dict,
+    serialized: Optional[Dict[str, Any]],
     kwargs: dict,
     keys: List[str],
-    select_from: str = Literal["serialized", "kwargs"],
+    select_from: Literal["serialized", "kwargs"],
 ):
+    if serialized is None and select_from == "serialized":
+        return None
+
     current_obj = kwargs if select_from == "kwargs" else serialized
 
     for key in keys:
