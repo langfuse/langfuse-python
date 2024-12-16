@@ -994,3 +994,100 @@ def test_do_not_link_observation_if_fallback():
 
     assert len(trace.observations) == 1
     assert trace.observations[0].prompt_id is None
+
+
+def test_variable_names_on_content_with_variable_names():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_1",
+        prompt="test prompt with var names {{ var1 }} {{ var2 }}",
+        is_active=True,
+        type="text",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_1")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == ["var1", "var2"]
+
+
+def test_variable_names_on_content_with_no_variable_names():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_2",
+        prompt="test prompt with no var names",
+        is_active=True,
+        type="text",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_2")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == []
+
+
+def test_variable_names_on_content_with_variable_names_chat_messages():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_3",
+        prompt=[
+            {
+                "role": "system",
+                "content": "test prompt with template vars {{ var1 }} {{ var2 }}",
+            },
+            {"role": "user", "content": "test prompt 2 with template vars {{ var3 }}"},
+        ],
+        is_active=True,
+        type="chat",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_3")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == ["var1", "var2", "var3"]
+
+
+def test_variable_names_on_content_with_no_variable_names_chat_messages():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_4",
+        prompt=[
+            {"role": "system", "content": "test prompt with no template vars"},
+            {"role": "user", "content": "test prompt 2 with no template vars"},
+        ],
+        is_active=True,
+        type="chat",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_4")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == []
