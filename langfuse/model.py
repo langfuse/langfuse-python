@@ -54,11 +54,6 @@ class ChatMessageDict(TypedDict):
     content: str
 
 
-class ChatMessageVariables(TypedDict):
-    role: str
-    variables: List[str]
-
-
 class TemplateParser:
     OPENING = "{{"
     CLOSING = "}}"
@@ -96,7 +91,10 @@ class TemplateParser:
         return names
 
     @staticmethod
-    def compile_template(content: str, data: Dict[str, Any] = {}) -> str:
+    def compile_template(content: str, data: Optional[Dict[str, Any]]) -> str:
+        if data is None:
+            return content
+
         result_list = []
         curr_idx = 0
 
@@ -141,8 +139,9 @@ class BasePromptClient(ABC):
     def compile(self, **kwargs) -> Union[str, List[ChatMessage]]:
         pass
 
+    @property
     @abstractmethod
-    def variable_names(self, **kwargs) -> Union[List[str], List[ChatMessageVariables]]:
+    def variables(self) -> List[str]:
         pass
 
     @abstractmethod
@@ -166,12 +165,9 @@ class TextPromptClient(BasePromptClient):
     def compile(self, **kwargs) -> str:
         return TemplateParser.compile_template(self.prompt, kwargs)
 
-    def variable_names(self) -> List[str]:
-        """Find all the variable names in the prompt template
-
-        Returns:
-            List[str]: The list of variable names found in the prompt template
-        """
+    @property
+    def variables(self) -> List[str]:
+        """Return all the variable names in the prompt template."""
         return TemplateParser.find_variable_names(self.prompt)
 
     def __eq__(self, other):
@@ -225,18 +221,13 @@ class ChatPromptClient(BasePromptClient):
             for chat_message in self.prompt
         ]
 
-    def variable_names(self) -> List[ChatMessageVariables]:
-        """Find all the variable names in the chat prompt template per each chat message item
-        Returns:
-            List[ChatMessageVariables]: The list of variable names found in the prompt
-                                        template coupled with the message role
-        """
+    @property
+    def variables(self) -> List[str]:
+        """Return all the variable names in the chat prompt template."""
         return [
-            ChatMessageVariables(
-                variables=TemplateParser.find_variable_names(chat_message["content"]),
-                role=chat_message["role"],
-            )
+            variable
             for chat_message in self.prompt
+            for variable in TemplateParser.find_variable_names(chat_message["content"])
         ]
 
     def __eq__(self, other):

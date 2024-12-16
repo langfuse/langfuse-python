@@ -1013,7 +1013,7 @@ def test_variable_names_on_content_with_variable_names():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.labels == ["production", "latest"]
 
-    var_names = second_prompt_client.variable_names()
+    var_names = second_prompt_client.variables
 
     assert var_names == ["var1", "var2"]
 
@@ -1035,7 +1035,7 @@ def test_variable_names_on_content_with_no_variable_names():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.labels == ["production", "latest"]
 
-    var_names = second_prompt_client.variable_names()
+    var_names = second_prompt_client.variables
 
     assert var_names == []
 
@@ -1063,7 +1063,7 @@ def test_variable_names_on_content_with_variable_names_chat_messages():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.labels == ["production", "latest"]
 
-    var_names = second_prompt_client.variable_names()
+    var_names = second_prompt_client.variables
 
     assert var_names == [
         {"role": "system", "variables": ["var1", "var2"]},
@@ -1091,7 +1091,7 @@ def test_variable_names_on_content_with_no_variable_names_chat_messages():
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.labels == ["production", "latest"]
 
-    var_names = second_prompt_client.variable_names()
+    var_names = second_prompt_client.variables
 
     assert var_names == [
         {"role": "system", "variables": []},
