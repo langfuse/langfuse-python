@@ -1065,10 +1065,7 @@ def test_variable_names_on_content_with_variable_names_chat_messages():
 
     var_names = second_prompt_client.variables
 
-    assert var_names == [
-        {"role": "system", "variables": ["var1", "var2"]},
-        {"role": "user", "variables": ["var3"]},
-    ]
+    assert var_names == ["var1", "var2", "var3"]
 
 
 def test_variable_names_on_content_with_no_variable_names_chat_messages():
@@ -1093,7 +1090,4 @@ def test_variable_names_on_content_with_no_variable_names_chat_messages():
 
     var_names = second_prompt_client.variables
 
-    assert var_names == [
-        {"role": "system", "variables": []},
-        {"role": "user", "variables": []},
-    ]
+    assert var_names == []

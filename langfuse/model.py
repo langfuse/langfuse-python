@@ -91,7 +91,7 @@ class TemplateParser:
         return names
 
     @staticmethod
-    def compile_template(content: str, data: Optional[Dict[str, Any]]) -> str:
+    def compile_template(content: str, data: Optional[Dict[str, Any]] = None) -> str:
         if data is None:
             return content
 
