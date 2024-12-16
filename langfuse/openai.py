@@ -175,6 +175,10 @@ class OpenAiArgsExtractor:
         if self.kwargs.get("store", False):
             self.kwargs["metadata"] = self.args.get("metadata", {})
 
+            # OpenAI does not support non-string type values in metadata when using
+            # model distillation feature
+            self.kwargs["metadata"].pop("response_format", None)
+
         return self.kwargs
 
 
