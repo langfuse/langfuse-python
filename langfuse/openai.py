@@ -654,7 +654,11 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 else openai_response,
             )
             generation.update(
-                model=model, output=completion, end_time=_get_timestamp(), usage=usage
+                model=model,
+                output=completion,
+                end_time=_get_timestamp(),
+                usage=usage,  # backward compat for all V2 self hosters
+                usage_details=usage,
             )
 
             # Avoiding the trace-update if trace-id is provided by user.
@@ -670,7 +674,12 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
             status_message=str(ex),
             level="ERROR",
             model=model,
-            usage={"input_cost": 0, "output_cost": 0, "total_cost": 0},
+            usage={
+                "input_cost": 0,
+                "output_cost": 0,
+                "total_cost": 0,
+            },  # backward compat for all V2 self hosters
+            cost_details={"input": 0, "output": 0, "total": 0},
         )
         raise ex
 
@@ -710,7 +719,8 @@ async def _wrap_async(
                 model=model,
                 output=completion,
                 end_time=_get_timestamp(),
-                usage=usage,
+                usage=usage,  # backward compat for all V2 self hosters
+                usage_details=usage,
             )
             # Avoiding the trace-update if trace-id is provided by user.
             if not is_nested_trace:
@@ -724,7 +734,12 @@ async def _wrap_async(
             status_message=str(ex),
             level="ERROR",
             model=model,
-            usage={"input_cost": 0, "output_cost": 0, "total_cost": 0},
+            usage={
+                "input_cost": 0,
+                "output_cost": 0,
+                "total_cost": 0,
+            },  # Backward compat for all V2 self hosters
+            cost_details={"input": 0, "output": 0, "total": 0},
         )
         raise ex
 

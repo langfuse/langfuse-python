@@ -28,6 +28,7 @@ from .ingestion_usage import IngestionUsage
 from .observation_body import ObservationBody
 from .observation_type import ObservationType
 from .open_ai_usage import OpenAiUsage
+from .open_ai_usage_schema import OpenAiUsageSchema
 from .optional_observation_body import OptionalObservationBody
 from .score_body import ScoreBody
 from .score_event import ScoreEvent
@@ -41,6 +42,7 @@ from .update_generation_event import UpdateGenerationEvent
 from .update_observation_event import UpdateObservationEvent
 from .update_span_body import UpdateSpanBody
 from .update_span_event import UpdateSpanEvent
+from .usage_details import UsageDetails
 
 __all__ = [
     "BaseEvent",
@@ -69,6 +71,7 @@ __all__ = [
     "ObservationBody",
     "ObservationType",
     "OpenAiUsage",
+    "OpenAiUsageSchema",
     "OptionalObservationBody",
     "ScoreBody",
     "ScoreEvent",
@@ -82,4 +85,5 @@ __all__ = [
     "UpdateObservationEvent",
     "UpdateSpanBody",
     "UpdateSpanEvent",
+    "UsageDetails",
 ]
