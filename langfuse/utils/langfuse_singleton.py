@@ -72,6 +72,6 @@ class LangfuseSingleton:
     def reset(self) -> None:
         with self._lock:
             if self._langfuse:
-                self._langfuse.flush()
+                self._langfuse.shutdown()
 
             self._langfuse = None
