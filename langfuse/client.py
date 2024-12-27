@@ -3170,22 +3170,22 @@ class DatasetItemClient:
 
     def link(
         self,
-        trace_or_observation: typing.Union[StatefulClient, str, None],
         run_name: str,
         run_metadata: Optional[Any] = None,
         run_description: Optional[str] = None,
         trace_id: Optional[str] = None,
         observation_id: Optional[str] = None,
+        trace_or_observation: typing.Union[StatefulClient, str, None] = None,
     ):
         """Link the dataset item to observation within a specific dataset run. Creates a dataset run item.
 
         Args:
-            trace_or_observation (Union[StatefulClient, str, None]): The trace or observation object to link. Deprecated: can also be an observation ID.
             run_name (str): The name of the dataset run.
             run_metadata (Optional[Any]): Additional metadata to include in dataset run.
             run_description (Optional[str]): Description of the dataset run.
             trace_id (Optional[str]): The trace ID to link to the dataset item. Set trace_or_observation to None if trace_id is provided.
             observation_id (Optional[str]): The observation ID to link to the dataset item (optional). Set trace_or_observation to None if trace_id is provided.
+            trace_or_observation (Union[StatefulClient, str, None]): The trace or observation object to link. Deprecated: can also be an observation ID.
         """
         parsed_trace_id: str = None
         parsed_observation_id: str = None
