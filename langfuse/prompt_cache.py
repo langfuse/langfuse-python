@@ -1,14 +1,13 @@
 """@private"""
 
-from datetime import datetime
-from typing import List, Optional, Dict, Set
-from threading import Thread
 import atexit
 import logging
+from datetime import datetime
 from queue import Empty, Queue
+from threading import Thread
+from typing import Dict, List, Optional, Set
 
 from langfuse.model import PromptClient
-
 
 DEFAULT_PROMPT_CACHE_TTL_SECONDS = 60
 
@@ -113,6 +112,8 @@ class PromptCacheTaskManager(object):
         self._log.debug(
             f"Shutting down prompt refresh task manager, {len(self._consumers)} consumers,..."
         )
+
+        atexit.unregister(self.shutdown)
 
         for consumer in self._consumers:
             consumer.pause()

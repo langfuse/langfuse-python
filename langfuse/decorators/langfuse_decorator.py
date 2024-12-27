@@ -1,51 +1,50 @@
 import asyncio
+import inspect
+import json
+import logging
 from collections import defaultdict
 from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
-import httpx
-import inspect
-import json
-import logging
 from typing import (
     Any,
+    AsyncGenerator,
     Callable,
     DefaultDict,
-    List,
-    Optional,
-    Union,
-    Literal,
     Dict,
-    Tuple,
-    Iterable,
-    AsyncGenerator,
     Generator,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
     TypeVar,
+    Union,
     cast,
     overload,
 )
 
+import httpx
+from pydantic import BaseModel
 from typing_extensions import ParamSpec
 
 from langfuse.api import UsageDetails
 from langfuse.client import (
     Langfuse,
+    MapValue,
+    ModelUsage,
+    PromptClient,
+    ScoreDataType,
+    StatefulGenerationClient,
     StatefulSpanClient,
     StatefulTraceClient,
-    StatefulGenerationClient,
-    PromptClient,
-    ModelUsage,
-    MapValue,
-    ScoreDataType,
     StateType,
 )
 from langfuse.serializer import EventSerializer
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
-from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from langfuse.utils.error_logging import catch_and_log_errors
-
-from pydantic import BaseModel
+from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
 _observation_stack_context: ContextVar[
     List[Union[StatefulTraceClient, StatefulSpanClient, StatefulGenerationClient]]

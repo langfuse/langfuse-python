@@ -1,7 +1,7 @@
-import httpx
 import threading
 from typing import Optional
 
+import httpx
 
 from langfuse import Langfuse
 from langfuse.types import MaskFunction

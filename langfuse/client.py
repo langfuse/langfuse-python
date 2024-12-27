@@ -36,6 +36,7 @@ from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.media import GetMediaResponse
 from langfuse.api.resources.observations.types.observations_views import (
     ObservationsViews,
 )
@@ -49,7 +50,6 @@ from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
     MetaResponse,
 )
-from langfuse.api.resources.media import GetMediaResponse
 from langfuse.model import (
     ChatMessageDict,
     ChatPromptClient,
@@ -74,8 +74,8 @@ from langfuse._task_manager.task_manager import TaskManager
 from langfuse.api.client import FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
-from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.media import LangfuseMedia
+from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
 from langfuse.types import MaskFunction, ScoreDataType, SpanLevel
 from langfuse.utils import (
@@ -2018,6 +2018,14 @@ class Langfuse(object):
         As the SDK calls join() already on shutdown, refer to flush() to ensure all events arive at the Langfuse API.
         """
         try:
+            self.prompt_cache._task_manager.shutdown()
+
+            # In logging.py, a handler is attached to the httpx logger.
+            # To avoid a memory leak on singleton reset, remove all handlers
+            httpx_logger = logging.getLogger("httpx")
+            for handler in httpx_logger.handlers:
+                httpx_logger.removeHandler(handler)
+
             return self.task_manager.shutdown()
         except Exception as e:
             self.log.exception(e)

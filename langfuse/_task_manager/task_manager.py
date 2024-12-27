@@ -191,6 +191,9 @@ class TaskManager(object):
         """Flush all messages and cleanly shutdown the client."""
         self._log.debug("shutdown initiated")
 
+        # Unregister the atexit handler first
+        atexit.unregister(self.shutdown)
+
         self.flush()
         self.join()
 
