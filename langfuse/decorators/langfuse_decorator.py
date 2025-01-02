@@ -711,7 +711,12 @@ class LangfuseDecorator:
             if not trace_id:
                 raise ValueError("No trace found in the current context")
 
-            return f"{self.client_instance.client._client_wrapper._base_url}/trace/{trace_id}"
+            project_id = self.client_instance._get_project_id()
+
+            if not project_id:
+                return f"{self.client_instance.client._client_wrapper._base_url}/trace/{trace_id}"
+
+            return f"{self.client_instance.client._client_wrapper._base_url}/project/{project_id}/traces/{trace_id}"
 
         except Exception as e:
             self._log.error(f"Failed to get current trace URL: {e}")
