@@ -1,6 +1,8 @@
-import pytest
 import threading
 from unittest.mock import patch
+
+import pytest
+
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
 
@@ -64,4 +66,4 @@ def test_reset_functionality(mock_langfuse):
 
     assert instance._langfuse is None
 
-    mock_langfuse.return_value.flush.assert_called_once()
+    mock_langfuse.return_value.shutdown.assert_called_once()
