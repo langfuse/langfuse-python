@@ -608,6 +608,30 @@ def test_get_current_ids():
     )
 
 
+def test_get_current_trace_url():
+    mock_trace_id = create_uuid()
+
+    @observe()
+    def level_3_function():
+        return langfuse_context.get_current_trace_url()
+
+    @observe()
+    def level_2_function():
+        return level_3_function()
+
+    @observe()
+    def level_1_function(*args, **kwargs):
+        return level_2_function()
+
+    result = level_1_function(
+        *mock_args, **mock_kwargs, langfuse_observation_id=mock_trace_id
+    )
+    langfuse_context.flush()
+
+    expected_url = f"http://localhost:3000/project/7a88fb47-b4e2-43b8-a06c-a5ce950dc53a/traces/{mock_trace_id}"
+    assert result == expected_url
+
+
 def test_scoring_observations():
     mock_name = "test_scoring_observations"
     mock_trace_id = create_uuid()
