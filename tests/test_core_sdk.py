@@ -1538,6 +1538,13 @@ def test_mask_function():
     assert fetched_trace["output"] == "<fully masked due to failed mask function>"
 
 
+def test_get_project_id():
+    langfuse = Langfuse(debug=False)
+    res = langfuse._get_project_id()
+    assert res is not None
+    assert res == "7a88fb47-b4e2-43b8-a06c-a5ce950dc53a"
+
+
 def test_generate_trace_id():
     langfuse = Langfuse(debug=False)
     trace_id = create_uuid()

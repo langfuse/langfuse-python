@@ -342,20 +342,28 @@ class Langfuse(object):
         else:
             return get_common_release_envs()
 
+    def _get_project_id(self) -> Optional[str]:
+        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys."""
+        if not self.project_id:
+            proj = self.client.projects.get()
+            if not proj.data or not proj.data[0].id:
+                return None
+
+            self.project_id = proj.data[0].id
+
+        return self.project_id
+
     def get_trace_id(self) -> str:
         """Get the current trace id."""
         return self.trace_id
 
     def get_trace_url(self) -> str:
         """Get the URL of the current trace to view it in the Langfuse UI."""
-        if not self.project_id:
-            proj = self.client.projects.get()
-            if not proj.data or not proj.data[0].id:
-                return f"{self.base_url}/trace/{self.trace_id}"
+        project_id = self._get_project_id()
+        if not project_id:
+            return f"{self.base_url}/trace/{self.trace_id}"
 
-            self.project_id = proj.data[0].id
-
-        return f"{self.base_url}/project/{self.project_id}/traces/{self.trace_id}"
+        return f"{self.base_url}/project/{project_id}/traces/{self.trace_id}"
 
     def get_dataset(
         self, name: str, *, fetch_items_page_size: Optional[int] = 50
