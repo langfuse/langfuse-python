@@ -149,7 +149,6 @@ class EventSerializer(JSONEncoder):
                 return f"<{type(obj).__name__}>"
 
         except Exception as e:
-            print(obj.__dict__)
             logger.debug(
                 f"Serialization failed for object of type {type(obj).__name__}",
                 exc_info=e,
