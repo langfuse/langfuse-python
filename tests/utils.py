@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import typing
 from uuid import uuid4
@@ -8,6 +9,8 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
+import backoff
+import httpx
 from llama_index.core import (
     Settings,
     SimpleDirectoryReader,
@@ -19,16 +22,44 @@ from llama_index.core.callbacks import CallbackManager
 
 from langfuse.api.client import FernLangfuse
 
+logger = logging.getLogger(__name__)
+
 
 def create_uuid():
     return str(uuid4())
 
 
+class HTTPClientWithRetries(httpx.Client):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @backoff.on_exception(
+        backoff.expo,
+        httpx.HTTPError,
+        max_time=3,
+        max_tries=4,
+        giveup=lambda e: isinstance(e, httpx.HTTPStatusError)
+        and e.response.status_code >= 500,
+        on_backoff=lambda details: logger.warning(
+            f"Request failed. Retrying in {details['wait']:.2f} seconds... "
+            f"Attempt {details['tries']}/4"
+        ),
+    )
+    def request(self, *args, **kwargs) -> httpx.Response:
+        response = super().request(*args, **kwargs)
+        response.raise_for_status()
+
+        return response
+
+
 def get_api():
+    http_client_with_retries = HTTPClientWithRetries(timeout=10)
+
     return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
         base_url=os.environ.get("LANGFUSE_HOST"),
+        httpx_client=http_client_with_retries,
     )
 
 

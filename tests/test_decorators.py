@@ -13,8 +13,8 @@ from langfuse.media import LangfuseMedia
 from langfuse.openai import AsyncOpenAI
 from tests.utils import create_uuid, get_api, get_llama_index_index
 
-mock_metadata = "mock_metadata"
-mock_deep_metadata = "mock_deep_metadata"
+mock_metadata = {"key": "metadata"}
+mock_deep_metadata = {"key": "mock_deep_metadata"}
 mock_session_id = "session-id-1"
 mock_args = (1, 2, 3)
 mock_kwargs = {"a": 1, "b": 2, "c": 3}
