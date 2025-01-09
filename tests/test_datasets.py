@@ -1,13 +1,14 @@
 import json
 import os
-from typing import List
+import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import List
 
 from langchain import LLMChain, OpenAI, PromptTemplate
 
 from langfuse import Langfuse
-from langfuse.decorators import observe, langfuse_context
 from langfuse.api.resources.commons.types.observation import Observation
+from langfuse.decorators import langfuse_context, observe
 from tests.utils import create_uuid, get_api, get_llama_index_index
 
 
@@ -264,10 +265,13 @@ def test_linking_via_id_observation_arg_legacy():
         generation = langfuse.generation(id=generation_id)
         trace_id = generation.trace_id
         langfuse.flush()
+        time.sleep(1)
 
         item.link(generation_id, run_name)
 
     langfuse.flush()
+
+    time.sleep(1)
 
     run = langfuse.get_dataset_run(dataset_name, run_name)
 

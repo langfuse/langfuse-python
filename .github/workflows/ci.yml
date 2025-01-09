@@ -93,8 +93,8 @@ jobs:
 
           TELEMETRY_ENABLED=false \
           LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://localhost:9090 \
-          LANGFUSE_INGESTION_QUEUE_DELAY_MS=100 \
-          LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS=100 \
+          LANGFUSE_INGESTION_QUEUE_DELAY_MS=10 \
+          LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS=10 \
           docker compose up -d
 
           echo "::endgroup::"
@@ -155,7 +155,7 @@ jobs:
       - name: Run the automated tests
         run: |
           python --version
-          poetry run pytest -s -v --log-cli-level=INFO
+          poetry run pytest -n auto -s -v --log-cli-level=INFO
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
