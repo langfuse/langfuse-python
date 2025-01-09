@@ -1,9 +1,9 @@
-from collections import defaultdict
-import httpx
 import logging
 import typing
 import warnings
+from collections import defaultdict
 
+import httpx
 import pydantic
 
 try:  # Test that langchain is installed before proceeding
@@ -15,16 +15,17 @@ except ImportError as e:
     )
 from typing import Any, Dict, List, Optional, Sequence, Union, cast
 from uuid import UUID, uuid4
+
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
+    StatefulGenerationClient,
     StatefulSpanClient,
     StatefulTraceClient,
-    StatefulGenerationClient,
 )
 from langfuse.extract_model import _extract_model_name
+from langfuse.types import MaskFunction
 from langfuse.utils import _get_timestamp
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from langfuse.types import MaskFunction
 
 try:
     from langchain.callbacks.base import (
@@ -32,18 +33,18 @@ try:
     )
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
-    from langchain_core.outputs import (
-        ChatGeneration,
-        LLMResult,
-    )
     from langchain_core.messages import (
         AIMessage,
         BaseMessage,
         ChatMessage,
+        FunctionMessage,
         HumanMessage,
         SystemMessage,
         ToolMessage,
-        FunctionMessage,
+    )
+    from langchain_core.outputs import (
+        ChatGeneration,
+        LLMResult,
     )
 except ImportError:
     raise ModuleNotFoundError(
@@ -149,7 +150,9 @@ class LangchainCallbackHandler(
 
             self.updated_completion_start_time_memo.add(run_id)
 
-    def get_langchain_run_name(self, serialized: Optional[Dict[str, Any]], **kwargs: Any) -> str:
+    def get_langchain_run_name(
+        self, serialized: Optional[Dict[str, Any]], **kwargs: Any
+    ) -> str:
         """Retrieve the name of a serialized LangChain runnable.
 
         The prioritization for the determination of the run name is as follows:

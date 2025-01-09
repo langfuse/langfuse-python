@@ -6,7 +6,7 @@ from typing import Optional
 
 import pytest
 from langchain.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 
 from langfuse.decorators import langfuse_context, observe
 from langfuse.media import LangfuseMedia
@@ -249,7 +249,7 @@ def test_exception_in_wrapped_function():
     level_3_observation = adjacencies[level_2_observation.id][0]
 
     assert (
-        level_2_observation.metadata is None
+        level_2_observation.metadata == {}
     )  # Exception is raised before metadata is set
     assert level_3_observation.metadata == mock_deep_metadata
     assert level_3_observation.status_message == "Mock exception"
@@ -1035,7 +1035,8 @@ async def test_async_nested_openai_chat_stream():
     assert generation.usage.input is not None
     assert generation.usage.output is not None
     assert generation.usage.total is not None
-    assert "2" in generation.output
+    print(generation)
+    assert generation.output == 2
 
 
 def test_generation_at_highest_level():
