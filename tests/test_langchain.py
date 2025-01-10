@@ -964,7 +964,7 @@ def test_callback_retriever_conversational():
 
 
 def test_callback_simple_openai():
-    handler = CallbackHandler(debug=True)
+    handler = CallbackHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 

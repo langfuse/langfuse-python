@@ -150,7 +150,6 @@ def test_openai_chat_completion_stream():
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
     assert generation.data[0].output == 2
-    # assert isinstance(generation.data[0].output, str) is True
     assert generation.data[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token

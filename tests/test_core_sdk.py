@@ -342,13 +342,6 @@ def test_create_generation():
             None,
             None,
         ),
-        # (
-        #     LlmUsage(promptTokens=51, completionTokens=0, totalTokens=100),
-        #     "TOKENS",
-        #     None,
-        #     None,
-        #     None,
-        # ),
         (
             {
                 "input": 51,
@@ -379,13 +372,6 @@ def test_create_generation():
             200,
             300,
         ),
-        # (
-        #     {"input": 51, "total": 100},
-        #     None,
-        #     None,
-        #     None,
-        #     None,
-        # ),
         (
             LlmUsageWithCost(
                 promptTokens=51,

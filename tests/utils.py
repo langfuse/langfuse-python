@@ -1,5 +1,4 @@
 import base64
-import logging
 import os
 import typing
 from time import sleep
@@ -20,8 +19,6 @@ from llama_index.core import (
 from llama_index.core.callbacks import CallbackManager
 
 from langfuse.api.client import FernLangfuse
-
-logger = logging.getLogger(__name__)
 
 
 def create_uuid():
