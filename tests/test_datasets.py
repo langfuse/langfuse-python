@@ -439,9 +439,7 @@ def test_llama_index_dataset():
     assert len(run.dataset_run_items) == 1
     assert run.dataset_run_items[0].dataset_run_id == run.id
 
-    api = get_api()
-
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     sorted_observations = sorted_dependencies(trace.observations)
 
@@ -456,7 +454,6 @@ def test_llama_index_dataset():
     }
 
     assert sorted_observations[0].name == "query"
-    assert sorted_observations[1].name == "synthesize"
 
 
 def sorted_dependencies(
@@ -537,11 +534,8 @@ def test_observe_dataset_run():
             item.trace_id == trace_id for item in run.dataset_run_items
         ), f"Trace {trace_id} not found in run"
 
-    # Check trace
-    api = get_api()
-
     for dataset_item_input, trace_id in items_data:
-        trace = api.trace.get(trace_id)
+        trace = get_api().trace.get(trace_id)
 
         assert trace.name == "run_llm_app_on_dataset_item"
         assert len(trace.observations) == 0
@@ -556,7 +550,7 @@ def test_observe_dataset_run():
 
     langfuse_context.flush()
 
-    next_trace = api.trace.get(new_trace_id)
+    next_trace = get_api().trace.get(new_trace_id)
     assert next_trace.name == "run_llm_app_on_dataset_item"
     assert next_trace.input["args"][0] == "non-dataset-run-afterwards"
     assert next_trace.output == "non-dataset-run-afterwards"

@@ -747,6 +747,7 @@ def test_create_span_and_get_observation():
     langfuse.span(id=span_id, name="span")
     langfuse.flush()
 
+    sleep(1)
     observation = langfuse.get_observation(span_id)
     assert observation.name == "span"
     assert observation.id == span_id
@@ -1413,6 +1414,7 @@ def test_fetch_sessions():
     langfuse.flush()
 
     # Fetch traces
+    sleep(1)
     response = langfuse.fetch_sessions()
 
     # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests
