@@ -249,7 +249,7 @@ def test_create_update_trace():
         metadata={"key": "value"},
         public=True,
     )
-    trace.update(metadata={"key": "value2"}, public=False)
+    trace.update(metadata={"key2": "value2"}, public=False)
 
     langfuse.flush()
 
@@ -257,7 +257,7 @@ def test_create_update_trace():
 
     assert trace.name == trace_name
     assert trace.user_id == "test"
-    assert trace.metadata == {"key": "value2"}
+    assert trace.metadata == {"key": "value", "key2": "value2"}
     assert trace.public is False
 
 
@@ -747,7 +747,7 @@ def test_create_span_and_get_observation():
     langfuse.span(id=span_id, name="span")
     langfuse.flush()
 
-    sleep(1)
+    sleep(2)
     observation = langfuse.get_observation(span_id)
     assert observation.name == "span"
     assert observation.id == span_id
@@ -1414,7 +1414,7 @@ def test_fetch_sessions():
     langfuse.flush()
 
     # Fetch traces
-    sleep(1)
+    sleep(2)
     response = langfuse.fetch_sessions()
 
     # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests

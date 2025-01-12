@@ -2,6 +2,7 @@ import asyncio
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
+from time import sleep
 from typing import Optional
 
 import pytest
@@ -227,6 +228,7 @@ def test_exception_in_wrapped_function():
         )
 
     langfuse_context.flush()
+    sleep(1)
 
     trace_data = get_api().trace.get(mock_trace_id)
 
@@ -309,8 +311,7 @@ def test_concurrent_decorator_executions():
 
     langfuse_context.flush()
 
-    print("mock_id_1", mock_trace_id_1)
-    print("mock_id_2", mock_trace_id_2)
+    sleep(1)
 
     for mock_id in [mock_trace_id_1, mock_trace_id_2]:
         trace_data = get_api().trace.get(mock_id)
@@ -1416,6 +1417,7 @@ def test_top_level_generation():
     main(langfuse_observation_id=mock_trace_id)
 
     langfuse_context.flush()
+    sleep(1)
 
     trace_data = get_api().trace.get(mock_trace_id)
     assert trace_data.name == "updated_name"

@@ -2,6 +2,7 @@ import os
 import random
 import string
 import time
+from time import sleep
 from typing import Any, Dict, List, Mapping, Optional
 
 import pytest
@@ -1811,6 +1812,7 @@ def test_link_langfuse_prompts_invoke():
     )
 
     langfuse_handler.flush()
+    sleep(1)
 
     trace = get_api().trace.get(langfuse_handler.get_trace_id())
 
