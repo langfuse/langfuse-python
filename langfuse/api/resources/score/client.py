@@ -52,8 +52,8 @@ class ScoreClient:
 
         Examples
         --------
-        from langfuse.api import CreateScoreRequest
-        from langfuse.api.client import FernLangfuse
+        from langfuse import CreateScoreRequest
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -183,8 +183,8 @@ class ScoreClient:
         --------
         import datetime
 
-        from langfuse.api import ScoreDataType, ScoreSource
-        from langfuse.api.client import FernLangfuse
+        from langfuse import ScoreDataType, ScoreSource
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -286,7 +286,7 @@ class ScoreClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -351,7 +351,7 @@ class ScoreClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -425,8 +425,8 @@ class AsyncScoreClient:
         --------
         import asyncio
 
-        from langfuse.api import CreateScoreRequest
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import CreateScoreRequest
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -563,8 +563,8 @@ class AsyncScoreClient:
         import asyncio
         import datetime
 
-        from langfuse.api import ScoreDataType, ScoreSource
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import ScoreDataType, ScoreSource
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -674,7 +674,7 @@ class AsyncScoreClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -747,7 +747,7 @@ class AsyncScoreClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",

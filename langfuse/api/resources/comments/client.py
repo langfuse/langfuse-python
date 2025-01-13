@@ -48,8 +48,8 @@ class CommentsClient:
 
         Examples
         --------
-        from langfuse.api import CreateCommentRequest
-        from langfuse.api.client import FernLangfuse
+        from langfuse import CreateCommentRequest
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -141,7 +141,7 @@ class CommentsClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -220,7 +220,7 @@ class CommentsClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -294,8 +294,8 @@ class AsyncCommentsClient:
         --------
         import asyncio
 
-        from langfuse.api import CreateCommentRequest
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import CreateCommentRequest
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -395,7 +395,7 @@ class AsyncCommentsClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -482,7 +482,7 @@ class AsyncCommentsClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",

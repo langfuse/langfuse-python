@@ -36,7 +36,7 @@ class ProjectsClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -101,7 +101,7 @@ class AsyncProjectsClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
