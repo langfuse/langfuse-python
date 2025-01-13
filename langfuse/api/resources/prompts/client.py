@@ -58,7 +58,7 @@ class PromptsClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -152,7 +152,7 @@ class PromptsClient:
         --------
         import datetime
 
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -244,8 +244,8 @@ class PromptsClient:
 
         Examples
         --------
-        from langfuse.api import ChatMessage, CreatePromptRequest_Chat
-        from langfuse.api.client import FernLangfuse
+        from langfuse import ChatMessage, CreatePromptRequest_Chat
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -341,7 +341,7 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -442,7 +442,7 @@ class AsyncPromptsClient:
         import asyncio
         import datetime
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -542,8 +542,8 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from langfuse.api import ChatMessage, CreatePromptRequest_Chat
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import ChatMessage, CreatePromptRequest_Chat
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",

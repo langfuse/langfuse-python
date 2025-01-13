@@ -35,6 +35,7 @@ class IngestionClient:
 
         Notes:
 
+        - Introduction to data model: https://langfuse.com/docs/tracing-data-model
         - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
         - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 
@@ -57,8 +58,8 @@ class IngestionClient:
         --------
         import datetime
 
-        from langfuse.api import IngestionEvent_TraceCreate, TraceBody
-        from langfuse.api.client import FernLangfuse
+        from langfuse import IngestionEvent_TraceCreate, TraceBody
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -145,6 +146,7 @@ class AsyncIngestionClient:
 
         Notes:
 
+        - Introduction to data model: https://langfuse.com/docs/tracing-data-model
         - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
         - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 
@@ -168,8 +170,8 @@ class AsyncIngestionClient:
         import asyncio
         import datetime
 
-        from langfuse.api import IngestionEvent_TraceCreate, TraceBody
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import IngestionEvent_TraceCreate, TraceBody
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",

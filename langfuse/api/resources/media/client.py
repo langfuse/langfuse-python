@@ -46,7 +46,7 @@ class MediaClient:
 
         Examples
         --------
-        from langfuse.api.client import FernLangfuse
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -119,8 +119,8 @@ class MediaClient:
         --------
         import datetime
 
-        from langfuse.api import PatchMediaBody
-        from langfuse.api.client import FernLangfuse
+        from langfuse import PatchMediaBody
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -197,8 +197,8 @@ class MediaClient:
 
         Examples
         --------
-        from langfuse.api import GetMediaUploadUrlRequest, MediaContentType
-        from langfuse.api.client import FernLangfuse
+        from langfuse import GetMediaUploadUrlRequest, MediaContentType
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -281,7 +281,7 @@ class AsyncMediaClient:
         --------
         import asyncio
 
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -361,8 +361,8 @@ class AsyncMediaClient:
         import asyncio
         import datetime
 
-        from langfuse.api import PatchMediaBody
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import PatchMediaBody
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -447,8 +447,8 @@ class AsyncMediaClient:
         --------
         import asyncio
 
-        from langfuse.api import GetMediaUploadUrlRequest, MediaContentType
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import GetMediaUploadUrlRequest, MediaContentType
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",

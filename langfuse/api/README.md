@@ -1,14 +1,14 @@
-# Finto Python Library
+# Langfuse Python Library
 
-[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Finto%2FPython)
-[![pypi](https://img.shields.io/pypi/v/finto)](https://pypi.python.org/pypi/finto)
+[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Langfuse%2FPython)
+[![pypi](https://img.shields.io/pypi/v/langfuse)](https://pypi.python.org/pypi/langfuse)
 
-The Finto Python library provides convenient access to the Finto API from Python.
+The Langfuse Python library provides convenient access to the Langfuse API from Python.
 
 ## Installation
 
 ```sh
-pip install finto
+pip install langfuse
 ```
 
 ## Usage
@@ -16,8 +16,8 @@ pip install finto
 Instantiate and use the client with the following:
 
 ```python
-from langfuse.api import CreateCommentRequest
-from langfuse.api.client import FernLangfuse
+from langfuse import CreateCommentRequest
+from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -45,8 +45,8 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 ```python
 import asyncio
 
-from langfuse.api import CreateCommentRequest
-from langfuse.api.client import AsyncFernLangfuse
+from langfuse import CreateCommentRequest
+from langfuse.client import AsyncFernLangfuse
 
 client = AsyncFernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -116,7 +116,7 @@ The SDK defaults to a 60 second timeout. You can configure this with a timeout o
 
 ```python
 
-from langfuse.api.client import FernLangfuse
+from langfuse.client import FernLangfuse
 
 client = FernLangfuse(..., { timeout=20.0 }, )
 
@@ -131,10 +131,9 @@ client.comments.create(...,{
 
 You can override the `httpx` client to customize it for your use-case. Some common use-cases include support for proxies
 and transports.
-
 ```python
 import httpx
-from langfuse.api.client import FernLangfuse
+from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
     ...,

@@ -45,8 +45,8 @@ class DatasetRunItemsClient:
 
         Examples
         --------
-        from langfuse.api import CreateDatasetRunItemRequest
-        from langfuse.api.client import FernLangfuse
+        from langfuse import CreateDatasetRunItemRequest
+        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -129,8 +129,8 @@ class AsyncDatasetRunItemsClient:
         --------
         import asyncio
 
-        from langfuse.api import CreateDatasetRunItemRequest
-        from langfuse.api.client import AsyncFernLangfuse
+        from langfuse import CreateDatasetRunItemRequest
+        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
