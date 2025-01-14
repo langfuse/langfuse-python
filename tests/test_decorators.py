@@ -217,6 +217,7 @@ def test_exception_in_wrapped_function():
 
     @observe()
     def level_1_function(*args, **kwargs):
+        sleep(1)
         level_2_function()
 
         return "level_1"
@@ -228,7 +229,6 @@ def test_exception_in_wrapped_function():
         )
 
     langfuse_context.flush()
-    sleep(1)
 
     trace_data = get_api().trace.get(mock_trace_id)
 
@@ -286,6 +286,7 @@ def test_concurrent_decorator_executions():
 
     @observe(name=mock_name)
     def level_1_function(*args, **kwargs):
+        sleep(1)
         level_2_function()
 
         return "level_1"
@@ -310,8 +311,6 @@ def test_concurrent_decorator_executions():
         future2.result()
 
     langfuse_context.flush()
-
-    sleep(1)
 
     for mock_id in [mock_trace_id_1, mock_trace_id_2]:
         trace_data = get_api().trace.get(mock_id)
@@ -1410,6 +1409,7 @@ def test_top_level_generation():
 
     @observe(as_type="generation")
     def main():
+        sleep(1)
         langfuse_context.update_current_trace(name="updated_name")
 
         return mock_output
@@ -1417,7 +1417,6 @@ def test_top_level_generation():
     main(langfuse_observation_id=mock_trace_id)
 
     langfuse_context.flush()
-    sleep(2)
 
     trace_data = get_api().trace.get(mock_trace_id)
     assert trace_data.name == "updated_name"
@@ -1499,6 +1498,7 @@ def test_media():
 
     @observe()
     def main():
+        sleep(1)
         langfuse_context.update_current_trace(
             input={
                 "context": {

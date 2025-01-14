@@ -239,7 +239,7 @@ def test_create_trace():
 
 
 def test_create_update_trace():
-    langfuse = Langfuse(debug=True, flush_at=1)
+    langfuse = Langfuse()
 
     trace_name = create_uuid()
 
