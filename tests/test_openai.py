@@ -34,7 +34,6 @@ def test_auth_check():
 
 
 def test_openai_chat_completion():
-    api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
         name=generation_name,
@@ -51,7 +50,9 @@ def test_openai_chat_completion():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -86,7 +87,7 @@ def test_openai_chat_completion():
     assert "2" in generation.data[0].output["content"]
     assert generation.data[0].output["role"] == "assistant"
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == [
         {
             "content": "You are an expert mathematician",
@@ -103,7 +104,6 @@ def test_openai_chat_completion():
 
 
 def test_openai_chat_completion_stream():
-    api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
         name=generation_name,
@@ -125,7 +125,9 @@ def test_openai_chat_completion_stream():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -147,8 +149,7 @@ def test_openai_chat_completion_stream():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == "2"
-    assert isinstance(generation.data[0].output, str) is True
+    assert generation.data[0].output == 2
     assert generation.data[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
@@ -156,13 +157,12 @@ def test_openai_chat_completion_stream():
     assert generation.data[0].completion_start_time >= generation.data[0].start_time
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == [{"role": "user", "content": "1 + 1 = "}]
-    assert trace.output == chat_content
+    assert str(trace.output) == chat_content
 
 
 def test_openai_chat_completion_stream_with_next_iteration():
-    api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
         name=generation_name,
@@ -189,7 +189,9 @@ def test_openai_chat_completion_stream_with_next_iteration():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -211,8 +213,7 @@ def test_openai_chat_completion_stream_with_next_iteration():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == "2"
-    assert isinstance(generation.data[0].output, str) is True
+    assert generation.data[0].output == 2
     assert generation.data[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
@@ -220,13 +221,12 @@ def test_openai_chat_completion_stream_with_next_iteration():
     assert generation.data[0].completion_start_time >= generation.data[0].start_time
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == [{"role": "user", "content": "1 + 1 = "}]
-    assert trace.output == chat_content
+    assert str(trace.output) == chat_content
 
 
 def test_openai_chat_completion_stream_fail():
-    api = get_api()
     generation_name = create_uuid()
     openai.api_key = ""
 
@@ -242,7 +242,9 @@ def test_openai_chat_completion_stream_fail():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -270,13 +272,12 @@ def test_openai_chat_completion_stream_fail():
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == [{"role": "user", "content": "1 + 1 = "}]
     assert trace.output is None
 
 
 def test_openai_chat_completion_with_trace():
-    api = get_api()
     generation_name = create_uuid()
     trace_id = create_uuid()
     langfuse = Langfuse()
@@ -294,7 +295,9 @@ def test_openai_chat_completion_with_trace():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -302,7 +305,6 @@ def test_openai_chat_completion_with_trace():
 
 
 def test_openai_chat_completion_with_langfuse_prompt():
-    api = get_api()
     generation_name = create_uuid()
     langfuse = Langfuse()
     prompt_name = create_uuid()
@@ -319,7 +321,9 @@ def test_openai_chat_completion_with_langfuse_prompt():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -327,7 +331,6 @@ def test_openai_chat_completion_with_langfuse_prompt():
 
 
 def test_openai_chat_completion_with_parent_observation_id():
-    api = get_api()
     generation_name = create_uuid()
     trace_id = create_uuid()
     span_id = create_uuid()
@@ -348,7 +351,9 @@ def test_openai_chat_completion_with_parent_observation_id():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -357,7 +362,6 @@ def test_openai_chat_completion_with_parent_observation_id():
 
 
 def test_openai_chat_completion_fail():
-    api = get_api()
     generation_name = create_uuid()
 
     openai.api_key = ""
@@ -373,7 +377,9 @@ def test_openai_chat_completion_fail():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -399,7 +405,6 @@ def test_openai_chat_completion_fail():
 
 
 def test_openai_chat_completion_with_additional_params():
-    api = get_api()
     user_id = create_uuid()
     session_id = create_uuid()
     tags = ["tag1", "tag2"]
@@ -419,7 +424,7 @@ def test_openai_chat_completion_with_additional_params():
     openai.flush_langfuse()
 
     assert len(completion.choices) != 0
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.user_id == user_id
     assert trace.session_id == session_id
@@ -438,7 +443,6 @@ def test_openai_chat_completion_without_extra_param():
 
 
 def test_openai_chat_completion_two_calls():
-    api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
         name=generation_name,
@@ -460,7 +464,9 @@ def test_openai_chat_completion_two_calls():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -468,7 +474,9 @@ def test_openai_chat_completion_two_calls():
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
 
-    generation_2 = api.observations.get_many(name=generation_name_2, type="GENERATION")
+    generation_2 = get_api().observations.get_many(
+        name=generation_name_2, type="GENERATION"
+    )
 
     assert len(generation_2.data) != 0
     assert generation_2.data[0].name == generation_name_2
@@ -478,7 +486,6 @@ def test_openai_chat_completion_two_calls():
 
 
 def test_openai_chat_completion_with_seed():
-    api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
         name=generation_name,
@@ -491,7 +498,9 @@ def test_openai_chat_completion_with_seed():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert generation.data[0].model_parameters == {
         "temperature": 0,
@@ -505,7 +514,6 @@ def test_openai_chat_completion_with_seed():
 
 
 def test_openai_completion():
-    api = get_api()
     generation_name = create_uuid()
     completion = completion_func(
         name=generation_name,
@@ -517,7 +525,9 @@ def test_openai_completion():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -542,13 +552,12 @@ def test_openai_completion():
     assert generation.data[0].usage.total is not None
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == "1 + 1 = "
     assert trace.output == completion.choices[0].text
 
 
 def test_openai_completion_stream():
-    api = get_api()
     generation_name = create_uuid()
     completion = completion_func(
         name=generation_name,
@@ -568,7 +577,9 @@ def test_openai_completion_stream():
 
     assert len(content) > 0
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -598,13 +609,12 @@ def test_openai_completion_stream():
     assert generation.data[0].completion_start_time >= generation.data[0].start_time
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == "1 + 1 = "
     assert trace.output == content
 
 
 def test_openai_completion_fail():
-    api = get_api()
     generation_name = create_uuid()
 
     openai.api_key = ""
@@ -620,7 +630,9 @@ def test_openai_completion_fail():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -646,7 +658,6 @@ def test_openai_completion_fail():
 
 
 def test_openai_completion_stream_fail():
-    api = get_api()
     generation_name = create_uuid()
     openai.api_key = ""
 
@@ -662,7 +673,9 @@ def test_openai_completion_stream_fail():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -692,7 +705,6 @@ def test_openai_completion_stream_fail():
 
 
 def test_openai_completion_with_languse_prompt():
-    api = get_api()
     generation_name = create_uuid()
     langfuse = Langfuse()
     prompt_name = create_uuid()
@@ -710,7 +722,9 @@ def test_openai_completion_with_languse_prompt():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -749,7 +763,6 @@ def test_fails_wrong_trace_id():
 
 @pytest.mark.asyncio
 async def test_async_chat():
-    api = get_api()
     client = AsyncOpenAI()
     generation_name = create_uuid()
 
@@ -761,7 +774,9 @@ async def test_async_chat():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -789,7 +804,6 @@ async def test_async_chat():
 
 @pytest.mark.asyncio
 async def test_async_chat_stream():
-    api = get_api()
     client = AsyncOpenAI()
 
     generation_name = create_uuid()
@@ -806,7 +820,9 @@ async def test_async_chat_stream():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -826,7 +842,7 @@ async def test_async_chat_stream():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output
+    assert "2" in str(generation.data[0].output)
 
     # Completion start time for time-to-first-token
     assert generation.data[0].completion_start_time is not None
@@ -836,7 +852,6 @@ async def test_async_chat_stream():
 
 @pytest.mark.asyncio
 async def test_async_chat_stream_with_anext():
-    api = get_api()
     client = AsyncOpenAI()
 
     generation_name = create_uuid()
@@ -863,7 +878,9 @@ async def test_async_chat_stream_with_anext():
 
     print(result)
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -897,7 +914,6 @@ def test_openai_function_call():
 
     from pydantic import BaseModel
 
-    api = get_api()
     generation_name = create_uuid()
 
     class StepByStepAIResponse(BaseModel):
@@ -924,7 +940,9 @@ def test_openai_function_call():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -939,7 +957,6 @@ def test_openai_function_call_streamed():
 
     from pydantic import BaseModel
 
-    api = get_api()
     generation_name = create_uuid()
 
     class StepByStepAIResponse(BaseModel):
@@ -967,7 +984,9 @@ def test_openai_function_call_streamed():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -976,7 +995,6 @@ def test_openai_function_call_streamed():
 
 
 def test_openai_tool_call():
-    api = get_api()
     generation_name = create_uuid()
 
     tools = [
@@ -1010,7 +1028,9 @@ def test_openai_tool_call():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1026,7 +1046,6 @@ def test_openai_tool_call():
 
 
 def test_openai_tool_call_streamed():
-    api = get_api()
     generation_name = create_uuid()
 
     tools = [
@@ -1065,7 +1084,9 @@ def test_openai_tool_call_streamed():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1082,7 +1103,6 @@ def test_openai_tool_call_streamed():
 
 
 def test_azure():
-    api = get_api()
     generation_name = create_uuid()
     azure = AzureOpenAI(
         api_key="missing",
@@ -1101,7 +1121,9 @@ def test_azure():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1127,7 +1149,6 @@ def test_azure():
 
 @pytest.mark.asyncio
 async def test_async_azure():
-    api = get_api()
     generation_name = create_uuid()
     azure = AsyncAzureOpenAI(
         api_key="missing",
@@ -1146,7 +1167,9 @@ async def test_async_azure():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1185,7 +1208,6 @@ def test_openai_with_existing_trace_id():
 
     langfuse.flush()
 
-    api = get_api()
     generation_name = create_uuid()
     completion = chat_func(
         name=generation_name,
@@ -1198,7 +1220,9 @@ def test_openai_with_existing_trace_id():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1223,7 +1247,7 @@ def test_openai_with_existing_trace_id():
     assert "2" in generation.data[0].output["content"]
     assert generation.data[0].output["role"] == "assistant"
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.output == "This is a standard output"
     assert trace.input == "My custom input"
 
@@ -1237,7 +1261,6 @@ def test_disabled_langfuse():
 
     openai.langfuse_enabled = False
 
-    api = get_api()
     generation_name = create_uuid()
     openai.chat.completions.create(
         name=generation_name,
@@ -1249,7 +1272,9 @@ def test_disabled_langfuse():
 
     openai.flush_langfuse()
 
-    generations = api.observations.get_many(name=generation_name, type="GENERATION")
+    generations = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generations.data) == 0
 
@@ -1279,7 +1304,6 @@ def test_langchain_integration():
 
 
 def test_structured_output_response_format_kwarg():
-    api = get_api()
     generation_name = (
         "test_structured_output_response_format_kwarg" + create_uuid()[0:10]
     )
@@ -1325,7 +1349,9 @@ def test_structured_output_response_format_kwarg():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1355,7 +1381,7 @@ def test_structured_output_response_format_kwarg():
     assert generation.data[0].usage.total is not None
     assert generation.data[0].output["role"] == "assistant"
 
-    trace = api.trace.get(generation.data[0].trace_id)
+    trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.output is not None
     assert trace.input is not None
 
@@ -1371,7 +1397,6 @@ def test_structured_output_beta_completions_parse():
         participants: List[str]
 
     generation_name = create_uuid()
-    api = get_api()
 
     params = {
         "model": "gpt-4o-2024-08-06",
@@ -1396,7 +1421,9 @@ def test_structured_output_beta_completions_parse():
 
     if Version(openai.__version__) >= Version("1.50.0"):
         # Check the trace and observation properties
-        generation = api.observations.get_many(name=generation_name, type="GENERATION")
+        generation = get_api().observations.get_many(
+            name=generation_name, type="GENERATION"
+        )
 
         assert len(generation.data) == 1
         assert generation.data[0].name == generation_name
@@ -1421,7 +1448,7 @@ def test_structured_output_beta_completions_parse():
         assert generation.data[0].usage.total is not None
 
         # Check trace
-        trace = api.trace.get(generation.data[0].trace_id)
+        trace = get_api().trace.get(generation.data[0].trace_id)
 
         assert trace.input is not None
         assert trace.output is not None
@@ -1431,7 +1458,6 @@ def test_structured_output_beta_completions_parse():
 async def test_close_async_stream():
     client = AsyncOpenAI()
     generation_name = create_uuid()
-    api = get_api()
 
     stream = await client.chat.completions.create(
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -1447,7 +1473,9 @@ async def test_close_async_stream():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1467,7 +1495,7 @@ async def test_close_async_stream():
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output
+    assert "2" in str(generation.data[0].output)
 
     # Completion start time for time-to-first-token
     assert generation.data[0].completion_start_time is not None
@@ -1476,7 +1504,6 @@ async def test_close_async_stream():
 
 
 def test_base_64_image_input():
-    api = get_api()
     client = openai.OpenAI()
     generation_name = "test_base_64_image_input" + create_uuid()[:8]
 
@@ -1507,7 +1534,9 @@ def test_base_64_image_input():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name
@@ -1528,7 +1557,6 @@ def test_base_64_image_input():
 
 
 def test_audio_input_and_output():
-    api = get_api()
     client = openai.OpenAI()
     openai.langfuse_debug = True
     generation_name = "test_audio_input_and_output" + create_uuid()[:8]
@@ -1557,7 +1585,9 @@ def test_audio_input_and_output():
 
     openai.flush_langfuse()
 
-    generation = api.observations.get_many(name=generation_name, type="GENERATION")
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
 
     assert len(generation.data) != 0
     assert generation.data[0].name == generation_name

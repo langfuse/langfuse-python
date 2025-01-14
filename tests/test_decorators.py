@@ -2,19 +2,20 @@ import asyncio
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
+from time import sleep
 from typing import Optional
 
 import pytest
 from langchain.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 
 from langfuse.decorators import langfuse_context, observe
 from langfuse.media import LangfuseMedia
 from langfuse.openai import AsyncOpenAI
 from tests.utils import create_uuid, get_api, get_llama_index_index
 
-mock_metadata = "mock_metadata"
-mock_deep_metadata = "mock_deep_metadata"
+mock_metadata = {"key": "metadata"}
+mock_deep_metadata = {"key": "mock_deep_metadata"}
 mock_session_id = "session-id-1"
 mock_args = (1, 2, 3)
 mock_kwargs = {"a": 1, "b": 2, "c": 3}
@@ -216,6 +217,7 @@ def test_exception_in_wrapped_function():
 
     @observe()
     def level_1_function(*args, **kwargs):
+        sleep(1)
         level_2_function()
 
         return "level_1"
@@ -249,7 +251,7 @@ def test_exception_in_wrapped_function():
     level_3_observation = adjacencies[level_2_observation.id][0]
 
     assert (
-        level_2_observation.metadata is None
+        level_2_observation.metadata == {}
     )  # Exception is raised before metadata is set
     assert level_3_observation.metadata == mock_deep_metadata
     assert level_3_observation.status_message == "Mock exception"
@@ -284,6 +286,7 @@ def test_concurrent_decorator_executions():
 
     @observe(name=mock_name)
     def level_1_function(*args, **kwargs):
+        sleep(1)
         level_2_function()
 
         return "level_1"
@@ -308,9 +311,6 @@ def test_concurrent_decorator_executions():
         future2.result()
 
     langfuse_context.flush()
-
-    print("mock_id_1", mock_trace_id_1)
-    print("mock_id_2", mock_trace_id_2)
 
     for mock_id in [mock_trace_id_1, mock_trace_id_2]:
         trace_data = get_api().trace.get(mock_id)
@@ -1035,7 +1035,8 @@ async def test_async_nested_openai_chat_stream():
     assert generation.usage.input is not None
     assert generation.usage.output is not None
     assert generation.usage.total is not None
-    assert "2" in generation.output
+    print(generation)
+    assert generation.output == 2
 
 
 def test_generation_at_highest_level():
@@ -1408,6 +1409,7 @@ def test_top_level_generation():
 
     @observe(as_type="generation")
     def main():
+        sleep(1)
         langfuse_context.update_current_trace(name="updated_name")
 
         return mock_output
@@ -1496,6 +1498,7 @@ def test_media():
 
     @observe()
     def main():
+        sleep(1)
         langfuse_context.update_current_trace(
             input={
                 "context": {

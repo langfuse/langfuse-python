@@ -2,6 +2,7 @@ import os
 import random
 import string
 import time
+from time import sleep
 from typing import Any, Dict, List, Mapping, Optional
 
 import pytest
@@ -19,10 +20,10 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import Document, HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_anthropic import Anthropic
 from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.llms.anthropic import Anthropic
 from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.vectorstores import Chroma
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
@@ -49,7 +50,6 @@ def test_callback_init():
 
 
 def test_callback_kwargs():
-    api = get_api()
     callback = CallbackHandler(
         trace_name="trace-name",
         release="release",
@@ -68,7 +68,7 @@ def test_callback_kwargs():
 
     trace_id = callback.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     assert trace.input is not None
     assert trace.output is not None
     assert trace.metadata == {"key": "value"}
@@ -94,7 +94,6 @@ def test_langfuse_span():
 
 
 def test_callback_generated_from_trace_chain():
-    api = get_api()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -115,7 +114,7 @@ def test_callback_generated_from_trace_chain():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -143,9 +142,9 @@ def test_callback_generated_from_trace_chain():
     )[0]
 
     assert langchain_generation_span.parent_observation_id == langchain_span.id
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -153,7 +152,6 @@ def test_callback_generated_from_trace_chain():
 
 
 def test_callback_generated_from_trace_chat():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -176,7 +174,7 @@ def test_callback_generated_from_trace_chat():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -194,9 +192,9 @@ def test_callback_generated_from_trace_chat():
     )[0]
 
     assert langchain_generation_span.parent_observation_id is None
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -204,7 +202,6 @@ def test_callback_generated_from_trace_chat():
 
 
 def test_callback_generated_from_lcel_chain():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     run_name_override = "This is a custom Run Name"
@@ -226,13 +223,12 @@ def test_callback_generated_from_lcel_chain():
     langfuse.flush()
     handler.flush()
     trace_id = handler.get_trace_id()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == run_name_override
 
 
 def test_callback_generated_from_span_chain():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -255,7 +251,7 @@ def test_callback_generated_from_span_chain():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -294,9 +290,9 @@ def test_callback_generated_from_span_chain():
     )[0]
 
     assert langchain_generation_span.parent_observation_id == langchain_span.id
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -304,7 +300,6 @@ def test_callback_generated_from_span_chain():
 
 
 def test_callback_generated_from_span_chat():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -330,7 +325,7 @@ def test_callback_generated_from_span_chat():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -358,9 +353,9 @@ def test_callback_generated_from_span_chat():
     )[0]
 
     assert langchain_generation_span.parent_observation_id == user_span.id
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -409,7 +404,6 @@ def test_mistral():
     from langchain_core.messages import HumanMessage
     from langchain_mistralai.chat_models import ChatMistralAI
 
-    api = get_api()
     callback = CallbackHandler(debug=False)
 
     chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
@@ -420,7 +414,7 @@ def test_mistral():
 
     trace_id = callback.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 2
@@ -433,7 +427,6 @@ def test_mistral():
 def test_vertx():
     from langchain.llms import VertexAI
 
-    api = get_api()
     callback = CallbackHandler(debug=False)
 
     llm = VertexAI(callbacks=[callback])
@@ -443,7 +436,7 @@ def test_vertx():
 
     trace_id = callback.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 2
@@ -475,17 +468,16 @@ def test_callback_generated_from_trace_anthropic():
 
     langfuse.flush()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
     assert len(trace.observations) == 2
     assert trace.id == trace_id
     for observation in trace.observations:
         if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
             assert observation.output is not None
             assert observation.output != ""
             assert isinstance(observation.input, str) is True
@@ -513,9 +505,7 @@ def test_basic_chat_openai():
 
     trace_id = callback.get_trace_id()
 
-    api = get_api()
-
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 1
@@ -562,9 +552,7 @@ def test_basic_chat_openai_based_on_trace():
 
     trace_id = callback.get_trace_id()
 
-    api = get_api()
-
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 1
@@ -591,8 +579,7 @@ def test_callback_from_trace_with_trace_update():
 
     trace_id = handler.get_trace_id()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is not None
     assert trace.output is not None
@@ -606,9 +593,9 @@ def test_callback_from_trace_with_trace_update():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_callback_from_span_with_span_update():
@@ -634,12 +621,11 @@ def test_callback_from_span_with_span_update():
 
     trace_id = handler.get_trace_id()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
-    assert trace.metadata is None
+    assert trace.metadata == {}
 
     assert len(trace.observations) == 3
     assert handler.get_trace_id() == trace_id
@@ -655,9 +641,9 @@ def test_callback_from_span_with_span_update():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_callback_from_trace_simple_chain():
@@ -681,8 +667,7 @@ def test_callback_from_trace_simple_chain():
 
     trace_id = handler.get_trace_id()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     assert trace.input is None
     assert trace.output is None
 
@@ -695,9 +680,9 @@ def test_callback_from_trace_simple_chain():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_next_span_id_from_trace_simple_chain():
@@ -748,7 +733,6 @@ def test_next_span_id_from_trace_simple_chain():
 
 
 def test_callback_sequential_chain():
-    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -777,16 +761,16 @@ def test_callback_sequential_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert len(trace.observations) == 5
     assert trace.id == trace_id
 
     for observation in trace.observations:
         if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
             assert observation.input is not None
             assert observation.input != ""
             assert observation.output is not None
@@ -921,9 +905,7 @@ def test_callback_retriever_conversational_with_memory():
     conversation.predict(input="Hi there!", callbacks=[handler])
     handler.flush()
 
-    api = get_api()
-
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) == 1
@@ -933,9 +915,9 @@ def test_callback_retriever_conversational_with_memory():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_callback_retriever_conversational():
@@ -983,8 +965,7 @@ def test_callback_retriever_conversational():
 
 
 def test_callback_simple_openai():
-    api = get_api()
-    handler = CallbackHandler(debug=False)
+    handler = CallbackHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -996,15 +977,16 @@ def test_callback_simple_openai():
 
     trace_id = handler.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert len(trace.observations) == 1
 
     for observation in trace.observations:
         if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
+            print(observation.usage_details)
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
             assert observation.input is not None
             assert observation.input != ""
             assert observation.output is not None
@@ -1012,7 +994,6 @@ def test_callback_simple_openai():
 
 
 def test_callback_multiple_invocations_on_different_traces():
-    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -1031,8 +1012,8 @@ def test_callback_multiple_invocations_on_different_traces():
 
     assert trace_id_one != trace_id_two
 
-    trace_one = api.trace.get(trace_id_one)
-    trace_two = api.trace.get(trace_id_two)
+    trace_one = get_api().trace.get(trace_id_one)
+    trace_two = get_api().trace.get(trace_id_two)
 
     for test_data in [
         {"trace": trace_one, "expected_trace_id": trace_id_one},
@@ -1042,9 +1023,9 @@ def test_callback_multiple_invocations_on_different_traces():
         assert test_data["trace"].id == test_data["expected_trace_id"]
         for observation in test_data["trace"].observations:
             if observation.type == "GENERATION":
-                assert observation.usage.input > 0
-                assert observation.usage.output > 0
-                assert observation.usage.total > 0
+                assert observation.usage_details["input"] > 0
+                assert observation.usage_details["output"] > 0
+                assert observation.usage_details["total"] > 0
                 assert observation.input is not None
                 assert observation.input != ""
                 assert observation.output is not None
@@ -1104,9 +1085,8 @@ def test_tools():
     handler.flush()
 
     trace_id = handler.get_trace_id()
-    api = get_api()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     assert trace.id == trace_id
     assert len(trace.observations) > 2
 
@@ -1227,8 +1207,7 @@ def test_callback_openai_functions_python():
 
     handler.langfuse.flush()
 
-    api = get_api()
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 2
 
@@ -1263,9 +1242,9 @@ def test_callback_openai_functions_python():
                 "refusal": None,
             },
         }
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_agent_executor_chain():
@@ -1312,8 +1291,8 @@ def test_agent_executor_chain():
     )
 
     callback.flush()
-    api = get_api()
-    trace = api.trace.get(callback.get_trace_id())
+
+    trace = get_api().trace.get(callback.get_trace_id())
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -1323,9 +1302,9 @@ def test_agent_executor_chain():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 # def test_create_extraction_chain():
@@ -1387,9 +1366,9 @@ def test_agent_executor_chain():
 
 #     handler.flush()
 
-#     api = get_api()
+#
 
-#     trace = api.trace.get(handler.get_trace_id())
+#     trace = get_api().trace.get(handler.get_trace_id())
 
 #     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
 #     assert len(generations) > 0
@@ -1399,9 +1378,9 @@ def test_agent_executor_chain():
 #         assert generation.output is not None
 #         assert generation.input != ""
 #         assert generation.output != ""
-#         assert generation.usage.total is not None
-#         assert generation.usage.input is not None
-#         assert generation.usage.output is not None
+#         assert generation.usage_details["total"] is not None
+#         assert generation.usage_details["input"] is not None
+#         assert generation.usage_details["output"] is not None
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -1511,9 +1490,7 @@ def test_unimplemented_model():
 
     callback.flush()
 
-    api = get_api()
-
-    trace = api.trace.get(callback.get_trace_id())
+    trace = get_api().trace.get(callback.get_trace_id())
 
     assert len(trace.observations) == 5
 
@@ -1572,8 +1549,8 @@ def test_names_on_spans_lcel():
     )
 
     callback.flush()
-    api = get_api()
-    trace = api.trace.get(callback.get_trace_id())
+
+    trace = get_api().trace.get(callback.get_trace_id())
 
     assert len(trace.observations) == 7
 
@@ -1646,9 +1623,9 @@ def test_openai_instruct_usage():
         assert observation.input is not None
         assert observation.input != ""
         assert observation.usage is not None
-        assert observation.usage.input is not None
-        assert observation.usage.output is not None
-        assert observation.usage.total is not None
+        assert observation.usage_details["input"] is not None
+        assert observation.usage_details["output"] is not None
+        assert observation.usage_details["total"] is not None
 
 
 def test_get_langchain_prompt_with_jinja2():
@@ -1743,8 +1720,6 @@ def test_get_langchain_chat_prompt():
 
 
 def test_disabled_langfuse():
-    api = get_api()
-
     run_name_override = "This is a custom Run Name"
     handler = CallbackHandler(enabled=False, debug=False)
 
@@ -1768,7 +1743,7 @@ def test_disabled_langfuse():
     trace_id = handler.get_trace_id()
 
     with pytest.raises(Exception):
-        api.trace.get(trace_id)
+        get_api().trace.get(trace_id)
 
 
 def test_link_langfuse_prompts_invoke():
@@ -1837,6 +1812,7 @@ def test_link_langfuse_prompts_invoke():
     )
 
     langfuse_handler.flush()
+    sleep(2)
 
     trace = get_api().trace.get(langfuse_handler.get_trace_id())
 
@@ -1861,7 +1837,7 @@ def test_link_langfuse_prompts_invoke():
     assert generations[0].prompt_version == langfuse_joke_prompt.version
     assert generations[1].prompt_version == langfuse_explain_prompt.version
 
-    assert generations[1].output == output.strip()
+    assert generations[1].output == (output.strip() if output else None)
 
 
 def test_link_langfuse_prompts_stream():
@@ -1914,7 +1890,7 @@ def test_link_langfuse_prompts_stream():
     )
 
     # Run chain
-    langfuse_handler = CallbackHandler(debug=True)
+    langfuse_handler = CallbackHandler()
 
     stream = chain.stream(
         {"animal": "dog"},
@@ -1934,6 +1910,7 @@ def test_link_langfuse_prompts_stream():
         output += chunk
 
     langfuse_handler.flush()
+    sleep(2)
 
     trace = get_api().trace.get(langfuse_handler.get_trace_id())
 
@@ -1961,7 +1938,7 @@ def test_link_langfuse_prompts_stream():
     assert generations[0].time_to_first_token is not None
     assert generations[1].time_to_first_token is not None
 
-    assert generations[1].output == output.strip()
+    assert generations[1].output == (output.strip() if output else None)
 
 
 def test_link_langfuse_prompts_batch():
@@ -2145,8 +2122,7 @@ def test_callback_openai_functions_with_tools():
 
     handler.flush()
 
-    api = get_api()
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -2215,7 +2191,6 @@ def test_langfuse_overhead():
 
 
 def test_multimodal():
-    api = get_api()
     handler = CallbackHandler()
     model = ChatOpenAI(model="gpt-4o-mini")
 
@@ -2237,7 +2212,7 @@ def test_multimodal():
 
     handler.flush()
 
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 1
     assert trace.observations[0].type == "GENERATION"

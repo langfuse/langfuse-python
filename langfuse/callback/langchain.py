@@ -1,9 +1,9 @@
-from collections import defaultdict
-import httpx
 import logging
 import typing
 import warnings
+from collections import defaultdict
 
+import httpx
 import pydantic
 
 try:  # Test that langchain is installed before proceeding
@@ -15,16 +15,17 @@ except ImportError as e:
     )
 from typing import Any, Dict, List, Optional, Sequence, Union, cast
 from uuid import UUID, uuid4
+
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
 from langfuse.client import (
+    StatefulGenerationClient,
     StatefulSpanClient,
     StatefulTraceClient,
-    StatefulGenerationClient,
 )
 from langfuse.extract_model import _extract_model_name
+from langfuse.types import MaskFunction
 from langfuse.utils import _get_timestamp
 from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
-from langfuse.types import MaskFunction
 
 try:
     from langchain.callbacks.base import (
@@ -32,18 +33,18 @@ try:
     )
     from langchain.schema.agent import AgentAction, AgentFinish
     from langchain.schema.document import Document
-    from langchain_core.outputs import (
-        ChatGeneration,
-        LLMResult,
-    )
     from langchain_core.messages import (
         AIMessage,
         BaseMessage,
         ChatMessage,
+        FunctionMessage,
         HumanMessage,
         SystemMessage,
         ToolMessage,
-        FunctionMessage,
+    )
+    from langchain_core.outputs import (
+        ChatGeneration,
+        LLMResult,
     )
 except ImportError:
     raise ModuleNotFoundError(
@@ -149,7 +150,9 @@ class LangchainCallbackHandler(
 
             self.updated_completion_start_time_memo.add(run_id)
 
-    def get_langchain_run_name(self, serialized: Optional[Dict[str, Any]], **kwargs: Any) -> str:
+    def get_langchain_run_name(
+        self, serialized: Optional[Dict[str, Any]], **kwargs: Any
+    ) -> str:
         """Retrieve the name of a serialized LangChain runnable.
 
         The prioritization for the determination of the run name is as follows:
@@ -1055,16 +1058,24 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
     ]
 
     usage_model = usage.copy()  # Copy all existing key-value pairs
-    for model_key, langfuse_key in conversion_list:
-        if model_key in usage_model:
-            captured_count = usage_model.pop(model_key)
-            final_count = (
-                sum(captured_count)
-                if isinstance(captured_count, list)
-                else captured_count
-            )  # For Bedrock, the token count is a list when streamed
 
-            usage_model[langfuse_key] = final_count  # Translate key and keep the value
+    # Skip OpenAI usage types as they are handled server side
+    if not all(
+        openai_key in usage_model
+        for openai_key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+    ):
+        for model_key, langfuse_key in conversion_list:
+            if model_key in usage_model:
+                captured_count = usage_model.pop(model_key)
+                final_count = (
+                    sum(captured_count)
+                    if isinstance(captured_count, list)
+                    else captured_count
+                )  # For Bedrock, the token count is a list when streamed
+
+                usage_model[langfuse_key] = (
+                    final_count  # Translate key and keep the value
+                )
 
     if isinstance(usage_model, dict):
         if "input_token_details" in usage_model:

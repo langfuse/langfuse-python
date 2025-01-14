@@ -1,6 +1,7 @@
 import base64
 import os
 import typing
+from time import sleep
 from uuid import uuid4
 
 try:
@@ -25,6 +26,8 @@ def create_uuid():
 
 
 def get_api():
+    sleep(2)
+
     return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),

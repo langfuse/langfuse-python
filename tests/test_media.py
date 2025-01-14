@@ -1,10 +1,12 @@
 import base64
-import pytest
-from langfuse.media import LangfuseMedia
-from langfuse.client import Langfuse
-from uuid import uuid4
 import re
+from uuid import uuid4
 
+import pytest
+
+from langfuse.client import Langfuse
+from langfuse.media import LangfuseMedia
+from tests.utils import get_api
 
 # Test data
 SAMPLE_JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
@@ -136,7 +138,7 @@ def test_replace_media_reference_string_in_object():
     langfuse.flush()
 
     # Verify media reference string format
-    fetched_trace = langfuse.fetch_trace(trace.id).data
+    fetched_trace = get_api().trace.get(trace.id)
     media_ref = fetched_trace.metadata["context"]["nested"]
     assert re.match(
         r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
@@ -163,7 +165,7 @@ def test_replace_media_reference_string_in_object():
     langfuse.flush()
 
     # Verify second trace has same media reference
-    fetched_trace2 = langfuse.fetch_trace(trace2.id).data
+    fetched_trace2 = get_api().trace.get(trace2.id)
     assert (
         fetched_trace2.metadata["context"]["nested"]
         == fetched_trace.metadata["context"]["nested"]
