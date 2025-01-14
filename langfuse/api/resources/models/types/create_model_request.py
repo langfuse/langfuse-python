@@ -26,7 +26,7 @@ class CreateModelRequest(pydantic_v1.BaseModel):
     Apply only to generations which are newer than this ISO date.
     """
 
-    unit: ModelUsageUnit = pydantic_v1.Field()
+    unit: typing.Optional[ModelUsageUnit] = pydantic_v1.Field(default=None)
     """
     Unit used by this model.
     """

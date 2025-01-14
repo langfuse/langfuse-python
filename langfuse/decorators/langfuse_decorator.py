@@ -676,25 +676,11 @@ class LangfuseDecorator:
             return context_trace_id
 
         stack = _observation_stack_context.get()
-        should_log_warning = self._get_caller_module_name() != "langfuse.openai"
 
         if not stack:
-            if should_log_warning:
-                self._log.warning("No trace found in the current context")
-
             return None
 
         return stack[0].id
-
-    def _get_caller_module_name(self):
-        try:
-            caller_module = inspect.getmodule(inspect.stack()[2][0])
-        except Exception as e:
-            self._log.warning(f"Failed to get caller module: {e}")
-
-            return None
-
-        return caller_module.__name__ if caller_module else None
 
     def get_current_trace_url(self) -> Optional[str]:
         """Retrieve the URL of the current trace in context.
@@ -738,12 +724,8 @@ class LangfuseDecorator:
             - If called at the top level of a trace, it will return the trace ID.
         """
         stack = _observation_stack_context.get()
-        should_log_warning = self._get_caller_module_name() != "langfuse.openai"
 
         if not stack:
-            if should_log_warning:
-                self._log.warning("No observation found in the current context")
-
             return None
 
         return stack[-1].id
