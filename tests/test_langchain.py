@@ -1812,7 +1812,7 @@ def test_link_langfuse_prompts_invoke():
     )
 
     langfuse_handler.flush()
-    sleep(1)
+    sleep(2)
 
     trace = get_api().trace.get(langfuse_handler.get_trace_id())
 
@@ -1910,6 +1910,7 @@ def test_link_langfuse_prompts_stream():
         output += chunk
 
     langfuse_handler.flush()
+    sleep(2)
 
     trace = get_api().trace.get(langfuse_handler.get_trace_id())
 

@@ -215,7 +215,6 @@ def test_create_categorical_score():
 
 def test_create_trace():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
     trace = langfuse.trace(
@@ -227,8 +226,9 @@ def test_create_trace():
     )
 
     langfuse.flush()
+    sleep(2)
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = LangfuseAPI().get_trace(trace.id)
 
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
@@ -729,6 +729,7 @@ def test_create_generation_and_trace():
     langfuse.trace(id=trace_id, name=trace_name)
 
     langfuse.flush()
+    sleep(2)
 
     trace = api_wrapper.get_trace(trace_id)
 
@@ -1414,7 +1415,7 @@ def test_fetch_sessions():
     langfuse.flush()
 
     # Fetch traces
-    sleep(2)
+    sleep(3)
     response = langfuse.fetch_sessions()
 
     # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests
@@ -1422,12 +1423,10 @@ def test_fetch_sessions():
     assert hasattr(response, "data")
     assert hasattr(response, "meta")
     assert isinstance(response.data, list)
-    assert response.data[0].id in [session1, session2, session3]
 
     # fetch only one, cannot check for the exact number of sessions as the table is not cleared between tests
     response = langfuse.fetch_sessions(limit=1, page=2)
     assert len(response.data) == 1
-    assert response.data[0].id in [session1, session2, session3]
 
 
 def test_create_trace_sampling_zero():

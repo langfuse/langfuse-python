@@ -1417,7 +1417,7 @@ def test_top_level_generation():
     main(langfuse_observation_id=mock_trace_id)
 
     langfuse_context.flush()
-    sleep(1)
+    sleep(2)
 
     trace_data = get_api().trace.get(mock_trace_id)
     assert trace_data.name == "updated_name"
