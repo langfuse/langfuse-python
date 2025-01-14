@@ -1837,7 +1837,7 @@ def test_link_langfuse_prompts_invoke():
     assert generations[0].prompt_version == langfuse_joke_prompt.version
     assert generations[1].prompt_version == langfuse_explain_prompt.version
 
-    assert generations[1].output == output.strip()
+    assert generations[1].output == output.strip() if output else None
 
 
 def test_link_langfuse_prompts_stream():

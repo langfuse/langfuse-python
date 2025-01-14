@@ -249,6 +249,7 @@ def test_create_update_trace():
         metadata={"key": "value"},
         public=True,
     )
+    sleep(1)
     trace.update(metadata={"key2": "value2"}, public=False)
 
     langfuse.flush()
