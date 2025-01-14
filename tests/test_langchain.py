@@ -1837,7 +1837,7 @@ def test_link_langfuse_prompts_invoke():
     assert generations[0].prompt_version == langfuse_joke_prompt.version
     assert generations[1].prompt_version == langfuse_explain_prompt.version
 
-    assert generations[1].output == output.strip() if output else None
+    assert generations[1].output == (output.strip() if output else None)
 
 
 def test_link_langfuse_prompts_stream():
@@ -1938,7 +1938,7 @@ def test_link_langfuse_prompts_stream():
     assert generations[0].time_to_first_token is not None
     assert generations[1].time_to_first_token is not None
 
-    assert generations[1].output == output.strip() if output else None
+    assert generations[1].output == (output.strip() if output else None)
 
 
 def test_link_langfuse_prompts_batch():
