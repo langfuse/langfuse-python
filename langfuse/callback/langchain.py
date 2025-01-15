@@ -636,6 +636,7 @@ class LangchainCallbackHandler(
                     input=query,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
                     version=self.version,
+                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
                 self.next_span_id = None
         except Exception as e:
