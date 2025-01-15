@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from inspect import isclass
 from typing import Optional
 
-
 import openai.resources
 from openai._types import NotGiven
 from packaging.version import Version
@@ -452,7 +451,29 @@ def _create_langfuse_update(
         update["model"] = model
 
     if usage is not None:
-        update["usage"] = usage
+        usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__
+
+        if (
+            "prompt_tokens_details" in usage_dict
+            and usage_dict["prompt_tokens_details"] is not None
+        ):
+            usage_dict["prompt_tokens_details"] = {
+                k: v
+                for k, v in usage_dict["prompt_tokens_details"].entries()
+                if v is not None
+            }
+
+        if (
+            "completion_tokens_details" in usage_dict
+            and usage_dict["completion_tokens_details"] is not None
+        ):
+            usage_dict["completion_tokens_details"] = {
+                k: v
+                for k, v in usage_dict["completion_tokens_details"].entries()
+                if v is not None
+            }
+
+        update["usage"] = usage_dict
 
     generation.update(**update)
 
