@@ -1467,12 +1467,15 @@ def test_mask_function():
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    sleep(0.1)
     trace.update(output={"more": "sensitive"})
 
     gen = trace.generation(name="test_gen", input={"prompt": "secret"})
+    sleep(0.1)
     gen.update(output="new_confidential")
 
     span = trace.span(name="test_span", input={"data": "private"})
+    sleep(0.1)
     span.update(output="new_classified")
 
     langfuse.flush()
