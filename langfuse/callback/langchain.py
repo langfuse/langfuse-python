@@ -51,6 +51,8 @@ except ImportError:
         "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
     )
 
+LANGSMITH_TAG_HIDDEN: str = "langsmith:hidden"
+
 
 class LangchainCallbackHandler(
     LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
@@ -260,6 +262,7 @@ class LangchainCallbackHandler(
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
                 "version": self.version,
+                "level": "DEBUG" if LANGSMITH_TAG_HIDDEN in tags else None,
             }
             if parent_run_id is None:
                 if self.root_span is None:
@@ -581,6 +584,7 @@ class LangchainCallbackHandler(
                 input=input_str,
                 metadata=meta,
                 version=self.version,
+                level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
             )
             self.next_span_id = None
         except Exception as e:
@@ -619,6 +623,7 @@ class LangchainCallbackHandler(
                     "metadata": self.__join_tags_and_metadata(tags, metadata),
                     "input": query,
                     "version": self.version,
+                    "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 }
                 if self.root_span is None:
                     self.runs[run_id] = self.trace.span(**content)

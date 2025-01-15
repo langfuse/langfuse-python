@@ -54,6 +54,7 @@ langchain-cohere = "^0.3.3"
 langchain-huggingface = "^0.1.2"
 
 langchain-community = ">=0.2.14,<0.4"
+langgraph = "^0.2.62"
 [tool.poetry.group.docs.dependencies]
 pdoc = "^14.4.0"
 
