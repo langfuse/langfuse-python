@@ -481,16 +481,21 @@ class LangchainCallbackHandler(
     ) -> None:
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
-            self.runs[run_id] = self.runs[run_id].end(
-                level="ERROR",
-                status_message=str(error),
-                version=self.version,
-                input=kwargs.get("inputs"),
-            )
+            if run_id in self.runs:
+                self.runs[run_id] = self.runs[run_id].end(
+                    level="ERROR",
+                    status_message=str(error),
+                    version=self.version,
+                    input=kwargs.get("inputs"),
+                )
 
-            self._update_trace_and_remove_state(
-                run_id, parent_run_id, error, input=kwargs.get("inputs")
-            )
+                self._update_trace_and_remove_state(
+                    run_id, parent_run_id, error, input=kwargs.get("inputs")
+                )
+            else:
+                self.log.warning(
+                    f"Run ID {run_id} already popped from run map. Could not update run with error message"
+                )
 
         except Exception as e:
             self.log.exception(e)
