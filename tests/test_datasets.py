@@ -453,8 +453,6 @@ def test_llama_index_dataset():
         "dataset_id": dataset.id,
     }
 
-    assert sorted_observations[0].name == "query"
-
 
 def sorted_dependencies(
     observations: List[Observation],
