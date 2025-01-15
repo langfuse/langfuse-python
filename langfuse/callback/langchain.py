@@ -262,7 +262,7 @@ class LangchainCallbackHandler(
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
                 "version": self.version,
-                "level": "DEBUG" if LANGSMITH_TAG_HIDDEN in tags else None,
+                "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
             }
             if parent_run_id is None:
                 if self.root_span is None:
