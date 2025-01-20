@@ -1359,6 +1359,7 @@ class Langfuse(object):
 
     def update_prompt(
         self,
+        *,
         prompt_name: str,
         prompt_version: int,
         new_labels: List[str] = [],

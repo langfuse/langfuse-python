@@ -15,7 +15,9 @@ def test_update_prompt():
 
     # Update prompt labels
     updated_prompt = langfuse.update_prompt(
-        prompt_name=prompt_name, prompt_version=1, new_labels=["john", "doe"]
+        prompt_name=prompt_name,
+        prompt_version=1,
+        new_labels=["john", "doe"],
     )
 
     # Fetch prompt after update (should be invalidated)
@@ -24,5 +26,10 @@ def test_update_prompt():
     # Verify the fetched prompt matches the updated values
     assert fetched_prompt.name == prompt_name
     assert fetched_prompt.version == 1
-    assert fetched_prompt.labels == ["john", "doe"]
-    assert updated_prompt.labels == ["john", "doe"]
+    print(f"Fetched prompt labels: {fetched_prompt.labels}")
+    print(f"Updated prompt labels: {updated_prompt.labels}")
+
+    # production was set by the first call, latest is managed and set by Langfuse
+    expected_labels = sorted(["latest", "doe", "production", "john"])
+    assert sorted(fetched_prompt.labels) == expected_labels
+    assert sorted(updated_prompt.labels) == expected_labels
