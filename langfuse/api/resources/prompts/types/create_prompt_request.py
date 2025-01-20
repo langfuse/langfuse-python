@@ -7,7 +7,7 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from ...commons.types.chat_message import ChatMessage
+from .chat_message import ChatMessage
 
 
 class CreatePromptRequest_Chat(pydantic_v1.BaseModel):

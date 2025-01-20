@@ -15,8 +15,8 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.prompt import Prompt
 from .types.create_prompt_request import CreatePromptRequest
+from .types.prompt import Prompt
 from .types.prompt_meta_list_response import PromptMetaListResponse
 
 # this is used as the default value for optional parameters

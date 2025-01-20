@@ -13,7 +13,7 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.prompt import Prompt
+from ..prompts.types.prompt import Prompt
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
