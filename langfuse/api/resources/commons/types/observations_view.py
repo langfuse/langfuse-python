@@ -9,16 +9,12 @@ from .observation import Observation
 
 
 class ObservationsView(Observation):
-    prompt_name: typing.Optional[str] = pydantic_v1.Field(
-        alias="promptName", default=None
-    )
+    prompt_name: typing.Optional[str] = pydantic_v1.Field(alias="promptName", default=None)
     """
     The name of the prompt associated with the observation
     """
 
-    prompt_version: typing.Optional[int] = pydantic_v1.Field(
-        alias="promptVersion", default=None
-    )
+    prompt_version: typing.Optional[int] = pydantic_v1.Field(alias="promptVersion", default=None)
     """
     The version of the prompt associated with the observation
     """
@@ -28,44 +24,32 @@ class ObservationsView(Observation):
     The unique identifier of the model
     """
 
-    input_price: typing.Optional[float] = pydantic_v1.Field(
-        alias="inputPrice", default=None
-    )
+    input_price: typing.Optional[float] = pydantic_v1.Field(alias="inputPrice", default=None)
     """
     The price of the input in USD
     """
 
-    output_price: typing.Optional[float] = pydantic_v1.Field(
-        alias="outputPrice", default=None
-    )
+    output_price: typing.Optional[float] = pydantic_v1.Field(alias="outputPrice", default=None)
     """
     The price of the output in USD.
     """
 
-    total_price: typing.Optional[float] = pydantic_v1.Field(
-        alias="totalPrice", default=None
-    )
+    total_price: typing.Optional[float] = pydantic_v1.Field(alias="totalPrice", default=None)
     """
     The total price in USD.
     """
 
-    calculated_input_cost: typing.Optional[float] = pydantic_v1.Field(
-        alias="calculatedInputCost", default=None
-    )
+    calculated_input_cost: typing.Optional[float] = pydantic_v1.Field(alias="calculatedInputCost", default=None)
     """
     (Deprecated. Use usageDetails and costDetails instead.) The calculated cost of the input in USD
     """
 
-    calculated_output_cost: typing.Optional[float] = pydantic_v1.Field(
-        alias="calculatedOutputCost", default=None
-    )
+    calculated_output_cost: typing.Optional[float] = pydantic_v1.Field(alias="calculatedOutputCost", default=None)
     """
     (Deprecated. Use usageDetails and costDetails instead.) The calculated cost of the output in USD
     """
 
-    calculated_total_cost: typing.Optional[float] = pydantic_v1.Field(
-        alias="calculatedTotalCost", default=None
-    )
+    calculated_total_cost: typing.Optional[float] = pydantic_v1.Field(alias="calculatedTotalCost", default=None)
     """
     (Deprecated. Use usageDetails and costDetails instead.) The calculated total cost in USD
     """
@@ -75,36 +59,21 @@ class ObservationsView(Observation):
     The latency in seconds.
     """
 
-    time_to_first_token: typing.Optional[float] = pydantic_v1.Field(
-        alias="timeToFirstToken", default=None
-    )
+    time_to_first_token: typing.Optional[float] = pydantic_v1.Field(alias="timeToFirstToken", default=None)
     """
     The time to the first token in seconds
     """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
+        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
+            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
         )
 
     class Config:

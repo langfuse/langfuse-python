@@ -25,12 +25,7 @@ class ModelsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def create(
-        self,
-        *,
-        request: CreateModelRequest,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Model:
+    def create(self, *, request: CreateModelRequest, request_options: typing.Optional[RequestOptions] = None) -> Model:
         """
         Create a model
 
@@ -77,11 +72,7 @@ class ModelsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/models",
-            method="POST",
-            json=request,
-            request_options=request_options,
-            omit=OMIT,
+            "api/public/models", method="POST", json=request, request_options=request_options, omit=OMIT
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -89,21 +80,13 @@ class ModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -152,10 +135,7 @@ class ModelsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/models",
-            method="GET",
-            params={"page": page, "limit": limit},
-            request_options=request_options,
+            "api/public/models", method="GET", params={"page": page, "limit": limit}, request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -163,29 +143,19 @@ class ModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Model:
+    def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Model:
         """
         Get a model
 
@@ -217,9 +187,7 @@ class ModelsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/models/{jsonable_encoder(id)}",
-            method="GET",
-            request_options=request_options,
+            f"api/public/models/{jsonable_encoder(id)}", method="GET", request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -227,29 +195,19 @@ class ModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def delete(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
@@ -281,9 +239,7 @@ class ModelsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/models/{jsonable_encoder(id)}",
-            method="DELETE",
-            request_options=request_options,
+            f"api/public/models/{jsonable_encoder(id)}", method="DELETE", request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -291,21 +247,13 @@ class ModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -317,10 +265,7 @@ class AsyncModelsClient:
         self._client_wrapper = client_wrapper
 
     async def create(
-        self,
-        *,
-        request: CreateModelRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateModelRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> Model:
         """
         Create a model
@@ -375,11 +320,7 @@ class AsyncModelsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/models",
-            method="POST",
-            json=request,
-            request_options=request_options,
-            omit=OMIT,
+            "api/public/models", method="POST", json=request, request_options=request_options, omit=OMIT
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -387,21 +328,13 @@ class AsyncModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -458,10 +391,7 @@ class AsyncModelsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/models",
-            method="GET",
-            params={"page": page, "limit": limit},
-            request_options=request_options,
+            "api/public/models", method="GET", params={"page": page, "limit": limit}, request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -469,29 +399,19 @@ class AsyncModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Model:
+    async def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Model:
         """
         Get a model
 
@@ -531,9 +451,7 @@ class AsyncModelsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/models/{jsonable_encoder(id)}",
-            method="GET",
-            request_options=request_options,
+            f"api/public/models/{jsonable_encoder(id)}", method="GET", request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -541,29 +459,19 @@ class AsyncModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def delete(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
@@ -603,9 +511,7 @@ class AsyncModelsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/models/{jsonable_encoder(id)}",
-            method="DELETE",
-            request_options=request_options,
+            f"api/public/models/{jsonable_encoder(id)}", method="DELETE", request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -613,21 +519,13 @@ class AsyncModelsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)

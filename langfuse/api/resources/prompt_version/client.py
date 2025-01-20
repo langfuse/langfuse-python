@@ -5,6 +5,7 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import pydantic_v1
 from ...core.request_options import RequestOptions
 from ..commons.errors.access_denied_error import AccessDeniedError
@@ -12,37 +13,47 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.dataset_run_item import DatasetRunItem
-from .types.create_dataset_run_item_request import CreateDatasetRunItemRequest
+from ..commons.types.prompt import Prompt
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class DatasetRunItemsClient:
+class PromptVersionClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def create(
-        self, *, request: CreateDatasetRunItemRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> DatasetRunItem:
+    def update(
+        self,
+        prompt_name: str,
+        version: int,
+        *,
+        new_labels: typing.Sequence[str],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Prompt:
         """
-        Create a dataset run item
+        Update labels for a specific prompt version
 
         Parameters
         ----------
-        request : CreateDatasetRunItemRequest
+        prompt_name : str
+            The name of the prompt
+
+        version : int
+            Version of the prompt to update
+
+        new_labels : typing.Sequence[str]
+            New labels for the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        DatasetRunItem
+        Prompt
 
         Examples
         --------
-        from langfuse import CreateDatasetRunItemRequest
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -53,23 +64,22 @@ class DatasetRunItemsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.dataset_run_items.create(
-            request=CreateDatasetRunItemRequest(
-                run_name="string",
-                run_description="string",
-                metadata={"key": "value"},
-                dataset_item_id="string",
-                observation_id="string",
-                trace_id="string",
-            ),
+        client.prompt_version.update(
+            prompt_name="string",
+            version=1,
+            new_labels=["string"],
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/dataset-run-items", method="POST", json=request, request_options=request_options, omit=OMIT
+            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}/version/{jsonable_encoder(version)}",
+            method="PATCH",
+            json={"newLabels": new_labels},
+            request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(DatasetRunItem, _response.json())  # type: ignore
+                return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -86,32 +96,43 @@ class DatasetRunItemsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
-class AsyncDatasetRunItemsClient:
+class AsyncPromptVersionClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def create(
-        self, *, request: CreateDatasetRunItemRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> DatasetRunItem:
+    async def update(
+        self,
+        prompt_name: str,
+        version: int,
+        *,
+        new_labels: typing.Sequence[str],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Prompt:
         """
-        Create a dataset run item
+        Update labels for a specific prompt version
 
         Parameters
         ----------
-        request : CreateDatasetRunItemRequest
+        prompt_name : str
+            The name of the prompt
+
+        version : int
+            Version of the prompt to update
+
+        new_labels : typing.Sequence[str]
+            New labels for the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        DatasetRunItem
+        Prompt
 
         Examples
         --------
         import asyncio
 
-        from langfuse import CreateDatasetRunItemRequest
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -125,26 +146,25 @@ class AsyncDatasetRunItemsClient:
 
 
         async def main() -> None:
-            await client.dataset_run_items.create(
-                request=CreateDatasetRunItemRequest(
-                    run_name="string",
-                    run_description="string",
-                    metadata={"key": "value"},
-                    dataset_item_id="string",
-                    observation_id="string",
-                    trace_id="string",
-                ),
+            await client.prompt_version.update(
+                prompt_name="string",
+                version=1,
+                new_labels=["string"],
             )
 
 
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/dataset-run-items", method="POST", json=request, request_options=request_options, omit=OMIT
+            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}/version/{jsonable_encoder(version)}",
+            method="PATCH",
+            json={"newLabels": new_labels},
+            request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(DatasetRunItem, _response.json())  # type: ignore
+                return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:

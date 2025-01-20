@@ -36,16 +36,12 @@ class Observation(pydantic_v1.BaseModel):
     The start time of the observation
     """
 
-    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="endTime", default=None
-    )
+    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="endTime", default=None)
     """
     The end time of the observation.
     """
 
-    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="completionStartTime", default=None
-    )
+    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="completionStartTime", default=None)
     """
     The completion start time of the observation
     """
@@ -92,16 +88,12 @@ class Observation(pydantic_v1.BaseModel):
     The level of the observation
     """
 
-    status_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="statusMessage", default=None
-    )
+    status_message: typing.Optional[str] = pydantic_v1.Field(alias="statusMessage", default=None)
     """
     The status message of the observation
     """
 
-    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="parentObservationId", default=None
-    )
+    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(alias="parentObservationId", default=None)
     """
     The parent observation ID
     """
@@ -111,43 +103,26 @@ class Observation(pydantic_v1.BaseModel):
     The prompt ID associated with the observation
     """
 
-    usage_details: typing.Optional[typing.Dict[str, int]] = pydantic_v1.Field(
-        alias="usageDetails", default=None
-    )
+    usage_details: typing.Optional[typing.Dict[str, int]] = pydantic_v1.Field(alias="usageDetails", default=None)
     """
     The usage details of the observation. Key is the name of the usage metric, value is the number of units consumed. The total key is the sum of all (non-total) usage metrics or the total value ingested.
     """
 
-    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(
-        alias="costDetails", default=None
-    )
+    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(alias="costDetails", default=None)
     """
     The cost details of the observation. Key is the name of the cost metric, value is the cost in USD. The total key is the sum of all (non-total) cost metrics or the total value ingested.
     """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
+        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
+            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
         )
 
     class Config:

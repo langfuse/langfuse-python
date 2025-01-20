@@ -1357,6 +1357,31 @@ class Langfuse(object):
             handle_fern_exception(e)
             raise e
 
+    def update_prompt(
+        self,
+        prompt_name: str,
+        prompt_version: int,
+        new_labels: List[str] = [],
+    ):
+        """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
+
+        Args:
+            prompt_id (str): The name/id of the prompt to update.
+            prompt_version (int): The version number of the prompt to update.
+            new_labels (List[str], optional): New labels to assign to the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse. Defaults to [].
+
+        Returns:
+            Prompt: The updated prompt from the Langfuse API.
+
+        """
+        updated_prompt = self.client.prompt_version.update(
+            prompt_name=prompt_name,
+            version=prompt_version,
+            new_labels=new_labels,
+        )
+        self.prompt_cache.invalidate(prompt_name)
+        return updated_prompt
+
     def _url_encode(self, url: str) -> str:
         return urllib.parse.quote(url)
 

@@ -13,6 +13,7 @@ from . import (
     models,
     observations,
     projects,
+    prompt_version,
     prompts,
     score,
     score_configs,
@@ -23,9 +24,12 @@ from . import (
 from .comments import CreateCommentRequest, CreateCommentResponse, GetCommentsResponse
 from .commons import (
     AccessDeniedError,
+    BasePrompt,
     BaseScore,
     BooleanScore,
     CategoricalScore,
+    ChatMessage,
+    ChatPrompt,
     Comment,
     CommentObjectType,
     ConfigCategory,
@@ -46,6 +50,9 @@ from .commons import (
     Observation,
     ObservationLevel,
     ObservationsView,
+    Prompt,
+    Prompt_Chat,
+    Prompt_Text,
     Score,
     ScoreConfig,
     ScoreDataType,
@@ -55,6 +62,7 @@ from .commons import (
     Score_Numeric,
     Session,
     SessionWithTraces,
+    TextPrompt,
     Trace,
     TraceWithDetails,
     TraceWithFullDetails,
@@ -120,20 +128,13 @@ from .models import CreateModelRequest, PaginatedModels
 from .observations import Observations, ObservationsViews
 from .projects import Project, Projects
 from .prompts import (
-    BasePrompt,
-    ChatMessage,
-    ChatPrompt,
     CreateChatPromptRequest,
     CreatePromptRequest,
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
     CreateTextPromptRequest,
-    Prompt,
     PromptMeta,
     PromptMetaListResponse,
-    Prompt_Chat,
-    Prompt_Text,
-    TextPrompt,
 )
 from .score import (
     CreateScoreRequest,
@@ -299,6 +300,7 @@ __all__ = [
     "models",
     "observations",
     "projects",
+    "prompt_version",
     "prompts",
     "score",
     "score_configs",

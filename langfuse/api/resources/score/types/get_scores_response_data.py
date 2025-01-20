@@ -18,45 +18,26 @@ class GetScoresResponseData_Numeric(pydantic_v1.BaseModel):
     trace_id: str = pydantic_v1.Field(alias="traceId")
     name: str
     source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
+    observation_id: typing.Optional[str] = pydantic_v1.Field(alias="observationId", default=None)
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
+    author_user_id: typing.Optional[str] = pydantic_v1.Field(alias="authorUserId", default=None)
     comment: typing.Optional[str] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    data_type: typing.Literal["NUMERIC"] = pydantic_v1.Field(
-        alias="dataType", default="NUMERIC"
-    )
+    data_type: typing.Literal["NUMERIC"] = pydantic_v1.Field(alias="dataType", default="NUMERIC")
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
+        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
+            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
         )
 
     class Config:
@@ -76,45 +57,26 @@ class GetScoresResponseData_Categorical(pydantic_v1.BaseModel):
     trace_id: str = pydantic_v1.Field(alias="traceId")
     name: str
     source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
+    observation_id: typing.Optional[str] = pydantic_v1.Field(alias="observationId", default=None)
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
+    author_user_id: typing.Optional[str] = pydantic_v1.Field(alias="authorUserId", default=None)
     comment: typing.Optional[str] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    data_type: typing.Literal["CATEGORICAL"] = pydantic_v1.Field(
-        alias="dataType", default="CATEGORICAL"
-    )
+    data_type: typing.Literal["CATEGORICAL"] = pydantic_v1.Field(alias="dataType", default="CATEGORICAL")
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
+        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
+            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
         )
 
     class Config:
@@ -134,45 +96,26 @@ class GetScoresResponseData_Boolean(pydantic_v1.BaseModel):
     trace_id: str = pydantic_v1.Field(alias="traceId")
     name: str
     source: ScoreSource
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
+    observation_id: typing.Optional[str] = pydantic_v1.Field(alias="observationId", default=None)
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
+    author_user_id: typing.Optional[str] = pydantic_v1.Field(alias="authorUserId", default=None)
     comment: typing.Optional[str] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    data_type: typing.Literal["BOOLEAN"] = pydantic_v1.Field(
-        alias="dataType", default="BOOLEAN"
-    )
+    data_type: typing.Literal["BOOLEAN"] = pydantic_v1.Field(alias="dataType", default="BOOLEAN")
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
+        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
+            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
         )
 
     class Config:
@@ -185,7 +128,5 @@ class GetScoresResponseData_Boolean(pydantic_v1.BaseModel):
 
 
 GetScoresResponseData = typing.Union[
-    GetScoresResponseData_Numeric,
-    GetScoresResponseData_Categorical,
-    GetScoresResponseData_Boolean,
+    GetScoresResponseData_Numeric, GetScoresResponseData_Categorical, GetScoresResponseData_Boolean
 ]

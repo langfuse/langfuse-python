@@ -12,44 +12,25 @@ class DatasetItem(pydantic_v1.BaseModel):
     id: str
     status: DatasetStatus
     input: typing.Optional[typing.Any] = None
-    expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(
-        alias="expectedOutput", default=None
-    )
+    expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(alias="expectedOutput", default=None)
     metadata: typing.Optional[typing.Any] = None
-    source_trace_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="sourceTraceId", default=None
-    )
-    source_observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="sourceObservationId", default=None
-    )
+    source_trace_id: typing.Optional[str] = pydantic_v1.Field(alias="sourceTraceId", default=None)
+    source_observation_id: typing.Optional[str] = pydantic_v1.Field(alias="sourceObservationId", default=None)
     dataset_id: str = pydantic_v1.Field(alias="datasetId")
     dataset_name: str = pydantic_v1.Field(alias="datasetName")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
+        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
+        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
+            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
         )
 
     class Config:

@@ -19,9 +19,7 @@ class ProjectsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Projects:
+    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> Projects:
         """
         Get Project associated with API key
 
@@ -57,21 +55,13 @@ class ProjectsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -82,9 +72,7 @@ class AsyncProjectsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Projects:
+    async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> Projects:
         """
         Get Project associated with API key
 
@@ -128,21 +116,13 @@ class AsyncProjectsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)

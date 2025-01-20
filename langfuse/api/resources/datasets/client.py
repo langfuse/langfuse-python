@@ -81,32 +81,19 @@ class DatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get(
-        self,
-        dataset_name: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Dataset:
+    def get(self, dataset_name: str, *, request_options: typing.Optional[RequestOptions] = None) -> Dataset:
         """
         Get a dataset
 
@@ -138,9 +125,7 @@ class DatasetsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/datasets/{jsonable_encoder(dataset_name)}",
-            method="GET",
-            request_options=request_options,
+            f"api/public/v2/datasets/{jsonable_encoder(dataset_name)}", method="GET", request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -148,31 +133,20 @@ class DatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create(
-        self,
-        *,
-        request: CreateDatasetRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateDatasetRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> Dataset:
         """
         Create a dataset
@@ -210,11 +184,7 @@ class DatasetsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/v2/datasets",
-            method="POST",
-            json=request,
-            request_options=request_options,
-            omit=OMIT,
+            "api/public/v2/datasets", method="POST", json=request, request_options=request_options, omit=OMIT
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -222,32 +192,20 @@ class DatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_run(
-        self,
-        dataset_name: str,
-        run_name: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, dataset_name: str, run_name: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetRunWithItems:
         """
         Get a dataset run and its items
@@ -293,21 +251,13 @@ class DatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -371,21 +321,13 @@ class DatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -458,32 +400,19 @@ class AsyncDatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get(
-        self,
-        dataset_name: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> Dataset:
+    async def get(self, dataset_name: str, *, request_options: typing.Optional[RequestOptions] = None) -> Dataset:
         """
         Get a dataset
 
@@ -523,9 +452,7 @@ class AsyncDatasetsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/v2/datasets/{jsonable_encoder(dataset_name)}",
-            method="GET",
-            request_options=request_options,
+            f"api/public/v2/datasets/{jsonable_encoder(dataset_name)}", method="GET", request_options=request_options
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -533,31 +460,20 @@ class AsyncDatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create(
-        self,
-        *,
-        request: CreateDatasetRequest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: CreateDatasetRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> Dataset:
         """
         Create a dataset
@@ -603,11 +519,7 @@ class AsyncDatasetsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/v2/datasets",
-            method="POST",
-            json=request,
-            request_options=request_options,
-            omit=OMIT,
+            "api/public/v2/datasets", method="POST", json=request, request_options=request_options, omit=OMIT
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -615,32 +527,20 @@ class AsyncDatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_run(
-        self,
-        dataset_name: str,
-        run_name: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, dataset_name: str, run_name: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetRunWithItems:
         """
         Get a dataset run and its items
@@ -694,21 +594,13 @@ class AsyncDatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -780,21 +672,13 @@ class AsyncDatasetsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
+                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
