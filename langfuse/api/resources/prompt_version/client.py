@@ -83,13 +83,21 @@ class PromptVersionClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -168,13 +176,21 @@ class AsyncPromptVersionClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)

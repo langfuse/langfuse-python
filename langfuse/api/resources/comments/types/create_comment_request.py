@@ -28,21 +28,36 @@ class CreateCommentRequest(pydantic_v1.BaseModel):
     The content of the comment. May include markdown. Currently limited to 3000 characters.
     """
 
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(alias="authorUserId", default=None)
+    author_user_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="authorUserId", default=None
+    )
     """
     The id of the user who created the comment.
     """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
+        kwargs_with_defaults_exclude_unset: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
         )
 
     class Config:

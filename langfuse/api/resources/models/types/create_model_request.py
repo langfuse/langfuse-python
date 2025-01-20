@@ -19,7 +19,9 @@ class CreateModelRequest(pydantic_v1.BaseModel):
     Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
     """
 
-    start_date: typing.Optional[dt.datetime] = pydantic_v1.Field(alias="startDate", default=None)
+    start_date: typing.Optional[dt.datetime] = pydantic_v1.Field(
+        alias="startDate", default=None
+    )
     """
     Apply only to generations which are newer than this ISO date.
     """
@@ -29,41 +31,64 @@ class CreateModelRequest(pydantic_v1.BaseModel):
     Unit used by this model.
     """
 
-    input_price: typing.Optional[float] = pydantic_v1.Field(alias="inputPrice", default=None)
+    input_price: typing.Optional[float] = pydantic_v1.Field(
+        alias="inputPrice", default=None
+    )
     """
     Price (USD) per input unit
     """
 
-    output_price: typing.Optional[float] = pydantic_v1.Field(alias="outputPrice", default=None)
+    output_price: typing.Optional[float] = pydantic_v1.Field(
+        alias="outputPrice", default=None
+    )
     """
     Price (USD) per output unit
     """
 
-    total_price: typing.Optional[float] = pydantic_v1.Field(alias="totalPrice", default=None)
+    total_price: typing.Optional[float] = pydantic_v1.Field(
+        alias="totalPrice", default=None
+    )
     """
     Price (USD) per total units. Cannot be set if input or output price is set.
     """
 
-    tokenizer_id: typing.Optional[str] = pydantic_v1.Field(alias="tokenizerId", default=None)
+    tokenizer_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="tokenizerId", default=None
+    )
     """
     Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
     """
 
-    tokenizer_config: typing.Optional[typing.Any] = pydantic_v1.Field(alias="tokenizerConfig", default=None)
+    tokenizer_config: typing.Optional[typing.Any] = pydantic_v1.Field(
+        alias="tokenizerConfig", default=None
+    )
     """
     Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
     """
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
+        kwargs_with_defaults_exclude_unset: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
         )
 
     class Config:

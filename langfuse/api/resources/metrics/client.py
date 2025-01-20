@@ -31,7 +31,7 @@ class MetricsClient:
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-        request_options: typing.Optional[RequestOptions] = None
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> DailyMetrics:
         """
         Get daily metrics of the Langfuse project
@@ -103,8 +103,12 @@ class MetricsClient:
                 "traceName": trace_name,
                 "userId": user_id,
                 "tags": tags,
-                "fromTimestamp": serialize_datetime(from_timestamp) if from_timestamp is not None else None,
-                "toTimestamp": serialize_datetime(to_timestamp) if to_timestamp is not None else None,
+                "fromTimestamp": serialize_datetime(from_timestamp)
+                if from_timestamp is not None
+                else None,
+                "toTimestamp": serialize_datetime(to_timestamp)
+                if to_timestamp is not None
+                else None,
             },
             request_options=request_options,
         )
@@ -114,13 +118,21 @@ class MetricsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -141,7 +153,7 @@ class AsyncMetricsClient:
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-        request_options: typing.Optional[RequestOptions] = None
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> DailyMetrics:
         """
         Get daily metrics of the Langfuse project
@@ -220,8 +232,12 @@ class AsyncMetricsClient:
                 "traceName": trace_name,
                 "userId": user_id,
                 "tags": tags,
-                "fromTimestamp": serialize_datetime(from_timestamp) if from_timestamp is not None else None,
-                "toTimestamp": serialize_datetime(to_timestamp) if to_timestamp is not None else None,
+                "fromTimestamp": serialize_datetime(from_timestamp)
+                if from_timestamp is not None
+                else None,
+                "toTimestamp": serialize_datetime(to_timestamp)
+                if to_timestamp is not None
+                else None,
             },
             request_options=request_options,
         )
@@ -231,13 +247,21 @@ class AsyncMetricsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)

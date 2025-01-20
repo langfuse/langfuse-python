@@ -25,17 +25,23 @@ class ScoreConfig(pydantic_v1.BaseModel):
     Whether the score config is archived. Defaults to false
     """
 
-    min_value: typing.Optional[float] = pydantic_v1.Field(alias="minValue", default=None)
+    min_value: typing.Optional[float] = pydantic_v1.Field(
+        alias="minValue", default=None
+    )
     """
     Sets minimum value for numerical scores. If not set, the minimum value defaults to -∞
     """
 
-    max_value: typing.Optional[float] = pydantic_v1.Field(alias="maxValue", default=None)
+    max_value: typing.Optional[float] = pydantic_v1.Field(
+        alias="maxValue", default=None
+    )
     """
     Sets maximum value for numerical scores. If not set, the maximum value defaults to +∞
     """
 
-    categories: typing.Optional[typing.List[ConfigCategory]] = pydantic_v1.Field(default=None)
+    categories: typing.Optional[typing.List[ConfigCategory]] = pydantic_v1.Field(
+        default=None
+    )
     """
     Configures custom categories for categorical scores
     """
@@ -43,15 +49,28 @@ class ScoreConfig(pydantic_v1.BaseModel):
     description: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
+        kwargs_with_defaults: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        kwargs_with_defaults_exclude_none: typing.Any = {"by_alias": True, "exclude_none": True, **kwargs}
+        kwargs_with_defaults_exclude_unset: typing.Any = {
+            "by_alias": True,
+            "exclude_unset": True,
+            **kwargs,
+        }
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
 
         return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset), super().dict(**kwargs_with_defaults_exclude_none)
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
         )
 
     class Config:

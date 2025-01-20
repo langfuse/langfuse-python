@@ -27,7 +27,10 @@ class CommentsClient:
         self._client_wrapper = client_wrapper
 
     def create(
-        self, *, request: CreateCommentRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: CreateCommentRequest,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCommentResponse:
         """
         Create a comment. Comments may be attached to different object types (trace, observation, session, prompt).
@@ -67,7 +70,11 @@ class CommentsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/comments", method="POST", json=request, request_options=request_options, omit=OMIT
+            "api/public/comments",
+            method="POST",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -75,13 +82,21 @@ class CommentsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -162,19 +177,32 @@ class CommentsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get_by_id(self, comment_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Comment:
+    def get_by_id(
+        self,
+        comment_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Comment:
         """
         Get a comment by id
 
@@ -207,7 +235,9 @@ class CommentsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/comments/{jsonable_encoder(comment_id)}", method="GET", request_options=request_options
+            f"api/public/comments/{jsonable_encoder(comment_id)}",
+            method="GET",
+            request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -215,13 +245,21 @@ class CommentsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -233,7 +271,10 @@ class AsyncCommentsClient:
         self._client_wrapper = client_wrapper
 
     async def create(
-        self, *, request: CreateCommentRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: CreateCommentRequest,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCommentResponse:
         """
         Create a comment. Comments may be attached to different object types (trace, observation, session, prompt).
@@ -281,7 +322,11 @@ class AsyncCommentsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/comments", method="POST", json=request, request_options=request_options, omit=OMIT
+            "api/public/comments",
+            method="POST",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -289,13 +334,21 @@ class AsyncCommentsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
@@ -384,19 +437,32 @@ class AsyncCommentsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get_by_id(self, comment_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Comment:
+    async def get_by_id(
+        self,
+        comment_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Comment:
         """
         Get a comment by id
 
@@ -437,7 +503,9 @@ class AsyncCommentsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/comments/{jsonable_encoder(comment_id)}", method="GET", request_options=request_options
+            f"api/public/comments/{jsonable_encoder(comment_id)}",
+            method="GET",
+            request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -445,13 +513,21 @@ class AsyncCommentsClient:
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
-                raise UnauthorizedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 403:
-                raise AccessDeniedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 405:
-                raise MethodNotAllowedError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             if _response.status_code == 404:
-                raise NotFoundError(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
