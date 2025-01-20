@@ -451,36 +451,34 @@ def _create_langfuse_update(
         update["model"] = model
 
     if usage is not None:
-        usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__
-
-        if (
-            "prompt_tokens_details" in usage_dict
-            and usage_dict["prompt_tokens_details"] is not None
-        ):
-            usage_dict["prompt_tokens_details"] = {
-                k: v
-                for k, v in usage_dict["prompt_tokens_details"].entries()
-                if v is not None
-            }
-
-        if (
-            "completion_tokens_details" in usage_dict
-            and usage_dict["completion_tokens_details"] is not None
-        ):
-            usage_dict["completion_tokens_details"] = {
-                k: v
-                for k, v in usage_dict["completion_tokens_details"].entries()
-                if v is not None
-            }
-
-        update["usage"] = usage_dict
+        update["usage"] = _parse_usage(usage)
 
     generation.update(**update)
 
 
+def _parse_usage(usage=None):
+    if usage is None:
+        return
+
+    usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__
+
+    for tokens_details in ["prompt_tokens_details", "completion_tokens_details"]:
+        if tokens_details in usage_dict and usage_dict[tokens_details] is not None:
+            tokens_details_dict = (
+                usage_dict[tokens_details]
+                if isinstance(usage_dict[tokens_details], dict)
+                else usage_dict[tokens_details].__dict__
+            )
+            usage_dict[tokens_details] = {
+                k: v for k, v in tokens_details_dict.items() if v is not None
+            }
+
+    return usage_dict
+
+
 def _extract_streamed_openai_response(resource, chunks):
     completion = defaultdict(str) if resource.type == "chat" else ""
-    model = None
+    model, usage = None, None
 
     for chunk in chunks:
         if _is_openai_v1():
@@ -586,7 +584,7 @@ def _extract_streamed_openai_response(resource, chunks):
     return (
         model,
         get_response_for_chat() if resource.type == "chat" else completion,
-        usage.__dict__ if _is_openai_v1() and usage is not None else usage,
+        usage,
     )
 
 
@@ -622,13 +620,9 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
                     else choice.get("message", None)
                 )
 
-    usage = response.get("usage", None)
+    usage = _parse_usage(response.get("usage", None))
 
-    return (
-        model,
-        completion,
-        usage.__dict__ if _is_openai_v1() and usage is not None else usage,
-    )
+    return (model, completion, usage)
 
 
 def _is_openai_v1():
