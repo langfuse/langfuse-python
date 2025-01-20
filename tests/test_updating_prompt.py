@@ -7,7 +7,7 @@ def test_update_prompt():
     prompt_name = create_uuid()
 
     # Create initial prompt
-    prompt_client = langfuse.create_prompt(
+    langfuse.create_prompt(
         name=prompt_name,
         prompt="test prompt",
         labels=["production"],
