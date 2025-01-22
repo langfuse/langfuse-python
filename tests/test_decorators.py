@@ -1541,3 +1541,31 @@ def test_media():
     assert parsed_reference_string["content_type"] == "application/pdf"
     assert parsed_reference_string["media_id"] is not None
     assert parsed_reference_string["source"] == "bytes"
+
+
+def test_merge_metadata_and_tags():
+    mock_trace_id = create_uuid()
+
+    @observe
+    def nested():
+        langfuse_context.update_current_trace(
+            metadata={"key2": "value2"}, tags=["tag2"]
+        )
+
+    @observe
+    def main():
+        langfuse_context.update_current_trace(
+            metadata={"key1": "value1"}, tags=["tag1"]
+        )
+
+        nested()
+
+    main(langfuse_observation_id=mock_trace_id)
+
+    langfuse_context.flush()
+
+    trace_data = get_api().trace.get(mock_trace_id)
+
+    assert trace_data.metadata == {"key1": "value1", "key2": "value2"}
+
+    assert trace_data.tags == ["tag1", "tag2"]
