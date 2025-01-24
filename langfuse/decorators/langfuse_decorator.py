@@ -792,6 +792,18 @@ class LangfuseDecorator:
             if v is not None
         }
 
+        # metadata and tags are merged server side. Send separate update event to avoid merging them SDK side
+        server_merged_attributes = ["metadata", "tags"]
+        if any(attribute in params_to_update for attribute in server_merged_attributes):
+            self.client_instance.trace(
+                id=trace_id,
+                **{
+                    k: v
+                    for k, v in params_to_update.items()
+                    if k in server_merged_attributes
+                },
+            )
+
         _observation_params_context.get()[trace_id].update(params_to_update)
 
     def update_current_observation(
