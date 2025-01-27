@@ -2280,7 +2280,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.prompt_version.update(
-    prompt_name="string",
+    name="string",
     version=1,
     new_labels=["string"],
 )
@@ -2299,7 +2299,7 @@ client.prompt_version.update(
 <dl>
 <dd>
 
-**prompt_name:** `str` — The name of the prompt
+**name:** `str` — The name of the prompt
     
 </dd>
 </dl>

@@ -25,7 +25,7 @@ class PromptVersionClient:
 
     def update(
         self,
-        prompt_name: str,
+        name: str,
         version: int,
         *,
         new_labels: typing.Sequence[str],
@@ -36,7 +36,7 @@ class PromptVersionClient:
 
         Parameters
         ----------
-        prompt_name : str
+        name : str
             The name of the prompt
 
         version : int
@@ -65,13 +65,13 @@ class PromptVersionClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.prompt_version.update(
-            prompt_name="string",
+            name="string",
             version=1,
             new_labels=["string"],
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}/version/{jsonable_encoder(version)}",
+            f"api/public/v2/prompts/{jsonable_encoder(name)}/version/{jsonable_encoder(version)}",
             method="PATCH",
             json={"newLabels": new_labels},
             request_options=request_options,
@@ -110,7 +110,7 @@ class AsyncPromptVersionClient:
 
     async def update(
         self,
-        prompt_name: str,
+        name: str,
         version: int,
         *,
         new_labels: typing.Sequence[str],
@@ -121,7 +121,7 @@ class AsyncPromptVersionClient:
 
         Parameters
         ----------
-        prompt_name : str
+        name : str
             The name of the prompt
 
         version : int
@@ -155,7 +155,7 @@ class AsyncPromptVersionClient:
 
         async def main() -> None:
             await client.prompt_version.update(
-                prompt_name="string",
+                name="string",
                 version=1,
                 new_labels=["string"],
             )
@@ -164,7 +164,7 @@ class AsyncPromptVersionClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}/version/{jsonable_encoder(version)}",
+            f"api/public/v2/prompts/{jsonable_encoder(name)}/version/{jsonable_encoder(version)}",
             method="PATCH",
             json={"newLabels": new_labels},
             request_options=request_options,
