@@ -1360,15 +1360,15 @@ class Langfuse(object):
     def update_prompt(
         self,
         *,
-        prompt_name: str,
-        prompt_version: int,
+        name: str,
+        version: int,
         new_labels: List[str] = [],
     ):
         """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
 
         Args:
-            prompt_id (str): The name/id of the prompt to update.
-            prompt_version (int): The version number of the prompt to update.
+            name (str): The name of the prompt to update.
+            version (int): The version number of the prompt to update.
             new_labels (List[str], optional): New labels to assign to the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse. Defaults to [].
 
         Returns:
@@ -1376,11 +1376,11 @@ class Langfuse(object):
 
         """
         updated_prompt = self.client.prompt_version.update(
-            prompt_name=prompt_name,
-            version=prompt_version,
+            name=name,
+            version=version,
             new_labels=new_labels,
         )
-        self.prompt_cache.invalidate(prompt_name)
+        self.prompt_cache.invalidate(name)
         return updated_prompt
 
     def _url_encode(self, url: str) -> str:
