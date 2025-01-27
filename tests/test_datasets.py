@@ -438,6 +438,7 @@ def test_llama_index_dataset():
     assert run.name == run_name
     assert len(run.dataset_run_items) == 1
     assert run.dataset_run_items[0].dataset_run_id == run.id
+    time.sleep(1)
 
     trace = get_api().trace.get(handler.get_trace_id())
 
