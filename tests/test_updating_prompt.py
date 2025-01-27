@@ -15,8 +15,8 @@ def test_update_prompt():
 
     # Update prompt labels
     updated_prompt = langfuse.update_prompt(
-        prompt_name=prompt_name,
-        prompt_version=1,
+        name=prompt_name,
+        version=1,
         new_labels=["john", "doe"],
     )
 
