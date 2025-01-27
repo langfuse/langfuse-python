@@ -1500,6 +1500,7 @@ def test_mask_function():
     langfuse = Langfuse(debug=True, mask=faulty_mask_func)
 
     trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    sleep(0.1)
     trace.update(output={"more": "sensitive"})
     langfuse.flush()
 
