@@ -71,7 +71,7 @@ class PromptVersionClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(name)}/version/{jsonable_encoder(version)}",
+            f"api/public/v2/prompts/{jsonable_encoder(name)}/versions/{jsonable_encoder(version)}",
             method="PATCH",
             json={"newLabels": new_labels},
             request_options=request_options,
@@ -164,7 +164,7 @@ class AsyncPromptVersionClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(name)}/version/{jsonable_encoder(version)}",
+            f"api/public/v2/prompts/{jsonable_encoder(name)}/versions/{jsonable_encoder(version)}",
             method="PATCH",
             json={"newLabels": new_labels},
             request_options=request_options,

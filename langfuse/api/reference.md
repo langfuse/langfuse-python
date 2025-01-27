@@ -3038,7 +3038,7 @@ client.score.get(
     config_id="string",
     queue_id="string",
     data_type=ScoreDataType.NUMERIC,
-    trace_tags=["string"],
+    trace_tags="string",
 )
 
 ```
@@ -3159,9 +3159,7 @@ client.score.get(
 <dl>
 <dd>
 
-**trace_tags:** `typing.Optional[
-    typing.Union[typing.Sequence[str], typing.Sequence[typing.Sequence[str]]]
-]` — Only scores linked to traces that include all of these tags will be returned.
+**trace_tags:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Only scores linked to traces that include all of these tags will be returned.
     
 </dd>
 </dl>
