@@ -3,7 +3,7 @@
 import json
 import logging
 from base64 import b64encode
-from typing import Any, List, Union
+from typing import Any, Dict, List, Union
 
 import httpx
 
@@ -82,41 +82,42 @@ class LangfuseClient:
         self, res: httpx.Response, success_message: str, *, return_json: bool = True
     ) -> Union[httpx.Response, Any]:
         log = logging.getLogger("langfuse")
-        log.debug("received response: %s", res.text)
+
+        def parse_json_response(response: httpx.Response) -> Dict[str, Any]:
+            try:
+                json_response = response.json()
+            except json.JSONDecodeError:
+                raise APIError(response.status_code, "Invalid JSON response received")
+
+            log.debug("received response: %s", response.text)
+            return json_response
+
         if res.status_code in (200, 201):
             log.debug(success_message)
             if return_json:
-                try:
-                    return res.json()
-                except json.JSONDecodeError:
-                    raise APIError(res.status_code, "Invalid JSON response received")
+                return parse_json_response(res)
             else:
+                log.debug("received response: %s", res.text)
                 return res
-        elif res.status_code == 207:
-            try:
-                payload = res.json()
-                errors = payload.get("errors", [])
-                if errors:
-                    raise APIErrors(
-                        [
-                            APIError(
-                                error.get("status"),
-                                error.get("message", "No message provided"),
-                                error.get("error", "No error details provided"),
-                            )
-                            for error in errors
-                        ]
-                    )
-                else:
-                    return res.json() if return_json else res
-            except json.JSONDecodeError:
-                raise APIError(res.status_code, "Invalid JSON response received")
 
-        try:
-            payload = res.json()
-            raise APIError(res.status_code, payload)
-        except (KeyError, ValueError):
-            raise APIError(res.status_code, res.text)
+        if res.status_code == 207:
+            payload = parse_json_response(res)
+            errors = payload.get("errors", [])
+            if errors:
+                raise APIErrors(
+                    [
+                        APIError(
+                            error.get("status"),
+                            error.get("message", "No message provided"),
+                            error.get("error", "No error details provided"),
+                        )
+                        for error in errors
+                    ]
+                )
+            return payload if return_json else res
+
+        payload = parse_json_response(res)
+        raise APIError(res.status_code, payload)
 
 
 class APIError(Exception):
