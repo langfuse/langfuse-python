@@ -897,13 +897,14 @@ class LangchainCallbackHandler(
     ) -> Any:
         try:
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
-            self.runs[run_id] = self.runs[run_id].end(
-                status_message=str(error),
-                level="ERROR",
-                version=self.version,
-                input=kwargs.get("inputs"),
-            )
-            self._update_trace_and_remove_state(run_id, parent_run_id, error)
+            if run_id in self.runs:
+                self.runs[run_id] = self.runs[run_id].end(
+                    status_message=str(error),
+                    level="ERROR",
+                    version=self.version,
+                    input=kwargs.get("inputs"),
+                )
+                self._update_trace_and_remove_state(run_id, parent_run_id, error)
 
         except Exception as e:
             self.log.exception(e)
