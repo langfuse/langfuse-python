@@ -442,7 +442,8 @@ def test_llama_index_dataset():
     assert run.dataset_run_items[0].dataset_run_id == run.id
     time.sleep(3)
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    trace_id = run.dataset_run_items[0].trace_id
+    trace = get_api().trace.get(trace_id)
 
     sorted_observations = sorted_dependencies(trace.observations)
 
