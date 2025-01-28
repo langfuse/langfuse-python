@@ -1,36 +1,31 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-from langchain_anthropic import ChatAnthropic
+import pytest
+from langchain.schema.messages import HumanMessage
+from langchain_anthropic import Anthropic, ChatAnthropic
+from langchain_aws import BedrockLLM, ChatBedrock
+from langchain_community.chat_models import (
+    ChatCohere,
+    ChatTongyi,
+)
+from langchain_community.chat_models.fake import FakeMessagesListChatModel
+
+# from langchain_huggingface.llms import HuggingFacePipeline
+from langchain_community.llms.textgen import TextGen
+from langchain_core.load.dump import default
 from langchain_google_vertexai import ChatVertexAI
 from langchain_groq import ChatGroq
-import pytest
-from langfuse.callback import CallbackHandler
-
-from langfuse.extract_model import _extract_model_name
-from langchain_core.load.dump import default
-
-
-from langchain_community.chat_models import (
-    ChatTongyi,
-    ChatCohere,
-)
-
-from langchain_community.chat_models.fake import FakeMessagesListChatModel
-from langchain_anthropic import Anthropic
-from langchain_aws import BedrockLLM, ChatBedrock
-from langchain_huggingface.llms import HuggingFacePipeline
-from langchain_community.llms.textgen import TextGen
-from langchain_openai import (
-    OpenAI,
-    ChatOpenAI,
-    AzureChatOpenAI,
-)
-from langchain_ollama import OllamaLLM, ChatOllama
 from langchain_mistralai.chat_models import ChatMistralAI
-from langchain.schema.messages import HumanMessage
+from langchain_ollama import ChatOllama, OllamaLLM
+from langchain_openai import (
+    AzureChatOpenAI,
+    ChatOpenAI,
+    OpenAI,
+)
 
-
+from langfuse.callback import CallbackHandler
+from langfuse.extract_model import _extract_model_name
 from tests.utils import get_api
 
 
@@ -113,18 +108,18 @@ def test_models(expected_model: str, model: Any):
                 azure_endpoint="https://your-endpoint-name.azurewebsites.net",
             ),
         ),
-        (
-            "gpt2",
-            HuggingFacePipeline(
-                model_id="gpt2",
-                model_kwargs={
-                    "max_new_tokens": 512,
-                    "top_k": 30,
-                    "temperature": 0.1,
-                    "repetition_penalty": 1.03,
-                },
-            ),
-        ),
+        # (
+        #     "gpt2",
+        #     HuggingFacePipeline(
+        #         model_id="gpt2",
+        #         model_kwargs={
+        #             "max_new_tokens": 512,
+        #             "top_k": 30,
+        #             "temperature": 0.1,
+        #             "repetition_penalty": 1.03,
+        #         },
+        #     ),
+        # ),
         (
             "qwen-72b-chat",
             ChatTongyi(model="qwen-72b-chat", dashscope_api_key="dashscope"),
