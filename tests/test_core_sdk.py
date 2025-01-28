@@ -1297,7 +1297,7 @@ def test_fetch_traces():
     fetched_trace = response.data[0]
     assert fetched_trace.name == name
     assert fetched_trace.session_id == "session-1"
-    assert fetched_trace.input == '{"key":"value"}'
+    assert fetched_trace.input == {"key": "value"}
     assert fetched_trace.output == "output-value"
     # compare timestamps without microseconds and in UTC
     assert fetched_trace.timestamp.replace(microsecond=0) == trace_params[1][

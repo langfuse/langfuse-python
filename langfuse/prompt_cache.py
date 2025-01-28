@@ -152,6 +152,12 @@ class PromptCache:
 
         self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
+    def invalidate(self, prompt_name: str):
+        """Invalidate all cached prompts with the given prompt name."""
+        for key in list(self._cache):
+            if key.startswith(prompt_name):
+                del self._cache[key]
+
     def add_refresh_prompt_task(self, key: str, fetch_func):
         self._log.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
