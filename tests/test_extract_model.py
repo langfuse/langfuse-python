@@ -55,7 +55,7 @@ from tests.utils import get_api
         ("claude-2", ChatAnthropic(model_name="claude-2")),
         (
             "claude-3-sonnet-20240229",
-            # ChatAnthropic(model="claude-3-sonnet-20240229"),
+            ChatAnthropic(model="claude-3-sonnet-20240229"),
         ),
         ("claude-2", Anthropic()),
         ("claude-2", Anthropic()),
