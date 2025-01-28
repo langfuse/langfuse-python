@@ -1479,6 +1479,7 @@ def test_mask_function():
     span.update(output="new_classified")
 
     langfuse.flush()
+    sleep(1)
 
     fetched_trace = api_wrapper.get_trace(trace.id)
     assert fetched_trace["input"] == {"sensitive": "MASKED"}
@@ -1503,6 +1504,7 @@ def test_mask_function():
     sleep(0.1)
     trace.update(output={"more": "sensitive"})
     langfuse.flush()
+    sleep(1)
 
     fetched_trace = api_wrapper.get_trace(trace.id)
     assert fetched_trace["input"] == "<fully masked due to failed mask function>"

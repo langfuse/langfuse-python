@@ -431,8 +431,9 @@ def test_llama_index_dataset():
             index.as_query_engine().query(
                 "What did the speaker achieve in the past twelve months?"
             )
-
     langfuse.flush()
+    handler.flush()
+
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name
