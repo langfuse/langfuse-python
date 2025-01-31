@@ -11,6 +11,8 @@ from langfuse.client import (
 )
 
 from logging import getLogger
+from pydantic import BaseModel
+
 from ._context import InstrumentorContext
 
 logger = getLogger(__name__)
@@ -25,6 +27,7 @@ try:
         StreamingResponse,
         AsyncStreamingResponse,
     )
+    from llama_index.core.workflow import Context
 
 except ImportError:
     raise ModuleNotFoundError(
@@ -243,6 +246,9 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
     def _parse_output_metadata(
         self, instance: Optional[Any], result: Optional[Any]
     ) -> Tuple[Optional[Any], Optional[Any]]:
+        if isinstance(result, BaseModel):
+            return result.__dict__, None
+
         if not result or isinstance(
             result,
             (Generator, AsyncGenerator, StreamingResponse, AsyncStreamingResponse),
@@ -288,5 +294,13 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
 
         if "nodes" in arguments:
             return {"num_nodes": len(arguments["nodes"])}
+
+        # Remove Context since it is in not properly serialized
+        ctx_key = None
+        for arg, val in arguments.items():
+            if isinstance(val, Context):
+                ctx_key = arg
+        if ctx_key in arguments:
+            return {arg: val for arg, val in arguments.items() if arg != ctx_key}
 
         return arguments
