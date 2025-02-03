@@ -283,8 +283,15 @@ class MediaManager:
                     and (e.status_code) != 429
                 ):
                     raise e
-            except Exception as e:
-                raise e
+            except requests.exceptions.RequestException as e:
+                if (
+                    e.response
+                    and hasattr(e.response, "status_code")
+                    and (e.response.status_code >= 500 or e.response.status_code == 429)
+                ):
+                    raise
+
+                raise e  # break retries for all other status codes
 
             raise Exception("Failed to execute task")
 
