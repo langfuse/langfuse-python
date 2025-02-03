@@ -289,7 +289,7 @@ class Langfuse(object):
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
-        self.client = FernLangfuse(
+        public_api_client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
             password=secret_key,
@@ -299,6 +299,9 @@ class Langfuse(object):
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
+
+        self.api = public_api_client
+        self.client = public_api_client  # legacy, to be removed in next major release
 
         langfuse_client = LangfuseClient(
             public_key=public_key,
