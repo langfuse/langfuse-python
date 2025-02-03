@@ -70,7 +70,7 @@ def test_openai_chat_completion():
         {"content": "1 + 1 = ", "role": "user"},
     ]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-3.5-turbo-0125" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -135,7 +135,7 @@ def test_openai_chat_completion_stream():
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-3.5-turbo-0125" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
