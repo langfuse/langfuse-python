@@ -285,7 +285,7 @@ class MediaManager:
                     raise e
             except requests.exceptions.RequestException as e:
                 if (
-                    e.response
+                    e.response is not None
                     and hasattr(e.response, "status_code")
                     and (e.response.status_code >= 500 or e.response.status_code == 429)
                 ):
