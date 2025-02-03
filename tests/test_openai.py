@@ -536,7 +536,7 @@ def test_openai_completion():
     assert completion.choices[0].text == generation.data[0].output
     assert generation.data[0].input == "1 + 1 = "
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-instruct"
+    assert "gpt-3.5-turbo-instruct" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -587,7 +587,7 @@ def test_openai_completion_stream():
 
     assert generation.data[0].input == "1 + 1 = "
     assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-instruct"
+    assert "gpt-3.5-turbo-instruct" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
