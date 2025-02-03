@@ -116,8 +116,11 @@ class LangfuseClient:
                 )
             return payload if return_json else res
 
-        payload = parse_json_response(res)
-        raise APIError(res.status_code, payload)
+        try:
+            payload = parse_json_response(res)
+            raise APIError(res.status_code, payload)
+        except (KeyError, ValueError):
+            raise APIError(res.status_code, res.text)
 
 
 class APIError(Exception):
