@@ -270,22 +270,29 @@ class MediaManager:
     def _request_with_backoff(
         self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
     ) -> T:
-        @backoff.on_exception(
-            backoff.expo, Exception, max_tries=self._max_retries, logger=None
-        )
-        def execute_task_with_backoff() -> T:
-            try:
-                return func(*args, **kwargs)
-            except ApiError as e:
-                if (
+        def _should_give_up(e: Exception) -> bool:
+            if isinstance(e, ApiError):
+                return (
                     e.status_code is not None
                     and 400 <= e.status_code < 500
-                    and (e.status_code) != 429
-                ):
-                    raise e
-            except Exception as e:
-                raise e
+                    and e.status_code != 429
+                )
+            if isinstance(e, requests.exceptions.RequestException):
+                return (
+                    e.response is not None
+                    and e.response.status_code < 500
+                    and e.response.status_code != 429
+                )
+            return False
 
-            raise Exception("Failed to execute task")
+        @backoff.on_exception(
+            backoff.expo,
+            Exception,
+            max_tries=self._max_retries,
+            giveup=_should_give_up,
+            logger=None,
+        )
+        def execute_task_with_backoff() -> T:
+            return func(*args, **kwargs)
 
         return execute_task_with_backoff()

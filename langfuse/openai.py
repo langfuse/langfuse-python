@@ -460,7 +460,7 @@ def _parse_usage(usage=None):
     if usage is None:
         return
 
-    usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__
+    usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__.copy()
 
     for tokens_details in ["prompt_tokens_details", "completion_tokens_details"]:
         if tokens_details in usage_dict and usage_dict[tokens_details] is not None:
