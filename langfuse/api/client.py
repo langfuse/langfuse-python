@@ -19,6 +19,10 @@ from .resources.metrics.client import AsyncMetricsClient, MetricsClient
 from .resources.models.client import AsyncModelsClient, ModelsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
+from .resources.prompt_version.client import (
+    AsyncPromptVersionClient,
+    PromptVersionClient,
+)
 from .resources.prompts.client import AsyncPromptsClient, PromptsClient
 from .resources.score.client import AsyncScoreClient, ScoreClient
 from .resources.score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
@@ -108,6 +112,7 @@ class FernLangfuse:
         self.models = ModelsClient(client_wrapper=self._client_wrapper)
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
+        self.prompt_version = PromptVersionClient(client_wrapper=self._client_wrapper)
         self.prompts = PromptsClient(client_wrapper=self._client_wrapper)
         self.score_configs = ScoreConfigsClient(client_wrapper=self._client_wrapper)
         self.score = ScoreClient(client_wrapper=self._client_wrapper)
@@ -199,6 +204,9 @@ class AsyncFernLangfuse:
         self.models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
+        self.prompt_version = AsyncPromptVersionClient(
+            client_wrapper=self._client_wrapper
+        )
         self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
         self.score_configs = AsyncScoreConfigsClient(
             client_wrapper=self._client_wrapper

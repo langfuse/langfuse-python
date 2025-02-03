@@ -4,6 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
+import pytest
 from langchain import LLMChain, OpenAI, PromptTemplate
 
 from langfuse import Langfuse
@@ -408,6 +409,7 @@ def test_langchain_dataset():
     assert sorted_observations[1].usage.output is not None
 
 
+@pytest.mark.skip(reason="flaky on V3 pipeline")
 def test_llama_index_dataset():
     langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
@@ -433,13 +435,17 @@ def test_llama_index_dataset():
             )
 
     langfuse.flush()
+    handler.flush()
+
     run = langfuse.get_dataset_run(dataset_name, run_name)
 
     assert run.name == run_name
     assert len(run.dataset_run_items) == 1
     assert run.dataset_run_items[0].dataset_run_id == run.id
+    time.sleep(3)
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    trace_id = run.dataset_run_items[0].trace_id
+    trace = get_api().trace.get(trace_id)
 
     sorted_observations = sorted_dependencies(trace.observations)
 

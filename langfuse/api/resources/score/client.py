@@ -120,9 +120,7 @@ class ScoreClient:
         config_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
-        trace_tags: typing.Optional[
-            typing.Union[typing.Sequence[str], typing.Sequence[typing.Sequence[str]]]
-        ] = None,
+        trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScoresResponse:
         """
@@ -169,7 +167,7 @@ class ScoreClient:
         data_type : typing.Optional[ScoreDataType]
             Retrieve only scores with a specific dataType.
 
-        trace_tags : typing.Optional[typing.Union[typing.Sequence[str], typing.Sequence[typing.Sequence[str]]]]
+        trace_tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only scores linked to traces that include all of these tags will be returned.
 
         request_options : typing.Optional[RequestOptions]
@@ -212,7 +210,7 @@ class ScoreClient:
             config_id="string",
             queue_id="string",
             data_type=ScoreDataType.NUMERIC,
-            trace_tags=["string"],
+            trace_tags="string",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -236,7 +234,7 @@ class ScoreClient:
                 "configId": config_id,
                 "queueId": queue_id,
                 "dataType": data_type,
-                "traceTags": jsonable_encoder(trace_tags),
+                "traceTags": trace_tags,
             },
             request_options=request_options,
         )
@@ -499,9 +497,7 @@ class AsyncScoreClient:
         config_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
-        trace_tags: typing.Optional[
-            typing.Union[typing.Sequence[str], typing.Sequence[typing.Sequence[str]]]
-        ] = None,
+        trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScoresResponse:
         """
@@ -548,7 +544,7 @@ class AsyncScoreClient:
         data_type : typing.Optional[ScoreDataType]
             Retrieve only scores with a specific dataType.
 
-        trace_tags : typing.Optional[typing.Union[typing.Sequence[str], typing.Sequence[typing.Sequence[str]]]]
+        trace_tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Only scores linked to traces that include all of these tags will be returned.
 
         request_options : typing.Optional[RequestOptions]
@@ -595,7 +591,7 @@ class AsyncScoreClient:
                 config_id="string",
                 queue_id="string",
                 data_type=ScoreDataType.NUMERIC,
-                trace_tags=["string"],
+                trace_tags="string",
             )
 
 
@@ -622,7 +618,7 @@ class AsyncScoreClient:
                 "configId": config_id,
                 "queueId": queue_id,
                 "dataType": data_type,
-                "traceTags": jsonable_encoder(trace_tags),
+                "traceTags": trace_tags,
             },
             request_options=request_options,
         )

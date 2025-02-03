@@ -1297,7 +1297,7 @@ def test_fetch_traces():
     fetched_trace = response.data[0]
     assert fetched_trace.name == name
     assert fetched_trace.session_id == "session-1"
-    assert fetched_trace.input == '{"key":"value"}'
+    assert fetched_trace.input == {"key": "value"}
     assert fetched_trace.output == "output-value"
     # compare timestamps without microseconds and in UTC
     assert fetched_trace.timestamp.replace(microsecond=0) == trace_params[1][
@@ -1479,6 +1479,7 @@ def test_mask_function():
     span.update(output="new_classified")
 
     langfuse.flush()
+    sleep(1)
 
     fetched_trace = api_wrapper.get_trace(trace.id)
     assert fetched_trace["input"] == {"sensitive": "MASKED"}
@@ -1500,8 +1501,10 @@ def test_mask_function():
     langfuse = Langfuse(debug=True, mask=faulty_mask_func)
 
     trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    sleep(0.1)
     trace.update(output={"more": "sensitive"})
     langfuse.flush()
+    sleep(1)
 
     fetched_trace = api_wrapper.get_trace(trace.id)
     assert fetched_trace["input"] == "<fully masked due to failed mask function>"
