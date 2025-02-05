@@ -71,7 +71,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse._task_manager.task_manager import TaskManager
-from langfuse.api.client import FernLangfuse
+from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
 from langfuse.media import LangfuseMedia
@@ -299,9 +299,19 @@ class Langfuse(object):
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
+        async_public_api_client = AsyncFernLangfuse(
+            base_url=self.base_url,
+            username=public_key,
+            password=secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_sdk_version=version,
+            x_langfuse_public_key=public_key,
+            timeout=timeout,
+        )
 
         self.api = public_api_client
         self.client = public_api_client  # legacy, to be removed in next major release
+        self.async_api = async_public_api_client
 
         langfuse_client = LangfuseClient(
             public_key=public_key,
