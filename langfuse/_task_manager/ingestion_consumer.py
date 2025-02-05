@@ -1,8 +1,8 @@
 import json
 import logging
+import os
 import threading
 import time
-
 from queue import Empty, Queue
 from typing import Any, List, Optional
 
@@ -21,8 +21,8 @@ from langfuse.types import MaskFunction
 
 from .media_manager import MediaManager
 
-MAX_EVENT_SIZE_BYTES = 1_000_000
-MAX_BATCH_SIZE_BYTES = 2_500_000
+MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000_000))
+MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))
 
 
 class IngestionMetadata(pydantic.BaseModel):

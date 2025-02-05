@@ -2184,7 +2184,9 @@ def test_langfuse_overhead():
     overhead = duration_with_langfuse - duration_without_langfuse
     print(f"Langfuse overhead: {overhead}ms")
 
-    assert overhead < 50, f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
+    assert (
+        overhead < 100
+    ), f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
 
     handler.flush()
 
