@@ -1,13 +1,14 @@
 from time import sleep
-import pytest
 from unittest.mock import Mock, patch
 
 import openai
+import pytest
+
+from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
 from langfuse.client import Langfuse
-from langfuse.prompt_cache import PromptCacheItem, DEFAULT_PROMPT_CACHE_TTL_SECONDS
+from langfuse.model import ChatPromptClient, TextPromptClient
+from langfuse.prompt_cache import DEFAULT_PROMPT_CACHE_TTL_SECONDS, PromptCacheItem
 from tests.utils import create_uuid, get_api
-from langfuse.api.resources.prompts import Prompt_Text, Prompt_Chat
-from langfuse.model import TextPromptClient, ChatPromptClient
 
 
 def test_create_prompt():
@@ -17,6 +18,7 @@ def test_create_prompt():
         name=prompt_name,
         prompt="test prompt",
         labels=["production"],
+        commit_message="initial commit",
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name)
@@ -25,6 +27,7 @@ def test_create_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
+    assert prompt_client.commit_message == second_prompt_client.commit_message
     assert prompt_client.config == {}
 
 
@@ -79,6 +82,7 @@ def test_create_chat_prompt():
         labels=["production"],
         tags=["test"],
         type="chat",
+        commit_message="initial commit",
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
@@ -97,6 +101,7 @@ def test_create_chat_prompt():
     assert prompt_client.config == second_prompt_client.config
     assert prompt_client.labels == ["production", "latest"]
     assert prompt_client.tags == second_prompt_client.tags
+    assert prompt_client.commit_message == second_prompt_client.commit_message
     assert prompt_client.config == {}
 
 

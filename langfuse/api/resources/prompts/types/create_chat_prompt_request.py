@@ -22,6 +22,13 @@ class CreateChatPromptRequest(pydantic_v1.BaseModel):
     List of tags to apply to all versions of this prompt.
     """
 
+    commit_message: typing.Optional[str] = pydantic_v1.Field(
+        alias="commitMessage", default=None
+    )
+    """
+    Commit message for this prompt version.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,
@@ -50,5 +57,7 @@ class CreateChatPromptRequest(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

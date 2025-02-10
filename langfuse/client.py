@@ -1282,6 +1282,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -1295,6 +1296,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> TextPromptClient: ...
 
     def create_prompt(
@@ -1307,6 +1309,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> PromptClient:
         """Create a new prompt in Langfuse.
 
@@ -1318,6 +1321,7 @@ class Langfuse(object):
             tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
+            commit_message: Optional string describing the change.
 
         Returns:
             TextPromptClient: The prompt if type argument is 'text'.
@@ -1345,6 +1349,7 @@ class Langfuse(object):
                     labels=labels,
                     tags=tags,
                     config=config or {},
+                    commitMessage=commit_message,
                     type="chat",
                 )
                 server_prompt = self.client.prompts.create(request=request)
@@ -1360,6 +1365,7 @@ class Langfuse(object):
                 labels=labels,
                 tags=tags,
                 config=config or {},
+                commitMessage=commit_message,
                 type="text",
             )
 
