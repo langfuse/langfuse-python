@@ -2614,6 +2614,7 @@ client.prompts.create(
         config={"key": "value"},
         labels=["string"],
         tags=["string"],
+        commit_message="string",
     ),
 )
 
