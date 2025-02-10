@@ -1,6 +1,7 @@
 """@private"""
 
 import enum
+import math
 from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
@@ -53,6 +54,9 @@ class EventSerializer(JSONEncoder):
             # If so, convert it to a Python scalar using the item() method
             if np is not None and isinstance(obj, np.generic):
                 return obj.item()
+
+            if isinstance(obj, float) and math.isnan(obj):
+                return None
 
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
