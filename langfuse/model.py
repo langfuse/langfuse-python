@@ -1,8 +1,8 @@
 """@private"""
 
-from abc import ABC, abstractmethod
-from typing import Optional, TypedDict, Any, Dict, Union, List, Tuple
 import re
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -36,7 +36,7 @@ from langfuse.api.resources.dataset_run_items.types.create_dataset_run_item_requ
 from langfuse.api.resources.datasets.types.create_dataset_request import (  # noqa: F401
     CreateDatasetRequest,
 )
-from langfuse.api.resources.prompts import Prompt, ChatMessage, Prompt_Chat, Prompt_Text
+from langfuse.api.resources.prompts import ChatMessage, Prompt, Prompt_Chat, Prompt_Text
 
 
 class ModelUsage(TypedDict):
@@ -126,6 +126,7 @@ class BasePromptClient(ABC):
     config: Dict[str, Any]
     labels: List[str]
     tags: List[str]
+    commit_message: Optional[str]
 
     def __init__(self, prompt: Prompt, is_fallback: bool = False):
         self.name = prompt.name
@@ -133,6 +134,7 @@ class BasePromptClient(ABC):
         self.config = prompt.config
         self.labels = prompt.labels
         self.tags = prompt.tags
+        self.commit_message = prompt.commit_message
         self.is_fallback = is_fallback
 
     @abstractmethod

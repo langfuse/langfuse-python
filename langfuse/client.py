@@ -71,7 +71,7 @@ except ImportError:
     import pydantic  # type: ignore
 
 from langfuse._task_manager.task_manager import TaskManager
-from langfuse.api.client import FernLangfuse
+from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
 from langfuse.media import LangfuseMedia
@@ -289,7 +289,7 @@ class Langfuse(object):
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
-        self.client = FernLangfuse(
+        public_api_client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
             password=secret_key,
@@ -299,6 +299,19 @@ class Langfuse(object):
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
+        async_public_api_client = AsyncFernLangfuse(
+            base_url=self.base_url,
+            username=public_key,
+            password=secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_sdk_version=version,
+            x_langfuse_public_key=public_key,
+            timeout=timeout,
+        )
+
+        self.api = public_api_client
+        self.client = public_api_client  # legacy, to be removed in next major release
+        self.async_api = async_public_api_client
 
         langfuse_client = LangfuseClient(
             public_key=public_key,
@@ -1269,6 +1282,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -1282,6 +1296,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> TextPromptClient: ...
 
     def create_prompt(
@@ -1294,6 +1309,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> PromptClient:
         """Create a new prompt in Langfuse.
 
@@ -1305,6 +1321,7 @@ class Langfuse(object):
             tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
+            commit_message: Optional string describing the change.
 
         Returns:
             TextPromptClient: The prompt if type argument is 'text'.
@@ -1332,6 +1349,7 @@ class Langfuse(object):
                     labels=labels,
                     tags=tags,
                     config=config or {},
+                    commitMessage=commit_message,
                     type="chat",
                 )
                 server_prompt = self.client.prompts.create(request=request)
@@ -1347,6 +1365,7 @@ class Langfuse(object):
                 labels=labels,
                 tags=tags,
                 config=config or {},
+                commitMessage=commit_message,
                 type="text",
             )
 

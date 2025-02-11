@@ -16,6 +16,9 @@ class CreatePromptRequest_Chat(pydantic_v1.BaseModel):
     config: typing.Optional[typing.Any] = None
     labels: typing.Optional[typing.List[str]] = None
     tags: typing.Optional[typing.List[str]] = None
+    commit_message: typing.Optional[str] = pydantic_v1.Field(
+        alias="commitMessage", default=None
+    )
     type: typing.Literal["chat"] = "chat"
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -46,6 +49,8 @@ class CreatePromptRequest_Chat(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
 
@@ -56,6 +61,9 @@ class CreatePromptRequest_Text(pydantic_v1.BaseModel):
     config: typing.Optional[typing.Any] = None
     labels: typing.Optional[typing.List[str]] = None
     tags: typing.Optional[typing.List[str]] = None
+    commit_message: typing.Optional[str] = pydantic_v1.Field(
+        alias="commitMessage", default=None
+    )
     type: typing.Literal["text"] = "text"
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -86,6 +94,8 @@ class CreatePromptRequest_Text(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
 

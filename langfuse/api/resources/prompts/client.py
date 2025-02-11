@@ -267,6 +267,7 @@ class PromptsClient:
                 config={"key": "value"},
                 labels=["string"],
                 tags=["string"],
+                commit_message="string",
             ),
         )
         """
@@ -568,6 +569,7 @@ class AsyncPromptsClient:
                     config={"key": "value"},
                     labels=["string"],
                     tags=["string"],
+                    commit_message="string",
                 ),
             )
 
