@@ -977,3 +977,10 @@ class LangfuseResponseGeneratorAsync:
         Automatically called if the response body is read to completion.
         """
         await self.response.close()
+
+    async def aclose(self) -> None:
+        """Close the response and release the connection.
+
+        Automatically called if the response body is read to completion.
+        """
+        await self.response.aclose()
