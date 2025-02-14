@@ -172,7 +172,7 @@ class OpenAiArgsExtractor:
         # If OpenAI model distillation is enabled, we need to add the metadata to the kwargs
         # https://platform.openai.com/docs/guides/distillation
         if self.kwargs.get("store", False):
-            self.kwargs["metadata"] = self.args.get("metadata", {})
+            self.kwargs["metadata"] = {} if self.args.get("metadata") is None else self.args["metadata"]
 
             # OpenAI does not support non-string type values in metadata when using
             # model distillation feature
