@@ -1,4 +1,5 @@
 from datetime import datetime, date, timezone
+import typing
 from uuid import UUID
 from enum import Enum
 from dataclasses import dataclass
@@ -180,6 +181,17 @@ def test_slots():
     obj = SlotClass()
     serializer = EventSerializer()
     assert json.loads(serializer.encode(obj)) == {"field": "value"}
+
+
+def test_slots_types():
+    class SlotClass:
+        def __init__(self):
+            self.something = typing.Sequence[int]
+
+    obj = SlotClass()
+
+    serializer = EventSerializer()
+    assert json.loads(serializer.encode(obj)) == {"something": "<typing.Sequence[int]>"}
 
 
 def test_numpy_float32():
