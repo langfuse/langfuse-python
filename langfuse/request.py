@@ -7,7 +7,7 @@ from typing import Any, List, Union
 
 import httpx
 
-from langfuse.serializer import EventSerializer
+from langfuse.serializer import BaseEventSerializer
 
 
 class LangfuseClient:
@@ -17,6 +17,7 @@ class LangfuseClient:
     _version: str
     _timeout: int
     _session: httpx.Client
+    _serializer: BaseEventSerializer
 
     def __init__(
         self,
@@ -60,7 +61,7 @@ class LangfuseClient:
         """Post the `kwargs` to the API"""
         log = logging.getLogger("langfuse")
         url = self._remove_trailing_slash(self._base_url) + "/api/public/ingestion"
-        data = json.dumps(kwargs, cls=EventSerializer)
+        data = json.dumps(kwargs, cls=self._serializer)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
         res = self._session.post(
