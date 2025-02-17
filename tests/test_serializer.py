@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import pandas as pd
 import pytest
 from pydantic import BaseModel
 
@@ -196,8 +197,6 @@ def test_numpy_float32():
 
 
 def test_custom_serializer():
-    import pandas as pd
-
     class CustomSerializer(BaseEventSerializer):
         def default(self, obj: Any) -> Any:
             if isinstance(obj, pd.DataFrame):
