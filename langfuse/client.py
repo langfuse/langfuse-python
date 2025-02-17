@@ -1555,6 +1555,7 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -1570,6 +1571,7 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -1584,6 +1586,7 @@ class Langfuse(object):
         comment: typing.Optional[str] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached to a trace (and optionally an observation).
@@ -1646,6 +1649,7 @@ class Langfuse(object):
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
                 "body": new_body,
+                "timestamp": timestamp,
             }
             self.task_manager.add_task(event)
 
@@ -2366,6 +2370,7 @@ class StatefulClient(object):
         data_type: typing.Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -2379,6 +2384,7 @@ class StatefulClient(object):
         data_type: typing.Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ) -> "StatefulClient": ...
 
@@ -2391,6 +2397,7 @@ class StatefulClient(object):
         data_type: typing.Optional[ScoreDataType] = None,
         comment: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        timestamp: typing.Optional[dt.datetime] = None,
         **kwargs,
     ) -> "StatefulClient":
         """Create a score attached for the current observation or trace.
@@ -2451,6 +2458,7 @@ class StatefulClient(object):
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
                 "body": request,
+                "timestamp": timestamp,
             }
 
             self.task_manager.add_task(event)
