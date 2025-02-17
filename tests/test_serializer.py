@@ -1,14 +1,18 @@
-from datetime import datetime, date, timezone
-from uuid import UUID
-from enum import Enum
-from dataclasses import dataclass
-from pathlib import Path
-from pydantic import BaseModel
 import json
-import pytest
 import threading
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from enum import Enum
+from pathlib import Path
+from typing import Any
+from uuid import UUID
+
+import pytest
+from pydantic import BaseModel
+
 import langfuse.serializer
 from langfuse.serializer import (
+    BaseEventSerializer,
     EventSerializer,
 )
 
@@ -189,3 +193,23 @@ def test_numpy_float32():
     serializer = EventSerializer()
 
     assert serializer.encode(data) == "1.0"
+
+
+def test_custom_serializer():
+    import pandas as pd
+
+    class CustomSerializer(BaseEventSerializer):
+        def default(self, obj: Any) -> Any:
+            if isinstance(obj, pd.DataFrame):
+                return obj.to_dict(orient="records")
+            return super().default(obj)
+
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
+    serializer = CustomSerializer()
+    result = json.loads(serializer.encode(df))
+
+    assert result == [
+        {"col1": 1, "col2": "a"},
+        {"col1": 2, "col2": "b"},
+        {"col1": 3, "col2": "c"},
+    ]

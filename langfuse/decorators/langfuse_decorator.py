@@ -40,7 +40,6 @@ from langfuse.client import (
     StatefulTraceClient,
     StateType,
 )
-from langfuse.serializer import EventSerializer
 from langfuse.types import ObservationParams, SpanLevel
 from langfuse.utils import _get_timestamp
 from langfuse.utils.error_logging import catch_and_log_errors
@@ -182,8 +181,8 @@ class LangfuseDecorator:
             )
 
         """
-        If the decorator is called without arguments, return the decorator function itself. 
-        This allows the decorator to be used with or without arguments. 
+        If the decorator is called without arguments, return the decorator function itself.
+        This allows the decorator to be used with or without arguments.
         Python calls the decorator function with the decorated function as an argument when the decorator is used without arguments.
         """
         if func is None:
@@ -401,7 +400,7 @@ class LangfuseDecorator:
 
         # Serialize and deserialize to ensure proper JSON serialization.
         # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
-        return json.loads(json.dumps(raw_input, cls=EventSerializer))
+        return json.loads(json.dumps(raw_input, cls=self.client_instance._serializer))
 
     def _finalize_call(
         self,
@@ -457,7 +456,7 @@ class LangfuseDecorator:
                 json.loads(
                     json.dumps(
                         result if result is not None and capture_output else None,
-                        cls=EventSerializer,
+                        cls=self.client_instance._serializer,
                     )
                 )
             )
