@@ -1106,7 +1106,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                 usage_model[f"output_{key}"] = value
 
                 if "output" in usage_model:
-                    usage_model["output"] -= value
+                    usage_model["output"] = max(0, usage_model["output"] - value)
 
     return usage_model if usage_model else None
 
