@@ -2336,7 +2336,7 @@ def test_cached_token_usage():
     chat = ChatOpenAI(model="gpt-4o-mini")
     chain = prompt | chat
     handler = CallbackHandler()
-    config = {"callbacks": [handler]} if handler else {}
+    config = {"callbacks": [handler]}
 
     chain.invoke({"test_param": "in a funny way"}, config)
 
