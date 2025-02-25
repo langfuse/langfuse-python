@@ -297,10 +297,9 @@ class Langfuse(object):
         if self.environment and not bool(
             re.match(ENVIRONMENT_PATTERN, self.environment)
         ):
-            self.log.warning(
-                f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Setting will be ignored.'
+            self.log.error(
+                f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Events will be rejected by Langfuse servers.'
             )
-            self.environment = None
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 

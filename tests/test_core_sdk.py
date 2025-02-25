@@ -1578,16 +1578,3 @@ def test_environment_from_env_var(monkeypatch):
 
     fetched_trace = api_wrapper.get_trace(trace.id)
     assert fetched_trace["environment"] == "testing"
-
-
-def test_invalid_environment():
-    # Test with invalid environment (too long)
-    langfuse = Langfuse(debug=True, environment="UPPERCASE")
-    api_wrapper = LangfuseAPI()
-
-    trace = langfuse.trace(name="test_invalid_environment")
-    langfuse.flush()
-    sleep(1)
-
-    fetched_trace = api_wrapper.get_trace(trace.id)
-    assert fetched_trace["environment"] is None
