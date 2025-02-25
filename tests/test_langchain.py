@@ -2318,3 +2318,49 @@ def test_langgraph():
             assert observation.level == "DEFAULT"
 
     assert hidden_count > 0
+
+
+def test_cached_token_usage():
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                (
+                    "This is a test prompt to reproduce the issue. "
+                    "The prompt needs 1024 tokens to enable cache." * 100
+                ),
+            ),
+            ("user", "Reply to this message {test_param}."),
+        ]
+    )
+    chat = ChatOpenAI(model="gpt-4o-mini")
+    chain = prompt | chat
+    handler = CallbackHandler()
+    config = {"callbacks": [handler]}
+
+    chain.invoke({"test_param": "in a funny way"}, config)
+
+    # invoke again to force cached token usage
+    chain.invoke({"test_param": "in a funny way"}, config)
+
+    handler.flush()
+
+    trace = get_api().trace.get(handler.get_trace_id())
+
+    generation = next((o for o in trace.observations if o.type == "GENERATION"))
+
+    assert generation.usage_details["input_cache_read"] > 0
+    assert (
+        generation.usage_details["input"]
+        + generation.usage_details["input_cache_read"]
+        + generation.usage_details["output"]
+        == generation.usage_details["total"]
+    )
+
+    assert generation.cost_details["input_cache_read"] > 0
+    assert (
+        generation.cost_details["input"]
+        + generation.cost_details["input_cache_read"]
+        + generation.cost_details["output"]
+        == generation.cost_details["total"]
+    )

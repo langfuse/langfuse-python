@@ -1096,11 +1096,17 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
             for key, value in input_token_details.items():
                 usage_model[f"input_{key}"] = value
 
+                if "input" in usage_model:
+                    usage_model["input"] = max(0, usage_model["input"] - value)
+
         if "output_token_details" in usage_model:
             output_token_details = usage_model.pop("output_token_details", {})
 
             for key, value in output_token_details.items():
                 usage_model[f"output_{key}"] = value
+
+                if "output" in usage_model:
+                    usage_model["output"] = max(0, usage_model["output"] - value)
 
     return usage_model if usage_model else None
 
