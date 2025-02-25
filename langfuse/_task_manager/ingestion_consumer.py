@@ -21,8 +21,8 @@ from langfuse.types import MaskFunction
 
 from .media_manager import MediaManager
 
-MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000_000))
-MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))
+MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 10_000_000))
+MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 20_500_000))
 
 
 class IngestionMetadata(pydantic.BaseModel):
@@ -142,6 +142,7 @@ class IngestionConsumer(threading.Thread):
                 total_size += item_size
                 if total_size >= MAX_BATCH_SIZE_BYTES:
                     self._log.debug("hit batch size limit (size: %d)", total_size)
+                    raise RuntimeError(f"hit batch size limit (size: {total_size})")
                     break
 
             except Empty:
@@ -175,6 +176,9 @@ class IngestionConsumer(threading.Thread):
             self._log.warning(
                 "Item exceeds size limit (size: %s), dropping input / output / metadata of item until it fits.",
                 item_size,
+            )
+            raise RuntimeError(
+                f"Item exceeds size limit (size: {item_size}), dropping input / output / metadata of item until it fits."
             )
 
             if "body" in event:
