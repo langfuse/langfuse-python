@@ -70,6 +70,11 @@ class Trace(pydantic_v1.BaseModel):
     Public traces are accessible via url without login
     """
 
+    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    The environment from which this trace originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,
