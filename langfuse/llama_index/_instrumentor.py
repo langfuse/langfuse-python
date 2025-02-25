@@ -1,18 +1,18 @@
-import httpx
 import uuid
 from contextlib import contextmanager
-from typing import Optional, Dict, Any, List
 from logging import getLogger
-from langfuse import Langfuse
+from typing import Any, Dict, List, Optional
 
+import httpx
+
+from langfuse import Langfuse
 from langfuse.client import StatefulTraceClient, StateType
-from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from langfuse.types import MaskFunction
+from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
 from ._context import InstrumentorContext
-from ._span_handler import LlamaIndexSpanHandler
 from ._event_handler import LlamaIndexEventHandler
-
+from ._span_handler import LlamaIndexSpanHandler
 
 try:
     from llama_index.core.instrumentation import get_dispatcher
@@ -63,6 +63,7 @@ class LlamaIndexInstrumentor:
         enabled (Optional[bool]): Enable/disable the instrumentor
         sample_rate (Optional[float]): Sample rate for logging (0.0 to 1.0)
         mask (langfuse.types.MaskFunction): Masking function for 'input' and 'output' fields in events. Function must take a single keyword argument `data` and return a serializable, masked version of the data.
+        environment (optional): The tracing environment. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'. Can bet set via `LANGFUSE_TRACING_ENVIRONMENT` environment variable.
     """
 
     def __init__(
@@ -81,6 +82,7 @@ class LlamaIndexInstrumentor:
         enabled: Optional[bool] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        environment: Optional[str] = None,
     ):
         self._langfuse = LangfuseSingleton().get(
             public_key=public_key,
@@ -97,6 +99,7 @@ class LlamaIndexInstrumentor:
             sample_rate=sample_rate,
             mask=mask,
             sdk_integration="llama-index_instrumentation",
+            environment=environment,
         )
         self._span_handler = LlamaIndexSpanHandler(langfuse_client=self._langfuse)
         self._event_handler = LlamaIndexEventHandler(langfuse_client=self._langfuse)

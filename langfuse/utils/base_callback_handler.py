@@ -1,10 +1,11 @@
-from typing import Optional, Union, List, Any, Callable
-import httpx
 import logging
 import os
 import warnings
+from typing import Any, Callable, List, Optional, Union
 
-from langfuse.client import Langfuse, StatefulTraceClient, StatefulSpanClient, StateType
+import httpx
+
+from langfuse.client import Langfuse, StatefulSpanClient, StatefulTraceClient, StateType
 
 
 class LangfuseBaseCallbackHandler:
@@ -38,6 +39,7 @@ class LangfuseBaseCallbackHandler:
         sdk_integration: str,
         sample_rate: Optional[float] = None,
         mask: Optional[Callable] = None,
+        environment: Optional[str] = None,
     ) -> None:
         self.version = version
         self.session_id = session_id
@@ -109,6 +111,8 @@ class LangfuseBaseCallbackHandler:
             args["sample_rate"] = prio_sample_rate
         if mask is not None:
             args["mask"] = mask
+        if environment is not None:
+            args["environment"] = environment
 
         args["sdk_integration"] = sdk_integration
 

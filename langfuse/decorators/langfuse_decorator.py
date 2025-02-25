@@ -1057,6 +1057,7 @@ class LangfuseDecorator:
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = None,
         mask: Optional[Callable] = None,
+        environment: Optional[str] = None,
     ):
         """Configure the Langfuse client.
 
@@ -1076,7 +1077,7 @@ class LangfuseDecorator:
             httpx_client: Pass your own httpx client for more customizability of requests.
             enabled: Enables or disables the Langfuse client. Defaults to True. If disabled, no observability data will be sent to Langfuse. If data is requested while disabled, an error will be raised.
             mask (Callable): Function that masks sensitive information from input and output in log messages.
-
+            environment (optional): The tracing environment. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'. Can bet set via `LANGFUSE_TRACING_ENVIRONMENT` environment variable.
         """
         langfuse_singleton = LangfuseSingleton()
         langfuse_singleton.reset()
@@ -1095,6 +1096,7 @@ class LangfuseDecorator:
             httpx_client=httpx_client,
             enabled=enabled,
             mask=mask,
+            environment=environment,
         )
 
     @property

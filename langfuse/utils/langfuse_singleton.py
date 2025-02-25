@@ -37,6 +37,7 @@ class LangfuseSingleton:
         enabled: Optional[bool] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        environment: Optional[str] = None,
     ) -> Langfuse:
         if self._langfuse:
             return self._langfuse
@@ -61,6 +62,7 @@ class LangfuseSingleton:
                 "enabled": enabled,
                 "sample_rate": sample_rate,
                 "mask": mask,
+                "environment": environment,
             }
 
             self._langfuse = Langfuse(
