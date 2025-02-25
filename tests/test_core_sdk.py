@@ -1528,7 +1528,7 @@ def test_generate_trace_id():
     trace_url = langfuse.get_trace_url()
     assert (
         trace_url
-        == f"http://localhost:300/project/7a88fb47-b4e2-43b8-a06c-a5ce950dc53a/traces/{trace_id}"
+        == f"http://localhost:3000/project/7a88fb47-b4e2-43b8-a06c-a5ce950dc53a/traces/{trace_id}"
     )
 
 
