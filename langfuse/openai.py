@@ -774,6 +774,7 @@ class OpenAILangfuse:
             sdk_integration="openai",
             sample_rate=openai.langfuse_sample_rate,
             environment=openai.langfuse_environment,
+            mask=openai.langfuse_mask,
         )
 
         return self._langfuse
