@@ -344,6 +344,7 @@ class LangfuseDecorator:
                     task_manager=self.client_instance.task_manager,
                     client=self.client_instance.client,
                     state_type=StateType.OBSERVATION,
+                    environment=self.client_instance.environment,
                 )
                 self._set_root_trace_id(provided_parent_trace_id)
 
@@ -354,6 +355,7 @@ class LangfuseDecorator:
                     task_manager=self.client_instance.task_manager,
                     client=self.client_instance.client,
                     state_type=StateType.TRACE,
+                    environment=self.client_instance.environment,
                 )
                 self._set_root_trace_id(provided_parent_trace_id)
 
@@ -490,6 +492,7 @@ class LangfuseDecorator:
                         task_manager=self.client_instance.task_manager,
                         client=self.client_instance.client,
                         state_type=StateType.TRACE,
+                        environment=self.client_instance.environment,
                     )
                     trace_client.update(**observation_params)
 

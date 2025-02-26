@@ -1,32 +1,34 @@
+import logging
 from collections import defaultdict
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional, Union, Tuple, Callable, Generator
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from uuid import uuid4
-import logging
+
 import httpx
+from pydantic import BaseModel
 
 from langfuse.client import (
+    StatefulGenerationClient,
     StatefulSpanClient,
     StatefulTraceClient,
-    StatefulGenerationClient,
     StateType,
 )
+from langfuse.types import TraceMetadata
+from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 from langfuse.utils.error_logging import (
     auto_decorate_methods_with,
     catch_and_log_errors,
 )
-from langfuse.types import TraceMetadata
-from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
+
 from .utils import CallbackEvent, ParsedLLMEndPayload
-from pydantic import BaseModel
 
 try:
     from llama_index.core.callbacks.base_handler import (
         BaseCallbackHandler as LlamaIndexBaseCallbackHandler,
     )
     from llama_index.core.callbacks.schema import (
-        CBEventType,
         BASE_TRACE_EVENT,
+        CBEventType,
         EventPayload,
     )
     from llama_index.core.utilities.token_counting import TokenCounter
@@ -165,6 +167,7 @@ class LlamaIndexCallbackHandler(
                 StateType.TRACE,
                 root.trace_id,
                 root.task_manager,
+                root.environment,
             )
 
         self._task_manager = root.task_manager

@@ -1508,7 +1508,12 @@ class Langfuse(object):
             self._log_memory_usage()
 
             return StatefulTraceClient(
-                self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                self.client,
+                new_id,
+                StateType.TRACE,
+                new_id,
+                self.task_manager,
+                self.environment,
             )
 
     def _log_memory_usage(self):
@@ -1792,6 +1797,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def event(
@@ -1892,6 +1898,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def generation(
@@ -2039,6 +2046,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def _generate_trace(self, trace_id: str, name: str):
@@ -2172,7 +2180,6 @@ class StatefulClient(object):
             self.log.warning(
                 f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Setting will be ignored.'
             )
-            self.environment = None
 
     def _add_state_to_event(self, body: dict):
         if self.state_type == StateType.OBSERVATION:
@@ -2304,7 +2311,8 @@ class StatefulClient(object):
                 generation_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def span(
@@ -2394,7 +2402,8 @@ class StatefulClient(object):
                 span_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     @overload
@@ -2627,9 +2636,10 @@ class StatefulGenerationClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulGenerationClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2741,7 +2751,8 @@ class StatefulGenerationClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def end(
@@ -2846,9 +2857,10 @@ class StatefulSpanClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulSpanClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2932,7 +2944,8 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def end(
@@ -3005,7 +3018,8 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def get_langchain_handler(self, update_parent: bool = False):
@@ -3044,9 +3058,10 @@ class StatefulTraceClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulTraceClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
         self.task_manager = task_manager
 
     def update(
@@ -3137,7 +3152,8 @@ class StatefulTraceClient(StatefulClient):
                 self.id,
                 StateType.TRACE,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def get_langchain_handler(self, update_parent: bool = False):

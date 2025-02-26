@@ -1538,7 +1538,13 @@ def test_environment_from_constructor():
     api_wrapper = LangfuseAPI()
 
     trace = langfuse.trace(name="test_environment")
+    sleep(0.1)
+    trace.update(name="updated_name")
+
     generation = trace.generation(name="test_gen")
+    sleep(0.1)
+    generation.update(name="test_gen_1")
+
     score_id = create_uuid()
     langfuse.score(id=score_id, trace_id=trace.id, name="test_score", value=1)
 

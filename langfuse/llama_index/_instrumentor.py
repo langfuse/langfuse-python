@@ -288,6 +288,7 @@ class LlamaIndexInstrumentor:
             trace_id=trace_id,
             task_manager=self._langfuse.task_manager,
             state_type=StateType.TRACE,
+            environment=self._langfuse.environment,
         )
 
     @property
