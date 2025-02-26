@@ -41,6 +41,7 @@ class ObservationBody(pydantic_v1.BaseModel):
     parent_observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="parentObservationId", default=None
     )
+    environment: typing.Optional[str] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

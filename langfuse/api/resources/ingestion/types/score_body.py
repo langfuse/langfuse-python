@@ -25,6 +25,7 @@ class ScoreBody(pydantic_v1.BaseModel):
     id: typing.Optional[str] = None
     trace_id: str = pydantic_v1.Field(alias="traceId")
     name: str
+    environment: typing.Optional[str] = None
     value: CreateScoreValue = pydantic_v1.Field()
     """
     The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)
