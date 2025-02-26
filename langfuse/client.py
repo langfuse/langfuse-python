@@ -87,7 +87,7 @@ from langfuse.utils import (
 
 from .version import __version__ as version
 
-ENVIRONMENT_PATTERN = r"^(?!langfuse-)[a-z0-9-_]+$"
+ENVIRONMENT_PATTERN = r"^(?!langfuse)[a-z0-9-_]+$"
 
 
 @dataclass
