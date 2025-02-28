@@ -558,7 +558,7 @@ def _extract_streamed_openai_response(resource, chunks):
                         )
 
             if resource.type == "completion":
-                completion += choice.get("text", None)
+                completion += choice.get("text", "")
 
     def get_response_for_chat():
         return (
