@@ -1,32 +1,32 @@
 import inspect
-from typing import Optional, Any, Tuple, Generator, AsyncGenerator
 import uuid
+from logging import getLogger
+from typing import Any, AsyncGenerator, Generator, Optional, Tuple
+
+from pydantic import BaseModel
 
 from langfuse.client import (
     Langfuse,
-    StatefulSpanClient,
-    StatefulGenerationClient,
-    StateType,
     StatefulClient,
+    StatefulGenerationClient,
+    StatefulSpanClient,
+    StateType,
 )
-
-from logging import getLogger
-from pydantic import BaseModel
 
 from ._context import InstrumentorContext
 
 logger = getLogger(__name__)
 
 try:
-    from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
-    from llama_index.core.instrumentation.span import BaseSpan
-    from llama_index.core.base.embeddings.base import BaseEmbedding
     from llama_index.core.base.base_query_engine import BaseQueryEngine
-    from llama_index.core.llms import LLM, ChatResponse
+    from llama_index.core.base.embeddings.base import BaseEmbedding
     from llama_index.core.base.response.schema import (
-        StreamingResponse,
         AsyncStreamingResponse,
+        StreamingResponse,
     )
+    from llama_index.core.instrumentation.span import BaseSpan
+    from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
+    from llama_index.core.llms import LLM, ChatResponse
     from llama_index.core.workflow import Context
 
 except ImportError:
@@ -215,6 +215,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
             trace_id=trace_id,
             task_manager=self._langfuse_client.task_manager,
             state_type=StateType.OBSERVATION,
+            environment=self._langfuse_client.environment,
         )
 
     def _get_span_client(self, id: str) -> StatefulSpanClient:
@@ -231,6 +232,7 @@ class LlamaIndexSpanHandler(BaseSpanHandler[LangfuseSpan], extra="allow"):
             trace_id=trace_id,
             task_manager=self._langfuse_client.task_manager,
             state_type=StateType.OBSERVATION,
+            environment=self._langfuse_client.environment,
         )
 
     def _parse_generation_input(

@@ -2339,6 +2339,8 @@ def test_cached_token_usage():
     config = {"callbacks": [handler]}
 
     chain.invoke({"test_param": "in a funny way"}, config)
+    chain.invoke({"test_param": "in a funny way"}, config)
+    sleep(1)
 
     # invoke again to force cached token usage
     chain.invoke({"test_param": "in a funny way"}, config)
@@ -2359,8 +2361,11 @@ def test_cached_token_usage():
 
     assert generation.cost_details["input_cache_read"] > 0
     assert (
-        generation.cost_details["input"]
-        + generation.cost_details["input_cache_read"]
-        + generation.cost_details["output"]
-        == generation.cost_details["total"]
+        abs(
+            generation.cost_details["input"]
+            + generation.cost_details["input_cache_read"]
+            + generation.cost_details["output"]
+            - generation.cost_details["total"]
+        )
+        < 0.0001
     )

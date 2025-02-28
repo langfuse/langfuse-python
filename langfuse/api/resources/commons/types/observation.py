@@ -125,6 +125,11 @@ class Observation(pydantic_v1.BaseModel):
     The cost details of the observation. Key is the name of the cost metric, value is the cost in USD. The total key is the sum of all (non-total) cost metrics or the total value ingested.
     """
 
+    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    The environment from which this observation originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,

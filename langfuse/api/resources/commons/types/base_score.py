@@ -33,6 +33,11 @@ class BaseScore(pydantic_v1.BaseModel):
     Reference an annotation queue on a score. Populated if the score was initially created in an annotation queue.
     """
 
+    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    The environment from which this score originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,

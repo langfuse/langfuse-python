@@ -31,7 +31,15 @@ class IngestionClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
         """
-        Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+        Batched ingestion for Langfuse Tracing.
+        If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+
+        Within each batch, there can be multiple events.
+        Each event has a type, an id, a timestamp, metadata and a body.
+        Internally, we refer to this as the "event envelope" as it tells us something about the event but not the trace.
+        We use the event id within this envelope to deduplicate messages to avoid processing the same event twice, i.e. the event id should be unique per request.
+        The event.body.id is the ID of the actual trace and will be used for updates and will be visible within the Langfuse App.
+        I.e. if you want to update a trace, you'd use the same body id, but separate event IDs.
 
         Notes:
 
@@ -72,28 +80,26 @@ class IngestionClient:
         client.ingestion.batch(
             batch=[
                 IngestionEvent_TraceCreate(
+                    id="abcdef-1234-5678-90ab",
+                    timestamp="2022-01-01T00:00:00.000Z",
                     body=TraceBody(
-                        id="string",
+                        id="abcdef-1234-5678-90ab",
                         timestamp=datetime.datetime.fromisoformat(
-                            "2024-01-15 09:30:00+00:00",
+                            "2022-01-01 00:00:00+00:00",
                         ),
-                        name="string",
-                        user_id="string",
-                        input={"key": "value"},
-                        output={"key": "value"},
-                        session_id="string",
-                        release="string",
-                        version="string",
-                        metadata={"key": "value"},
-                        tags=["string"],
+                        name="My Trace",
+                        user_id="1234-5678-90ab-cdef",
+                        input="My input",
+                        output="My output",
+                        session_id="1234-5678-90ab-cdef",
+                        release="1.0.0",
+                        version="1.0.0",
+                        metadata="My metadata",
+                        tags=["tag1", "tag2"],
                         public=True,
                     ),
-                    id="string",
-                    timestamp="string",
-                    metadata={"key": "value"},
                 )
             ],
-            metadata={"key": "value"},
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -142,7 +148,15 @@ class AsyncIngestionClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> IngestionResponse:
         """
-        Batched ingestion for Langfuse Tracing. If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+        Batched ingestion for Langfuse Tracing.
+        If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+
+        Within each batch, there can be multiple events.
+        Each event has a type, an id, a timestamp, metadata and a body.
+        Internally, we refer to this as the "event envelope" as it tells us something about the event but not the trace.
+        We use the event id within this envelope to deduplicate messages to avoid processing the same event twice, i.e. the event id should be unique per request.
+        The event.body.id is the ID of the actual trace and will be used for updates and will be visible within the Langfuse App.
+        I.e. if you want to update a trace, you'd use the same body id, but separate event IDs.
 
         Notes:
 
@@ -187,28 +201,26 @@ class AsyncIngestionClient:
             await client.ingestion.batch(
                 batch=[
                     IngestionEvent_TraceCreate(
+                        id="abcdef-1234-5678-90ab",
+                        timestamp="2022-01-01T00:00:00.000Z",
                         body=TraceBody(
-                            id="string",
+                            id="abcdef-1234-5678-90ab",
                             timestamp=datetime.datetime.fromisoformat(
-                                "2024-01-15 09:30:00+00:00",
+                                "2022-01-01 00:00:00+00:00",
                             ),
-                            name="string",
-                            user_id="string",
-                            input={"key": "value"},
-                            output={"key": "value"},
-                            session_id="string",
-                            release="string",
-                            version="string",
-                            metadata={"key": "value"},
-                            tags=["string"],
+                            name="My Trace",
+                            user_id="1234-5678-90ab-cdef",
+                            input="My input",
+                            output="My output",
+                            session_id="1234-5678-90ab-cdef",
+                            release="1.0.0",
+                            version="1.0.0",
+                            metadata="My metadata",
+                            tags=["tag1", "tag2"],
                             public=True,
                         ),
-                        id="string",
-                        timestamp="string",
-                        metadata={"key": "value"},
                     )
                 ],
-                metadata={"key": "value"},
             )
 
 

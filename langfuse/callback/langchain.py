@@ -87,6 +87,7 @@ class LangchainCallbackHandler(
         sdk_integration: Optional[str] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        environment: Optional[str] = None,
     ) -> None:
         LangfuseBaseCallbackHandler.__init__(
             self,
@@ -113,6 +114,7 @@ class LangchainCallbackHandler(
             sdk_integration=sdk_integration or "langchain",
             sample_rate=sample_rate,
             mask=mask,
+            environment=environment,
         )
 
         self.runs = {}

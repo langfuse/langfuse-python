@@ -1,4 +1,5 @@
-from typing import Optional, Any, Union, Mapping
+from typing import Any, Mapping, Optional, Union
+from uuid import uuid4 as create_uuid
 
 from langfuse.client import (
     Langfuse,
@@ -6,25 +7,25 @@ from langfuse.client import (
     StateType,
 )
 from langfuse.utils import _get_timestamp
+
 from ._context import InstrumentorContext
-from uuid import uuid4 as create_uuid
 
 try:
     from llama_index.core.base.llms.types import (
         ChatResponse,
         CompletionResponse,
     )
+    from llama_index.core.instrumentation.event_handlers import BaseEventHandler
     from llama_index.core.instrumentation.events import BaseEvent
     from llama_index.core.instrumentation.events.embedding import (
-        EmbeddingStartEvent,
         EmbeddingEndEvent,
+        EmbeddingStartEvent,
     )
-    from llama_index.core.instrumentation.event_handlers import BaseEventHandler
     from llama_index.core.instrumentation.events.llm import (
-        LLMCompletionEndEvent,
-        LLMCompletionStartEvent,
         LLMChatEndEvent,
         LLMChatStartEvent,
+        LLMCompletionEndEvent,
+        LLMCompletionStartEvent,
     )
     from llama_index.core.utilities.token_counting import TokenCounter
 
@@ -148,6 +149,7 @@ class LlamaIndexEventHandler(BaseEventHandler, extra="allow"):
             trace_id=trace_id,
             task_manager=self._langfuse.task_manager,
             state_type=StateType.OBSERVATION,
+            environment=self._langfuse.environment,
         )
 
 

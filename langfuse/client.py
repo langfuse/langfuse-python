@@ -1,6 +1,7 @@
 import datetime as dt
 import logging
 import os
+import re
 import time
 import tracemalloc
 import typing
@@ -85,6 +86,8 @@ from langfuse.utils import (
 )
 
 from .version import __version__ as version
+
+ENVIRONMENT_PATTERN = r"^(?!langfuse)[a-z0-9-_]+$"
 
 
 @dataclass
@@ -185,6 +188,7 @@ class Langfuse(object):
         enabled: Optional[bool] = True,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        environment: Optional[str] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -204,6 +208,7 @@ class Langfuse(object):
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
             sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
             mask (langfuse.types.MaskFunction): Masking function for 'input' and 'output' fields in events. Function must take a single keyword argument `data` and return a serializable, masked version of the data.
+            environment (optional): The tracing environment. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'. Can bet set via `LANGFUSE_TRACING_ENVIRONMENT` environment variable.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -286,6 +291,15 @@ class Langfuse(object):
             if host
             else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
         )
+
+        self.environment = environment or os.environ.get("LANGFUSE_TRACING_ENVIRONMENT")
+
+        if self.environment and not bool(
+            re.match(ENVIRONMENT_PATTERN, self.environment)
+        ):
+            self.log.error(
+                f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Events will be rejected by Langfuse servers.'
+            )
 
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
@@ -1470,6 +1484,7 @@ class Langfuse(object):
                 "tags": tags,
                 "timestamp": timestamp or _get_timestamp(),
                 "public": public,
+                "environment": self.environment,
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
@@ -1493,7 +1508,12 @@ class Langfuse(object):
             self._log_memory_usage()
 
             return StatefulTraceClient(
-                self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                self.client,
+                new_id,
+                StateType.TRACE,
+                new_id,
+                self.task_manager,
+                self.environment,
             )
 
     def _log_memory_usage(self):
@@ -1636,6 +1656,7 @@ class Langfuse(object):
                 "data_type": data_type,
                 "comment": comment,
                 "config_id": config_id,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -1659,10 +1680,16 @@ class Langfuse(object):
                     StateType.OBSERVATION,
                     trace_id,
                     self.task_manager,
+                    self.environment,
                 )
             else:
                 return StatefulClient(
-                    self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                    self.client,
+                    new_id,
+                    StateType.TRACE,
+                    new_id,
+                    self.task_manager,
+                    self.environment,
                 )
 
     def span(
@@ -1740,6 +1767,7 @@ class Langfuse(object):
                 "version": version,
                 "end_time": end_time,
                 "trace": {"release": self.release},
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -1769,6 +1797,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def event(
@@ -1840,6 +1869,7 @@ class Langfuse(object):
                 "parent_observation_id": parent_observation_id,
                 "version": version,
                 "trace": {"release": self.release},
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -1868,6 +1898,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def generation(
@@ -1969,6 +2000,7 @@ class Langfuse(object):
                 "usage_details": usage_details,
                 "cost_details": cost_details,
                 "trace": {"release": self.release},
+                "environment": self.environment,
                 **_create_prompt_context(prompt),
                 **kwargs,
             }
@@ -1978,6 +2010,7 @@ class Langfuse(object):
                     "id": new_trace_id,
                     "release": self.release,
                     "name": name,
+                    "environment": self.environment,
                 }
                 request = TraceBody(**trace)
 
@@ -2013,6 +2046,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def _generate_trace(self, trace_id: str, name: str):
@@ -2020,6 +2054,7 @@ class Langfuse(object):
             "id": trace_id,
             "release": self.release,
             "name": name,
+            "environment": self.environment,
         }
 
         trace_body = TraceBody(**trace_dict)
@@ -2108,6 +2143,7 @@ class StatefulClient(object):
         state_type (StateType): Enum indicating whether the client is an observation or a trace.
         trace_id (str): Id of the trace associated with the stateful client.
         task_manager (TaskManager): Manager handling asynchronous tasks for the client.
+        environment (Optional(str)): The tracing environment.
     """
 
     log = logging.getLogger("langfuse")
@@ -2119,6 +2155,7 @@ class StatefulClient(object):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulClient.
 
@@ -2134,6 +2171,15 @@ class StatefulClient(object):
         self.id = id
         self.state_type = state_type
         self.task_manager = task_manager
+
+        self.environment = environment or os.environ.get("LANGFUSE_TRACING_ENVIRONMENT")
+
+        if self.environment and not bool(
+            re.match(ENVIRONMENT_PATTERN, self.environment)
+        ):
+            self.log.warning(
+                f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Setting will be ignored.'
+            )
 
     def _add_state_to_event(self, body: dict):
         if self.state_type == StateType.OBSERVATION:
@@ -2236,6 +2282,7 @@ class StatefulClient(object):
                 "usage": _convert_usage_input(usage) if usage is not None else None,
                 "usage_details": usage_details,
                 "cost_details": cost_details,
+                "environment": self.environment,
                 **_create_prompt_context(prompt),
                 **kwargs,
             }
@@ -2264,7 +2311,8 @@ class StatefulClient(object):
                 generation_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def span(
@@ -2328,6 +2376,7 @@ class StatefulClient(object):
                 "status_message": status_message,
                 "version": version,
                 "end_time": end_time,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -2353,7 +2402,8 @@ class StatefulClient(object):
                 span_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     @overload
@@ -2435,6 +2485,7 @@ class StatefulClient(object):
                 "data_type": data_type,
                 "comment": comment,
                 "config_id": config_id,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -2463,7 +2514,8 @@ class StatefulClient(object):
                 self.id,
                 self.state_type,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def event(
@@ -2524,6 +2576,7 @@ class StatefulClient(object):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -2552,6 +2605,7 @@ class StatefulClient(object):
                 StateType.OBSERVATION,
                 self.trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def get_trace_url(self):
@@ -2582,9 +2636,10 @@ class StatefulGenerationClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulGenerationClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2696,7 +2751,8 @@ class StatefulGenerationClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def end(
@@ -2801,9 +2857,10 @@ class StatefulSpanClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulSpanClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2887,7 +2944,8 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def end(
@@ -2960,7 +3018,8 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def get_langchain_handler(self, update_parent: bool = False):
@@ -2999,9 +3058,10 @@ class StatefulTraceClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulTraceClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
         self.task_manager = task_manager
 
     def update(
@@ -3092,7 +3152,8 @@ class StatefulTraceClient(StatefulClient):
                 self.id,
                 StateType.TRACE,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def get_langchain_handler(self, update_parent: bool = False):

@@ -1530,3 +1530,57 @@ def test_generate_trace_id():
         trace_url
         == f"http://localhost:3000/project/7a88fb47-b4e2-43b8-a06c-a5ce950dc53a/traces/{trace_id}"
     )
+
+
+def test_environment_from_constructor():
+    # Test with valid environment
+    langfuse = Langfuse(debug=True, environment="production")
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(name="test_environment")
+    sleep(0.1)
+    trace.update(name="updated_name")
+
+    generation = trace.generation(name="test_gen")
+    sleep(0.1)
+    generation.update(name="test_gen_1")
+
+    score_id = create_uuid()
+    langfuse.score(id=score_id, trace_id=trace.id, name="test_score", value=1)
+
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["environment"] == "production"
+
+    # Check that observations have the environment
+    gen = [o for o in fetched_trace["observations"] if o["id"] == generation.id][0]
+    assert gen["environment"] == "production"
+
+    # Check that scores have the environment
+    assert fetched_trace["scores"][0]["environment"] == "production"
+
+
+def test_environment_from_env_var(monkeypatch):
+    # Test with environment variable
+    monkeypatch.setenv("LANGFUSE_TRACING_ENVIRONMENT", "staging")
+
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(name="test_environment_var")
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["environment"] == "staging"
+
+    # Test that constructor overrides environment variable
+    langfuse = Langfuse(debug=False, environment="testing")
+    trace = langfuse.trace(name="test_environment_override")
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["environment"] == "testing"

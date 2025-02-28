@@ -21,6 +21,7 @@ class TraceBody(pydantic_v1.BaseModel):
     version: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
     tags: typing.Optional[typing.List[str]] = None
+    environment: typing.Optional[str] = None
     public: typing.Optional[bool] = pydantic_v1.Field(default=None)
     """
     Make trace publicly accessible via url
