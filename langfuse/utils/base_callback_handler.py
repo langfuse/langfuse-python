@@ -47,7 +47,7 @@ class LangfuseBaseCallbackHandler:
         self.trace_name = trace_name
         self.release = release
         self.metadata = metadata
-        self.tags = tags
+        self.tags = [str(tag) for tag in tags] if tags else None
 
         self.root_span = None
         self.update_stateful_client = update_stateful_client
