@@ -115,6 +115,9 @@ class IngestionConsumer(threading.Thread):
 
                     continue
 
+                # apply mask
+                self._apply_mask_in_place(event)
+
                 # handle multimodal data
                 self._media_manager.process_media_in_event(event)
 
@@ -124,9 +127,6 @@ class IngestionConsumer(threading.Thread):
                     max_size=MAX_EVENT_SIZE_BYTES,
                     log_message="<truncated due to size exceeding limit>",
                 )
-
-                # apply mask
-                self._apply_mask_in_place(event)
 
                 # check for serialization errors
                 try:
