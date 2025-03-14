@@ -60,6 +60,7 @@ def test_openai_chat_completion():
     assert len(completion.choices) != 0
     assert generation.data[0].input == [
         {
+            "annotations": None,
             "content": "You are an expert mathematician",
             "audio": None,
             "function_call": None,
@@ -90,6 +91,7 @@ def test_openai_chat_completion():
     trace = get_api().trace.get(generation.data[0].trace_id)
     assert trace.input == [
         {
+            "annotations": None,
             "content": "You are an expert mathematician",
             "audio": None,
             "function_call": None,
@@ -1800,7 +1802,7 @@ def test_response_api_functions():
     assert len(generation.data) != 0
     generationData = generation.data[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == "Hello!"
+    assert generation.data[0].input == "What is the weather like in Boston today?"
     assert generationData.type == "GENERATION"
     assert "gpt-4o" in generationData.model
     assert generationData.start_time is not None
@@ -1832,9 +1834,9 @@ def test_response_api_reasoning():
     assert len(generation.data) != 0
     generationData = generation.data[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == "Hello!"
+    assert generation.data[0].input == "How much wood would a woodchuck chuck?"
     assert generationData.type == "GENERATION"
-    assert "gpt-4o" in generationData.model
+    assert "o3-mini" in generationData.model
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
