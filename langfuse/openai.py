@@ -370,7 +370,7 @@ def _get_langfuse_data_from_kwargs(
     elif resource.object == "Responses":
         prompt = kwargs.get("input", None)
 
-    elif resource.type == "chat" or resource.object == "Responses":
+    elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
 
     is_nested_trace = False
