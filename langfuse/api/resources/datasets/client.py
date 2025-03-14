@@ -16,6 +16,7 @@ from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.dataset import Dataset
 from ..commons.types.dataset_run_with_items import DatasetRunWithItems
 from .types.create_dataset_request import CreateDatasetRequest
+from .types.delete_dataset_run_response import DeleteDatasetRunResponse
 from .types.paginated_dataset_runs import PaginatedDatasetRuns
 from .types.paginated_datasets import PaginatedDatasets
 
@@ -64,10 +65,7 @@ class DatasetsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.datasets.list(
-            page=1,
-            limit=1,
-        )
+        client.datasets.list()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/v2/datasets",
@@ -134,7 +132,7 @@ class DatasetsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.datasets.get(
-            dataset_name="string",
+            dataset_name="datasetName",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -203,9 +201,7 @@ class DatasetsClient:
         )
         client.datasets.create(
             request=CreateDatasetRequest(
-                name="string",
-                description="string",
-                metadata={"key": "value"},
+                name="name",
             ),
         )
         """
@@ -278,8 +274,8 @@ class DatasetsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.datasets.get_run(
-            dataset_name="string",
-            run_name="string",
+            dataset_name="datasetName",
+            run_name="runName",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -290,6 +286,79 @@ class DatasetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(DatasetRunWithItems, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_run(
+        self,
+        dataset_name: str,
+        run_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DeleteDatasetRunResponse:
+        """
+        Delete a dataset run and all its run items. This action is irreversible.
+
+        Parameters
+        ----------
+        dataset_name : str
+
+        run_name : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteDatasetRunResponse
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.datasets.delete_run(
+            dataset_name="datasetName",
+            run_name="runName",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/datasets/{jsonable_encoder(dataset_name)}/runs/{jsonable_encoder(run_name)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    DeleteDatasetRunResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -354,9 +423,7 @@ class DatasetsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.datasets.get_runs(
-            dataset_name="string",
-            page=1,
-            limit=1,
+            dataset_name="datasetName",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -438,10 +505,7 @@ class AsyncDatasetsClient:
 
 
         async def main() -> None:
-            await client.datasets.list(
-                page=1,
-                limit=1,
-            )
+            await client.datasets.list()
 
 
         asyncio.run(main())
@@ -516,7 +580,7 @@ class AsyncDatasetsClient:
 
         async def main() -> None:
             await client.datasets.get(
-                dataset_name="string",
+                dataset_name="datasetName",
             )
 
 
@@ -593,9 +657,7 @@ class AsyncDatasetsClient:
         async def main() -> None:
             await client.datasets.create(
                 request=CreateDatasetRequest(
-                    name="string",
-                    description="string",
-                    metadata={"key": "value"},
+                    name="name",
                 ),
             )
 
@@ -676,8 +738,8 @@ class AsyncDatasetsClient:
 
         async def main() -> None:
             await client.datasets.get_run(
-                dataset_name="string",
-                run_name="string",
+                dataset_name="datasetName",
+                run_name="runName",
             )
 
 
@@ -691,6 +753,87 @@ class AsyncDatasetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(DatasetRunWithItems, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_run(
+        self,
+        dataset_name: str,
+        run_name: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DeleteDatasetRunResponse:
+        """
+        Delete a dataset run and all its run items. This action is irreversible.
+
+        Parameters
+        ----------
+        dataset_name : str
+
+        run_name : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteDatasetRunResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.datasets.delete_run(
+                dataset_name="datasetName",
+                run_name="runName",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/datasets/{jsonable_encoder(dataset_name)}/runs/{jsonable_encoder(run_name)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    DeleteDatasetRunResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -760,9 +903,7 @@ class AsyncDatasetsClient:
 
         async def main() -> None:
             await client.datasets.get_runs(
-                dataset_name="string",
-                page=1,
-                limit=1,
+                dataset_name="datasetName",
             )
 
 

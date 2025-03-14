@@ -65,9 +65,9 @@ class PromptVersionClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.prompt_version.update(
-            name="string",
+            name="name",
             version=1,
-            new_labels=["string"],
+            new_labels=["newLabels", "newLabels"],
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -155,9 +155,9 @@ class AsyncPromptVersionClient:
 
         async def main() -> None:
             await client.prompt_version.update(
-                name="string",
+                name="name",
                 version=1,
-                new_labels=["string"],
+                new_labels=["newLabels", "newLabels"],
             )
 
 

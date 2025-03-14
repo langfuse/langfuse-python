@@ -57,7 +57,7 @@ class ObservationsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.observations.get(
-            observation_id="string",
+            observation_id="observationId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -101,6 +101,7 @@ class ObservationsClient:
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
         version: typing.Optional[str] = None,
@@ -127,6 +128,9 @@ class ObservationsClient:
 
         parent_observation_id : typing.Optional[str]
 
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for observations where the environment is one of the provided values.
+
         from_start_time : typing.Optional[dt.datetime]
             Retrieve only observations with a start_time or or after this datetime (ISO 8601).
 
@@ -145,8 +149,6 @@ class ObservationsClient:
 
         Examples
         --------
-        import datetime
-
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -157,22 +159,7 @@ class ObservationsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.observations.get_many(
-            page=1,
-            limit=1,
-            name="string",
-            user_id="string",
-            type="string",
-            trace_id="string",
-            parent_observation_id="string",
-            from_start_time=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            to_start_time=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            version="string",
-        )
+        client.observations.get_many()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/observations",
@@ -185,6 +172,7 @@ class ObservationsClient:
                 "type": type,
                 "traceId": trace_id,
                 "parentObservationId": parent_observation_id,
+                "environment": environment,
                 "fromStartTime": serialize_datetime(from_start_time)
                 if from_start_time is not None
                 else None,
@@ -265,7 +253,7 @@ class AsyncObservationsClient:
 
         async def main() -> None:
             await client.observations.get(
-                observation_id="string",
+                observation_id="observationId",
             )
 
 
@@ -312,6 +300,7 @@ class AsyncObservationsClient:
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         parent_observation_id: typing.Optional[str] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
         version: typing.Optional[str] = None,
@@ -338,6 +327,9 @@ class AsyncObservationsClient:
 
         parent_observation_id : typing.Optional[str]
 
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for observations where the environment is one of the provided values.
+
         from_start_time : typing.Optional[dt.datetime]
             Retrieve only observations with a start_time or or after this datetime (ISO 8601).
 
@@ -357,7 +349,6 @@ class AsyncObservationsClient:
         Examples
         --------
         import asyncio
-        import datetime
 
         from langfuse.client import AsyncFernLangfuse
 
@@ -372,22 +363,7 @@ class AsyncObservationsClient:
 
 
         async def main() -> None:
-            await client.observations.get_many(
-                page=1,
-                limit=1,
-                name="string",
-                user_id="string",
-                type="string",
-                trace_id="string",
-                parent_observation_id="string",
-                from_start_time=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                to_start_time=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                version="string",
-            )
+            await client.observations.get_many()
 
 
         asyncio.run(main())
@@ -403,6 +379,7 @@ class AsyncObservationsClient:
                 "type": type,
                 "traceId": trace_id,
                 "parentObservationId": parent_observation_id,
+                "environment": environment,
                 "fromStartTime": serialize_datetime(from_start_time)
                 if from_start_time is not None
                 else None,

@@ -62,9 +62,18 @@ from .commons import (
     UnauthorizedError,
     Usage,
 )
-from .dataset_items import CreateDatasetItemRequest, PaginatedDatasetItems
+from .dataset_items import (
+    CreateDatasetItemRequest,
+    DeleteDatasetItemResponse,
+    PaginatedDatasetItems,
+)
 from .dataset_run_items import CreateDatasetRunItemRequest
-from .datasets import CreateDatasetRequest, PaginatedDatasetRuns, PaginatedDatasets
+from .datasets import (
+    CreateDatasetRequest,
+    DeleteDatasetRunResponse,
+    PaginatedDatasetRuns,
+    PaginatedDatasets,
+)
 from .health import HealthResponse, ServiceUnavailableError
 from .ingestion import (
     BaseEvent,
@@ -92,8 +101,9 @@ from .ingestion import (
     IngestionUsage,
     ObservationBody,
     ObservationType,
+    OpenAiCompletionUsageSchema,
+    OpenAiResponseUsageSchema,
     OpenAiUsage,
-    OpenAiUsageSchema,
     OptionalObservationBody,
     ScoreBody,
     ScoreEvent,
@@ -151,7 +161,7 @@ from .score import (
 )
 from .score_configs import CreateScoreConfigRequest, ScoreConfigs
 from .sessions import PaginatedSessions
-from .trace import Sort, Traces
+from .trace import DeleteTraceResponse, Sort, Traces
 
 __all__ = [
     "AccessDeniedError",
@@ -195,6 +205,9 @@ __all__ = [
     "DatasetRunItem",
     "DatasetRunWithItems",
     "DatasetStatus",
+    "DeleteDatasetItemResponse",
+    "DeleteDatasetRunResponse",
+    "DeleteTraceResponse",
     "Error",
     "GetCommentsResponse",
     "GetMediaResponse",
@@ -239,8 +252,9 @@ __all__ = [
     "Observations",
     "ObservationsView",
     "ObservationsViews",
+    "OpenAiCompletionUsageSchema",
+    "OpenAiResponseUsageSchema",
     "OpenAiUsage",
-    "OpenAiUsageSchema",
     "OptionalObservationBody",
     "PaginatedDatasetItems",
     "PaginatedDatasetRuns",

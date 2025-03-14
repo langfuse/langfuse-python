@@ -29,11 +29,10 @@ client = FernLangfuse(
 )
 client.comments.create(
     request=CreateCommentRequest(
-        project_id="string",
-        object_type="string",
-        object_id="string",
-        content="string",
-        author_user_id="string",
+        project_id="projectId",
+        object_type="objectType",
+        object_id="objectId",
+        content="content",
     ),
 )
 ```
@@ -61,11 +60,10 @@ client = AsyncFernLangfuse(
 async def main() -> None:
     await client.comments.create(
         request=CreateCommentRequest(
-            project_id="string",
-            object_type="string",
-            object_id="string",
-            content="string",
-            author_user_id="string",
+            project_id="projectId",
+            object_type="objectType",
+            object_id="objectId",
+            content="content",
         ),
     )
 

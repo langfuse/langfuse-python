@@ -20,6 +20,9 @@ class Prompt_Chat(pydantic_v1.BaseModel):
     commit_message: typing.Optional[str] = pydantic_v1.Field(
         alias="commitMessage", default=None
     )
+    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
+        alias="resolutionGraph", default=None
+    )
     type: typing.Literal["chat"] = "chat"
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -65,6 +68,9 @@ class Prompt_Text(pydantic_v1.BaseModel):
     tags: typing.List[str]
     commit_message: typing.Optional[str] = pydantic_v1.Field(
         alias="commitMessage", default=None
+    )
+    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
+        alias="resolutionGraph", default=None
     )
     type: typing.Literal["text"] = "text"
 

@@ -57,7 +57,7 @@ class MediaClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.media.get(
-            media_id="string",
+            media_id="mediaId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -131,14 +131,12 @@ class MediaClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.media.patch(
-            media_id="string",
+            media_id="mediaId",
             request=PatchMediaBody(
                 uploaded_at=datetime.datetime.fromisoformat(
                     "2024-01-15 09:30:00+00:00",
                 ),
                 upload_http_status=1,
-                upload_http_error="string",
-                upload_time_ms=1,
             ),
         )
         """
@@ -210,12 +208,11 @@ class MediaClient:
         )
         client.media.get_upload_url(
             request=GetMediaUploadUrlRequest(
-                trace_id="string",
-                observation_id="string",
+                trace_id="traceId",
                 content_type=MediaContentType.IMAGE_PNG,
                 content_length=1,
-                sha_256_hash="string",
-                field="string",
+                sha_256_hash="sha256Hash",
+                field="field",
             ),
         )
         """
@@ -295,7 +292,7 @@ class AsyncMediaClient:
 
         async def main() -> None:
             await client.media.get(
-                media_id="string",
+                media_id="mediaId",
             )
 
 
@@ -376,14 +373,12 @@ class AsyncMediaClient:
 
         async def main() -> None:
             await client.media.patch(
-                media_id="string",
+                media_id="mediaId",
                 request=PatchMediaBody(
                     uploaded_at=datetime.datetime.fromisoformat(
                         "2024-01-15 09:30:00+00:00",
                     ),
                     upload_http_status=1,
-                    upload_http_error="string",
-                    upload_time_ms=1,
                 ),
             )
 
@@ -463,12 +458,11 @@ class AsyncMediaClient:
         async def main() -> None:
             await client.media.get_upload_url(
                 request=GetMediaUploadUrlRequest(
-                    trace_id="string",
-                    observation_id="string",
+                    trace_id="traceId",
                     content_type=MediaContentType.IMAGE_PNG,
                     content_length=1,
-                    sha_256_hash="string",
-                    field="string",
+                    sha_256_hash="sha256Hash",
+                    field="field",
                 ),
             )
 

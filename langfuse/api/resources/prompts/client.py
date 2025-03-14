@@ -69,9 +69,7 @@ class PromptsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.prompts.get(
-            prompt_name="string",
-            version=1,
-            label="string",
+            prompt_name="promptName",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -150,8 +148,6 @@ class PromptsClient:
 
         Examples
         --------
-        import datetime
-
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -162,19 +158,7 @@ class PromptsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.prompts.list(
-            name="string",
-            label="string",
-            tag="string",
-            page=1,
-            limit=1,
-            from_updated_at=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            to_updated_at=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-        )
+        client.prompts.list()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/v2/prompts",
@@ -257,17 +241,17 @@ class PromptsClient:
         )
         client.prompts.create(
             request=CreatePromptRequest_Chat(
-                name="string",
+                name="name",
                 prompt=[
                     ChatMessage(
-                        role="string",
-                        content="string",
-                    )
+                        role="role",
+                        content="content",
+                    ),
+                    ChatMessage(
+                        role="role",
+                        content="content",
+                    ),
                 ],
-                config={"key": "value"},
-                labels=["string"],
-                tags=["string"],
-                commit_message="string",
             ),
         )
         """
@@ -356,9 +340,7 @@ class AsyncPromptsClient:
 
         async def main() -> None:
             await client.prompts.get(
-                prompt_name="string",
-                version=1,
-                label="string",
+                prompt_name="promptName",
             )
 
 
@@ -441,7 +423,6 @@ class AsyncPromptsClient:
         Examples
         --------
         import asyncio
-        import datetime
 
         from langfuse.client import AsyncFernLangfuse
 
@@ -456,19 +437,7 @@ class AsyncPromptsClient:
 
 
         async def main() -> None:
-            await client.prompts.list(
-                name="string",
-                label="string",
-                tag="string",
-                page=1,
-                limit=1,
-                from_updated_at=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                to_updated_at=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-            )
+            await client.prompts.list()
 
 
         asyncio.run(main())
@@ -559,17 +528,17 @@ class AsyncPromptsClient:
         async def main() -> None:
             await client.prompts.create(
                 request=CreatePromptRequest_Chat(
-                    name="string",
+                    name="name",
                     prompt=[
                         ChatMessage(
-                            role="string",
-                            content="string",
-                        )
+                            role="role",
+                            content="content",
+                        ),
+                        ChatMessage(
+                            role="role",
+                            content="content",
+                        ),
                     ],
-                    config={"key": "value"},
-                    labels=["string"],
-                    tags=["string"],
-                    commit_message="string",
                 ),
             )
 

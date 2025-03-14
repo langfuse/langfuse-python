@@ -42,7 +42,6 @@ class IngestionClient:
         I.e. if you want to update a trace, you'd use the same body id, but separate event IDs.
 
         Notes:
-
         - Introduction to data model: https://langfuse.com/docs/tracing-data-model
         - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
         - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
@@ -87,6 +86,7 @@ class IngestionClient:
                         timestamp=datetime.datetime.fromisoformat(
                             "2022-01-01 00:00:00+00:00",
                         ),
+                        environment="production",
                         name="My Trace",
                         user_id="1234-5678-90ab-cdef",
                         input="My input",
@@ -159,7 +159,6 @@ class AsyncIngestionClient:
         I.e. if you want to update a trace, you'd use the same body id, but separate event IDs.
 
         Notes:
-
         - Introduction to data model: https://langfuse.com/docs/tracing-data-model
         - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
         - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
@@ -208,6 +207,7 @@ class AsyncIngestionClient:
                             timestamp=datetime.datetime.fromisoformat(
                                 "2022-01-01 00:00:00+00:00",
                             ),
+                            environment="production",
                             name="My Trace",
                             user_id="1234-5678-90ab-cdef",
                             input="My input",

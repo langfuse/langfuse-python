@@ -128,6 +128,22 @@ OPENAI_METHODS_V1 = [
         sync=False,
         min_version="1.50.0",
     ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="Responses",
+        method="create",
+        type="chat",
+        sync=True,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="AsyncResponses",
+        method="create",
+        type="chat",
+        sync=False,
+        min_version="1.66.0",
+    ),
 ]
 
 
@@ -350,6 +366,10 @@ def _get_langfuse_data_from_kwargs(
 
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
+
+    elif resource.object == "Responses":
+        prompt = kwargs.get("input", None)
+
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
 
@@ -443,6 +463,7 @@ def _create_langfuse_update(
     completion_start_time,
     model=None,
     usage=None,
+    metadata=None,
 ):
     update = {
         "end_time": _get_timestamp(),
@@ -451,6 +472,9 @@ def _create_langfuse_update(
     }
     if model is not None:
         update["model"] = model
+
+    if metadata is not None:
+        update["metadata"] = metadata
 
     if usage is not None:
         update["usage"] = _parse_usage(usage)
@@ -464,7 +488,12 @@ def _parse_usage(usage=None):
 
     usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__.copy()
 
-    for tokens_details in ["prompt_tokens_details", "completion_tokens_details"]:
+    for tokens_details in [
+        "prompt_tokens_details",
+        "completion_tokens_details",
+        "input_token_details",
+        "output_token_details",
+    ]:
         if tokens_details in usage_dict and usage_dict[tokens_details] is not None:
             tokens_details_dict = (
                 usage_dict[tokens_details]
@@ -476,6 +505,33 @@ def _parse_usage(usage=None):
             }
 
     return usage_dict
+
+
+def _extract_streamed_response_api_response(chunks):
+    completion, model, usage = None, None, None
+    metadata = {}
+
+    for raw_chunk in chunks:
+        chunk = raw_chunk.__dict__
+        if raw_response := chunk.get("response", None):
+            usage = chunk.get("usage", None)
+            response = raw_response.__dict__
+            model = response.get("model")
+
+            for key, val in response.items():
+                if key not in ["created_at", "model", "output", "usage", "text"]:
+                    metadata[key] = val
+
+                if key == "output":
+                    output = val
+                    if not isinstance(output, list):
+                        completion = output
+                    elif len(output) > 1:
+                        completion = output
+                    elif len(output) == 1:
+                        completion = output[0]
+
+    return (model, completion, usage, metadata)
 
 
 def _extract_streamed_openai_response(resource, chunks):
@@ -587,6 +643,7 @@ def _extract_streamed_openai_response(resource, chunks):
         model,
         get_response_for_chat() if resource.type == "chat" else completion,
         usage,
+        None,
     )
 
 
@@ -597,12 +654,24 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
     model = response.get("model", None) or None
 
     completion = None
+
     if resource.type == "completion":
         choices = response.get("choices", [])
         if len(choices) > 0:
             choice = choices[-1]
 
             completion = choice.text if _is_openai_v1() else choice.get("text", None)
+
+    elif resource.object == "Responses":
+        output = response.get("output", {})
+
+        if not isinstance(output, list):
+            completion = output
+        elif len(output) > 1:
+            completion = output
+        elif len(output) == 1:
+            completion = output[0]
+
     elif resource.type == "chat":
         choices = response.get("choices", [])
         if len(choices) > 0:
@@ -890,8 +959,10 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self):
-        model, completion, usage = _extract_streamed_openai_response(
-            self.resource, self.items
+        model, completion, usage, metadata = (
+            _extract_streamed_response_api_response(self.items)
+            if self.resource.object == "Responses"
+            else _extract_streamed_openai_response(self.resource, self.items)
         )
 
         # Avoiding the trace-update if trace-id is provided by user.
@@ -904,6 +975,7 @@ class LangfuseResponseGeneratorSync:
             self.completion_start_time,
             model=model,
             usage=usage,
+            metadata=metadata,
         )
 
 
@@ -960,8 +1032,10 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self):
-        model, completion, usage = _extract_streamed_openai_response(
-            self.resource, self.items
+        model, completion, usage, metadata = (
+            _extract_streamed_response_api_response(self.items)
+            if self.resource.object == "Responses"
+            else _extract_streamed_openai_response(self.resource, self.items)
         )
 
         # Avoiding the trace-update if trace-id is provided by user.
@@ -974,6 +1048,7 @@ class LangfuseResponseGeneratorAsync:
             self.completion_start_time,
             model=model,
             usage=usage,
+            metadata=metadata,
         )
 
     async def close(self) -> None:

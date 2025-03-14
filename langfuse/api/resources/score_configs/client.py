@@ -47,7 +47,7 @@ class ScoreConfigsClient:
 
         Examples
         --------
-        from langfuse import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
+        from langfuse import CreateScoreConfigRequest, ScoreDataType
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -60,17 +60,8 @@ class ScoreConfigsClient:
         )
         client.score_configs.create(
             request=CreateScoreConfigRequest(
-                name="string",
+                name="name",
                 data_type=ScoreDataType.NUMERIC,
-                categories=[
-                    ConfigCategory(
-                        value=1.1,
-                        label="string",
-                    )
-                ],
-                min_value=1.1,
-                max_value=1.1,
-                description="string",
             ),
         )
         """
@@ -144,10 +135,7 @@ class ScoreConfigsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score_configs.get(
-            page=1,
-            limit=1,
-        )
+        client.score_configs.get()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/score-configs",
@@ -212,7 +200,7 @@ class ScoreConfigsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.score_configs.get_by_id(
-            config_id="string",
+            config_id="configId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -275,7 +263,7 @@ class AsyncScoreConfigsClient:
         --------
         import asyncio
 
-        from langfuse import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
+        from langfuse import CreateScoreConfigRequest, ScoreDataType
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -291,17 +279,8 @@ class AsyncScoreConfigsClient:
         async def main() -> None:
             await client.score_configs.create(
                 request=CreateScoreConfigRequest(
-                    name="string",
+                    name="name",
                     data_type=ScoreDataType.NUMERIC,
-                    categories=[
-                        ConfigCategory(
-                            value=1.1,
-                            label="string",
-                        )
-                    ],
-                    min_value=1.1,
-                    max_value=1.1,
-                    description="string",
                 ),
             )
 
@@ -383,10 +362,7 @@ class AsyncScoreConfigsClient:
 
 
         async def main() -> None:
-            await client.score_configs.get(
-                page=1,
-                limit=1,
-            )
+            await client.score_configs.get()
 
 
         asyncio.run(main())
@@ -459,7 +435,7 @@ class AsyncScoreConfigsClient:
 
         async def main() -> None:
             await client.score_configs.get_by_id(
-                config_id="string",
+                config_id="configId",
             )
 
 
