@@ -665,9 +665,10 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
     elif resource.object == "Responses":
         output = response.get("output", {})
 
-        if len(output) > 1:
+        if not isinstance(output, list):
             completion = output
-
+        elif len(output) > 1:
+            completion = output
         elif len(output) == 1:
             completion = output[0]
 
