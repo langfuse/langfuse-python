@@ -524,10 +524,10 @@ def _extract_streamed_response_api_response(chunks):
 
                 if key == "output":
                     output = val
-
-                    if len(output) > 1:
+                    if not isinstance(output, list):
                         completion = output
-
+                    elif len(output) > 1:
+                        completion = output
                     elif len(output) == 1:
                         completion = output[0]
 
