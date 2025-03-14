@@ -1612,3 +1612,234 @@ def test_audio_input_and_output():
         "@@@langfuseMedia:type=audio/wav|id="
         in generation.data[0].output["audio"]["data"]
     )
+
+
+def test_response_api_text_input():
+    client = openai.OpenAI()
+    generation_name = "test_response_api_text_input" + create_uuid()[:8]
+
+    client.responses.create(
+        name=generation_name,
+        model="gpt-4o",
+        input="Tell me a three sentence bedtime story about a unicorn.",
+    )
+
+    openai.flush_langfuse()
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    generationData = generation.data[0]
+    assert generationData.name == generation_name
+    assert (
+        generation.data[0].input
+        == "Tell me a three sentence bedtime story about a unicorn."
+    )
+    assert generationData.type == "GENERATION"
+    assert "gpt-4o" in generationData.model
+    assert generationData.start_time is not None
+    assert generationData.end_time is not None
+    assert generationData.start_time < generationData.end_time
+    assert generationData.usage.input is not None
+    assert generationData.usage.output is not None
+    assert generationData.usage.total is not None
+    assert generationData.output is not None
+
+
+def test_response_api_image_input():
+    client = openai.OpenAI()
+    generation_name = "test_response_api_image_input" + create_uuid()[:8]
+
+    client.responses.create(
+        name=generation_name,
+        model="gpt-4o",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "what is in this image?"},
+                    {
+                        "type": "input_image",
+                        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                    },
+                ],
+            }
+        ],
+    )
+
+    openai.flush_langfuse()
+
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    generationData = generation.data[0]
+    assert generationData.name == generation_name
+    assert generation.data[0].input[0]["content"][0]["text"] == "what is in this image?"
+    assert generationData.type == "GENERATION"
+    assert "gpt-4o" in generationData.model
+    assert generationData.start_time is not None
+    assert generationData.end_time is not None
+    assert generationData.start_time < generationData.end_time
+    assert generationData.usage.input is not None
+    assert generationData.usage.output is not None
+    assert generationData.usage.total is not None
+    assert generationData.output is not None
+
+
+def test_response_api_web_search():
+    client = openai.OpenAI()
+    generation_name = "test_response_api_web_search" + create_uuid()[:8]
+
+    client.responses.create(
+        name=generation_name,
+        model="gpt-4o",
+        tools=[{"type": "web_search_preview"}],
+        input="What was a positive news story from today?",
+    )
+
+    openai.flush_langfuse()
+
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    generationData = generation.data[0]
+    assert generationData.name == generation_name
+    assert generationData.input == "What was a positive news story from today?"
+    assert generationData.type == "GENERATION"
+    assert "gpt-4o" in generationData.model
+    assert generationData.start_time is not None
+    assert generationData.end_time is not None
+    assert generationData.start_time < generationData.end_time
+    assert generationData.usage.input is not None
+    assert generationData.usage.output is not None
+    assert generationData.usage.total is not None
+    assert generationData.output is not None
+    assert generationData.metadata is not None
+
+
+def test_response_api_streaming():
+    client = openai.OpenAI()
+    generation_name = "test_response_api_streaming" + create_uuid()[:8]
+
+    response = client.responses.create(
+        name=generation_name,
+        model="gpt-4o",
+        instructions="You are a helpful assistant.",
+        input="Hello!",
+        stream=True,
+    )
+
+    for _ in response:
+        continue
+
+    openai.flush_langfuse()
+
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    generationData = generation.data[0]
+    assert generationData.name == generation_name
+    assert generation.data[0].input == "Hello!"
+    assert generationData.type == "GENERATION"
+    assert "gpt-4o" in generationData.model
+    assert generationData.start_time is not None
+    assert generationData.end_time is not None
+    assert generationData.start_time < generationData.end_time
+    assert generationData.usage.input is not None
+    assert generationData.usage.output is not None
+    assert generationData.usage.total is not None
+    assert generationData.output is not None
+    assert generationData.metadata is not None
+    assert generationData.metadata["instructions"] == "You are a helpful assistant."
+
+
+def test_response_api_functions():
+    client = openai.OpenAI()
+    generation_name = "test_response_api_functions" + create_uuid()[:8]
+
+    tools = [
+        {
+            "type": "function",
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                },
+                "required": ["location", "unit"],
+            },
+        }
+    ]
+
+    client.responses.create(
+        name=generation_name,
+        model="gpt-4o",
+        tools=tools,
+        input="What is the weather like in Boston today?",
+        tool_choice="auto",
+    )
+
+    openai.flush_langfuse()
+
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    generationData = generation.data[0]
+    assert generationData.name == generation_name
+    assert generation.data[0].input == "Hello!"
+    assert generationData.type == "GENERATION"
+    assert "gpt-4o" in generationData.model
+    assert generationData.start_time is not None
+    assert generationData.end_time is not None
+    assert generationData.start_time < generationData.end_time
+    assert generationData.usage.input is not None
+    assert generationData.usage.output is not None
+    assert generationData.usage.total is not None
+    assert generationData.output is not None
+    assert generationData.metadata is not None
+
+
+def test_response_api_reasoning():
+    client = openai.OpenAI()
+    generation_name = "test_response_api_reasoning" + create_uuid()[:8]
+
+    client.responses.create(
+        name=generation_name,
+        model="o3-mini",
+        input="How much wood would a woodchuck chuck?",
+        reasoning={"effort": "high"},
+    )
+    openai.flush_langfuse()
+
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    generationData = generation.data[0]
+    assert generationData.name == generation_name
+    assert generation.data[0].input == "Hello!"
+    assert generationData.type == "GENERATION"
+    assert "gpt-4o" in generationData.model
+    assert generationData.start_time is not None
+    assert generationData.end_time is not None
+    assert generationData.start_time < generationData.end_time
+    assert generationData.usage.input is not None
+    assert generationData.usage.output is not None
+    assert generationData.usage.total is not None
+    assert generationData.output is not None
+    assert generationData.metadata is not None

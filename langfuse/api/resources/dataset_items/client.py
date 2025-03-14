@@ -15,6 +15,7 @@ from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.dataset_item import DatasetItem
 from .types.create_dataset_item_request import CreateDatasetItemRequest
+from .types.delete_dataset_item_response import DeleteDatasetItemResponse
 from .types.paginated_dataset_items import PaginatedDatasetItems
 
 # this is used as the default value for optional parameters
@@ -47,7 +48,7 @@ class DatasetItemsClient:
 
         Examples
         --------
-        from langfuse import CreateDatasetItemRequest, DatasetStatus
+        from langfuse import CreateDatasetItemRequest
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -60,14 +61,7 @@ class DatasetItemsClient:
         )
         client.dataset_items.create(
             request=CreateDatasetItemRequest(
-                dataset_name="string",
-                input={"key": "value"},
-                expected_output={"key": "value"},
-                metadata={"key": "value"},
-                source_trace_id="string",
-                source_observation_id="string",
-                id="string",
-                status=DatasetStatus.ACTIVE,
+                dataset_name="datasetName",
             ),
         )
         """
@@ -134,7 +128,7 @@ class DatasetItemsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.dataset_items.get(
-            id="string",
+            id="id",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -214,13 +208,7 @@ class DatasetItemsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.dataset_items.list(
-            dataset_name="string",
-            source_trace_id="string",
-            source_observation_id="string",
-            page=1,
-            limit=1,
-        )
+        client.dataset_items.list()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/dataset-items",
@@ -237,6 +225,72 @@ class DatasetItemsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(PaginatedDatasetItems, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteDatasetItemResponse:
+        """
+        Delete a dataset item and all its run items. This action is irreversible.
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteDatasetItemResponse
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.dataset_items.delete(
+            id="id",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/dataset-items/{jsonable_encoder(id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    DeleteDatasetItemResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -289,7 +343,7 @@ class AsyncDatasetItemsClient:
         --------
         import asyncio
 
-        from langfuse import CreateDatasetItemRequest, DatasetStatus
+        from langfuse import CreateDatasetItemRequest
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -305,14 +359,7 @@ class AsyncDatasetItemsClient:
         async def main() -> None:
             await client.dataset_items.create(
                 request=CreateDatasetItemRequest(
-                    dataset_name="string",
-                    input={"key": "value"},
-                    expected_output={"key": "value"},
-                    metadata={"key": "value"},
-                    source_trace_id="string",
-                    source_observation_id="string",
-                    id="string",
-                    status=DatasetStatus.ACTIVE,
+                    dataset_name="datasetName",
                 ),
             )
 
@@ -387,7 +434,7 @@ class AsyncDatasetItemsClient:
 
         async def main() -> None:
             await client.dataset_items.get(
-                id="string",
+                id="id",
             )
 
 
@@ -475,13 +522,7 @@ class AsyncDatasetItemsClient:
 
 
         async def main() -> None:
-            await client.dataset_items.list(
-                dataset_name="string",
-                source_trace_id="string",
-                source_observation_id="string",
-                page=1,
-                limit=1,
-            )
+            await client.dataset_items.list()
 
 
         asyncio.run(main())
@@ -501,6 +542,80 @@ class AsyncDatasetItemsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(PaginatedDatasetItems, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteDatasetItemResponse:
+        """
+        Delete a dataset item and all its run items. This action is irreversible.
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteDatasetItemResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.dataset_items.delete(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/dataset-items/{jsonable_encoder(id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    DeleteDatasetItemResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:

@@ -18,6 +18,11 @@ class GetScoresResponseTraceData(pydantic_v1.BaseModel):
     A list of tags associated with the trace referenced by score
     """
 
+    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    The environment of the trace referenced by score
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,

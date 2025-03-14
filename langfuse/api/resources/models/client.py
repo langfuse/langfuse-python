@@ -47,9 +47,7 @@ class ModelsClient:
 
         Examples
         --------
-        import datetime
-
-        from langfuse import CreateModelRequest, ModelUsageUnit
+        from langfuse import CreateModelRequest
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -62,17 +60,8 @@ class ModelsClient:
         )
         client.models.create(
             request=CreateModelRequest(
-                model_name="string",
-                match_pattern="string",
-                start_date=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                unit=ModelUsageUnit.CHARACTERS,
-                input_price=1.1,
-                output_price=1.1,
-                total_price=1.1,
-                tokenizer_id="string",
-                tokenizer_config={"key": "value"},
+                model_name="modelName",
+                match_pattern="matchPattern",
             ),
         )
         """
@@ -146,10 +135,7 @@ class ModelsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.models.list(
-            page=1,
-            limit=1,
-        )
+        client.models.list()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/models",
@@ -213,7 +199,7 @@ class ModelsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.models.get(
-            id="string",
+            id="id",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -277,7 +263,7 @@ class ModelsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.models.delete(
-            id="string",
+            id="id",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -339,9 +325,8 @@ class AsyncModelsClient:
         Examples
         --------
         import asyncio
-        import datetime
 
-        from langfuse import CreateModelRequest, ModelUsageUnit
+        from langfuse import CreateModelRequest
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -357,17 +342,8 @@ class AsyncModelsClient:
         async def main() -> None:
             await client.models.create(
                 request=CreateModelRequest(
-                    model_name="string",
-                    match_pattern="string",
-                    start_date=datetime.datetime.fromisoformat(
-                        "2024-01-15 09:30:00+00:00",
-                    ),
-                    unit=ModelUsageUnit.CHARACTERS,
-                    input_price=1.1,
-                    output_price=1.1,
-                    total_price=1.1,
-                    tokenizer_id="string",
-                    tokenizer_config={"key": "value"},
+                    model_name="modelName",
+                    match_pattern="matchPattern",
                 ),
             )
 
@@ -449,10 +425,7 @@ class AsyncModelsClient:
 
 
         async def main() -> None:
-            await client.models.list(
-                page=1,
-                limit=1,
-            )
+            await client.models.list()
 
 
         asyncio.run(main())
@@ -524,7 +497,7 @@ class AsyncModelsClient:
 
         async def main() -> None:
             await client.models.get(
-                id="string",
+                id="id",
             )
 
 
@@ -596,7 +569,7 @@ class AsyncModelsClient:
 
         async def main() -> None:
             await client.models.delete(
-                id="string",
+                id="id",
             )
 
 

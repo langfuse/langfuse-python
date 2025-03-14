@@ -61,11 +61,10 @@ class CommentsClient:
         )
         client.comments.create(
             request=CreateCommentRequest(
-                project_id="string",
-                object_type="string",
-                object_id="string",
-                content="string",
-                author_user_id="string",
+                project_id="projectId",
+                object_type="objectType",
+                object_id="objectId",
+                content="content",
             ),
         )
         """
@@ -151,13 +150,7 @@ class CommentsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.comments.get(
-            page=1,
-            limit=1,
-            object_type="string",
-            object_id="string",
-            author_user_id="string",
-        )
+        client.comments.get()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/comments",
@@ -231,7 +224,7 @@ class CommentsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.comments.get_by_id(
-            comment_id="string",
+            comment_id="commentId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -310,11 +303,10 @@ class AsyncCommentsClient:
         async def main() -> None:
             await client.comments.create(
                 request=CreateCommentRequest(
-                    project_id="string",
-                    object_type="string",
-                    object_id="string",
-                    content="string",
-                    author_user_id="string",
+                    project_id="projectId",
+                    object_type="objectType",
+                    object_id="objectId",
+                    content="content",
                 ),
             )
 
@@ -408,13 +400,7 @@ class AsyncCommentsClient:
 
 
         async def main() -> None:
-            await client.comments.get(
-                page=1,
-                limit=1,
-                object_type="string",
-                object_id="string",
-                author_user_id="string",
-            )
+            await client.comments.get()
 
 
         asyncio.run(main())
@@ -496,7 +482,7 @@ class AsyncCommentsClient:
 
         async def main() -> None:
             await client.comments.get_by_id(
-                comment_id="string",
+                comment_id="commentId",
             )
 
 
