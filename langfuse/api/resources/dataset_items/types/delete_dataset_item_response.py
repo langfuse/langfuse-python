@@ -7,13 +7,10 @@ from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 
 
-class Session(pydantic_v1.BaseModel):
-    id: str
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    project_id: str = pydantic_v1.Field(alias="projectId")
-    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+class DeleteDatasetItemResponse(pydantic_v1.BaseModel):
+    message: str = pydantic_v1.Field()
     """
-    The environment from which this session originated.
+    Success message after deletion
     """
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -44,7 +41,5 @@ class Session(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

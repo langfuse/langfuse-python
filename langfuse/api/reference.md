@@ -40,11 +40,10 @@ client = FernLangfuse(
 )
 client.comments.create(
     request=CreateCommentRequest(
-        project_id="string",
-        object_type="string",
-        object_id="string",
-        content="string",
-        author_user_id="string",
+        project_id="projectId",
+        object_type="objectType",
+        object_id="objectId",
+        content="content",
     ),
 )
 
@@ -119,13 +118,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.comments.get(
-    page=1,
-    limit=1,
-    object_type="string",
-    object_id="string",
-    author_user_id="string",
-)
+client.comments.get()
 
 ```
 </dd>
@@ -231,7 +224,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.comments.get_by_id(
-    comment_id="string",
+    comment_id="commentId",
 )
 
 ```
@@ -296,7 +289,7 @@ Create a dataset item
 <dd>
 
 ```python
-from langfuse import CreateDatasetItemRequest, DatasetStatus
+from langfuse import CreateDatasetItemRequest
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -309,14 +302,7 @@ client = FernLangfuse(
 )
 client.dataset_items.create(
     request=CreateDatasetItemRequest(
-        dataset_name="string",
-        input={"key": "value"},
-        expected_output={"key": "value"},
-        metadata={"key": "value"},
-        source_trace_id="string",
-        source_observation_id="string",
-        id="string",
-        status=DatasetStatus.ACTIVE,
+        dataset_name="datasetName",
     ),
 )
 
@@ -392,7 +378,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.dataset_items.get(
-    id="string",
+    id="id",
 )
 
 ```
@@ -466,13 +452,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.dataset_items.list(
-    dataset_name="string",
-    source_trace_id="string",
-    source_observation_id="string",
-    page=1,
-    limit=1,
-)
+client.dataset_items.list()
 
 ```
 </dd>
@@ -540,6 +520,81 @@ client.dataset_items.list(
 </dl>
 </details>
 
+<details><summary><code>client.dataset_items.<a href="src/langfuse/resources/dataset_items/client.py">delete</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a dataset item and all its run items. This action is irreversible.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.dataset_items.delete(
+    id="id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## DatasetRunItems
 <details><summary><code>client.dataset_run_items.<a href="src/langfuse/resources/dataset_run_items/client.py">create</a>(...)</code></summary>
 <dl>
@@ -581,12 +636,8 @@ client = FernLangfuse(
 )
 client.dataset_run_items.create(
     request=CreateDatasetRunItemRequest(
-        run_name="string",
-        run_description="string",
-        metadata={"key": "value"},
-        dataset_item_id="string",
-        observation_id="string",
-        trace_id="string",
+        run_name="runName",
+        dataset_item_id="datasetItemId",
     ),
 )
 
@@ -662,10 +713,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.datasets.list(
-    page=1,
-    limit=1,
-)
+client.datasets.list()
 
 ```
 </dd>
@@ -747,7 +795,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.datasets.get(
-    dataset_name="string",
+    dataset_name="datasetName",
 )
 
 ```
@@ -824,9 +872,7 @@ client = FernLangfuse(
 )
 client.datasets.create(
     request=CreateDatasetRequest(
-        name="string",
-        description="string",
-        metadata={"key": "value"},
+        name="name",
     ),
 )
 
@@ -902,8 +948,92 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.datasets.get_run(
-    dataset_name="string",
-    run_name="string",
+    dataset_name="datasetName",
+    run_name="runName",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**dataset_name:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_name:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.datasets.<a href="src/langfuse/resources/datasets/client.py">delete_run</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a dataset run and all its run items. This action is irreversible.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.datasets.delete_run(
+    dataset_name="datasetName",
+    run_name="runName",
 )
 
 ```
@@ -986,9 +1116,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.datasets.get_runs(
-    dataset_name="string",
-    page=1,
-    limit=1,
+    dataset_name="datasetName",
 )
 
 ```
@@ -1131,7 +1259,6 @@ The event.body.id is the ID of the actual trace and will be used for updates and
 I.e. if you want to update a trace, you'd use the same body id, but separate event IDs.
 
 Notes:
-
 - Introduction to data model: https://langfuse.com/docs/tracing-data-model
 - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
 - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
@@ -1170,6 +1297,7 @@ client.ingestion.batch(
                 trace_id="1234-5678-90ab-cdef",
                 name="My Score",
                 value=0.9,
+                environment="default",
             ),
         )
     ],
@@ -1256,7 +1384,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.media.get(
-    media_id="string",
+    media_id="mediaId",
 )
 
 ```
@@ -1334,14 +1462,12 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.media.patch(
-    media_id="string",
+    media_id="mediaId",
     request=PatchMediaBody(
         uploaded_at=datetime.datetime.fromisoformat(
             "2024-01-15 09:30:00+00:00",
         ),
         upload_http_status=1,
-        upload_http_error="string",
-        upload_time_ms=1,
     ),
 )
 
@@ -1427,12 +1553,11 @@ client = FernLangfuse(
 )
 client.media.get_upload_url(
     request=GetMediaUploadUrlRequest(
-        trace_id="string",
-        observation_id="string",
+        trace_id="traceId",
         content_type=MediaContentType.IMAGE_PNG,
         content_length=1,
-        sha_256_hash="string",
-        field="string",
+        sha_256_hash="sha256Hash",
+        field="field",
     ),
 )
 
@@ -1498,8 +1623,6 @@ Get daily metrics of the Langfuse project
 <dd>
 
 ```python
-import datetime
-
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -1510,19 +1633,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.metrics.daily(
-    page=1,
-    limit=1,
-    trace_name="string",
-    user_id="string",
-    tags="string",
-    from_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    to_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-)
+client.metrics.daily()
 
 ```
 </dd>
@@ -1571,6 +1682,14 @@ client.metrics.daily(
 <dd>
 
 **tags:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for metrics where traces include all of these tags
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for metrics where events include any of these environments
     
 </dd>
 </dl>
@@ -1634,9 +1753,7 @@ Create a model
 <dd>
 
 ```python
-import datetime
-
-from langfuse import CreateModelRequest, ModelUsageUnit
+from langfuse import CreateModelRequest
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -1649,17 +1766,8 @@ client = FernLangfuse(
 )
 client.models.create(
     request=CreateModelRequest(
-        model_name="string",
-        match_pattern="string",
-        start_date=datetime.datetime.fromisoformat(
-            "2024-01-15 09:30:00+00:00",
-        ),
-        unit=ModelUsageUnit.CHARACTERS,
-        input_price=1.1,
-        output_price=1.1,
-        total_price=1.1,
-        tokenizer_id="string",
-        tokenizer_config={"key": "value"},
+        model_name="modelName",
+        match_pattern="matchPattern",
     ),
 )
 
@@ -1734,10 +1842,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.models.list(
-    page=1,
-    limit=1,
-)
+client.models.list()
 
 ```
 </dd>
@@ -1819,7 +1924,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.models.get(
-    id="string",
+    id="id",
 )
 
 ```
@@ -1894,7 +1999,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.models.delete(
-    id="string",
+    id="id",
 )
 
 ```
@@ -1970,7 +2075,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.observations.get(
-    observation_id="string",
+    observation_id="observationId",
 )
 
 ```
@@ -2034,8 +2139,6 @@ Get a list of observations
 <dd>
 
 ```python
-import datetime
-
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2046,22 +2149,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.observations.get_many(
-    page=1,
-    limit=1,
-    name="string",
-    user_id="string",
-    type="string",
-    trace_id="string",
-    parent_observation_id="string",
-    from_start_time=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    to_start_time=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    version="string",
-)
+client.observations.get_many()
 
 ```
 </dd>
@@ -2126,6 +2214,14 @@ client.observations.get_many(
 <dd>
 
 **parent_observation_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for observations where the environment is one of the provided values.
     
 </dd>
 </dl>
@@ -2274,9 +2370,9 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.prompt_version.update(
-    name="string",
+    name="name",
     version=1,
-    new_labels=["string"],
+    new_labels=["newLabels", "newLabels"],
 )
 
 ```
@@ -2368,9 +2464,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.prompts.get(
-    prompt_name="string",
-    version=1,
-    label="string",
+    prompt_name="promptName",
 )
 
 ```
@@ -2450,8 +2544,6 @@ Get a list of prompt names with versions and labels
 <dd>
 
 ```python
-import datetime
-
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2462,19 +2554,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.prompts.list(
-    name="string",
-    label="string",
-    tag="string",
-    page=1,
-    limit=1,
-    from_updated_at=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    to_updated_at=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-)
+client.prompts.list()
 
 ```
 </dd>
@@ -2598,17 +2678,17 @@ client = FernLangfuse(
 )
 client.prompts.create(
     request=CreatePromptRequest_Chat(
-        name="string",
+        name="name",
         prompt=[
             ChatMessage(
-                role="string",
-                content="string",
-            )
+                role="role",
+                content="content",
+            ),
+            ChatMessage(
+                role="role",
+                content="content",
+            ),
         ],
-        config={"key": "value"},
-        labels=["string"],
-        tags=["string"],
-        commit_message="string",
     ),
 )
 
@@ -2674,7 +2754,7 @@ Create a score configuration (config). Score configs are used to define the stru
 <dd>
 
 ```python
-from langfuse import ConfigCategory, CreateScoreConfigRequest, ScoreDataType
+from langfuse import CreateScoreConfigRequest, ScoreDataType
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -2687,17 +2767,8 @@ client = FernLangfuse(
 )
 client.score_configs.create(
     request=CreateScoreConfigRequest(
-        name="string",
+        name="name",
         data_type=ScoreDataType.NUMERIC,
-        categories=[
-            ConfigCategory(
-                value=1.1,
-                label="string",
-            )
-        ],
-        min_value=1.1,
-        max_value=1.1,
-        description="string",
     ),
 )
 
@@ -2772,10 +2843,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.score_configs.get(
-    page=1,
-    limit=1,
-)
+client.score_configs.get()
 
 ```
 </dd>
@@ -2857,7 +2925,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.score_configs.get_by_id(
-    config_id="string",
+    config_id="configId",
 )
 
 ```
@@ -2935,9 +3003,9 @@ client = FernLangfuse(
 )
 client.score.create(
     request=CreateScoreRequest(
-        name="novelty",
-        value=0.9,
-        trace_id="cdef-1234-5678-90ab",
+        trace_id="traceId",
+        name="name",
+        value=1.1,
     ),
 )
 
@@ -3002,9 +3070,6 @@ Get a list of scores
 <dd>
 
 ```python
-import datetime
-
-from langfuse import ScoreDataType, ScoreSource
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -3015,26 +3080,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.score.get(
-    page=1,
-    limit=1,
-    user_id="string",
-    name="string",
-    from_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    to_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    source=ScoreSource.ANNOTATION,
-    operator="string",
-    value=1.1,
-    score_ids="string",
-    config_id="string",
-    queue_id="string",
-    data_type=ScoreDataType.NUMERIC,
-    trace_tags="string",
-)
+client.score.get()
 
 ```
 </dd>
@@ -3091,6 +3137,14 @@ client.score.get(
 <dd>
 
 **to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include scores created before a certain datetime (ISO 8601)
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for scores where the environment is one of the provided values.
     
 </dd>
 </dl>
@@ -3212,7 +3266,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.score.get_by_id(
-    score_id="string",
+    score_id="scoreId",
 )
 
 ```
@@ -3287,7 +3341,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.score.delete(
-    score_id="string",
+    score_id="scoreId",
 )
 
 ```
@@ -3352,8 +3406,6 @@ Get sessions
 <dd>
 
 ```python
-import datetime
-
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -3364,16 +3416,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.sessions.list(
-    page=1,
-    limit=1,
-    from_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    to_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-)
+client.sessions.list()
 
 ```
 </dd>
@@ -3414,6 +3457,14 @@ client.sessions.list(
 <dd>
 
 **to_timestamp:** `typing.Optional[dt.datetime]` — Optional filter to only include sessions created before a certain datetime (ISO 8601)
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for sessions where the environment is one of the provided values.
     
 </dd>
 </dl>
@@ -3471,7 +3522,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.sessions.get(
-    session_id="string",
+    session_id="sessionId",
 )
 
 ```
@@ -3547,7 +3598,7 @@ client = FernLangfuse(
     base_url="https://yourhost.com/path/to/api",
 )
 client.trace.get(
-    trace_id="string",
+    trace_id="traceId",
 )
 
 ```
@@ -3565,6 +3616,81 @@ client.trace.get(
 <dd>
 
 **trace_id:** `str` — The unique langfuse identifier of a trace
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.trace.<a href="src/langfuse/resources/trace/client.py">delete</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a specific trace
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.trace.delete(
+    trace_id="traceId",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**trace_id:** `str` — The unique langfuse identifier of the trace to delete
     
 </dd>
 </dl>
@@ -3611,8 +3737,6 @@ Get list of traces
 <dd>
 
 ```python
-import datetime
-
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -3623,23 +3747,7 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.trace.list(
-    page=1,
-    limit=1,
-    user_id="string",
-    name="string",
-    session_id="string",
-    from_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    to_timestamp=datetime.datetime.fromisoformat(
-        "2024-01-15 09:30:00+00:00",
-    ),
-    order_by="string",
-    tags="string",
-    version="string",
-    release="string",
-)
+client.trace.list()
 
 ```
 </dd>
@@ -3736,6 +3844,89 @@ client.trace.list(
 <dd>
 
 **release:** `typing.Optional[str]` — Optional filter to only include traces with a certain release.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for traces where the environment is one of the provided values.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.trace.<a href="src/langfuse/resources/trace/client.py">delete_multiple</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete multiple traces
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.trace.delete_multiple(
+    trace_ids=["traceIds", "traceIds"],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**trace_ids:** `typing.Sequence[str]` — List of trace IDs to delete
     
 </dd>
 </dl>

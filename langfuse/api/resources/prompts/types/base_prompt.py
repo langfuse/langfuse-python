@@ -28,6 +28,13 @@ class BasePrompt(pydantic_v1.BaseModel):
     Commit message for this prompt version.
     """
 
+    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
+        alias="resolutionGraph", default=None
+    )
+    """
+    The dependency resolution graph for the current prompt. Null if prompt has no dependencies.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,

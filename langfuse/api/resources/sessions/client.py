@@ -30,6 +30,7 @@ class SessionsClient:
         limit: typing.Optional[int] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedSessions:
         """
@@ -49,6 +50,9 @@ class SessionsClient:
         to_timestamp : typing.Optional[dt.datetime]
             Optional filter to only include sessions created before a certain datetime (ISO 8601)
 
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for sessions where the environment is one of the provided values.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -58,8 +62,6 @@ class SessionsClient:
 
         Examples
         --------
-        import datetime
-
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -70,16 +72,7 @@ class SessionsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.sessions.list(
-            page=1,
-            limit=1,
-            from_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            to_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-        )
+        client.sessions.list()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/sessions",
@@ -93,6 +86,7 @@ class SessionsClient:
                 "toTimestamp": serialize_datetime(to_timestamp)
                 if to_timestamp is not None
                 else None,
+                "environment": environment,
             },
             request_options=request_options,
         )
@@ -156,7 +150,7 @@ class SessionsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.sessions.get(
-            session_id="string",
+            session_id="sessionId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -202,6 +196,7 @@ class AsyncSessionsClient:
         limit: typing.Optional[int] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedSessions:
         """
@@ -221,6 +216,9 @@ class AsyncSessionsClient:
         to_timestamp : typing.Optional[dt.datetime]
             Optional filter to only include sessions created before a certain datetime (ISO 8601)
 
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for sessions where the environment is one of the provided values.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -231,7 +229,6 @@ class AsyncSessionsClient:
         Examples
         --------
         import asyncio
-        import datetime
 
         from langfuse.client import AsyncFernLangfuse
 
@@ -246,16 +243,7 @@ class AsyncSessionsClient:
 
 
         async def main() -> None:
-            await client.sessions.list(
-                page=1,
-                limit=1,
-                from_timestamp=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                to_timestamp=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-            )
+            await client.sessions.list()
 
 
         asyncio.run(main())
@@ -272,6 +260,7 @@ class AsyncSessionsClient:
                 "toTimestamp": serialize_datetime(to_timestamp)
                 if to_timestamp is not None
                 else None,
+                "environment": environment,
             },
             request_options=request_options,
         )
@@ -340,7 +329,7 @@ class AsyncSessionsClient:
 
         async def main() -> None:
             await client.sessions.get(
-                session_id="string",
+                session_id="sessionId",
             )
 
 

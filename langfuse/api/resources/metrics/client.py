@@ -29,6 +29,7 @@ class MetricsClient:
         trace_name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -53,6 +54,9 @@ class MetricsClient:
         tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for metrics where traces include all of these tags
 
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for metrics where events include any of these environments
+
         from_timestamp : typing.Optional[dt.datetime]
             Optional filter to only include traces and observations on or after a certain datetime (ISO 8601)
 
@@ -68,8 +72,6 @@ class MetricsClient:
 
         Examples
         --------
-        import datetime
-
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -80,19 +82,7 @@ class MetricsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.metrics.daily(
-            page=1,
-            limit=1,
-            trace_name="string",
-            user_id="string",
-            tags="string",
-            from_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            to_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-        )
+        client.metrics.daily()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/metrics/daily",
@@ -103,6 +93,7 @@ class MetricsClient:
                 "traceName": trace_name,
                 "userId": user_id,
                 "tags": tags,
+                "environment": environment,
                 "fromTimestamp": serialize_datetime(from_timestamp)
                 if from_timestamp is not None
                 else None,
@@ -151,6 +142,7 @@ class AsyncMetricsClient:
         trace_name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -175,6 +167,9 @@ class AsyncMetricsClient:
         tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for metrics where traces include all of these tags
 
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for metrics where events include any of these environments
+
         from_timestamp : typing.Optional[dt.datetime]
             Optional filter to only include traces and observations on or after a certain datetime (ISO 8601)
 
@@ -191,7 +186,6 @@ class AsyncMetricsClient:
         Examples
         --------
         import asyncio
-        import datetime
 
         from langfuse.client import AsyncFernLangfuse
 
@@ -206,19 +200,7 @@ class AsyncMetricsClient:
 
 
         async def main() -> None:
-            await client.metrics.daily(
-                page=1,
-                limit=1,
-                trace_name="string",
-                user_id="string",
-                tags="string",
-                from_timestamp=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                to_timestamp=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-            )
+            await client.metrics.daily()
 
 
         asyncio.run(main())
@@ -232,6 +214,7 @@ class AsyncMetricsClient:
                 "traceName": trace_name,
                 "userId": user_id,
                 "tags": tags,
+                "environment": environment,
                 "fromTimestamp": serialize_datetime(from_timestamp)
                 if from_timestamp is not None
                 else None,

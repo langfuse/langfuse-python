@@ -65,9 +65,9 @@ class ScoreClient:
         )
         client.score.create(
             request=CreateScoreRequest(
-                name="novelty",
-                value=0.9,
-                trace_id="cdef-1234-5678-90ab",
+                trace_id="traceId",
+                name="name",
+                value=1.1,
             ),
         )
         """
@@ -113,6 +113,7 @@ class ScoreClient:
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         source: typing.Optional[ScoreSource] = None,
         operator: typing.Optional[str] = None,
         value: typing.Optional[float] = None,
@@ -145,6 +146,9 @@ class ScoreClient:
 
         to_timestamp : typing.Optional[dt.datetime]
             Optional filter to only include scores created before a certain datetime (ISO 8601)
+
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for scores where the environment is one of the provided values.
 
         source : typing.Optional[ScoreSource]
             Retrieve only scores from a specific source.
@@ -179,9 +183,6 @@ class ScoreClient:
 
         Examples
         --------
-        import datetime
-
-        from langfuse import ScoreDataType, ScoreSource
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -192,26 +193,7 @@ class ScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score.get(
-            page=1,
-            limit=1,
-            user_id="string",
-            name="string",
-            from_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            to_timestamp=datetime.datetime.fromisoformat(
-                "2024-01-15 09:30:00+00:00",
-            ),
-            source=ScoreSource.ANNOTATION,
-            operator="string",
-            value=1.1,
-            score_ids="string",
-            config_id="string",
-            queue_id="string",
-            data_type=ScoreDataType.NUMERIC,
-            trace_tags="string",
-        )
+        client.score.get()
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/scores",
@@ -227,6 +209,7 @@ class ScoreClient:
                 "toTimestamp": serialize_datetime(to_timestamp)
                 if to_timestamp is not None
                 else None,
+                "environment": environment,
                 "source": source,
                 "operator": operator,
                 "value": value,
@@ -295,7 +278,7 @@ class ScoreClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.score.get_by_id(
-            score_id="string",
+            score_id="scoreId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -360,7 +343,7 @@ class ScoreClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.score.delete(
-            score_id="string",
+            score_id="scoreId",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -439,9 +422,9 @@ class AsyncScoreClient:
         async def main() -> None:
             await client.score.create(
                 request=CreateScoreRequest(
-                    name="novelty",
-                    value=0.9,
-                    trace_id="cdef-1234-5678-90ab",
+                    trace_id="traceId",
+                    name="name",
+                    value=1.1,
                 ),
             )
 
@@ -490,6 +473,7 @@ class AsyncScoreClient:
         name: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         source: typing.Optional[ScoreSource] = None,
         operator: typing.Optional[str] = None,
         value: typing.Optional[float] = None,
@@ -522,6 +506,9 @@ class AsyncScoreClient:
 
         to_timestamp : typing.Optional[dt.datetime]
             Optional filter to only include scores created before a certain datetime (ISO 8601)
+
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for scores where the environment is one of the provided values.
 
         source : typing.Optional[ScoreSource]
             Retrieve only scores from a specific source.
@@ -557,9 +544,7 @@ class AsyncScoreClient:
         Examples
         --------
         import asyncio
-        import datetime
 
-        from langfuse import ScoreDataType, ScoreSource
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -573,26 +558,7 @@ class AsyncScoreClient:
 
 
         async def main() -> None:
-            await client.score.get(
-                page=1,
-                limit=1,
-                user_id="string",
-                name="string",
-                from_timestamp=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                to_timestamp=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                source=ScoreSource.ANNOTATION,
-                operator="string",
-                value=1.1,
-                score_ids="string",
-                config_id="string",
-                queue_id="string",
-                data_type=ScoreDataType.NUMERIC,
-                trace_tags="string",
-            )
+            await client.score.get()
 
 
         asyncio.run(main())
@@ -611,6 +577,7 @@ class AsyncScoreClient:
                 "toTimestamp": serialize_datetime(to_timestamp)
                 if to_timestamp is not None
                 else None,
+                "environment": environment,
                 "source": source,
                 "operator": operator,
                 "value": value,
@@ -684,7 +651,7 @@ class AsyncScoreClient:
 
         async def main() -> None:
             await client.score.get_by_id(
-                score_id="string",
+                score_id="scoreId",
             )
 
 
@@ -757,7 +724,7 @@ class AsyncScoreClient:
 
         async def main() -> None:
             await client.score.delete(
-                score_id="string",
+                score_id="scoreId",
             )
 
 

@@ -58,12 +58,8 @@ class DatasetRunItemsClient:
         )
         client.dataset_run_items.create(
             request=CreateDatasetRunItemRequest(
-                run_name="string",
-                run_description="string",
-                metadata={"key": "value"},
-                dataset_item_id="string",
-                observation_id="string",
-                trace_id="string",
+                run_name="runName",
+                dataset_item_id="datasetItemId",
             ),
         )
         """
@@ -145,12 +141,8 @@ class AsyncDatasetRunItemsClient:
         async def main() -> None:
             await client.dataset_run_items.create(
                 request=CreateDatasetRunItemRequest(
-                    run_name="string",
-                    run_description="string",
-                    metadata={"key": "value"},
-                    dataset_item_id="string",
-                    observation_id="string",
-                    trace_id="string",
+                    run_name="runName",
+                    dataset_item_id="datasetItemId",
                 ),
             )
 
