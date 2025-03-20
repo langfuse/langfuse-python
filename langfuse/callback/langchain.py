@@ -863,7 +863,7 @@ class LangchainCallbackHandler(
                 extracted_response = (
                     self._convert_message_to_dict(generation.message)
                     if isinstance(generation, ChatGeneration)
-                    else _extract_raw_esponse(generation)
+                    else _extract_raw_response(generation)
                 )
 
                 llm_usage = _parse_usage(response)
@@ -1029,7 +1029,7 @@ class LangchainCallbackHandler(
         )
 
 
-def _extract_raw_esponse(last_response):
+def _extract_raw_response(last_response):
     """Extract the response from the last response of the LLM call."""
     # We return the text of the response if not empty
     if last_response.text is not None and last_response.text.strip() != "":
