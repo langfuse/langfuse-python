@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from inspect import isclass
 from typing import Optional
 
-import openai.resources
 from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
