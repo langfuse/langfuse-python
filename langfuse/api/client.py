@@ -5,6 +5,10 @@ import typing
 import httpx
 
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from .resources.annotation_queues.client import (
+    AnnotationQueuesClient,
+    AsyncAnnotationQueuesClient,
+)
 from .resources.comments.client import AsyncCommentsClient, CommentsClient
 from .resources.dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
 from .resources.dataset_run_items.client import (
@@ -99,6 +103,9 @@ class FernLangfuse:
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
+        self.annotation_queues = AnnotationQueuesClient(
+            client_wrapper=self._client_wrapper
+        )
         self.comments = CommentsClient(client_wrapper=self._client_wrapper)
         self.dataset_items = DatasetItemsClient(client_wrapper=self._client_wrapper)
         self.dataset_run_items = DatasetRunItemsClient(
@@ -188,6 +195,9 @@ class AsyncFernLangfuse:
             if follow_redirects is not None
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
+        )
+        self.annotation_queues = AsyncAnnotationQueuesClient(
+            client_wrapper=self._client_wrapper
         )
         self.comments = AsyncCommentsClient(client_wrapper=self._client_wrapper)
         self.dataset_items = AsyncDatasetItemsClient(

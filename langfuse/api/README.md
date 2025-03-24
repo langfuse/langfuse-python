@@ -16,7 +16,7 @@ pip install langfuse
 Instantiate and use the client with the following:
 
 ```python
-from langfuse import CreateCommentRequest
+from langfuse import AnnotationQueueObjectType, CreateAnnotationQueueItemRequest
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -27,12 +27,11 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.comments.create(
-    request=CreateCommentRequest(
-        project_id="projectId",
-        object_type="objectType",
+client.annotation_queues.create_queue_item(
+    queue_id="queueId",
+    request=CreateAnnotationQueueItemRequest(
         object_id="objectId",
-        content="content",
+        object_type=AnnotationQueueObjectType.TRACE,
     ),
 )
 ```
@@ -44,7 +43,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 ```python
 import asyncio
 
-from langfuse import CreateCommentRequest
+from langfuse import AnnotationQueueObjectType, CreateAnnotationQueueItemRequest
 from langfuse.client import AsyncFernLangfuse
 
 client = AsyncFernLangfuse(
@@ -58,12 +57,11 @@ client = AsyncFernLangfuse(
 
 
 async def main() -> None:
-    await client.comments.create(
-        request=CreateCommentRequest(
-            project_id="projectId",
-            object_type="objectType",
+    await client.annotation_queues.create_queue_item(
+        queue_id="queueId",
+        request=CreateAnnotationQueueItemRequest(
             object_id="objectId",
-            content="content",
+            object_type=AnnotationQueueObjectType.TRACE,
         ),
     )
 
@@ -80,7 +78,7 @@ will be thrown.
 from .api_error import ApiError
 
 try:
-    client.comments.create(...)
+    client.annotation_queues.create_queue_item(...)
 except ApiError as e:
     print(e.status_code)
     print(e.body)
@@ -103,7 +101,7 @@ A request is deemed retriable when any of the following HTTP status codes is ret
 Use the `max_retries` request option to configure this behavior.
 
 ```python
-client.comments.create(...,{
+client.annotation_queues.create_queue_item(...,{
     max_retries=1
 })
 ```
@@ -120,7 +118,7 @@ client = FernLangfuse(..., { timeout=20.0 }, )
 
 
 # Override timeout for a specific method
-client.comments.create(...,{
+client.annotation_queues.create_queue_item(...,{
     timeout_in_seconds=1
 })
 ```

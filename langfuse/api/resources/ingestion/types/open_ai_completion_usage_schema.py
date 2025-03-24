@@ -15,8 +15,12 @@ class OpenAiCompletionUsageSchema(pydantic_v1.BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
-    prompt_tokens_details: typing.Optional[typing.Dict[str, int]] = None
-    completion_tokens_details: typing.Optional[typing.Dict[str, int]] = None
+    prompt_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = (
+        None
+    )
+    completion_tokens_details: typing.Optional[
+        typing.Dict[str, typing.Optional[int]]
+    ] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

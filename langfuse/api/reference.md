@@ -1,4 +1,610 @@
 # Reference
+## AnnotationQueues
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">list_queues</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get all annotation queues
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.list_queues()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**page:** `typing.Optional[int]` — page number, starts at 1
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — limit of items per page
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">get_queue</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get an annotation queue by ID
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.get_queue(
+    queue_id="queueId",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">list_queue_items</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get items for a specific annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.list_queue_items(
+    queue_id="queueId",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**status:** `typing.Optional[AnnotationQueueStatus]` — Filter by status
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**page:** `typing.Optional[int]` — page number, starts at 1
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — limit of items per page
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">get_queue_item</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get a specific item from an annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.get_queue_item(
+    queue_id="queueId",
+    item_id="itemId",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**item_id:** `str` — The unique identifier of the annotation queue item
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">create_queue_item</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Add an item to an annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import AnnotationQueueObjectType, CreateAnnotationQueueItemRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.create_queue_item(
+    queue_id="queueId",
+    request=CreateAnnotationQueueItemRequest(
+        object_id="objectId",
+        object_type=AnnotationQueueObjectType.TRACE,
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `CreateAnnotationQueueItemRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">update_queue_item</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update an annotation queue item
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import UpdateAnnotationQueueItemRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.update_queue_item(
+    queue_id="queueId",
+    item_id="itemId",
+    request=UpdateAnnotationQueueItemRequest(),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**item_id:** `str` — The unique identifier of the annotation queue item
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `UpdateAnnotationQueueItemRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">delete_queue_item</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Remove an item from an annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.delete_queue_item(
+    queue_id="queueId",
+    item_id="itemId",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**item_id:** `str` — The unique identifier of the annotation queue item
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Comments
 <details><summary><code>client.comments.<a href="src/langfuse/resources/comments/client.py">create</a>(...)</code></summary>
 <dl>

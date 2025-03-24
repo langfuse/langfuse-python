@@ -5,20 +5,17 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .annotation_queue_object_type import AnnotationQueueObjectType
+from .annotation_queue_status import AnnotationQueueStatus
 
 
-class OpenAiResponseUsageSchema(pydantic_v1.BaseModel):
+class CreateAnnotationQueueItemRequest(pydantic_v1.BaseModel):
+    object_id: str = pydantic_v1.Field(alias="objectId")
+    object_type: AnnotationQueueObjectType = pydantic_v1.Field(alias="objectType")
+    status: typing.Optional[AnnotationQueueStatus] = pydantic_v1.Field(default=None)
     """
-    OpenAI Usage schema from Response API
+    Defaults to PENDING for new queue items
     """
-
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
-    input_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = None
-    output_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = (
-        None
-    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -48,5 +45,7 @@ class OpenAiResponseUsageSchema(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
