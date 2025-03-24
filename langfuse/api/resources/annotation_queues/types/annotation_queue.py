@@ -7,18 +7,13 @@ from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 
 
-class OpenAiResponseUsageSchema(pydantic_v1.BaseModel):
-    """
-    OpenAI Usage schema from Response API
-    """
-
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
-    input_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = None
-    output_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = (
-        None
-    )
+class AnnotationQueue(pydantic_v1.BaseModel):
+    id: str
+    name: str
+    description: typing.Optional[str] = None
+    score_config_ids: typing.List[str] = pydantic_v1.Field(alias="scoreConfigIds")
+    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
+    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -48,5 +43,7 @@ class OpenAiResponseUsageSchema(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

@@ -5,20 +5,13 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from ...utils.resources.pagination.types.meta_response import MetaResponse
+from .annotation_queue import AnnotationQueue
 
 
-class OpenAiResponseUsageSchema(pydantic_v1.BaseModel):
-    """
-    OpenAI Usage schema from Response API
-    """
-
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
-    input_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = None
-    output_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[int]]] = (
-        None
-    )
+class PaginatedAnnotationQueues(pydantic_v1.BaseModel):
+    data: typing.List[AnnotationQueue]
+    meta: MetaResponse
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
