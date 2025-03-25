@@ -26,6 +26,7 @@ class Score_Numeric(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     environment: typing.Optional[str] = None
@@ -84,6 +85,7 @@ class Score_Categorical(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     environment: typing.Optional[str] = None
@@ -142,6 +144,7 @@ class Score_Boolean(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     environment: typing.Optional[str] = None

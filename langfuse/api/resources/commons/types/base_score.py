@@ -23,6 +23,7 @@ class BaseScore(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     """
     Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
