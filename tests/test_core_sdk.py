@@ -503,6 +503,7 @@ def test_score_trace():
         name="valuation",
         value=0.5,
         comment="This is a comment",
+        metadata={"key": "value"},
     )
 
     langfuse.flush()
@@ -522,6 +523,7 @@ def test_score_trace():
     assert score["comment"] == "This is a comment"
     assert score["observationId"] is None
     assert score["dataType"] == "NUMERIC"
+    assert score["metadata"] == {"key": "value"}
 
 
 def test_score_trace_nested_trace():
@@ -535,6 +537,7 @@ def test_score_trace_nested_trace():
         name="valuation",
         value=0.5,
         comment="This is a comment",
+        metadata={"key": "value"},
     )
 
     langfuse.flush()
@@ -554,6 +557,7 @@ def test_score_trace_nested_trace():
     assert score.comment == "This is a comment"
     assert score.observation_id is None
     assert score.data_type == "NUMERIC"
+    assert score.metadata == {"key": "value"}
 
 
 def test_score_trace_nested_observation():
@@ -568,6 +572,7 @@ def test_score_trace_nested_observation():
         name="valuation",
         value=0.5,
         comment="This is a comment",
+        metadata={"key": "value"},
     )
 
     langfuse.flush()
@@ -587,6 +592,7 @@ def test_score_trace_nested_observation():
     assert score.comment == "This is a comment"
     assert score.observation_id == span.id
     assert score.data_type == "NUMERIC"
+    assert score.metadata == {"key": "value"}
 
 
 def test_score_span():
@@ -611,6 +617,7 @@ def test_score_span():
         name="valuation",
         value=1,
         comment="This is a comment",
+        metadata={"key": "value"},
     )
 
     langfuse.flush()
@@ -629,6 +636,7 @@ def test_score_span():
     assert score["comment"] == "This is a comment"
     assert score["observationId"] == spanId
     assert score["dataType"] == "NUMERIC"
+    assert score["metadata"] == {"key": "value"}
 
 
 def test_create_trace_and_span():
