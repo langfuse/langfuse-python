@@ -157,14 +157,14 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.39.0"
+version = "0.49.0"
 description = "The official Python library for the anthropic API"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "anthropic-0.39.0-py3-none-any.whl", hash = "sha256:ea17093ae0ce0e1768b0c46501d6086b5bcd74ff39d68cd2d6396374e9de7c09"},
-    {file = "anthropic-0.39.0.tar.gz", hash = "sha256:94671cc80765f9ce693f76d63a97ee9bef4c2d6063c044e983d21a2e262f63ba"},
+    {file = "anthropic-0.49.0-py3-none-any.whl", hash = "sha256:bbc17ad4e7094988d2fa86b87753ded8dce12498f4b85fe5810f208f454a8375"},
+    {file = "anthropic-0.49.0.tar.gz", hash = "sha256:c09e885b0f674b9119b4f296d8508907f6cff0009bc20d5cf6b35936c40b4398"},
 ]
 
 [package.dependencies]
@@ -177,7 +177,7 @@ httpx = ">=0.23.0,<1"
 jiter = ">=0.4.0,<1"
 pydantic = ">=1.9.0,<3"
 sniffio = "*"
-typing-extensions = ">=4.7,<5"
+typing-extensions = ">=4.10,<5"
 
 [package.extras]
 bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
@@ -1542,7 +1542,7 @@ files = [
     {file = "greenlet-3.0.3-cp39-cp39-win_amd64.whl", hash = "sha256:c5ee858cfe08f34712f548c3c363e807e7186f03ad7a5039ebadb29e8c6be067"},
     {file = "greenlet-3.0.3.tar.gz", hash = "sha256:43374442353259554ce33599da8b692d5aa96f8976d567d4badf263371fbe491"},
 ]
-markers = {main = "(extra == \"llama-index\" or extra == \"langchain\") and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\") and (extra == \"llama-index\" or python_version < \"3.10\")", dev = "platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\""}
+markers = {main = "(extra == \"langchain\" or extra == \"llama-index\") and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\") and (extra == \"llama-index\" or python_version < \"3.10\")", dev = "platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\""}
 
 [package.extras]
 docs = ["Sphinx", "furo"]
@@ -2458,21 +2458,21 @@ pydantic = ">=1.10"
 
 [[package]]
 name = "llama-index"
-version = "0.12.9"
+version = "0.12.25"
 description = "Interface between LLMs and your data"
 optional = true
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 markers = "extra == \"llama-index\""
 files = [
-    {file = "llama_index-0.12.9-py3-none-any.whl", hash = "sha256:95c39d8055c7d19bd5f099560b53c0971ae9997ebe46f7438766189ed48e4456"},
-    {file = "llama_index-0.12.9.tar.gz", hash = "sha256:2f8d671e6ca7e5b33b0f5cbddef8c0a11eb1e39781f1be65e9bd0c4a7a0deb5b"},
+    {file = "llama_index-0.12.25-py3-none-any.whl", hash = "sha256:e8c458feccedc6a125a2c04de1d76d84299a7d3c2382ef1d20c64639f42b000a"},
+    {file = "llama_index-0.12.25.tar.gz", hash = "sha256:a4681109fe4cba1a8a17867769a18fc5f4f3deab28c3263c385f172f4cbcb6e4"},
 ]
 
 [package.dependencies]
 llama-index-agent-openai = ">=0.4.0,<0.5.0"
-llama-index-cli = ">=0.4.0,<0.5.0"
-llama-index-core = ">=0.12.9,<0.13.0"
+llama-index-cli = ">=0.4.1,<0.5.0"
+llama-index-core = ">=0.12.25,<0.13.0"
 llama-index-embeddings-openai = ">=0.3.0,<0.4.0"
 llama-index-indices-managed-llama-cloud = ">=0.4.0"
 llama-index-llms-openai = ">=0.3.0,<0.4.0"
@@ -2503,15 +2503,15 @@ openai = ">=1.14.0"
 
 [[package]]
 name = "llama-index-cli"
-version = "0.4.0"
+version = "0.4.1"
 description = "llama-index cli"
 optional = true
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 markers = "extra == \"llama-index\""
 files = [
-    {file = "llama_index_cli-0.4.0-py3-none-any.whl", hash = "sha256:60d12f89e6b85e80a0cc3a8b531f05a911b5eebaebc37314411476d1ba685904"},
-    {file = "llama_index_cli-0.4.0.tar.gz", hash = "sha256:d6ab201359962a8a34368aeda3a49bbbe67e9e009c59bd925c4fb2be4ace3906"},
+    {file = "llama_index_cli-0.4.1-py3-none-any.whl", hash = "sha256:6dfc931aea5b90c256e476b48dfac76f48fb2308fdf656bb02ee1e4f2cab8b06"},
+    {file = "llama_index_cli-0.4.1.tar.gz", hash = "sha256:3f97f1f8f5f401dfb5b6bc7170717c176dcd981538017430073ef12ffdcbddfa"},
 ]
 
 [package.dependencies]
@@ -2593,19 +2593,19 @@ llama-index-core = ">=0.12.0,<0.13.0"
 
 [[package]]
 name = "llama-index-llms-anthropic"
-version = "0.5.0"
+version = "0.6.10"
 description = "llama-index llms anthropic integration"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["dev"]
 files = [
-    {file = "llama_index_llms_anthropic-0.5.0-py3-none-any.whl", hash = "sha256:2b9367db45deabcbda4db1b1216c95e2663e1e6f129570fc2d275207dd3901cf"},
-    {file = "llama_index_llms_anthropic-0.5.0.tar.gz", hash = "sha256:14e400ccc2deb8e9024ef8cdc24550b67f4240f3563b4564d4870be85de2d9d8"},
+    {file = "llama_index_llms_anthropic-0.6.10-py3-none-any.whl", hash = "sha256:cb1eb525816016a4d179c717d6a0569c8c8bb74e80f4da9ec1628ccd5e54d3ee"},
+    {file = "llama_index_llms_anthropic-0.6.10.tar.gz", hash = "sha256:2b1e88319825dc1a2c7f28a146b197726b7ecba39ff6bde1732368c834f0f16c"},
 ]
 
 [package.dependencies]
-anthropic = {version = ">=0.39.0", extras = ["bedrock", "vertex"]}
-llama-index-core = ">=0.12.0,<0.13.0"
+anthropic = {version = ">=0.49.0", extras = ["bedrock", "vertex"]}
+llama-index-core = ">=0.12.5,<0.13.0"
 
 [[package]]
 name = "llama-index-llms-openai"
@@ -5969,4 +5969,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "a3f2492722bda2f3d112bf1d874d12ebed21139fb5be821a46fb94a8c1e9c950"
+content-hash = "cc99173baae71e21b70856ae6c79e4e6c50b5b1a03179a48dc3e33b7f8987e5f"
