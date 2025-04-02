@@ -16,7 +16,7 @@ except ImportError:
 from langfuse.parse_error import handle_exception
 from langfuse.request import APIError, LangfuseClient
 from langfuse.Sampler import Sampler
-from langfuse.serializer import EventSerializer
+from langfuse.serializer import BaseEventSerializer, EventSerializer
 from langfuse.types import MaskFunction
 
 from .media_manager import MediaManager
@@ -48,6 +48,7 @@ class IngestionConsumer(threading.Thread):
     _mask: Optional[MaskFunction]
     _sampler: Sampler
     _media_manager: MediaManager
+    _serializer: BaseEventSerializer = EventSerializer
 
     def __init__(
         self,
@@ -130,7 +131,7 @@ class IngestionConsumer(threading.Thread):
 
                 # check for serialization errors
                 try:
-                    json.dumps(event, cls=EventSerializer)
+                    json.dumps(event, cls=self._serializer)
                 except Exception as e:
                     self._log.error(f"Error serializing item, skipping: {e}")
                     self._ingestion_queue.task_done()
@@ -223,7 +224,7 @@ class IngestionConsumer(threading.Thread):
 
     def _get_item_size(self, item: Any) -> int:
         """Return the size of the item in bytes."""
-        return len(json.dumps(item, cls=EventSerializer).encode())
+        return len(json.dumps(item, cls=self._serializer).encode())
 
     def _apply_mask_in_place(self, event: dict):
         """Apply the mask function to the event. This is done in place."""
