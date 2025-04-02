@@ -997,7 +997,11 @@ class LangchainCallbackHandler(
         elif isinstance(message, SystemMessage):
             message_dict = {"role": "system", "content": message.content}
         elif isinstance(message, ToolMessage):
-            message_dict = {"role": "tool", "content": message.content}
+            message_dict = {
+                "role": "tool",
+                "content": message.content,
+                "tool_call_id": message.tool_call_id,
+            }
         elif isinstance(message, FunctionMessage):
             message_dict = {"role": "function", "content": message.content}
         elif isinstance(message, ChatMessage):
