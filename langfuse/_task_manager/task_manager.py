@@ -116,7 +116,7 @@ class TaskManager(object):
             return
 
         try:
-            event["timestamp"] = _get_timestamp()
+            event["timestamp"] = event.get("timestamp") or _get_timestamp()
 
             self._ingestion_queue.put(event, block=False)
         except queue.Full:
