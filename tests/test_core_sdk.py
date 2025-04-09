@@ -1596,54 +1596,34 @@ def test_environment_from_env_var(monkeypatch):
     assert fetched_trace["environment"] == "testing"
 
 
-def test_metadata():
+@pytest.mark.parametrize(
+    "input_metadata, expected_metadata",
+    [
+        ("Test Metadata", {"metadata": "Test Metadata"}),
+        (1, {"metadata": 1}),
+        (1.0, {"metadata": 1.0}),
+        ({"key": "value"}, {"key": "value"}),
+        (["value1", "value2"], {"metadata": ["value1", "value2"]}),
+    ],
+)
+def test_metadata(input_metadata, expected_metadata):
     langfuse = Langfuse(debug=True)
     api_wrapper = LangfuseAPI()
 
-    def prepare_case(metadata):
-        trace = langfuse.trace(name="test_metadata", metadata=metadata)
-        observation = trace.generation(name="test_gen", metadata=metadata)
-        trace.score(name="test_score", value=1, metadata=metadata)
-        langfuse.flush()
-        sleep(1)
-        return trace, observation
+    trace = langfuse.trace(name="test_metadata", metadata=input_metadata)
+    observation = trace.generation(name="test_gen", metadata=input_metadata)
+    trace.score(name="test_score", value=1, metadata=input_metadata)
+    langfuse.flush()
+    sleep(1)
 
-    def fetch_values(trace, observation):
-        fetched_trace = api_wrapper.get_trace(trace.id)
-        fetched_observation = api_wrapper.get_observation(observation.id)
-        fetched_score = fetched_trace["scores"][0]
-        return fetched_trace, fetched_observation, fetched_score
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    fetched_observation = api_wrapper.get_observation(observation.id)
+    fetched_score = fetched_trace["scores"][0]
 
-    def submit_and_fetch(metadata):
-        trace, observation = prepare_case(metadata)
-        fetched_trace, fetched_observation, fetched_score = fetch_values(
-            trace, observation
-        )
-        trace_metadata = fetched_trace["metadata"]
-        observation_metadata = fetched_observation["metadata"]
-        score_metadata = fetched_score["metadata"]
-        return [trace_metadata, observation_metadata, score_metadata]
+    trace_metadata = fetched_trace["metadata"]
+    observation_metadata = fetched_observation["metadata"]
+    score_metadata = fetched_score["metadata"]
 
-    string_test = submit_and_fetch("Test Metadata")
-    string_test_expected = {"metadata": "Test Metadata"}
-    assert string_test == [
-        string_test_expected,
-        string_test_expected,
-        string_test_expected,
-    ]
-
-    int_test = submit_and_fetch(1)
-    int_test_expected = {"metadata": 1}
-    assert int_test == [int_test_expected, int_test_expected, int_test_expected]
-
-    float_test = submit_and_fetch(1.0)
-    float_test_expected = {"metadata": 1.0}
-    assert float_test == [float_test_expected, float_test_expected, float_test_expected]
-
-    dict_test = submit_and_fetch({"key": "value"})
-    dict_test_expected = {"key": "value"}
-    assert dict_test == [dict_test_expected, dict_test_expected, dict_test_expected]
-
-    list_test = submit_and_fetch(["value1", "value2"])
-    list_test_expected = {"metadata": ["value1", "value2"]}
-    assert list_test == [list_test_expected, list_test_expected, list_test_expected]
+    assert trace_metadata == expected_metadata
+    assert observation_metadata == expected_metadata
+    assert score_metadata == expected_metadata
