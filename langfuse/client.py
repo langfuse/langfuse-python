@@ -660,6 +660,7 @@ class Langfuse(object):
         session_id: Optional[str] = None,
         from_timestamp: Optional[dt.datetime] = None,
         to_timestamp: Optional[dt.datetime] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> FetchTracesResponse:
@@ -673,6 +674,7 @@ class Langfuse(object):
             session_id (Optional[str]): Filter by session_id. Defaults to None.
             from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime. Defaults to None.
             to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime. Defaults to None.
+            environment (Optional[Union[str, Sequence[str]]]): Filter by environment. Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -684,7 +686,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {order_by}, {tags}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {environment}, {order_by}, {tags}"
             )
             res = self.client.trace.list(
                 page=page,
@@ -694,6 +696,7 @@ class Langfuse(object):
                 session_id=session_id,
                 from_timestamp=from_timestamp,
                 to_timestamp=to_timestamp,
+                environment=environment,
                 order_by=order_by,
                 tags=tags,
             )
@@ -768,6 +771,7 @@ class Langfuse(object):
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
         type: typing.Optional[str] = None,
     ) -> FetchObservationsResponse:
         """Get a list of observations in the current project matching the given parameters.
@@ -781,6 +785,7 @@ class Langfuse(object):
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
             from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
             to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
+            environment (Optional[Union[str, Sequence[str]]]): Filter by environment. Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -791,7 +796,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {environment}, {type}"
             )
             res = self.client.observations.get_many(
                 page=page,
@@ -802,6 +807,7 @@ class Langfuse(object):
                 parent_observation_id=parent_observation_id,
                 from_start_time=from_start_time,
                 to_start_time=to_start_time,
+                environment=environment,
                 type=type,
             )
             return FetchObservationsResponse(data=res.data, meta=res.meta)
