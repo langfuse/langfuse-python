@@ -115,7 +115,6 @@ class Langfuse:
                 timeout=timeout,
                 environment=environment,
                 release=release,
-                debug=debug,
             ).tracer
             if self.tracing_enabled
             else otel_trace_api.NoOpTracer()
