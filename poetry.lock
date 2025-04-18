@@ -3738,23 +3738,20 @@ dev = ["jinja2"]
 
 [[package]]
 name = "pdoc"
-version = "14.6.0"
+version = "15.0.2"
 description = "API Documentation for Python Projects"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["docs"]
 files = [
-    {file = "pdoc-14.6.0-py3-none-any.whl", hash = "sha256:36c42c546a317d8e3e8c0b39645f24161374de0c7066ccaae76628d721e49ba5"},
-    {file = "pdoc-14.6.0.tar.gz", hash = "sha256:6e98a24c5e0ca5d188397969cf82581836eaef13f172fc3820047bfe15c61c9a"},
+    {file = "pdoc-15.0.2-py3-none-any.whl", hash = "sha256:0ea70b1bc13c836bcb29347884760cca5b30d668c62b50c0edc823846bef0b43"},
+    {file = "pdoc-15.0.2.tar.gz", hash = "sha256:854ca0d9ec0efb80ba1f911f62a1daee57bdc4f2da3a4b60071a47e5f7e6e924"},
 ]
 
 [package.dependencies]
 Jinja2 = ">=2.11.0"
-MarkupSafe = "*"
+MarkupSafe = ">=1.1.1"
 pygments = ">=2.12.0"
-
-[package.extras]
-dev = ["hypothesis", "mypy", "pdoc-pyo3-sample-library (==1.0.11)", "pygments (>=2.14.0)", "pytest", "pytest-cov", "pytest-timeout", "ruff", "tox", "types-pygments"]
 
 [[package]]
 name = "pillow"
@@ -5969,4 +5966,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "a3f2492722bda2f3d112bf1d874d12ebed21139fb5be821a46fb94a8c1e9c950"
+content-hash = "c8ef07808608d20dceb69213a3e34a4184c66d3f7076959d4159f97a25d61ead"
