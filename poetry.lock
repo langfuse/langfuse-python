@@ -157,14 +157,14 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.39.0"
+version = "0.49.0"
 description = "The official Python library for the anthropic API"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "anthropic-0.39.0-py3-none-any.whl", hash = "sha256:ea17093ae0ce0e1768b0c46501d6086b5bcd74ff39d68cd2d6396374e9de7c09"},
-    {file = "anthropic-0.39.0.tar.gz", hash = "sha256:94671cc80765f9ce693f76d63a97ee9bef4c2d6063c044e983d21a2e262f63ba"},
+    {file = "anthropic-0.49.0-py3-none-any.whl", hash = "sha256:bbc17ad4e7094988d2fa86b87753ded8dce12498f4b85fe5810f208f454a8375"},
+    {file = "anthropic-0.49.0.tar.gz", hash = "sha256:c09e885b0f674b9119b4f296d8508907f6cff0009bc20d5cf6b35936c40b4398"},
 ]
 
 [package.dependencies]
@@ -177,7 +177,7 @@ httpx = ">=0.23.0,<1"
 jiter = ">=0.4.0,<1"
 pydantic = ">=1.9.0,<3"
 sniffio = "*"
-typing-extensions = ">=4.7,<5"
+typing-extensions = ">=4.10,<5"
 
 [package.extras]
 bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
@@ -269,6 +269,30 @@ files = [
     {file = "backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8"},
     {file = "backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba"},
 ]
+
+[[package]]
+name = "banks"
+version = "2.1.1"
+description = "A prompt programming language"
+optional = false
+python-versions = ">=3.9"
+groups = ["main", "dev"]
+files = [
+    {file = "banks-2.1.1-py3-none-any.whl", hash = "sha256:06e4ee46a0ff2fcdf5f64a5f028a7b7ceb719d5c7b9339f5aa90b24936fbb7f5"},
+    {file = "banks-2.1.1.tar.gz", hash = "sha256:95ec9c8f3c173c9f1c21eb2451ba0e21dda87f1ceb738854fabadb54bc387b86"},
+]
+markers = {main = "extra == \"llama-index\""}
+
+[package.dependencies]
+deprecated = "*"
+eval-type-backport = {version = "*", markers = "python_version < \"3.10\""}
+griffe = "*"
+jinja2 = "*"
+platformdirs = "*"
+pydantic = "*"
+
+[package.extras]
+all = ["litellm", "redis"]
 
 [[package]]
 name = "bcrypt"
@@ -704,7 +728,7 @@ files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-markers = {main = "(extra == \"llama-index\" or extra == \"openai\") and platform_system == \"Windows\"", dev = "platform_system == \"Windows\" or os_name == \"nt\" or sys_platform == \"win32\""}
+markers = {main = "(extra == \"llama-index\" or extra == \"openai\") and platform_system == \"Windows\" or extra == \"llama-index\""}
 
 [[package]]
 name = "coloredlogs"
@@ -1542,11 +1566,27 @@ files = [
     {file = "greenlet-3.0.3-cp39-cp39-win_amd64.whl", hash = "sha256:c5ee858cfe08f34712f548c3c363e807e7186f03ad7a5039ebadb29e8c6be067"},
     {file = "greenlet-3.0.3.tar.gz", hash = "sha256:43374442353259554ce33599da8b692d5aa96f8976d567d4badf263371fbe491"},
 ]
-markers = {main = "(extra == \"llama-index\" or extra == \"langchain\") and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\") and (extra == \"llama-index\" or python_version < \"3.10\")", dev = "platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\""}
+markers = {main = "(extra == \"langchain\" or extra == \"llama-index\") and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\") and (extra == \"llama-index\" or python_version < \"3.10\")", dev = "platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\""}
 
 [package.extras]
 docs = ["Sphinx", "furo"]
 test = ["objgraph", "psutil"]
+
+[[package]]
+name = "griffe"
+version = "1.7.2"
+description = "Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API."
+optional = false
+python-versions = ">=3.9"
+groups = ["main", "dev"]
+files = [
+    {file = "griffe-1.7.2-py3-none-any.whl", hash = "sha256:1ed9c2e338a75741fc82083fe5a1bc89cb6142efe126194cc313e34ee6af5423"},
+    {file = "griffe-1.7.2.tar.gz", hash = "sha256:98d396d803fab3b680c2608f300872fd57019ed82f0672f5b5323a9ad18c540c"},
+]
+markers = {main = "extra == \"llama-index\""}
+
+[package.dependencies]
+colorama = ">=0.4"
 
 [[package]]
 name = "groq"
@@ -1915,11 +1955,12 @@ version = "3.1.6"
 description = "A very fast and expressive template engine."
 optional = false
 python-versions = ">=3.7"
-groups = ["docs"]
+groups = ["main", "dev", "docs"]
 files = [
     {file = "jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"},
     {file = "jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d"},
 ]
+markers = {main = "extra == \"llama-index\""}
 
 [package.dependencies]
 MarkupSafe = ">=2.0"
@@ -2458,21 +2499,21 @@ pydantic = ">=1.10"
 
 [[package]]
 name = "llama-index"
-version = "0.12.9"
+version = "0.12.31"
 description = "Interface between LLMs and your data"
 optional = true
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 markers = "extra == \"llama-index\""
 files = [
-    {file = "llama_index-0.12.9-py3-none-any.whl", hash = "sha256:95c39d8055c7d19bd5f099560b53c0971ae9997ebe46f7438766189ed48e4456"},
-    {file = "llama_index-0.12.9.tar.gz", hash = "sha256:2f8d671e6ca7e5b33b0f5cbddef8c0a11eb1e39781f1be65e9bd0c4a7a0deb5b"},
+    {file = "llama_index-0.12.31-py3-none-any.whl", hash = "sha256:14a5e78cd0c7a67569eb708d1ec83c6ae1e542fbecba0d81257b9a5bf3ad4b8b"},
+    {file = "llama_index-0.12.31.tar.gz", hash = "sha256:7ab443b70da44dc22f843d9857d02a3a626513dd786c5ff4d05400d240b7be13"},
 ]
 
 [package.dependencies]
 llama-index-agent-openai = ">=0.4.0,<0.5.0"
-llama-index-cli = ">=0.4.0,<0.5.0"
-llama-index-core = ">=0.12.9,<0.13.0"
+llama-index-cli = ">=0.4.1,<0.5.0"
+llama-index-core = ">=0.12.31,<0.13.0"
 llama-index-embeddings-openai = ">=0.3.0,<0.4.0"
 llama-index-indices-managed-llama-cloud = ">=0.4.0"
 llama-index-llms-openai = ">=0.3.0,<0.4.0"
@@ -2503,15 +2544,15 @@ openai = ">=1.14.0"
 
 [[package]]
 name = "llama-index-cli"
-version = "0.4.0"
+version = "0.4.1"
 description = "llama-index cli"
 optional = true
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 markers = "extra == \"llama-index\""
 files = [
-    {file = "llama_index_cli-0.4.0-py3-none-any.whl", hash = "sha256:60d12f89e6b85e80a0cc3a8b531f05a911b5eebaebc37314411476d1ba685904"},
-    {file = "llama_index_cli-0.4.0.tar.gz", hash = "sha256:d6ab201359962a8a34368aeda3a49bbbe67e9e009c59bd925c4fb2be4ace3906"},
+    {file = "llama_index_cli-0.4.1-py3-none-any.whl", hash = "sha256:6dfc931aea5b90c256e476b48dfac76f48fb2308fdf656bb02ee1e4f2cab8b06"},
+    {file = "llama_index_cli-0.4.1.tar.gz", hash = "sha256:3f97f1f8f5f401dfb5b6bc7170717c176dcd981538017430073ef12ffdcbddfa"},
 ]
 
 [package.dependencies]
@@ -2521,19 +2562,20 @@ llama-index-llms-openai = ">=0.3.0,<0.4.0"
 
 [[package]]
 name = "llama-index-core"
-version = "0.12.25"
+version = "0.12.31"
 description = "Interface between LLMs and your data"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main", "dev"]
 files = [
-    {file = "llama_index_core-0.12.25-py3-none-any.whl", hash = "sha256:affd0b240daf3c1200ad8ca86696ce339f411c3028981b0b5b71b59d78f281ae"},
-    {file = "llama_index_core-0.12.25.tar.gz", hash = "sha256:e0145617f0ab5358c30a7a716fa46dd3c40183bad1b87dd0cbfd3d196fbee8c4"},
+    {file = "llama_index_core-0.12.31-py3-none-any.whl", hash = "sha256:ac1482d1fd111611394c3f86dc0cad5e925f96f5db76eb1f7c2120dd133e8770"},
+    {file = "llama_index_core-0.12.31.tar.gz", hash = "sha256:2ad2b6000277ca2c45ea0fa358ffefb4350cffb6630e3498f9501352e7529526"},
 ]
 markers = {main = "extra == \"llama-index\""}
 
 [package.dependencies]
 aiohttp = ">=3.8.6,<4.0.0"
+banks = ">=2.0.0,<3.0.0"
 dataclasses-json = "*"
 deprecated = ">=1.2.9.3"
 dirtyjson = ">=1.0.8,<2.0.0"
@@ -2593,19 +2635,19 @@ llama-index-core = ">=0.12.0,<0.13.0"
 
 [[package]]
 name = "llama-index-llms-anthropic"
-version = "0.5.0"
+version = "0.6.10"
 description = "llama-index llms anthropic integration"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["dev"]
 files = [
-    {file = "llama_index_llms_anthropic-0.5.0-py3-none-any.whl", hash = "sha256:2b9367db45deabcbda4db1b1216c95e2663e1e6f129570fc2d275207dd3901cf"},
-    {file = "llama_index_llms_anthropic-0.5.0.tar.gz", hash = "sha256:14e400ccc2deb8e9024ef8cdc24550b67f4240f3563b4564d4870be85de2d9d8"},
+    {file = "llama_index_llms_anthropic-0.6.10-py3-none-any.whl", hash = "sha256:cb1eb525816016a4d179c717d6a0569c8c8bb74e80f4da9ec1628ccd5e54d3ee"},
+    {file = "llama_index_llms_anthropic-0.6.10.tar.gz", hash = "sha256:2b1e88319825dc1a2c7f28a146b197726b7ecba39ff6bde1732368c834f0f16c"},
 ]
 
 [package.dependencies]
-anthropic = {version = ">=0.39.0", extras = ["bedrock", "vertex"]}
-llama-index-core = ">=0.12.0,<0.13.0"
+anthropic = {version = ">=0.49.0", extras = ["bedrock", "vertex"]}
+llama-index-core = ">=0.12.5,<0.13.0"
 
 [[package]]
 name = "llama-index-llms-openai"
@@ -2766,7 +2808,7 @@ version = "2.1.5"
 description = "Safely add untrusted strings to HTML/XML markup."
 optional = false
 python-versions = ">=3.7"
-groups = ["dev", "docs"]
+groups = ["main", "dev", "docs"]
 files = [
     {file = "MarkupSafe-2.1.5-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:a17a92de5231666cfbe003f0e4b9b3a7ae3afb1ec2845aadc2bacc93ff85febc"},
     {file = "MarkupSafe-2.1.5-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:72b6be590cc35924b02c78ef34b467da4ba07e4e0f0454a2c5907f473fc50ce5"},
@@ -2829,6 +2871,7 @@ files = [
     {file = "MarkupSafe-2.1.5-cp39-cp39-win_amd64.whl", hash = "sha256:fa173ec60341d6bb97a89f5ea19c85c5643c1e7dedebc22f5181eb73573142c5"},
     {file = "MarkupSafe-2.1.5.tar.gz", hash = "sha256:d283d37a890ba4c1ae73ffadf8046435c76e7bc2247bbb63c00bd1a709c6544b"},
 ]
+markers = {main = "extra == \"llama-index\""}
 
 [[package]]
 name = "marshmallow"
@@ -3861,11 +3904,12 @@ version = "4.2.1"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "platformdirs-4.2.1-py3-none-any.whl", hash = "sha256:17d5a1161b3fd67b390023cb2d3b026bbd40abde6fdb052dfbd3a29c3ba22ee1"},
     {file = "platformdirs-4.2.1.tar.gz", hash = "sha256:031cd18d4ec63ec53e82dceaac0417d218a6863f7745dfcc9efe7793b7039bdf"},
 ]
+markers = {main = "extra == \"llama-index\""}
 
 [package.extras]
 docs = ["furo (>=2023.9.10)", "proselint (>=0.13)", "sphinx (>=7.2.6)", "sphinx-autodoc-typehints (>=1.25.2)"]
@@ -5969,4 +6013,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "a3f2492722bda2f3d112bf1d874d12ebed21139fb5be821a46fb94a8c1e9c950"
+content-hash = "cc99173baae71e21b70856ae6c79e4e6c50b5b1a03179a48dc3e33b7f8987e5f"
