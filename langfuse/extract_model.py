@@ -106,7 +106,10 @@ def _extract_model_name(
 
 
 def _extract_model_from_repr_by_pattern(
-    id: str, serialized: Optional[Dict[str, Any]], pattern: str, default: Optional[str] = None
+    id: str,
+    serialized: Optional[Dict[str, Any]],
+    pattern: str,
+    default: Optional[str] = None,
 ):
     if serialized is None:
         return None

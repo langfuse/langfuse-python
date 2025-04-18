@@ -34,6 +34,7 @@ class CreateScoreRequest(pydantic_v1.BaseModel):
         alias="observationId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     environment: typing.Optional[str] = pydantic_v1.Field(default=None)
     """
     The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.

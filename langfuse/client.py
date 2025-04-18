@@ -1579,6 +1579,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
@@ -1594,6 +1595,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
@@ -1608,6 +1610,7 @@ class Langfuse(object):
         trace_id: typing.Optional[str] = None,
         id: typing.Optional[str] = None,
         comment: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
         observation_id: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
@@ -1622,6 +1625,7 @@ class Langfuse(object):
             trace_id (str): The id of the trace to which the score should be attached.
             id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
             comment (Optional[str]): Additional context/explanation of the score.
+            metadata (Optional[Any]): Additional metadata of the score. Can be any JSON object. Metadata is merged when being updated via the API.
             observation_id (Optional[str]): The id of the observation to which the score should be attached.
             config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
             **kwargs: Additional keyword arguments to include in the score.
@@ -1661,6 +1665,7 @@ class Langfuse(object):
                 "value": value,
                 "data_type": data_type,
                 "comment": comment,
+                "metadata": metadata,
                 "config_id": config_id,
                 "environment": self.environment,
                 **kwargs,
@@ -2421,6 +2426,7 @@ class StatefulClient(object):
         value: float,
         data_type: typing.Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient": ...
@@ -2434,6 +2440,7 @@ class StatefulClient(object):
         value: str,
         data_type: typing.Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient": ...
@@ -2446,6 +2453,7 @@ class StatefulClient(object):
         value: typing.Union[float, str],
         data_type: typing.Optional[ScoreDataType] = None,
         comment: typing.Optional[str] = None,
+        metadata: typing.Optional[typing.Any] = None,
         config_id: typing.Optional[str] = None,
         **kwargs,
     ) -> "StatefulClient":
@@ -2457,6 +2465,7 @@ class StatefulClient(object):
             data_type (Optional[ScoreDataType]): The data type of the score. When not set, the data type is inferred from the score config's data type, when present.
               When no config is set, the data type is inferred from the value's type, i.e. float values are categorized as numeric scores and string values as categorical scores.
             comment (Optional[str]): Additional context/explanation of the score.
+            metadata (Optional[Any]): Additional metadata of the score. Can be any JSON object. Metadata is merged when being updated via the API.
             id (Optional[str]): The id of the score. If not provided, a new UUID is generated.
             config_id (Optional[str]): The id of the score config. When set, the score value is validated against the config. Defaults to None.
             **kwargs: Additional keyword arguments to include in the score.
@@ -2490,6 +2499,7 @@ class StatefulClient(object):
                 "value": value,
                 "data_type": data_type,
                 "comment": comment,
+                "metadata": metadata,
                 "config_id": config_id,
                 "environment": self.environment,
                 **kwargs,
