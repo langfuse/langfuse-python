@@ -21,7 +21,7 @@ from ..version import __version__ as langfuse_version
 class LangfuseTracer:
     """Singleton that provides access to the OTEL tracer."""
 
-    _instances: Dict[str, Optional["LangfuseTracer"]] = {}
+    _instances: Dict[str, "LangfuseTracer"] = {}
     _lock = threading.Lock()
 
     def __new__(
@@ -30,10 +30,12 @@ class LangfuseTracer:
         public_key: str,
         secret_key: str,
         host: str,
-        timeout: Optional[int] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
-    ):
+        timeout: Optional[int] = None,
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[float] = None,
+    ) -> "LangfuseTracer":
         if public_key in cls._instances:
             return cls._instances[public_key]
 
@@ -48,6 +50,8 @@ class LangfuseTracer:
                     timeout=timeout,
                     environment=environment,
                     release=release,
+                    flush_at=flush_at,
+                    flush_interval=flush_interval,
                 )
 
                 cls._instances[public_key] = instance
@@ -60,9 +64,11 @@ class LangfuseTracer:
         public_key: str,
         secret_key: str,
         host: str,
-        timeout: Optional[int] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
+        timeout: Optional[int] = None,
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[float] = None,
     ):
         tracer_provider = _init_tracer_provider(
             environment=environment, release=release
@@ -73,6 +79,8 @@ class LangfuseTracer:
             secret_key=secret_key,
             host=host,
             timeout=timeout,
+            flush_at=flush_at,
+            flush_interval=flush_interval,
         )
         tracer_provider.add_span_processor(langfuse_processor)
 
