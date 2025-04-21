@@ -19,6 +19,8 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         secret_key: str,
         host: str,
         timeout: Optional[int] = None,
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[float] = None,
     ):
         self.public_key = public_key
 
@@ -36,7 +38,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             timeout=timeout,
         )
 
-        super().__init__(span_exporter=langfuse_span_exporter)
+        super().__init__(
+            span_exporter=langfuse_span_exporter,
+            export_timeout_millis=timeout * 1_000 if timeout else None,
+            max_export_batch_size=flush_at,
+            schedule_delay_millis=flush_interval,
+        )
 
     def on_end(self, span: ReadableSpan) -> None:
         # Only export spans that belong to the scoped project

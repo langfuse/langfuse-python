@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Literal, Optional, cast
 import httpx
 from opentelemetry import trace
 from opentelemetry import trace as otel_trace_api
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
@@ -43,15 +44,15 @@ class Langfuse:
         httpx_client: Optional[httpx.Client] = None,
         debug: bool = False,
         tracing_enabled: Optional[bool] = True,
-        # threads: Optional[int] = None,
-        # flush_at: Optional[int] = None,
-        # flush_interval: Optional[float] = None,
-        # max_retries: Optional[int] = None,
-        # sample_rate: Optional[float] = None,
-        # mask: Optional[MaskFunction] = None,
-        # sdk_integration: Optional[str] = "default",
+        flush_at: Optional[int] = None,
+        flush_interval: Optional[float] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
+        # sample_rate: Optional[float] = None, # TODO: Implement sampling
+        # mask: Optional[MaskFunction] = None, # TODO: implement masking
+        # sdk_integration: Optional[str] = "default", -> TO BE DEPRECATED
+        # threads: Optional[int] = None, -> TO BE DEPRECATED
+        # max_retries: Optional[int] = None, -> TO BE DEPRECATED
     ):
         debug = debug if debug else (os.getenv(LANGFUSE_DEBUG, "False") == "True")
 
@@ -115,6 +116,8 @@ class Langfuse:
                 timeout=timeout,
                 environment=environment,
                 release=release,
+                flush_at=flush_at,
+                flush_interval=flush_interval,
             ).tracer
             if self.tracing_enabled
             else otel_trace_api.NoOpTracer()
@@ -271,7 +274,7 @@ class Langfuse:
             ) as span:
                 yield span
 
-    @staticmethod
+    @staticmethod  # TODO: reconsider marking methods as static as changing object method later is breaking change
     def get_current_span():
         return otel_trace_api.get_current_span()
 
@@ -496,8 +499,16 @@ class Langfuse:
 
     @staticmethod
     def flush():
-        pass
+        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+        if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
+            return
+
+        tracer_provider.force_flush()
 
     @staticmethod
     def shutdown():
-        pass
+        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+        if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
+            return
+
+        tracer_provider.force_flush()
