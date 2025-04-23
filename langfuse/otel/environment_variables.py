@@ -33,7 +33,9 @@ LANGFUSE_HOST = "LANGFUSE_HOST"
 """
 .. envvar:: LANGFUSE_HOST
 
-Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable. Defaults to `https://cloud.langfuse.com`.
+Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable.
+
+**Default value:** ``"https://cloud.langfuse.com"``
 """
 
 LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
@@ -41,6 +43,8 @@ LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
 .. envvar:: LANGFUSE_DEBUG
 
 Enables debug mode for more verbose logging.
+
+**Default value:** ``"False"``
 """
 
 LANGFUSE_TRACING_ENABLED = "LANGFUSE_TRACING_ENABLED"
@@ -48,4 +52,15 @@ LANGFUSE_TRACING_ENABLED = "LANGFUSE_TRACING_ENABLED"
 .. envvar:: LANGFUSE_TRACING_ENABLED
 
 Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops. Default is True. Set to `False` to disable tracing.
+
+**Default value:** ``"True"``
+"""
+
+LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT = "LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT"
+"""
+.. envvar:: LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT 
+
+Number of background threads to handle media uploads from trace ingestion.
+
+**Default value:** ``1``
 """

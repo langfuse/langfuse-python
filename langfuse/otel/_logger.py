@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("langfuse")
+langfuse_logger = logging.getLogger("langfuse")
 
 # handle httpx logging
 httpx_logger = logging.getLogger("httpx")

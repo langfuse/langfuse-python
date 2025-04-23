@@ -5,8 +5,9 @@ import hashlib
 import logging
 import os
 import re
+from typing import Any, Literal, Optional, Tuple, TypeVar, cast
+
 import requests
-from typing import Optional, cast, Tuple, Any, TypeVar, Literal
 
 from langfuse.api import MediaContentType
 from langfuse.types import ParsedMediaReference
