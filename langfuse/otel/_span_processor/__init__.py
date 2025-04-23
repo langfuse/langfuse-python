@@ -5,7 +5,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from langfuse.otel._logger import logger
+from langfuse.otel._logger import langfuse_logger
 from langfuse.otel._utils import span_formatter
 from langfuse.otel.constants import LANGFUSE_TRACER_NAME
 from langfuse.version import __version__ as langfuse_version
@@ -50,12 +50,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # Only export spans that belong to the scoped project
         # This is important to not send spans to wrong project in multi-project setups
         if self._is_langfuse_span(span) and not self._is_langfuse_project_span(span):
-            logger.debug(
+            langfuse_logger.debug(
                 f"Skipping span from different project (current processor is for project '{self.public_key}'): {span_formatter(span)}"
             )
             return
 
-        logger.debug(f"Processing span:\n{span_formatter(span)}")
+        langfuse_logger.debug(f"Processing span:\n{span_formatter(span)}")
 
         super().on_end(span)
 
