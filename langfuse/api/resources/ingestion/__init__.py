@@ -26,6 +26,8 @@ from .types import (
     IngestionUsage,
     ObservationBody,
     ObservationType,
+    OpenAiCompletionUsageSchema,
+    OpenAiResponseUsageSchema,
     OpenAiUsage,
     OptionalObservationBody,
     ScoreBody,
@@ -40,6 +42,7 @@ from .types import (
     UpdateObservationEvent,
     UpdateSpanBody,
     UpdateSpanEvent,
+    UsageDetails,
 )
 
 __all__ = [
@@ -68,6 +71,8 @@ __all__ = [
     "IngestionUsage",
     "ObservationBody",
     "ObservationType",
+    "OpenAiCompletionUsageSchema",
+    "OpenAiResponseUsageSchema",
     "OpenAiUsage",
     "OptionalObservationBody",
     "ScoreBody",
@@ -82,4 +87,5 @@ __all__ = [
     "UpdateObservationEvent",
     "UpdateSpanBody",
     "UpdateSpanEvent",
+    "UsageDetails",
 ]

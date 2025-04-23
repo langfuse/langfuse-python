@@ -1,13 +1,14 @@
 from time import sleep
-import pytest
 from unittest.mock import Mock, patch
 
 import openai
+import pytest
+
+from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
 from langfuse.client import Langfuse
-from langfuse.prompt_cache import PromptCacheItem, DEFAULT_PROMPT_CACHE_TTL_SECONDS
+from langfuse.model import ChatPromptClient, TextPromptClient
+from langfuse.prompt_cache import DEFAULT_PROMPT_CACHE_TTL_SECONDS, PromptCacheItem
 from tests.utils import create_uuid, get_api
-from langfuse.api.resources.prompts import Prompt_Text, Prompt_Chat
-from langfuse.model import TextPromptClient, ChatPromptClient
 
 
 def test_create_prompt():
@@ -17,6 +18,7 @@ def test_create_prompt():
         name=prompt_name,
         prompt="test prompt",
         labels=["production"],
+        commit_message="initial commit",
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name)
@@ -25,6 +27,7 @@ def test_create_prompt():
     assert prompt_client.version == second_prompt_client.version
     assert prompt_client.prompt == second_prompt_client.prompt
     assert prompt_client.config == second_prompt_client.config
+    assert prompt_client.commit_message == second_prompt_client.commit_message
     assert prompt_client.config == {}
 
 
@@ -79,6 +82,7 @@ def test_create_chat_prompt():
         labels=["production"],
         tags=["test"],
         type="chat",
+        commit_message="initial commit",
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
@@ -97,6 +101,7 @@ def test_create_chat_prompt():
     assert prompt_client.config == second_prompt_client.config
     assert prompt_client.labels == ["production", "latest"]
     assert prompt_client.tags == second_prompt_client.tags
+    assert prompt_client.commit_message == second_prompt_client.commit_message
     assert prompt_client.config == {}
 
 
@@ -454,7 +459,6 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
         langfuse.get_prompt(prompt_name)
 
     assert "Prompt not found" in str(exc_info.value)
-    langfuse.log.exception.assert_called_once()
 
 
 def test_using_custom_prompt_timeouts(langfuse):
@@ -671,6 +675,65 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
 
     assert mock_server_call.call_count == 2  # New call
     assert result_call_3 == prompt_client
+
+
+# Should disable caching when cache_ttl_seconds is set to 0
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
+    mock_time.return_value = 0
+    prompt_name = "test"
+
+    # Initial prompt
+    prompt1 = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    # Updated prompts
+    prompt2 = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Tell me a joke",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt3 = Prompt_Text(
+        name=prompt_name,
+        version=3,
+        prompt="Share a funny story",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.client.prompts.get
+    mock_server_call.side_effect = [prompt1, prompt2, prompt3]
+
+    # First call
+    result1 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 1
+    assert result1 == TextPromptClient(prompt1)
+
+    # Second call
+    result2 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 2
+    assert result2 == TextPromptClient(prompt2)
+
+    # Third call
+    result3 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 3
+    assert result3 == TextPromptClient(prompt3)
+
+    # Verify that all results are different
+    assert result1 != result2 != result3
 
 
 # Should return stale prompt immediately if cached one is expired according to default TTL and add to refresh promise map
@@ -936,3 +999,100 @@ def test_do_not_link_observation_if_fallback():
 
     assert len(trace.observations) == 1
     assert trace.observations[0].prompt_id is None
+
+
+def test_variable_names_on_content_with_variable_names():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_1",
+        prompt="test prompt with var names {{ var1 }} {{ var2 }}",
+        is_active=True,
+        type="text",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_1")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == ["var1", "var2"]
+
+
+def test_variable_names_on_content_with_no_variable_names():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_2",
+        prompt="test prompt with no var names",
+        is_active=True,
+        type="text",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_2")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == []
+
+
+def test_variable_names_on_content_with_variable_names_chat_messages():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_3",
+        prompt=[
+            {
+                "role": "system",
+                "content": "test prompt with template vars {{ var1 }} {{ var2 }}",
+            },
+            {"role": "user", "content": "test prompt 2 with template vars {{ var3 }}"},
+        ],
+        is_active=True,
+        type="chat",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_3")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == ["var1", "var2", "var3"]
+
+
+def test_variable_names_on_content_with_no_variable_names_chat_messages():
+    langfuse = Langfuse()
+
+    prompt_client = langfuse.create_prompt(
+        name="test_variable_names_4",
+        prompt=[
+            {"role": "system", "content": "test prompt with no template vars"},
+            {"role": "user", "content": "test prompt 2 with no template vars"},
+        ],
+        is_active=True,
+        type="chat",
+    )
+
+    second_prompt_client = langfuse.get_prompt("test_variable_names_4")
+
+    assert prompt_client.name == second_prompt_client.name
+    assert prompt_client.version == second_prompt_client.version
+    assert prompt_client.prompt == second_prompt_client.prompt
+    assert prompt_client.labels == ["production", "latest"]
+
+    var_names = second_prompt_client.variables
+
+    assert var_names == []

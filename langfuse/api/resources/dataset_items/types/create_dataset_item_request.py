@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import pydantic_v1
+from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from ...commons.types.dataset_status import DatasetStatus
 
 
@@ -23,7 +23,7 @@ class CreateDatasetItemRequest(pydantic_v1.BaseModel):
     )
     id: typing.Optional[str] = pydantic_v1.Field(default=None)
     """
-    Dataset items are upserted on their id. Id needs to be globally unique and cannot be reused across datasets.
+    Dataset items are upserted on their id. Id needs to be unique (project-level) and cannot be reused across datasets.
     """
 
     status: typing.Optional[DatasetStatus] = pydantic_v1.Field(default=None)
@@ -40,12 +40,21 @@ class CreateDatasetItemRequest(pydantic_v1.BaseModel):
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
+        kwargs_with_defaults_exclude_unset: typing.Any = {
             "by_alias": True,
             "exclude_unset": True,
             **kwargs,
         }
-        return super().dict(**kwargs_with_defaults)
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
+
+        return deep_union_pydantic_dicts(
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
+        )
 
     class Config:
         frozen = True

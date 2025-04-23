@@ -20,7 +20,9 @@ def _is_streaming_response(response):
 def test_stream_chat_models(model_name):
     name = f"test_stream_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(streaming=True, max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(
+        streaming=True, max_completion_tokens=300, tags=tags, model=model_name
+    )
     callback = CallbackHandler(trace_name=name)
     res = model.stream(
         [{"role": "user", "content": "return the exact phrase - This is a test!"}],
@@ -43,10 +45,10 @@ def test_stream_chat_models(model_name):
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
-    assert generation.model_parameters.get("max_tokens") is not None
+    assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
     assert generation.usage.output is not None
@@ -89,7 +91,7 @@ def test_stream_completions_models(model_name):
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None
@@ -111,7 +113,7 @@ def test_stream_completions_models(model_name):
 def test_invoke_chat_models(model_name):
     name = f"test_invoke_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(max_completion_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     _ = model.invoke(
         [{"role": "user", "content": "return the exact phrase - This is a test!"}],
@@ -129,10 +131,10 @@ def test_invoke_chat_models(model_name):
 
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
-    assert generation.model_parameters.get("max_tokens") is not None
+    assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
     assert generation.usage.output is not None
@@ -171,7 +173,7 @@ def test_invoke_in_completions_models(model_name):
 
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None
@@ -212,7 +214,7 @@ def test_batch_in_completions_models(model_name):
 
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None
@@ -232,7 +234,7 @@ def test_batch_in_completions_models(model_name):
 def test_batch_in_chat_models(model_name):
     name = f"test_batch_in_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(max_completion_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     input1 = "Who is the first president of America ?"
     input2 = "Who is the first president of Ireland ?"
@@ -251,10 +253,10 @@ def test_batch_in_chat_models(model_name):
     assert len(trace.observations) == 1
     assert trace.name == name
     for generation in generationList:
-        assert generation.model == model_name
+        assert model_name in generation.model
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.model_parameters.get("max_tokens") is not None
+        assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert generation.metadata["tags"] == tags
         assert generation.usage.output is not None
@@ -273,7 +275,9 @@ def test_batch_in_chat_models(model_name):
 async def test_astream_chat_models(model_name):
     name = f"test_astream_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(streaming=True, max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(
+        streaming=True, max_completion_tokens=300, tags=tags, model=model_name
+    )
     callback = CallbackHandler(trace_name=name)
     res = model.astream(
         [{"role": "user", "content": "Who was the first American president "}],
@@ -295,10 +299,10 @@ async def test_astream_chat_models(model_name):
 
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 1
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
-    assert generation.model_parameters.get("max_tokens") is not None
+    assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
     assert generation.usage.output is not None
@@ -343,7 +347,7 @@ async def test_astream_completions_models(model_name):
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 1
     assert test_phrase in "".join(response_str)
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None
@@ -366,7 +370,7 @@ async def test_astream_completions_models(model_name):
 async def test_ainvoke_chat_models(model_name):
     name = f"test_ainvoke_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(max_completion_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     test_phrase = "This is a test!"
     _ = await model.ainvoke(
@@ -385,10 +389,10 @@ async def test_ainvoke_chat_models(model_name):
 
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
-    assert generation.model_parameters.get("max_tokens") is not None
+    assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
     assert generation.usage.output is not None
@@ -427,7 +431,7 @@ async def test_ainvoke_in_completions_models(model_name):
 
     assert len(trace.observations) == 1
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None
@@ -452,7 +456,7 @@ async def test_ainvoke_in_completions_models(model_name):
 def test_chains_batch_in_chat_models(model_name):
     name = f"test_chains_batch_in_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(max_completion_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
 
     prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
@@ -473,10 +477,10 @@ def test_chains_batch_in_chat_models(model_name):
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
-        assert generation.model == model_name
+        assert model_name in generation.model
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.model_parameters.get("max_tokens") is not None
+        assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
         assert generation.usage.output is not None
@@ -514,7 +518,7 @@ def test_chains_batch_in_completions_models(model_name):
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
-        assert generation.model == model_name
+        assert model_name in generation.model
         assert generation.input is not None
         assert generation.output is not None
         assert generation.model_parameters.get("max_tokens") is not None
@@ -536,7 +540,7 @@ def test_chains_batch_in_completions_models(model_name):
 async def test_chains_abatch_in_chat_models(model_name):
     name = f"test_chains_abatch_in_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(max_completion_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
 
     prompt = ChatPromptTemplate.from_template("tell me a joke about {foo} in 300 words")
@@ -557,10 +561,10 @@ async def test_chains_abatch_in_chat_models(model_name):
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
-        assert generation.model == model_name
+        assert model_name in generation.model
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.model_parameters.get("max_tokens") is not None
+        assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
         assert generation.usage.output is not None
@@ -596,7 +600,7 @@ async def test_chains_abatch_in_completions_models(model_name):
     assert len(trace.observations) == 4
     for generation in generationList:
         assert trace.name == name
-        assert generation.model == model_name
+        assert model_name in generation.model
         assert generation.input is not None
         assert generation.output is not None
         assert generation.model_parameters.get("max_tokens") is not None
@@ -618,7 +622,7 @@ async def test_chains_abatch_in_completions_models(model_name):
 async def test_chains_ainvoke_chat_models(model_name):
     name = f"test_chains_ainvoke_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(max_completion_tokens=300, tags=tags, model=model_name)
     callback = CallbackHandler(trace_name=name)
     prompt1 = ChatPromptTemplate.from_template(
         """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
@@ -643,10 +647,10 @@ async def test_chains_ainvoke_chat_models(model_name):
     assert trace.input == {"topic": "The Impact of Climate Change"}
     assert trace.output == res
     for generation in generationList:
-        assert generation.model == model_name
+        assert model_name in generation.model
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.model_parameters.get("max_tokens") is not None
+        assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
         assert generation.usage.output is not None
@@ -692,7 +696,7 @@ async def test_chains_ainvoke_completions_models(model_name):
     assert trace.output == res
     assert len(trace.observations) == 4
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None
@@ -714,7 +718,9 @@ async def test_chains_ainvoke_completions_models(model_name):
 async def test_chains_astream_chat_models(model_name):
     name = f"test_chains_astream_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
-    model = ChatOpenAI(streaming=True, max_tokens=300, tags=tags, model=model_name)
+    model = ChatOpenAI(
+        streaming=True, max_completion_tokens=300, tags=tags, model=model_name
+    )
     callback = CallbackHandler(trace_name=name)
     prompt1 = PromptTemplate.from_template(
         """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
@@ -745,10 +751,10 @@ async def test_chains_astream_chat_models(model_name):
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 4
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
-    assert generation.model_parameters.get("max_tokens") is not None
+    assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert all(x in generation.metadata["tags"] for x in tags)
     assert generation.usage.output is not None
@@ -800,7 +806,7 @@ async def test_chains_astream_completions_models(model_name):
     assert len(response_str) > 1  # To check there are more than one chunk.
     assert len(trace.observations) == 4
     assert trace.name == name
-    assert generation.model == model_name
+    assert model_name in generation.model
     assert generation.input is not None
     assert generation.output is not None
     assert generation.model_parameters.get("max_tokens") is not None

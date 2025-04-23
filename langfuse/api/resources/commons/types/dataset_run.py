@@ -4,18 +4,49 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import pydantic_v1
+from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 
 
 class DatasetRun(pydantic_v1.BaseModel):
-    id: str
-    name: str
-    description: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    id: str = pydantic_v1.Field()
+    """
+    Unique identifier of the dataset run
+    """
+
+    name: str = pydantic_v1.Field()
+    """
+    Name of the dataset run
+    """
+
+    description: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    Description of the run
+    """
+
+    metadata: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
+    """
+    Metadata of the dataset run
+    """
+
     dataset_id: str = pydantic_v1.Field(alias="datasetId")
+    """
+    Id of the associated dataset
+    """
+
     dataset_name: str = pydantic_v1.Field(alias="datasetName")
+    """
+    Name of the associated dataset
+    """
+
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
+    """
+    The date and time when the dataset run was created
+    """
+
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+    """
+    The date and time when the dataset run was last updated
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -26,12 +57,21 @@ class DatasetRun(pydantic_v1.BaseModel):
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
+        kwargs_with_defaults_exclude_unset: typing.Any = {
             "by_alias": True,
             "exclude_unset": True,
             **kwargs,
         }
-        return super().dict(**kwargs_with_defaults)
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
+
+        return deep_union_pydantic_dicts(
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
+        )
 
     class Config:
         frozen = True

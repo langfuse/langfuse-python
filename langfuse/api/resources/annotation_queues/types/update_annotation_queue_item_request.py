@@ -4,14 +4,12 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import pydantic_v1
-from ...commons.types.score import Score
-from ...utils.resources.pagination.types.meta_response import MetaResponse
+from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .annotation_queue_status import AnnotationQueueStatus
 
 
-class Scores(pydantic_v1.BaseModel):
-    data: typing.List[Score]
-    meta: MetaResponse
+class UpdateAnnotationQueueItemRequest(pydantic_v1.BaseModel):
+    status: typing.Optional[AnnotationQueueStatus] = None
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -22,12 +20,21 @@ class Scores(pydantic_v1.BaseModel):
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
+        kwargs_with_defaults_exclude_unset: typing.Any = {
             "by_alias": True,
             "exclude_unset": True,
             **kwargs,
         }
-        return super().dict(**kwargs_with_defaults)
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
+
+        return deep_union_pydantic_dicts(
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
+        )
 
     class Config:
         frozen = True

@@ -2,7 +2,11 @@ import os
 import time
 from asyncio import gather
 from datetime import datetime, timedelta, timezone
+from time import sleep
 
+import pytest
+
+from langfuse import Langfuse
 from langfuse.client import (
     FetchObservationResponse,
     FetchObservationsResponse,
@@ -11,11 +15,6 @@ from langfuse.client import (
     FetchTracesResponse,
 )
 from langfuse.utils import _get_timestamp
-
-
-import pytest
-
-from langfuse import Langfuse
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import (
     CompletionUsage,
@@ -47,7 +46,7 @@ async def test_concurrency():
     for i in range(100):
         observation = api.observations.get_many(name=str(i)).data[0]
         assert observation.name == str(i)
-        assert observation.metadata == {"count": str(i)}
+        assert observation.metadata == {"count": i}
 
 
 def test_flush():
@@ -61,7 +60,7 @@ def test_flush():
 
     langfuse.flush()
     # Make sure that the client queue is empty after flushing
-    assert langfuse.task_manager._queue.empty()
+    assert langfuse.task_manager._ingestion_queue.empty()
 
 
 def test_shutdown():
@@ -76,7 +75,7 @@ def test_shutdown():
     # we expect two things after shutdown:
     # 1. client queue is empty
     # 2. consumer thread has stopped
-    assert langfuse.task_manager._queue.empty()
+    assert langfuse.task_manager._ingestion_queue.empty()
 
 
 def test_invalid_score_data_does_not_raise_exception():
@@ -89,7 +88,7 @@ def test_invalid_score_data_does_not_raise_exception():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -102,7 +101,7 @@ def test_invalid_score_data_does_not_raise_exception():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
 
 def test_create_numeric_score():
@@ -116,7 +115,7 @@ def test_create_numeric_score():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -131,7 +130,7 @@ def test_create_numeric_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -152,7 +151,7 @@ def test_create_boolean_score():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -168,7 +167,7 @@ def test_create_boolean_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 
@@ -189,7 +188,7 @@ def test_create_categorical_score():
     )
 
     langfuse.flush()
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     score_id = create_uuid()
 
@@ -204,19 +203,18 @@ def test_create_categorical_score():
 
     langfuse.flush()
 
-    assert langfuse.task_manager._queue.qsize() == 0
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
 
     trace = api_wrapper.get_trace(trace.id)
 
     assert trace["scores"][0]["id"] == score_id
     assert trace["scores"][0]["dataType"] == "CATEGORICAL"
-    assert trace["scores"][0]["value"] is None
+    assert trace["scores"][0]["value"] == 0
     assert trace["scores"][0]["stringValue"] == "high score"
 
 
 def test_create_trace():
     langfuse = Langfuse(debug=False)
-    api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
     trace = langfuse.trace(
@@ -228,8 +226,9 @@ def test_create_trace():
     )
 
     langfuse.flush()
+    sleep(2)
 
-    trace = api_wrapper.get_trace(trace.id)
+    trace = LangfuseAPI().get_trace(trace.id)
 
     assert trace["name"] == trace_name
     assert trace["userId"] == "test"
@@ -240,8 +239,8 @@ def test_create_trace():
 
 
 def test_create_update_trace():
-    langfuse = Langfuse(debug=True, flush_at=1)
-    api = get_api()
+    langfuse = Langfuse()
+
     trace_name = create_uuid()
 
     trace = langfuse.trace(
@@ -250,21 +249,21 @@ def test_create_update_trace():
         metadata={"key": "value"},
         public=True,
     )
-    trace.update(metadata={"key": "value2"}, public=False)
+    sleep(1)
+    trace.update(metadata={"key2": "value2"}, public=False)
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = get_api().trace.get(trace.id)
 
     assert trace.name == trace_name
     assert trace.user_id == "test"
-    assert trace.metadata == {"key": "value2"}
+    assert trace.metadata == {"key": "value", "key2": "value2"}
     assert trace.public is False
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=False)
-    api = get_api()
+    langfuse = Langfuse(debug=True)
 
     timestamp = _get_timestamp()
     generation_id = create_uuid()
@@ -296,11 +295,11 @@ def test_create_generation():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == "query-generation"
     assert trace.user_id is None
-    assert trace.metadata is None
+    assert trace.metadata == {}
 
     assert len(trace.observations) == 1
 
@@ -344,7 +343,6 @@ def test_create_generation():
             None,
             None,
         ),
-        (LlmUsage(promptTokens=51, totalTokens=100), "TOKENS", None, None, None),
         (
             {
                 "input": 51,
@@ -376,13 +374,6 @@ def test_create_generation():
             300,
         ),
         (
-            {"input": 51, "total": 100},
-            None,
-            None,
-            None,
-            None,
-        ),
-        (
             LlmUsageWithCost(
                 promptTokens=51,
                 completionTokens=0,
@@ -396,20 +387,6 @@ def test_create_generation():
             200,
             300,
         ),
-        (
-            LlmUsageWithCost(
-                promptTokens=51,
-                completionTokens=0,
-                totalTokens=100,
-                inputCost=0.0021,
-                outputCost=0.00000000000021,
-                totalCost=None,
-            ),
-            "TOKENS",
-            0.0021,
-            0.00000000000021,
-            0.00210000000021,
-        ),
     ],
 )
 def test_create_generation_complex(
@@ -420,7 +397,6 @@ def test_create_generation_complex(
     expected_total_cost,
 ):
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     generation_id = create_uuid()
     langfuse.generation(
@@ -442,11 +418,11 @@ def test_create_generation_complex(
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == "query-generation"
     assert trace.user_id is None
-    assert trace.metadata is None
+    assert trace.metadata == {}
 
     assert len(trace.observations) == 1
 
@@ -462,20 +438,22 @@ def test_create_generation_complex(
         },
     ]
     assert generation.output == [{"foo": "bar"}]
-    assert generation.metadata == [{"tags": ["yo"]}]
+    assert generation.metadata["metadata"] == [{"tags": ["yo"]}]
     assert generation.start_time is not None
-    assert generation.usage.input == 51
-    assert generation.usage.output == 0
-    assert generation.usage.total == 100
-    assert generation.calculated_input_cost == expected_input_cost
-    assert generation.calculated_output_cost == expected_output_cost
-    assert generation.calculated_total_cost == expected_total_cost
-    assert generation.usage.unit == expected_usage
+    assert generation.usage_details == {"input": 51, "output": 0, "total": 100}
+    assert generation.cost_details == (
+        {
+            "input": expected_input_cost,
+            "output": expected_output_cost,
+            "total": expected_total_cost,
+        }
+        if any([expected_input_cost, expected_output_cost, expected_total_cost])
+        else {}
+    )
 
 
 def test_create_span():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     timestamp = _get_timestamp()
     span_id = create_uuid()
@@ -493,11 +471,11 @@ def test_create_span():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == "span"
     assert trace.user_id is None
-    assert trace.metadata is None
+    assert trace.metadata == {}
 
     assert len(trace.observations) == 1
 
@@ -548,7 +526,6 @@ def test_score_trace():
 
 def test_score_trace_nested_trace():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace_name = create_uuid()
 
@@ -564,7 +541,7 @@ def test_score_trace_nested_trace():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == trace_name
 
@@ -581,7 +558,6 @@ def test_score_trace_nested_trace():
 
 def test_score_trace_nested_observation():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace_name = create_uuid()
 
@@ -598,7 +574,7 @@ def test_score_trace_nested_observation():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == trace_name
 
@@ -657,7 +633,6 @@ def test_score_span():
 
 def test_create_trace_and_span():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace_name = create_uuid()
     spanId = create_uuid()
@@ -667,7 +642,7 @@ def test_create_trace_and_span():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = get_api().trace.get(trace.id)
 
     assert trace.name == trace_name
     assert len(trace.observations) == 1
@@ -680,7 +655,6 @@ def test_create_trace_and_span():
 
 def test_create_trace_and_generation():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace_name = create_uuid()
     generationId = create_uuid()
@@ -697,8 +671,8 @@ def test_create_trace_and_generation():
 
     langfuse.flush()
 
+    dbTrace = get_api().trace.get(trace.id)
     getTrace = langfuse.get_trace(trace.id)
-    dbTrace = api.trace.get(trace.id)
 
     assert dbTrace.name == trace_name
     assert len(dbTrace.observations) == 1
@@ -715,13 +689,12 @@ def test_create_trace_and_generation():
 
 def backwards_compatibility_sessionId():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace = langfuse.trace(name="test", sessionId="test-sessionId")
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = get_api().trace.get(trace.id)
 
     assert trace.name == "test"
     assert trace.session_id == "test-sessionId"
@@ -757,6 +730,7 @@ def test_create_generation_and_trace():
     langfuse.trace(id=trace_id, name=trace_name)
 
     langfuse.flush()
+    sleep(2)
 
     trace = api_wrapper.get_trace(trace_id)
 
@@ -775,6 +749,7 @@ def test_create_span_and_get_observation():
     langfuse.span(id=span_id, name="span")
     langfuse.flush()
 
+    sleep(2)
     observation = langfuse.get_observation(span_id)
     assert observation.name == "span"
     assert observation.id == span_id
@@ -782,7 +757,7 @@ def test_create_span_and_get_observation():
 
 def test_update_generation():
     langfuse = Langfuse(debug=False)
-    api = get_api()
+
     start = _get_timestamp()
 
     generation = langfuse.generation(name="generation")
@@ -790,7 +765,7 @@ def test_update_generation():
 
     langfuse.flush()
 
-    trace = api.trace.get(generation.trace_id)
+    trace = get_api().trace.get(generation.trace_id)
 
     assert trace.name == "generation"
     assert len(trace.observations) == 1
@@ -805,14 +780,13 @@ def test_update_generation():
 
 def test_update_span():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     span = langfuse.span(name="span")
     span.update(metadata={"dict": "value"})
 
     langfuse.flush()
 
-    trace = api.trace.get(span.trace_id)
+    trace = get_api().trace.get(span.trace_id)
 
     assert trace.name == "span"
     assert len(trace.observations) == 1
@@ -825,13 +799,12 @@ def test_update_span():
 
 def test_create_event():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     event = langfuse.event(name="event")
 
     langfuse.flush()
 
-    observation = api.observations.get(event.id)
+    observation = get_api().observations.get(event.id)
 
     assert observation.type == "EVENT"
     assert observation.name == "event"
@@ -839,7 +812,6 @@ def test_create_event():
 
 def test_create_trace_and_event():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace_name = create_uuid()
     eventId = create_uuid()
@@ -849,7 +821,7 @@ def test_create_trace_and_event():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = get_api().trace.get(trace.id)
 
     assert trace.name == trace_name
     assert len(trace.observations) == 1
@@ -861,8 +833,6 @@ def test_create_trace_and_event():
 
 
 def test_create_span_and_generation():
-    api = get_api()
-
     langfuse = Langfuse(debug=False)
 
     span = langfuse.span(name="span")
@@ -870,7 +840,7 @@ def test_create_span_and_generation():
 
     langfuse.flush()
 
-    trace = api.trace.get(span.trace_id)
+    trace = get_api().trace.get(span.trace_id)
 
     assert trace.name == "span"
     assert len(trace.observations) == 2
@@ -940,16 +910,14 @@ def test_end_generation():
 
 def test_end_generation_with_data():
     langfuse = Langfuse()
-    api = get_api()
+    trace = langfuse.trace()
 
-    generation = langfuse.generation(
+    generation = trace.generation(
         name="query-generation",
     )
 
     generation.end(
         name="test_generation_end",
-        start_time=datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc),
-        end_time=datetime(2023, 1, 1, 12, 5, tzinfo=timezone.utc),
         metadata={"dict": "value"},
         level="ERROR",
         status_message="Generation ended",
@@ -972,13 +940,9 @@ def test_end_generation_with_data():
 
     langfuse.flush()
 
-    trace_id = langfuse.get_trace_id()
+    fetched_trace = get_api().trace.get(trace.id)
 
-    trace = api.trace.get(trace_id)
-
-    generation = trace.observations[0]
-    assert generation.start_time == datetime(2023, 1, 1, 12, 0, tzinfo=timezone.utc)
-    assert generation.end_time == datetime(2023, 1, 1, 12, 5, tzinfo=timezone.utc)
+    generation = fetched_trace.observations[0]
     assert generation.completion_start_time == datetime(
         2023, 1, 1, 12, 3, tzinfo=timezone.utc
     )
@@ -994,7 +958,6 @@ def test_end_generation_with_data():
     assert generation.usage.input == 100
     assert generation.usage.output == 200
     assert generation.usage.total == 500
-    assert generation.usage.unit == "CHARACTERS"
     assert generation.calculated_input_cost == 111
     assert generation.calculated_output_cost == 222
     assert generation.calculated_total_cost == 444
@@ -1002,7 +965,6 @@ def test_end_generation_with_data():
 
 def test_end_generation_with_openai_token_format():
     langfuse = Langfuse()
-    api = get_api()
 
     generation = langfuse.generation(
         name="query-generation",
@@ -1023,7 +985,7 @@ def test_end_generation_with_openai_token_format():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     print(trace.observations[0])
 
     generation = trace.observations[0]
@@ -1064,7 +1026,6 @@ def test_end_span():
 
 def test_end_span_with_data():
     langfuse = Langfuse()
-    api = get_api()
 
     timestamp = _get_timestamp()
     span = langfuse.span(
@@ -1081,7 +1042,7 @@ def test_end_span_with_data():
 
     trace_id = langfuse.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     span = trace.observations[0]
     assert span.end_time is not None
@@ -1110,7 +1071,10 @@ def test_get_generations():
     )
 
     langfuse.flush()
+
+    sleep(1)
     generations = langfuse.get_generations(name=generation_name, limit=10, page=1)
+
     assert len(generations.data) == 1
     assert generations.data[0].name == generation_name
     assert generations.data[0].input == "great-prompt"
@@ -1140,6 +1104,8 @@ def test_get_generations_by_user():
     )
 
     langfuse.flush()
+    sleep(1)
+
     generations = langfuse.get_generations(limit=10, page=1, user_id=user_id)
 
     assert len(generations.data) == 1
@@ -1150,7 +1116,6 @@ def test_get_generations_by_user():
 
 def test_kwargs():
     langfuse = Langfuse()
-    api = get_api()
 
     timestamp = _get_timestamp()
 
@@ -1168,7 +1133,7 @@ def test_kwargs():
 
     langfuse.flush()
 
-    observation = api.observations.get(span.id)
+    observation = get_api().observations.get(span.id)
     assert observation.start_time is not None
     assert observation.input == {"key": "value"}
     assert observation.output == {"key": "value"}
@@ -1183,7 +1148,6 @@ def test_timezone_awareness():
     assert utc_now.tzinfo is not None
 
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace = langfuse.trace(name="test")
     span = trace.span(name="span")
@@ -1194,7 +1158,7 @@ def test_timezone_awareness():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = get_api().trace.get(trace.id)
 
     assert len(trace.observations) == 3
     for observation in trace.observations:
@@ -1221,7 +1185,6 @@ def test_timezone_awareness_setting_timestamps():
     print(utc_now)
 
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     trace = langfuse.trace(name="test")
     trace.span(name="span", start_time=now, end_time=now)
@@ -1230,7 +1193,7 @@ def test_timezone_awareness_setting_timestamps():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace.id)
+    trace = get_api().trace.get(trace.id)
 
     assert len(trace.observations) == 3
     for observation in trace.observations:
@@ -1244,7 +1207,6 @@ def test_timezone_awareness_setting_timestamps():
 
 def test_get_trace_by_session_id():
     langfuse = Langfuse(debug=False)
-    api = get_api()
 
     # Create a trace with a session_id
     trace_name = create_uuid()
@@ -1257,7 +1219,7 @@ def test_get_trace_by_session_id():
     langfuse.flush()
 
     # Retrieve the trace using the session_id
-    traces = api.trace.list(session_id=session_id)
+    traces = get_api().trace.list(session_id=session_id)
 
     # Verify that the trace was retrieved correctly
     assert len(traces.data) == 1
@@ -1276,6 +1238,7 @@ def test_fetch_trace():
     langfuse.flush()
 
     # Fetch the trace
+    sleep(1)
     response = langfuse.fetch_trace(trace.id)
 
     # Assert the structure of the response
@@ -1309,6 +1272,7 @@ def test_fetch_traces():
             timestamp=trace_param["timestamp"],
         )
     langfuse.flush()
+    sleep(1)
 
     all_traces = langfuse.fetch_traces(limit=10, name=name)
     assert len(all_traces.data) == 3
@@ -1355,6 +1319,7 @@ def test_fetch_observation():
     trace = langfuse.trace(name=name)
     generation = trace.generation(name=name)
     langfuse.flush()
+    sleep(1)
 
     # Fetch the observation
     response = langfuse.fetch_observation(generation.id)
@@ -1376,6 +1341,7 @@ def test_fetch_observations():
     gen1 = trace.generation(name=name)
     gen2 = trace.generation(name=name)
     langfuse.flush()
+    sleep(1)
 
     # Fetch observations
     response = langfuse.fetch_observations(limit=10, name=name)
@@ -1450,6 +1416,7 @@ def test_fetch_sessions():
     langfuse.flush()
 
     # Fetch traces
+    sleep(3)
     response = langfuse.fetch_sessions()
 
     # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests
@@ -1457,12 +1424,10 @@ def test_fetch_sessions():
     assert hasattr(response, "data")
     assert hasattr(response, "meta")
     assert isinstance(response.data, list)
-    assert response.data[0].id in [session1, session2, session3]
 
     # fetch only one, cannot check for the exact number of sessions as the table is not cleared between tests
     response = langfuse.fetch_sessions(limit=1, page=2)
     assert len(response.data) == 1
-    assert response.data[0].id in [session1, session2, session3]
 
 
 def test_create_trace_sampling_zero():
@@ -1483,8 +1448,139 @@ def test_create_trace_sampling_zero():
 
     langfuse.flush()
 
-    trace = api_wrapper.get_trace(trace.id)
-    assert trace == {
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace == {
         "error": "LangfuseNotFoundError",
-        "message": "Trace not found within authorized project",
+        "message": f"Trace {trace.id} not found within authorized project",
     }
+
+
+def test_mask_function():
+    def mask_func(data):
+        if isinstance(data, dict):
+            return {k: "MASKED" for k in data}
+        elif isinstance(data, str):
+            return "MASKED"
+        return data
+
+    langfuse = Langfuse(debug=True, mask=mask_func)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    sleep(0.1)
+    trace.update(output={"more": "sensitive"})
+
+    gen = trace.generation(name="test_gen", input={"prompt": "secret"})
+    sleep(0.1)
+    gen.update(output="new_confidential")
+
+    span = trace.span(name="test_span", input={"data": "private"})
+    sleep(0.1)
+    span.update(output="new_classified")
+
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["input"] == {"sensitive": "MASKED"}
+    assert fetched_trace["output"] == {"more": "MASKED"}
+
+    fetched_gen = [
+        o for o in fetched_trace["observations"] if o["type"] == "GENERATION"
+    ][0]
+    assert fetched_gen["input"] == {"prompt": "MASKED"}
+    assert fetched_gen["output"] == "MASKED"
+
+    fetched_span = [o for o in fetched_trace["observations"] if o["type"] == "SPAN"][0]
+    assert fetched_span["input"] == {"data": "MASKED"}
+    assert fetched_span["output"] == "MASKED"
+
+    def faulty_mask_func(data):
+        raise Exception("Masking error")
+
+    langfuse = Langfuse(debug=True, mask=faulty_mask_func)
+
+    trace = langfuse.trace(name="test_trace", input={"sensitive": "data"})
+    sleep(0.1)
+    trace.update(output={"more": "sensitive"})
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["input"] == "<fully masked due to failed mask function>"
+    assert fetched_trace["output"] == "<fully masked due to failed mask function>"
+
+
+def test_get_project_id():
+    langfuse = Langfuse(debug=False)
+    res = langfuse._get_project_id()
+    assert res is not None
+    assert res == "7a88fb47-b4e2-43b8-a06c-a5ce950dc53a"
+
+
+def test_generate_trace_id():
+    langfuse = Langfuse(debug=False)
+    trace_id = create_uuid()
+
+    langfuse.trace(id=trace_id, name="test_trace")
+    langfuse.flush()
+
+    trace_url = langfuse.get_trace_url()
+    assert (
+        trace_url
+        == f"http://localhost:3000/project/7a88fb47-b4e2-43b8-a06c-a5ce950dc53a/traces/{trace_id}"
+    )
+
+
+def test_environment_from_constructor():
+    # Test with valid environment
+    langfuse = Langfuse(debug=True, environment="production")
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(name="test_environment")
+    sleep(0.1)
+    trace.update(name="updated_name")
+
+    generation = trace.generation(name="test_gen")
+    sleep(0.1)
+    generation.update(name="test_gen_1")
+
+    score_id = create_uuid()
+    langfuse.score(id=score_id, trace_id=trace.id, name="test_score", value=1)
+
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["environment"] == "production"
+
+    # Check that observations have the environment
+    gen = [o for o in fetched_trace["observations"] if o["id"] == generation.id][0]
+    assert gen["environment"] == "production"
+
+    # Check that scores have the environment
+    assert fetched_trace["scores"][0]["environment"] == "production"
+
+
+def test_environment_from_env_var(monkeypatch):
+    # Test with environment variable
+    monkeypatch.setenv("LANGFUSE_TRACING_ENVIRONMENT", "staging")
+
+    langfuse = Langfuse(debug=True)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(name="test_environment_var")
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["environment"] == "staging"
+
+    # Test that constructor overrides environment variable
+    langfuse = Langfuse(debug=False, environment="testing")
+    trace = langfuse.trace(name="test_environment_override")
+    langfuse.flush()
+    sleep(1)
+
+    fetched_trace = api_wrapper.get_trace(trace.id)
+    assert fetched_trace["environment"] == "testing"

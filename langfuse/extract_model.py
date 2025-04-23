@@ -10,11 +10,10 @@ from typing import Any, Dict, List, Literal, Optional
 
 
 def _extract_model_name(
-    serialized: Dict[str, Any],
+    serialized: Optional[Dict[str, Any]],
     **kwargs: Any,
 ):
     """Extracts the model name from the serialized or kwargs object. This is used to get the model names for Langfuse."""
-
     # In this function we return on the first match, so the order of operations is important
 
     # First, extract known models where we know the model name aka id
@@ -28,9 +27,11 @@ def _extract_model_name(
         ("ChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model"], "kwargs"),
         ("AzureChatOpenAI", ["invocation_params", "model_name"], "kwargs"),
+        ("AzureChatOpenAI", ["invocation_params", "azure_deployment"], "kwargs"),
         ("HuggingFacePipeline", ["invocation_params", "model_id"], "kwargs"),
         ("BedrockChat", ["kwargs", "model_id"], "serialized"),
         ("Bedrock", ["kwargs", "model_id"], "serialized"),
+        ("BedrockLLM", ["kwargs", "model_id"], "serialized"),
         ("ChatBedrock", ["kwargs", "model_id"], "serialized"),
         ("LlamaCpp", ["invocation_params", "model_path"], "kwargs"),
         ("WatsonxLLM", ["invocation_params", "model_id"], "kwargs"),
@@ -45,6 +46,9 @@ def _extract_model_name(
 
     # Second, we match AzureOpenAI as we need to extract the model name, fdeployment version and deployment name
     if serialized.get("id")[-1] == "AzureOpenAI":
+        if kwargs.get("invocation_params").get("model"):
+            return kwargs.get("invocation_params").get("model")
+
         if kwargs.get("invocation_params").get("model_name"):
             return kwargs.get("invocation_params").get("model_name")
 
@@ -68,11 +72,14 @@ def _extract_model_name(
         ("ChatAnyscale", "model_name", None),
         ("TextGen", "model", "text-gen"),
         ("Ollama", "model", None),
+        ("OllamaLLM", "model", None),
         ("ChatOllama", "model", None),
         ("ChatFireworks", "model", None),
         ("ChatPerplexity", "model", None),
         ("VLLM", "model", None),
         ("Xinference", "model_uid", None),
+        ("ChatOCIGenAI", "model_id", None),
+        ("DeepInfra", "model_id", None),
     ]
 
     for model_name, pattern, default in models_by_pattern:
@@ -99,12 +106,17 @@ def _extract_model_name(
 
 
 def _extract_model_from_repr_by_pattern(
-    id: str, serialized: dict, pattern: str, default: Optional[str] = None
+    id: str, serialized: Optional[Dict[str, Any]], pattern: str, default: Optional[str] = None
 ):
+    if serialized is None:
+        return None
+
     if serialized.get("id")[-1] == id:
         if serialized.get("repr"):
             extracted = _extract_model_with_regex(pattern, serialized.get("repr"))
             return extracted if extracted else default if default else None
+
+    return None
 
 
 def _extract_model_with_regex(pattern: str, text: str):
@@ -116,21 +128,27 @@ def _extract_model_with_regex(pattern: str, text: str):
 
 def _extract_model_by_path_for_id(
     id: str,
-    serialized: dict,
+    serialized: Optional[Dict[str, Any]],
     kwargs: dict,
     keys: List[str],
-    select_from: str = Literal["serialized", "kwargs"],
+    select_from: Literal["serialized", "kwargs"],
 ):
+    if serialized is None and select_from == "serialized":
+        return None
+
     if serialized.get("id")[-1] == id:
         return _extract_model_by_path(serialized, kwargs, keys, select_from)
 
 
 def _extract_model_by_path(
-    serialized: dict,
+    serialized: Optional[Dict[str, Any]],
     kwargs: dict,
     keys: List[str],
-    select_from: str = Literal["serialized", "kwargs"],
+    select_from: Literal["serialized", "kwargs"],
 ):
+    if serialized is None and select_from == "serialized":
+        return None
+
     current_obj = kwargs if select_from == "kwargs" else serialized
 
     for key in keys:

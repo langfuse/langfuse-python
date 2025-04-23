@@ -4,10 +4,11 @@ import datetime as dt
 import typing
 
 from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import pydantic_v1
+from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from ...commons.types.map_value import MapValue
 from .ingestion_usage import IngestionUsage
 from .update_span_body import UpdateSpanBody
+from .usage_details import UsageDetails
 
 
 class UpdateGenerationBody(UpdateSpanBody):
@@ -22,6 +23,12 @@ class UpdateGenerationBody(UpdateSpanBody):
     prompt_name: typing.Optional[str] = pydantic_v1.Field(
         alias="promptName", default=None
     )
+    usage_details: typing.Optional[UsageDetails] = pydantic_v1.Field(
+        alias="usageDetails", default=None
+    )
+    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(
+        alias="costDetails", default=None
+    )
     prompt_version: typing.Optional[int] = pydantic_v1.Field(
         alias="promptVersion", default=None
     )
@@ -35,12 +42,21 @@ class UpdateGenerationBody(UpdateSpanBody):
         return super().json(**kwargs_with_defaults)
 
     def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {
+        kwargs_with_defaults_exclude_unset: typing.Any = {
             "by_alias": True,
             "exclude_unset": True,
             **kwargs,
         }
-        return super().dict(**kwargs_with_defaults)
+        kwargs_with_defaults_exclude_none: typing.Any = {
+            "by_alias": True,
+            "exclude_none": True,
+            **kwargs,
+        }
+
+        return deep_union_pydantic_dicts(
+            super().dict(**kwargs_with_defaults_exclude_unset),
+            super().dict(**kwargs_with_defaults_exclude_none),
+        )
 
     class Config:
         frozen = True

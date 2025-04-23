@@ -3,6 +3,8 @@
 from .base_score import BaseScore
 from .boolean_score import BooleanScore
 from .categorical_score import CategoricalScore
+from .comment import Comment
+from .comment_object_type import CommentObjectType
 from .config_category import ConfigCategory
 from .create_score_value import CreateScoreValue
 from .dataset import Dataset
@@ -33,6 +35,8 @@ __all__ = [
     "BaseScore",
     "BooleanScore",
     "CategoricalScore",
+    "Comment",
+    "CommentObjectType",
     "ConfigCategory",
     "CreateScoreValue",
     "Dataset",

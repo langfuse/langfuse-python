@@ -1,28 +1,20 @@
-from contextlib import contextmanager
 import datetime as dt
 import logging
 import os
-import typing
-import uuid
-import backoff
-import httpx
-from enum import Enum
+import re
 import time
 import tracemalloc
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Literal,
-    Union,
-    List,
-    Sequence,
-    overload,
-)
+import typing
 import urllib.parse
+import uuid
 import warnings
+from contextlib import contextmanager
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Sequence, Union, overload
 
+import backoff
+import httpx
 
 from langfuse.api.resources.commons.types.dataset_run_with_items import (
     DatasetRunWithItems,
@@ -39,37 +31,39 @@ from langfuse.api.resources.ingestion.types.create_generation_body import (
 )
 from langfuse.api.resources.ingestion.types.create_span_body import CreateSpanBody
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.ingestion.types.trace_body import TraceBody
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
+from langfuse.api.resources.ingestion.types.trace_body import TraceBody
 from langfuse.api.resources.ingestion.types.update_generation_body import (
     UpdateGenerationBody,
 )
 from langfuse.api.resources.ingestion.types.update_span_body import UpdateSpanBody
+from langfuse.api.resources.media import GetMediaResponse
 from langfuse.api.resources.observations.types.observations_views import (
     ObservationsViews,
 )
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
-    Prompt_Text,
     Prompt_Chat,
+    Prompt_Text,
 )
 from langfuse.api.resources.trace.types.traces import Traces
 from langfuse.api.resources.utils.resources.pagination.types.meta_response import (
     MetaResponse,
 )
 from langfuse.model import (
+    ChatMessageDict,
+    ChatPromptClient,
     CreateDatasetItemRequest,
     CreateDatasetRequest,
     CreateDatasetRunItemRequest,
-    ChatMessageDict,
     DatasetItem,
     DatasetStatus,
     ModelUsage,
     PromptClient,
-    ChatPromptClient,
     TextPromptClient,
 )
+from langfuse.parse_error import handle_fern_exception
 from langfuse.prompt_cache import PromptCache
 
 try:
@@ -77,16 +71,23 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-from langfuse.api.client import FernLangfuse
+from langfuse._task_manager.task_manager import TaskManager
+from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.logging import clean_logger
+from langfuse.media import LangfuseMedia
 from langfuse.model import Dataset, MapValue, Observation, TraceWithFullDetails
 from langfuse.request import LangfuseClient
-from langfuse.task_manager import TaskManager
-from langfuse.types import SpanLevel, ScoreDataType
-from langfuse.utils import _convert_usage_input, _create_prompt_context, _get_timestamp
+from langfuse.types import MaskFunction, ScoreDataType, SpanLevel
+from langfuse.utils import (
+    _convert_usage_input,
+    _create_prompt_context,
+    _get_timestamp,
+)
 
 from .version import __version__ as version
+
+ENVIRONMENT_PATTERN = r"^(?!langfuse)[a-z0-9-_]+$"
 
 
 @dataclass
@@ -117,6 +118,13 @@ class FetchObservationResponse:
     """Response object for fetch_observation method."""
 
     data: Observation
+
+
+@dataclass
+class FetchMediaResponse:
+    """Response object for fetch_media method."""
+
+    data: GetMediaResponse
 
 
 @dataclass
@@ -160,6 +168,9 @@ class Langfuse(object):
     host: str
     """Host of Langfuse API."""
 
+    project_id: Optional[str]
+    """Project ID of the Langfuse project associated with the API keys provided."""
+
     def __init__(
         self,
         public_key: Optional[str] = None,
@@ -176,6 +187,8 @@ class Langfuse(object):
         httpx_client: Optional[httpx.Client] = None,
         enabled: Optional[bool] = True,
         sample_rate: Optional[float] = None,
+        mask: Optional[MaskFunction] = None,
+        environment: Optional[str] = None,
     ):
         """Initialize the Langfuse client.
 
@@ -194,6 +207,8 @@ class Langfuse(object):
             sdk_integration: Used by intgerations that wrap the Langfuse SDK to add context for debugging and support. Not to be used directly.
             enabled: Enables or disables the Langfuse client. If disabled, all observability calls to the backend will be no-ops.
             sample_rate: Sampling rate for tracing. If set to 0.2, only 20% of the data will be sent to the backend. Can be set via `LANGFUSE_SAMPLE_RATE` environment variable.
+            mask (langfuse.types.MaskFunction): Masking function for 'input' and 'output' fields in events. Function must take a single keyword argument `data` and return a serializable, masked version of the data.
+            environment (optional): The tracing environment. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'. Can bet set via `LANGFUSE_TRACING_ENVIRONMENT` environment variable.
 
         Raises:
             ValueError: If public_key or secret_key are not set and not found in environment variables.
@@ -263,11 +278,12 @@ class Langfuse(object):
             # Otherwise, defaults to WARNING level.
             # See https://docs.python.org/3/howto/logging.html#what-happens-if-no-configuration-is-provided
             logging.basicConfig()
-            self.log.setLevel(logging.DEBUG)
+            # Set level for all loggers under langfuse package
+            logging.getLogger("langfuse").setLevel(logging.DEBUG)
 
             clean_logger()
         else:
-            self.log.setLevel(logging.WARNING)
+            logging.getLogger("langfuse").setLevel(logging.WARNING)
             clean_logger()
 
         self.base_url = (
@@ -276,9 +292,18 @@ class Langfuse(object):
             else os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
         )
 
+        self.environment = environment or os.environ.get("LANGFUSE_TRACING_ENVIRONMENT")
+
+        if self.environment and not bool(
+            re.match(ENVIRONMENT_PATTERN, self.environment)
+        ):
+            self.log.error(
+                f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Events will be rejected by Langfuse servers.'
+            )
+
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
 
-        self.client = FernLangfuse(
+        public_api_client = FernLangfuse(
             base_url=self.base_url,
             username=public_key,
             password=secret_key,
@@ -286,7 +311,21 @@ class Langfuse(object):
             x_langfuse_sdk_version=version,
             x_langfuse_public_key=public_key,
             httpx_client=self.httpx_client,
+            timeout=timeout,
         )
+        async_public_api_client = AsyncFernLangfuse(
+            base_url=self.base_url,
+            username=public_key,
+            password=secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_sdk_version=version,
+            x_langfuse_public_key=public_key,
+            timeout=timeout,
+        )
+
+        self.api = public_api_client
+        self.client = public_api_client  # legacy, to be removed in next major release
+        self.async_api = async_public_api_client
 
         langfuse_client = LangfuseClient(
             public_key=public_key,
@@ -303,17 +342,20 @@ class Langfuse(object):
             "flush_interval": flush_interval,
             "max_retries": max_retries,
             "client": langfuse_client,
+            "api_client": self.client,
             "public_key": public_key,
             "sdk_name": "python",
             "sdk_version": version,
             "sdk_integration": sdk_integration,
             "enabled": self.enabled,
             "sample_rate": sample_rate,
+            "mask": mask,
         }
 
         self.task_manager = TaskManager(**args)
 
         self.trace_id = None
+        self.project_id = None
 
         self.release = self._get_release_value(release)
 
@@ -327,13 +369,28 @@ class Langfuse(object):
         else:
             return get_common_release_envs()
 
+    def _get_project_id(self) -> Optional[str]:
+        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys."""
+        if not self.project_id:
+            proj = self.client.projects.get()
+            if not proj.data or not proj.data[0].id:
+                return None
+
+            self.project_id = proj.data[0].id
+
+        return self.project_id
+
     def get_trace_id(self) -> str:
         """Get the current trace id."""
         return self.trace_id
 
     def get_trace_url(self) -> str:
         """Get the URL of the current trace to view it in the Langfuse UI."""
-        return f"{self.base_url}/trace/{self.trace_id}"
+        project_id = self._get_project_id()
+        if not project_id:
+            return f"{self.base_url}/trace/{self.trace_id}"
+
+        return f"{self.base_url}/project/{project_id}/traces/{self.trace_id}"
 
     def get_dataset(
         self, name: str, *, fetch_items_page_size: Optional[int] = 50
@@ -355,7 +412,9 @@ class Langfuse(object):
             page = 1
             while True:
                 new_items = self.client.dataset_items.list(
-                    dataset_name=name, page=page, limit=fetch_items_page_size
+                    dataset_name=self._url_encode(name),
+                    page=page,
+                    limit=fetch_items_page_size,
                 )
                 dataset_items.extend(new_items.data)
                 if new_items.meta.total_pages <= page:
@@ -366,7 +425,7 @@ class Langfuse(object):
 
             return DatasetClient(dataset, items=items)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_dataset_item(self, id: str) -> "DatasetItemClient":
@@ -376,7 +435,7 @@ class Langfuse(object):
             dataset_item = self.client.dataset_items.get(id=id)
             return DatasetItemClient(dataset_item, langfuse=self)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def auth_check(self) -> bool:
@@ -400,7 +459,7 @@ class Langfuse(object):
             return True
 
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_dataset_runs(
@@ -423,10 +482,10 @@ class Langfuse(object):
         try:
             self.log.debug("Getting dataset runs")
             return self.client.datasets.get_runs(
-                dataset_name=dataset_name, page=page, limit=limit
+                dataset_name=self._url_encode(dataset_name), page=page, limit=limit
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_dataset_run(
@@ -448,10 +507,11 @@ class Langfuse(object):
                 f"Getting dataset runs for dataset {dataset_name} and run {dataset_run_name}"
             )
             return self.client.datasets.get_run(
-                dataset_name=dataset_name, run_name=dataset_run_name
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(dataset_run_name),
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def create_dataset(
@@ -477,7 +537,7 @@ class Langfuse(object):
             self.log.debug(f"Creating datasets {body}")
             return self.client.datasets.create(request=body)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def create_dataset_item(
@@ -537,7 +597,7 @@ class Langfuse(object):
             self.log.debug(f"Creating dataset item {body}")
             return self.client.dataset_items.create(request=body)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_trace(
@@ -560,7 +620,7 @@ class Langfuse(object):
             trace = self.client.trace.get(id)
             return FetchTraceResponse(data=trace)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_trace(
@@ -587,7 +647,7 @@ class Langfuse(object):
             self.log.debug(f"Getting trace {id}")
             return self.client.trace.get(id)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_traces(
@@ -600,6 +660,7 @@ class Langfuse(object):
         session_id: Optional[str] = None,
         from_timestamp: Optional[dt.datetime] = None,
         to_timestamp: Optional[dt.datetime] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
         order_by: Optional[str] = None,
         tags: Optional[Union[str, Sequence[str]]] = None,
     ) -> FetchTracesResponse:
@@ -613,6 +674,7 @@ class Langfuse(object):
             session_id (Optional[str]): Filter by session_id. Defaults to None.
             from_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp on or after this datetime. Defaults to None.
             to_timestamp (Optional[dt.datetime]): Retrieve only traces with a timestamp before this datetime. Defaults to None.
+            environment (Optional[Union[str, Sequence[str]]]): Filter by environment. Defaults to None.
             order_by (Optional[str]): Format of the string `[field].[asc/desc]`. Fields: id, timestamp, name, userId, release, version, public, bookmarked, sessionId. Example: `timestamp.asc`. Defaults to None.
             tags (Optional[Union[str, Sequence[str]]]): Filter by tags. Defaults to None.
 
@@ -624,7 +686,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {order_by}, {tags}"
+                f"Getting traces... {page}, {limit}, {name}, {user_id}, {session_id}, {from_timestamp}, {to_timestamp}, {environment}, {order_by}, {tags}"
             )
             res = self.client.trace.list(
                 page=page,
@@ -634,12 +696,13 @@ class Langfuse(object):
                 session_id=session_id,
                 from_timestamp=from_timestamp,
                 to_timestamp=to_timestamp,
+                environment=environment,
                 order_by=order_by,
                 tags=tags,
             )
             return FetchTracesResponse(data=res.data, meta=res.meta)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_traces(
@@ -694,7 +757,7 @@ class Langfuse(object):
                 tags=tags,
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_observations(
@@ -708,6 +771,7 @@ class Langfuse(object):
         parent_observation_id: typing.Optional[str] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
         type: typing.Optional[str] = None,
     ) -> FetchObservationsResponse:
         """Get a list of observations in the current project matching the given parameters.
@@ -721,6 +785,7 @@ class Langfuse(object):
             parent_observation_id (Optional[str]): Parent observation identifier. Defaults to None.
             from_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time on or after this datetime. Defaults to None.
             to_start_time (Optional[dt.datetime]): Retrieve only observations with a start_time before this datetime. Defaults to None.
+            environment (Optional[Union[str, Sequence[str]]]): Filter by environment. Defaults to None.
             type (Optional[str]): Type of the observation. Defaults to None.
 
         Returns:
@@ -731,7 +796,7 @@ class Langfuse(object):
         """
         try:
             self.log.debug(
-                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {type}"
+                f"Getting observations... {page}, {limit}, {name}, {user_id}, {trace_id}, {parent_observation_id}, {from_start_time}, {to_start_time}, {environment}, {type}"
             )
             res = self.client.observations.get_many(
                 page=page,
@@ -742,6 +807,7 @@ class Langfuse(object):
                 parent_observation_id=parent_observation_id,
                 from_start_time=from_start_time,
                 to_start_time=to_start_time,
+                environment=environment,
                 type=type,
             )
             return FetchObservationsResponse(data=res.data, meta=res.meta)
@@ -801,7 +867,7 @@ class Langfuse(object):
                 type=type,
             )
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def get_generations(
@@ -870,8 +936,81 @@ class Langfuse(object):
             observation = self.client.observations.get(id)
             return FetchObservationResponse(data=observation)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
+
+    def fetch_media(self, id: str) -> FetchMediaResponse:
+        """Get media content by ID.
+
+        Args:
+            id: The identifier of the media content to fetch.
+
+        Returns:
+            FetchMediaResponse: The media data of the given id on `data`.
+
+        Raises:
+            Exception: If the media content with the given id could not be found within the authenticated project or if an error occurred during the request.
+        """
+        try:
+            return FetchMediaResponse(data=self.client.media.get(id))
+        except Exception as e:
+            handle_fern_exception(e)
+            raise e
+
+    def resolve_media_references(
+        self,
+        *,
+        obj: Any,
+        resolve_with: Literal["base64_data_uri"],
+        max_depth: int = 10,
+        content_fetch_timeout_seconds: int = 10,
+    ):
+        """Replace media reference strings in an object with base64 data URIs.
+
+        This method recursively traverses an object (up to max_depth) looking for media reference strings
+        in the format "@@@langfuseMedia:...@@@". When found, it (synchronously) fetches the actual media content using
+        the provided Langfuse client and replaces the reference string with a base64 data URI.
+
+        If fetching media content fails for a reference string, a warning is logged and the reference
+        string is left unchanged.
+
+        Args:
+            obj: The object to process. Can be a primitive value, array, or nested object.
+                If the object has a __dict__ attribute, a dict will be returned instead of the original object type.
+            resolve_with: The representation of the media content to replace the media reference string with.
+                Currently only "base64_data_uri" is supported.
+            max_depth: int: The maximum depth to traverse the object. Default is 10.
+            content_fetch_timeout_seconds: int: The timeout in seconds for fetching media content. Default is 10.
+
+        Returns:
+            A deep copy of the input object with all media references replaced with base64 data URIs where possible.
+            If the input object has a __dict__ attribute, a dict will be returned instead of the original object type.
+
+        Example:
+            obj = {
+                "image": "@@@langfuseMedia:type=image/jpeg|id=123|source=bytes@@@",
+                "nested": {
+                    "pdf": "@@@langfuseMedia:type=application/pdf|id=456|source=bytes@@@"
+                }
+            }
+
+            result = await LangfuseMedia.resolve_media_references(obj, langfuse_client)
+
+            # Result:
+            # {
+            #     "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+            #     "nested": {
+            #         "pdf": "data:application/pdf;base64,JVBERi0xLjcK..."
+            #     }
+            # }
+        """
+        return LangfuseMedia.resolve_media_references(
+            langfuse_client=self,
+            obj=obj,
+            resolve_with=resolve_with,
+            max_depth=max_depth,
+            content_fetch_timeout_seconds=content_fetch_timeout_seconds,
+        )
 
     def get_observation(
         self,
@@ -893,7 +1032,7 @@ class Langfuse(object):
             self.log.debug(f"Getting observation {id}")
             return self.client.observations.get(id)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     def fetch_sessions(
@@ -930,7 +1069,7 @@ class Langfuse(object):
             )
             return FetchSessionsResponse(data=res.data, meta=res.meta)
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
 
     @overload
@@ -987,7 +1126,7 @@ class Langfuse(object):
             version (Optional[int]): The version of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             label: Optional[str]: The label of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
-            keyword argument. If not set, defaults to 60 seconds.
+            keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
@@ -1016,8 +1155,10 @@ class Langfuse(object):
         self.log.debug(f"Getting prompt '{cache_key}'")
         cached_prompt = self.prompt_cache.get(cache_key)
 
-        if cached_prompt is None:
-            self.log.debug(f"Prompt '{cache_key}' not found in cache.")
+        if cached_prompt is None or cache_ttl_seconds == 0:
+            self.log.debug(
+                f"Prompt '{cache_key}' not found in cache or caching disabled."
+            )
             try:
                 return self._fetch_prompt_and_update_cache(
                     name,
@@ -1103,7 +1244,9 @@ class Langfuse(object):
 
             self.log.debug(f"Fetching prompt '{cache_key}' from server...")
 
-            @backoff.on_exception(backoff.constant, Exception, max_tries=max_retries)
+            @backoff.on_exception(
+                backoff.constant, Exception, max_tries=max_retries, logger=None
+            )
             def fetch_prompts():
                 return self.client.prompts.get(
                     self._url_encode(name),
@@ -1128,7 +1271,7 @@ class Langfuse(object):
             return prompt
 
         except Exception as e:
-            self.log.exception(f"Error while fetching prompt '{cache_key}': {e}")
+            self.log.error(f"Error while fetching prompt '{cache_key}': {str(e)}")
             raise e
 
     def _get_bounded_max_retries(
@@ -1159,6 +1302,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> ChatPromptClient: ...
 
     @overload
@@ -1172,6 +1316,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> TextPromptClient: ...
 
     def create_prompt(
@@ -1184,6 +1329,7 @@ class Langfuse(object):
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
     ) -> PromptClient:
         """Create a new prompt in Langfuse.
 
@@ -1195,6 +1341,7 @@ class Langfuse(object):
             tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
             type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
+            commit_message: Optional string describing the change.
 
         Returns:
             TextPromptClient: The prompt if type argument is 'text'.
@@ -1222,6 +1369,7 @@ class Langfuse(object):
                     labels=labels,
                     tags=tags,
                     config=config or {},
+                    commitMessage=commit_message,
                     type="chat",
                 )
                 server_prompt = self.client.prompts.create(request=request)
@@ -1237,6 +1385,7 @@ class Langfuse(object):
                 labels=labels,
                 tags=tags,
                 config=config or {},
+                commitMessage=commit_message,
                 type="text",
             )
 
@@ -1244,8 +1393,34 @@ class Langfuse(object):
             return TextPromptClient(prompt=server_prompt)
 
         except Exception as e:
-            self.log.exception(e)
+            handle_fern_exception(e)
             raise e
+
+    def update_prompt(
+        self,
+        *,
+        name: str,
+        version: int,
+        new_labels: List[str] = [],
+    ):
+        """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
+
+        Args:
+            name (str): The name of the prompt to update.
+            version (int): The version number of the prompt to update.
+            new_labels (List[str], optional): New labels to assign to the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse. Defaults to [].
+
+        Returns:
+            Prompt: The updated prompt from the Langfuse API.
+
+        """
+        updated_prompt = self.client.prompt_version.update(
+            name=name,
+            version=version,
+            new_labels=new_labels,
+        )
+        self.prompt_cache.invalidate(name)
+        return updated_prompt
 
     def _url_encode(self, url: str) -> str:
         return urllib.parse.quote(url)
@@ -1315,17 +1490,18 @@ class Langfuse(object):
                 "tags": tags,
                 "timestamp": timestamp or _get_timestamp(),
                 "public": public,
+                "environment": self.environment,
             }
             if kwargs is not None:
                 new_dict.update(kwargs)
 
             new_body = TraceBody(**new_dict)
 
-            self.log.debug(f"Creating trace {new_body}")
+            self.log.debug(f"Creating trace {_filter_io_from_event_body(new_dict)}")
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "trace-create",
-                "body": new_body.dict(exclude_none=True),
+                "body": new_body,
             }
 
             self.task_manager.add_task(
@@ -1338,7 +1514,12 @@ class Langfuse(object):
             self._log_memory_usage()
 
             return StatefulTraceClient(
-                self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                self.client,
+                new_id,
+                StateType.TRACE,
+                new_id,
+                self.task_manager,
+                self.environment,
             )
 
     def _log_memory_usage(self):
@@ -1370,7 +1551,7 @@ class Langfuse(object):
                     :top_k_items
                 ],
                 "total_usage": f"{total_memory_usage:.2f} MB",
-                "langfuse_queue_length": self.task_manager._queue.qsize(),
+                "langfuse_queue_length": self.task_manager._ingestion_queue.qsize(),
             }
 
             self.log.debug("Memory usage: ", logged_memory_usage)
@@ -1481,6 +1662,7 @@ class Langfuse(object):
                 "data_type": data_type,
                 "comment": comment,
                 "config_id": config_id,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -1490,7 +1672,7 @@ class Langfuse(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": new_body.dict(exclude_none=True),
+                "body": new_body,
             }
             self.task_manager.add_task(event)
 
@@ -1504,10 +1686,16 @@ class Langfuse(object):
                     StateType.OBSERVATION,
                     trace_id,
                     self.task_manager,
+                    self.environment,
                 )
             else:
                 return StatefulClient(
-                    self.client, new_id, StateType.TRACE, new_id, self.task_manager
+                    self.client,
+                    new_id,
+                    StateType.TRACE,
+                    new_id,
+                    self.task_manager,
+                    self.environment,
                 )
 
     def span(
@@ -1585,23 +1773,23 @@ class Langfuse(object):
                 "version": version,
                 "end_time": end_time,
                 "trace": {"release": self.release},
+                "environment": self.environment,
                 **kwargs,
             }
 
             if trace_id is None:
                 self._generate_trace(new_trace_id, name or new_trace_id)
 
-            self.log.debug(f"Creating span {span_body}...")
+            self.log.debug(f"Creating span {_filter_io_from_event_body(span_body)}...")
 
             span_body = CreateSpanBody(**span_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-create",
-                "body": span_body.dict(exclude_none=True),
+                "body": span_body,
             }
 
-            self.log.debug(f"Creating span {event}...")
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -1615,6 +1803,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def event(
@@ -1686,6 +1875,7 @@ class Langfuse(object):
                 "parent_observation_id": parent_observation_id,
                 "version": version,
                 "trace": {"release": self.release},
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -1697,10 +1887,12 @@ class Langfuse(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "event-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
-            self.log.debug(f"Creating event {event}...")
+            self.log.debug(
+                f"Creating event {_filter_io_from_event_body(event_body)} ..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -1712,6 +1904,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def generation(
@@ -1733,6 +1926,8 @@ class Langfuse(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        usage_details: typing.Optional[typing.Dict[str, int]] = None,
+        cost_details: typing.Optional[typing.Dict[str, float]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
@@ -1760,7 +1955,9 @@ class Langfuse(object):
             model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
             input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
             output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
-            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage (Optional[dict]): [DEPRECATED, use usage_details and cost_details instead] The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage_details (Optional[dict]): The usage details of the generation. Also accepts OpenAI usage details. Keys are the usage type (e.g. "input", "input_cached", "output") and values are integers representing the number of units used. For accurate cost calculations in Langfuse, ensure each usage type has a corresponding price configured in the Langfuse models table. Example: {"input": 500, "output": 150}.
+            cost_details (Optional[dict]): The cost details of the generation. Keys are the usage type (e.g. "input", "input_cached", "output") and values are floats representing the cost in USD. Example: {"input": 0.0015, "output": 0.002}.
             prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
@@ -1806,7 +2003,10 @@ class Langfuse(object):
                 "model": model,
                 "model_parameters": model_parameters,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                "usage_details": usage_details,
+                "cost_details": cost_details,
                 "trace": {"release": self.release},
+                "environment": self.environment,
                 **_create_prompt_context(prompt),
                 **kwargs,
             }
@@ -1816,29 +2016,31 @@ class Langfuse(object):
                     "id": new_trace_id,
                     "release": self.release,
                     "name": name,
+                    "environment": self.environment,
                 }
                 request = TraceBody(**trace)
 
                 event = {
                     "id": str(uuid.uuid4()),
                     "type": "trace-create",
-                    "body": request.dict(exclude_none=True),
+                    "body": request,
                 }
 
-                self.log.debug(f"Creating trace {event}...")
+                self.log.debug("Creating trace...")
 
                 self.task_manager.add_task(event)
 
-            self.log.debug(f"Creating generation max {generation_body} {usage}...")
+            self.log.debug(
+                f"Creating generation max {_filter_io_from_event_body(generation_body)}..."
+            )
             request = CreateGenerationBody(**generation_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "generation-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
-            self.log.debug(f"Creating top-level generation {event} ...")
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -1850,6 +2052,7 @@ class Langfuse(object):
                 StateType.OBSERVATION,
                 new_trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def _generate_trace(self, trace_id: str, name: str):
@@ -1857,6 +2060,7 @@ class Langfuse(object):
             "id": trace_id,
             "release": self.release,
             "name": name,
+            "environment": self.environment,
         }
 
         trace_body = TraceBody(**trace_dict)
@@ -1864,10 +2068,10 @@ class Langfuse(object):
         event = {
             "id": str(uuid.uuid4()),
             "type": "trace-create",
-            "body": trace_body.dict(exclude_none=True),
+            "body": trace_body,
         }
 
-        self.log.debug(f"Creating trace {event}...")
+        self.log.debug(f"Creating trace {_filter_io_from_event_body(trace_dict)}...")
         self.task_manager.add_task(event)
 
     def join(self):
@@ -1908,6 +2112,14 @@ class Langfuse(object):
         As the SDK calls join() already on shutdown, refer to flush() to ensure all events arive at the Langfuse API.
         """
         try:
+            self.prompt_cache._task_manager.shutdown()
+
+            # In logging.py, a handler is attached to the httpx logger.
+            # To avoid a memory leak on singleton reset, remove all handlers
+            httpx_logger = logging.getLogger("httpx")
+            for handler in httpx_logger.handlers:
+                httpx_logger.removeHandler(handler)
+
             return self.task_manager.shutdown()
         except Exception as e:
             self.log.exception(e)
@@ -1937,6 +2149,7 @@ class StatefulClient(object):
         state_type (StateType): Enum indicating whether the client is an observation or a trace.
         trace_id (str): Id of the trace associated with the stateful client.
         task_manager (TaskManager): Manager handling asynchronous tasks for the client.
+        environment (Optional(str)): The tracing environment.
     """
 
     log = logging.getLogger("langfuse")
@@ -1948,6 +2161,7 @@ class StatefulClient(object):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulClient.
 
@@ -1963,6 +2177,15 @@ class StatefulClient(object):
         self.id = id
         self.state_type = state_type
         self.task_manager = task_manager
+
+        self.environment = environment or os.environ.get("LANGFUSE_TRACING_ENVIRONMENT")
+
+        if self.environment and not bool(
+            re.match(ENVIRONMENT_PATTERN, self.environment)
+        ):
+            self.log.warning(
+                f'Invalid environment specified "{environment}" that does not match validation pattern ("{ENVIRONMENT_PATTERN}"). Setting will be ignored.'
+            )
 
     def _add_state_to_event(self, body: dict):
         if self.state_type == StateType.OBSERVATION:
@@ -1994,6 +2217,8 @@ class StatefulClient(object):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        usage_details: typing.Optional[typing.Dict[str, int]] = None,
+        cost_details: typing.Optional[typing.Dict[str, float]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
@@ -2015,7 +2240,9 @@ class StatefulClient(object):
             model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
             input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
             output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
-            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage (Optional[dict]): [DEPRECATED, use usage_details and cost_details instead] The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage_details (Optional[dict]): The usage details of the generation. Also accepts OpenAI usage details. Keys are the usage type (e.g. "input", "input_cached", "output") and values are integers representing the number of units used. For accurate cost calculations in Langfuse, ensure each usage type has a corresponding price configured in the Langfuse models table. Example: {"input": 500, "output": 150}.
+            cost_details (Optional[dict]): The cost details of the generation. Keys are the usage type (e.g. "input", "input_cached", "output") and values are floats representing the cost in USD. Example: {"input": 0.0015, "output": 0.002}.
             prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
@@ -2059,6 +2286,9 @@ class StatefulClient(object):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                "usage_details": usage_details,
+                "cost_details": cost_details,
+                "environment": self.environment,
                 **_create_prompt_context(prompt),
                 **kwargs,
             }
@@ -2074,7 +2304,9 @@ class StatefulClient(object):
                 "body": new_body.dict(exclude_none=True, exclude_unset=False),
             }
 
-            self.log.debug(f"Creating generation {new_body}...")
+            self.log.debug(
+                f"Creating generation {_filter_io_from_event_body(generation_body)}..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -2085,7 +2317,8 @@ class StatefulClient(object):
                 generation_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def span(
@@ -2149,10 +2382,11 @@ class StatefulClient(object):
                 "status_message": status_message,
                 "version": version,
                 "end_time": end_time,
+                "environment": self.environment,
                 **kwargs,
             }
 
-            self.log.debug(f"Creating span {span_body}...")
+            self.log.debug(f"Creating span {_filter_io_from_event_body(span_body)}...")
 
             new_dict = self._add_state_to_event(span_body)
             new_body = self._add_default_values(new_dict)
@@ -2162,7 +2396,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-create",
-                "body": event.dict(exclude_none=True),
+                "body": event,
             }
 
             self.task_manager.add_task(event)
@@ -2174,7 +2408,8 @@ class StatefulClient(object):
                 span_id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     @overload
@@ -2256,6 +2491,7 @@ class StatefulClient(object):
                 "data_type": data_type,
                 "comment": comment,
                 "config_id": config_id,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -2271,7 +2507,7 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "score-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
             self.task_manager.add_task(event)
@@ -2284,7 +2520,8 @@ class StatefulClient(object):
                 self.id,
                 self.state_type,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def event(
@@ -2345,6 +2582,7 @@ class StatefulClient(object):
                 "level": level,
                 "status_message": status_message,
                 "version": version,
+                "environment": self.environment,
                 **kwargs,
             }
 
@@ -2356,10 +2594,12 @@ class StatefulClient(object):
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "event-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
-            self.log.debug(f"Creating event {event}...")
+            self.log.debug(
+                f"Creating event {_filter_io_from_event_body(event_body)}..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -2371,6 +2611,7 @@ class StatefulClient(object):
                 StateType.OBSERVATION,
                 self.trace_id,
                 self.task_manager,
+                self.environment,
             )
 
     def get_trace_url(self):
@@ -2401,9 +2642,10 @@ class StatefulGenerationClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulGenerationClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2422,6 +2664,8 @@ class StatefulGenerationClient(StatefulClient):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        usage_details: typing.Optional[typing.Dict[str, int]] = None,
+        cost_details: typing.Optional[typing.Dict[str, float]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
@@ -2440,7 +2684,9 @@ class StatefulGenerationClient(StatefulClient):
             model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
             input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
             output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
-            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage (Optional[dict]): [DEPRECATED, use usage_details and cost_details instead] The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage_details (Optional[dict]): The usage details of the generation. Also accepts OpenAI usage details. Keys are the usage type (e.g. "input", "input_cached", "output") and values are integers representing the number of units used. For accurate cost calculations in Langfuse, ensure each usage type has a corresponding price configured in the Langfuse models table. Example: {"input": 500, "output": 150}.
+            cost_details (Optional[dict]): The cost details of the generation. Keys are the usage type (e.g. "input", "input_cached", "output") and values are floats representing the cost in USD. Example: {"input": 0.0015, "output": 0.002}.
             prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
@@ -2480,11 +2726,15 @@ class StatefulGenerationClient(StatefulClient):
                 "input": input,
                 "output": output,
                 "usage": _convert_usage_input(usage) if usage is not None else None,
+                "usage_details": usage_details,
+                "cost_details": cost_details,
                 **_create_prompt_context(prompt),
                 **kwargs,
             }
 
-            self.log.debug(f"Update generation {generation_body}...")
+            self.log.debug(
+                f"Update generation {_filter_io_from_event_body(generation_body)}..."
+            )
 
             request = UpdateGenerationBody(**generation_body)
 
@@ -2494,7 +2744,9 @@ class StatefulGenerationClient(StatefulClient):
                 "body": request.dict(exclude_none=True, exclude_unset=False),
             }
 
-            self.log.debug(f"Update generation {event}...")
+            self.log.debug(
+                f"Update generation {_filter_io_from_event_body(generation_body)}..."
+            )
             self.task_manager.add_task(event)
 
         except Exception as e:
@@ -2505,7 +2757,8 @@ class StatefulGenerationClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def end(
@@ -2524,6 +2777,8 @@ class StatefulGenerationClient(StatefulClient):
         input: typing.Optional[typing.Any] = None,
         output: typing.Optional[typing.Any] = None,
         usage: typing.Optional[typing.Union[pydantic.BaseModel, ModelUsage]] = None,
+        usage_details: typing.Optional[typing.Dict[str, int]] = None,
+        cost_details: typing.Optional[typing.Dict[str, float]] = None,
         prompt: typing.Optional[PromptClient] = None,
         **kwargs,
     ) -> "StatefulGenerationClient":
@@ -2542,7 +2797,9 @@ class StatefulGenerationClient(StatefulClient):
             model_parameters (Optional[dict]): The parameters of the model used for the generation; can be any key-value pairs.
             input (Optional[dict]): The prompt used for the generation. Can be any string or JSON object.
             output (Optional[dict]): The completion generated by the model. Can be any string or JSON object.
-            usage (Optional[dict]): The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage (Optional[dict]): [DEPRECATED, use usage_details and cost_details instead] The usage object supports the OpenAi structure with {`promptTokens`, `completionTokens`, `totalTokens`} and a more generic version {`input`, `output`, `total`, `unit`, `inputCost`, `outputCost`, `totalCost`} where unit can be of value `"TOKENS"`, `"CHARACTERS"`, `"MILLISECONDS"`, `"SECONDS"`, or `"IMAGES"`. Refer to the docs on how to [automatically infer](https://langfuse.com/docs/model-usage-and-cost) token usage and costs in Langfuse.
+            usage_details (Optional[dict]): The usage details of the generation. Also accepts OpenAI usage details. Keys are the usage type (e.g. "input", "input_cached", "output") and values are integers representing the number of units used. For accurate cost calculations in Langfuse, ensure each usage type has a corresponding price configured in the Langfuse models table. Example: {"input": 500, "output": 150}.
+            cost_details (Optional[dict]): The cost details of the generation. Keys are the usage type (e.g. "input", "input_cached", "output") and values are floats representing the cost in USD. Example: {"input": 0.0015, "output": 0.002}.
             prompt (Optional[PromptClient]): The Langfuse prompt object used for the generation.
             **kwargs: Additional keyword arguments to include in the generation.
 
@@ -2579,6 +2836,8 @@ class StatefulGenerationClient(StatefulClient):
             input=input,
             output=output,
             usage=usage,
+            usage_details=usage_details,
+            cost_details=cost_details,
             prompt=prompt,
             **kwargs,
         )
@@ -2604,9 +2863,10 @@ class StatefulSpanClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulSpanClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
 
     # WHEN CHANGING THIS METHOD, UPDATE END() FUNCTION ACCORDINGLY
     def update(
@@ -2671,14 +2931,14 @@ class StatefulSpanClient(StatefulClient):
                 "end_time": end_time,
                 **kwargs,
             }
-            self.log.debug(f"Update span {span_body}...")
+            self.log.debug(f"Update span {_filter_io_from_event_body(span_body)}...")
 
             request = UpdateSpanBody(**span_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "span-update",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
             self.task_manager.add_task(event)
@@ -2690,7 +2950,8 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def end(
@@ -2763,7 +3024,8 @@ class StatefulSpanClient(StatefulClient):
                 self.id,
                 StateType.OBSERVATION,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def get_langchain_handler(self, update_parent: bool = False):
@@ -2802,9 +3064,10 @@ class StatefulTraceClient(StatefulClient):
         state_type: StateType,
         trace_id: str,
         task_manager: TaskManager,
+        environment: Optional[str] = None,
     ):
         """Initialize the StatefulTraceClient."""
-        super().__init__(client, id, state_type, trace_id, task_manager)
+        super().__init__(client, id, state_type, trace_id, task_manager, environment)
         self.task_manager = task_manager
 
     def update(
@@ -2875,14 +3138,14 @@ class StatefulTraceClient(StatefulClient):
                 "tags": tags,
                 **kwargs,
             }
-            self.log.debug(f"Update trace {trace_body}...")
+            self.log.debug(f"Update trace {_filter_io_from_event_body(trace_body)}...")
 
             request = TraceBody(**trace_body)
 
             event = {
                 "id": str(uuid.uuid4()),
                 "type": "trace-create",
-                "body": request.dict(exclude_none=True),
+                "body": request,
             }
 
             self.task_manager.add_task(event)
@@ -2895,7 +3158,8 @@ class StatefulTraceClient(StatefulClient):
                 self.id,
                 StateType.TRACE,
                 self.trace_id,
-                task_manager=self.task_manager,
+                self.task_manager,
+                self.environment,
             )
 
     def get_langchain_handler(self, update_parent: bool = False):
@@ -3337,3 +3601,9 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
+
+
+def _filter_io_from_event_body(event_body: Dict[str, Any]):
+    return {
+        k: v for k, v in event_body.items() if k not in ("input", "output", "metadata")
+    }

@@ -1,14 +1,13 @@
 """@private"""
 
-from datetime import datetime
-from typing import List, Optional, Dict, Set
-from threading import Thread
 import atexit
 import logging
+from datetime import datetime
 from queue import Empty, Queue
+from threading import Thread
+from typing import Dict, List, Optional, Set
 
 from langfuse.model import PromptClient
-
 
 DEFAULT_PROMPT_CACHE_TTL_SECONDS = 60
 
@@ -114,6 +113,8 @@ class PromptCacheTaskManager(object):
             f"Shutting down prompt refresh task manager, {len(self._consumers)} consumers,..."
         )
 
+        atexit.unregister(self.shutdown)
+
         for consumer in self._consumers:
             consumer.pause()
 
@@ -150,6 +151,12 @@ class PromptCache:
             ttl_seconds = DEFAULT_PROMPT_CACHE_TTL_SECONDS
 
         self._cache[key] = PromptCacheItem(value, ttl_seconds)
+
+    def invalidate(self, prompt_name: str):
+        """Invalidate all cached prompts with the given prompt name."""
+        for key in list(self._cache):
+            if key.startswith(prompt_name):
+                del self._cache[key]
 
     def add_refresh_prompt_task(self, key: str, fetch_func):
         self._log.debug(f"Submitting refresh task for key: {key}")

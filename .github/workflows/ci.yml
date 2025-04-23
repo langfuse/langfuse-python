@@ -25,7 +25,7 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       LANGFUSE_HOST: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
@@ -38,10 +38,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
           - "3.10"
           - "3.11"
+
     name: Test on Python version ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v3
@@ -71,7 +71,7 @@ jobs:
           cd ./langfuse-server
 
           echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker compose up -d db
+          TELEMETRY_ENABLED=false docker compose up -d postgres
           echo "::endgroup::"
 
           echo "::group::Logs from langfuse server"
@@ -87,9 +87,16 @@ jobs:
           pnpm run db:migrate          
           pnpm run db:seed
           echo "::endgroup::"
+          rm -rf .env
 
           echo "::group::Run server"
-          TELEMETRY_ENABLED=false docker compose up -d langfuse-server
+
+          TELEMETRY_ENABLED=false \
+          LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://localhost:9090 \
+          LANGFUSE_INGESTION_QUEUE_DELAY_MS=10 \
+          LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS=10 \
+          docker compose up -d
+
           echo "::endgroup::"
 
       # Add this step to check the health of the container
@@ -97,14 +104,14 @@ jobs:
         run: |
           echo "Checking if the langfuse server is up..."
           retry_count=0
-          max_retries=5
+          max_retries=10
           until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health
           do
             retry_count=`expr $retry_count + 1`
             echo "Attempt $retry_count of $max_retries..."
             if [ $retry_count -ge $max_retries ]; then
               echo "Langfuse server did not respond in time. Printing logs..."
-              docker logs langfuse-server_langfuse-server_1
+              docker logs langfuse-server-langfuse-web-1
               echo "Failing the step..."
               exit 1
             fi
@@ -148,7 +155,7 @@ jobs:
       - name: Run the automated tests
         run: |
           python --version
-          poetry run pytest -s -v --log-cli-level=INFO
+          poetry run pytest -n auto -s -v --log-cli-level=INFO
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix

@@ -1,36 +1,47 @@
 import os
-from typing import Any, List, Mapping, Optional
+import random
+import string
+import time
+from time import sleep
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import pytest
-from langchain_community.llms.anthropic import Anthropic
-from langchain_community.llms.huggingface_hub import HuggingFaceHub
-from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
     ConversationalRetrievalChain,
+    ConversationChain,
     LLMChain,
     RetrievalQA,
     SimpleSequentialChain,
-    ConversationChain,
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.chains.summarize import load_summarize_chain
-from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
-from langchain.document_loaders import TextLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.llms import OpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import Document
+from langchain.schema import Document, HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import Chroma
-from pydantic.v1 import BaseModel, Field
-from langchain.schema import HumanMessage, SystemMessage
-from langfuse.callback import CallbackHandler
-from langfuse.client import Langfuse
-from tests.api_wrapper import LangfuseAPI
-from tests.utils import create_uuid, get_api
+from langchain_anthropic import Anthropic
+from langchain_community.agent_toolkits.load_tools import load_tools
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.llms.huggingface_hub import HuggingFaceHub
+from langchain_community.vectorstores import Chroma
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables.base import RunnableLambda
+from langchain_core.tools import StructuredTool, tool
+from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode
+from pydantic.v1 import BaseModel, Field
+
+from langfuse.callback import CallbackHandler
+from langfuse.callback.langchain import LANGSMITH_TAG_HIDDEN
+from langfuse.client import Langfuse
+from tests.api_wrapper import LangfuseAPI
+from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 
 def test_callback_init():
@@ -43,7 +54,6 @@ def test_callback_init():
 
 
 def test_callback_kwargs():
-    api = get_api()
     callback = CallbackHandler(
         trace_name="trace-name",
         release="release",
@@ -62,7 +72,7 @@ def test_callback_kwargs():
 
     trace_id = callback.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     assert trace.input is not None
     assert trace.output is not None
     assert trace.metadata == {"key": "value"}
@@ -88,7 +98,6 @@ def test_langfuse_span():
 
 
 def test_callback_generated_from_trace_chain():
-    api = get_api()
     langfuse = Langfuse(debug=True)
 
     trace_id = create_uuid()
@@ -109,7 +118,7 @@ def test_callback_generated_from_trace_chain():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -137,9 +146,9 @@ def test_callback_generated_from_trace_chain():
     )[0]
 
     assert langchain_generation_span.parent_observation_id == langchain_span.id
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -147,7 +156,6 @@ def test_callback_generated_from_trace_chain():
 
 
 def test_callback_generated_from_trace_chat():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -170,7 +178,7 @@ def test_callback_generated_from_trace_chat():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -188,9 +196,9 @@ def test_callback_generated_from_trace_chat():
     )[0]
 
     assert langchain_generation_span.parent_observation_id is None
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -198,7 +206,6 @@ def test_callback_generated_from_trace_chat():
 
 
 def test_callback_generated_from_lcel_chain():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     run_name_override = "This is a custom Run Name"
@@ -218,14 +225,14 @@ def test_callback_generated_from_lcel_chain():
     )
 
     langfuse.flush()
+    handler.flush()
     trace_id = handler.get_trace_id()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.name == run_name_override
 
 
 def test_callback_generated_from_span_chain():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -248,7 +255,7 @@ def test_callback_generated_from_span_chain():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -287,9 +294,9 @@ def test_callback_generated_from_span_chain():
     )[0]
 
     assert langchain_generation_span.parent_observation_id == langchain_span.id
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -297,7 +304,6 @@ def test_callback_generated_from_span_chain():
 
 
 def test_callback_generated_from_span_chat():
-    api = get_api()
     langfuse = Langfuse(debug=False)
 
     trace_id = create_uuid()
@@ -323,7 +329,7 @@ def test_callback_generated_from_span_chat():
 
     langfuse.flush()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
@@ -351,9 +357,9 @@ def test_callback_generated_from_span_chat():
     )[0]
 
     assert langchain_generation_span.parent_observation_id == user_span.id
-    assert langchain_generation_span.usage.input > 0
-    assert langchain_generation_span.usage.output > 0
-    assert langchain_generation_span.usage.total > 0
+    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["output"] > 0
+    assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
@@ -402,7 +408,6 @@ def test_mistral():
     from langchain_core.messages import HumanMessage
     from langchain_mistralai.chat_models import ChatMistralAI
 
-    api = get_api()
     callback = CallbackHandler(debug=False)
 
     chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
@@ -413,7 +418,7 @@ def test_mistral():
 
     trace_id = callback.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 2
@@ -426,7 +431,6 @@ def test_mistral():
 def test_vertx():
     from langchain.llms import VertexAI
 
-    api = get_api()
     callback = CallbackHandler(debug=False)
 
     llm = VertexAI(callbacks=[callback])
@@ -436,7 +440,7 @@ def test_vertx():
 
     trace_id = callback.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 2
@@ -468,17 +472,16 @@ def test_callback_generated_from_trace_anthropic():
 
     langfuse.flush()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert handler.get_trace_id() == trace_id
     assert len(trace.observations) == 2
     assert trace.id == trace_id
     for observation in trace.observations:
         if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
             assert observation.output is not None
             assert observation.output != ""
             assert isinstance(observation.input, str) is True
@@ -506,9 +509,7 @@ def test_basic_chat_openai():
 
     trace_id = callback.get_trace_id()
 
-    api = get_api()
-
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 1
@@ -555,9 +556,7 @@ def test_basic_chat_openai_based_on_trace():
 
     trace_id = callback.get_trace_id()
 
-    api = get_api()
-
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
     assert len(trace.observations) == 1
@@ -584,8 +583,7 @@ def test_callback_from_trace_with_trace_update():
 
     trace_id = handler.get_trace_id()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is not None
     assert trace.output is not None
@@ -599,9 +597,9 @@ def test_callback_from_trace_with_trace_update():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_callback_from_span_with_span_update():
@@ -627,12 +625,11 @@ def test_callback_from_span_with_span_update():
 
     trace_id = handler.get_trace_id()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert trace.input is None
     assert trace.output is None
-    assert trace.metadata is None
+    assert trace.metadata == {}
 
     assert len(trace.observations) == 3
     assert handler.get_trace_id() == trace_id
@@ -648,9 +645,9 @@ def test_callback_from_span_with_span_update():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_callback_from_trace_simple_chain():
@@ -674,8 +671,7 @@ def test_callback_from_trace_simple_chain():
 
     trace_id = handler.get_trace_id()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     assert trace.input is None
     assert trace.output is None
 
@@ -688,9 +684,9 @@ def test_callback_from_trace_simple_chain():
     for generation in generations:
         assert generation.input is not None
         assert generation.output is not None
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_next_span_id_from_trace_simple_chain():
@@ -741,7 +737,6 @@ def test_next_span_id_from_trace_simple_chain():
 
 
 def test_callback_sequential_chain():
-    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -770,16 +765,16 @@ def test_callback_sequential_chain():
 
     trace_id = handler.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert len(trace.observations) == 5
     assert trace.id == trace_id
 
     for observation in trace.observations:
         if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
             assert observation.input is not None
             assert observation.input != ""
             assert observation.output is not None
@@ -914,9 +909,7 @@ def test_callback_retriever_conversational_with_memory():
     conversation.predict(input="Hi there!", callbacks=[handler])
     handler.flush()
 
-    api = get_api()
-
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) == 1
@@ -926,9 +919,9 @@ def test_callback_retriever_conversational_with_memory():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_callback_retriever_conversational():
@@ -976,8 +969,7 @@ def test_callback_retriever_conversational():
 
 
 def test_callback_simple_openai():
-    api = get_api()
-    handler = CallbackHandler(debug=False)
+    handler = CallbackHandler()
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -989,15 +981,16 @@ def test_callback_simple_openai():
 
     trace_id = handler.get_trace_id()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
 
     assert len(trace.observations) == 1
 
     for observation in trace.observations:
         if observation.type == "GENERATION":
-            assert observation.usage.input > 0
-            assert observation.usage.output > 0
-            assert observation.usage.total > 0
+            print(observation.usage_details)
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
             assert observation.input is not None
             assert observation.input != ""
             assert observation.output is not None
@@ -1005,7 +998,6 @@ def test_callback_simple_openai():
 
 
 def test_callback_multiple_invocations_on_different_traces():
-    api = get_api()
     handler = CallbackHandler(debug=False)
 
     llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
@@ -1024,8 +1016,8 @@ def test_callback_multiple_invocations_on_different_traces():
 
     assert trace_id_one != trace_id_two
 
-    trace_one = api.trace.get(trace_id_one)
-    trace_two = api.trace.get(trace_id_two)
+    trace_one = get_api().trace.get(trace_id_one)
+    trace_two = get_api().trace.get(trace_id_two)
 
     for test_data in [
         {"trace": trace_one, "expected_trace_id": trace_id_one},
@@ -1035,9 +1027,9 @@ def test_callback_multiple_invocations_on_different_traces():
         assert test_data["trace"].id == test_data["expected_trace_id"]
         for observation in test_data["trace"].observations:
             if observation.type == "GENERATION":
-                assert observation.usage.input > 0
-                assert observation.usage.output > 0
-                assert observation.usage.total > 0
+                assert observation.usage_details["input"] > 0
+                assert observation.usage_details["output"] > 0
+                assert observation.usage_details["total"] > 0
                 assert observation.input is not None
                 assert observation.input != ""
                 assert observation.output is not None
@@ -1097,9 +1089,8 @@ def test_tools():
     handler.flush()
 
     trace_id = handler.get_trace_id()
-    api = get_api()
 
-    trace = api.trace.get(trace_id)
+    trace = get_api().trace.get(trace_id)
     assert trace.id == trace_id
     assert len(trace.observations) > 2
 
@@ -1220,8 +1211,7 @@ def test_callback_openai_functions_python():
 
     handler.langfuse.flush()
 
-    api = get_api()
-    trace = api.trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(handler.get_trace_id())
 
     assert len(trace.observations) == 2
 
@@ -1252,12 +1242,13 @@ def test_callback_openai_functions_python():
                 "function_call": {
                     "arguments": '{\n  "name": "Henry",\n  "color": "brown",\n  "fav_food": {\n    "food": null\n  }\n}',
                     "name": "record_dog",
-                }
+                },
+                "refusal": None,
             },
         }
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 def test_agent_executor_chain():
@@ -1304,8 +1295,8 @@ def test_agent_executor_chain():
     )
 
     callback.flush()
-    api = get_api()
-    trace = api.trace.get(callback.get_trace_id())
+
+    trace = get_api().trace.get(callback.get_trace_id())
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -1315,9 +1306,9 @@ def test_agent_executor_chain():
         assert generation.output is not None
         assert generation.input != ""
         assert generation.output != ""
-        assert generation.usage.total is not None
-        assert generation.usage.input is not None
-        assert generation.usage.output is not None
+        assert generation.usage_details["total"] is not None
+        assert generation.usage_details["input"] is not None
+        assert generation.usage_details["output"] is not None
 
 
 # def test_create_extraction_chain():
@@ -1379,9 +1370,9 @@ def test_agent_executor_chain():
 
 #     handler.flush()
 
-#     api = get_api()
+#
 
-#     trace = api.trace.get(handler.get_trace_id())
+#     trace = get_api().trace.get(handler.get_trace_id())
 
 #     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
 #     assert len(generations) > 0
@@ -1391,9 +1382,9 @@ def test_agent_executor_chain():
 #         assert generation.output is not None
 #         assert generation.input != ""
 #         assert generation.output != ""
-#         assert generation.usage.total is not None
-#         assert generation.usage.input is not None
-#         assert generation.usage.output is not None
+#         assert generation.usage_details["total"] is not None
+#         assert generation.usage_details["input"] is not None
+#         assert generation.usage_details["output"] is not None
 
 
 @pytest.mark.skip(reason="inference cost")
@@ -1503,9 +1494,7 @@ def test_unimplemented_model():
 
     callback.flush()
 
-    api = get_api()
-
-    trace = api.trace.get(callback.get_trace_id())
+    trace = get_api().trace.get(callback.get_trace_id())
 
     assert len(trace.observations) == 5
 
@@ -1564,8 +1553,8 @@ def test_names_on_spans_lcel():
     )
 
     callback.flush()
-    api = get_api()
-    trace = api.trace.get(callback.get_trace_id())
+
+    trace = get_api().trace.get(callback.get_trace_id())
 
     assert len(trace.observations) == 7
 
@@ -1638,9 +1627,9 @@ def test_openai_instruct_usage():
         assert observation.input is not None
         assert observation.input != ""
         assert observation.usage is not None
-        assert observation.usage.input is not None
-        assert observation.usage.output is not None
-        assert observation.usage.total is not None
+        assert observation.usage_details["input"] is not None
+        assert observation.usage_details["output"] is not None
+        assert observation.usage_details["total"] is not None
 
 
 def test_get_langchain_prompt_with_jinja2():
@@ -1735,8 +1724,6 @@ def test_get_langchain_chat_prompt():
 
 
 def test_disabled_langfuse():
-    api = get_api()
-
     run_name_override = "This is a custom Run Name"
     handler = CallbackHandler(enabled=False, debug=False)
 
@@ -1753,78 +1740,632 @@ def test_disabled_langfuse():
         },
     )
 
-    assert handler.langfuse.task_manager._queue.empty()
+    assert handler.langfuse.task_manager._ingestion_queue.empty()
 
     handler.flush()
 
     trace_id = handler.get_trace_id()
 
     with pytest.raises(Exception):
-        api.trace.get(trace_id)
+        get_api().trace.get(trace_id)
 
 
-# # Enable this test when the ChatBedrock is available in CI
-# def test_chat_bedrock():
-#     handler = CallbackHandler(debug=True)
+def test_link_langfuse_prompts_invoke():
+    langfuse = Langfuse()
+    trace_name = "test_link_langfuse_prompts_invoke"
+    session_id = "session_" + create_uuid()[:8]
+    user_id = "user_" + create_uuid()[:8]
 
-#     llm = ChatBedrock(
-#         model_id="anthropic.claude-3-sonnet-20240229-v1:0",
-#         # model_id="amazon.titan-text-lite-v1",
-#         region_name="eu-central-1",
-#         callbacks=[handler],
-#     )
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
 
-#     messages = [
-#         (
-#             "system",
-#             "You are a expert software engineer.",
-#         ),
-#         ("human", "Give me fizzbuzz algo in C++"),
-#     ]
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
 
-#     ai_msg = llm.stream("Give me fizzbuzz algo in C++")
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
 
-#     for chunk in ai_msg:
-#         print(chunk)
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
+
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
+
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
+
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
+
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler(debug=True)
+
+    output = chain.invoke(
+        {"animal": "dog"},
+        config={
+            "callbacks": [langfuse_handler],
+            "run_name": trace_name,
+            "tags": ["langchain-tag"],
+            "metadata": {
+                "langfuse_session_id": session_id,
+                "langfuse_user_id": user_id,
+            },
+        },
+    )
+
+    langfuse_handler.flush()
+    sleep(2)
+
+    trace = get_api().trace.get(langfuse_handler.get_trace_id())
+
+    assert trace.tags == ["langchain-tag"]
+    assert trace.session_id == session_id
+    assert trace.user_id == user_id
+
+    observations = trace.observations
+
+    generations = sorted(
+        list(filter(lambda x: x.type == "GENERATION", observations)),
+        key=lambda x: x.start_time,
+    )
+
+    assert len(generations) == 2
+    assert generations[0].input == "Tell me a joke involving the animal dog"
+    assert "Explain the joke to me like I'm a 5 year old" in generations[1].input
+
+    assert generations[0].prompt_name == joke_prompt_name
+    assert generations[1].prompt_name == explain_prompt_name
+
+    assert generations[0].prompt_version == langfuse_joke_prompt.version
+    assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+    assert generations[1].output == (output.strip() if output else None)
 
 
-# def test_langchain_anthropic_package():
-#     langfuse_handler = CallbackHandler(debug=False)
-#     from langchain_anthropic import ChatAnthropic
+def test_link_langfuse_prompts_stream():
+    langfuse = Langfuse(debug=True)
+    trace_name = "test_link_langfuse_prompts_stream"
+    session_id = "session_" + create_uuid()[:8]
+    user_id = "user_" + create_uuid()[:8]
 
-#     chat = ChatAnthropic(
-#         model="claude-3-sonnet-20240229",
-#         temperature=0.1,
-#     )
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
 
-#     system = "You are a helpful assistant that translates {input_language} to {output_language}."
-#     human = "{text}"
-#     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
 
-#     chain = prompt | chat
-#     chain.invoke(
-#         {
-#             "input_language": "English",
-#             "output_language": "Korean",
-#             "text": "I love Python",
-#         },
-#         config={"callbacks": [langfuse_handler]},
-#     )
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
 
-#     langfuse_handler.flush()
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
 
-#     observations = get_api().trace.get(langfuse_handler.get_trace_id()).observations
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
 
-#     assert len(observations) == 3
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
 
-#     generation = list(filter(lambda x: x.type == "GENERATION", observations))[0]
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
 
-#     assert generation.output is not None
-#     assert generation.output != ""
-#     assert generation.input is not None
-#     assert generation.input != ""
-#     assert generation.usage is not None
-#     assert generation.usage.input is not None
-#     assert generation.usage.output is not None
-#     assert generation.usage.total is not None
-#     assert generation.model == "claude-3-sonnet-20240229"
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler()
+
+    stream = chain.stream(
+        {"animal": "dog"},
+        config={
+            "callbacks": [langfuse_handler],
+            "run_name": trace_name,
+            "tags": ["langchain-tag"],
+            "metadata": {
+                "langfuse_session_id": session_id,
+                "langfuse_user_id": user_id,
+            },
+        },
+    )
+
+    output = ""
+    for chunk in stream:
+        output += chunk
+
+    langfuse_handler.flush()
+    sleep(2)
+
+    trace = get_api().trace.get(langfuse_handler.get_trace_id())
+
+    assert trace.tags == ["langchain-tag"]
+    assert trace.session_id == session_id
+    assert trace.user_id == user_id
+
+    observations = trace.observations
+
+    generations = sorted(
+        list(filter(lambda x: x.type == "GENERATION", observations)),
+        key=lambda x: x.start_time,
+    )
+
+    assert len(generations) == 2
+    assert generations[0].input == "Tell me a joke involving the animal dog"
+    assert "Explain the joke to me like I'm a 5 year old" in generations[1].input
+
+    assert generations[0].prompt_name == joke_prompt_name
+    assert generations[1].prompt_name == explain_prompt_name
+
+    assert generations[0].prompt_version == langfuse_joke_prompt.version
+    assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+    assert generations[0].time_to_first_token is not None
+    assert generations[1].time_to_first_token is not None
+
+    assert generations[1].output == (output.strip() if output else None)
+
+
+def test_link_langfuse_prompts_batch():
+    langfuse = Langfuse()
+    trace_name = "test_link_langfuse_prompts_batch_" + create_uuid()[:8]
+
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
+
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
+
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
+
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
+
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
+
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
+
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
+
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler(debug=True)
+
+    chain.batch(
+        [{"animal": "dog"}, {"animal": "cat"}, {"animal": "elephant"}],
+        config={
+            "callbacks": [langfuse_handler],
+            "run_name": trace_name,
+            "tags": ["langchain-tag"],
+        },
+    )
+
+    langfuse_handler.flush()
+
+    traces = get_api().trace.list(name=trace_name).data
+
+    assert len(traces) == 3
+
+    for trace in traces:
+        trace = get_api().trace.get(trace.id)
+
+        assert trace.tags == ["langchain-tag"]
+
+        observations = trace.observations
+
+        generations = sorted(
+            list(filter(lambda x: x.type == "GENERATION", observations)),
+            key=lambda x: x.start_time,
+        )
+
+        assert len(generations) == 2
+
+        assert generations[0].prompt_name == joke_prompt_name
+        assert generations[1].prompt_name == explain_prompt_name
+
+        assert generations[0].prompt_version == langfuse_joke_prompt.version
+        assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+
+def test_get_langchain_text_prompt_with_precompiled_prompt():
+    langfuse = Langfuse()
+
+    prompt_name = "test_precompiled_langchain_prompt"
+    test_prompt = (
+        "This is a {{pre_compiled_var}}. This is a langchain {{langchain_var}}"
+    )
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt=test_prompt,
+        labels=["production"],
+    )
+
+    langfuse_prompt = langfuse.get_prompt(prompt_name)
+    langchain_prompt = PromptTemplate.from_template(
+        langfuse_prompt.get_langchain_prompt(pre_compiled_var="dog")
+    )
+
+    assert (
+        langchain_prompt.format(langchain_var="chain")
+        == "This is a dog. This is a langchain chain"
+    )
+
+
+def test_get_langchain_chat_prompt_with_precompiled_prompt():
+    langfuse = Langfuse()
+
+    prompt_name = "test_precompiled_langchain_chat_prompt"
+    test_prompt = [
+        {"role": "system", "content": "This is a {{pre_compiled_var}}."},
+        {"role": "user", "content": "This is a langchain {{langchain_var}}."},
+    ]
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt=test_prompt,
+        type="chat",
+        labels=["production"],
+    )
+
+    langfuse_prompt = langfuse.get_prompt(prompt_name, type="chat")
+    langchain_prompt = ChatPromptTemplate.from_messages(
+        langfuse_prompt.get_langchain_prompt(pre_compiled_var="dog")
+    )
+
+    system_message, user_message = langchain_prompt.format_messages(
+        langchain_var="chain"
+    )
+
+    assert system_message.content == "This is a dog."
+    assert user_message.content == "This is a langchain chain."
+
+
+def test_callback_openai_functions_with_tools():
+    handler = CallbackHandler()
+
+    llm = ChatOpenAI(model="gpt-4", temperature=0, callbacks=[handler])
+
+    class StandardizedAddress(BaseModel):
+        street: str = Field(description="The street name and number")
+        city: str = Field(description="The city name")
+        state: str = Field(description="The state or province")
+        zip_code: str = Field(description="The postal code")
+
+    class GetWeather(BaseModel):
+        city: str = Field(description="The city name")
+        state: str = Field(description="The state or province")
+        zip_code: str = Field(description="The postal code")
+
+    address_tool = StructuredTool.from_function(
+        func=lambda **kwargs: StandardizedAddress(**kwargs),
+        name="standardize_address",
+        description="Standardize the given address",
+        args_schema=StandardizedAddress,
+    )
+
+    weather_tool = StructuredTool.from_function(
+        func=lambda **kwargs: GetWeather(**kwargs),
+        name="get_weather",
+        description="Get the weather for the given city",
+        args_schema=GetWeather,
+    )
+
+    messages = [
+        {
+            "role": "user",
+            "content": "Please standardize this address: 123 Main St, Springfield, IL 62701",
+        }
+    ]
+
+    llm.bind_tools([address_tool, weather_tool]).invoke(messages)
+
+    handler.flush()
+
+    trace = get_api().trace.get(handler.get_trace_id())
+
+    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    assert len(generations) > 0
+
+    for generation in generations:
+        assert generation.input is not None
+        tool_messages = [msg for msg in generation.input if msg["role"] == "tool"]
+        assert len(tool_messages) == 2
+        assert any(
+            "standardize_address" == msg["content"]["function"]["name"]
+            for msg in tool_messages
+        )
+        assert any(
+            "get_weather" == msg["content"]["function"]["name"] for msg in tool_messages
+        )
+
+        assert generation.output is not None
+
+
+def test_langfuse_overhead():
+    def _generate_random_dict(n: int, key_length: int = 8) -> Dict[str, Any]:
+        result = {}
+        value_generators = [
+            lambda: "".join(
+                random.choices(string.ascii_letters, k=random.randint(3, 15))
+            ),
+            lambda: random.randint(0, 1000),
+            lambda: round(random.uniform(0, 100), 2),
+            lambda: [random.randint(0, 100) for _ in range(random.randint(1, 5))],
+            lambda: random.choice([True, False]),
+        ]
+        while len(result) < n:
+            key = "".join(
+                random.choices(string.ascii_letters + string.digits, k=key_length)
+            )
+            if key in result:
+                continue
+            value = random.choice(value_generators)()
+            result[key] = value
+        return result
+
+    # Test performance overhead of langfuse tracing
+    inputs = _generate_random_dict(10000, 20000)
+    test_chain = RunnableLambda(lambda x: None)
+
+    start = time.monotonic()
+    test_chain.invoke(inputs)
+    duration_without_langfuse = (time.monotonic() - start) * 1000
+
+    start = time.monotonic()
+    handler = CallbackHandler()
+    test_chain.invoke(inputs, config={"callbacks": [handler]})
+    duration_with_langfuse = (time.monotonic() - start) * 1000
+
+    overhead = duration_with_langfuse - duration_without_langfuse
+    print(f"Langfuse overhead: {overhead}ms")
+
+    assert (
+        overhead < 100
+    ), f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
+
+    handler.flush()
+
+    duration_full = (time.monotonic() - start) * 1000
+    print(f"Full execution took {duration_full}ms")
+
+    assert duration_full > 1000, "Full execution should take longer than 1 second"
+
+
+def test_multimodal():
+    handler = CallbackHandler()
+    model = ChatOpenAI(model="gpt-4o-mini")
+
+    image_data = encode_file_to_base64("static/puton.jpg")
+
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": "What's in this image?"},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+            },
+        ],
+    )
+
+    response = model.invoke([message], config={"callbacks": [handler]})
+
+    print(response.content)
+
+    handler.flush()
+
+    trace = get_api().trace.get(handler.get_trace_id())
+
+    assert len(trace.observations) == 1
+    assert trace.observations[0].type == "GENERATION"
+
+    print(trace.observations[0].input)
+
+    assert (
+        "@@@langfuseMedia:type=image/jpeg|id="
+        in trace.observations[0].input[0]["content"][1]["image_url"]["url"]
+    )
+
+
+def test_langgraph():
+    # Define the tools for the agent to use
+    @tool
+    def search(query: str):
+        """Call to surf the web."""
+        # This is a placeholder, but don't tell the LLM that...
+        if "sf" in query.lower() or "san francisco" in query.lower():
+            return "It's 60 degrees and foggy."
+        return "It's 90 degrees and sunny."
+
+    tools = [search]
+    tool_node = ToolNode(tools)
+    model = ChatOpenAI(model="gpt-4o-mini").bind_tools(tools)
+
+    # Define the function that determines whether to continue or not
+    def should_continue(state: MessagesState) -> Literal["tools", END]:
+        messages = state["messages"]
+        last_message = messages[-1]
+        # If the LLM makes a tool call, then we route to the "tools" node
+        if last_message.tool_calls:
+            return "tools"
+        # Otherwise, we stop (reply to the user)
+        return END
+
+    # Define the function that calls the model
+    def call_model(state: MessagesState):
+        messages = state["messages"]
+        response = model.invoke(messages)
+        # We return a list, because this will get added to the existing list
+        return {"messages": [response]}
+
+    # Define a new graph
+    workflow = StateGraph(MessagesState)
+
+    # Define the two nodes we will cycle between
+    workflow.add_node("agent", call_model)
+    workflow.add_node("tools", tool_node)
+
+    # Set the entrypoint as `agent`
+    # This means that this node is the first one called
+    workflow.add_edge(START, "agent")
+
+    # We now add a conditional edge
+    workflow.add_conditional_edges(
+        # First, we define the start node. We use `agent`.
+        # This means these are the edges taken after the `agent` node is called.
+        "agent",
+        # Next, we pass in the function that will determine which node is called next.
+        should_continue,
+    )
+
+    # We now add a normal edge from `tools` to `agent`.
+    # This means that after `tools` is called, `agent` node is called next.
+    workflow.add_edge("tools", "agent")
+
+    # Initialize memory to persist state between graph runs
+    checkpointer = MemorySaver()
+
+    # Finally, we compile it!
+    # This compiles it into a LangChain Runnable,
+    # meaning you can use it as you would any other runnable.
+    # Note that we're (optionally) passing the memory when compiling the graph
+    app = workflow.compile(checkpointer=checkpointer)
+
+    handler = CallbackHandler()
+
+    # Use the Runnable
+    final_state = app.invoke(
+        {"messages": [HumanMessage(content="what is the weather in sf")]},
+        config={"configurable": {"thread_id": 42}, "callbacks": [handler]},
+    )
+    print(final_state["messages"][-1].content)
+    handler.flush()
+
+    trace = get_api().trace.get(handler.get_trace_id())
+
+    hidden_count = 0
+
+    for observation in trace.observations:
+        if LANGSMITH_TAG_HIDDEN in observation.metadata.get("tags", []):
+            hidden_count += 1
+            assert observation.level == "DEBUG"
+
+        else:
+            assert observation.level == "DEFAULT"
+
+    assert hidden_count > 0
+
+
+def test_cached_token_usage():
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                (
+                    "This is a test prompt to reproduce the issue. "
+                    "The prompt needs 1024 tokens to enable cache." * 100
+                ),
+            ),
+            ("user", "Reply to this message {test_param}."),
+        ]
+    )
+    chat = ChatOpenAI(model="gpt-4o-mini")
+    chain = prompt | chat
+    handler = CallbackHandler()
+    config = {"callbacks": [handler]}
+
+    chain.invoke({"test_param": "in a funny way"}, config)
+    chain.invoke({"test_param": "in a funny way"}, config)
+    sleep(1)
+
+    # invoke again to force cached token usage
+    chain.invoke({"test_param": "in a funny way"}, config)
+
+    handler.flush()
+
+    trace = get_api().trace.get(handler.get_trace_id())
+
+    generation = next((o for o in trace.observations if o.type == "GENERATION"))
+
+    assert generation.usage_details["input_cache_read"] > 0
+    assert (
+        generation.usage_details["input"]
+        + generation.usage_details["input_cache_read"]
+        + generation.usage_details["output"]
+        == generation.usage_details["total"]
+    )
+
+    assert generation.cost_details["input_cache_read"] > 0
+    assert (
+        abs(
+            generation.cost_details["input"]
+            + generation.cost_details["input_cache_read"]
+            + generation.cost_details["output"]
+            - generation.cost_details["total"]
+        )
+        < 0.0001
+    )

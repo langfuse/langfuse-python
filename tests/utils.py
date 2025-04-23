@@ -1,5 +1,7 @@
+import base64
 import os
 import typing
+from time import sleep
 from uuid import uuid4
 
 try:
@@ -7,17 +9,16 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-from langfuse.api.client import FernLangfuse
-
 from llama_index.core import (
     Settings,
-    VectorStoreIndex,
     SimpleDirectoryReader,
-    load_index_from_storage,
     StorageContext,
+    VectorStoreIndex,
+    load_index_from_storage,
 )
-
 from llama_index.core.callbacks import CallbackManager
+
+from langfuse.api.client import FernLangfuse
 
 
 def create_uuid():
@@ -25,6 +26,8 @@ def create_uuid():
 
 
 def get_api():
+    sleep(2)
+
     return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
@@ -106,3 +109,8 @@ def get_llama_index_index(callback, force_rebuild: bool = False):
         index = load_index_from_storage(storage_context)
 
     return index
+
+
+def encode_file_to_base64(image_path) -> str:
+    with open(image_path, "rb") as file:
+        return base64.b64encode(file.read()).decode("utf-8")
