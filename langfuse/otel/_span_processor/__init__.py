@@ -1,4 +1,5 @@
 import base64
+import os
 from typing import Optional
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -8,6 +9,10 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from langfuse.otel._logger import langfuse_logger
 from langfuse.otel._utils import span_formatter
 from langfuse.otel.constants import LANGFUSE_TRACER_NAME
+from langfuse.otel.environment_variables import (
+    LANGFUSE_FLUSH_AT,
+    LANGFUSE_FLUSH_INTERVAL,
+)
 from langfuse.version import __version__ as langfuse_version
 
 
@@ -23,6 +28,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         flush_interval: Optional[float] = None,
     ):
         self.public_key = public_key
+        flush_at = flush_at or int(os.environ.get(LANGFUSE_FLUSH_AT, 15))
+        flush_interval = flush_interval or float(
+            os.environ.get(LANGFUSE_FLUSH_INTERVAL, 0.5)
+        )
 
         basic_auth_header = "Basic " + base64.b64encode(
             f"{public_key}:{secret_key}".encode("utf-8")
