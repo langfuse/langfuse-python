@@ -1131,7 +1131,7 @@ def _parse_usage(response: LLMResult):
         for generation in response.generations:
             for generation_chunk in generation:
                 if generation_chunk.generation_info and (
-                    "usage_metadata" in generation_chunk.generation_info
+                    generation_chunk.generation_info.get("usage_metadata", None)
                 ):
                     llm_usage = _parse_usage_model(
                         generation_chunk.generation_info["usage_metadata"]
