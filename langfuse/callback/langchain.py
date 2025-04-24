@@ -1066,6 +1066,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
+        ("total_token_count", "total"),
         # Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-cw.html#runtime-cloudwatch-metrics
         ("inputTokenCount", "input"),
         ("outputTokenCount", "output"),
@@ -1113,6 +1114,17 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
 
                 if "output" in usage_model:
                     usage_model["output"] = max(0, usage_model["output"] - value)
+
+        # For VertexAI, the usage model has non integer values that are not necessary for the usage, so remove them.
+        # ref. https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rpc/google.cloud.aiplatform.v1#google.cloud.aiplatform.v1.GenerateContentResponse.UsageMetadata
+        for key in [
+            "prompt_tokens_details",
+            "candidates_tokens_details",
+            "cache_tokens_details",
+        ]:
+            if key in usage_model:
+                if isinstance(usage_model[key], list):
+                    del usage_model[key]
 
     return usage_model if usage_model else None
 
