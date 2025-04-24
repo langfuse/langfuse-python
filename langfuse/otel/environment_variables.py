@@ -64,3 +64,19 @@ Number of background threads to handle media uploads from trace ingestion.
 
 **Default value:** ``1``
 """
+
+LANGFUSE_FLUSH_AT = "LANGFUSE_FLUSH_AT"
+"""
+.. envvar:: LANGFUSE_FLUSH_AT
+
+Max batch size until a new ingestion batch is sent to the API.
+**Default value:** ``15``
+"""
+
+LANGFUSE_FLUSH_INTERVAL = "LANGFUSE_FLUSH_INTERVAL"
+"""
+.. envvar:: LANGFUSE_FLUSH_INTERVAL
+
+Max delay until a new ingestion batch is sent to the API.
+**Default value:** ``1``
+"""

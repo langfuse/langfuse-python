@@ -39,7 +39,7 @@ class MediaManager:
     def process_next_media_upload(self):
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(f"Processing upload for {upload_job['media_id']}")
+            self._log.debug(f"Processing media upload for {upload_job['media_id']}")
             self._process_upload_media_job(data=upload_job)
 
             self._queue.task_done()

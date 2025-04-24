@@ -1,7 +1,7 @@
 import atexit
 import os
 import threading
-from queue import Queue
+from queue import Full, Queue
 from typing import Dict, Optional, cast
 
 import httpx
@@ -11,6 +11,7 @@ from opentelemetry.sdk.trace import TracerProvider
 
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
+from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
 from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
 from langfuse.environment import get_common_release_envs
 from langfuse.otel._span_processor import LangfuseSpanProcessor
@@ -21,6 +22,7 @@ from langfuse.otel.environment_variables import (
     LANGFUSE_RELEASE,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse.request import LangfuseClient
 
 from ..version import __version__ as langfuse_version
 from ._logger import langfuse_logger
@@ -129,6 +131,14 @@ class LangfuseTracer:
             x_langfuse_public_key=public_key,
             timeout=timeout,
         )
+        score_ingestion_client = LangfuseClient(
+            public_key=public_key,
+            secret_key=secret_key,
+            base_url=host,
+            version=langfuse_version,
+            timeout=timeout or 20,
+            session=self.httpx_client,
+        )
 
         # Media
         self._media_upload_queue = Queue(100_000)
@@ -150,6 +160,23 @@ class LangfuseTracer:
             )
             media_upload_consumer.start()
             self._media_upload_consumers.append(media_upload_consumer)
+
+        # Score ingestion
+        self._score_ingestion_queue = Queue(100_000)
+        self._ingestion_consumers = []
+
+        ingestion_consumer = ScoreIngestionConsumer(
+            ingestion_queue=self._score_ingestion_queue,
+            identifier=0,
+            client=score_ingestion_client,
+            flush_at=flush_at,
+            flush_interval=flush_interval,
+            max_retries=3,
+            public_key=public_key,
+            # sample_rate=ddf TODO: apply deterministic sampling to scores, too
+        )
+        ingestion_consumer.start()
+        self._ingestion_consumers.append(ingestion_consumer)
 
         # Project ID handling
         self._project_id = None
@@ -202,6 +229,19 @@ class LangfuseTracer:
 
         return self._project_id
 
+    def add_score_task(self, event: dict):
+        try:
+            self._score_ingestion_queue.put(event, block=False)
+
+        except Full:
+            langfuse_logger.warning("Score ingestion queue is full")
+
+            return
+        except Exception as e:
+            langfuse_logger.error(f"Exception in adding score ingestion task {e}")
+
+            return
+
     @property
     def tracer(self):
         return self._otel_tracer
@@ -216,7 +256,7 @@ class LangfuseTracer:
         Blocks execution until finished
         """
         langfuse_logger.debug(
-            f"joining {len(self._media_upload_consumers)} media upload consumer threads"
+            f"Joining {len(self._media_upload_consumers)} media upload consumer threads"
         )
         for media_upload_consumer in self._media_upload_consumers:
             media_upload_consumer.pause()
@@ -230,6 +270,23 @@ class LangfuseTracer:
 
             langfuse_logger.debug(
                 f"MediaUploadConsumer thread {media_upload_consumer._identifier} joined"
+            )
+
+        langfuse_logger.debug(
+            f"Joining {len(self._ingestion_consumers)} score ingestion consumer threads"
+        )
+        for score_ingestion_consumer in self._ingestion_consumers:
+            score_ingestion_consumer.pause()
+
+        for score_ingestion_consumer in self._ingestion_consumers:
+            try:
+                score_ingestion_consumer.join()
+            except RuntimeError:
+                # consumer thread has not started
+                pass
+
+            langfuse_logger.debug(
+                f"ScoreIngestionConsumer thread {score_ingestion_consumer._identifier} joined"
             )
 
     def flush(self):
