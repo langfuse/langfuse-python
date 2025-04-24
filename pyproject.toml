@@ -20,6 +20,7 @@ packaging = ">=23.2,<25.0"
 idna = "^3.7"
 anyio = "^4.4.0"
 requests = "^2"
+langchain-google-vertexai = "^2.0.21"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"
