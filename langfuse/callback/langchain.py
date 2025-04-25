@@ -1117,30 +1117,62 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
     return usage_model if usage_model else None
 
 
-def _parse_usage(response: LLMResult):
-    # langchain-anthropic uses the usage field
-    llm_usage_keys = ["token_usage", "usage"]
+def _parse_usage(response: LLMResult) -> Dict[str, Any] | None:
+    """Parse LLMResult to extract usage information, handling different providers."""
+    log = logging.getLogger("langfuse")
     llm_usage = None
+
+    # 1. Check for Vertex AI usage (generation_info) first
+    if hasattr(response, "generations"):
+        for generation in response.generations:
+            for generation_chunk in generation:
+                if (
+                    generation_chunk.generation_info
+                    and "usage_metadata" in generation_chunk.generation_info
+                ):
+                    vertex_ai_usage = generation_chunk.generation_info["usage_metadata"]
+
+                    # Extract the information.
+                    llm_usage = {}
+                    llm_usage["prompt_tokens"] = vertex_ai_usage.get(
+                        "prompt_token_count"
+                    )
+                    llm_usage["completion_tokens"] = vertex_ai_usage.get(
+                        "candidates_token_count"
+                    )
+                    llm_usage["total_tokens"] = vertex_ai_usage.get("total_token_count")
+
+                    # Ensure the extracted values are integers.
+                    for key in ["prompt_tokens", "completion_tokens", "total_tokens"]:
+                        if llm_usage.get(key) is not None:
+                            if isinstance(llm_usage.get(key), float):
+                                llm_usage[key] = int(llm_usage[key])  # Convert if float
+                            if not isinstance(llm_usage.get(key), int):
+                                try:
+                                    llm_usage[key] = int(
+                                        llm_usage[key]
+                                    )  # Try conversion
+                                except (ValueError, TypeError):
+                                    log.warning(
+                                        f"Could not convert {key} to integer: {vertex_ai_usage.get(key)}"
+                                    )
+                                    llm_usage[key] = 0  # Default to 0
+
+                    return llm_usage  # Stop after Vertex AI usage is found
+
+    # 2. Existing logic for other providers (llm_output, response_metadata, etc.)
+    llm_usage_keys = ["token_usage", "usage"]
     if response.llm_output is not None:
         for key in llm_usage_keys:
             if key in response.llm_output and response.llm_output[key]:
-                llm_usage = _parse_usage_model(response.llm_output[key])
-                break
+                llm_usage = response.llm_output[key]
+                break  # stop after first matching llm_usage_key
 
     if hasattr(response, "generations"):
         for generation in response.generations:
             for generation_chunk in generation:
-                if generation_chunk.generation_info and (
-                    "usage_metadata" in generation_chunk.generation_info
-                ):
-                    llm_usage = _parse_usage_model(
-                        generation_chunk.generation_info["usage_metadata"]
-                    )
-                    break
-
                 message_chunk = getattr(generation_chunk, "message", {})
                 response_metadata = getattr(message_chunk, "response_metadata", {})
-
                 chunk_usage = (
                     (
                         response_metadata.get("usage", None)  # for Bedrock-Anthropic
@@ -1156,12 +1188,15 @@ def _parse_usage(response: LLMResult):
                     )
                     or getattr(message_chunk, "usage_metadata", None)  # for Ollama
                 )
-
                 if chunk_usage:
-                    llm_usage = _parse_usage_model(chunk_usage)
-                    break
+                    llm_usage = chunk_usage
+                    break  # stop after first matching chunk_usage
+    # If the result of vertex_ai_usage or chunk_usage is a Pydantic Model, then parse_usage_model()
+    # converts it into a dictionary with keys "input", "output", and "total"
+    if llm_usage is not None and not isinstance(llm_usage, dict):
+        llm_usage = _parse_usage_model(llm_usage)
 
-    return llm_usage
+    return llm_usage  # will return None if nothing has been set
 
 
 def _parse_model(response: LLMResult):
