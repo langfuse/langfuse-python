@@ -27,7 +27,7 @@ from langfuse.otel.environment_variables import (
 )
 from langfuse.utils import _get_timestamp
 
-from ..types import MapValue, ScoreDataType, SpanLevel
+from ..types import MapValue, MaskFunction, ScoreDataType, SpanLevel
 from ._logger import langfuse_logger
 from ._tracer import LangfuseTracer
 
@@ -49,7 +49,7 @@ class Langfuse:
         release: Optional[str] = None,
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
-        # mask: Optional[MaskFunction] = None, # TODO: implement masking
+        mask: Optional[MaskFunction] = None,
         # sdk_integration: Optional[str] = "default", -> TO BE DEPRECATED
         # threads: Optional[int] = None, -> TO BE DEPRECATED
         # max_retries: Optional[int] = None, -> TO BE DEPRECATED
@@ -88,6 +88,8 @@ class Langfuse:
 
         if not self.tracing_enabled:
             langfuse_logger.info("Langfuse tracing is disabled")
+
+        self._mask = mask
 
         # Initialize api and tracer if requirements are met
         self.langfuse_tracer = LangfuseTracer(
@@ -187,7 +189,7 @@ class Langfuse:
 
         # Process media only if span is sampled
         if span.is_recording:
-            self._process_media_span_attributes(
+            self._set_processed_span_attributes(
                 span=span,
                 as_type=as_type,
                 input=input,
@@ -313,7 +315,7 @@ class Langfuse:
         ) as span:
             # Process media only if span is sampled
             if span.is_recording():
-                self._process_media_span_attributes(
+                self._set_processed_span_attributes(
                     span=span,
                     as_type=as_type,
                     input=input,
@@ -323,7 +325,7 @@ class Langfuse:
 
             yield span
 
-    def _process_media_span_attributes(
+    def _set_processed_span_attributes(
         self,
         *,
         span: otel_trace_api.Span,
@@ -332,17 +334,17 @@ class Langfuse:
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
     ):
-        media_processed_input = self._process_media_attribute(
+        processed_input = self._process_media_and_apply_mask(
             span=span,
             data=input,
             field="input",
         )
-        media_processed_output = self._process_media_attribute(
+        processed_output = self._process_media_and_apply_mask(
             span=span,
             data=output,
             field="output",
         )
-        media_processed_metadata = self._process_media_attribute(
+        processed_metadata = self._process_media_and_apply_mask(
             span=span,
             data=metadata,
             field="metadata",
@@ -350,21 +352,43 @@ class Langfuse:
 
         media_processed_attributes = (
             create_generation_attributes(
-                input=media_processed_input,
-                output=media_processed_output,
-                metadata=media_processed_metadata,
+                input=processed_input,
+                output=processed_output,
+                metadata=processed_metadata,
             )
             if as_type == "generation"
             else create_span_attributes(
-                input=media_processed_input,
-                output=media_processed_output,
-                metadata=media_processed_metadata,
+                input=processed_input,
+                output=processed_output,
+                metadata=processed_metadata,
             )
         )
 
         span.set_attributes(media_processed_attributes)
 
-    def _process_media_attribute(
+    def _process_media_and_apply_mask(
+        self,
+        *,
+        data: Optional[Any] = None,
+        span: otel_trace_api.Span,
+        field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
+    ):
+        return self._mask_attribute(
+            data=self._process_media_in_attribute(data=data, span=span, field=field)
+        )
+
+    def _mask_attribute(self, *, data):
+        if not self._mask:
+            return data
+
+        try:
+            return self._mask(data=data)
+        except Exception as e:
+            langfuse_logger.error(f"Mask function failed with error: {e}")
+
+            return "<fully masked due to failed mask function>"
+
+    def _process_media_in_attribute(
         self,
         *,
         data: Optional[Any] = None,
@@ -387,8 +411,7 @@ class Langfuse:
 
         return media_processed_attribute
 
-    @staticmethod  # TODO: reconsider marking methods as static as changing object method later is breaking change
-    def get_current_span() -> Optional[otel_trace_api.Span]:
+    def get_current_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
 
         if current_span is otel_trace_api.INVALID_SPAN:
@@ -488,13 +511,13 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ):
-        media_processed_input = self._process_media_attribute(
+        processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=span
         )
-        media_processed_output = self._process_media_attribute(
+        processed_output = self._process_media_and_apply_mask(
             data=output, field="output", span=span
         )
-        media_processed_metadata = self._process_media_attribute(
+        processed_metadata = self._process_media_and_apply_mask(
             data=metadata, field="metadata", span=span
         )
 
@@ -509,9 +532,9 @@ class Langfuse:
             ],
         ):
             attributes = create_generation_attributes(
-                input=media_processed_input,
-                output=media_processed_output,
-                metadata=media_processed_metadata,
+                input=processed_input,
+                output=processed_output,
+                metadata=processed_metadata,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -524,9 +547,9 @@ class Langfuse:
             )
         else:
             attributes = create_span_attributes(
-                input=media_processed_input,
-                output=media_processed_output,
-                metadata=media_processed_metadata,
+                input=processed_input,
+                output=processed_output,
+                metadata=processed_metadata,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -552,13 +575,13 @@ class Langfuse:
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
     ):
-        media_processed_input = self._process_media_attribute(
+        media_processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=span
         )
-        media_processed_output = self._process_media_attribute(
+        media_processed_output = self._process_media_and_apply_mask(
             data=output, field="output", span=span
         )
-        media_processed_metadata = self._process_media_attribute(
+        media_processed_metadata = self._process_media_and_apply_mask(
             data=metadata, field="metadata", span=span
         )
 
@@ -593,24 +616,20 @@ class Langfuse:
 
         return trace.NonRecordingSpan(span_context)
 
-    @staticmethod
-    def create_span_id() -> str:
+    def create_span_id(self) -> str:
         span_id_int = RandomIdGenerator().generate_span_id()
 
-        return Langfuse._format_span_id(span_id_int)
+        return self._format_span_id(span_id_int)
 
-    @staticmethod
-    def create_trace_id() -> str:
+    def create_trace_id(self) -> str:
         trace_id_int = RandomIdGenerator().generate_trace_id()
 
-        return Langfuse._format_trace_id(trace_id_int)
+        return self._format_trace_id(trace_id_int)
 
-    @staticmethod
-    def _format_span_id(span_id_int: int) -> str:
+    def _format_span_id(self, span_id_int: int) -> str:
         return format(span_id_int, "016x")
 
-    @staticmethod
-    def _format_trace_id(trace_id_int: int) -> str:
+    def _format_trace_id(self, trace_id_int: int) -> str:
         return format(trace_id_int, "032x")
 
     @overload

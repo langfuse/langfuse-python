@@ -37,15 +37,17 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             f"{public_key}:{secret_key}".encode("utf-8")
         ).decode("ascii")
 
-        langfuse_span_exporter = OTLPSpanExporter(
-            endpoint=f"{host}/api/public/otel/v1/traces",
-            headers={
-                "Authorization": basic_auth_header,
-                "x_langfuse_sdk_name": "python",
-                "x_langfuse_sdk_version": langfuse_version,
-                "x_langfuse_public_key": public_key,
-            },
-            timeout=timeout,
+        langfuse_span_exporter = (
+            OTLPSpanExporter(  # TODO: allow passing cert similar as in httpx client
+                endpoint=f"{host}/api/public/otel/v1/traces",
+                headers={
+                    "Authorization": basic_auth_header,
+                    "x_langfuse_sdk_name": "python",
+                    "x_langfuse_sdk_version": langfuse_version,
+                    "x_langfuse_public_key": public_key,
+                },
+                timeout=timeout,
+            )
         )
 
         super().__init__(
