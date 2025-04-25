@@ -5,7 +5,7 @@ from .media_manager import MediaManager
 
 
 class MediaUploadConsumer(threading.Thread):
-    _log = logging.getLogger(__name__)
+    _log = logging.getLogger("langfuse")
     _identifier: int
     _max_retries: int
     _media_manager: MediaManager
