@@ -1117,13 +1117,16 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
     return usage_model if usage_model else None
 
 
-def _parse_usage(response: LLMResult) -> Dict[str, Any] | None:
-    """Parse LLMResult to extract usage information, handling different providers."""
-    log = logging.getLogger("langfuse")
+def _parse_usage(response: LLMResult):
+    # langchain-anthropic uses the usage field
+    llm_usage_keys = ["token_usage", "usage"]
     llm_usage = None
-
-    # 1. Check for Vertex AI usage (generation_info) first
-    if hasattr(response, "generations"):
+    model_name = _parse_model(response)
+    if (
+        model_name
+        and "gemini" in model_name.lower()
+        and hasattr(response, "generations")
+    ):
         for generation in response.generations:
             for generation_chunk in generation:
                 if (
@@ -1160,19 +1163,26 @@ def _parse_usage(response: LLMResult) -> Dict[str, Any] | None:
 
                     return llm_usage  # Stop after Vertex AI usage is found
 
-    # 2. Existing logic for other providers (llm_output, response_metadata, etc.)
-    llm_usage_keys = ["token_usage", "usage"]
     if response.llm_output is not None:
         for key in llm_usage_keys:
             if key in response.llm_output and response.llm_output[key]:
-                llm_usage = response.llm_output[key]
-                break  # stop after first matching llm_usage_key
+                llm_usage = _parse_usage_model(response.llm_output[key])
+                break
 
     if hasattr(response, "generations"):
         for generation in response.generations:
             for generation_chunk in generation:
+                if generation_chunk.generation_info and (
+                    "usage_metadata" in generation_chunk.generation_info
+                ):
+                    llm_usage = _parse_usage_model(
+                        generation_chunk.generation_info["usage_metadata"]
+                    )
+                    break
+
                 message_chunk = getattr(generation_chunk, "message", {})
                 response_metadata = getattr(message_chunk, "response_metadata", {})
+
                 chunk_usage = (
                     (
                         response_metadata.get("usage", None)  # for Bedrock-Anthropic
@@ -1188,26 +1198,34 @@ def _parse_usage(response: LLMResult) -> Dict[str, Any] | None:
                     )
                     or getattr(message_chunk, "usage_metadata", None)  # for Ollama
                 )
+
                 if chunk_usage:
-                    llm_usage = chunk_usage
-                    break  # stop after first matching chunk_usage
-    # If the result of vertex_ai_usage or chunk_usage is a Pydantic Model, then parse_usage_model()
-    # converts it into a dictionary with keys "input", "output", and "total"
-    if llm_usage is not None and not isinstance(llm_usage, dict):
-        llm_usage = _parse_usage_model(llm_usage)
+                    llm_usage = _parse_usage_model(chunk_usage)
+                    break
 
-    return llm_usage  # will return None if nothing has been set
+    return llm_usage
 
 
-def _parse_model(response: LLMResult):
-    # langchain-anthropic uses the usage field
-    llm_model_keys = ["model_name"]
+def _parse_model(response: LLMResult) -> str | None:
+    """Extract the model name from the LLMResult, handling different providers."""
     llm_model = None
-    if response.llm_output is not None:
-        for key in llm_model_keys:
-            if key in response.llm_output and response.llm_output[key]:
-                llm_model = response.llm_output[key]
-                break
+
+    # 1. Check llm_output first (e.g., for OpenAI)
+    if response.llm_output and "model_name" in response.llm_output:
+        llm_model = response.llm_output["model_name"]
+        return llm_model
+
+    # 2. If llm_output is None, check generations for Vertex AI
+    if hasattr(response, "generations") and response.generations:
+        first_generation = response.generations[0]
+        if first_generation:
+            first_generation_chunk = first_generation[0]
+            message = getattr(first_generation_chunk, "message", None)
+            if message and hasattr(message, "response_metadata"):
+                response_metadata = getattr(message, "response_metadata", None)
+                if response_metadata and "model_name" in response_metadata:
+                    llm_model = response_metadata["model_name"]
+                    return llm_model
 
     return llm_model
 
