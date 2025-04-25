@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Protocol, TypedDict, Union
 
 from pydantic import BaseModel
+
 from langfuse.api import MediaContentType, UsageDetails
 from langfuse.model import MapValue, ModelUsage, PromptClient
 
@@ -49,7 +50,7 @@ class MaskFunction(Protocol):
         The masked data that must be serializable to JSON.
     """
 
-    def __call__(self, *, data: Any) -> Any: ...
+    def __call__(self, *, data: Any, **kwargs: Dict[str, Any]) -> Any: ...
 
 
 class ParsedMediaReference(TypedDict):
