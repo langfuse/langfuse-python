@@ -1066,6 +1066,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
+        ("total_token_count", "total"),
         # Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-cw.html#runtime-cloudwatch-metrics
         ("inputTokenCount", "input"),
         ("outputTokenCount", "output"),
@@ -1113,6 +1114,38 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
 
                 if "output" in usage_model:
                     usage_model["output"] = max(0, usage_model["output"] - value)
+
+        if "prompt_tokens_details" in usage_model:
+            prompt_tokens_details = usage_model.pop("prompt_tokens_details", [])
+
+            for entry in prompt_tokens_details:
+                if (
+                    isinstance(entry, dict)
+                    and "modality" in entry
+                    and "token_count" in entry
+                ):
+                    value = entry["token_count"]
+                    usage_model[f"input_{entry['modality']}"] = value
+
+                    if "input" in usage_model:
+                        usage_model["input"] = max(0, usage_model["input"] - value)
+
+        if "candidates_tokens_details" in usage_model:
+            candidates_tokens_details = usage_model.pop("candidates_tokens_details", [])
+
+            for entry in candidates_tokens_details:
+                if (
+                    isinstance(entry, dict)
+                    and "modality" in entry
+                    and "token_count" in entry
+                ):
+                    value = entry["token_count"]
+                    usage_model[f"output_{entry['modality']}"] = value
+
+                    if "output" in usage_model:
+                        usage_model["output"] = max(0, usage_model["output"] - value)
+
+        _ = usage_model.pop("cache_tokens_details", [])
 
     return usage_model if usage_model else None
 
