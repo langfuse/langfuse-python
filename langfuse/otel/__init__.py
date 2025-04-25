@@ -48,7 +48,7 @@ class Langfuse:
         environment: Optional[str] = None,
         release: Optional[str] = None,
         media_upload_thread_count: Optional[int] = None,
-        # sample_rate: Optional[float] = None, # TODO: Implement sampling
+        sample_rate: Optional[float] = None,
         # mask: Optional[MaskFunction] = None, # TODO: implement masking
         # sdk_integration: Optional[str] = "default", -> TO BE DEPRECATED
         # threads: Optional[int] = None, -> TO BE DEPRECATED
@@ -101,6 +101,7 @@ class Langfuse:
             flush_interval=flush_interval,
             httpx_client=httpx_client,
             media_upload_thread_count=media_upload_thread_count,
+            sample_rate=sample_rate,
         )
 
         self.tracer = (
@@ -184,13 +185,15 @@ class Langfuse:
 
         span = self.tracer.start_span(name=name, attributes=attributes)
 
-        self._process_media_span_attributes(
-            span=span,
-            as_type=as_type,
-            input=input,
-            output=output,
-            metadata=metadata,
-        )
+        # Process media only if span is sampled
+        if span.is_recording:
+            self._process_media_span_attributes(
+                span=span,
+                as_type=as_type,
+                input=input,
+                output=output,
+                metadata=metadata,
+            )
 
         return span
 
@@ -308,13 +311,15 @@ class Langfuse:
         with self.tracer.start_as_current_span(
             name=name, attributes=attributes
         ) as span:
-            self._process_media_span_attributes(
-                span=span,
-                as_type=as_type,
-                input=input,
-                output=output,
-                metadata=metadata,
-            )
+            # Process media only if span is sampled
+            if span.is_recording():
+                self._process_media_span_attributes(
+                    span=span,
+                    as_type=as_type,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                )
 
             yield span
 
@@ -666,7 +671,6 @@ class Langfuse:
                 "environment": self.environment,
             }
 
-            langfuse_logger.debug(f"Creating score {score_event}...")
             new_body = ScoreBody(**score_event)
 
             event = {

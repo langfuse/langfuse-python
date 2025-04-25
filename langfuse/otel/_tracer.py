@@ -8,6 +8,7 @@ import httpx
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
@@ -47,6 +48,7 @@ class LangfuseTracer:
         flush_interval: Optional[float] = None,
         httpx_client: Optional[httpx.Client] = None,
         media_upload_thread_count: Optional[int] = None,
+        sample_rate: Optional[float] = None,
     ) -> "LangfuseTracer":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -66,6 +68,7 @@ class LangfuseTracer:
                     flush_interval=flush_interval,
                     httpx_client=httpx_client,
                     media_upload_thread_count=media_upload_thread_count,
+                    sample_rate=sample_rate,
                 )
 
                 cls._instances[public_key] = instance
@@ -85,10 +88,11 @@ class LangfuseTracer:
         flush_interval: Optional[float] = None,
         media_upload_thread_count: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
+        sample_rate: Optional[float] = None,
     ):
         # OTEL Tracer
         tracer_provider = _init_tracer_provider(
-            environment=environment, release=release
+            environment=environment, release=release, sample_rate=sample_rate
         )
 
         langfuse_processor = LangfuseSpanProcessor(
@@ -191,6 +195,14 @@ class LangfuseTracer:
         # Register shutdown handler
         atexit.register(self.shutdown)
 
+        langfuse_logger.info(
+            f"Initialized Langfuse tracer with "
+            f"public_key={public_key}, "
+            f"host={host}, "
+            f"environment={environment}, "
+            f"sample_rate={sample_rate}"
+        )
+
     def _fetch_project_id_background(self):
         try:
             projects = self.api.projects.get(
@@ -231,7 +243,22 @@ class LangfuseTracer:
 
     def add_score_task(self, event: dict):
         try:
-            self._score_ingestion_queue.put(event, block=False)
+            # Sample scores with the same sampler that is used for tracing
+            tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+            should_sample = (
+                tracer_provider.sampler.should_sample(
+                    parent_context=None,
+                    trace_id=int(event["body"].trace_id, 16),
+                    name="score",
+                ).decision
+                == Decision.RECORD_AND_SAMPLE
+                if hasattr(event["body"], "trace_id")
+                else True
+            )
+
+            if should_sample:
+                langfuse_logger.debug(f"Enqueuing score event: {event}")
+                self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning("Score ingestion queue is full")
@@ -313,6 +340,7 @@ def _init_tracer_provider(
     *,
     environment: Optional[str] = None,
     release: Optional[str] = None,
+    sample_rate: Optional[float] = None,
 ) -> TracerProvider:
     environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
     release = release or os.environ.get(LANGFUSE_RELEASE) or get_common_release_envs()
@@ -330,7 +358,10 @@ def _init_tracer_provider(
     default_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
 
     if isinstance(default_provider, otel_trace_api.ProxyTracerProvider):
-        provider = TracerProvider(resource=resource)
+        provider = TracerProvider(
+            resource=resource,
+            sampler=TraceIdRatioBased(sample_rate) if sample_rate else None,
+        )
         otel_trace_api.set_tracer_provider(provider)
 
     else:
