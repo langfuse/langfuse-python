@@ -1117,14 +1117,22 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
 
         # For VertexAI, the usage model has non integer values that are not necessary for the usage, so remove them.
         # ref. https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rpc/google.cloud.aiplatform.v1#google.cloud.aiplatform.v1.GenerateContentResponse.UsageMetadata
-        for key in [
-            "prompt_tokens_details",
-            "candidates_tokens_details",
-            "cache_tokens_details",
-        ]:
-            if key in usage_model:
-                if isinstance(usage_model[key], list):
-                    del usage_model[key]
+        if all(
+            gemini_key in usage
+            for gemini_key in [
+                "prompt_token_count",
+                "candidates_token_count",
+                "total_token_count",
+            ]
+        ):
+            for key in [
+                "prompt_tokens_details",
+                "candidates_tokens_details",
+                "cache_tokens_details",
+            ]:
+                if key in usage_model:
+                    if isinstance(usage_model[key], list):
+                        del usage_model[key]
 
     return usage_model if usage_model else None
 
