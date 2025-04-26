@@ -429,11 +429,11 @@ def test_mistral():
 
 @pytest.mark.skip(reason="missing api key")
 def test_vertx():
-    from langchain.llms import VertexAI
+    from langchain_google_vertexai import VertexAI
 
     callback = CallbackHandler(debug=False)
 
-    llm = VertexAI(callbacks=[callback])
+    llm = VertexAI(model="gemini-2.0-flash-lite-001", callbacks=[callback])
     llm.predict("say a brief hello", callbacks=[callback])
 
     callback.flush()
@@ -443,10 +443,10 @@ def test_vertx():
     trace = get_api().trace.get(trace_id)
 
     assert trace.id == trace_id
-    assert len(trace.observations) == 2
+    assert len(trace.observations) == 1
 
     generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
-    assert generation.model == "text-bison"
+    assert generation.model == "gemini-2.0-flash-lite-001"
 
 
 @pytest.mark.skip(reason="rate limits")
