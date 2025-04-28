@@ -18,10 +18,13 @@ def catch_and_log_errors(func):
     return wrapper
 
 
-def auto_decorate_methods_with(decorator, exclude: Optional[List[str]] = []):
+def auto_decorate_methods_with(decorator, exclude: Optional[List[str]] = None):
     """Class decorator to automatically apply a given decorator to all
     methods of a class.
     """
+
+    if exclude is None:
+        exclude = []
 
     def class_decorator(cls):
         for attr_name, attr_value in cls.__dict__.items():

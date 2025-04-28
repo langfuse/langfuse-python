@@ -1298,7 +1298,7 @@ class Langfuse(object):
         name: str,
         prompt: List[ChatMessageDict],
         is_active: Optional[bool] = None,  # deprecated
-        labels: List[str] = [],
+        labels: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
         config: Optional[Any] = None,
@@ -1312,7 +1312,7 @@ class Langfuse(object):
         name: str,
         prompt: str,
         is_active: Optional[bool] = None,  # deprecated
-        labels: List[str] = [],
+        labels: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         type: Optional[Literal["text"]] = "text",
         config: Optional[Any] = None,
@@ -1325,7 +1325,7 @@ class Langfuse(object):
         name: str,
         prompt: Union[str, List[ChatMessageDict]],
         is_active: Optional[bool] = None,  # deprecated
-        labels: List[str] = [],
+        labels: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",
         config: Optional[Any] = None,
@@ -1347,6 +1347,8 @@ class Langfuse(object):
             TextPromptClient: The prompt if type argument is 'text'.
             ChatPromptClient: The prompt if type argument is 'chat'.
         """
+        if labels is None:
+            labels = []
         try:
             self.log.debug(f"Creating prompt {name=}, {version=}, {labels=}")
 
@@ -1401,7 +1403,7 @@ class Langfuse(object):
         *,
         name: str,
         version: int,
-        new_labels: List[str] = [],
+        new_labels: Optional[List[str]] = None,
     ):
         """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
 
@@ -1414,6 +1416,8 @@ class Langfuse(object):
             Prompt: The updated prompt from the Langfuse API.
 
         """
+        if new_labels is None:
+            new_labels = []
         updated_prompt = self.client.prompt_version.update(
             name=name,
             version=version,
@@ -3424,7 +3428,7 @@ class DatasetItemClient:
         run_name: str,
         run_description: Optional[str] = None,
         run_metadata: Optional[Any] = None,
-        llama_index_integration_constructor_kwargs: Optional[Dict[str, Any]] = {},
+        llama_index_integration_constructor_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """Context manager for observing LlamaIndex operations linked to this dataset item.
 
@@ -3454,6 +3458,8 @@ class DatasetItemClient:
         Raises:
             ImportError: If required modules for LlamaIndex integration are not available.
         """
+        if llama_index_integration_constructor_kwargs is None:
+            llama_index_integration_constructor_kwargs = {}
         metadata = {
             "dataset_item_id": self.id,
             "run_name": run_name,
@@ -3513,7 +3519,7 @@ class DatasetItemClient:
         run_name: str,
         run_description: Optional[str] = None,
         run_metadata: Optional[Any] = None,
-        llama_index_integration_constructor_kwargs: Optional[Dict[str, Any]] = {},
+        llama_index_integration_constructor_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """Create and get a llama-index callback handler linked to this dataset item.
 
@@ -3526,6 +3532,8 @@ class DatasetItemClient:
         Returns:
             LlamaIndexCallbackHandler: An instance of LlamaIndexCallbackHandler linked to the dataset item.
         """
+        if llama_index_integration_constructor_kwargs is None:
+            llama_index_integration_constructor_kwargs = {}
         metadata = {
             "dataset_item_id": self.id,
             "run_name": run_name,
