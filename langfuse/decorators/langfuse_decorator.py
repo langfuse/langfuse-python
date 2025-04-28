@@ -423,6 +423,8 @@ class LangfuseDecorator:
                 observation, result, capture_output, transform_to_string
             )
         elif inspect.isasyncgen(result):
+            stack = _observation_stack_context.get()[:-1]
+            _observation_stack_context.set(stack)
             return self._wrap_async_generator_result(
                 observation, result, capture_output, transform_to_string
             )
@@ -567,11 +569,21 @@ class LangfuseDecorator:
         items = []
 
         try:
-            async for item in generator:
-                items.append(item)
+            stack = None
 
-                yield item
+            try:
+                while True:
+                    stack = _observation_stack_context.get()
+                    _observation_stack_context.set(stack + [observation])
 
+                    item = await anext(generator)
+                    items.append(item)
+                    _observation_stack_context.set(stack)
+                    yield item
+            except StopAsyncIteration:
+                pass
+            finally:
+                _observation_stack_context.set(stack)
         finally:
             output = items
 
