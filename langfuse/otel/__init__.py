@@ -49,9 +49,6 @@ class Langfuse:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
-        # sdk_integration: Optional[str] = "default", -> TO BE DEPRECATED
-        # threads: Optional[int] = None, -> TO BE DEPRECATED
-        # max_retries: Optional[int] = None, -> TO BE DEPRECATED
     ):
         debug = debug if debug else (os.getenv(LANGFUSE_DEBUG, "False") == "True")
 

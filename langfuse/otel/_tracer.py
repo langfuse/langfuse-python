@@ -177,7 +177,6 @@ class LangfuseTracer:
             flush_interval=flush_interval,
             max_retries=3,
             public_key=public_key,
-            # sample_rate=ddf TODO: apply deterministic sampling to scores, too
         )
         ingestion_consumer.start()
         self._ingestion_consumers.append(ingestion_consumer)
