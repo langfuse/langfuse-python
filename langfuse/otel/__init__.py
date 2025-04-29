@@ -534,20 +534,30 @@ class Langfuse:
 
         return trace.NonRecordingSpan(span_context)
 
-    def create_span_id(self) -> str:
+    def create_observation_id(self) -> str:
         span_id_int = RandomIdGenerator().generate_span_id()
 
-        return self._format_span_id(span_id_int)
+        return self._format_otel_span_id(span_id_int)
 
     def create_trace_id(self) -> str:
         trace_id_int = RandomIdGenerator().generate_trace_id()
 
-        return self._format_trace_id(trace_id_int)
+        return self._format_otel_trace_id(trace_id_int)
 
-    def _format_span_id(self, span_id_int: int) -> str:
+    def _get_otel_trace_id(self, otel_span: otel_trace_api.Span):
+        span_context = otel_span.get_span_context()
+
+        return self._format_otel_trace_id(span_context.trace_id)
+
+    def _get_otel_span_id(self, otel_span: otel_trace_api.Span):
+        span_context = otel_span.get_span_context()
+
+        return self._format_otel_span_id(span_context.span_id)
+
+    def _format_otel_span_id(self, span_id_int: int) -> str:
         return format(span_id_int, "016x")
 
-    def _format_trace_id(self, trace_id_int: int) -> str:
+    def _format_otel_trace_id(self, trace_id_int: int) -> str:
         return format(trace_id_int, "032x")
 
     @overload
@@ -593,7 +603,7 @@ class Langfuse:
         if not self.tracing_enabled:
             return
 
-        score_id = score_id or self.create_span_id()
+        score_id = score_id or self.create_observation_id()
 
         try:
             score_event = {
@@ -620,108 +630,6 @@ class Langfuse:
 
         except Exception as e:
             langfuse_logger.exception(e)
-
-    @overload
-    def score_span(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: str,
-        value: float,
-        score_id: Optional[str] = None,
-        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
-        comment: Optional[str] = None,
-        config_id: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def score_span(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: str,
-        value: str,
-        score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
-        comment: Optional[str] = None,
-        config_id: Optional[str] = None,
-    ) -> None: ...
-
-    def score_span(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: str,
-        value: Union[float, str],
-        score_id: Optional[str] = None,
-        data_type: Optional[ScoreDataType] = None,
-        comment: Optional[str] = None,
-        config_id: Optional[str] = None,
-    ) -> None:
-        span_context = span.get_span_context()
-        trace_id = self._format_trace_id(span_context.trace_id)
-        span_id = self._format_span_id(span_context.span_id)
-
-        self.create_score(
-            name=name,
-            value=cast(str, value),
-            trace_id=trace_id,
-            observation_id=span_id,
-            score_id=score_id,
-            data_type=cast(Literal["CATEGORICAL"], data_type),
-            comment=comment,
-            config_id=config_id,
-        )
-
-    @overload
-    def score_trace(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: str,
-        value: float,
-        score_id: Optional[str] = None,
-        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
-        comment: Optional[str] = None,
-        config_id: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def score_trace(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: str,
-        value: str,
-        score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
-        comment: Optional[str] = None,
-        config_id: Optional[str] = None,
-    ) -> None: ...
-
-    def score_trace(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: str,
-        value: Union[float, str],
-        score_id: Optional[str] = None,
-        data_type: Optional[ScoreDataType] = None,
-        comment: Optional[str] = None,
-        config_id: Optional[str] = None,
-    ) -> None:
-        span_context = span.get_span_context()
-        trace_id = self._format_trace_id(span_context.trace_id)
-
-        self.create_score(
-            name=name,
-            value=cast(str, value),
-            trace_id=trace_id,
-            score_id=score_id,
-            data_type=cast(Literal["CATEGORICAL"], data_type),
-            comment=comment,
-            config_id=config_id,
-        )
 
     @overload
     def score_current_span(
@@ -760,8 +668,9 @@ class Langfuse:
         current_span = self.get_current_span()
 
         if current_span is not None:
-            self.score_span(
-                span=current_span,
+            self.create_score(
+                trace_id=self._get_otel_trace_id(current_span),
+                observation_id=self._get_otel_span_id(current_span),
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
@@ -807,8 +716,8 @@ class Langfuse:
         current_span = self.get_current_span()
 
         if current_span is not None:
-            self.score_trace(
-                span=current_span,
+            self.create_score(
+                trace_id=self._get_otel_trace_id(current_span),
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
