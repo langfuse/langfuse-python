@@ -8,6 +8,8 @@ from typing import (
     Literal,
     Optional,
     Union,
+    cast,
+    overload,
 )
 
 from opentelemetry import trace as otel_trace_api
@@ -24,7 +26,7 @@ from langfuse.otel.attributes import (
     create_trace_attributes,
 )
 
-from ..types import MapValue, SpanLevel
+from ..types import MapValue, ScoreDataType, SpanLevel
 from ._logger import langfuse_logger
 
 
@@ -43,6 +45,10 @@ class LangfuseSpanWrapper(ABC):
         self._otel_span.set_attribute(LangfuseSpanAttributes.OBSERVATION_TYPE, as_type)
         self._langfuse_client = langfuse_client
 
+        self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
+        self.observation_id = self._langfuse_client._get_otel_span_id(otel_span)
+
+        # Handle media only if span is sampled
         if self._otel_span.is_recording:
             media_processed_input = self._process_media_and_apply_mask(
                 data=input, field="input", span=self._otel_span
@@ -111,11 +117,94 @@ class LangfuseSpanWrapper(ABC):
 
         self._otel_span.set_attributes(attributes)
 
-    def score(self):
-        pass
+    @overload
+    def score(
+        self,
+        *,
+        name: str,
+        value: float,
+        score_id: Optional[str] = None,
+        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
+        comment: Optional[str] = None,
+        config_id: Optional[str] = None,
+    ) -> None: ...
 
-    def score_trace(self):
-        pass
+    @overload
+    def score(
+        self,
+        *,
+        name: str,
+        value: str,
+        score_id: Optional[str] = None,
+        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        comment: Optional[str] = None,
+        config_id: Optional[str] = None,
+    ) -> None: ...
+
+    def score(
+        self,
+        *,
+        name: str,
+        value: Union[float, str],
+        score_id: Optional[str] = None,
+        data_type: Optional[ScoreDataType] = None,
+        comment: Optional[str] = None,
+        config_id: Optional[str] = None,
+    ) -> None:
+        self._langfuse_client.create_score(
+            name=name,
+            value=cast(str, value),
+            trace_id=self.trace_id,
+            observation_id=self.observation_id,
+            score_id=score_id,
+            data_type=cast(Literal["CATEGORICAL"], data_type),
+            comment=comment,
+            config_id=config_id,
+        )
+
+    @overload
+    def score_trace(
+        self,
+        *,
+        name: str,
+        value: float,
+        score_id: Optional[str] = None,
+        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
+        comment: Optional[str] = None,
+        config_id: Optional[str] = None,
+    ) -> None: ...
+
+    @overload
+    def score_trace(
+        self,
+        *,
+        name: str,
+        value: str,
+        score_id: Optional[str] = None,
+        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        comment: Optional[str] = None,
+        config_id: Optional[str] = None,
+    ) -> None: ...
+
+    def score_trace(
+        self,
+        *,
+        name: str,
+        value: Union[float, str],
+        score_id: Optional[str] = None,
+        data_type: Optional[ScoreDataType] = None,
+        comment: Optional[str] = None,
+        config_id: Optional[str] = None,
+    ) -> None:
+        self._langfuse_client.create_score(
+            name=name,
+            value=cast(str, value),
+            trace_id=self.trace_id,
+            score_id=score_id,
+            data_type=cast(Literal["CATEGORICAL"], data_type),
+            comment=comment,
+            config_id=config_id,
+        )
 
     def _set_processed_span_attributes(
         self,
@@ -187,15 +276,11 @@ class LangfuseSpanWrapper(ABC):
         span: otel_trace_api.Span,
         field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
     ):
-        span_context = span.get_span_context()
-        trace_id = self._langfuse_client._format_trace_id(span_context.trace_id)
-        span_id = self._langfuse_client._format_span_id(span_context.span_id)
-
         media_processed_attribute = self._langfuse_client.langfuse_tracer._media_manager._find_and_process_media(
             data=data,
             field=field,
-            trace_id=trace_id,
-            observation_id=span_id,
+            trace_id=self.trace_id,
+            observation_id=self.observation_id,
             project_id=self._langfuse_client.langfuse_tracer.project_id,
         )
 
