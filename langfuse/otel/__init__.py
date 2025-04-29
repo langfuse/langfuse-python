@@ -11,11 +11,10 @@ from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.model import PromptClient
+from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
 from langfuse.otel.attributes import (
-    LangfuseSpanAttributes,
     create_generation_attributes,
     create_span_attributes,
-    create_trace_attributes,
 )
 from langfuse.otel.environment_variables import (
     LANGFUSE_DEBUG,
@@ -117,58 +116,23 @@ class Langfuse:
     def start_span(
         self,
         *,
-        name: str,
-        parent: Optional[otel_trace_api.Span] = None,
         trace_context: Optional[Dict[str, str]] = None,
-        as_type: Optional[Literal["generation"]] = None,
+        name: str,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
     ):
-        """Start a new span with the given parent span.
-
-        Args:
-            name: The name of the span
-            parent_span: The parent span
-
-        Returns:
-            A new span with the parent context
-        """
-        attributes = (
-            create_generation_attributes(
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            )
-            if as_type == "generation"
-            else create_span_attributes(
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-            )
+        attributes = create_span_attributes(
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
         )
-        remote_parent_span = None
 
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
@@ -179,33 +143,150 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-        if parent is not None or remote_parent_span is not None:
-            with otel_trace_api.use_span(
-                parent or cast(otel_trace_api.Span, remote_parent_span)
-            ):
-                return self.tracer.start_span(name=name, attributes=attributes)
+                with otel_trace_api.use_span(
+                    cast(otel_trace_api.Span, remote_parent_span)
+                ):
+                    otel_span = self.tracer.start_span(name=name, attributes=attributes)
 
-        span = self.tracer.start_span(name=name, attributes=attributes)
+                    return LangfuseSpan(
+                        otel_span=otel_span,
+                        langfuse_client=self,
+                        input=input,
+                        output=output,
+                        metadata=metadata,
+                    )
 
-        # Process media only if span is sampled
-        if span.is_recording:
-            self._set_processed_span_attributes(
-                span=span,
-                as_type=as_type,
-                input=input,
-                output=output,
-                metadata=metadata,
-            )
+        otel_span = self.tracer.start_span(name=name, attributes=attributes)
 
-        return span
+        return LangfuseSpan(
+            otel_span=otel_span,
+            langfuse_client=self,
+            input=input,
+            output=output,
+            metadata=metadata,
+        )
 
     def start_as_current_span(
         self,
         *,
-        name: str,
-        parent: Optional[otel_trace_api.Span] = None,
         trace_context: Optional[Dict[str, str]] = None,  # TODO: improve typing
-        as_type: Optional[Literal["generation"]] = None,
+        name: str,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ):
+        attributes = create_span_attributes(
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+        )
+
+        if trace_context:
+            trace_id = trace_context.get("trace_id", None)
+            parent_span_id = trace_context.get("parent_span_id", None)
+
+            if trace_id:
+                remote_parent_span = Langfuse._create_remote_parent_span(
+                    trace_id=trace_id, parent_span_id=parent_span_id
+                )
+
+                return self._create_span_with_parent_context(
+                    as_type="span",
+                    name=name,
+                    attributes=attributes,
+                    remote_parent_span=remote_parent_span,
+                    parent=None,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                )
+
+        return self._start_as_current_otel_span_with_processed_media(
+            as_type="span",
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            metadata=metadata,
+        )
+
+    def start_generation(
+        self,
+        *,
+        trace_context: Optional[Dict[str, str]] = None,
+        name: str,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> LangfuseGeneration:
+        attributes = create_generation_attributes(
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
+        )
+
+        if trace_context:
+            trace_id = trace_context.get("trace_id", None)
+            parent_span_id = trace_context.get("parent_span_id", None)
+
+            if trace_id:
+                remote_parent_span = Langfuse._create_remote_parent_span(
+                    trace_id=trace_id, parent_span_id=parent_span_id
+                )
+
+                # TODO: check why previous context is not reset correctly
+                with otel_trace_api.use_span(
+                    cast(otel_trace_api.Span, remote_parent_span)
+                ):
+                    otel_span = self.tracer.start_span(name=name, attributes=attributes)
+
+                    return LangfuseGeneration(
+                        otel_span=otel_span,
+                        langfuse_client=self,
+                        input=input,
+                        output=output,
+                        metadata=metadata,
+                    )
+
+        otel_span = self.tracer.start_span(name=name, attributes=attributes)
+
+        return LangfuseGeneration(
+            otel_span=otel_span,
+            langfuse_client=self,
+            input=input,
+            output=output,
+            metadata=metadata,
+        )
+
+    def start_as_current_generation(
+        self,
+        *,
+        trace_context: Optional[Dict[str, str]] = None,  # TODO: improve typing
+        name: str,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -219,32 +300,20 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ):
-        attributes = (
-            create_generation_attributes(
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            )
-            if as_type == "generation"
-            else create_span_attributes(
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-            )
+        attributes = create_generation_attributes(
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
         )
-        remote_parent_span = None
 
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
@@ -255,21 +324,21 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-        if parent is not None or remote_parent_span is not None:
-            return self._create_span_with_parent_context(
-                name=name,
-                attributes=attributes,
-                remote_parent_span=remote_parent_span,
-                parent=parent,
-                input=input,
-                output=output,
-                metadata=metadata,
-            )
+                return self._create_span_with_parent_context(
+                    as_type="generation",
+                    name=name,
+                    attributes=attributes,
+                    remote_parent_span=remote_parent_span,
+                    parent=None,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                )
 
-        return self._start_as_current_span_with_processed_media(
+        return self._start_as_current_otel_span_with_processed_media(
+            as_type="generation",
             name=name,
             attributes=attributes,
-            as_type=as_type,
             input=input,
             output=output,
             metadata=metadata,
@@ -283,6 +352,7 @@ class Langfuse:
         parent,
         remote_parent_span,
         attributes,
+        as_type: Literal["generation", "span"],
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -290,126 +360,47 @@ class Langfuse:
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
         with otel_trace_api.use_span(parent_span):
-            with self._start_as_current_span_with_processed_media(
+            with self._start_as_current_otel_span_with_processed_media(
                 name=name,
                 attributes=attributes,
+                as_type=as_type,
                 input=input,
                 output=output,
                 metadata=metadata,
-            ) as span:
-                yield span
+            ) as langfuse_span:
+                yield langfuse_span
 
     @contextmanager
-    def _start_as_current_span_with_processed_media(
+    def _start_as_current_otel_span_with_processed_media(
         self,
         *,
         name: str,
         attributes: Dict[str, str],
-        as_type: Optional[Literal["generation"]] = None,
+        as_type: Optional[Literal["generation", "span"]] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
     ):
         with self.tracer.start_as_current_span(
             name=name, attributes=attributes
-        ) as span:
-            # Process media only if span is sampled
-            if span.is_recording():
-                self._set_processed_span_attributes(
-                    span=span,
-                    as_type=as_type,
+        ) as otel_span:
+            yield (
+                LangfuseSpan(
+                    otel_span=otel_span,
+                    langfuse_client=self,
                     input=input,
                     output=output,
                     metadata=metadata,
                 )
-
-            yield span
-
-    def _set_processed_span_attributes(
-        self,
-        *,
-        span: otel_trace_api.Span,
-        as_type: Optional[Literal["generation"]] = None,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-    ):
-        processed_input = self._process_media_and_apply_mask(
-            span=span,
-            data=input,
-            field="input",
-        )
-        processed_output = self._process_media_and_apply_mask(
-            span=span,
-            data=output,
-            field="output",
-        )
-        processed_metadata = self._process_media_and_apply_mask(
-            span=span,
-            data=metadata,
-            field="metadata",
-        )
-
-        media_processed_attributes = (
-            create_generation_attributes(
-                input=processed_input,
-                output=processed_output,
-                metadata=processed_metadata,
+                if as_type == "span"
+                else LangfuseGeneration(
+                    otel_span=otel_span,
+                    langfuse_client=self,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                )
             )
-            if as_type == "generation"
-            else create_span_attributes(
-                input=processed_input,
-                output=processed_output,
-                metadata=processed_metadata,
-            )
-        )
-
-        span.set_attributes(media_processed_attributes)
-
-    def _process_media_and_apply_mask(
-        self,
-        *,
-        data: Optional[Any] = None,
-        span: otel_trace_api.Span,
-        field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
-    ):
-        return self._mask_attribute(
-            data=self._process_media_in_attribute(data=data, span=span, field=field)
-        )
-
-    def _mask_attribute(self, *, data):
-        if not self._mask:
-            return data
-
-        try:
-            return self._mask(data=data)
-        except Exception as e:
-            langfuse_logger.error(f"Mask function failed with error: {e}")
-
-            return "<fully masked due to failed mask function>"
-
-    def _process_media_in_attribute(
-        self,
-        *,
-        data: Optional[Any] = None,
-        span: otel_trace_api.Span,
-        field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
-    ):
-        span_context = span.get_span_context()
-        trace_id = self._format_trace_id(span_context.trace_id)
-        span_id = self._format_span_id(span_context.span_id)
-
-        media_processed_attribute = (
-            self.langfuse_tracer._media_manager._find_and_process_media(
-                data=data,
-                field=field,
-                trace_id=trace_id,
-                observation_id=span_id,
-                project_id=self.langfuse_tracer.project_id,
-            )
-        )
-
-        return media_processed_attribute
 
     def get_current_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
@@ -422,7 +413,7 @@ class Langfuse:
 
         return current_span
 
-    def update_current_span(
+    def update_current_generation(
         self,
         *,
         input: Optional[Any] = None,
@@ -442,11 +433,14 @@ class Langfuse:
             langfuse_logger.debug("Tracing is disabled. Skipping span update.")
             return
 
-        current_span = Langfuse.get_current_span()
+        current_otel_span = self.get_current_span()
 
-        if current_span is not None:
-            self.update_span(
-                current_span,
+        if current_otel_span is not None:
+            generation = LangfuseGeneration(
+                otel_span=current_otel_span, langfuse_client=self
+            )
+
+            generation.update(
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -459,6 +453,34 @@ class Langfuse:
                 usage_details=usage_details,
                 cost_details=cost_details,
                 prompt=prompt,
+            )
+
+    def update_current_span(
+        self,
+        *,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> None:
+        if not self.tracing_enabled:
+            langfuse_logger.debug("Tracing is disabled. Skipping span update.")
+            return
+
+        current_otel_span = self.get_current_span()
+
+        if current_otel_span is not None:
+            span = LangfuseSpan(otel_span=current_otel_span, langfuse_client=self)
+
+            span.update(
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
             )
 
     def update_current_trace(
@@ -478,11 +500,12 @@ class Langfuse:
             langfuse_logger.debug("Tracing is disabled. Skipping trace update.")
             return
 
-        current_span = Langfuse.get_current_span()
+        current_otel_span = self.get_current_span()
 
-        if current_span is not None:
-            self.update_trace(
-                current_span,
+        if current_otel_span is not None:
+            span = LangfuseSpan(otel_span=current_otel_span, langfuse_client=self)
+
+            span.update_trace(
                 name=name,
                 user_id=user_id,
                 session_id=session_id,
@@ -493,111 +516,6 @@ class Langfuse:
                 tags=tags,
                 public=public,
             )
-
-    def update_span(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ):
-        processed_input = self._process_media_and_apply_mask(
-            data=input, field="input", span=span
-        )
-        processed_output = self._process_media_and_apply_mask(
-            data=output, field="output", span=span
-        )
-        processed_metadata = self._process_media_and_apply_mask(
-            data=metadata, field="metadata", span=span
-        )
-
-        if any(
-            [
-                completion_start_time,
-                model,
-                model_parameters,
-                usage_details,
-                cost_details,
-                prompt,
-            ],
-        ):
-            attributes = create_generation_attributes(
-                input=processed_input,
-                output=processed_output,
-                metadata=processed_metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            )
-        else:
-            attributes = create_span_attributes(
-                input=processed_input,
-                output=processed_output,
-                metadata=processed_metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-            )
-
-            # We do not want to redeclare a generation as a span only because the update
-            # has no generation specific attributes
-            attributes.pop(LangfuseSpanAttributes.OBSERVATION_TYPE)
-
-        span.set_attributes(attributes=attributes)
-
-    def update_trace(
-        self,
-        span: otel_trace_api.Span,
-        *,
-        name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        version: Optional[str] = None,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        tags: Optional[List[str]] = None,
-        public: Optional[bool] = None,
-    ):
-        media_processed_input = self._process_media_and_apply_mask(
-            data=input, field="input", span=span
-        )
-        media_processed_output = self._process_media_and_apply_mask(
-            data=output, field="output", span=span
-        )
-        media_processed_metadata = self._process_media_and_apply_mask(
-            data=metadata, field="metadata", span=span
-        )
-
-        attributes = create_trace_attributes(
-            name=name,
-            user_id=user_id,
-            session_id=session_id,
-            version=version,
-            input=media_processed_input,
-            output=media_processed_output,
-            metadata=media_processed_metadata,
-            tags=tags,
-            public=public,
-        )
-
-        span.set_attributes(attributes)
 
     def _create_remote_parent_span(*, trace_id: str, parent_span_id: Optional[str]):
         int_trace_id = int(trace_id, 16)
@@ -900,9 +818,6 @@ class Langfuse:
             )
 
     def update_finished_trace(self):
-        pass
-
-    def update_finished_span(self):
         pass
 
     def flush(self):
