@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from langfuse.model import PromptClient
 
@@ -11,7 +11,6 @@ from ..types import MapValue, SpanLevel
 class LangfuseSpanAttributes:
     # Langfuse-Trace attributes
     TRACE_NAME = "langfuse.trace.name"
-    TRACE_ID = "langfuse.trace.id"
     TRACE_USER_ID = "user.id"
     TRACE_SESSION_ID = "session.id"
     TRACE_TAGS = "langfuse.trace.tags"
@@ -43,6 +42,9 @@ class LangfuseSpanAttributes:
     RELEASE = "langfuse.release"
     VERSION = "langfuse.version"
 
+    # Internal
+    AS_ROOT = "langfuse.internal.as_root"
+
 
 def create_trace_attributes(
     *,
@@ -65,7 +67,9 @@ def create_trace_attributes(
         LangfuseSpanAttributes.RELEASE: release,
         LangfuseSpanAttributes.TRACE_INPUT: _serialize(input),
         LangfuseSpanAttributes.TRACE_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.TRACE_METADATA: _serialize(metadata),
+        LangfuseSpanAttributes.TRACE_METADATA: _flatten_and_serialize_metadata(
+            metadata, "trace"
+        ),
         LangfuseSpanAttributes.TRACE_TAGS: tags,
         LangfuseSpanAttributes.TRACE_PUBLIC: public,
     }
@@ -89,7 +93,9 @@ def create_span_attributes(
         LangfuseSpanAttributes.VERSION: version,
         LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.OBSERVATION_METADATA: _serialize(metadata),
+        LangfuseSpanAttributes.OBSERVATION_METADATA: _flatten_and_serialize_metadata(
+            metadata, "observation"
+        ),
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
@@ -119,7 +125,9 @@ def create_generation_attributes(
         LangfuseSpanAttributes.VERSION: version,
         LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.OBSERVATION_METADATA: _serialize(metadata),
+        LangfuseSpanAttributes.OBSERVATION_METADATA: _flatten_and_serialize_metadata(
+            metadata, "observation"
+        ),
         LangfuseSpanAttributes.OBSERVATION_MODEL: model,
         LangfuseSpanAttributes.OBSERVATION_PROMPT_NAME: prompt and prompt.name,
         LangfuseSpanAttributes.OBSERVATION_PROMPT_VERSION: prompt and prompt.version,
@@ -138,3 +146,23 @@ def create_generation_attributes(
 
 def _serialize(obj):
     return json.dumps(obj, cls=EventSerializer) if obj is not None else None
+
+
+def _flatten_and_serialize_metadata(
+    metadata: Any, type: Literal["observation", "trace"]
+):
+    prefix = (
+        LangfuseSpanAttributes.OBSERVATION_METADATA
+        if type == "observation"
+        else LangfuseSpanAttributes.TRACE_METADATA
+    )
+
+    metadata_attributes = {}
+
+    if not isinstance(metadata, dict):
+        metadata_attributes[prefix] = _serialize(metadata)
+    else:
+        for key, value in metadata.items():
+            metadata_attributes[f"{prefix}.{key}"] = _serialize(value)
+
+    return metadata_attributes
