@@ -13,6 +13,7 @@ from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.model import PromptClient
 from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
 from langfuse.otel.attributes import (
+    LangfuseSpanAttributes,
     create_generation_attributes,
     create_span_attributes,
 )
@@ -144,6 +145,7 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self.tracer.start_span(name=name, attributes=attributes)
+                    otel_span.set_attribute(LangfuseSpanAttributes.AS_ROOT, True)
 
                     return LangfuseSpan(
                         otel_span=otel_span,
@@ -260,6 +262,7 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self.tracer.start_span(name=name, attributes=attributes)
+                    otel_span.set_attribute(LangfuseSpanAttributes.AS_ROOT, True)
 
                     return LangfuseGeneration(
                         otel_span=otel_span,
@@ -365,6 +368,11 @@ class Langfuse:
                 output=output,
                 metadata=metadata,
             ) as langfuse_span:
+                if remote_parent_span is not None:
+                    langfuse_span._otel_span.set_attribute(
+                        LangfuseSpanAttributes.AS_ROOT, True
+                    )
+
                 yield langfuse_span
 
     @contextmanager
