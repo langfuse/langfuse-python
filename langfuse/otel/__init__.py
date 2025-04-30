@@ -539,7 +539,7 @@ class Langfuse:
 
         return trace.NonRecordingSpan(span_context)
 
-    def create_observation_id(self) -> str:
+    def _create_observation_id(self) -> str:
         span_id_int = RandomIdGenerator().generate_span_id()
 
         return self._format_otel_span_id(span_id_int)
@@ -608,7 +608,7 @@ class Langfuse:
         if not self.tracing_enabled:
             return
 
-        score_id = score_id or self.create_observation_id()
+        score_id = score_id or self._create_observation_id()
 
         try:
             score_event = {

@@ -67,11 +67,9 @@ def create_trace_attributes(
         LangfuseSpanAttributes.RELEASE: release,
         LangfuseSpanAttributes.TRACE_INPUT: _serialize(input),
         LangfuseSpanAttributes.TRACE_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.TRACE_METADATA: _flatten_and_serialize_metadata(
-            metadata, "trace"
-        ),
         LangfuseSpanAttributes.TRACE_TAGS: tags,
         LangfuseSpanAttributes.TRACE_PUBLIC: public,
+        **_flatten_and_serialize_metadata(metadata, "trace"),
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
@@ -93,9 +91,7 @@ def create_span_attributes(
         LangfuseSpanAttributes.VERSION: version,
         LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.OBSERVATION_METADATA: _flatten_and_serialize_metadata(
-            metadata, "observation"
-        ),
+        **_flatten_and_serialize_metadata(metadata, "observation"),
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
@@ -125,9 +121,6 @@ def create_generation_attributes(
         LangfuseSpanAttributes.VERSION: version,
         LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.OBSERVATION_METADATA: _flatten_and_serialize_metadata(
-            metadata, "observation"
-        ),
         LangfuseSpanAttributes.OBSERVATION_MODEL: model,
         LangfuseSpanAttributes.OBSERVATION_PROMPT_NAME: prompt and prompt.name,
         LangfuseSpanAttributes.OBSERVATION_PROMPT_VERSION: prompt and prompt.version,
@@ -139,6 +132,7 @@ def create_generation_attributes(
         LangfuseSpanAttributes.OBSERVATION_MODEL_PARAMETERS: _serialize(
             model_parameters
         ),
+        **_flatten_and_serialize_metadata(metadata, "observation"),
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
