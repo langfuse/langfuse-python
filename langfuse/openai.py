@@ -143,6 +143,22 @@ OPENAI_METHODS_V1 = [
         sync=False,
         min_version="1.66.0",
     ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="Responses",
+        method="parse",
+        type="chat",
+        sync=True,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="AsyncResponses",
+        method="parse",
+        type="chat",
+        sync=False,
+        min_version="1.66.0",
+    ),
 ]
 
 

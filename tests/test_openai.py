@@ -3,7 +3,7 @@ import os
 import pytest
 from openai import APIConnectionError
 from openai.types.chat.chat_completion_message import ChatCompletionMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from langfuse.client import Langfuse
 from langfuse.openai import (
@@ -1845,3 +1845,68 @@ def test_response_api_reasoning():
     assert generationData.usage.total is not None
     assert generationData.output is not None
     assert generationData.metadata is not None
+
+
+def test_responses_parse():
+    class Recipe(BaseModel):
+        title: str
+        ingredients: list[str]
+        steps: list[str]
+        prep_time_minutes: int = Field(description="Preparation time in minutes")
+
+    client = openai.OpenAI()
+    generation_name = "test_responses_parse" + create_uuid()[:8]
+
+    response = client.responses.parse(
+        name=generation_name,
+        model="gpt-4o",
+        text_format=Recipe,
+        input="Write a recipe for a simple chocolate cake",
+    )
+
+    response_parsed = response.output_parsed
+
+    openai.flush_langfuse()
+
+    # Verify the returned result
+    assert isinstance(response_parsed, Recipe)
+    assert response_parsed.title
+    assert len(response_parsed.ingredients) > 0
+    assert len(response_parsed.steps) > 0
+    assert response_parsed.prep_time_minutes > 0
+
+    # Check Langfuse tracking
+    generation = get_api().observations.get_many(
+        name=generation_name, type="GENERATION"
+    )
+
+    assert len(generation.data) != 0
+    gen_data = generation.data[0]
+    assert gen_data.name == generation_name
+    assert gen_data.input == "Write a recipe for a simple chocolate cake"
+    assert gen_data.type == "GENERATION"
+    assert "gpt-4o" in gen_data.model
+    assert gen_data.start_time is not None
+    assert gen_data.end_time is not None
+    assert gen_data.start_time < gen_data.end_time
+
+    # Verify usage tracking
+    assert gen_data.usage.input is not None
+    assert gen_data.usage.output is not None
+    assert gen_data.usage.total is not None
+
+    # Verify output was tracked
+    assert gen_data.output is not None
+    assert "content" in gen_data.output
+    assert len(gen_data.output["content"]) == 1
+    assert "parsed" in gen_data.output["content"][0]
+    gen_data_parsed = gen_data.output["content"][0]["parsed"]
+    assert "title" in gen_data_parsed
+    assert "ingredients" in gen_data_parsed
+    assert "steps" in gen_data_parsed
+    assert "prep_time_minutes" in gen_data_parsed
+
+    # Check trace
+    trace = get_api().trace.get(gen_data.trace_id)
+    assert trace.input is not None
+    assert trace.output is not None
