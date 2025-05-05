@@ -120,8 +120,12 @@ def create_generation_attributes(
         LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
         LangfuseSpanAttributes.OBSERVATION_MODEL: model,
-        LangfuseSpanAttributes.OBSERVATION_PROMPT_NAME: prompt and prompt.name,
-        LangfuseSpanAttributes.OBSERVATION_PROMPT_VERSION: prompt and prompt.version,
+        LangfuseSpanAttributes.OBSERVATION_PROMPT_NAME: prompt.name
+        if prompt and not prompt.is_fallback
+        else None,
+        LangfuseSpanAttributes.OBSERVATION_PROMPT_VERSION: prompt.version
+        if prompt and not prompt.is_fallback
+        else None,
         LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS: _serialize(usage_details),
         LangfuseSpanAttributes.OBSERVATION_COST_DETAILS: _serialize(cost_details),
         LangfuseSpanAttributes.OBSERVATION_COMPLETION_START_TIME: _serialize(
