@@ -2,6 +2,7 @@ import logging
 import os
 from contextlib import contextmanager
 from datetime import datetime
+from hashlib import sha256
 from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
 
 import httpx
@@ -539,15 +540,21 @@ class Langfuse:
 
         return trace.NonRecordingSpan(span_context)
 
-    def _create_observation_id(self) -> str:
-        span_id_int = RandomIdGenerator().generate_span_id()
+    def create_observation_id(self, *, seed: Optional[str] = None) -> str:
+        if not seed:
+            span_id_int = RandomIdGenerator().generate_span_id()
 
-        return self._format_otel_span_id(span_id_int)
+            return self._format_otel_span_id(span_id_int)
 
-    def create_trace_id(self) -> str:
-        trace_id_int = RandomIdGenerator().generate_trace_id()
+        return sha256(seed.encode("utf-8")).digest()[:8].hex()
 
-        return self._format_otel_trace_id(trace_id_int)
+    def create_trace_id(self, *, seed: Optional[str] = None) -> str:
+        if not seed:
+            trace_id_int = RandomIdGenerator().generate_trace_id()
+
+            return self._format_otel_trace_id(trace_id_int)
+
+        return sha256(seed.encode("utf-8")).digest()[:16].hex()
 
     def _get_otel_trace_id(self, otel_span: otel_trace_api.Span):
         span_context = otel_span.get_span_context()
@@ -608,7 +615,7 @@ class Langfuse:
         if not self.tracing_enabled:
             return
 
-        score_id = score_id or self._create_observation_id()
+        score_id = score_id or self.create_observation_id()
 
         try:
             score_event = {

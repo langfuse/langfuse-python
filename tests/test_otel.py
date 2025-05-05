@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from hashlib import sha256
 from typing import List, Sequence
 
 import pytest
@@ -11,6 +12,7 @@ from opentelemetry.sdk.trace.export import (
     SpanExporter,
     SpanExportResult,
 )
+from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 from langfuse.media import LangfuseMedia
 from langfuse.otel import Langfuse
@@ -2381,3 +2383,133 @@ class TestMediaHandling(TestOTelBase):
         finally:
             # Restore original
             span._process_media_in_attribute = original_process
+
+
+class TestOtelIdGeneration:
+    """Tests for trace_id and observation_id generation with and without seeds."""
+
+    @pytest.fixture
+    def langfuse_client(self, monkeypatch):
+        """Create a minimal Langfuse client for testing ID generation functions."""
+
+        # Mock project ID fetching to avoid network calls
+        def mock_fetch(self):
+            self._project_id = "test-project-id"
+            self._project_id_fetched.set()
+
+        monkeypatch.setattr(
+            "langfuse.otel._tracer.LangfuseTracer._fetch_project_id_background",
+            mock_fetch,
+        )
+
+        client = Langfuse(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            host="http://test-host",
+        )
+
+        return client
+
+    def test_trace_id_without_seed(self, langfuse_client, monkeypatch):
+        """Test trace_id generation without seed (should use RandomIdGenerator)."""
+
+        # Mock the RandomIdGenerator to return a predictable value
+        def mock_generate_trace_id(self):
+            return 0x1234567890ABCDEF1234567890ABCDEF
+
+        monkeypatch.setattr(
+            RandomIdGenerator, "generate_trace_id", mock_generate_trace_id
+        )
+
+        trace_id = langfuse_client.create_trace_id()
+        assert trace_id == "1234567890abcdef1234567890abcdef"
+        assert len(trace_id) == 32  # 16 bytes hex-encoded = 32 characters
+
+    def test_trace_id_with_seed(self, langfuse_client):
+        """Test trace_id generation with seed (should be deterministic)."""
+        seed = "test-identifier"
+        trace_id = langfuse_client.create_trace_id(seed=seed)
+
+        # Expected value: first 16 bytes of SHA-256 hash of "test-identifier"
+        expected = sha256(seed.encode("utf-8")).digest()[:16].hex()
+
+        assert trace_id == expected
+        assert len(trace_id) == 32  # 16 bytes hex-encoded = 32 characters
+
+        # Verify the same seed produces the same ID
+        trace_id_repeat = langfuse_client.create_trace_id(seed=seed)
+        assert trace_id == trace_id_repeat
+
+        # Verify a different seed produces a different ID
+        different_seed = "different-identifier"
+        different_trace_id = langfuse_client.create_trace_id(seed=different_seed)
+        assert trace_id != different_trace_id
+
+    def test_observation_id_without_seed(self, langfuse_client, monkeypatch):
+        """Test observation_id generation without seed (should use RandomIdGenerator)."""
+
+        # Mock the RandomIdGenerator to return a predictable value
+        def mock_generate_span_id(self):
+            return 0x1234567890ABCDEF
+
+        monkeypatch.setattr(
+            RandomIdGenerator, "generate_span_id", mock_generate_span_id
+        )
+
+        observation_id = langfuse_client.create_observation_id()
+        assert observation_id == "1234567890abcdef"
+        assert len(observation_id) == 16  # 8 bytes hex-encoded = 16 characters
+
+    def test_observation_id_with_seed(self, langfuse_client):
+        """Test observation_id generation with seed (should be deterministic)."""
+        seed = "test-identifier"
+        observation_id = langfuse_client.create_observation_id(seed=seed)
+
+        # Expected value: first 8 bytes of SHA-256 hash of "test-identifier"
+        expected = sha256(seed.encode("utf-8")).digest()[:8].hex()
+
+        assert observation_id == expected
+        assert len(observation_id) == 16  # 8 bytes hex-encoded = 16 characters
+
+        # Verify the same seed produces the same ID
+        observation_id_repeat = langfuse_client.create_observation_id(seed=seed)
+        assert observation_id == observation_id_repeat
+
+        # Verify a different seed produces a different ID
+        different_seed = "different-identifier"
+        different_observation_id = langfuse_client.create_observation_id(
+            seed=different_seed
+        )
+        assert observation_id != different_observation_id
+
+    def test_id_generation_consistency(self, langfuse_client):
+        """Test that the same seed always produces the same IDs across multiple calls."""
+        seed = "consistent-test-seed"
+
+        # Generate multiple IDs with the same seed
+        trace_ids = [langfuse_client.create_trace_id(seed=seed) for _ in range(5)]
+        observation_ids = [
+            langfuse_client.create_observation_id(seed=seed) for _ in range(5)
+        ]
+
+        # All trace IDs should be identical
+        assert len(set(trace_ids)) == 1
+
+        # All observation IDs should be identical
+        assert len(set(observation_ids)) == 1
+
+    def test_different_seeds_produce_different_ids(self, langfuse_client):
+        """Test that different seeds produce different IDs."""
+        seeds = [f"test-seed-{i}" for i in range(10)]
+
+        # Generate IDs with different seeds
+        trace_ids = [langfuse_client.create_trace_id(seed=seed) for seed in seeds]
+        observation_ids = [
+            langfuse_client.create_observation_id(seed=seed) for seed in seeds
+        ]
+
+        # All trace IDs should be unique
+        assert len(set(trace_ids)) == len(seeds)
+
+        # All observation IDs should be unique
+        assert len(set(observation_ids)) == len(seeds)
