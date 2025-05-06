@@ -13,7 +13,7 @@ except ImportError as e:
     log.error(
         f"Could not import langchain. The langchain integration will not work. {e}"
     )
-from typing import Any, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Type, Union, cast
 from uuid import UUID, uuid4
 
 from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
@@ -52,7 +52,13 @@ except ImportError:
     )
 
 LANGSMITH_TAG_HIDDEN: str = "langsmith:hidden"
+CONTROL_FLOW_EXCEPTION_TYPES: Set[Type[BaseException]] = set()
 
+try:
+    from langgraph.errors import GraphBubbleUp
+    CONTROL_FLOW_EXCEPTION_TYPES.add(GraphBubbleUp)
+except ImportError:
+    pass
 
 class LangchainCallbackHandler(
     LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
@@ -484,8 +490,13 @@ class LangchainCallbackHandler(
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
             if run_id in self.runs:
+                if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+                    level = None
+                else:
+                    level = "ERROR"
+
                 self.runs[run_id] = self.runs[run_id].end(
-                    level="ERROR",
+                    level=level,
                     status_message=str(error),
                     version=self.version,
                     input=kwargs.get("inputs"),
