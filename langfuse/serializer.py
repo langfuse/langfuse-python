@@ -1,7 +1,9 @@
 """@private"""
 
+import abc
 import enum
 import math
+from abc import ABC, abstractmethod
 from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
@@ -33,12 +35,41 @@ except ImportError:
 logger = getLogger(__name__)
 
 
-class EventSerializer(JSONEncoder):
+class BaseEventSerializer(JSONEncoder, ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.seen = set()  # Track seen objects to detect circular references
 
-    def default(self, obj: Any):
+    @abstractmethod
+    def default(self, obj: Any) -> Any:
+        """Convert object to JSON serializable format"""
+        pass
+
+    def encode(self, obj: Any) -> str:
+        self.seen.clear()  # Clear seen objects before each encode call
+
+        try:
+            return super().encode(self.default(obj))
+        except Exception:
+            return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
+
+    @staticmethod
+    def is_js_safe_integer(value: int) -> bool:
+        """Ensure the value is within JavaScript's safe range for integers.
+
+        Python's 64-bit integers can exceed this range, necessitating this check.
+        https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
+        """
+        max_safe_int = 2**53 - 1
+        min_safe_int = -(2**53) + 1
+
+        return min_safe_int <= value <= max_safe_int
+
+
+class EventSerializer(BaseEventSerializer):
+    def default(
+        self, obj: Any
+    ):  # -> str | Any | dict[str, Any] | int | float | list | dict | ...:
         try:
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
@@ -158,23 +189,3 @@ class EventSerializer(JSONEncoder):
                 exc_info=e,
             )
             return f'"<not serializable object of type: {type(obj).__name__}>"'
-
-    def encode(self, obj: Any) -> str:
-        self.seen.clear()  # Clear seen objects before each encode call
-
-        try:
-            return super().encode(self.default(obj))
-        except Exception:
-            return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
-
-    @staticmethod
-    def is_js_safe_integer(value: int) -> bool:
-        """Ensure the value is within JavaScript's safe range for integers.
-
-        Python's 64-bit integers can exceed this range, necessitating this check.
-        https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
-        """
-        max_safe_int = 2**53 - 1
-        min_safe_int = -(2**53) + 1
-
-        return min_safe_int <= value <= max_safe_int
