@@ -28,7 +28,7 @@ from langfuse.otel.environment_variables import (
 )
 from langfuse.utils import _get_timestamp
 
-from ..types import MapValue, MaskFunction, ScoreDataType, SpanLevel
+from ..types import MapValue, MaskFunction, ScoreDataType, SpanLevel, TraceContext
 from ._logger import langfuse_logger
 from ._tracer import LangfuseTracer
 
@@ -115,7 +115,7 @@ class Langfuse:
     def start_span(
         self,
         *,
-        trace_context: Optional[Dict[str, str]] = None,
+        trace_context: Optional[TraceContext] = None,
         name: str,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -169,7 +169,7 @@ class Langfuse:
     def start_as_current_span(
         self,
         *,
-        trace_context: Optional[Dict[str, str]] = None,  # TODO: improve typing
+        trace_context: Optional[TraceContext] = None,
         name: str,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -219,7 +219,7 @@ class Langfuse:
     def start_generation(
         self,
         *,
-        trace_context: Optional[Dict[str, str]] = None,
+        trace_context: Optional[TraceContext] = None,
         name: str,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -258,7 +258,6 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                # TODO: check why previous context is not reset correctly
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
@@ -286,7 +285,7 @@ class Langfuse:
     def start_as_current_generation(
         self,
         *,
-        trace_context: Optional[Dict[str, str]] = None,  # TODO: improve typing
+        trace_context: Optional[TraceContext] = None,
         name: str,
         input: Optional[Any] = None,
         output: Optional[Any] = None,

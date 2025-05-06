@@ -106,8 +106,11 @@ class LangfuseTracer:
         tracer_provider.add_span_processor(langfuse_processor)
 
         tracer_provider = otel_trace_api.get_tracer_provider()
-        self.name = f"{LANGFUSE_TRACER_NAME}:{public_key}"
-        self._otel_tracer = tracer_provider.get_tracer(self.name, langfuse_version)
+        self._otel_tracer = tracer_provider.get_tracer(
+            LANGFUSE_TRACER_NAME,
+            langfuse_version,
+            attributes={"public_key": public_key},
+        )
 
         # API Clients
 

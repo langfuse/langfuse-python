@@ -74,7 +74,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
     def _is_langfuse_span(span: ReadableSpan) -> bool:
         return (
             span.instrumentation_scope is not None
-            and LANGFUSE_TRACER_NAME in span.instrumentation_scope.name
+            and span.instrumentation_scope.name == LANGFUSE_TRACER_NAME
         )
 
     def _is_langfuse_project_span(self, span: ReadableSpan) -> bool:
@@ -82,8 +82,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             return False
 
         if span.instrumentation_scope is not None:
-            public_key_in_span = span.instrumentation_scope.name.split(":")[-1]
+            public_key_on_span = (
+                span.instrumentation_scope.attributes.get("public_key", None)
+                if span.instrumentation_scope.attributes
+                else None
+            )
 
-            return public_key_in_span == self.public_key
+            return public_key_on_span == self.public_key
 
         return False

@@ -1,7 +1,17 @@
 """@private"""
 
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Protocol, TypedDict, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    NotRequired,
+    Optional,
+    Protocol,
+    TypedDict,
+    Union,
+)
 
 from pydantic import BaseModel
 
@@ -65,3 +75,8 @@ class ParsedMediaReference(TypedDict):
     media_id: str
     source: str
     content_type: MediaContentType
+
+
+class TraceContext(TypedDict):
+    trace_id: str
+    parent_span_id: NotRequired[str]
