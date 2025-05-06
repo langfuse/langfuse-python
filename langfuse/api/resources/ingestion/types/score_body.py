@@ -35,6 +35,7 @@ class ScoreBody(pydantic_v1.BaseModel):
         alias="observationId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     data_type: typing.Optional[ScoreDataType] = pydantic_v1.Field(
         alias="dataType", default=None
     )
