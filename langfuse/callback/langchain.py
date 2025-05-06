@@ -1114,6 +1114,54 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                 if "output" in usage_model:
                     usage_model["output"] = max(0, usage_model["output"] - value)
 
+        # Vertex AI
+        if "prompt_tokens_details" in usage_model and isinstance(
+            usage_model["prompt_tokens_details"], list
+        ):
+            prompt_tokens_details = usage_model.pop("prompt_tokens_details")
+
+            for item in prompt_tokens_details:
+                if (
+                    isinstance(item, dict)
+                    and "modality" in item
+                    and "token_count" in item
+                ):
+                    usage_model[f"input_modality_{item['modality']}"] = item[
+                        "token_count"
+                    ]
+
+        # Vertex AI
+        if "candidates_tokens_details" in usage_model and isinstance(
+            usage_model["candidates_tokens_details"], list
+        ):
+            candidates_tokens_details = usage_model.pop("candidates_tokens_details")
+
+            for item in candidates_tokens_details:
+                if (
+                    isinstance(item, dict)
+                    and "modality" in item
+                    and "token_count" in item
+                ):
+                    usage_model[f"output_modality_{item['modality']}"] = item[
+                        "token_count"
+                    ]
+
+        # Vertex AI
+        if "cache_tokens_details" in usage_model and isinstance(
+            usage_model["cache_tokens_details"], list
+        ):
+            cache_tokens_details = usage_model.pop("cache_tokens_details")
+
+            for item in cache_tokens_details:
+                if (
+                    isinstance(item, dict)
+                    and "modality" in item
+                    and "token_count" in item
+                ):
+                    usage_model[f"cached_modality_{item['modality']}"] = item[
+                        "token_count"
+                    ]
+
     return usage_model if usage_model else None
 
 
