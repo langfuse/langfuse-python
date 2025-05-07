@@ -39,15 +39,19 @@ class MediaManager:
     def process_next_media_upload(self):
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(f"Processing media upload for {upload_job['media_id']}")
+            self._log.debug(
+                f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
+            )
             self._process_upload_media_job(data=upload_job)
 
             self._queue.task_done()
         except Empty:
-            self._log.debug("Media upload queue is empty")
+            self._log.debug("Queue: Media upload queue is empty, waiting for new jobs")
             pass
         except Exception as e:
-            self._log.error(f"Error uploading media: {e}")
+            self._log.error(
+                f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
+            )
             self._queue.task_done()
 
     def process_media_in_event(self, event: dict):
@@ -86,7 +90,9 @@ class MediaManager:
                     body[field] = processed_data
 
         except Exception as e:
-            self._log.error(f"Error processing multimodal event: {e}")
+            self._log.error(
+                f"Media processing error: Failed to process multimodal event content. Event data may be incomplete. Error: {e}"
+            )
 
     def _find_and_process_media(
         self,
@@ -236,17 +242,17 @@ class MediaManager:
                 block=False,
             )
             self._log.debug(
-                f"Enqueued media ID {media._media_id} for upload processing"
+                f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
             )
 
         except Full:
-            self._log.debug(
-                f"Media queue is full. Failed to process media id {media._media_id}"
+            self._log.warning(
+                f"Queue capacity: Media queue is full. Failed to process media_id={media._media_id} for trace_id={trace_id}. Consider increasing queue capacity."
             )
 
         except Exception as e:
-            self._log.debug(
-                f"Failed to process media with id {media._media_id}: {str(e)}"
+            self._log.error(
+                f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
 
     def _get_media_id(self, *, project_id: str, content_sha256_hash) -> str:
@@ -276,13 +282,15 @@ class MediaManager:
         upload_url = upload_url_response.upload_url
 
         if not upload_url:
-            self._log.debug(f"Media with ID {data['media_id']} already uploaded.")
+            self._log.debug(
+                f"Media status: Media with ID {data['media_id']} already uploaded. Skipping duplicate upload."
+            )
 
             return
 
         if upload_url_response.media_id != data["media_id"]:
             self._log.error(
-                f"Media ID mismatch: SDK {data['media_id']} vs Server {upload_url_response.media_id}. Upload cancelled."
+                f"Media integrity error: Media ID mismatch between SDK ({data['media_id']}) and Server ({upload_url_response.media_id}). Upload cancelled. Please check media ID generation logic."
             )
 
             return
@@ -312,7 +320,7 @@ class MediaManager:
         )
 
         self._log.debug(
-            f"Media upload completed for {data['media_id']} in {upload_time_ms}ms"
+            f"Media upload: Successfully uploaded media_id={data['media_id']} for trace_id={data['trace_id']} | status_code={upload_response.status_code} | duration={upload_time_ms}ms | size={data['content_length']} bytes"
         )
 
     def _request_with_backoff(

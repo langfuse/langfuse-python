@@ -1,3 +1,9 @@
+"""Environment variable definitions for Langfuse OpenTelemetry integration.
+
+This module defines environment variables used to configure the Langfuse OpenTelemetry integration.
+Each environment variable includes documentation on its purpose, expected values, and defaults.
+"""
+
 LANGFUSE_TRACING_ENVIRONMENT = "LANGFUSE_TRACING_ENVIRONMENT"
 """
 .. envvar:: LANGFUSE_TRACING_ENVIRONMENT

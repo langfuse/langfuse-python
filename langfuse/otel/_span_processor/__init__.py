@@ -1,3 +1,16 @@
+"""Span processor for Langfuse OpenTelemetry integration.
+
+This module defines the LangfuseSpanProcessor class, which extends OpenTelemetry's
+BatchSpanProcessor with Langfuse-specific functionality. It handles exporting
+spans to the Langfuse API with proper authentication and filtering.
+
+Key features:
+- HTTP-based span export to Langfuse API
+- Basic authentication with Langfuse API keys
+- Configurable batch processing behavior
+- Project-scoped span filtering to prevent cross-project data leakage
+"""
+
 import base64
 import os
 from typing import Optional
@@ -17,6 +30,21 @@ from langfuse.version import __version__ as langfuse_version
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
+    """OpenTelemetry span processor that exports spans to the Langfuse API.
+
+    This processor extends OpenTelemetry's BatchSpanProcessor with Langfuse-specific functionality:
+    1. Project-scoped span filtering to prevent cross-project data leakage
+    2. Configurable batch processing parameters for optimal performance
+    3. HTTP-based span export to the Langfuse OTLP endpoint
+    4. Debug logging for span processing operations
+    5. Authentication with Langfuse API using Basic Auth
+
+    The processor is designed to efficiently handle large volumes of spans with
+    minimal overhead, while ensuring spans are only sent to the correct project.
+    It integrates with OpenTelemetry's standard span lifecycle, adding Langfuse-specific
+    filtering and export capabilities.
+    """
+
     def __init__(
         self,
         *,
@@ -60,11 +88,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # This is important to not send spans to wrong project in multi-project setups
         if self._is_langfuse_span(span) and not self._is_langfuse_project_span(span):
             langfuse_logger.debug(
-                f"Skipping span from different project (current processor is for project '{self.public_key}'): {span_formatter(span)}"
+                f"Security: Span rejected - belongs to project '{span.instrumentation_scope.attributes.get('public_key')}' but processor is for '{self.public_key}'. "
+                f"This prevents cross-project data leakage in multi-project environments."
             )
             return
 
-        langfuse_logger.debug(f"Processing span:\n{span_formatter(span)}")
+        langfuse_logger.debug(
+            f"Trace: Processing span name='{span._name}' | Full details:\n{span_formatter(span)}"
+        )
 
         super().on_end(span)
 

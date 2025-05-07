@@ -1,3 +1,15 @@
+"""Span attribute management for Langfuse OpenTelemetry integration.
+
+This module defines constants and functions for managing OpenTelemetry span attributes
+used by Langfuse. It provides a structured approach to creating and manipulating
+attributes for different span types (trace, span, generation) while ensuring consistency.
+
+The module includes:
+- Attribute name constants organized by category
+- Functions to create attribute dictionaries for different entity types
+- Utilities for serializing and processing attribute values
+"""
+
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional

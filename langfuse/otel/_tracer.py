@@ -1,3 +1,17 @@
+"""Tracer implementation for Langfuse OpenTelemetry integration.
+
+This module provides the LangfuseTracer class, a singleton that manages OpenTelemetry
+tracing infrastructure for Langfuse. It handles tracer initialization, span processors,
+API clients, and background tasks for data processing.
+
+Key features:
+- Configurable OpenTelemetry tracer with Langfuse-specific span processors
+- Batch processing of spans and scores with configurable flushing behavior
+- Background media upload processing
+- Project ID management
+- Fault-tolerant shutdown handling
+"""
+
 import atexit
 import os
 import threading
@@ -30,7 +44,26 @@ from ._logger import langfuse_logger
 
 
 class LangfuseTracer:
-    """Singleton that provides access to the OTEL tracer."""
+    """Thread-safe singleton that provides access to the OpenTelemetry tracer and processors.
+
+    This class implements a thread-safe singleton pattern keyed by the public API key,
+    ensuring that only one tracer instance exists per API key combination. It manages
+    the lifecycle of the OpenTelemetry tracer provider, span processors, and resource
+    attributes, as well as background threads for media uploads and score ingestion.
+
+    The tracer is responsible for:
+    1. Setting up the OpenTelemetry tracer with appropriate sampling and configuration
+    2. Managing the span processor for exporting spans to the Langfuse API
+    3. Creating and managing Langfuse API clients
+    4. Handling background media upload processing via dedicated threads
+    5. Processing and batching score ingestion events
+    6. Retrieving and caching project information
+    7. Coordinating graceful shutdown of all background processes
+
+    This implementation follows best practices for resource management in long-running
+    applications, including proper thread management, background task processing with
+    bounded queues, and safe shutdown procedures.
+    """
 
     _instances: Dict[str, "LangfuseTracer"] = {}
     _lock = threading.Lock()
@@ -198,11 +231,12 @@ class LangfuseTracer:
         atexit.register(self.shutdown)
 
         langfuse_logger.info(
-            f"Initialized Langfuse tracer with "
-            f"public_key={public_key}, "
-            f"host={host}, "
-            f"environment={environment}, "
-            f"sample_rate={sample_rate}"
+            f"Startup: Langfuse tracer successfully initialized | "
+            f"public_key={public_key} | "
+            f"host={host} | "
+            f"environment={environment or 'default'} | "
+            f"sample_rate={sample_rate or 1.0} | "
+            f"media_threads={media_upload_thread_count or 1}"
         )
 
     def _fetch_project_id_background(self):
@@ -213,10 +247,12 @@ class LangfuseTracer:
             self._project_id = projects.data[0].id if projects.data else None
 
             langfuse_logger.debug(
-                f"Successfully fetched project ID: {self._project_id}"
+                f"API: Successfully fetched project ID: {self._project_id} for account with public_key={self.public_key}"
             )
         except Exception as e:
-            langfuse_logger.warning(f"Failed to fetch project ID: {str(e)}")
+            langfuse_logger.warning(
+                f"API error: Failed to fetch project ID. This may affect media uploads and URL generation. Error: {str(e)}"
+            )
 
         finally:
             self._project_id_fetched.set()
@@ -228,7 +264,8 @@ class LangfuseTracer:
 
         if self._project_id_fetched.is_set():
             langfuse_logger.warning(
-                "Failed to fetch project ID. This may affect features like media uploads and project-specific configurations."
+                "Configuration issue: Project ID unavailable. Media uploads and project-specific features may be affected. "
+                "Check API connectivity and permissions for your public/secret key pair."
             )
             return None
 
@@ -236,9 +273,11 @@ class LangfuseTracer:
 
         if not self._project_id:
             langfuse_logger.warning(
-                "Failed to fetch project ID. This may affect features like media uploads and project-specific configurations."
+                "Configuration issue: Project ID retrieval failed. Media uploads and project-specific features may be affected. "
+                "Check API connectivity and permissions for your public/secret key pair."
                 if fetch_completed
-                else "Project ID not available as it is currently being fetched.This may affect features like media uploads and project-specific configurations."
+                else "Timing issue: Project ID still being fetched. Operation proceeding without project ID. "
+                "This is normal during startup, but may temporarily affect media uploads and URL generation."
             )
 
         return self._project_id
@@ -259,15 +298,21 @@ class LangfuseTracer:
             )
 
             if should_sample:
-                langfuse_logger.debug(f"Enqueuing score event: {event}")
+                langfuse_logger.debug(
+                    f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
+                )
                 self._score_ingestion_queue.put(event, block=False)
 
         except Full:
-            langfuse_logger.warning("Score ingestion queue is full")
+            langfuse_logger.warning(
+                "System overload: Score ingestion queue has reached capacity (100,000 items). Score will be dropped. Consider increasing flush frequency or decreasing event volume."
+            )
 
             return
         except Exception as e:
-            langfuse_logger.error(f"Exception in adding score ingestion task {e}")
+            langfuse_logger.error(
+                f"Unexpected error: Failed to process score event. The score will be dropped. Error details: {e}"
+            )
 
             return
 
@@ -285,7 +330,7 @@ class LangfuseTracer:
         Blocks execution until finished
         """
         langfuse_logger.debug(
-            f"Joining {len(self._media_upload_consumers)} media upload consumer threads"
+            f"Shutdown: Waiting for {len(self._media_upload_consumers)} media upload thread(s) to complete processing"
         )
         for media_upload_consumer in self._media_upload_consumers:
             media_upload_consumer.pause()
@@ -298,11 +343,11 @@ class LangfuseTracer:
                 pass
 
             langfuse_logger.debug(
-                f"MediaUploadConsumer thread {media_upload_consumer._identifier} joined"
+                f"Shutdown: Media upload thread #{media_upload_consumer._identifier} successfully terminated"
             )
 
         langfuse_logger.debug(
-            f"Joining {len(self._ingestion_consumers)} score ingestion consumer threads"
+            f"Shutdown: Waiting for {len(self._ingestion_consumers)} score ingestion thread(s) to complete processing"
         )
         for score_ingestion_consumer in self._ingestion_consumers:
             score_ingestion_consumer.pause()
@@ -315,7 +360,7 @@ class LangfuseTracer:
                 pass
 
             langfuse_logger.debug(
-                f"ScoreIngestionConsumer thread {score_ingestion_consumer._identifier} joined"
+                f"Shutdown: Score ingestion thread #{score_ingestion_consumer._identifier} successfully terminated"
             )
 
     def flush(self):
