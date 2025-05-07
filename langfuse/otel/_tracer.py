@@ -123,13 +123,15 @@ class LangfuseTracer:
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
     ):
+        self.public_key = public_key
+
         # OTEL Tracer
         tracer_provider = _init_tracer_provider(
             environment=environment, release=release, sample_rate=sample_rate
         )
 
         langfuse_processor = LangfuseSpanProcessor(
-            public_key=public_key,
+            public_key=self.public_key,
             secret_key=secret_key,
             host=host,
             timeout=timeout,
@@ -142,7 +144,7 @@ class LangfuseTracer:
         self._otel_tracer = tracer_provider.get_tracer(
             LANGFUSE_TRACER_NAME,
             langfuse_version,
-            attributes={"public_key": public_key},
+            attributes={"public_key": self.public_key},
         )
 
         # API Clients
@@ -154,25 +156,25 @@ class LangfuseTracer:
         self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
         self.api = FernLangfuse(
             base_url=host,
-            username=public_key,
+            username=self.public_key,
             password=secret_key,
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
-            x_langfuse_public_key=public_key,
+            x_langfuse_public_key=self.public_key,
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
         self.async_api = AsyncFernLangfuse(
             base_url=host,
-            username=public_key,
+            username=self.public_key,
             password=secret_key,
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
-            x_langfuse_public_key=public_key,
+            x_langfuse_public_key=self.public_key,
             timeout=timeout,
         )
         score_ingestion_client = LangfuseClient(
-            public_key=public_key,
+            public_key=self.public_key,
             secret_key=secret_key,
             base_url=host,
             version=langfuse_version,
@@ -212,7 +214,7 @@ class LangfuseTracer:
             flush_at=flush_at,
             flush_interval=flush_interval,
             max_retries=3,
-            public_key=public_key,
+            public_key=self.public_key,
         )
         ingestion_consumer.start()
         self._ingestion_consumers.append(ingestion_consumer)
@@ -232,7 +234,7 @@ class LangfuseTracer:
 
         langfuse_logger.info(
             f"Startup: Langfuse tracer successfully initialized | "
-            f"public_key={public_key} | "
+            f"public_key={self.public_key} | "
             f"host={host} | "
             f"environment={environment or 'default'} | "
             f"sample_rate={sample_rate or 1.0} | "
@@ -247,7 +249,7 @@ class LangfuseTracer:
             self._project_id = projects.data[0].id if projects.data else None
 
             langfuse_logger.debug(
-                f"API: Successfully fetched project ID: {self._project_id} for account with public_key={self.public_key}"
+                f"API: Successfully fetched project ID: {self._project_id} for project with public_key={self.public_key}"
             )
         except Exception as e:
             langfuse_logger.warning(
