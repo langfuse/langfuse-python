@@ -18,7 +18,6 @@ All span and trace IDs follow the W3C Trace Context specification.
 
 import logging
 import os
-from contextlib import contextmanager
 from datetime import datetime
 from hashlib import sha256
 from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
@@ -27,6 +26,7 @@ import httpx
 from opentelemetry import trace
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.util._decorator import _agnosticcontextmanager
 
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.model import PromptClient
@@ -588,7 +588,7 @@ class Langfuse:
             metadata=metadata,
         )
 
-    @contextmanager
+    @_agnosticcontextmanager
     def _create_span_with_parent_context(
         self,
         *,
@@ -619,7 +619,7 @@ class Langfuse:
 
                 yield langfuse_span
 
-    @contextmanager
+    @_agnosticcontextmanager
     def _start_as_current_otel_span_with_processed_media(
         self,
         *,
