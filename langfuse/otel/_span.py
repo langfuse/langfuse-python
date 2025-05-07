@@ -1,3 +1,18 @@
+"""Span implementations for Langfuse OpenTelemetry integration.
+
+This module defines custom span classes that extend OpenTelemetry spans with
+Langfuse-specific functionality. These wrapper classes provide methods for
+creating, updating, and scoring various types of spans used in AI application tracing.
+
+Classes:
+- LangfuseSpanWrapper: Abstract base class for all Langfuse spans
+- LangfuseSpan: Implementation for general-purpose spans
+- LangfuseGeneration: Specialized span implementation for LLM generations
+
+All span classes provide methods for media processing, attribute management,
+and scoring integration specific to Langfuse's observability platform.
+"""
+
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import (
@@ -265,7 +280,9 @@ class LangfuseSpanWrapper(ABC):
         try:
             return self._langfuse_client._mask(data=data)
         except Exception as e:
-            langfuse_logger.error(f"Mask function failed with error: {e}")
+            langfuse_logger.error(
+                f"Masking error: Custom mask function threw exception when processing data. Using fallback masking. Error: {e}"
+            )
 
             return "<fully masked due to failed mask function>"
 

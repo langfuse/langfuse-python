@@ -87,7 +87,9 @@ class ScoreIngestionConsumer(threading.Thread):
                 try:
                     json.dumps(event, cls=EventSerializer)
                 except Exception as e:
-                    self._log.error(f"Error serializing item, skipping: {e}")
+                    self._log.error(
+                        f"Data error: Failed to serialize score object for ingestion. Score will be dropped. Error: {e}"
+                    )
                     self._ingestion_queue.task_done()
 
                     continue
@@ -96,7 +98,9 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 total_size += item_size
                 if total_size >= MAX_BATCH_SIZE_BYTES:
-                    self._log.debug("hit batch size limit (size: %d)", total_size)
+                    self._log.debug(
+                        f"Batch management: Reached maximum batch size limit ({total_size} bytes). Processing {len(events)} events now."
+                    )
                     break
 
             except Empty:
@@ -104,8 +108,8 @@ class ScoreIngestionConsumer(threading.Thread):
 
             except Exception as e:
                 self._log.warning(
-                    "Failed to process event in ScoreIngestionConsumer, skipping",
-                    exc_info=e,
+                    f"Data processing error: Failed to process score event in consumer thread #{self._identifier}. Event will be dropped. Error: {str(e)}",
+                    exc_info=True,
                 )
                 self._ingestion_queue.task_done()
 
@@ -117,7 +121,9 @@ class ScoreIngestionConsumer(threading.Thread):
 
     def run(self):
         """Run the consumer."""
-        self._log.debug("consumer is running...")
+        self._log.debug(
+            f"Startup: Score ingestion consumer thread #{self._identifier} started with batch size {self._flush_at} and interval {self._flush_interval}s"
+        )
         while self.running:
             self.upload()
 
@@ -141,7 +147,9 @@ class ScoreIngestionConsumer(threading.Thread):
         self.running = False
 
     def _upload_batch(self, batch: List[Any]):
-        self._log.debug("uploading batch of %d items", len(batch))
+        self._log.debug(
+            f"API: Uploading batch of {len(batch)} score events to Langfuse API"
+        )
 
         metadata = ScoreIngestionMetadata(
             batch_size=len(batch),
@@ -168,5 +176,5 @@ class ScoreIngestionConsumer(threading.Thread):
 
         execute_task_with_backoff(batch)
         self._log.debug(
-            "successfully uploaded score event batch of size %d", len(batch)
+            f"API: Successfully sent {len(batch)} score events to Langfuse API in batch mode"
         )

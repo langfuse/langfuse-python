@@ -1,3 +1,9 @@
+"""Utility functions for Langfuse OpenTelemetry integration.
+
+This module provides utility functions for working with OpenTelemetry spans,
+including formatting and serialization of span data.
+"""
+
 import json
 
 from opentelemetry import trace as otel_trace_api
