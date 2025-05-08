@@ -56,7 +56,7 @@ langchain-community = ">=0.2.14,<0.4"
 langgraph = "^0.2.62"
 
 [tool.poetry.group.docs.dependencies]
-pdoc = "^14.4.0"
+pdoc = ">=14.4,<16.0"
 
 [tool.poetry.extras]
 openai = ["openai"]
