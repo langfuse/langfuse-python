@@ -14,8 +14,7 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
-from langfuse.otel import Langfuse
-from langfuse.otel._tracer import LangfuseTracer
+from langfuse.otel._get_client import get_client
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -184,7 +183,7 @@ class LangfuseDecorator:
             )
             final_name = name or func.__name__
             public_key = kwargs.pop("langfuse_public_key", None)
-            langfuse_client = self._get_client_instance(public_key=public_key)
+            langfuse_client = get_client(public_key=public_key)
             context_manager = (
                 (
                     langfuse_client.start_as_current_generation(
@@ -228,7 +227,7 @@ class LangfuseDecorator:
             )
             final_name = name or func.__name__
             public_key = kwargs.pop("langfuse_public_key", None)
-            langfuse_client = self._get_client_instance(public_key=public_key)
+            langfuse_client = get_client(public_key=public_key)
             context_manager = (
                 (
                     langfuse_client.start_as_current_generation(
@@ -251,63 +250,7 @@ class LangfuseDecorator:
 
         return cast(F, sync_wrapper)
 
-    def _get_client_instance(self, *, public_key: Optional[str] = None) -> Langfuse:
-        """Get appropriate Langfuse client instance based on public key and available instances.
-
-        This method provides intelligent client resolution logic for decorator-based tracing.
-        It handles various scenarios related to multiple clients and projects to ensure that
-        spans are always associated with the correct Langfuse project.
-
-        Thread safety is ensured by acquiring LangfuseTracer's global lock during the
-        client resolution process, preventing race conditions around client instances.
-
-        Args:
-            public_key (Optional[str]): The Langfuse public key to use for creating the client.
-                If provided, looks for an existing client with this key.
-
-        Returns:
-            Langfuse: A Langfuse client instance to use for tracing, or a disabled client
-                if appropriate client couldn't be determined safely.
-
-        Security note:
-            This method prevents cross-project data leakage by disabling tracing when multiple
-            projects are used and no specific project key is provided to the decorated function.
-        """
-        with LangfuseTracer._lock:
-            active_instances = LangfuseTracer._instances
-
-            if not public_key:
-                if len(active_instances) == 0:
-                    # No clients initialized yet, create default instance
-                    return Langfuse()
-
-                if len(active_instances) == 1:
-                    # Only one client exists, safe to use without specifying key
-                    return Langfuse(public_key=public_key)
-
-                else:
-                    # Multiple clients exist but no key specified - disable tracing
-                    # to prevent cross-project data leakage
-                    self._log.warning(
-                        "No 'langfuse_public_key' passed to decorated function, but multiple langfuse clients are instantiated in current process. Skipping tracing for this function to avoid cross-project leakage."
-                    )
-                    return Langfuse(tracing_enabled=False)
-
-            else:
-                # Specific key provided, look up existing instance
-                instance = active_instances.get(public_key, None)
-
-                if instance is None:
-                    # No instance found with this key - client not initialized properly
-                    self._log.warning(
-                        f"No Langfuse client with public key {public_key} has been initialized. Skipping tracing for decorated function."
-                    )
-                    return Langfuse(tracing_enabled=False)
-
-                return Langfuse(public_key=public_key)
-
 
 _decorator = LangfuseDecorator()
 
 observe = _decorator.observe
-get_client = _decorator._get_client_instance
