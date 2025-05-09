@@ -203,7 +203,7 @@ class LangfuseDecorator:
                 return await func(*args, **kwargs)
 
             with context_manager:
-                return func(*args, **kwargs)
+                return await func(*args, **kwargs)
 
         return cast(F, async_wrapper)
 
