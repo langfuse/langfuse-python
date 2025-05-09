@@ -1,15 +1,17 @@
 """Tracer implementation for Langfuse OpenTelemetry integration.
 
-This module provides the LangfuseTracer class, a singleton that manages OpenTelemetry
+This module provides the LangfuseTracer class, a thread-safe singleton that manages OpenTelemetry
 tracing infrastructure for Langfuse. It handles tracer initialization, span processors,
-API clients, and background tasks for data processing.
+API clients, and coordinates background tasks for efficient data processing and media handling.
 
 Key features:
-- Configurable OpenTelemetry tracer with Langfuse-specific span processors
-- Batch processing of spans and scores with configurable flushing behavior
-- Background media upload processing
-- Project ID management
-- Fault-tolerant shutdown handling
+- Thread-safe OpenTelemetry tracer with Langfuse-specific span processors and sampling
+- Configurable batch processing of spans and scores with intelligent flushing behavior
+- Asynchronous background media upload processing with dedicated worker threads
+- Concurrent score ingestion with batching and retry mechanisms
+- Automatic project ID discovery and caching
+- Graceful shutdown handling with proper resource cleanup
+- Fault tolerance with detailed error logging and recovery mechanisms
 """
 
 import atexit
@@ -54,19 +56,23 @@ class LangfuseTracer:
     The tracer is responsible for:
     1. Setting up the OpenTelemetry tracer with appropriate sampling and configuration
     2. Managing the span processor for exporting spans to the Langfuse API
-    3. Creating and managing Langfuse API clients
-    4. Handling background media upload processing via dedicated threads
-    5. Processing and batching score ingestion events
-    6. Retrieving and caching project information
-    7. Coordinating graceful shutdown of all background processes
+    3. Creating and managing Langfuse API clients (both synchronous and asynchronous)
+    4. Handling background media upload processing via dedicated worker threads
+    5. Processing and batching score ingestion events with configurable flush settings
+    6. Retrieving and caching project information for URL generation and media handling
+    7. Coordinating graceful shutdown of all background processes with proper resource cleanup
 
     This implementation follows best practices for resource management in long-running
-    applications, including proper thread management, background task processing with
-    bounded queues, and safe shutdown procedures.
+    applications, including thread-safe singleton pattern, bounded queues to prevent memory
+    exhaustion, proper resource cleanup on shutdown, and fault-tolerant error handling with
+    detailed logging.
+
+    Thread safety is ensured through the use of locks, thread-safe queues, and atomic operations,
+    making this implementation suitable for multi-threaded and asyncio applications.
     """
 
     _instances: Dict[str, "LangfuseTracer"] = {}
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     def __new__(
         cls,

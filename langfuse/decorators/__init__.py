@@ -27,6 +27,9 @@ main()
 See [docs](https://langfuse.com/docs/sdk/python/decorators) for more information.
 """
 
-from .langfuse_decorator import langfuse_context, observe, LangfuseDecorator
+from .langfuse_decorator import get_client, observe
 
-__all__ = ["langfuse_context", "observe", "LangfuseDecorator"]
+__all__ = [
+    "get_client",
+    "observe",
+]

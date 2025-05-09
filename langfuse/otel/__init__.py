@@ -18,6 +18,7 @@ All span and trace IDs follow the W3C Trace Context specification.
 
 import logging
 import os
+import re
 from datetime import datetime
 from hashlib import sha256
 from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
@@ -257,7 +258,7 @@ class Langfuse:
             parent_span_id = trace_context.get("parent_span_id", None)
 
             if trace_id:
-                remote_parent_span = Langfuse._create_remote_parent_span(
+                remote_parent_span = self._create_remote_parent_span(
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
@@ -343,7 +344,7 @@ class Langfuse:
             parent_span_id = trace_context.get("parent_span_id", None)
 
             if trace_id:
-                remote_parent_span = Langfuse._create_remote_parent_span(
+                remote_parent_span = self._create_remote_parent_span(
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
@@ -453,7 +454,7 @@ class Langfuse:
             parent_span_id = trace_context.get("parent_span_id", None)
 
             if trace_id:
-                remote_parent_span = Langfuse._create_remote_parent_span(
+                remote_parent_span = self._create_remote_parent_span(
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
@@ -564,7 +565,7 @@ class Langfuse:
             parent_span_id = trace_context.get("parent_span_id", None)
 
             if trace_id:
-                remote_parent_span = Langfuse._create_remote_parent_span(
+                remote_parent_span = self._create_remote_parent_span(
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
@@ -876,7 +877,19 @@ class Langfuse:
                 public=public,
             )
 
-    def _create_remote_parent_span(*, trace_id: str, parent_span_id: Optional[str]):
+    def _create_remote_parent_span(
+        self, *, trace_id: str, parent_span_id: Optional[str]
+    ):
+        if not self._is_valid_trace_id(trace_id):
+            langfuse_logger.warning(
+                f"Passed trace ID '{trace_id}' is not a valid 32 lowercase hex char Langfuse trace id. Ignoring trace ID."
+            )
+
+        if parent_span_id and not self._is_valid_span_id(parent_span_id):
+            langfuse_logger.warning(
+                f"Passed span ID '{parent_span_id}' is not a valid 16 lowercase hex char Langfuse span id. Ignoring parent span ID."
+            )
+
         int_trace_id = int(trace_id, 16)
         int_parent_span_id = (
             int(parent_span_id, 16)
@@ -892,6 +905,16 @@ class Langfuse:
         )
 
         return trace.NonRecordingSpan(span_context)
+
+    def _is_valid_trace_id(self, trace_id):
+        pattern = r"^[0-9a-f]{32}$"
+
+        return bool(re.match(pattern, trace_id))
+
+    def _is_valid_span_id(self, span_id):
+        pattern = r"^[0-9a-f]{16}$"
+
+        return bool(re.match(pattern, span_id))
 
     def create_observation_id(self, *, seed: Optional[str] = None) -> str:
         """Create a unique observation ID for use with Langfuse.
