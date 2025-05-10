@@ -1,11 +1,17 @@
 import asyncio
+import inspect
 import logging
 from functools import wraps
 from typing import (
     Any,
+    AsyncGenerator,
     Callable,
+    Dict,
+    Generator,
+    Iterable,
     Literal,
     Optional,
+    Tuple,
     TypeVar,
     Union,
     cast,
@@ -15,6 +21,7 @@ from typing import (
 from typing_extensions import ParamSpec
 
 from langfuse.otel._get_client import get_client
+from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -44,11 +51,9 @@ class LangfuseDecorator:
 
     _log = logging.getLogger("langfuse")
 
-    # Type overload for observe decorator with no arguments
     @overload
     def observe(self, func: F) -> F: ...
 
-    # Type overload for observe decorator with arguments
     @overload
     def observe(
         self,
@@ -56,16 +61,20 @@ class LangfuseDecorator:
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
-        # TODO: add back IO capture
+        capture_input: bool = True,
+        capture_output: bool = True,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Callable[[F], F]: ...
 
-    # Implementation of observe decorator
     def observe(
         self,
         func: Optional[F] = None,
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
+        capture_input: bool = True,
+        capture_output: bool = True,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Union[F, Callable[[F], F]]:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
@@ -139,12 +148,18 @@ class LangfuseDecorator:
                     func,
                     name=name,
                     as_type=as_type,
+                    capture_input=capture_input,
+                    capture_output=capture_output,
+                    transform_to_string=transform_to_string,
                 )
                 if asyncio.iscoroutinefunction(func)
                 else self._sync_observe(
                     func,
                     name=name,
                     as_type=as_type,
+                    capture_input=capture_input,
+                    capture_output=capture_output,
+                    transform_to_string=transform_to_string,
                 )
             )
 
@@ -169,6 +184,9 @@ class LangfuseDecorator:
         *,
         name: Optional[str],
         as_type: Optional[Literal["generation"]],
+        capture_input: bool,
+        capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -183,16 +201,31 @@ class LangfuseDecorator:
                 else None
             )
             final_name = name or func.__name__
+            input = (
+                self._get_input_from_func_args(
+                    is_method=self._is_method(func),
+                    func_args=args,
+                    func_kwargs=kwargs,
+                )
+                if capture_input
+                else None
+            )
             public_key = kwargs.pop("langfuse_public_key", None)
             langfuse_client = get_client(public_key=public_key)
             context_manager = (
                 (
                     langfuse_client.start_as_current_generation(
-                        name=final_name, trace_context=trace_context
+                        name=final_name,
+                        trace_context=trace_context,
+                        input=input,
+                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
                     if as_type == "generation"
                     else langfuse_client.start_as_current_span(
-                        name=final_name, trace_context=trace_context
+                        name=final_name,
+                        trace_context=trace_context,
+                        input=input,
+                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
                 )
                 if langfuse_client
@@ -202,8 +235,22 @@ class LangfuseDecorator:
             if context_manager is None:
                 return await func(*args, **kwargs)
 
-            with context_manager:
-                return await func(*args, **kwargs)
+            with context_manager as langfuse_span_or_generation:
+                result = await func(*args, **kwargs)
+
+                if capture_output is True:
+                    if inspect.isasyncgen(result):
+                        return self._wrap_async_generator_result(
+                            langfuse_span_or_generation,
+                            result,
+                            transform_to_string,
+                        )
+
+                    langfuse_span_or_generation.update(output=result)
+
+                langfuse_span_or_generation.end()
+
+                return result
 
         return cast(F, async_wrapper)
 
@@ -213,6 +260,9 @@ class LangfuseDecorator:
         *,
         name: Optional[str],
         as_type: Optional[Literal["generation"]],
+        capture_input: bool,
+        capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
@@ -227,16 +277,31 @@ class LangfuseDecorator:
                 else None
             )
             final_name = name or func.__name__
+            input = (
+                self._get_input_from_func_args(
+                    is_method=self._is_method(func),
+                    func_args=args,
+                    func_kwargs=kwargs,
+                )
+                if capture_input
+                else None
+            )
             public_key = kwargs.pop("langfuse_public_key", None)
             langfuse_client = get_client(public_key=public_key)
             context_manager = (
                 (
                     langfuse_client.start_as_current_generation(
-                        name=final_name, trace_context=trace_context
+                        name=final_name,
+                        trace_context=trace_context,
+                        input=input,
+                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
                     if as_type == "generation"
                     else langfuse_client.start_as_current_span(
-                        name=final_name, trace_context=trace_context
+                        name=final_name,
+                        trace_context=trace_context,
+                        input=input,
+                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
                 )
                 if langfuse_client
@@ -246,10 +311,98 @@ class LangfuseDecorator:
             if context_manager is None:
                 return func(*args, **kwargs)
 
-            with context_manager:
-                return func(*args, **kwargs)
+            with context_manager as langfuse_span_or_generation:
+                result = func(*args, **kwargs)
+
+                if capture_output is True:
+                    if inspect.isgenerator(result):
+                        return self._wrap_sync_generator_result(
+                            langfuse_span_or_generation,
+                            result,
+                            transform_to_string,
+                        )
+
+                    langfuse_span_or_generation.update(output=result)
+
+                langfuse_span_or_generation.end()
+
+                return result
 
         return cast(F, sync_wrapper)
+
+    @staticmethod
+    def _is_method(func: Callable) -> bool:
+        return (
+            "self" in inspect.signature(func).parameters
+            or "cls" in inspect.signature(func).parameters
+        )
+
+    def _get_input_from_func_args(
+        self,
+        *,
+        is_method: bool = False,
+        func_args: Tuple = (),
+        func_kwargs: Dict = {},
+    ) -> Dict:
+        # Remove implicitly passed "self" or "cls" argument for instance or class methods
+        logged_args = func_args[1:] if is_method else func_args
+
+        return {
+            "args": logged_args,
+            "kwargs": func_kwargs,
+        }
+
+    def _wrap_sync_generator_result(
+        self,
+        langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
+        generator: Generator,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ):
+        items = []
+
+        try:
+            for item in generator:
+                items.append(item)
+
+                yield item
+
+        finally:
+            output = items
+
+            if transform_to_string is not None:
+                output = transform_to_string(items)
+
+            elif all(isinstance(item, str) for item in items):
+                output = "".join(items)
+
+            langfuse_span_or_generation.update(output=output)
+            langfuse_span_or_generation.end()
+
+    async def _wrap_async_generator_result(
+        self,
+        langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
+        generator: AsyncGenerator,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ) -> AsyncGenerator:
+        items = []
+
+        try:
+            async for item in generator:
+                items.append(item)
+
+                yield item
+
+        finally:
+            output = items
+
+            if transform_to_string is not None:
+                output = transform_to_string(items)
+
+            elif all(isinstance(item, str) for item in items):
+                output = "".join(items)
+
+            langfuse_span_or_generation.update(output=output)
+            langfuse_span_or_generation.end()
 
 
 _decorator = LangfuseDecorator()
