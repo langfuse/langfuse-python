@@ -297,6 +297,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
     ):
         """Create a new span and set it as the current span in a context manager.
 
@@ -313,6 +314,7 @@ class Langfuse:
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
+            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
 
         Returns:
             A context manager that yields a LangfuseSpan
@@ -357,6 +359,7 @@ class Langfuse:
                     input=input,
                     output=output,
                     metadata=metadata,
+                    end_on_exit=end_on_exit,
                 )
 
         return self._start_as_current_otel_span_with_processed_media(
@@ -366,6 +369,7 @@ class Langfuse:
             input=input,
             output=output,
             metadata=metadata,
+            end_on_exit=end_on_exit,
         )
 
     def start_generation(
@@ -499,6 +503,7 @@ class Langfuse:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
+        end_on_exit: Optional[bool] = None,
     ):
         """Create a new generation span and set it as the current span in a context manager.
 
@@ -521,6 +526,7 @@ class Langfuse:
             usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
             cost_details: Cost information for the model call
             prompt: Associated prompt template from Langfuse prompt management
+            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
 
         Returns:
             A context manager that yields a LangfuseGeneration
@@ -578,6 +584,7 @@ class Langfuse:
                     input=input,
                     output=output,
                     metadata=metadata,
+                    end_on_exit=end_on_exit,
                 )
 
         return self._start_as_current_otel_span_with_processed_media(
@@ -587,6 +594,7 @@ class Langfuse:
             input=input,
             output=output,
             metadata=metadata,
+            end_on_exit=end_on_exit,
         )
 
     @_agnosticcontextmanager
@@ -601,6 +609,7 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
+        end_on_exit: Optional[bool] = None,
     ):
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
@@ -612,6 +621,7 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
+                end_on_exit=end_on_exit,
             ) as langfuse_span:
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
@@ -630,9 +640,12 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
+        end_on_exit: Optional[bool] = None,
     ):
         with self.tracer.start_as_current_span(
-            name=name, attributes=attributes
+            name=name,
+            attributes=attributes,
+            end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
             yield (
                 LangfuseSpan(
