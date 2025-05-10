@@ -58,6 +58,9 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, float) and math.isnan(obj):
                 return None
 
+            if isinstance(obj, float) and math.isinf(obj):
+                return "Infinity"
+
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
 
