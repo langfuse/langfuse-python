@@ -56,6 +56,7 @@ class LangfuseDecorator:
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
+        # TODO: add back IO capture
     ) -> Callable[[F], F]: ...
 
     # Implementation of observe decorator
