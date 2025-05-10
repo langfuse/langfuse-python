@@ -98,11 +98,12 @@ class LangfuseSpanWrapper(ABC):
                 data=metadata, field="metadata", span=self._otel_span
             )
 
-            attributes = {
-                LangfuseSpanAttributes.OBSERVATION_INPUT: media_processed_input,
-                LangfuseSpanAttributes.OBSERVATION_OUTPUT: media_processed_output,
-                LangfuseSpanAttributes.OBSERVATION_METADATA: media_processed_metadata,
-            }
+            attributes = create_span_attributes(
+                input=media_processed_input,
+                output=media_processed_output,
+                metadata=media_processed_metadata,
+            )
+            attributes.pop(LangfuseSpanAttributes.OBSERVATION_TYPE)
 
             self._otel_span.set_attributes(
                 {k: v for k, v in attributes.items() if v is not None}
