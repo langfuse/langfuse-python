@@ -213,6 +213,45 @@ def test_create_categorical_score():
     assert trace["scores"][0]["stringValue"] == "high score"
 
 
+def test_create_score_with_timestamp():
+    langfuse = Langfuse(debug=False)
+    api_wrapper = LangfuseAPI()
+
+    trace = langfuse.trace(
+        name="this-is-so-great-new",
+        user_id="test",
+        metadata="test",
+    )
+
+    langfuse.flush()
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
+
+    score_id = create_uuid()
+    score_timestamp = datetime(2023, 1, 1, 12, 0, 0)
+
+    langfuse.score(
+        id=score_id,
+        trace_id=trace.id,
+        name="this-is-a-score",
+        value="high score",
+        timestamp=score_timestamp,
+    )
+
+    trace.generation(name="yet another child", metadata="test")
+
+    langfuse.flush()
+
+    assert langfuse.task_manager._ingestion_queue.qsize() == 0
+
+    trace = api_wrapper.get_trace(trace.id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "CATEGORICAL"
+    assert trace["scores"][0]["value"] == 0
+    assert trace["scores"][0]["stringValue"] == "high score"
+    assert trace["scores"][0]["timestamp"] == score_timestamp.isoformat() + "Z"
+
+
 def test_create_trace():
     langfuse = Langfuse(debug=False)
     trace_name = create_uuid()
