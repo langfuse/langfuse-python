@@ -1,6 +1,6 @@
 import datetime as dt
 import logging
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
@@ -10,7 +10,9 @@ from langfuse.model import (
     DatasetItem,
     DatasetStatus,
 )
-from langfuse.otel import Langfuse
+
+if TYPE_CHECKING:
+    from langfuse.otel import Langfuse
 
 
 class DatasetItemClient:
@@ -64,9 +66,9 @@ class DatasetItemClient:
     created_at: dt.datetime
     updated_at: dt.datetime
 
-    langfuse: Langfuse
+    langfuse: "Langfuse"
 
-    def __init__(self, dataset_item: DatasetItem, langfuse: Langfuse):
+    def __init__(self, dataset_item: DatasetItem, langfuse: "Langfuse"):
         """Initialize the DatasetItemClient."""
         self.id = dataset_item.id
         self.status = dataset_item.status

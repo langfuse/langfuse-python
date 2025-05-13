@@ -1,31 +1,25 @@
-import logging
 import typing
-import warnings
 from collections import defaultdict
 
-import httpx
 import pydantic
 
-try:  # Test that langchain is installed before proceeding
+from langfuse.otel import get_client
+from langfuse.otel._logger import langfuse_logger
+from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
+
+try:
     import langchain  # noqa
+
 except ImportError as e:
-    log = logging.getLogger("langfuse")
-    log.error(
+    langfuse_logger.error(
         f"Could not import langchain. The langchain integration will not work. {e}"
     )
-from typing import Any, Dict, List, Optional, Sequence, Set, Type, Union, cast
-from uuid import UUID, uuid4
 
-from langfuse.api.resources.ingestion.types.sdk_log_body import SdkLogBody
-from langfuse.client import (
-    StatefulGenerationClient,
-    StatefulSpanClient,
-    StatefulTraceClient,
-)
+from typing import Any, Dict, List, Optional, Sequence, Set, Type, Union, cast
+from uuid import UUID
+
 from langfuse.extract_model import _extract_model_name
-from langfuse.types import MaskFunction
 from langfuse.utils import _get_timestamp
-from langfuse.utils.base_callback_handler import LangfuseBaseCallbackHandler
 
 try:
     from langchain.callbacks.base import (
@@ -56,87 +50,20 @@ CONTROL_FLOW_EXCEPTION_TYPES: Set[Type[BaseException]] = set()
 
 try:
     from langgraph.errors import GraphBubbleUp
+
     CONTROL_FLOW_EXCEPTION_TYPES.add(GraphBubbleUp)
 except ImportError:
     pass
 
-class LangchainCallbackHandler(
-    LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
-):
-    log = logging.getLogger("langfuse")
-    next_span_id: Optional[str] = None
 
-    def __init__(
-        self,
-        public_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        host: Optional[str] = None,
-        debug: bool = False,
-        stateful_client: Optional[
-            Union[StatefulTraceClient, StatefulSpanClient]
-        ] = None,
-        update_stateful_client: bool = False,
-        session_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        trace_name: Optional[str] = None,
-        release: Optional[str] = None,
-        version: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
-        threads: Optional[int] = None,
-        flush_at: Optional[int] = None,
-        flush_interval: Optional[int] = None,
-        max_retries: Optional[int] = None,
-        timeout: Optional[int] = None,
-        enabled: Optional[bool] = None,
-        httpx_client: Optional[httpx.Client] = None,
-        sdk_integration: Optional[str] = None,
-        sample_rate: Optional[float] = None,
-        mask: Optional[MaskFunction] = None,
-        environment: Optional[str] = None,
-    ) -> None:
-        LangfuseBaseCallbackHandler.__init__(
-            self,
-            public_key=public_key,
-            secret_key=secret_key,
-            host=host,
-            debug=debug,
-            stateful_client=stateful_client,
-            update_stateful_client=update_stateful_client,
-            session_id=session_id,
-            user_id=user_id,
-            trace_name=trace_name,
-            release=release,
-            version=version,
-            metadata=metadata,
-            tags=tags,
-            threads=threads,
-            flush_at=flush_at,
-            flush_interval=flush_interval,
-            max_retries=max_retries,
-            timeout=timeout,
-            enabled=enabled,
-            httpx_client=httpx_client,
-            sdk_integration=sdk_integration or "langchain",
-            sample_rate=sample_rate,
-            mask=mask,
-            environment=environment,
-        )
+class LangchainCallbackHandler(LangchainBaseCallbackHandler):
+    def __init__(self) -> None:
+        self.langfuse = get_client()
 
-        self.runs = {}
+        self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
         self.prompt_to_parent_run_map = {}
         self.trace_updates = defaultdict(dict)
         self.updated_completion_start_time_memo = set()
-
-        if stateful_client and isinstance(stateful_client, StatefulSpanClient):
-            self.runs[stateful_client.id] = stateful_client
-
-    def setNextSpan(self, id: str):
-        warnings.warn(
-            "setNextSpan is deprecated, use span.get_langchain_handler() instead",
-            DeprecationWarning,
-        )
-        self.next_span_id = id
 
     def on_llm_new_token(
         self,
@@ -147,15 +74,15 @@ class LangchainCallbackHandler(
         **kwargs: Any,
     ) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
-        self.log.debug(
+        langfuse_logger.debug(
             f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
         )
         if (
             run_id in self.runs
-            and isinstance(self.runs[run_id], StatefulGenerationClient)
+            and isinstance(self.runs[run_id], LangfuseGeneration)
             and run_id not in self.updated_completion_start_time_memo
         ):
-            current_generation = cast(StatefulGenerationClient, self.runs[run_id])
+            current_generation = cast(LangfuseGeneration, self.runs[run_id])
             current_generation.update(completion_start_time=_get_timestamp())
 
             self.updated_completion_start_time_memo.add(run_id)
@@ -181,6 +108,9 @@ class LangchainCallbackHandler(
         if "name" in kwargs and kwargs["name"] is not None:
             return kwargs["name"]
 
+        if serialized is None:
+            return "<unknown>"
+
         try:
             return serialized["name"]
         except (KeyError, TypeError):
@@ -195,7 +125,7 @@ class LangchainCallbackHandler(
 
     def on_retriever_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -210,14 +140,14 @@ class LangchainCallbackHandler(
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 level="ERROR",
                 status_message=str(error),
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
+            ).end()
+
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_chain_start(
         self,
@@ -234,54 +164,26 @@ class LangchainCallbackHandler(
             self._log_debug_event(
                 "on_chain_start", run_id, parent_run_id, inputs=inputs
             )
-            self.__generate_trace_and_parent(
-                serialized=serialized,
-                inputs=inputs,
-                run_id=run_id,
-                parent_run_id=parent_run_id,
-                tags=tags,
-                metadata=metadata,
-                version=self.version,
-                **kwargs,
-            )
             self._register_langfuse_prompt(
                 run_id=run_id, parent_run_id=parent_run_id, metadata=metadata
             )
 
-            # Update trace-level information if this is a root-level chain (no parent)
-            # and if tags or metadata are provided
-            if parent_run_id is None and (tags or metadata):
-                self.trace_updates[run_id].update(
-                    {
-                        "tags": [str(tag) for tag in tags] if tags else None,
-                        "session_id": metadata.get("langfuse_session_id")
-                        if metadata
-                        else None,
-                        "user_id": metadata.get("langfuse_user_id")
-                        if metadata
-                        else None,
-                    }
-                )
-
             content = {
-                "id": self.next_span_id,
-                "trace_id": self.trace.id,
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
-                "version": self.version,
                 "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
             }
+
             if parent_run_id is None:
-                if self.root_span is None:
-                    self.runs[run_id] = self.trace.span(**content)
-                else:
-                    self.runs[run_id] = self.root_span.span(**content)
-            if parent_run_id is not None:
-                self.runs[run_id] = self.runs[parent_run_id].span(**content)
+                self.runs[run_id] = self.langfuse.start_span(**content)
+            else:
+                self.runs[run_id] = cast(
+                    LangfuseSpan, self.runs[parent_run_id]
+                ).start_span(**content)
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def _register_langfuse_prompt(
         self,
@@ -313,87 +215,6 @@ class LangchainCallbackHandler(
         if run_id in self.prompt_to_parent_run_map:
             del self.prompt_to_parent_run_map[run_id]
 
-    def __generate_trace_and_parent(
-        self,
-        serialized: Optional[Dict[str, Any]],
-        inputs: Union[Dict[str, Any], List[str], str, None],
-        *,
-        run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ):
-        try:
-            class_name = self.get_langchain_run_name(serialized, **kwargs)
-
-            # on a new invocation, and not user provided root, we want to initialise a new traceo
-            # parent_run_id is None when we are at the root of a langchain execution
-            if (
-                self.trace is not None
-                and parent_run_id is None
-                and self.langfuse is not None
-            ):
-                self.trace = None
-
-            if (
-                self.trace is not None
-                and parent_run_id is None  # We are at the root of a langchain execution
-                and self.langfuse is None  # StatefulClient was provided by user
-                and self.update_stateful_client
-            ):
-                params = {
-                    "name": self.trace_name
-                    if self.trace_name is not None
-                    else class_name,
-                    "metadata": self.__join_tags_and_metadata(
-                        tags, metadata, trace_metadata=self.metadata
-                    ),
-                    "version": self.version,
-                    "session_id": self.session_id,
-                    "user_id": self.user_id,
-                    "tags": self.tags,
-                    "input": inputs,
-                }
-
-                if self.root_span:
-                    self.root_span.update(**params)
-                else:
-                    self.trace.update(**params)
-
-            # if we are at a root, but langfuse exists, it means we do not have a
-            # root provided by a user. Initialise it by creating a trace and root span.
-            if self.trace is None and self.langfuse is not None:
-                trace = self.langfuse.trace(
-                    id=str(run_id),
-                    name=self.trace_name if self.trace_name is not None else class_name,
-                    metadata=self.__join_tags_and_metadata(
-                        tags, metadata, trace_metadata=self.metadata
-                    ),
-                    version=self.version,
-                    session_id=self.session_id,
-                    user_id=self.user_id,
-                    tags=self.tags,
-                    input=inputs,
-                )
-
-                self.trace = trace
-
-                if parent_run_id is not None and parent_run_id in self.runs:
-                    self.runs[run_id] = self.trace.span(
-                        id=self.next_span_id,
-                        trace_id=self.trace.id,
-                        name=class_name,
-                        metadata=self.__join_tags_and_metadata(tags, metadata),
-                        input=inputs,
-                        version=self.version,
-                    )
-
-                return
-
-        except Exception as e:
-            self.log.exception(e)
-
     def on_agent_action(
         self,
         action: AgentAction,
@@ -411,14 +232,13 @@ class LangchainCallbackHandler(
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 output=action,
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
+            ).end()
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_agent_finish(
         self,
@@ -435,20 +255,13 @@ class LangchainCallbackHandler(
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 output=finish,
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
-
-            # langchain sends same run_id for agent_finish and chain_end for the same agent interaction.
-            # Hence, we only delete at chain_end and not here.
-            self._update_trace_and_remove_state(
-                run_id, parent_run_id, finish, keep_state=True
-            )
+            ).end()
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_chain_end(
         self,
@@ -466,21 +279,20 @@ class LangchainCallbackHandler(
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 output=outputs,
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
-            self._update_trace_and_remove_state(
-                run_id, parent_run_id, outputs, input=kwargs.get("inputs")
-            )
+            ).end()
+
+            del self.runs[run_id]
+
             self._deregister_langfuse_prompt(run_id)
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_chain_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -495,23 +307,20 @@ class LangchainCallbackHandler(
                 else:
                     level = "ERROR"
 
-                self.runs[run_id] = self.runs[run_id].end(
+                self.runs[run_id].update(
                     level=level,
-                    status_message=str(error),
-                    version=self.version,
+                    status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
-                )
+                ).end()
 
-                self._update_trace_and_remove_state(
-                    run_id, parent_run_id, error, input=kwargs.get("inputs")
-                )
+                del self.runs[run_id]
             else:
-                self.log.warning(
+                langfuse_logger.warning(
                     f"Run ID {run_id} already popped from run map. Could not update run with error message"
                 )
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_chat_model_start(
         self,
@@ -531,8 +340,11 @@ class LangchainCallbackHandler(
             self.__on_llm_action(
                 serialized,
                 run_id,
-                _flatten_comprehension(
-                    [self._create_message_dicts(m) for m in messages]
+                cast(
+                    List,
+                    _flatten_comprehension(
+                        [self._create_message_dicts(m) for m in messages]
+                    ),
                 ),
                 parent_run_id,
                 tags=tags,
@@ -540,7 +352,7 @@ class LangchainCallbackHandler(
                 **kwargs,
             )
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_llm_start(
         self,
@@ -560,14 +372,14 @@ class LangchainCallbackHandler(
             self.__on_llm_action(
                 serialized,
                 run_id,
-                prompts[0] if len(prompts) == 1 else prompts,
+                cast(List, prompts[0] if len(prompts) == 1 else prompts),
                 parent_run_id,
                 tags=tags,
                 metadata=metadata,
                 **kwargs,
             )
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_tool_start(
         self,
@@ -596,17 +408,15 @@ class LangchainCallbackHandler(
                 {key: value for key, value in kwargs.items() if value is not None}
             )
 
-            self.runs[run_id] = self.runs[parent_run_id].span(
-                id=self.next_span_id,
+            self.runs[run_id] = cast(LangfuseSpan, self.runs[parent_run_id]).start_span(
                 name=self.get_langchain_run_name(serialized, **kwargs),
                 input=input_str,
                 metadata=meta,
-                version=self.version,
                 level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
             )
-            self.next_span_id = None
+
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_retriever_start(
         self,
@@ -624,41 +434,26 @@ class LangchainCallbackHandler(
                 "on_retriever_start", run_id, parent_run_id, query=query
             )
             if parent_run_id is None:
-                self.__generate_trace_and_parent(
-                    serialized=serialized,
-                    inputs=query,
-                    run_id=run_id,
-                    parent_run_id=parent_run_id,
-                    tags=tags,
-                    metadata=metadata,
-                    version=self.version,
-                    **kwargs,
-                )
                 content = {
-                    "id": self.next_span_id,
-                    "trace_id": self.trace.id,
                     "name": self.get_langchain_run_name(serialized, **kwargs),
                     "metadata": self.__join_tags_and_metadata(tags, metadata),
                     "input": query,
-                    "version": self.version,
                     "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 }
-                if self.root_span is None:
-                    self.runs[run_id] = self.trace.span(**content)
-                else:
-                    self.runs[run_id] = self.root_span.span(**content)
+
+                self.runs[run_id] = self.langfuse.start_span(**content)
             else:
-                self.runs[run_id] = self.runs[parent_run_id].span(
-                    id=self.next_span_id,
+                self.runs[run_id] = cast(
+                    LangfuseSpan, self.runs[parent_run_id]
+                ).start_span(
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     input=query,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
-                    version=self.version,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
-                self.next_span_id = None
+
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_retriever_end(
         self,
@@ -675,16 +470,15 @@ class LangchainCallbackHandler(
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 output=documents,
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
+            ).end()
 
-            self._update_trace_and_remove_state(run_id, parent_run_id, documents)
+            del self.runs[run_id]
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_tool_end(
         self,
@@ -699,20 +493,19 @@ class LangchainCallbackHandler(
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 output=output,
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
+            ).end()
 
-            self._update_trace_and_remove_state(run_id, parent_run_id, output)
+            del self.runs[run_id]
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def on_tool_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -723,17 +516,16 @@ class LangchainCallbackHandler(
             if run_id is None or run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id] = self.runs[run_id].end(
+            self.runs[run_id].update(
                 status_message=str(error),
                 level="ERROR",
-                version=self.version,
                 input=kwargs.get("inputs"),
-            )
+            ).end()
 
-            self._update_trace_and_remove_state(run_id, parent_run_id, error)
+            del self.runs[run_id]
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def __on_llm_action(
         self,
@@ -748,20 +540,7 @@ class LangchainCallbackHandler(
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
-                prompts.extend([{"role": "tool", "content": tool} for tool in tools])
-
-            self.__generate_trace_and_parent(
-                serialized,
-                inputs=prompts[0] if len(prompts) == 1 else prompts,
-                run_id=run_id,
-                parent_run_id=parent_run_id,
-                tags=tags,
-                metadata=metadata,
-                version=self.version,
-                kwargs=kwargs,
-            )
-
-            model_name = None
+                prompts.extend(*({"role": "tool", "content": tool} for tool in tools))
 
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
@@ -777,19 +556,18 @@ class LangchainCallbackHandler(
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
-                "version": self.version,
                 "prompt": registered_prompt,
             }
 
-            if parent_run_id in self.runs:
-                self.runs[run_id] = self.runs[parent_run_id].generation(**content)
-            elif self.root_span is not None and parent_run_id is None:
-                self.runs[run_id] = self.root_span.generation(**content)
+            if parent_run_id is not None and parent_run_id in self.runs:
+                self.runs[run_id] = cast(
+                    LangfuseSpan, self.runs[parent_run_id]
+                ).start_generation(**content)
             else:
-                self.runs[run_id] = self.trace.generation(**content)
+                self.runs[run_id] = self.langfuse.start_generation(**content)
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     @staticmethod
     def _parse_model_parameters(kwargs):
@@ -835,21 +613,13 @@ class LangchainCallbackHandler(
                 return model_name
 
         except Exception as e:
-            self.log.exception(e)
-            self._report_error(
-                {
-                    "log": "unable to parse model name",
-                    "kwargs": str(kwargs),
-                    "serialized": str(serialized),
-                    "exception": str(e),
-                }
-            )
+            langfuse_logger.exception(e)
 
         self._log_model_parse_warning()
 
     def _log_model_parse_warning(self):
         if not hasattr(self, "_model_parse_warning_logged"):
-            self.log.warning(
+            langfuse_logger.warning(
                 "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue: https://github.com/langfuse/langfuse/issues/new/choose"
             )
 
@@ -881,28 +651,27 @@ class LangchainCallbackHandler(
 
                 # e.g. azure returns the model name in the response
                 model = _parse_model(response)
-                self.runs[run_id] = self.runs[run_id].end(
+                generation = cast(LangfuseGeneration, self.runs[run_id])
+                generation.update(
                     output=extracted_response,
                     usage=llm_usage,
                     usage_details=llm_usage,
-                    version=self.version,
                     input=kwargs.get("inputs"),
                     model=model,
                 )
+                generation.end()
 
-                self._update_trace_and_remove_state(
-                    run_id, parent_run_id, extracted_response
-                )
+                del self.runs[run_id]
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
         finally:
             self.updated_completion_start_time_memo.discard(run_id)
 
     def on_llm_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -911,16 +680,18 @@ class LangchainCallbackHandler(
         try:
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
             if run_id in self.runs:
-                self.runs[run_id] = self.runs[run_id].end(
+                generation = self.runs[run_id]
+                generation.update(
                     status_message=str(error),
                     level="ERROR",
-                    version=self.version,
                     input=kwargs.get("inputs"),
                 )
-                self._update_trace_and_remove_state(run_id, parent_run_id, error)
+                generation.end()
+
+                del self.runs[run_id]
 
         except Exception as e:
-            self.log.exception(e)
+            langfuse_logger.exception(e)
 
     def __join_tags_and_metadata(
         self,
@@ -936,68 +707,6 @@ class LangchainCallbackHandler(
         if trace_metadata is not None:
             final_dict.update(trace_metadata)
         return _strip_langfuse_keys_from_dict(final_dict) if final_dict != {} else None
-
-    def _report_error(self, error: dict):
-        event = SdkLogBody(log=error)
-
-        self._task_manager.add_task(
-            {
-                "id": str(uuid4()),
-                "type": "sdk-log",
-                "timestamp": _get_timestamp(),
-                "body": event.dict(),
-            }
-        )
-
-    def _update_trace_and_remove_state(
-        self,
-        run_id: str,
-        parent_run_id: Optional[str],
-        output: any,
-        *,
-        keep_state: bool = False,
-        **kwargs: Any,
-    ):
-        """Update the trace with the output of the current run. Called at every finish callback event."""
-        chain_trace_updates = self.trace_updates.pop(run_id, {})
-
-        if (
-            parent_run_id
-            is None  # If we are at the root of the langchain execution -> reached the end of the root
-            and self.trace is not None  # We do have a trace available
-            and self.trace.id
-            == str(run_id)  # The trace was generated by langchain and not by the user
-        ):
-            self.trace = self.trace.update(
-                output=output, **chain_trace_updates, **kwargs
-            )
-
-        elif (
-            parent_run_id is None
-            and self.trace is not None  # We have a user-provided parent
-            and self.update_stateful_client
-        ):
-            if self.root_span is not None:
-                self.root_span = self.root_span.update(
-                    output=output, **kwargs
-                )  # No trace updates if root_span was user provided
-            else:
-                self.trace = self.trace.update(
-                    output=output, **chain_trace_updates, **kwargs
-                )
-
-        elif parent_run_id is None and self.langfuse is not None:
-            """
-            For batch runs, self.trace.id == str(run_id) only for the last run
-            For the rest of the runs, the trace must be manually updated
-            The check for self.langfuse ensures that no stateful client was provided by the user
-            """
-            self.langfuse.trace(id=str(run_id)).update(
-                output=output, **chain_trace_updates, **kwargs
-            )
-
-        if not keep_state:
-            del self.runs[run_id]
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
@@ -1039,7 +748,7 @@ class LangchainCallbackHandler(
         parent_run_id: Optional[UUID] = None,
         **kwargs,
     ):
-        self.log.debug(
+        langfuse_logger.debug(
             f"Event: {event_name}, run_id: {str(run_id)[:5]}, parent_run_id: {str(parent_run_id)[:5]}"
         )
 
@@ -1086,7 +795,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
         ("generated_token_count", "output"),
     ]
 
-    usage_model = usage.copy()  # Copy all existing key-value pairs
+    usage_model = cast(Dict, usage.copy())  # Copy all existing key-value pairs
 
     # Skip OpenAI usage types as they are handled server side
     if not all(

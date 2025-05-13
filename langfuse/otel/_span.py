@@ -122,7 +122,7 @@ class LangfuseSpanWrapper(ABC):
         self._otel_span.end(end_time=end_time)
 
     @abstractmethod
-    def update(self, **kwargs):
+    def update(self, **kwargs) -> Union["LangfuseSpan", "LangfuseGeneration"]:
         """Update the span with new information.
 
         Abstract method that must be implemented by subclasses to update
@@ -514,7 +514,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "LangfuseSpan":
         """Update this span with new information.
 
         This method updates the span with new information that becomes available
@@ -541,7 +541,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
             ```
         """
         if not self._otel_span.is_recording():
-            return
+            return self
 
         processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=self._otel_span
@@ -564,6 +564,8 @@ class LangfuseSpan(LangfuseSpanWrapper):
 
         self._otel_span.set_attributes(attributes=attributes)
 
+        return self
+
     def start_span(
         self,
         name: str,
@@ -573,7 +575,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-    ):
+    ) -> "LangfuseSpan":
         """Create a new child span.
 
         This method creates a new child span with this span as the parent.
@@ -958,7 +960,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         **kwargs,
-    ):
+    ) -> "LangfuseGeneration":
         """Update this generation span with new information.
 
         This method updates the generation span with new information that becomes
@@ -1008,7 +1010,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
             ```
         """
         if not self._otel_span.is_recording():
-            return
+            return self
 
         processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=self._otel_span
@@ -1036,3 +1038,5 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         )
 
         self._otel_span.set_attributes(attributes=attributes)
+
+        return self
