@@ -15,9 +15,9 @@ try:
 except ImportError:
     import pydantic
 
-from langfuse.parse_error import handle_exception
-from langfuse.request import APIError, LangfuseClient
-from langfuse.serializer import EventSerializer
+from langfuse._utils.parse_error import handle_exception
+from langfuse._utils.request import APIError, LangfuseClient
+from langfuse._utils.serializer import EventSerializer
 
 MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000_000))
 MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))

@@ -31,6 +31,25 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    create_generation_attributes,
+    create_span_attributes,
+)
+from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse._client.environment_variables import (
+    LANGFUSE_DEBUG,
+    LANGFUSE_HOST,
+    LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SECRET_KEY,
+    LANGFUSE_TRACING_ENABLED,
+    LANGFUSE_TRACING_ENVIRONMENT,
+)
+from langfuse._client.span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.tracer import LangfuseTracer
+from langfuse._utils import _get_timestamp
+from langfuse._utils.parse_error import handle_fern_exception
+from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
@@ -39,6 +58,8 @@ from langfuse.api.resources.prompts.types import (
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.logger import langfuse_logger
+from langfuse.media import LangfuseMedia
 from langfuse.model import (
     ChatMessageDict,
     ChatPromptClient,
@@ -51,29 +72,7 @@ from langfuse.model import (
     PromptClient,
     TextPromptClient,
 )
-from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
-from langfuse.otel.attributes import (
-    LangfuseSpanAttributes,
-    create_generation_attributes,
-    create_span_attributes,
-)
-from langfuse.otel.environment_variables import (
-    LANGFUSE_DEBUG,
-    LANGFUSE_HOST,
-    LANGFUSE_PUBLIC_KEY,
-    LANGFUSE_SECRET_KEY,
-    LANGFUSE_TRACING_ENABLED,
-    LANGFUSE_TRACING_ENVIRONMENT,
-)
-from langfuse.parse_error import handle_fern_exception
-from langfuse.prompt_cache import PromptCache
-from langfuse.utils import _get_timestamp
-
-from ..media import LangfuseMedia
-from ..types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
-from ._datasets import DatasetClient, DatasetItemClient
-from ._logger import langfuse_logger
-from ._tracer import LangfuseTracer
+from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
 
 
 class Langfuse:
@@ -290,7 +289,7 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self.tracer.start_span(name=name, attributes=attributes)
-                    otel_span.set_attribute(LangfuseSpanAttributes.AS_ROOT, True)
+                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseSpan(
                         otel_span=otel_span,
@@ -490,7 +489,7 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self.tracer.start_span(name=name, attributes=attributes)
-                    otel_span.set_attribute(LangfuseSpanAttributes.AS_ROOT, True)
+                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseGeneration(
                         otel_span=otel_span,
@@ -649,7 +648,7 @@ class Langfuse:
             ) as langfuse_span:
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
-                        LangfuseSpanAttributes.AS_ROOT, True
+                        LangfuseOtelSpanAttributes.AS_ROOT, True
                     )
 
                 yield langfuse_span

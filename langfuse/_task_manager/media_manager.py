@@ -9,12 +9,12 @@ import backoff
 import requests
 from typing_extensions import ParamSpec
 
+from langfuse._utils import _get_timestamp
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
 from langfuse.api.client import FernLangfuse
 from langfuse.api.core import ApiError
 from langfuse.api.resources.media.types.media_content_type import MediaContentType
 from langfuse.media import LangfuseMedia
-from langfuse.utils import _get_timestamp
 
 from .media_upload_queue import UploadMediaJob
 

@@ -1,4 +1,4 @@
-from .langchain import (
+from .CallbackHandler import (
     LangchainCallbackHandler as CallbackHandler,
 )  # For backward compatibility
 

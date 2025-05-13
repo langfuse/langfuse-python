@@ -12,7 +12,7 @@ from langfuse.model import (
 )
 
 if TYPE_CHECKING:
-    from langfuse.otel import Langfuse
+    from langfuse._client.client import Langfuse
 
 
 class DatasetItemClient:

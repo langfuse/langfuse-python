@@ -14,13 +14,12 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
+from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
-
-from ..serializer import EventSerializer
-from ..types import MapValue, SpanLevel
+from langfuse.types import MapValue, SpanLevel
 
 
-class LangfuseSpanAttributes:
+class LangfuseOtelSpanAttributes:
     # Langfuse-Trace attributes
     TRACE_NAME = "langfuse.trace.name"
     TRACE_USER_ID = "user.id"
@@ -71,15 +70,15 @@ def create_trace_attributes(
     public: Optional[bool] = None,
 ):
     attributes = {
-        LangfuseSpanAttributes.TRACE_NAME: name,
-        LangfuseSpanAttributes.TRACE_USER_ID: user_id,
-        LangfuseSpanAttributes.TRACE_SESSION_ID: session_id,
-        LangfuseSpanAttributes.VERSION: version,
-        LangfuseSpanAttributes.RELEASE: release,
-        LangfuseSpanAttributes.TRACE_INPUT: _serialize(input),
-        LangfuseSpanAttributes.TRACE_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.TRACE_TAGS: tags,
-        LangfuseSpanAttributes.TRACE_PUBLIC: public,
+        LangfuseOtelSpanAttributes.TRACE_NAME: name,
+        LangfuseOtelSpanAttributes.TRACE_USER_ID: user_id,
+        LangfuseOtelSpanAttributes.TRACE_SESSION_ID: session_id,
+        LangfuseOtelSpanAttributes.VERSION: version,
+        LangfuseOtelSpanAttributes.RELEASE: release,
+        LangfuseOtelSpanAttributes.TRACE_INPUT: _serialize(input),
+        LangfuseOtelSpanAttributes.TRACE_OUTPUT: _serialize(output),
+        LangfuseOtelSpanAttributes.TRACE_TAGS: tags,
+        LangfuseOtelSpanAttributes.TRACE_PUBLIC: public,
         **_flatten_and_serialize_metadata(metadata, "trace"),
     }
 
@@ -96,12 +95,12 @@ def create_span_attributes(
     version: Optional[str] = None,
 ):
     attributes = {
-        LangfuseSpanAttributes.OBSERVATION_TYPE: "span",
-        LangfuseSpanAttributes.OBSERVATION_LEVEL: level,
-        LangfuseSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
-        LangfuseSpanAttributes.VERSION: version,
-        LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
-        LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "span",
+        LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
+        LangfuseOtelSpanAttributes.VERSION: version,
+        LangfuseOtelSpanAttributes.OBSERVATION_INPUT: _serialize(input),
+        LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
         **_flatten_and_serialize_metadata(metadata, "observation"),
     }
 
@@ -125,25 +124,25 @@ def create_generation_attributes(
     prompt: Optional[PromptClient] = None,
 ):
     attributes = {
-        LangfuseSpanAttributes.OBSERVATION_TYPE: "generation",
-        LangfuseSpanAttributes.OBSERVATION_LEVEL: level,
-        LangfuseSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
-        LangfuseSpanAttributes.VERSION: version,
-        LangfuseSpanAttributes.OBSERVATION_INPUT: _serialize(input),
-        LangfuseSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
-        LangfuseSpanAttributes.OBSERVATION_MODEL: model,
-        LangfuseSpanAttributes.OBSERVATION_PROMPT_NAME: prompt.name
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "generation",
+        LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
+        LangfuseOtelSpanAttributes.VERSION: version,
+        LangfuseOtelSpanAttributes.OBSERVATION_INPUT: _serialize(input),
+        LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
+        LangfuseOtelSpanAttributes.OBSERVATION_MODEL: model,
+        LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME: prompt.name
         if prompt and not prompt.is_fallback
         else None,
-        LangfuseSpanAttributes.OBSERVATION_PROMPT_VERSION: prompt.version
+        LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION: prompt.version
         if prompt and not prompt.is_fallback
         else None,
-        LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS: _serialize(usage_details),
-        LangfuseSpanAttributes.OBSERVATION_COST_DETAILS: _serialize(cost_details),
-        LangfuseSpanAttributes.OBSERVATION_COMPLETION_START_TIME: _serialize(
+        LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS: _serialize(usage_details),
+        LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS: _serialize(cost_details),
+        LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME: _serialize(
             completion_start_time
         ),
-        LangfuseSpanAttributes.OBSERVATION_MODEL_PARAMETERS: _serialize(
+        LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS: _serialize(
             model_parameters
         ),
         **_flatten_and_serialize_metadata(metadata, "observation"),
@@ -160,9 +159,9 @@ def _flatten_and_serialize_metadata(
     metadata: Any, type: Literal["observation", "trace"]
 ):
     prefix = (
-        LangfuseSpanAttributes.OBSERVATION_METADATA
+        LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         if type == "observation"
-        else LangfuseSpanAttributes.TRACE_METADATA
+        else LangfuseOtelSpanAttributes.TRACE_METADATA
     )
 
     metadata_attributes = {}

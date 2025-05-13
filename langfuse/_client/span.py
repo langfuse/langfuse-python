@@ -32,17 +32,16 @@ from opentelemetry import trace as otel_trace_api
 from langfuse.model import PromptClient
 
 if TYPE_CHECKING:
-    from langfuse.otel import Langfuse
+    from langfuse._client.client import Langfuse
 
-from langfuse.otel.attributes import (
-    LangfuseSpanAttributes,
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
     create_generation_attributes,
     create_span_attributes,
     create_trace_attributes,
 )
-
-from ..types import MapValue, ScoreDataType, SpanLevel
-from ._logger import langfuse_logger
+from langfuse.logger import langfuse_logger
+from langfuse.types import MapValue, ScoreDataType, SpanLevel
 
 
 class LangfuseSpanWrapper(ABC):
@@ -80,7 +79,9 @@ class LangfuseSpanWrapper(ABC):
             metadata: Additional metadata to associate with the span
         """
         self._otel_span = otel_span
-        self._otel_span.set_attribute(LangfuseSpanAttributes.OBSERVATION_TYPE, as_type)
+        self._otel_span.set_attribute(
+            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
+        )
         self._langfuse_client = langfuse_client
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
@@ -103,7 +104,7 @@ class LangfuseSpanWrapper(ABC):
                 output=media_processed_output,
                 metadata=media_processed_metadata,
             )
-            attributes.pop(LangfuseSpanAttributes.OBSERVATION_TYPE)
+            attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE)
 
             self._otel_span.set_attributes(
                 {k: v for k, v in attributes.items() if v is not None}

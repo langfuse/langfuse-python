@@ -1,8 +1,8 @@
 from typing import Optional
 
-from ..otel import Langfuse
-from ._logger import langfuse_logger
-from ._tracer import LangfuseTracer
+from langfuse._client.client import Langfuse
+from langfuse._client.tracer import LangfuseTracer
+from langfuse.logger import langfuse_logger
 
 
 def get_client(*, public_key: Optional[str] = None) -> Langfuse:

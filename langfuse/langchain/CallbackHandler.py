@@ -2,9 +2,9 @@ import typing
 
 import pydantic
 
-from langfuse.otel import get_client
-from langfuse.otel._logger import langfuse_logger
-from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.get_client import get_client
+from langfuse._client.span import LangfuseGeneration, LangfuseSpan
+from langfuse.logger import langfuse_logger
 
 try:
     import langchain  # noqa
@@ -17,8 +17,8 @@ except ImportError as e:
 from typing import Any, Dict, List, Optional, Sequence, Set, Type, Union, cast
 from uuid import UUID
 
-from langfuse.extract_model import _extract_model_name
-from langfuse.utils import _get_timestamp
+from langfuse._utils import _get_timestamp
+from langfuse.langchain.utils import _extract_model_name
 
 try:
     from langchain.callbacks.base import (

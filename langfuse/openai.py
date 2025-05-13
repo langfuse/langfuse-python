@@ -29,10 +29,10 @@ from packaging.version import Version
 from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
 
+from langfuse._client.get_client import get_client
+from langfuse._client.span import LangfuseGeneration
+from langfuse._utils import _get_timestamp
 from langfuse.media import LangfuseMedia
-from langfuse.otel import get_client
-from langfuse.otel._span import LangfuseGeneration
-from langfuse.utils import _get_timestamp
 
 try:
     import openai

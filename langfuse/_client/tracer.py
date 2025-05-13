@@ -26,24 +26,24 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 
-from langfuse._task_manager.media_manager import MediaManager
-from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
-from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
-from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
-from langfuse.environment import get_common_release_envs
-from langfuse.otel._span_processor import LangfuseSpanProcessor
-from langfuse.otel.attributes import LangfuseSpanAttributes
-from langfuse.otel.constants import LANGFUSE_TRACER_NAME
-from langfuse.otel.environment_variables import (
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.constants import LANGFUSE_TRACER_NAME
+from langfuse._client.environment_variables import (
     LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT,
     LANGFUSE_RELEASE,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
-from langfuse.prompt_cache import PromptCache
-from langfuse.request import LangfuseClient
+from langfuse._client.span_processor import LangfuseSpanProcessor
+from langfuse._task_manager.media_manager import MediaManager
+from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
+from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse._utils.environment import get_common_release_envs
+from langfuse._utils.prompt_cache import PromptCache
+from langfuse._utils.request import LangfuseClient
+from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
+from langfuse.logger import langfuse_logger
 
 from ..version import __version__ as langfuse_version
-from ._logger import langfuse_logger
 
 
 class LangfuseTracer:
@@ -405,8 +405,8 @@ def _init_tracer_provider(
     release = release or os.environ.get(LANGFUSE_RELEASE) or get_common_release_envs()
 
     resource_attributes = {
-        LangfuseSpanAttributes.ENVIRONMENT: environment,
-        LangfuseSpanAttributes.RELEASE: release,
+        LangfuseOtelSpanAttributes.ENVIRONMENT: environment,
+        LangfuseOtelSpanAttributes.RELEASE: release,
     }
 
     resource = Resource.create(

@@ -19,13 +19,13 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from langfuse.otel._logger import langfuse_logger
-from langfuse.otel._utils import span_formatter
-from langfuse.otel.constants import LANGFUSE_TRACER_NAME
-from langfuse.otel.environment_variables import (
+from langfuse._client.constants import LANGFUSE_TRACER_NAME
+from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
 )
+from langfuse._client.utils import span_formatter
+from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
 
 

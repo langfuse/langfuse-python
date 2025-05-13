@@ -20,8 +20,8 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
-from langfuse.otel._get_client import get_client
-from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.get_client import get_client
+from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
