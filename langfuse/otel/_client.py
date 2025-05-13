@@ -19,18 +19,38 @@ All span and trace IDs follow the W3C Trace Context specification.
 import logging
 import os
 import re
+import urllib.parse
 from datetime import datetime
 from hashlib import sha256
 from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
 
+import backoff
 import httpx
 from opentelemetry import trace
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
+from langfuse.api.resources.commons.errors.error import Error
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.model import PromptClient
+from langfuse.api.resources.prompts.types import (
+    CreatePromptRequest_Chat,
+    CreatePromptRequest_Text,
+    Prompt_Chat,
+    Prompt_Text,
+)
+from langfuse.model import (
+    ChatMessageDict,
+    ChatPromptClient,
+    CreateDatasetItemRequest,
+    CreateDatasetRequest,
+    Dataset,
+    DatasetItem,
+    DatasetStatus,
+    MapValue,
+    PromptClient,
+    TextPromptClient,
+)
 from langfuse.otel._span import LangfuseGeneration, LangfuseSpan
 from langfuse.otel.attributes import (
     LangfuseSpanAttributes,
@@ -45,9 +65,13 @@ from langfuse.otel.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse.parse_error import handle_fern_exception
+from langfuse.prompt_cache import PromptCache
 from langfuse.utils import _get_timestamp
 
-from ..types import MapValue, MaskFunction, ScoreDataType, SpanLevel, TraceContext
+from ..media import LangfuseMedia
+from ..types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
+from ._datasets import DatasetClient, DatasetItemClient
 from ._logger import langfuse_logger
 from ._tracer import LangfuseTracer
 
@@ -1489,3 +1513,557 @@ class Langfuse:
             if project_id and final_trace_id
             else None
         )
+
+    def get_dataset(
+        self, name: str, *, fetch_items_page_size: Optional[int] = 50
+    ) -> "DatasetClient":
+        """Fetch a dataset by its name.
+
+        Args:
+            name (str): The name of the dataset to fetch.
+            fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+
+        Returns:
+            DatasetClient: The dataset with the given name.
+        """
+        try:
+            langfuse_logger.debug(f"Getting datasets {name}")
+            dataset = self.api.datasets.get(dataset_name=name)
+
+            dataset_items = []
+            page = 1
+
+            while True:
+                new_items = self.api.dataset_items.list(
+                    dataset_name=self._url_encode(name),
+                    page=page,
+                    limit=fetch_items_page_size,
+                )
+                dataset_items.extend(new_items.data)
+
+                if new_items.meta.total_pages <= page:
+                    break
+
+                page += 1
+
+            items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
+
+            return DatasetClient(dataset, items=items)
+
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def auth_check(self) -> bool:
+        """Check if the provided credentials (public and secret key) are valid.
+
+        Raises:
+            Exception: If no projects were found for the provided credentials.
+
+        Note:
+            This method is blocking. It is discouraged to use it in production code.
+        """
+        try:
+            projects = self.api.projects.get()
+            langfuse_logger.debug(
+                f"Auth check successful, found {len(projects.data)} projects"
+            )
+            if len(projects.data) == 0:
+                raise Exception(
+                    "Auth check failed, no project found for the keys provided."
+                )
+            return True
+
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def create_dataset(
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        metadata: Optional[Any] = None,
+    ) -> Dataset:
+        """Create a dataset with the given name on Langfuse.
+
+        Args:
+            name: Name of the dataset to create.
+            description: Description of the dataset. Defaults to None.
+            metadata: Additional metadata. Defaults to None.
+
+        Returns:
+            Dataset: The created dataset as returned by the Langfuse API.
+        """
+        try:
+            body = CreateDatasetRequest(
+                name=name, description=description, metadata=metadata
+            )
+            langfuse_logger.debug(f"Creating datasets {body}")
+
+            return self.api.datasets.create(request=body)
+
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def create_dataset_item(
+        self,
+        *,
+        dataset_name: str,
+        input: Optional[Any] = None,
+        expected_output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        source_trace_id: Optional[str] = None,
+        source_observation_id: Optional[str] = None,
+        status: Optional[DatasetStatus] = None,
+        id: Optional[str] = None,
+    ) -> DatasetItem:
+        """Create a dataset item.
+
+        Upserts if an item with id already exists.
+
+        Args:
+            dataset_name: Name of the dataset in which the dataset item should be created.
+            input: Input data. Defaults to None. Can contain any dict, list or scalar.
+            expected_output: Expected output data. Defaults to None. Can contain any dict, list or scalar.
+            metadata: Additional metadata. Defaults to None. Can contain any dict, list or scalar.
+            source_trace_id: Id of the source trace. Defaults to None.
+            source_observation_id: Id of the source observation. Defaults to None.
+            status: Status of the dataset item. Defaults to ACTIVE for newly created items.
+            id: Id of the dataset item. Defaults to None. Provide your own id if you want to dedupe dataset items. Id needs to be globally unique and cannot be reused across datasets.
+
+        Returns:
+            DatasetItem: The created dataset item as returned by the Langfuse API.
+
+        Example:
+            ```python
+            from langfuse import Langfuse
+
+            langfuse = Langfuse()
+
+            # Uploading items to the Langfuse dataset named "capital_cities"
+            langfuse.create_dataset_item(
+                dataset_name="capital_cities",
+                input={"input": {"country": "Italy"}},
+                expected_output={"expected_output": "Rome"},
+                metadata={"foo": "bar"}
+            )
+            ```
+        """
+        try:
+            body = CreateDatasetItemRequest(
+                datasetName=dataset_name,
+                input=input,
+                expectedOutput=expected_output,
+                metadata=metadata,
+                sourceTraceId=source_trace_id,
+                sourceObservationId=source_observation_id,
+                status=status,
+                id=id,
+            )
+            langfuse_logger.debug(f"Creating dataset item {body}")
+            return self.api.dataset_items.create(request=body)
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def resolve_media_references(
+        self,
+        *,
+        obj: Any,
+        resolve_with: Literal["base64_data_uri"],
+        max_depth: int = 10,
+        content_fetch_timeout_seconds: int = 10,
+    ):
+        """Replace media reference strings in an object with base64 data URIs.
+
+        This method recursively traverses an object (up to max_depth) looking for media reference strings
+        in the format "@@@langfuseMedia:...@@@". When found, it (synchronously) fetches the actual media content using
+        the provided Langfuse client and replaces the reference string with a base64 data URI.
+
+        If fetching media content fails for a reference string, a warning is logged and the reference
+        string is left unchanged.
+
+        Args:
+            obj: The object to process. Can be a primitive value, array, or nested object.
+                If the object has a __dict__ attribute, a dict will be returned instead of the original object type.
+            resolve_with: The representation of the media content to replace the media reference string with.
+                Currently only "base64_data_uri" is supported.
+            max_depth: int: The maximum depth to traverse the object. Default is 10.
+            content_fetch_timeout_seconds: int: The timeout in seconds for fetching media content. Default is 10.
+
+        Returns:
+            A deep copy of the input object with all media references replaced with base64 data URIs where possible.
+            If the input object has a __dict__ attribute, a dict will be returned instead of the original object type.
+
+        Example:
+            obj = {
+                "image": "@@@langfuseMedia:type=image/jpeg|id=123|source=bytes@@@",
+                "nested": {
+                    "pdf": "@@@langfuseMedia:type=application/pdf|id=456|source=bytes@@@"
+                }
+            }
+
+            result = await LangfuseMedia.resolve_media_references(obj, langfuse_client)
+
+            # Result:
+            # {
+            #     "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+            #     "nested": {
+            #         "pdf": "data:application/pdf;base64,JVBERi0xLjcK..."
+            #     }
+            # }
+        """
+        return LangfuseMedia.resolve_media_references(
+            langfuse_client=self,
+            obj=obj,
+            resolve_with=resolve_with,
+            max_depth=max_depth,
+            content_fetch_timeout_seconds=content_fetch_timeout_seconds,
+        )
+
+    @overload
+    def get_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["chat"],
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[List[ChatMessageDict]] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> ChatPromptClient: ...
+
+    @overload
+    def get_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["text"] = "text",
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> TextPromptClient: ...
+
+    def get_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["chat", "text"] = "text",
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> PromptClient:
+        """Get a prompt.
+
+        This method attempts to fetch the requested prompt from the local cache. If the prompt is not found
+        in the cache or if the cached prompt has expired, it will try to fetch the prompt from the server again
+        and update the cache. If fetching the new prompt fails, and there is an expired prompt in the cache, it will
+        return the expired prompt as a fallback.
+
+        Args:
+            name (str): The name of the prompt to retrieve.
+
+        Keyword Args:
+            version (Optional[int]): The version of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
+            label: Optional[str]: The label of the prompt to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
+            cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
+            keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
+            type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
+            fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
+            max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
+            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 10 seconds per default.
+
+        Returns:
+            The prompt object retrieved from the cache or directly fetched if not cached or expired of type
+            - TextPromptClient, if type argument is 'text'.
+            - ChatPromptClient, if type argument is 'chat'.
+
+        Raises:
+            Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
+            expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
+        """
+        if version is not None and label is not None:
+            raise ValueError("Cannot specify both version and label at the same time.")
+
+        if not name:
+            raise ValueError("Prompt name cannot be empty.")
+
+        cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+        bounded_max_retries = self._get_bounded_max_retries(
+            max_retries, default_max_retries=2, max_retries_upper_bound=4
+        )
+
+        langfuse_logger.debug(f"Getting prompt '{cache_key}'")
+        cached_prompt = self.langfuse_tracer.prompt_cache.get(cache_key)
+
+        if cached_prompt is None or cache_ttl_seconds == 0:
+            langfuse_logger.debug(
+                f"Prompt '{cache_key}' not found in cache or caching disabled."
+            )
+            try:
+                return self._fetch_prompt_and_update_cache(
+                    name,
+                    version=version,
+                    label=label,
+                    ttl_seconds=cache_ttl_seconds,
+                    max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
+                )
+            except Exception as e:
+                if fallback:
+                    langfuse_logger.warning(
+                        f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
+                    )
+
+                    fallback_client_args = {
+                        "name": name,
+                        "prompt": fallback,
+                        "type": type,
+                        "version": version or 0,
+                        "config": {},
+                        "labels": [label] if label else [],
+                        "tags": [],
+                    }
+
+                    if type == "text":
+                        return TextPromptClient(
+                            prompt=Prompt_Text(**fallback_client_args),
+                            is_fallback=True,
+                        )
+
+                    if type == "chat":
+                        return ChatPromptClient(
+                            prompt=Prompt_Chat(**fallback_client_args),
+                            is_fallback=True,
+                        )
+
+                raise e
+
+        if cached_prompt.is_expired():
+            langfuse_logger.debug(f"Stale prompt '{cache_key}' found in cache.")
+            try:
+                # refresh prompt in background thread, refresh_prompt deduplicates tasks
+                langfuse_logger.debug(f"Refreshing prompt '{cache_key}' in background.")
+                self.langfuse_tracer.prompt_cache.add_refresh_prompt_task(
+                    cache_key,
+                    lambda: self._fetch_prompt_and_update_cache(
+                        name,
+                        version=version,
+                        label=label,
+                        ttl_seconds=cache_ttl_seconds,
+                        max_retries=bounded_max_retries,
+                        fetch_timeout_seconds=fetch_timeout_seconds,
+                    ),
+                )
+                langfuse_logger.debug(
+                    f"Returning stale prompt '{cache_key}' from cache."
+                )
+                # return stale prompt
+                return cached_prompt.value
+
+            except Exception as e:
+                langfuse_logger.warning(
+                    f"Error when refreshing cached prompt '{cache_key}', returning cached version. Error: {e}"
+                )
+                # creation of refresh prompt task failed, return stale prompt
+                return cached_prompt.value
+
+        return cached_prompt.value
+
+    def _fetch_prompt_and_update_cache(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        max_retries: int,
+        fetch_timeout_seconds,
+    ) -> PromptClient:
+        cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+        langfuse_logger.debug(f"Fetching prompt '{cache_key}' from server...")
+
+        try:
+
+            @backoff.on_exception(
+                backoff.constant, Exception, max_tries=max_retries, logger=None
+            )
+            def fetch_prompts():
+                return self.api.prompts.get(
+                    self._url_encode(name),
+                    version=version,
+                    label=label,
+                    request_options={
+                        "timeout_in_seconds": fetch_timeout_seconds,
+                    }
+                    if fetch_timeout_seconds is not None
+                    else None,
+                )
+
+            prompt_response = fetch_prompts()
+
+            if prompt_response.type == "chat":
+                prompt = ChatPromptClient(prompt_response)
+            else:
+                prompt = TextPromptClient(prompt_response)
+
+            self.langfuse_tracer.prompt_cache.set(cache_key, prompt, ttl_seconds)
+
+            return prompt
+
+        except Exception as e:
+            langfuse_logger.error(
+                f"Error while fetching prompt '{cache_key}': {str(e)}"
+            )
+            raise e
+
+    def _get_bounded_max_retries(
+        self,
+        max_retries: Optional[int],
+        *,
+        default_max_retries: int = 2,
+        max_retries_upper_bound: int = 4,
+    ) -> int:
+        if max_retries is None:
+            return default_max_retries
+
+        bounded_max_retries = min(
+            max(max_retries, 0),
+            max_retries_upper_bound,
+        )
+
+        return bounded_max_retries
+
+    @overload
+    def create_prompt(
+        self,
+        *,
+        name: str,
+        prompt: List[ChatMessageDict],
+        labels: List[str] = [],
+        tags: Optional[List[str]] = None,
+        type: Optional[Literal["chat"]],
+        config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
+    ) -> ChatPromptClient: ...
+
+    @overload
+    def create_prompt(
+        self,
+        *,
+        name: str,
+        prompt: str,
+        labels: List[str] = [],
+        tags: Optional[List[str]] = None,
+        type: Optional[Literal["text"]] = "text",
+        config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
+    ) -> TextPromptClient: ...
+
+    def create_prompt(
+        self,
+        *,
+        name: str,
+        prompt: Union[str, List[ChatMessageDict]],
+        labels: List[str] = [],
+        tags: Optional[List[str]] = None,
+        type: Optional[Literal["chat", "text"]] = "text",
+        config: Optional[Any] = None,
+        commit_message: Optional[str] = None,
+    ) -> PromptClient:
+        """Create a new prompt in Langfuse.
+
+        Keyword Args:
+            name : The name of the prompt to be created.
+            prompt : The content of the prompt to be created.
+            is_active [DEPRECATED] : A flag indicating whether the prompt is active or not. This is deprecated and will be removed in a future release. Please use the 'production' label instead.
+            labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
+            tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
+            config: Additional structured data to be saved with the prompt. Defaults to None.
+            type: The type of the prompt to be created. "chat" vs. "text". Defaults to "text".
+            commit_message: Optional string describing the change.
+
+        Returns:
+            TextPromptClient: The prompt if type argument is 'text'.
+            ChatPromptClient: The prompt if type argument is 'chat'.
+        """
+        try:
+            langfuse_logger.debug(f"Creating prompt {name=}, {labels=}")
+
+            if type == "chat":
+                if not isinstance(prompt, list):
+                    raise ValueError(
+                        "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
+                    )
+                request = CreatePromptRequest_Chat(
+                    name=name,
+                    prompt=cast(Any, prompt),
+                    labels=labels,
+                    tags=tags,
+                    config=config or {},
+                    commitMessage=commit_message,
+                    type="chat",
+                )
+                server_prompt = self.api.prompts.create(request=request)
+
+                return ChatPromptClient(prompt=cast(Prompt_Chat, server_prompt))
+
+            if not isinstance(prompt, str):
+                raise ValueError("For 'text' type, 'prompt' must be a string.")
+
+            request = CreatePromptRequest_Text(
+                name=name,
+                prompt=prompt,
+                labels=labels,
+                tags=tags,
+                config=config or {},
+                commitMessage=commit_message,
+                type="text",
+            )
+
+            server_prompt = self.api.prompts.create(request=request)
+            return TextPromptClient(prompt=cast(Prompt_Text, server_prompt))
+
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def update_prompt(
+        self,
+        *,
+        name: str,
+        version: int,
+        new_labels: List[str] = [],
+    ):
+        """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
+
+        Args:
+            name (str): The name of the prompt to update.
+            version (int): The version number of the prompt to update.
+            new_labels (List[str], optional): New labels to assign to the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse. Defaults to [].
+
+        Returns:
+            Prompt: The updated prompt from the Langfuse API.
+
+        """
+        updated_prompt = self.api.prompt_version.update(
+            name=name,
+            version=version,
+            new_labels=new_labels,
+        )
+        self.langfuse_tracer.prompt_cache.invalidate(name)
+
+        return updated_prompt
+
+    def _url_encode(self, url: str) -> str:
+        return urllib.parse.quote(url)

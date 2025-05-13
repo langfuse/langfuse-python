@@ -39,6 +39,7 @@ from langfuse.otel.environment_variables import (
     LANGFUSE_RELEASE,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse.prompt_cache import PromptCache
 from langfuse.request import LangfuseClient
 
 from ..version import __version__ as langfuse_version
@@ -208,6 +209,9 @@ class LangfuseTracer:
             )
             media_upload_consumer.start()
             self._media_upload_consumers.append(media_upload_consumer)
+
+        # Prompt cache
+        self.prompt_cache = PromptCache()
 
         # Score ingestion
         self._score_ingestion_queue = Queue(100_000)
