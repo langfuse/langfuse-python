@@ -147,19 +147,12 @@ OPENAI_METHODS_V1 = [
 class OpenAiArgsExtractor:
     def __init__(
         self,
-        name=None,
         metadata=None,
-        trace_id=None,
-        session_id=None,
-        user_id=None,
-        tags=None,
-        parent_observation_id=None,
         langfuse_prompt=None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
         langfuse_public_key=None,
         **kwargs,
     ):
         self.args = {}
-        self.args["name"] = name
         self.args["metadata"] = (
             metadata
             if "response_format" not in kwargs
@@ -172,12 +165,8 @@ class OpenAiArgsExtractor:
             }
         )
         self.args["langfuse_public_key"] = langfuse_public_key
-        self.args["trace_id"] = trace_id
-        self.args["parent_observation_id"] = parent_observation_id
-        self.args["session_id"] = session_id
-        self.args["user_id"] = user_id
-        self.args["tags"] = tags
         self.args["langfuse_prompt"] = langfuse_prompt
+
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -689,12 +678,6 @@ def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
-        trace_context={
-            "trace_id": cast(str, langfuse_data.get("trace_id", None)),
-            "parent_span_id": cast(
-                str, langfuse_data.get("parent_observation_id", None)
-            ),
-        },
         model_parameters=langfuse_data.get("model_parameters", None),
         model=langfuse_data.get("model", None),
         prompt=langfuse_data.get("langfuse_prompt", None),
@@ -722,8 +705,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
                 model=model,
                 output=completion,
                 usage_details=usage,
-            )
-            generation.end()
+            ).end()
 
         return openai_response
     except Exception as ex:
@@ -734,9 +716,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
             level="ERROR",
             model=model,
             cost_details={"input": 0, "output": 0, "total": 0},
-        )
-
-        generation.end()
+        ).end()
 
         raise ex
 
@@ -786,8 +766,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs)
                 output=completion,
                 usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
-            )
-            generation.end()
+            ).end()
 
         return openai_response
     except Exception as ex:
@@ -798,9 +777,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs)
             level="ERROR",
             model=model,
             cost_details={"input": 0, "output": 0, "total": 0},
-        )
-
-        generation.end()
+        ).end()
 
         raise ex
 
