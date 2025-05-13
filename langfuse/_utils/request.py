@@ -7,7 +7,7 @@ from typing import Any, List, Union
 
 import httpx
 
-from langfuse.serializer import EventSerializer
+from langfuse._utils.serializer import EventSerializer
 
 
 class LangfuseClient:

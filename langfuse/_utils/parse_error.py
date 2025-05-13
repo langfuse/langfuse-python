@@ -1,6 +1,8 @@
 import logging
 from typing import Union
 
+# our own api errors
+from langfuse._utils.request import APIError, APIErrors
 from langfuse.api.core import ApiError
 
 # fern api errors
@@ -12,9 +14,6 @@ from langfuse.api.resources.commons.errors import (
     UnauthorizedError,
 )
 from langfuse.api.resources.health.errors import ServiceUnavailableError
-
-# our own api errors
-from langfuse.request import APIError, APIErrors
 
 SUPPORT_URL = "https://langfuse.com/support"
 API_DOCS_URL = "https://api.reference.langfuse.com"
