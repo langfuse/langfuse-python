@@ -568,7 +568,7 @@ class LangfuseDecorator:
         items = []
 
         try:
-            stack = None
+            stack = _observation_stack_context.get()
 
             try:
                 while True:
