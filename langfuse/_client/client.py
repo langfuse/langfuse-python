@@ -29,7 +29,10 @@ import httpx
 from opentelemetry import trace
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
-from opentelemetry.util._decorator import _agnosticcontextmanager
+from opentelemetry.util._decorator import (
+    _AgnosticContextManager,
+    _agnosticcontextmanager,
+)
 
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
@@ -310,7 +313,6 @@ class Langfuse:
             metadata=metadata,
         )
 
-    # TODO: add return typing
     def start_as_current_span(
         self,
         *,
@@ -323,7 +325,7 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-    ):
+    ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
         This method creates a new span and sets it as the current span within a context
@@ -529,7 +531,7 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         end_on_exit: Optional[bool] = None,
-    ):
+    ) -> _AgnosticContextManager[LangfuseGeneration]:
         """Create a new generation span and set it as the current span in a context manager.
 
         This method creates a specialized span for AI model generations and sets it as the
@@ -954,7 +956,7 @@ class Langfuse:
 
         return bool(re.match(pattern, span_id))
 
-    def create_observation_id(self, *, seed: Optional[str] = None) -> str:
+    def _create_observation_id(self, *, seed: Optional[str] = None) -> str:
         """Create a unique observation ID for use with Langfuse.
 
         This method generates a unique observation ID (span ID in OpenTelemetry terms)
@@ -1167,7 +1169,7 @@ class Langfuse:
         if not self.tracing_enabled:
             return
 
-        score_id = score_id or self.create_observation_id()
+        score_id = score_id or self._create_observation_id()
 
         try:
             score_event = {

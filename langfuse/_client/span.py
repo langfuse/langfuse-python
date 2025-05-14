@@ -28,6 +28,7 @@ from typing import (
 )
 
 from opentelemetry import trace as otel_trace_api
+from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse.model import PromptClient
 
@@ -654,7 +655,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-    ):
+    ) -> _AgnosticContextManager["LangfuseSpan"]:
         """Create a new child span and set it as the current span in a context manager.
 
         This method creates a new child span and sets it as the current span within
@@ -698,15 +699,18 @@ class LangfuseSpan(LangfuseSpanWrapper):
             status_message=status_message,
         )
 
-        return self._langfuse_client._create_span_with_parent_context(
-            name=name,
-            attributes=attributes,
-            as_type="span",
-            remote_parent_span=None,
-            parent=self._otel_span,
-            input=input,
-            output=output,
-            metadata=metadata,
+        return cast(
+            _AgnosticContextManager["LangfuseSpan"],
+            self._langfuse_client._create_span_with_parent_context(
+                name=name,
+                attributes=attributes,
+                as_type="span",
+                remote_parent_span=None,
+                parent=self._otel_span,
+                input=input,
+                output=output,
+                metadata=metadata,
+            ),
         )
 
     def start_generation(
@@ -832,7 +836,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-    ):
+    ) -> _AgnosticContextManager["LangfuseGeneration"]:
         """Create a new child generation span and set it as the current span in a context manager.
 
         This method creates a new child generation span and sets it as the current span
@@ -900,15 +904,18 @@ class LangfuseSpan(LangfuseSpanWrapper):
             prompt=prompt,
         )
 
-        return self._langfuse_client._create_span_with_parent_context(
-            name=name,
-            attributes=attributes,
-            as_type="generation",
-            remote_parent_span=None,
-            parent=self._otel_span,
-            input=input,
-            output=output,
-            metadata=metadata,
+        return cast(
+            _AgnosticContextManager["LangfuseGeneration"],
+            self._langfuse_client._create_span_with_parent_context(
+                name=name,
+                attributes=attributes,
+                as_type="generation",
+                remote_parent_span=None,
+                parent=self._otel_span,
+                input=input,
+                output=output,
+                metadata=metadata,
+            ),
         )
 
 
