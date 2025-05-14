@@ -423,7 +423,6 @@ class LangfuseDecorator:
                 observation, result, capture_output, transform_to_string
             )
         elif inspect.isasyncgen(result):
-            #stack = _observation_stack_context.get()[:-1]
             #_observation_stack_context.set(stack)
             return self._wrap_async_generator_result(
                 observation, result, capture_output, transform_to_string
