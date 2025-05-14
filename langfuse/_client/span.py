@@ -85,7 +85,7 @@ class LangfuseSpanWrapper(ABC):
         self._langfuse_client = langfuse_client
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
-        self.observation_id = self._langfuse_client._get_otel_span_id(otel_span)
+        self.id = self._langfuse_client._get_otel_span_id(otel_span)
 
         # Handle media only if span is sampled
         if self._otel_span.is_recording:
@@ -121,6 +121,8 @@ class LangfuseSpanWrapper(ABC):
             end_time: Optional explicit end time in nanoseconds since epoch
         """
         self._otel_span.end(end_time=end_time)
+
+        return self
 
     @abstractmethod
     def update(self, **kwargs) -> Union["LangfuseSpan", "LangfuseGeneration"]:
@@ -257,7 +259,7 @@ class LangfuseSpanWrapper(ABC):
             name=name,
             value=cast(str, value),
             trace_id=self.trace_id,
-            observation_id=self.observation_id,
+            observation_id=self.id,
             score_id=score_id,
             data_type=cast(Literal["CATEGORICAL"], data_type),
             comment=comment,
@@ -462,7 +464,7 @@ class LangfuseSpanWrapper(ABC):
             data=data,
             field=field,
             trace_id=self.trace_id,
-            observation_id=self.observation_id,
+            observation_id=self.id,
             project_id=self._langfuse_client.langfuse_tracer.project_id,
         )
 

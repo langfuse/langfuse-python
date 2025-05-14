@@ -203,6 +203,7 @@ class Langfuse:
             )
 
         self._mask = mask
+        self.project_id = None
 
         # Initialize api and tracer if requirements are met
         self.langfuse_tracer = LangfuseTracer(
@@ -309,6 +310,7 @@ class Langfuse:
             metadata=metadata,
         )
 
+    # TODO: add return typing
     def start_as_current_span(
         self,
         *,

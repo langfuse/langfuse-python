@@ -247,7 +247,7 @@ class LangfuseTracer:
             f"public_key={self.public_key} | "
             f"host={host} | "
             f"environment={environment or 'default'} | "
-            f"sample_rate={sample_rate or 1.0} | "
+            f"sample_rate={sample_rate if sample_rate is not None else 1.0} | "
             f"media_threads={media_upload_thread_count or 1}"
         )
 
@@ -419,7 +419,7 @@ def _init_tracer_provider(
     if isinstance(default_provider, otel_trace_api.ProxyTracerProvider):
         provider = TracerProvider(
             resource=resource,
-            sampler=TraceIdRatioBased(sample_rate) if sample_rate else None,
+            sampler=TraceIdRatioBased(sample_rate) if sample_rate is not None else None,
         )
         otel_trace_api.set_tracer_provider(provider)
 
