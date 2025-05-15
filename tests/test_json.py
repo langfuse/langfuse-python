@@ -1,19 +1,19 @@
 import builtins
-from dataclasses import dataclass
 import importlib
 import json
-from datetime import datetime, timezone, date
-from unittest.mock import patch
 import uuid
-from bson import ObjectId
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from unittest.mock import patch
 
 import pytest
+from bson import ObjectId
 from langchain.schema.messages import HumanMessage
 from pydantic import BaseModel
 
 import langfuse
+from langfuse._utils.serializer import EventSerializer
 from langfuse.api.resources.commons.types.observation_level import ObservationLevel
-from langfuse.serializer import EventSerializer
 
 
 class TestModel(BaseModel):

@@ -168,7 +168,7 @@ class Langfuse:
 
         if debug:
             logging.basicConfig(
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                format="%asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
             langfuse_logger.setLevel(logging.DEBUG)
 

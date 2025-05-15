@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from langfuse.client import Langfuse
+from langfuse._client.client import Langfuse
 from langfuse.media import LangfuseMedia
 from tests.utils import get_api
 
@@ -124,7 +124,7 @@ def test_replace_media_reference_string_in_object():
     mock_trace_name = f"test-trace-with-audio-{uuid4()}"
     base64_audio = base64.b64encode(mock_audio_bytes).decode()
 
-    trace = langfuse.trace(
+    span = langfuse.start_span(
         name=mock_trace_name,
         metadata={
             "context": {
@@ -133,40 +133,38 @@ def test_replace_media_reference_string_in_object():
                 )
             }
         },
-    )
+    ).end()
 
     langfuse.flush()
 
     # Verify media reference string format
-    fetched_trace = get_api().trace.get(trace.id)
-    media_ref = fetched_trace.metadata["context"]["nested"]
+    fetched_trace = get_api().trace.get(span.trace_id)
+    media_ref = fetched_trace.observations[0].metadata["context"]["nested"]
     assert re.match(
         r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
         media_ref,
     )
 
     # Resolve media references back to base64
-    resolved_trace = langfuse.resolve_media_references(
-        obj=fetched_trace, resolve_with="base64_data_uri"
+    resolved_obs = langfuse.resolve_media_references(
+        obj=fetched_trace.observations[0], resolve_with="base64_data_uri"
     )
 
     # Verify resolved base64 matches original
     expected_base64 = f"data:audio/wav;base64,{base64_audio}"
-    assert resolved_trace["metadata"]["context"]["nested"] == expected_base64
+    assert resolved_obs["metadata"]["context"]["nested"] == expected_base64
 
     # Create second trace reusing the media reference
-    trace2 = langfuse.trace(
+    span2 = langfuse.start_span(
         name=f"2-{mock_trace_name}",
-        metadata={
-            "context": {"nested": resolved_trace["metadata"]["context"]["nested"]}
-        },
-    )
+        metadata={"context": {"nested": resolved_obs["metadata"]["context"]["nested"]}},
+    ).end()
 
     langfuse.flush()
 
     # Verify second trace has same media reference
-    fetched_trace2 = get_api().trace.get(trace2.id)
+    fetched_trace2 = get_api().trace.get(span2.trace_id)
     assert (
-        fetched_trace2.metadata["context"]["nested"]
-        == fetched_trace.metadata["context"]["nested"]
+        fetched_trace2.observations[0].metadata["context"]["nested"]
+        == fetched_trace.observations[0].metadata["context"]["nested"]
     )

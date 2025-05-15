@@ -5,9 +5,12 @@ import hashlib
 import logging
 import os
 import re
-from typing import Any, Literal, Optional, Tuple, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
 import requests
+
+if TYPE_CHECKING:
+    from langfuse._client.client import Langfuse
 
 from langfuse.api import MediaContentType
 from langfuse.types import ParsedMediaReference
@@ -211,7 +214,7 @@ class LangfuseMedia:
     def resolve_media_references(
         *,
         obj: T,
-        langfuse_client: Any,
+        langfuse_client: "Langfuse",
         resolve_with: Literal["base64_data_uri"],
         max_depth: int = 10,
         content_fetch_timeout_seconds: int = 10,
@@ -275,9 +278,9 @@ class LangfuseMedia:
                         parsed_media_reference = LangfuseMedia.parse_reference_string(
                             reference_string
                         )
-                        media_data = langfuse_client.fetch_media(
+                        media_data = langfuse_client.api.media.get(
                             parsed_media_reference["media_id"]
-                        ).data
+                        )
                         media_content = requests.get(
                             media_data.url, timeout=content_fetch_timeout_seconds
                         )

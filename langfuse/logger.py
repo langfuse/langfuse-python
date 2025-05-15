@@ -15,6 +15,7 @@ import logging
 
 # Create the main Langfuse logger
 langfuse_logger = logging.getLogger("langfuse")
+langfuse_logger.setLevel(logging.WARNING)
 
 # Configure httpx logger to reduce noise from HTTP requests
 httpx_logger = logging.getLogger("httpx")
