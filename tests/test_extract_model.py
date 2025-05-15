@@ -24,8 +24,8 @@ from langchain_openai import (
     OpenAI,
 )
 
-from langfuse.callback import CallbackHandler
-from langfuse.extract_model import _extract_model_name
+from langfuse.langchain import CallbackHandler
+from langfuse.langchain.utils import _extract_model_name
 from tests.utils import get_api
 
 
@@ -134,20 +134,24 @@ def test_models(expected_model: str, model: Any):
 )
 def test_entire_llm_call(expected_model, model):
     callback = CallbackHandler()
-    try:
-        # LLM calls are failing, because of missing API keys etc.
-        # However, we are still able to extract the model names beforehand.
-        model.invoke("Hello, how are you?", config={"callbacks": [callback]})
-    except Exception as e:
-        print(e)
-        pass
 
-    callback.flush()
+    with callback.langfuse_client.start_as_current_span(name="parent") as span:
+        trace_id = span.trace_id
+
+        try:
+            # LLM calls are failing, because of missing API keys etc.
+            # However, we are still able to extract the model names beforehand.
+            model.invoke("Hello, how are you?", config={"callbacks": [callback]})
+        except Exception as e:
+            print(e)
+            pass
+
+    callback.langfuse_client.flush()
     api = get_api()
 
-    trace = api.trace.get(callback.get_trace_id())
+    trace = api.trace.get(trace_id)
 
-    assert len(trace.observations) == 1
+    assert len(trace.observations) == 2
 
     generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
     assert generation.model == expected_model
