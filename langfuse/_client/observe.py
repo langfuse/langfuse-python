@@ -236,21 +236,33 @@ class LangfuseDecorator:
                 return await func(*args, **kwargs)
 
             with context_manager as langfuse_span_or_generation:
-                result = await func(*args, **kwargs)
+                is_return_type_generator = False
 
-                if capture_output is True:
-                    if inspect.isasyncgen(result):
-                        return self._wrap_async_generator_result(
-                            langfuse_span_or_generation,
-                            result,
-                            transform_to_string,
-                        )
+                try:
+                    result = await func(*args, **kwargs)
 
-                    langfuse_span_or_generation.update(output=result)
+                    if capture_output is True:
+                        if inspect.isasyncgen(result):
+                            is_return_type_generator = True
 
-                langfuse_span_or_generation.end()
+                            return self._wrap_async_generator_result(
+                                langfuse_span_or_generation,
+                                result,
+                                transform_to_string,
+                            )
 
-                return result
+                        langfuse_span_or_generation.update(output=result)
+
+                    return result
+                except Exception as e:
+                    langfuse_span_or_generation.update(
+                        level="ERROR", status_message=str(e)
+                    )
+
+                    raise e
+                finally:
+                    if not is_return_type_generator:
+                        langfuse_span_or_generation.end()
 
         return cast(F, async_wrapper)
 
@@ -312,21 +324,33 @@ class LangfuseDecorator:
                 return func(*args, **kwargs)
 
             with context_manager as langfuse_span_or_generation:
-                result = func(*args, **kwargs)
+                is_return_type_generator = False
 
-                if capture_output is True:
-                    if inspect.isgenerator(result):
-                        return self._wrap_sync_generator_result(
-                            langfuse_span_or_generation,
-                            result,
-                            transform_to_string,
-                        )
+                try:
+                    result = func(*args, **kwargs)
 
-                    langfuse_span_or_generation.update(output=result)
+                    if capture_output is True:
+                        if inspect.isgenerator(result):
+                            is_return_type_generator = True
 
-                langfuse_span_or_generation.end()
+                            return self._wrap_sync_generator_result(
+                                langfuse_span_or_generation,
+                                result,
+                                transform_to_string,
+                            )
 
-                return result
+                        langfuse_span_or_generation.update(output=result)
+
+                    return result
+                except Exception as e:
+                    langfuse_span_or_generation.update(
+                        level="ERROR", status_message=str(e)
+                    )
+
+                    raise e
+                finally:
+                    if not is_return_type_generator:
+                        langfuse_span_or_generation.end()
 
         return cast(F, sync_wrapper)
 
