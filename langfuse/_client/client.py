@@ -2019,6 +2019,8 @@ class Langfuse:
                 )
                 server_prompt = self.api.prompts.create(request=request)
 
+                self.langfuse_tracer.prompt_cache.invalidate(name)
+
                 return ChatPromptClient(prompt=cast(Prompt_Chat, server_prompt))
 
             if not isinstance(prompt, str):
@@ -2035,6 +2037,9 @@ class Langfuse:
             )
 
             server_prompt = self.api.prompts.create(request=request)
+
+            self.langfuse_tracer.prompt_cache.invalidate(name)
+
             return TextPromptClient(prompt=cast(Prompt_Text, server_prompt))
 
         except Error as e:
