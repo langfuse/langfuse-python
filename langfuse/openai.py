@@ -476,7 +476,10 @@ def _create_langfuse_update(
         update["metadata"] = metadata
 
     if usage is not None:
-        update["usage"] = _parse_usage(usage)
+        parsed_usage = _parse_usage(usage)
+
+        update["usage"] = parsed_usage
+        update["usage_details"] = parsed_usage
 
     generation.update(**update)
 
