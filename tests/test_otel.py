@@ -14,10 +14,10 @@ from opentelemetry.sdk.trace.export import (
 )
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.client import Langfuse
+from langfuse._client.tracer import LangfuseTracer
 from langfuse.media import LangfuseMedia
-from langfuse.otel import Langfuse
-from langfuse.otel._tracer import LangfuseTracer
-from langfuse.otel.attributes import LangfuseSpanAttributes
 
 
 class InMemorySpanExporter(SpanExporter):
@@ -91,7 +91,7 @@ class TestOTelBase:
             )
 
         monkeypatch.setattr(
-            "langfuse.otel._span_processor.LangfuseSpanProcessor.__init__", mock_init
+            "langfuse._client.span_processor.LangfuseSpanProcessor.__init__", mock_init
         )
 
     @pytest.fixture
@@ -104,7 +104,7 @@ class TestOTelBase:
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse.otel._tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
             mock_fetch,
         )
 
@@ -140,7 +140,7 @@ class TestOTelBase:
                 self._project_id_fetched.set()
 
             monkeypatch.setattr(
-                "langfuse.otel._tracer.LangfuseTracer._fetch_project_id_background",
+                "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
                 mock_fetch,
             )
 
@@ -284,11 +284,11 @@ class TestBasicSpans(TestOTelBase):
         # Verify the span attributes
         assert span_data["name"] == "test-span"
         self.verify_span_attribute(
-            span_data, LangfuseSpanAttributes.OBSERVATION_TYPE, "span"
+            span_data, LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
         )
 
         # Verify the span IDs match
-        assert span.observation_id == span_data["span_id"]
+        assert span.id == span_data["span_id"]
         assert span.trace_id == span_data["trace_id"]
 
     def test_span_hierarchy(self, langfuse_client, memory_exporter):
@@ -354,24 +354,30 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify attributes are set
         attributes = span_data["attributes"]
-        assert LangfuseSpanAttributes.OBSERVATION_INPUT in attributes
-        assert LangfuseSpanAttributes.OBSERVATION_OUTPUT in attributes
-        assert f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.session" in attributes
+        assert LangfuseOtelSpanAttributes.OBSERVATION_INPUT in attributes
+        assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT in attributes
+        assert (
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.session" in attributes
+        )
 
         # Parse JSON attributes
-        input_data = json.loads(attributes[LangfuseSpanAttributes.OBSERVATION_INPUT])
-        output_data = json.loads(attributes[LangfuseSpanAttributes.OBSERVATION_OUTPUT])
+        input_data = json.loads(
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+        )
+        output_data = json.loads(
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+        )
         metadata_data = json.loads(
-            attributes[f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.session"]
+            attributes[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.session"]
         )
 
         # Verify attribute values
         assert input_data == {"prompt": "Test prompt"}
         assert output_data == {"response": "Updated response"}
         assert metadata_data == "test-session"
-        assert attributes[LangfuseSpanAttributes.OBSERVATION_LEVEL] == "INFO"
+        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "INFO"
         assert (
-            attributes[LangfuseSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
             == "Test status"
         )
 
@@ -395,16 +401,18 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify generation-specific attributes
         attributes = gen_data["attributes"]
-        assert attributes[LangfuseSpanAttributes.OBSERVATION_TYPE] == "generation"
-        assert attributes[LangfuseSpanAttributes.OBSERVATION_MODEL] == "gpt-4"
+        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4"
 
         # Parse complex attributes
         model_params = json.loads(
-            attributes[LangfuseSpanAttributes.OBSERVATION_MODEL_PARAMETERS]
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS]
         )
         assert model_params == {"temperature": 0.7, "max_tokens": 100}
 
-        usage = json.loads(attributes[LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS])
+        usage = json.loads(
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS]
+        )
         assert usage == {"input": 10, "output": 5, "total": 15}
 
     def test_trace_update(self, langfuse_client, memory_exporter):
@@ -427,19 +435,19 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify trace attributes were set
         attributes = span_data["attributes"]
-        assert attributes[LangfuseSpanAttributes.TRACE_NAME] == "updated-trace-name"
-        assert attributes[LangfuseSpanAttributes.TRACE_USER_ID] == "test-user"
-        assert attributes[LangfuseSpanAttributes.TRACE_SESSION_ID] == "test-session"
+        assert attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == "updated-trace-name"
+        assert attributes[LangfuseOtelSpanAttributes.TRACE_USER_ID] == "test-user"
+        assert attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID] == "test-session"
 
         # Handle different serialization formats
-        if isinstance(attributes[LangfuseSpanAttributes.TRACE_TAGS], str):
-            tags = json.loads(attributes[LangfuseSpanAttributes.TRACE_TAGS])
+        if isinstance(attributes[LangfuseOtelSpanAttributes.TRACE_TAGS], str):
+            tags = json.loads(attributes[LangfuseOtelSpanAttributes.TRACE_TAGS])
         else:
-            tags = list(attributes[LangfuseSpanAttributes.TRACE_TAGS])
+            tags = list(attributes[LangfuseOtelSpanAttributes.TRACE_TAGS])
 
-        input_data = json.loads(attributes[LangfuseSpanAttributes.TRACE_INPUT])
+        input_data = json.loads(attributes[LangfuseOtelSpanAttributes.TRACE_INPUT])
         metadata = json.loads(
-            attributes[f"{LangfuseSpanAttributes.TRACE_METADATA}.trace-meta"]
+            attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.trace-meta"]
         )
 
         # Check attribute values
@@ -505,23 +513,28 @@ class TestBasicSpans(TestOTelBase):
         assert len(set(s["trace_id"] for s in spans)) == 1
 
         # Check specific attributes
-        assert main["attributes"][LangfuseSpanAttributes.TRACE_NAME] == "complex-test"
         assert (
-            llm["attributes"][LangfuseSpanAttributes.OBSERVATION_TYPE] == "generation"
+            main["attributes"][LangfuseOtelSpanAttributes.TRACE_NAME] == "complex-test"
+        )
+        assert (
+            llm["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
+            == "generation"
         )
 
         # Parse metadata
         proc_metadata = json.loads(
-            proc["attributes"][f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.step"]
+            proc["attributes"][
+                f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.step"
+            ]
         )
         assert proc_metadata == "processing"
 
         # Parse input/output JSON
         llm_input = json.loads(
-            llm["attributes"][LangfuseSpanAttributes.OBSERVATION_INPUT]
+            llm["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
         )
         llm_output = json.loads(
-            llm["attributes"][LangfuseSpanAttributes.OBSERVATION_OUTPUT]
+            llm["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
         )
         assert llm_input == {"prompt": "Summarize this text"}
         assert llm_output == {"text": "This is a summary"}
@@ -548,7 +561,7 @@ class TestBasicSpans(TestOTelBase):
         assert (
             span_data["trace_id"] == custom_trace_id
         ), "Trace ID doesn't match custom ID"
-        assert span_data["attributes"][LangfuseSpanAttributes.AS_ROOT] is True
+        assert span_data["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
 
         # Test additional spans with the same trace context
         child_span = langfuse_client.start_span(
@@ -582,7 +595,7 @@ class TestBasicSpans(TestOTelBase):
         spans = self.get_spans_by_name(memory_exporter, "custom-parent-span")
         assert len(spans) == 1, "Expected one span"
         assert spans[0]["trace_id"] == trace_id
-        assert spans[0]["attributes"][LangfuseSpanAttributes.AS_ROOT] is True
+        assert spans[0]["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
 
     def test_multiple_generations_in_trace(self, langfuse_client, memory_exporter):
         """Test creating multiple generation spans within the same trace."""
@@ -634,28 +647,33 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify generation-specific attributes are correct
         assert (
-            gen1_data["attributes"][LangfuseSpanAttributes.OBSERVATION_TYPE]
+            gen1_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
             == "generation"
         )
         assert (
-            gen1_data["attributes"][LangfuseSpanAttributes.OBSERVATION_MODEL]
+            gen1_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
             == "gpt-3.5-turbo"
         )
 
         assert (
-            gen2_data["attributes"][LangfuseSpanAttributes.OBSERVATION_TYPE]
+            gen2_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
             == "generation"
         )
         assert (
-            gen2_data["attributes"][LangfuseSpanAttributes.OBSERVATION_MODEL] == "gpt-4"
+            gen2_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
+            == "gpt-4"
         )
 
         # Parse usage details
         gen1_usage = json.loads(
-            gen1_data["attributes"][LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS]
+            gen1_data["attributes"][
+                LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
+            ]
         )
         gen2_usage = json.loads(
-            gen2_data["attributes"][LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS]
+            gen2_data["attributes"][
+                LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
+            ]
         )
 
         assert gen1_usage == {"input": 10, "output": 20, "total": 30}
@@ -693,9 +711,9 @@ class TestBasicSpans(TestOTelBase):
         attributes = span_data["attributes"]
 
         # Verify error attributes were set correctly
-        assert attributes[LangfuseSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
         assert (
-            attributes[LangfuseSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
             == "Test error message"
         )
 
@@ -754,14 +772,14 @@ class TestAdvancedSpans(TestOTelBase):
 
         # Skip further assertions if model parameters attribute isn't present
         if (
-            LangfuseSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+            LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
             not in span_data["attributes"]
         ):
             pytest.skip("Model parameters attribute not implemented yet")
 
         # Verify model parameters were properly serialized
         model_params = self.verify_json_attribute(
-            span_data, LangfuseSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+            span_data, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
         )
 
         # Verify all parameters were preserved correctly
@@ -820,7 +838,7 @@ class TestAdvancedSpans(TestOTelBase):
 
         # Verify final attributes
         output = self.verify_json_attribute(
-            span_data, LangfuseSpanAttributes.OBSERVATION_OUTPUT
+            span_data, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
         )
 
         # Verify final output contains the complete text (key name may vary)
@@ -829,9 +847,12 @@ class TestAdvancedSpans(TestOTelBase):
         assert "robot named Bleep" in output[text_key]
 
         # Skip usage check if the attribute isn't present
-        if LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS in span_data["attributes"]:
+        if (
+            LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
+            in span_data["attributes"]
+        ):
             usage = self.verify_json_attribute(
-                span_data, LangfuseSpanAttributes.OBSERVATION_USAGE_DETAILS
+                span_data, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
             )
             assert usage["input"] == 10
             assert usage["output"] == 50
@@ -846,7 +867,7 @@ class TestAdvancedSpans(TestOTelBase):
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse.otel._tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
             mock_fetch,
         )
 
@@ -971,25 +992,32 @@ class TestMetadataHandling(TestOTelBase):
 
     def test_complex_metadata_serialization(self):
         """Test the _flatten_and_serialize_metadata function directly."""
-        from langfuse.otel.attributes import _flatten_and_serialize_metadata, _serialize
+        from langfuse._client.attributes import (
+            _flatten_and_serialize_metadata,
+            _serialize,
+        )
 
         # Test case 1: Non-dict metadata
         non_dict_result = _flatten_and_serialize_metadata("string-value", "observation")
-        assert LangfuseSpanAttributes.OBSERVATION_METADATA in non_dict_result
+        assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in non_dict_result
         assert non_dict_result[
-            LangfuseSpanAttributes.OBSERVATION_METADATA
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         ] == _serialize("string-value")
 
         # Test case 2: Simple dict
         simple_dict = {"key1": "value1", "key2": 123}
         simple_result = _flatten_and_serialize_metadata(simple_dict, "observation")
-        assert f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.key1" in simple_result
-        assert f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.key2" in simple_result
+        assert (
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1" in simple_result
+        )
+        assert (
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2" in simple_result
+        )
         assert simple_result[
-            f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.key1"
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1"
         ] == _serialize("value1")
         assert simple_result[
-            f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.key2"
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2"
         ] == _serialize(123)
 
         # Test case 3: Nested dict (will be flattened in current implementation)
@@ -1000,8 +1028,8 @@ class TestMetadataHandling(TestOTelBase):
         nested_result = _flatten_and_serialize_metadata(nested_dict, "trace")
 
         # Verify the keys are flattened properly
-        outer_key = f"{LangfuseSpanAttributes.TRACE_METADATA}.outer"
-        list_key = f"{LangfuseSpanAttributes.TRACE_METADATA}.list_key"
+        outer_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.outer"
+        list_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.list_key"
 
         assert outer_key in nested_result
         assert list_key in nested_result
@@ -1020,8 +1048,8 @@ class TestMetadataHandling(TestOTelBase):
         # Test case 5: None
         none_result = _flatten_and_serialize_metadata(None, "observation")
         # The implementation returns a dictionary with a None value
-        assert LangfuseSpanAttributes.OBSERVATION_METADATA in none_result
-        assert none_result[LangfuseSpanAttributes.OBSERVATION_METADATA] is None
+        assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in none_result
+        assert none_result[LangfuseOtelSpanAttributes.OBSERVATION_METADATA] is None
 
         # Test case 6: Complex nested structure
         complex_dict = {
@@ -1034,8 +1062,8 @@ class TestMetadataHandling(TestOTelBase):
         complex_result = _flatten_and_serialize_metadata(complex_dict, "observation")
 
         # Check first-level keys only (current implementation)
-        level1_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.level1"
-        sibling_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.sibling"
+        level1_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.level1"
+        sibling_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.sibling"
 
         assert level1_key in complex_result
         assert sibling_key in complex_result
@@ -1046,7 +1074,7 @@ class TestMetadataHandling(TestOTelBase):
 
     def test_nested_metadata_updates(self):
         """Test that nested metadata updates don't overwrite unrelated keys."""
-        from langfuse.otel.attributes import _flatten_and_serialize_metadata
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
 
         # Test how updates to metadata should behave in sequential calls
         # Initial metadata
@@ -1079,8 +1107,8 @@ class TestMetadataHandling(TestOTelBase):
         # telemetry.session_id: kept from first_result
 
         # Get the expected keys
-        config_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.config"
-        telemetry_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.telemetry"
+        config_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.config"
+        telemetry_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.telemetry"
 
         # Verify the structure of the results
         assert config_key in first_result
@@ -1118,10 +1146,10 @@ class TestMetadataHandling(TestOTelBase):
 
         # Get expected keys
         first_section_key = (
-            f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.first_section"
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.first_section"
         )
         second_section_key = (
-            f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.second_section"
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.second_section"
         )
 
         # Verify each section is properly serialized
@@ -1145,7 +1173,7 @@ class TestMetadataHandling(TestOTelBase):
         """Test that metadata nesting integrity is preserved in async contexts."""
         import asyncio
 
-        from langfuse.otel.attributes import _flatten_and_serialize_metadata
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
 
         # Initial metadata with complex nested structure
         initial_metadata = {
@@ -1216,8 +1244,8 @@ class TestMetadataHandling(TestOTelBase):
             loop.close()
 
         # Define expected keys
-        config_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.config"
-        telemetry_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.telemetry"
+        config_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.config"
+        telemetry_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.telemetry"
 
         # Verify base result has all expected data
         assert config_key in base_result
@@ -1272,7 +1300,7 @@ class TestMetadataHandling(TestOTelBase):
         import threading
         import time
 
-        from langfuse.otel.attributes import _flatten_and_serialize_metadata
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
 
         # Create a shared metadata dictionary we'll update from multiple threads
         shared_metadata = {
@@ -1382,8 +1410,8 @@ class TestMetadataHandling(TestOTelBase):
             current_metadata, "observation"
         )
 
-        user_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.user"
-        system_key = f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.system"
+        user_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.user"
+        system_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.system"
 
         assert user_key in final_flattened
         assert system_key in final_flattened
@@ -1431,7 +1459,7 @@ class TestMultiProjectSetup(TestOTelBase):
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse.otel._tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
             mock_fetch,
         )
 
@@ -1457,7 +1485,7 @@ class TestMultiProjectSetup(TestOTelBase):
             )
 
         monkeypatch.setattr(
-            "langfuse.otel._span_processor.LangfuseSpanProcessor.__init__",
+            "langfuse._client.span_processor.LangfuseSpanProcessor.__init__",
             mock_processor_init,
         )
 
@@ -1846,18 +1874,18 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
             # Parse output and metadata
             output = self.verify_json_attribute(
-                task_span, LangfuseSpanAttributes.OBSERVATION_OUTPUT
+                task_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
             )
             assert output["result"] == f"Task {i} completed"
 
             metadata = self.verify_json_attribute(
-                task_span, f"{LangfuseSpanAttributes.OBSERVATION_METADATA}.task_id"
+                task_span, f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.task_id"
             )
             assert metadata == i
 
         # Verify main span output
         main_output = self.verify_json_attribute(
-            main, LangfuseSpanAttributes.OBSERVATION_OUTPUT
+            main, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
         )
         assert main_output["completed_tasks"] == [0, 1, 2]
 
@@ -1875,7 +1903,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
         )
 
         # Save the span ID to verify parent-child relationships
-        main_span_id = main_span.observation_id
+        main_span_id = main_span.id
 
         # Set up an event to signal when thread 2 is done
         thread2_done = threading.Event()
@@ -1896,7 +1924,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
             )
 
             # Store IDs for verification
-            thread2_span_id = thread2_span.observation_id
+            thread2_span_id = thread2_span.id
             thread2_trace_id = thread2_span.trace_id
 
             # End the span
@@ -1916,7 +1944,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
             )
 
             # Store IDs for verification
-            thread3_span_id = thread3_span.observation_id
+            thread3_span_id = thread3_span.id
             thread3_trace_id = thread3_span.trace_id
 
             # End the span
@@ -1959,7 +1987,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
         # Verify thread2 span is at the root level (no parent within our trace)
         assert (
-            thread2_span["attributes"][LangfuseSpanAttributes.AS_ROOT] is True
+            thread2_span["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
         ), "Thread 2 span should not have a parent"
 
         # Verify thread3 span is a child of the main span
@@ -2054,12 +2082,15 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
         # Skip further assertions if metadata attribute isn't present
         # (since the implementation might not be complete)
-        if LangfuseSpanAttributes.OBSERVATION_METADATA not in span_data["attributes"]:
+        if (
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+            not in span_data["attributes"]
+        ):
             pytest.skip("Metadata attribute not present in span, skipping assertions")
 
         # Parse the final metadata
         metadata_str = span_data["attributes"][
-            LangfuseSpanAttributes.OBSERVATION_METADATA
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         ]
         metadata = json.loads(metadata_str)
 
@@ -2340,7 +2371,7 @@ class TestMediaHandling(TestOTelBase):
         # Now test using the actual LangfuseSpan implementation
         from unittest.mock import MagicMock
 
-        from langfuse.otel._span import LangfuseSpan
+        from langfuse._client.span import LangfuseSpan
 
         # Create a mock Langfuse client with the masking function
         mock_client = MagicMock()
@@ -2398,7 +2429,7 @@ class TestOtelIdGeneration:
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse.otel._tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
             mock_fetch,
         )
 
@@ -2456,14 +2487,14 @@ class TestOtelIdGeneration:
             RandomIdGenerator, "generate_span_id", mock_generate_span_id
         )
 
-        observation_id = langfuse_client.create_observation_id()
+        observation_id = langfuse_client._create_observation_id()
         assert observation_id == "1234567890abcdef"
         assert len(observation_id) == 16  # 8 bytes hex-encoded = 16 characters
 
     def test_observation_id_with_seed(self, langfuse_client):
         """Test observation_id generation with seed (should be deterministic)."""
         seed = "test-identifier"
-        observation_id = langfuse_client.create_observation_id(seed=seed)
+        observation_id = langfuse_client._create_observation_id(seed=seed)
 
         # Expected value: first 8 bytes of SHA-256 hash of "test-identifier"
         expected = sha256(seed.encode("utf-8")).digest()[:8].hex()
@@ -2472,12 +2503,12 @@ class TestOtelIdGeneration:
         assert len(observation_id) == 16  # 8 bytes hex-encoded = 16 characters
 
         # Verify the same seed produces the same ID
-        observation_id_repeat = langfuse_client.create_observation_id(seed=seed)
+        observation_id_repeat = langfuse_client._create_observation_id(seed=seed)
         assert observation_id == observation_id_repeat
 
         # Verify a different seed produces a different ID
         different_seed = "different-identifier"
-        different_observation_id = langfuse_client.create_observation_id(
+        different_observation_id = langfuse_client._create_observation_id(
             seed=different_seed
         )
         assert observation_id != different_observation_id
@@ -2489,7 +2520,7 @@ class TestOtelIdGeneration:
         # Generate multiple IDs with the same seed
         trace_ids = [langfuse_client.create_trace_id(seed=seed) for _ in range(5)]
         observation_ids = [
-            langfuse_client.create_observation_id(seed=seed) for _ in range(5)
+            langfuse_client._create_observation_id(seed=seed) for _ in range(5)
         ]
 
         # All trace IDs should be identical
@@ -2505,7 +2536,7 @@ class TestOtelIdGeneration:
         # Generate IDs with different seeds
         trace_ids = [langfuse_client.create_trace_id(seed=seed) for seed in seeds]
         observation_ids = [
-            langfuse_client.create_observation_id(seed=seed) for seed in seeds
+            langfuse_client._create_observation_id(seed=seed) for seed in seeds
         ]
 
         # All trace IDs should be unique
