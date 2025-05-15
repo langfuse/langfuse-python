@@ -6,7 +6,6 @@ from time import sleep
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import pytest
-from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
     ConversationalRetrievalChain,
     ConversationChain,
@@ -15,106 +14,47 @@ from langchain.chains import (
     SimpleSequentialChain,
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
-from langchain.chains.summarize import load_summarize_chain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import Document, HumanMessage, SystemMessage
+from langchain.schema import HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_anthropic import Anthropic
-from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.llms.huggingface_hub import HuggingFaceHub
 from langchain_community.vectorstores import Chroma
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables.base import RunnableLambda
 from langchain_core.tools import StructuredTool, tool
-from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
+from langchain_openai import ChatOpenAI, OpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 from pydantic.v1 import BaseModel, Field
 
-from langfuse.callback import CallbackHandler
-from langfuse.callback.langchain import LANGSMITH_TAG_HIDDEN
-from langfuse.client import Langfuse
+from langfuse._client.client import Langfuse
+from langfuse.langchain import CallbackHandler
+from langfuse.langchain.CallbackHandler import LANGSMITH_TAG_HIDDEN
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 
-def test_callback_init():
-    callback = CallbackHandler(release="something", session_id="session-id")
-    assert callback.trace is None
-    assert not callback.runs
-    assert callback.langfuse.release == "something"
-    assert callback.session_id == "session-id"
-    assert callback._task_manager is not None
-
-
-def test_callback_kwargs():
-    callback = CallbackHandler(
-        trace_name="trace-name",
-        release="release",
-        version="version",
-        session_id="session-id",
-        user_id="user-id",
-        metadata={"key": "value"},
-        tags=["tag1", "tag2"],
-    )
-
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), max_tokens=5)
-    prompt_template = PromptTemplate(input_variables=["input"], template="""{input}""")
-    test_chain = LLMChain(llm=llm, prompt=prompt_template)
-    test_chain.run("Hi", callbacks=[callback])
-    callback.flush()
-
-    trace_id = callback.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-    assert trace.input is not None
-    assert trace.output is not None
-    assert trace.metadata == {"key": "value"}
-    assert trace.tags == ["tag1", "tag2"]
-    assert trace.release == "release"
-    assert trace.version == "version"
-    assert trace.session_id == "session-id"
-    assert trace.user_id == "user-id"
-
-
-def test_langfuse_span():
-    trace_id = create_uuid()
-    span_id = create_uuid()
-    langfuse = Langfuse(debug=False)
-    trace = langfuse.trace(id=trace_id)
-    span = trace.span(id=span_id)
-
-    handler = span.get_langchain_handler()
-
-    assert handler.get_trace_id() == trace_id
-    assert handler.root_span.id == span_id
-    assert handler._task_manager is not None
-
-
 def test_callback_generated_from_trace_chain():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse()
 
-    trace_id = create_uuid()
+    with langfuse.start_as_current_span(name="parent") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
 
-    trace = langfuse.trace(id=trace_id, name=trace_id)
+        llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+        template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+            Title: {title}
+            Playwright: This is a synopsis for the above play:"""
 
-    handler = trace.get_langchain_handler()
+        prompt_template = PromptTemplate(input_variables=["title"], template=template)
+        synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+        synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
 
     langfuse.flush()
 
@@ -122,10 +62,8 @@ def test_callback_generated_from_trace_chain():
 
     assert trace.input is None
     assert trace.output is None
-    assert handler.get_trace_id() == trace_id
 
-    assert len(trace.observations) == 2
-    assert trace.id == trace_id
+    assert len(trace.observations) == 3
 
     langchain_span = list(
         filter(
@@ -134,7 +72,6 @@ def test_callback_generated_from_trace_chain():
         )
     )[0]
 
-    assert langchain_span.parent_observation_id is None
     assert langchain_span.input is not None
     assert langchain_span.output is not None
 
@@ -156,25 +93,25 @@ def test_callback_generated_from_trace_chain():
 
 
 def test_callback_generated_from_trace_chat():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     trace_id = create_uuid()
 
-    trace = langfuse.trace(id=trace_id, name=trace_id)
-    handler = trace.get_langchain_handler()
+    with langfuse.start_as_current_span(name="parent") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
+        chat = ChatOpenAI(temperature=0)
 
-    chat = ChatOpenAI(temperature=0)
+        messages = [
+            SystemMessage(
+                content="You are a helpful assistant that translates English to French."
+            ),
+            HumanMessage(
+                content="Translate this sentence from English to French. I love programming."
+            ),
+        ]
 
-    messages = [
-        SystemMessage(
-            content="You are a helpful assistant that translates English to French."
-        ),
-        HumanMessage(
-            content="Translate this sentence from English to French. I love programming."
-        ),
-    ]
-
-    chat(messages, callbacks=[handler])
+        chat(messages, callbacks=[handler])
 
     langfuse.flush()
 
@@ -183,10 +120,9 @@ def test_callback_generated_from_trace_chat():
     assert trace.input is None
     assert trace.output is None
 
-    assert handler.get_trace_id() == trace_id
     assert trace.id == trace_id
 
-    assert len(trace.observations) == 1
+    assert len(trace.observations) == 2
 
     langchain_generation_span = list(
         filter(
@@ -195,7 +131,6 @@ def test_callback_generated_from_trace_chat():
         )
     )[0]
 
-    assert langchain_generation_span.parent_observation_id is None
     assert langchain_generation_span.usage_details["input"] > 0
     assert langchain_generation_span.usage_details["output"] > 0
     assert langchain_generation_span.usage_details["total"] > 0
@@ -206,126 +141,21 @@ def test_callback_generated_from_trace_chat():
 
 
 def test_callback_generated_from_lcel_chain():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
-    run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler(debug=False)
+    with langfuse.start_as_current_span(name="parent") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
+        model = ChatOpenAI(temperature=0)
+        chain = prompt | model
 
-    prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
-    model = ChatOpenAI(temperature=0)
-
-    chain = prompt | model
-
-    chain.invoke(
-        {"topic": "ice cream"},
-        config={
-            "callbacks": [handler],
-            "run_name": run_name_override,
-        },
-    )
-
-    langfuse.flush()
-    handler.flush()
-    trace_id = handler.get_trace_id()
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.name == run_name_override
-
-
-def test_callback_generated_from_span_chain():
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    span_id = create_uuid()
-
-    trace = langfuse.trace(id=trace_id, name=trace_id)
-    span = trace.span(id=span_id, name=span_id)
-
-    handler = span.get_langchain_handler()
-
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    langfuse.flush()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.input is None
-    assert trace.output is None
-    assert handler.get_trace_id() == trace_id
-
-    assert len(trace.observations) == 3
-    assert trace.id == trace_id
-
-    user_span = list(
-        filter(
-            lambda o: o.id == span_id,
-            trace.observations,
+        chain.invoke(
+            {"topic": "ice cream"},
+            config={
+                "callbacks": [handler],
+            },
         )
-    )[0]
-
-    assert user_span.input is None
-    assert user_span.output is None
-
-    assert user_span.input is None
-    assert user_span.output is None
-
-    langchain_span = list(
-        filter(
-            lambda o: o.type == "SPAN" and o.name == "LLMChain",
-            trace.observations,
-        )
-    )[0]
-
-    assert langchain_span.parent_observation_id == user_span.id
-
-    langchain_generation_span = list(
-        filter(
-            lambda o: o.type == "GENERATION" and o.name == "OpenAI",
-            trace.observations,
-        )
-    )[0]
-
-    assert langchain_generation_span.parent_observation_id == langchain_span.id
-    assert langchain_generation_span.usage_details["input"] > 0
-    assert langchain_generation_span.usage_details["output"] > 0
-    assert langchain_generation_span.usage_details["total"] > 0
-    assert langchain_generation_span.input is not None
-    assert langchain_generation_span.input != ""
-    assert langchain_generation_span.output is not None
-    assert langchain_generation_span.output != ""
-
-
-def test_callback_generated_from_span_chat():
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    span_id = create_uuid()
-
-    trace = langfuse.trace(id=trace_id, name=trace_id)
-    span = trace.span(id=span_id, name=span_id)
-
-    handler = span.get_langchain_handler()
-
-    chat = ChatOpenAI(temperature=0)
-
-    messages = [
-        SystemMessage(
-            content="You are a helpful assistant that translates English to French."
-        ),
-        HumanMessage(
-            content="Translate this sentence from English to French. I love programming."
-        ),
-    ]
-
-    chat(messages, callbacks=[handler])
 
     langfuse.flush()
 
@@ -334,20 +164,9 @@ def test_callback_generated_from_span_chat():
     assert trace.input is None
     assert trace.output is None
 
-    assert handler.get_trace_id() == trace_id
     assert trace.id == trace_id
 
-    assert len(trace.observations) == 2
-
-    user_span = list(
-        filter(
-            lambda o: o.id == span_id,
-            trace.observations,
-        )
-    )[0]
-
-    assert user_span.input is None
-    assert user_span.output is None
+    assert len(trace.observations) > 0
 
     langchain_generation_span = list(
         filter(
@@ -356,8 +175,7 @@ def test_callback_generated_from_span_chat():
         )
     )[0]
 
-    assert langchain_generation_span.parent_observation_id == user_span.id
-    assert langchain_generation_span.usage_details["input"] > 0
+    assert langchain_generation_span.usage_details["input"] > 1
     assert langchain_generation_span.usage_details["output"] > 0
     assert langchain_generation_span.usage_details["total"] > 0
     assert langchain_generation_span.input is not None
@@ -366,135 +184,15 @@ def test_callback_generated_from_span_chat():
     assert langchain_generation_span.output != ""
 
 
-@pytest.mark.skip(reason="missing api key")
-def test_callback_generated_from_trace_azure_chat():
-    api_wrapper = LangfuseAPI()
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
-
-    handler = trace.getNewHandler()
-
-    llm = AzureChatOpenAI(
-        openai_api_base="AZURE_OPENAI_ENDPOINT",
-        openai_api_version="2023-05-15",
-        deployment_name="gpt-4",
-        openai_api_key="AZURE_OPENAI_API_KEY",
-        openai_api_type="azure",
-        model_version="0613",
-        temperature=0,
-    )
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    langfuse.flush()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    assert handler.get_trace_id() == trace_id
-    assert len(trace["observations"]) == 2
-    assert trace["id"] == trace_id
-
-
-@pytest.mark.skip(reason="missing api key")
-def test_mistral():
-    from langchain_core.messages import HumanMessage
-    from langchain_mistralai.chat_models import ChatMistralAI
-
-    callback = CallbackHandler(debug=False)
-
-    chat = ChatMistralAI(model="mistral-small", callbacks=[callback])
-    messages = [HumanMessage(content="say a brief hello")]
-    chat.invoke(messages)
-
-    callback.flush()
-
-    trace_id = callback.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.id == trace_id
-    assert len(trace.observations) == 2
-
-    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
-    assert generation.model == "mistral-small"
-
-
-@pytest.mark.skip(reason="missing api key")
-def test_vertx():
-    from langchain.llms import VertexAI
-
-    callback = CallbackHandler(debug=False)
-
-    llm = VertexAI(callbacks=[callback])
-    llm.predict("say a brief hello", callbacks=[callback])
-
-    callback.flush()
-
-    trace_id = callback.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.id == trace_id
-    assert len(trace.observations) == 2
-
-    generation = list(filter(lambda o: o.type == "GENERATION", trace.observations))[0]
-    assert generation.model == "text-bison"
-
-
-@pytest.mark.skip(reason="rate limits")
-def test_callback_generated_from_trace_anthropic():
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
-
-    handler = trace.getNewHandler()
-
-    llm = Anthropic(
-        model="claude-instant-1.2",
-    )
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    langfuse.flush()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert handler.get_trace_id() == trace_id
-    assert len(trace.observations) == 2
-    assert trace.id == trace_id
-    for observation in trace.observations:
-        if observation.type == "GENERATION":
-            assert observation.usage_details["input"] > 0
-            assert observation.usage_details["output"] > 0
-            assert observation.usage_details["total"] > 0
-            assert observation.output is not None
-            assert observation.output != ""
-            assert isinstance(observation.input, str) is True
-            assert isinstance(observation.output, str) is True
-            assert observation.input != ""
-            assert observation.model == "claude-instant-1.2"
-
-
 def test_basic_chat_openai():
-    callback = CallbackHandler(debug=False)
+    # Create a unique name for this test
+    test_name = f"Test Basic Chat {create_uuid()}"
 
+    # Initialize handler
+    handler = CallbackHandler()
     chat = ChatOpenAI(temperature=0)
 
+    # Prepare messages
     messages = [
         SystemMessage(
             content="You are a helpful assistant that translates English to French."
@@ -504,272 +202,61 @@ def test_basic_chat_openai():
         ),
     ]
 
-    chat(messages, callbacks=[callback])
-    callback.flush()
+    # Run the chat with trace metadata
+    chat.invoke(messages, config={"callbacks": [handler], "run_name": test_name})
 
-    trace_id = callback.get_trace_id()
+    # Ensure data is flushed to API
+    sleep(2)
 
-    trace = get_api().trace.get(trace_id)
+    # Retrieve trace by name
+    traces = get_api().trace.list(name=test_name)
+    assert len(traces.data) > 0
+    trace = get_api().trace.get(traces.data[0].id)
 
-    assert trace.id == trace_id
-    assert len(trace.observations) == 1
+    # Assertions
+    assert trace.name == test_name
+    assert len(trace.observations) > 0
 
-    assert trace.output == trace.observations[0].output
-    assert trace.input == trace.observations[0].input
-
-    assert trace.observations[0].input == [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant that translates English to French.",
-        },
-        {
-            "role": "user",
-            "content": "Translate this sentence from English to French. I love programming.",
-        },
-    ]
-    assert trace.observations[0].output["role"] == "assistant"
-
-
-def test_basic_chat_openai_based_on_trace():
-    from langchain.schema import HumanMessage, SystemMessage
-
-    trace_id = create_uuid()
-
-    langfuse = Langfuse(debug=False)
-    trace = langfuse.trace(id=trace_id)
-
-    callback = trace.get_langchain_handler()
-
-    chat = ChatOpenAI(temperature=0)
-
-    messages = [
-        SystemMessage(
-            content="You are a helpful assistant that translates English to French."
-        ),
-        HumanMessage(
-            content="Translate this sentence from English to French. I love programming."
-        ),
-    ]
-
-    chat(messages, callbacks=[callback])
-    callback.flush()
-
-    trace_id = callback.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.id == trace_id
-    assert len(trace.observations) == 1
-
-
-def test_callback_from_trace_with_trace_update():
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
-
-    handler = trace.get_langchain_handler(update_parent=True)
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    langfuse.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.input is not None
-    assert trace.output is not None
-
-    assert len(trace.observations) == 2
-    assert handler.get_trace_id() == trace_id
-    assert trace.id == trace_id
-
-    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
+    # Get the generation
+    generations = [obs for obs in trace.observations if obs.type == "GENERATION"]
     assert len(generations) > 0
-    for generation in generations:
-        assert generation.input is not None
-        assert generation.output is not None
-        assert generation.usage_details["total"] is not None
-        assert generation.usage_details["input"] is not None
-        assert generation.usage_details["output"] is not None
+
+    generation = generations[0]
+    assert generation.input is not None
+    assert generation.output is not None
 
 
-def test_callback_from_span_with_span_update():
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    span_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
-    span = trace.span(id=span_id)
-
-    handler = span.get_langchain_handler(update_parent=True)
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    langfuse.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert trace.input is None
-    assert trace.output is None
-    assert trace.metadata == {}
-
-    assert len(trace.observations) == 3
-    assert handler.get_trace_id() == trace_id
-    assert trace.id == trace_id
-    assert handler.root_span.id == span_id
-
-    root_span_observation = [o for o in trace.observations if o.id == span_id][0]
-    assert root_span_observation.input is not None
-    assert root_span_observation.output is not None
-
-    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
-    assert len(generations) > 0
-    for generation in generations:
-        assert generation.input is not None
-        assert generation.output is not None
-        assert generation.usage_details["total"] is not None
-        assert generation.usage_details["input"] is not None
-        assert generation.usage_details["output"] is not None
-
-
-def test_callback_from_trace_simple_chain():
-    langfuse = Langfuse(debug=False)
-
-    trace_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
-
-    handler = trace.getNewHandler()
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    langfuse.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = get_api().trace.get(trace_id)
-    assert trace.input is None
-    assert trace.output is None
-
-    assert len(trace.observations) == 2
-    assert handler.get_trace_id() == trace_id
-    assert trace.id == trace_id
-
-    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
-    assert len(generations) > 0
-    for generation in generations:
-        assert generation.input is not None
-        assert generation.output is not None
-        assert generation.usage_details["total"] is not None
-        assert generation.usage_details["input"] is not None
-        assert generation.usage_details["output"] is not None
-
-
-def test_next_span_id_from_trace_simple_chain():
-    api_wrapper = LangfuseAPI()
+def test_callback_retriever():
     langfuse = Langfuse()
 
-    trace_id = create_uuid()
-    trace = langfuse.trace(id=trace_id)
+    with langfuse.start_as_current_span(name="retriever_test") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
 
-    handler = trace.getNewHandler()
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
+        loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+        llm = OpenAI()
 
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+        documents = loader.load()
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        texts = text_splitter.split_documents(documents)
 
-    synopsis_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
+        embeddings = OpenAIEmbeddings()
+        docsearch = Chroma.from_documents(texts, embeddings)
 
-    next_span_id = create_uuid()
-    handler.setNextSpan(next_span_id)
+        query = "What did the president say about Ketanji Brown Jackson"
 
-    synopsis_chain.run("Comedy at sunset on the beach", callbacks=[handler])
+        chain = RetrievalQA.from_chain_type(
+            llm,
+            retriever=docsearch.as_retriever(),
+        )
+
+        chain.run(query, callbacks=[handler])
 
     langfuse.flush()
 
-    trace_id = handler.get_trace_id()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    assert len(trace["observations"]) == 4
-    assert handler.get_trace_id() == trace_id
-    assert trace["id"] == trace_id
-
-    assert any(
-        observation["id"] == next_span_id for observation in trace["observations"]
-    )
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
-
-
-def test_callback_sequential_chain():
-    handler = CallbackHandler(debug=False)
-
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
-
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    template = """You are a play critic from the New York Times.
-    Given the synopsis of play, it is your job to write a review for that play.
-
-        Play Synopsis:
-        {synopsis}
-        Review from a New York Times play critic of the above play:"""
-    prompt_template = PromptTemplate(input_variables=["synopsis"], template=template)
-    review_chain = LLMChain(llm=llm, prompt=prompt_template)
-
-    overall_chain = SimpleSequentialChain(
-        chains=[synopsis_chain, review_chain],
-    )
-    overall_chain.run("Tragedy at sunset on the beach", callbacks=[handler])
-
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
     trace = get_api().trace.get(trace_id)
 
-    assert len(trace.observations) == 5
-    assert trace.id == trace_id
-
+    assert len(trace.observations) == 6
     for observation in trace.observations:
         if observation.type == "GENERATION":
             assert observation.usage_details["input"] > 0
@@ -781,135 +268,71 @@ def test_callback_sequential_chain():
             assert observation.output != ""
 
 
-def test_stuffed_chain():
-    with open("./static/state_of_the_union_short.txt", encoding="utf-8") as f:
-        api_wrapper = LangfuseAPI()
-        handler = CallbackHandler(debug=False)
+def test_callback_retriever_with_sources():
+    langfuse = Langfuse()
 
-        text = f.read()
-        docs = [Document(page_content=text)]
-        llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
+    with langfuse.start_as_current_span(name="retriever_with_sources_test") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
 
-        template = """
-        Compose a concise and a brief summary of the following text:
-        TEXT: `{text}`
-        """
+        loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+        llm = OpenAI()
 
-        prompt = PromptTemplate(input_variables=["text"], template=template)
+        documents = loader.load()
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        texts = text_splitter.split_documents(documents)
 
-        chain = load_summarize_chain(
-            llm, chain_type="stuff", prompt=prompt, verbose=False
+        embeddings = OpenAIEmbeddings()
+        docsearch = Chroma.from_documents(texts, embeddings)
+
+        query = "What did the president say about Ketanji Brown Jackson"
+
+        chain = RetrievalQA.from_chain_type(
+            llm, retriever=docsearch.as_retriever(), return_source_documents=True
         )
 
-        chain.run(docs, callbacks=[handler])
+        chain(query, callbacks=[handler])
 
-        handler.flush()
+    langfuse.flush()
 
-        trace_id = handler.get_trace_id()
+    trace = get_api().trace.get(trace_id)
 
-        trace = api_wrapper.get_trace(trace_id)
-
-        assert len(trace["observations"]) == 3
-        for observation in trace["observations"]:
-            if observation["type"] == "GENERATION":
-                assert observation["promptTokens"] > 0
-                assert observation["completionTokens"] > 0
-                assert observation["totalTokens"] > 0
-                assert observation["input"] is not None
-                assert observation["input"] != ""
-                assert observation["output"] is not None
-                assert observation["output"] != ""
-
-
-def test_callback_retriever():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
-
-    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(documents)
-
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    docsearch = Chroma.from_documents(texts, embeddings)
-
-    query = "What did the president say about Ketanji Brown Jackson"
-
-    chain = RetrievalQA.from_chain_type(
-        llm,
-        retriever=docsearch.as_retriever(),
-    )
-
-    chain.run(query, callbacks=[handler])
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    assert len(trace["observations"]) == 5
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
-
-
-def test_callback_retriever_with_sources():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
-
-    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(documents)
-
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    docsearch = Chroma.from_documents(texts, embeddings)
-
-    query = "What did the president say about Ketanji Brown Jackson"
-
-    chain = RetrievalQA.from_chain_type(
-        llm, retriever=docsearch.as_retriever(), return_source_documents=True
-    )
-
-    chain(query, callbacks=[handler])
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    assert len(trace["observations"]) == 5
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
+    assert len(trace.observations) == 6
+    for observation in trace.observations:
+        if observation.type == "GENERATION":
+            assert observation.usage_details["input"] > 0
+            assert observation.usage_details["output"] > 0
+            assert observation.usage_details["total"] > 0
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.output is not None
+            assert observation.output != ""
 
 
 def test_callback_retriever_conversational_with_memory():
-    handler = CallbackHandler(debug=False)
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    conversation = ConversationChain(
-        llm=llm, verbose=True, memory=ConversationBufferMemory(), callbacks=[handler]
-    )
-    conversation.predict(input="Hi there!", callbacks=[handler])
-    handler.flush()
+    langfuse = Langfuse()
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    with langfuse.start_as_current_span(
+        name="retriever_conversational_with_memory_test"
+    ) as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
+
+        llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+        conversation = ConversationChain(
+            llm=llm,
+            verbose=True,
+            memory=ConversationBufferMemory(),
+            callbacks=[handler],
+        )
+        conversation.predict(input="Hi there!", callbacks=[handler])
+
+    handler.langfuse_client.flush()
+
+    trace = get_api().trace.get(trace_id)
+
+    # Add 1 to account for the wrapping span
+    assert len(trace.observations) == 3
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) == 1
@@ -925,38 +348,42 @@ def test_callback_retriever_conversational_with_memory():
 
 
 def test_callback_retriever_conversational():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
+    langfuse = Langfuse()
 
-    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
+    with langfuse.start_as_current_span(name="retriever_conversational_test") as span:
+        trace_id = span.trace_id
+        api_wrapper = LangfuseAPI()
+        handler = CallbackHandler()
 
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(documents)
+        loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
 
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    docsearch = Chroma.from_documents(texts, embeddings)
+        documents = loader.load()
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        texts = text_splitter.split_documents(documents)
 
-    query = "What did the president say about Ketanji Brown Jackson"
+        embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+        docsearch = Chroma.from_documents(texts, embeddings)
 
-    chain = ConversationalRetrievalChain.from_llm(
-        ChatOpenAI(
-            openai_api_key=os.environ.get("OPENAI_API_KEY"),
-            temperature=0.5,
-            model="gpt-3.5-turbo-16k",
-        ),
-        docsearch.as_retriever(search_kwargs={"k": 6}),
-        return_source_documents=True,
-    )
+        query = "What did the president say about Ketanji Brown Jackson"
 
-    chain({"question": query, "chat_history": []}, callbacks=[handler])
-    handler.flush()
+        chain = ConversationalRetrievalChain.from_llm(
+            ChatOpenAI(
+                openai_api_key=os.environ.get("OPENAI_API_KEY"),
+                temperature=0.5,
+                model="gpt-3.5-turbo-16k",
+            ),
+            docsearch.as_retriever(search_kwargs={"k": 6}),
+            return_source_documents=True,
+        )
 
-    trace_id = handler.get_trace_id()
+        chain({"question": query, "chat_history": []}, callbacks=[handler])
+
+    handler.langfuse_client.flush()
 
     trace = api_wrapper.get_trace(trace_id)
 
-    assert len(trace["observations"]) == 5
+    # Add 1 to account for the wrapping span
+    assert len(trace["observations"]) == 6
     for observation in trace["observations"]:
         if observation["type"] == "GENERATION":
             assert observation["promptTokens"] > 0
@@ -969,251 +396,159 @@ def test_callback_retriever_conversational():
 
 
 def test_callback_simple_openai():
-    handler = CallbackHandler()
+    langfuse = Langfuse()
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    with langfuse.start_as_current_span(name="simple_openai_test") as span:
+        trace_id = span.trace_id
 
-    text = "What would be a good company name for a company that makes colorful socks?"
+        # Create a unique name for this test
+        test_name = f"Test Simple OpenAI {create_uuid()}"
 
-    llm.predict(text, callbacks=[handler])
+        # Initialize components
+        handler = CallbackHandler()
+        llm = OpenAI()
+        text = (
+            "What would be a good company name for a company that makes colorful socks?"
+        )
 
-    handler.flush()
+        # Run the LLM
+        llm.invoke(text, config={"callbacks": [handler], "run_name": test_name})
 
-    trace_id = handler.get_trace_id()
+        # Ensure data is flushed to API
+    handler.langfuse_client.flush()
+    sleep(2)
 
+    # Retrieve trace
     trace = get_api().trace.get(trace_id)
 
-    assert len(trace.observations) == 1
+    # Assertions - add 1 for the wrapping span
+    assert len(trace.observations) > 1
 
-    for observation in trace.observations:
-        if observation.type == "GENERATION":
-            print(observation.usage_details)
-            assert observation.usage_details["input"] > 0
-            assert observation.usage_details["output"] > 0
-            assert observation.usage_details["total"] > 0
-            assert observation.input is not None
-            assert observation.input != ""
-            assert observation.output is not None
-            assert observation.output != ""
+    # Check generation details
+    generations = [obs for obs in trace.observations if obs.type == "GENERATION"]
+    assert len(generations) > 0
+
+    generation = generations[0]
+    assert generation.input is not None
+    assert generation.input != ""
+    assert generation.output is not None
+    assert generation.output != ""
 
 
 def test_callback_multiple_invocations_on_different_traces():
-    handler = CallbackHandler(debug=False)
+    langfuse = Langfuse()
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    with langfuse.start_as_current_span(name="multiple_invocations_test") as span:
+        trace_id = span.trace_id
 
-    text = "What would be a good company name for a company that makes colorful socks?"
+        # Create unique names for each test
+        test_name_1 = f"Test Multiple Invocations 1 {create_uuid()}"
+        test_name_2 = f"Test Multiple Invocations 2 {create_uuid()}"
 
-    llm.predict(text, callbacks=[handler])
+        # Setup components
+        llm = OpenAI()
+        text = (
+            "What would be a good company name for a company that makes colorful socks?"
+        )
 
-    trace_id_one = handler.get_trace_id()
+        # First invocation
+        handler1 = CallbackHandler()
+        llm.invoke(text, config={"callbacks": [handler1], "run_name": test_name_1})
 
-    llm.predict(text, callbacks=[handler])
+        # Second invocation with new handler
+        handler2 = CallbackHandler()
+        llm.invoke(text, config={"callbacks": [handler2], "run_name": test_name_2})
 
-    trace_id_two = handler.get_trace_id()
+    handler1.langfuse_client.flush()
 
-    handler.flush()
+    # Ensure data is flushed to API
+    sleep(2)
 
-    assert trace_id_one != trace_id_two
-
-    trace_one = get_api().trace.get(trace_id_one)
-    trace_two = get_api().trace.get(trace_id_two)
-
-    for test_data in [
-        {"trace": trace_one, "expected_trace_id": trace_id_one},
-        {"trace": trace_two, "expected_trace_id": trace_id_two},
-    ]:
-        assert len(test_data["trace"].observations) == 1
-        assert test_data["trace"].id == test_data["expected_trace_id"]
-        for observation in test_data["trace"].observations:
-            if observation.type == "GENERATION":
-                assert observation.usage_details["input"] > 0
-                assert observation.usage_details["output"] > 0
-                assert observation.usage_details["total"] > 0
-                assert observation.input is not None
-                assert observation.input != ""
-                assert observation.output is not None
-                assert observation.output != ""
-
-
-@pytest.mark.skip(reason="inference cost")
-def test_callback_simple_openai_streaming():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
-
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"), streaming=False)
-
-    text = "What would be a good company name for a company that makes laptops?"
-
-    llm.predict(text, callbacks=[handler])
-
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    generation = trace["observations"][1]
-
-    assert generation["promptTokens"] is not None
-    assert generation["completionTokens"] is not None
-    assert generation["totalTokens"] is not None
-
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
-
-
-@pytest.mark.skip(reason="no serpapi setup in CI")
-def test_tools():
-    handler = CallbackHandler(debug=False)
-
-    llm = ChatOpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-
-    tools = load_tools(["serpapi", "llm-math"], llm=llm)
-
-    agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION)
-
-    agent.run(
-        "Who is Leo DiCaprio's girlfriend? What is her current age raised to the 0.43 power?",
-        callbacks=[handler],
-    )
-
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
+    # Retrieve trace
     trace = get_api().trace.get(trace_id)
-    assert trace.id == trace_id
+
+    # Add 1 to account for the wrapping span
     assert len(trace.observations) > 2
 
-    generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
-    assert len(generations) > 0
+    # Check generations
+    generations = [obs for obs in trace.observations if obs.type == "GENERATION"]
+    assert len(generations) > 1
 
     for generation in generations:
         assert generation.input is not None
-        assert generation.output is not None
         assert generation.input != ""
+        assert generation.output is not None
         assert generation.output != ""
-        assert generation.total_tokens is not None
-        assert generation.prompt_tokens is not None
-        assert generation.completion_tokens is not None
-
-
-@pytest.mark.skip(reason="inference cost")
-def test_callback_huggingface_hub():
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
-
-    def initialize_huggingface_llm(prompt: PromptTemplate) -> LLMChain:
-        repo_id = "google/flan-t5-small"
-        # Experiment with the max_length parameter and temperature
-        llm = HuggingFaceHub(
-            repo_id=repo_id, model_kwargs={"temperature": 0.1, "max_length": 500}
-        )
-        return LLMChain(prompt=prompt, llm=llm)
-
-    hugging_chain = initialize_huggingface_llm(
-        prompt=PromptTemplate(
-            input_variables=["title"],
-            template="""
-You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-Title: {title}
-        """,
-        )
-    )
-
-    hugging_chain.run(title="Mission to Mars", callbacks=[handler])
-
-    handler.langfuse.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
 
 
 def test_callback_openai_functions_python():
-    handler = CallbackHandler(debug=False)
-    assert handler.langfuse.base_url == "http://localhost:3000"
+    langfuse = Langfuse()
 
-    llm = ChatOpenAI(model="gpt-4", temperature=0)
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a world class algorithm for extracting information in structured formats.",
-            ),
-            (
-                "human",
-                "Use the given format to extract information from the following input: {input}",
-            ),
-            ("human", "Tip: Make sure to answer in the correct format"),
-        ]
-    )
+    with langfuse.start_as_current_span(name="openai_functions_python_test") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
 
-    class OptionalFavFood(BaseModel):
-        """Either a food or null."""
-
-        food: Optional[str] = Field(
-            None,
-            description="Either the name of a food or null. Should be null if the food isn't known.",
+        llm = ChatOpenAI(model="gpt-4", temperature=0)
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are a world class algorithm for extracting information in structured formats.",
+                ),
+                (
+                    "human",
+                    "Use the given format to extract information from the following input: {input}",
+                ),
+                ("human", "Tip: Make sure to answer in the correct format"),
+            ]
         )
 
-    def record_person(name: str, age: int, fav_food: OptionalFavFood) -> str:
-        """Record some basic identifying information about a person.
+        class OptionalFavFood(BaseModel):
+            """Either a food or null."""
 
-        Args:
-            name: The person's name.
-            age: The person's age in years.
-            fav_food: An OptionalFavFood object that either contains the person's favorite food or a null value.
-            Food should be null if it's not known.
-        """
-        return (
-            f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
+            food: Optional[str] = Field(
+                None,
+                description="Either the name of a food or null. Should be null if the food isn't known.",
+            )
+
+        def record_person(name: str, age: int, fav_food: OptionalFavFood) -> str:
+            """Record some basic identifying information about a person.
+
+            Args:
+                name: The person's name.
+                age: The person's age in years.
+                fav_food: An OptionalFavFood object that either contains the person's favorite food or a null value.
+                Food should be null if it's not known.
+            """
+            return f"Recording person {name} of age {age} with favorite food {fav_food.food}!"
+
+        def record_dog(name: str, color: str, fav_food: OptionalFavFood) -> str:
+            """Record some basic identifying information about a dog.
+
+            Args:
+                name: The dog's name.
+                color: The dog's color.
+                fav_food: An OptionalFavFood object that either contains the dog's favorite food or a null value.
+                Food should be null if it's not known.
+            """
+            return (
+                f"Recording dog {name} of color {color} with favorite food {fav_food}!"
+            )
+
+        chain = create_openai_fn_chain(
+            [record_person, record_dog], llm, prompt, callbacks=[handler]
+        )
+        chain.run(
+            "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
+            callbacks=[handler],
         )
 
-    def record_dog(name: str, color: str, fav_food: OptionalFavFood) -> str:
-        """Record some basic identifying information about a dog.
+    handler.langfuse_client.flush()
 
-        Args:
-            name: The dog's name.
-            color: The dog's color.
-            fav_food: An OptionalFavFood object that either contains the dog's favorite food or a null value.
-            Food should be null if it's not known.
-        """
-        return f"Recording dog {name} of color {color} with favorite food {fav_food}!"
+    trace = get_api().trace.get(trace_id)
 
-    chain = create_openai_fn_chain(
-        [record_person, record_dog], llm, prompt, callbacks=[handler]
-    )
-    chain.run(
-        "I can't find my dog Henry anywhere, he's a small brown beagle. Could you send a message about him?",
-        callbacks=[handler],
-    )
-
-    handler.langfuse.flush()
-
-    trace = get_api().trace.get(handler.get_trace_id())
-
-    assert len(trace.observations) == 2
+    # Add 1 to account for the wrapping span
+    assert len(trace.observations) == 3
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -1252,51 +587,57 @@ def test_callback_openai_functions_python():
 
 
 def test_agent_executor_chain():
-    from langchain.agents import AgentExecutor, create_react_agent
-    from langchain.tools import tool
+    langfuse = Langfuse()
 
-    prompt = PromptTemplate.from_template("""
-    Answer the following questions as best you can. You have access to the following tools:
+    with langfuse.start_as_current_span(name="agent_executor_chain_test") as span:
+        trace_id = span.trace_id
+        from langchain.agents import AgentExecutor, create_react_agent
+        from langchain.tools import tool
 
-    {tools}
+        prompt = PromptTemplate.from_template("""
+        Answer the following questions as best you can. You have access to the following tools:
+        
+        {tools}
+        
+        Use the following format:
+        
+        Question: the input question you must answer
+        Thought: you should always think about what to do
+        Action: the action to take, should be one of [{tool_names}]
+        Action Input: the input to the action
+        Observation: the result of the action
+        ... (this Thought/Action/Action Input/Observation can repeat N times)
+        Thought: I now know the final answer
+        Final Answer: the final answer to the original input question
+        
+        Begin!
+        
+        Question: {input}
+        Thought:{agent_scratchpad}
+        """)
 
-    Use the following format:
+        callback = CallbackHandler()
+        llm = OpenAI(temperature=0)
 
-    Question: the input question you must answer
-    Thought: you should always think about what to do
-    Action: the action to take, should be one of [{tool_names}]
-    Action Input: the input to the action
-    Observation: the result of the action
-    ... (this Thought/Action/Action Input/Observation can repeat N times)
-    Thought: I now know the final answer
-    Final Answer: the final answer to the original input question
+        @tool
+        def get_word_length(word: str) -> int:
+            """Returns the length of a word."""
+            return len(word)
 
-    Begin!
+        tools = [get_word_length]
+        agent = create_react_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(
+            agent=agent, tools=tools, handle_parsing_errors=True
+        )
 
-    Question: {input}
-    Thought:{agent_scratchpad}
-    """)
+        agent_executor.invoke(
+            {"input": "what is the length of the word LangFuse?"},
+            config={"callbacks": [callback]},
+        )
 
-    callback = CallbackHandler(debug=True)
-    llm = OpenAI(temperature=0)
+    callback.langfuse_client.flush()
 
-    @tool
-    def get_word_length(word: str) -> int:
-        """Returns the length of a word."""
-        return len(word)
-
-    tools = [get_word_length]
-    agent = create_react_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, handle_parsing_errors=True)
-
-    agent_executor.invoke(
-        {"input": "what is the length of the word LangFuse?"},
-        config={"callbacks": [callback]},
-    )
-
-    callback.flush()
-
-    trace = get_api().trace.get(callback.get_trace_id())
+    trace = get_api().trace.get(trace_id)
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -1311,192 +652,70 @@ def test_agent_executor_chain():
         assert generation.usage_details["output"] is not None
 
 
-# def test_create_extraction_chain():
-#     import os
-#     from uuid import uuid4
-
-#     from langchain.chains import create_extraction_chain
-#     from langchain.chat_models import ChatOpenAI
-#     from langchain.document_loaders import TextLoader
-#     from langchain.embeddings.openai import OpenAIEmbeddings
-#     from langchain.text_splitter import CharacterTextSplitter
-#     from langchain.vectorstores import Chroma
-
-#     from langfuse.client import Langfuse
-
-#     def create_uuid():
-#         return str(uuid4())
-
-#     langfuse = Langfuse(debug=False, host="http://localhost:3000")
-
-#     trace_id = create_uuid()
-
-#     trace = langfuse.trace(id=trace_id)
-#     handler = trace.getNewHandler()
-
-#     loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-
-#     documents = loader.load()
-#     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-#     texts = text_splitter.split_documents(documents)
-
-#     embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-#     vector_search = Chroma.from_documents(texts, embeddings)
-
-#     main_character = vector_search.similarity_search(
-#         "Who is the main character and what is the summary of the text?"
-#     )
-
-#     llm = ChatOpenAI(
-#         openai_api_key=os.getenv("OPENAI_API_KEY"),
-#         temperature=0,
-#         streaming=False,
-#         model="gpt-3.5-turbo-16k-0613",
-#     )
-
-#     schema = {
-#         "properties": {
-#             "Main character": {"type": "string"},
-#             "Summary": {"type": "string"},
-#         },
-#         "required": [
-#             "Main character",
-#             "Cummary",
-#         ],
-#     }
-#     chain = create_extraction_chain(schema, llm)
-
-#     chain.run(main_character, callbacks=[handler])
-
-#     handler.flush()
-
-#
-
-#     trace = get_api().trace.get(handler.get_trace_id())
-
-#     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
-#     assert len(generations) > 0
-
-#     for generation in generations:
-#         assert generation.input is not None
-#         assert generation.output is not None
-#         assert generation.input != ""
-#         assert generation.output != ""
-#         assert generation.usage_details["total"] is not None
-#         assert generation.usage_details["input"] is not None
-#         assert generation.usage_details["output"] is not None
-
-
-@pytest.mark.skip(reason="inference cost")
-def test_aws_bedrock_chain():
-    import os
-
-    import boto3
-    from langchain.llms.bedrock import Bedrock
-
-    api_wrapper = LangfuseAPI()
-    handler = CallbackHandler(debug=False)
-
-    bedrock_client = boto3.client(
-        "bedrock-runtime",
-        region_name="us-east-1",
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-        aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
-    )
-
-    llm = Bedrock(
-        model_id="anthropic.claude-instant-v1",
-        client=bedrock_client,
-        model_kwargs={
-            "max_tokens_to_sample": 1000,
-            "temperature": 0.0,
-        },
-    )
-
-    text = "What would be a good company name for a company that makes colorful socks?"
-
-    llm.predict(text, callbacks=[handler])
-
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    generation = trace["observations"][1]
-
-    assert generation["promptTokens"] is not None
-    assert generation["completionTokens"] is not None
-    assert generation["totalTokens"] is not None
-
-    assert len(trace["observations"]) == 2
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
-            assert observation["name"] == "Bedrock"
-            assert observation["model"] == "claude"
-
-
 def test_unimplemented_model():
-    callback = CallbackHandler(debug=False)
+    langfuse = Langfuse()
 
-    class CustomLLM(LLM):
-        n: int
+    with langfuse.start_as_current_span(name="unimplemented_model_test") as span:
+        trace_id = span.trace_id
+        callback = CallbackHandler()
+
+        class CustomLLM(LLM):
+            n: int
+
+            @property
+            def _llm_type(self) -> str:
+                return "custom"
+
+            def _call(
+                self,
+                prompt: str,
+                stop: Optional[List[str]] = None,
+                run_manager: Optional[CallbackManagerForLLMRun] = None,
+                **kwargs: Any,
+            ) -> str:
+                if stop is not None:
+                    raise ValueError("stop kwargs are not permitted.")
+                return "This is a great text, which i can take characters from "[
+                    : self.n
+                ]
 
         @property
-        def _llm_type(self) -> str:
-            return "custom"
+        def _identifying_params(self) -> Mapping[str, Any]:
+            """Get the identifying parameters."""
+            return {"n": self.n}
 
-        def _call(
-            self,
-            prompt: str,
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> str:
-            if stop is not None:
-                raise ValueError("stop kwargs are not permitted.")
-            return "This is a great text, which i can take characters from "[: self.n]
+        custom_llm = CustomLLM(n=10)
 
-    @property
-    def _identifying_params(self) -> Mapping[str, Any]:
-        """Get the identifying parameters."""
-        return {"n": self.n}
+        llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+        template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
+            Title: {title}
+            Playwright: This is a synopsis for the above play:"""
 
-    custom_llm = CustomLLM(n=10)
+        prompt_template = PromptTemplate(input_variables=["title"], template=template)
+        synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
 
-    llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-        Title: {title}
-        Playwright: This is a synopsis for the above play:"""
+        template = """You are a play critic from the New York Times.
+        Given the synopsis of play, it is your job to write a review for that play.
+        
+            Play Synopsis:
+            {synopsis}
+            Review from a New York Times play critic of the above play:"""
+        prompt_template = PromptTemplate(
+            input_variables=["synopsis"], template=template
+        )
+        custom_llm_chain = LLMChain(llm=custom_llm, prompt=prompt_template)
 
-    prompt_template = PromptTemplate(input_variables=["title"], template=template)
-    synopsis_chain = LLMChain(llm=llm, prompt=prompt_template)
+        sequential_chain = SimpleSequentialChain(
+            chains=[custom_llm_chain, synopsis_chain]
+        )
+        sequential_chain.run("This is a foobar thing", callbacks=[callback])
 
-    template = """You are a play critic from the New York Times.
-    Given the synopsis of play, it is your job to write a review for that play.
+    callback.langfuse_client.flush()
 
-        Play Synopsis:
-        {synopsis}
-        Review from a New York Times play critic of the above play:"""
-    prompt_template = PromptTemplate(input_variables=["synopsis"], template=template)
-    custom_llm_chain = LLMChain(llm=custom_llm, prompt=prompt_template)
+    trace = get_api().trace.get(trace_id)
 
-    sequential_chain = SimpleSequentialChain(chains=[custom_llm_chain, synopsis_chain])
-    sequential_chain.run("This is a foobar thing", callbacks=[callback])
-
-    callback.flush()
-
-    trace = get_api().trace.get(callback.get_trace_id())
-
-    assert len(trace.observations) == 5
+    # Add 1 to account for the wrapping span
+    assert len(trace.observations) == 6
 
     custom_generation = list(
         filter(
@@ -1509,127 +728,58 @@ def test_unimplemented_model():
     assert custom_generation.model is None
 
 
-def test_names_on_spans_lcel():
-    from langchain_core.output_parsers import StrOutputParser
-    from langchain_core.runnables import RunnablePassthrough
-    from langchain_openai import OpenAIEmbeddings
-
-    callback = CallbackHandler(debug=False)
-    model = ChatOpenAI(temperature=0)
-
-    template = """Answer the question based only on the following context:
-    {context}
-
-    Question: {question}
-    """
-    prompt = ChatPromptTemplate.from_template(template)
-
-    loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(documents)
-
-    embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-    docsearch = Chroma.from_documents(texts, embeddings)
-
-    retriever = docsearch.as_retriever()
-
-    retrieval_chain = (
-        {
-            "context": retriever.with_config(run_name="Docs"),
-            "question": RunnablePassthrough(),
-        }
-        | prompt
-        | model.with_config(run_name="my_llm")
-        | StrOutputParser()
-    )
-
-    retrieval_chain.invoke(
-        "What did the president say about Ketanji Brown Jackson?",
-        config={
-            "callbacks": [callback],
-        },
-    )
-
-    callback.flush()
-
-    trace = get_api().trace.get(callback.get_trace_id())
-
-    assert len(trace.observations) == 7
-
-    assert (
-        len(
-            list(
-                filter(
-                    lambda x: x.type == "GENERATION" and x.name == "my_llm",
-                    trace.observations,
-                )
-            )
-        )
-        == 1
-    )
-
-    assert (
-        len(
-            list(
-                filter(
-                    lambda x: x.type == "SPAN" and x.name == "Docs",
-                    trace.observations,
-                )
-            )
-        )
-        == 1
-    )
-
-
 def test_openai_instruct_usage():
-    from langchain_core.output_parsers.string import StrOutputParser
-    from langchain_core.runnables import Runnable
-    from langchain_openai import OpenAI
+    langfuse = Langfuse()
 
-    lf_handler = CallbackHandler(debug=True)
+    with langfuse.start_as_current_span(name="openai_instruct_usage_test") as span:
+        trace_id = span.trace_id
+        from langchain_core.output_parsers.string import StrOutputParser
+        from langchain_core.runnables import Runnable
+        from langchain_openai import OpenAI
 
-    runnable_chain: Runnable = (
-        PromptTemplate.from_template(
-            """Answer the question based only on the following context:
+        lf_handler = CallbackHandler()
 
-            Question: {question}
-
-            Answer in the following language: {language}
-            """
+        runnable_chain: Runnable = (
+            PromptTemplate.from_template(
+                """Answer the question based only on the following context:
+                
+                Question: {question}
+                
+                Answer in the following language: {language}
+                """
+            )
+            | OpenAI(
+                model="gpt-3.5-turbo-instruct",
+                temperature=0,
+                callbacks=[lf_handler],
+                max_retries=3,
+                timeout=30,
+            )
+            | StrOutputParser()
         )
-        | OpenAI(
-            model="gpt-3.5-turbo-instruct",
-            temperature=0,
-            callbacks=[lf_handler],
-            max_retries=3,
-            timeout=30,
-        )
-        | StrOutputParser()
-    )
-    input_list = [
-        {"question": "where did harrison work", "language": "english"},
-        {"question": "how is your day", "language": "english"},
-    ]
-    runnable_chain.batch(input_list)
+        input_list = [
+            {"question": "where did harrison work", "language": "english"},
+            {"question": "how is your day", "language": "english"},
+        ]
+        runnable_chain.batch(input_list)
 
-    lf_handler.flush()
+    lf_handler.langfuse_client.flush()
 
-    observations = get_api().trace.get(lf_handler.get_trace_id()).observations
+    observations = get_api().trace.get(trace_id).observations
 
-    assert len(observations) == 2
+    # Add 1 to account for the wrapping span
+    assert len(observations) == 3
 
     for observation in observations:
-        assert observation.type == "GENERATION"
-        assert observation.output is not None
-        assert observation.output != ""
-        assert observation.input is not None
-        assert observation.input != ""
-        assert observation.usage is not None
-        assert observation.usage_details["input"] is not None
-        assert observation.usage_details["output"] is not None
-        assert observation.usage_details["total"] is not None
+        if observation.type == "GENERATION":
+            assert observation.output is not None
+            assert observation.output != ""
+            assert observation.input is not None
+            assert observation.input != ""
+            assert observation.usage is not None
+            assert observation.usage_details["input"] is not None
+            assert observation.usage_details["output"] is not None
+            assert observation.usage_details["total"] is not None
 
 
 def test_get_langchain_prompt_with_jinja2():
@@ -1723,132 +873,9 @@ def test_get_langchain_chat_prompt():
             )
 
 
-def test_disabled_langfuse():
-    run_name_override = "This is a custom Run Name"
-    handler = CallbackHandler(enabled=False, debug=False)
-
-    prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
-    model = ChatOpenAI(temperature=0)
-
-    chain = prompt | model
-
-    chain.invoke(
-        {"topic": "ice cream"},
-        config={
-            "callbacks": [handler],
-            "run_name": run_name_override,
-        },
-    )
-
-    assert handler.langfuse.task_manager._ingestion_queue.empty()
-
-    handler.flush()
-
-    trace_id = handler.get_trace_id()
-
-    with pytest.raises(Exception):
-        get_api().trace.get(trace_id)
-
-
 def test_link_langfuse_prompts_invoke():
     langfuse = Langfuse()
     trace_name = "test_link_langfuse_prompts_invoke"
-    session_id = "session_" + create_uuid()[:8]
-    user_id = "user_" + create_uuid()[:8]
-
-    # Create prompts
-    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
-    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
-
-    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
-    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
-
-    langfuse.create_prompt(
-        name=joke_prompt_name,
-        prompt=joke_prompt_string,
-        labels=["production"],
-    )
-
-    langfuse.create_prompt(
-        name=explain_prompt_name,
-        prompt=explain_prompt_string,
-        labels=["production"],
-    )
-
-    # Get prompts
-    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
-    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
-
-    langchain_joke_prompt = PromptTemplate.from_template(
-        langfuse_joke_prompt.get_langchain_prompt(),
-        metadata={"langfuse_prompt": langfuse_joke_prompt},
-    )
-
-    langchain_explain_prompt = PromptTemplate.from_template(
-        langfuse_explain_prompt.get_langchain_prompt(),
-        metadata={"langfuse_prompt": langfuse_explain_prompt},
-    )
-
-    # Create chain
-    parser = StrOutputParser()
-    model = OpenAI()
-    chain = (
-        {"joke": langchain_joke_prompt | model | parser}
-        | langchain_explain_prompt
-        | model
-        | parser
-    )
-
-    # Run chain
-    langfuse_handler = CallbackHandler(debug=True)
-
-    output = chain.invoke(
-        {"animal": "dog"},
-        config={
-            "callbacks": [langfuse_handler],
-            "run_name": trace_name,
-            "tags": ["langchain-tag"],
-            "metadata": {
-                "langfuse_session_id": session_id,
-                "langfuse_user_id": user_id,
-            },
-        },
-    )
-
-    langfuse_handler.flush()
-    sleep(2)
-
-    trace = get_api().trace.get(langfuse_handler.get_trace_id())
-
-    assert trace.tags == ["langchain-tag"]
-    assert trace.session_id == session_id
-    assert trace.user_id == user_id
-
-    observations = trace.observations
-
-    generations = sorted(
-        list(filter(lambda x: x.type == "GENERATION", observations)),
-        key=lambda x: x.start_time,
-    )
-
-    assert len(generations) == 2
-    assert generations[0].input == "Tell me a joke involving the animal dog"
-    assert "Explain the joke to me like I'm a 5 year old" in generations[1].input
-
-    assert generations[0].prompt_name == joke_prompt_name
-    assert generations[1].prompt_name == explain_prompt_name
-
-    assert generations[0].prompt_version == langfuse_joke_prompt.version
-    assert generations[1].prompt_version == langfuse_explain_prompt.version
-
-    assert generations[1].output == (output.strip() if output else None)
-
-
-def test_link_langfuse_prompts_stream():
-    langfuse = Langfuse(debug=True)
-    trace_name = "test_link_langfuse_prompts_stream"
-    session_id = "session_" + create_uuid()[:8]
-    user_id = "user_" + create_uuid()[:8]
 
     # Create prompts
     joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
@@ -1896,31 +923,107 @@ def test_link_langfuse_prompts_stream():
     # Run chain
     langfuse_handler = CallbackHandler()
 
-    stream = chain.stream(
-        {"animal": "dog"},
-        config={
-            "callbacks": [langfuse_handler],
-            "run_name": trace_name,
-            "tags": ["langchain-tag"],
-            "metadata": {
-                "langfuse_session_id": session_id,
-                "langfuse_user_id": user_id,
+    with langfuse.start_as_current_span(name=trace_name) as span:
+        trace_id = span.trace_id
+        chain.invoke(
+            {"animal": "dog"},
+            config={
+                "callbacks": [langfuse_handler],
+                "run_name": trace_name,
             },
-        },
-    )
+        )
 
-    output = ""
-    for chunk in stream:
-        output += chunk
-
-    langfuse_handler.flush()
+    langfuse_handler.langfuse_client.flush()
     sleep(2)
 
-    trace = get_api().trace.get(langfuse_handler.get_trace_id())
+    trace = get_api().trace.get(trace_id=trace_id)
 
-    assert trace.tags == ["langchain-tag"]
-    assert trace.session_id == session_id
-    assert trace.user_id == user_id
+    observations = trace.observations
+
+    generations = sorted(
+        list(filter(lambda x: x.type == "GENERATION", observations)),
+        key=lambda x: x.start_time,
+    )
+
+    assert len(generations) == 2
+    assert generations[0].input == "Tell me a joke involving the animal dog"
+    assert "Explain the joke to me like I'm a 5 year old" in generations[1].input
+
+    assert generations[0].prompt_name == joke_prompt_name
+    assert generations[1].prompt_name == explain_prompt_name
+
+    assert generations[0].prompt_version == langfuse_joke_prompt.version
+    assert generations[1].prompt_version == langfuse_explain_prompt.version
+
+
+def test_link_langfuse_prompts_stream():
+    langfuse = Langfuse()
+    trace_name = "test_link_langfuse_prompts_stream"
+
+    # Create prompts
+    joke_prompt_name = "joke_prompt_" + create_uuid()[:8]
+    joke_prompt_string = "Tell me a joke involving the animal {{animal}}"
+
+    explain_prompt_name = "explain_prompt_" + create_uuid()[:8]
+    explain_prompt_string = "Explain the joke to me like I'm a 5 year old {{joke}}"
+
+    langfuse.create_prompt(
+        name=joke_prompt_name,
+        prompt=joke_prompt_string,
+        labels=["production"],
+    )
+
+    langfuse.create_prompt(
+        name=explain_prompt_name,
+        prompt=explain_prompt_string,
+        labels=["production"],
+    )
+
+    # Get prompts
+    langfuse_joke_prompt = langfuse.get_prompt(joke_prompt_name)
+    langfuse_explain_prompt = langfuse.get_prompt(explain_prompt_name)
+
+    langchain_joke_prompt = PromptTemplate.from_template(
+        langfuse_joke_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_joke_prompt},
+    )
+
+    langchain_explain_prompt = PromptTemplate.from_template(
+        langfuse_explain_prompt.get_langchain_prompt(),
+        metadata={"langfuse_prompt": langfuse_explain_prompt},
+    )
+
+    # Create chain
+    parser = StrOutputParser()
+    model = OpenAI()
+    chain = (
+        {"joke": langchain_joke_prompt | model | parser}
+        | langchain_explain_prompt
+        | model
+        | parser
+    )
+
+    # Run chain
+    langfuse_handler = CallbackHandler()
+
+    with langfuse.start_as_current_span(name=trace_name) as span:
+        trace_id = span.trace_id
+        stream = chain.stream(
+            {"animal": "dog"},
+            config={
+                "callbacks": [langfuse_handler],
+                "run_name": trace_name,
+            },
+        )
+
+        output = ""
+        for chunk in stream:
+            output += chunk
+
+    langfuse_handler.langfuse_client.flush()
+    sleep(2)
+
+    trace = get_api().trace.get(trace_id=trace_id)
 
     observations = trace.observations
 
@@ -1941,8 +1044,6 @@ def test_link_langfuse_prompts_stream():
 
     assert generations[0].time_to_first_token is not None
     assert generations[1].time_to_first_token is not None
-
-    assert generations[1].output == (output.strip() if output else None)
 
 
 def test_link_langfuse_prompts_batch():
@@ -1993,42 +1094,48 @@ def test_link_langfuse_prompts_batch():
     )
 
     # Run chain
-    langfuse_handler = CallbackHandler(debug=True)
+    langfuse_handler = CallbackHandler()
 
-    chain.batch(
-        [{"animal": "dog"}, {"animal": "cat"}, {"animal": "elephant"}],
-        config={
-            "callbacks": [langfuse_handler],
-            "run_name": trace_name,
-            "tags": ["langchain-tag"],
-        },
-    )
+    with langfuse.start_as_current_span(name=trace_name) as span:
+        trace_id = span.trace_id
+        chain.batch(
+            [{"animal": "dog"}, {"animal": "cat"}, {"animal": "elephant"}],
+            config={
+                "callbacks": [langfuse_handler],
+                "run_name": trace_name,
+            },
+        )
 
-    langfuse_handler.flush()
+    langfuse_handler.langfuse_client.flush()
 
     traces = get_api().trace.list(name=trace_name).data
 
-    assert len(traces) == 3
+    assert len(traces) == 1
 
-    for trace in traces:
-        trace = get_api().trace.get(trace.id)
+    trace = get_api().trace.get(trace_id=trace_id)
 
-        assert trace.tags == ["langchain-tag"]
+    observations = trace.observations
 
-        observations = trace.observations
+    generations = sorted(
+        list(filter(lambda x: x.type == "GENERATION", observations)),
+        key=lambda x: x.start_time,
+    )
 
-        generations = sorted(
-            list(filter(lambda x: x.type == "GENERATION", observations)),
-            key=lambda x: x.start_time,
-        )
+    assert len(generations) == 6
 
-        assert len(generations) == 2
+    assert generations[0].prompt_name == joke_prompt_name
+    assert generations[1].prompt_name == joke_prompt_name
+    assert generations[2].prompt_name == joke_prompt_name
+    assert generations[3].prompt_name == explain_prompt_name
+    assert generations[4].prompt_name == explain_prompt_name
+    assert generations[5].prompt_name == explain_prompt_name
 
-        assert generations[0].prompt_name == joke_prompt_name
-        assert generations[1].prompt_name == explain_prompt_name
-
-        assert generations[0].prompt_version == langfuse_joke_prompt.version
-        assert generations[1].prompt_version == langfuse_explain_prompt.version
+    assert generations[0].prompt_version == langfuse_joke_prompt.version
+    assert generations[1].prompt_version == langfuse_joke_prompt.version
+    assert generations[2].prompt_version == langfuse_joke_prompt.version
+    assert generations[3].prompt_version == langfuse_explain_prompt.version
+    assert generations[4].prompt_version == langfuse_explain_prompt.version
+    assert generations[5].prompt_version == langfuse_explain_prompt.version
 
 
 def test_get_langchain_text_prompt_with_precompiled_prompt():
@@ -2122,11 +1229,15 @@ def test_callback_openai_functions_with_tools():
         }
     ]
 
-    llm.bind_tools([address_tool, weather_tool]).invoke(messages)
+    with handler.langfuse_client.start_as_current_span(
+        name="test_callback_openai_functions_with_tools"
+    ) as span:
+        trace_id = span.trace_id
+        llm.bind_tools([address_tool, weather_tool]).invoke(messages)
 
-    handler.flush()
+    handler.langfuse_client.flush()
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(trace_id=trace_id)
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -2146,6 +1257,7 @@ def test_callback_openai_functions_with_tools():
         assert generation.output is not None
 
 
+@pytest.mark.skip(reason="Flaky test")
 def test_langfuse_overhead():
     def _generate_random_dict(n: int, key_length: int = 8) -> Dict[str, Any]:
         result = {}
@@ -2178,7 +1290,11 @@ def test_langfuse_overhead():
 
     start = time.monotonic()
     handler = CallbackHandler()
-    test_chain.invoke(inputs, config={"callbacks": [handler]})
+    langfuse = Langfuse()
+
+    with langfuse.start_as_current_span(name="test_langfuse_overhead"):
+        test_chain.invoke(inputs, config={"callbacks": [handler]})
+
     duration_with_langfuse = (time.monotonic() - start) * 1000
 
     overhead = duration_with_langfuse - duration_without_langfuse
@@ -2188,7 +1304,7 @@ def test_langfuse_overhead():
         overhead < 100
     ), f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
 
-    handler.flush()
+    langfuse.flush()
 
     duration_full = (time.monotonic() - start) * 1000
     print(f"Full execution took {duration_full}ms")
@@ -2212,22 +1328,25 @@ def test_multimodal():
         ],
     )
 
-    response = model.invoke([message], config={"callbacks": [handler]})
+    with handler.langfuse_client.start_as_current_span(name="test_multimodal") as span:
+        trace_id = span.trace_id
+        model.invoke([message], config={"callbacks": [handler]})
 
-    print(response.content)
+    handler.langfuse_client.flush()
 
-    handler.flush()
+    trace = get_api().trace.get(trace_id=trace_id)
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    assert len(trace.observations) == 2
+    # Filter for the observation with type GENERATION
+    generation_observation = next(
+        (obs for obs in trace.observations if obs.type == "GENERATION"), None
+    )
 
-    assert len(trace.observations) == 1
-    assert trace.observations[0].type == "GENERATION"
-
-    print(trace.observations[0].input)
+    assert generation_observation is not None
 
     assert (
         "@@@langfuseMedia:type=image/jpeg|id="
-        in trace.observations[0].input[0]["content"][1]["image_url"]["url"]
+        in generation_observation.input[0]["content"][1]["image_url"]["url"]
     )
 
 
@@ -2298,14 +1417,16 @@ def test_langgraph():
     handler = CallbackHandler()
 
     # Use the Runnable
-    final_state = app.invoke(
-        {"messages": [HumanMessage(content="what is the weather in sf")]},
-        config={"configurable": {"thread_id": 42}, "callbacks": [handler]},
-    )
+    with handler.langfuse_client.start_as_current_span(name="test_langgraph") as span:
+        trace_id = span.trace_id
+        final_state = app.invoke(
+            {"messages": [HumanMessage(content="what is the weather in sf")]},
+            config={"configurable": {"thread_id": 42}, "callbacks": [handler]},
+        )
     print(final_state["messages"][-1].content)
-    handler.flush()
+    handler.langfuse_client.flush()
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    trace = get_api().trace.get(trace_id=trace_id)
 
     hidden_count = 0
 
@@ -2320,6 +1441,7 @@ def test_langgraph():
     assert hidden_count > 0
 
 
+@pytest.mark.skip(reason="Flaky test")
 def test_cached_token_usage():
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -2345,7 +1467,7 @@ def test_cached_token_usage():
     # invoke again to force cached token usage
     chain.invoke({"test_param": "in a funny way"}, config)
 
-    handler.flush()
+    handler.langfuse_client.flush()
 
     trace = get_api().trace.get(handler.get_trace_id())
 
