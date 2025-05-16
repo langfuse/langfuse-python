@@ -46,7 +46,7 @@ from langfuse.logger import langfuse_logger
 from ..version import __version__ as langfuse_version
 
 
-class LangfuseTracer:
+class LangfuseResourceManager:
     """Thread-safe singleton that provides access to the OpenTelemetry tracer and processors.
 
     This class implements a thread-safe singleton pattern keyed by the public API key,
@@ -72,7 +72,7 @@ class LangfuseTracer:
     making this implementation suitable for multi-threaded and asyncio applications.
     """
 
-    _instances: Dict[str, "LangfuseTracer"] = {}
+    _instances: Dict[str, "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
 
     def __new__(
@@ -89,13 +89,13 @@ class LangfuseTracer:
         httpx_client: Optional[httpx.Client] = None,
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
-    ) -> "LangfuseTracer":
+    ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
 
         with cls._lock:
             if public_key not in cls._instances:
-                instance = super(LangfuseTracer, cls).__new__(cls)
+                instance = super(LangfuseResourceManager, cls).__new__(cls)
                 instance._otel_tracer = None
                 instance._initialize_instance(
                     public_key=public_key,

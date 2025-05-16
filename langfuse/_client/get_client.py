@@ -1,7 +1,7 @@
 from typing import Optional
 
 from langfuse._client.client import Langfuse
-from langfuse._client.tracer import LangfuseTracer
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.logger import langfuse_logger
 
 
@@ -62,8 +62,8 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
         client = get_client()  # Returns disabled client for safety
         ```
     """
-    with LangfuseTracer._lock:
-        active_instances = LangfuseTracer._instances
+    with LangfuseResourceManager._lock:
+        active_instances = LangfuseResourceManager._instances
 
         if not public_key:
             if len(active_instances) == 0:

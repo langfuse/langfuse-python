@@ -48,8 +48,8 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import LangfuseGeneration, LangfuseSpan
-from langfuse._client.tracer import LangfuseTracer
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -81,26 +81,20 @@ from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
 class Langfuse:
     """Main client for Langfuse observability using OpenTelemetry.
 
-    This class provides a high-level interface for creating and managing traces, spans,
-    and generations in Langfuse. It implements a fully W3C-compliant distributed tracing
-    system built on OpenTelemetry standards, optimized for AI/LLM application observability.
+    This class provides an interface for creating and managing traces, spans,
+    and generations in Langfuse as well as interacting with the Langfuse API.
 
-    The client features a thread-safe singleton pattern for each unique API key combination,
+    The client features a thread-safe singleton pattern for each unique public API key,
     ensuring consistent trace context propagation across your application. It implements
     efficient batching of spans with configurable flush settings and includes background
     thread management for media uploads and score ingestion.
 
     Configuration is flexible through either direct parameters or environment variables,
-    with graceful fallbacks and runtime configuration updates. The client preserves backward
-    compatibility with the legacy Langfuse API while adding enhanced OpenTelemetry features.
+    with graceful fallbacks and runtime configuration updates.
 
     Attributes:
-        tracer: The underlying OpenTelemetry tracer used for creating spans
         api: Synchronous API client for Langfuse backend communication
         async_api: Asynchronous API client for Langfuse backend communication
-        host: The Langfuse API host URL
-        environment: The environment name for categorizing traces (e.g., "production", "staging")
-        tracing_enabled: Boolean indicating whether tracing is currently active
         langfuse_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
 
     Thread Safety:
@@ -152,7 +146,7 @@ class Langfuse:
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
         host: Optional[str] = None,
-        timeout: Optional[int] = None,  # seconds
+        timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         debug: bool = False,
         tracing_enabled: Optional[bool] = True,
@@ -179,7 +173,7 @@ class Langfuse:
                 "Provide a public_key parameter or set LANGFUSE_PUBLIC_KEY environment variable. "
                 "See documentation: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
             )
-            self.tracer = otel_trace_api.NoOpTracer()
+            self._otel_tracer = otel_trace_api.NoOpTracer()
             return
 
         secret_key = secret_key or os.environ.get(LANGFUSE_SECRET_KEY)
@@ -189,30 +183,30 @@ class Langfuse:
                 "Provide a secret_key parameter or set LANGFUSE_SECRET_KEY environment variable. "
                 "See documentation: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
             )
-            self.tracer = otel_trace_api.NoOpTracer()
+            self._otel_tracer = otel_trace_api.NoOpTracer()
             return
 
-        self.host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        self.environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
 
-        self.tracing_enabled = (
+        self._tracing_enabled = (
             tracing_enabled
             and os.environ.get(LANGFUSE_TRACING_ENABLED, "True") != "False"
         )
 
-        if not self.tracing_enabled:
+        if not self._tracing_enabled:
             langfuse_logger.info(
                 "Configuration: Langfuse tracing is explicitly disabled. No data will be sent to the Langfuse API."
             )
 
         self._mask = mask
-        self.project_id = None
+        self._project_id = None
 
         # Initialize api and tracer if requirements are met
-        self.langfuse_tracer = LangfuseTracer(
+        self._resources = LangfuseResourceManager(
             public_key=public_key,
             secret_key=secret_key,
-            host=self.host,
+            host=self._host,
             timeout=timeout,
             environment=environment,
             release=release,
@@ -223,13 +217,13 @@ class Langfuse:
             sample_rate=sample_rate,
         )
 
-        self.tracer = (
-            self.langfuse_tracer.tracer
-            if self.tracing_enabled
+        self._otel_tracer = (
+            self._resources.tracer
+            if self._tracing_enabled
             else otel_trace_api.NoOpTracer()
         )
-        self.api = self.langfuse_tracer.api
-        self.async_api = self.langfuse_tracer.async_api
+        self.api = self._resources.api
+        self.async_api = self._resources.async_api
 
     def start_span(
         self,
@@ -292,7 +286,9 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self.tracer.start_span(name=name, attributes=attributes)
+                    otel_span = self._otel_tracer.start_span(
+                        name=name, attributes=attributes
+                    )
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseSpan(
@@ -303,7 +299,7 @@ class Langfuse:
                         metadata=metadata,
                     )
 
-        otel_span = self.tracer.start_span(name=name, attributes=attributes)
+        otel_span = self._otel_tracer.start_span(name=name, attributes=attributes)
 
         return LangfuseSpan(
             otel_span=otel_span,
@@ -377,26 +373,32 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                return self._create_span_with_parent_context(
-                    as_type="span",
-                    name=name,
-                    attributes=attributes,
-                    remote_parent_span=remote_parent_span,
-                    parent=None,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    end_on_exit=end_on_exit,
+                return cast(
+                    _AgnosticContextManager[LangfuseSpan],
+                    self._create_span_with_parent_context(
+                        as_type="span",
+                        name=name,
+                        attributes=attributes,
+                        remote_parent_span=remote_parent_span,
+                        parent=None,
+                        input=input,
+                        output=output,
+                        metadata=metadata,
+                        end_on_exit=end_on_exit,
+                    ),
                 )
 
-        return self._start_as_current_otel_span_with_processed_media(
-            as_type="span",
-            name=name,
-            attributes=attributes,
-            input=input,
-            output=output,
-            metadata=metadata,
-            end_on_exit=end_on_exit,
+        return cast(
+            _AgnosticContextManager[LangfuseSpan],
+            self._start_as_current_otel_span_with_processed_media(
+                as_type="span",
+                name=name,
+                attributes=attributes,
+                input=input,
+                output=output,
+                metadata=metadata,
+                end_on_exit=end_on_exit,
+            ),
         )
 
     def start_generation(
@@ -492,7 +494,9 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self.tracer.start_span(name=name, attributes=attributes)
+                    otel_span = self._otel_tracer.start_span(
+                        name=name, attributes=attributes
+                    )
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseGeneration(
@@ -503,7 +507,7 @@ class Langfuse:
                         metadata=metadata,
                     )
 
-        otel_span = self.tracer.start_span(name=name, attributes=attributes)
+        otel_span = self._otel_tracer.start_span(name=name, attributes=attributes)
 
         return LangfuseGeneration(
             otel_span=otel_span,
@@ -602,26 +606,32 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                return self._create_span_with_parent_context(
-                    as_type="generation",
-                    name=name,
-                    attributes=attributes,
-                    remote_parent_span=remote_parent_span,
-                    parent=None,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    end_on_exit=end_on_exit,
+                return cast(
+                    _AgnosticContextManager[LangfuseGeneration],
+                    self._create_span_with_parent_context(
+                        as_type="generation",
+                        name=name,
+                        attributes=attributes,
+                        remote_parent_span=remote_parent_span,
+                        parent=None,
+                        input=input,
+                        output=output,
+                        metadata=metadata,
+                        end_on_exit=end_on_exit,
+                    ),
                 )
 
-        return self._start_as_current_otel_span_with_processed_media(
-            as_type="generation",
-            name=name,
-            attributes=attributes,
-            input=input,
-            output=output,
-            metadata=metadata,
-            end_on_exit=end_on_exit,
+        return cast(
+            _AgnosticContextManager[LangfuseGeneration],
+            self._start_as_current_otel_span_with_processed_media(
+                as_type="generation",
+                name=name,
+                attributes=attributes,
+                input=input,
+                output=output,
+                metadata=metadata,
+                end_on_exit=end_on_exit,
+            ),
         )
 
     @_agnosticcontextmanager
@@ -669,7 +679,7 @@ class Langfuse:
         metadata: Optional[Any] = None,
         end_on_exit: Optional[bool] = None,
     ):
-        with self.tracer.start_as_current_span(
+        with self._otel_tracer.start_as_current_span(
             name=name,
             attributes=attributes,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
@@ -756,7 +766,7 @@ class Langfuse:
                 )
             ```
         """
-        if not self.tracing_enabled:
+        if not self._tracing_enabled:
             langfuse_logger.debug(
                 "Operation skipped: update_current_generation - Tracing is disabled or client is in no-op mode."
             )
@@ -824,7 +834,7 @@ class Langfuse:
                 langfuse.update_current_span(output=final_result)
             ```
         """
-        if not self.tracing_enabled:
+        if not self._tracing_enabled:
             langfuse_logger.debug(
                 "Operation skipped: update_current_span - Tracing is disabled or client is in no-op mode."
             )
@@ -894,7 +904,7 @@ class Langfuse:
                 span.update(output=response)
             ```
         """
-        if not self.tracing_enabled:
+        if not self._tracing_enabled:
             langfuse_logger.debug(
                 "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
             )
@@ -1166,7 +1176,7 @@ class Langfuse:
             )
             ```
         """
-        if not self.tracing_enabled:
+        if not self._tracing_enabled:
             return
 
         score_id = score_id or self._create_observation_id()
@@ -1181,7 +1191,7 @@ class Langfuse:
                 "data_type": data_type,
                 "comment": comment,
                 "config_id": config_id,
-                "environment": self.environment,
+                "environment": self._environment,
             }
 
             new_body = ScoreBody(**score_event)
@@ -1192,7 +1202,7 @@ class Langfuse:
                 "timestamp": _get_timestamp(),
                 "body": new_body,
             }
-            self.langfuse_tracer.add_score_task(event)
+            self._resources.add_score_task(event)
 
         except Exception as e:
             langfuse_logger.exception(
@@ -1389,7 +1399,7 @@ class Langfuse:
             # Continue with other work
             ```
         """
-        self.langfuse_tracer.flush()
+        self._resources.flush()
 
     def shutdown(self):
         """Shut down the Langfuse client and flush all pending data.
@@ -1413,7 +1423,7 @@ class Langfuse:
             langfuse.shutdown()
             ```
         """
-        self.langfuse_tracer.shutdown()
+        self._resources.shutdown()
 
     def get_current_trace_id(self) -> Optional[str]:
         """Get the trace ID of the current active span.
@@ -1472,14 +1482,14 @@ class Langfuse:
 
     def _get_project_id(self) -> Optional[str]:
         """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys."""
-        if not self.project_id:
+        if not self._project_id:
             proj = self.api.projects.get()
             if not proj.data or not proj.data[0].id:
                 return None
 
-            self.project_id = proj.data[0].id
+            self._project_id = proj.data[0].id
 
-        return self.project_id
+        return self._project_id
 
     def get_trace_url(self, *, trace_id: Optional[str] = None) -> Optional[str]:
         """Get the URL to view a trace in the Langfuse UI.
@@ -1512,7 +1522,7 @@ class Langfuse:
         final_trace_id = trace_id or current_trace_id
 
         return (
-            f"{self.host}/project/{project_id}/traces/{final_trace_id}"
+            f"{self._host}/project/{project_id}/traces/{final_trace_id}"
             if project_id and final_trace_id
             else None
         )
@@ -1807,7 +1817,7 @@ class Langfuse:
         )
 
         langfuse_logger.debug(f"Getting prompt '{cache_key}'")
-        cached_prompt = self.langfuse_tracer.prompt_cache.get(cache_key)
+        cached_prompt = self._resources.prompt_cache.get(cache_key)
 
         if cached_prompt is None or cache_ttl_seconds == 0:
             langfuse_logger.debug(
@@ -1857,7 +1867,7 @@ class Langfuse:
             try:
                 # refresh prompt in background thread, refresh_prompt deduplicates tasks
                 langfuse_logger.debug(f"Refreshing prompt '{cache_key}' in background.")
-                self.langfuse_tracer.prompt_cache.add_refresh_prompt_task(
+                self._resources.prompt_cache.add_refresh_prompt_task(
                     cache_key,
                     lambda: self._fetch_prompt_and_update_cache(
                         name,
@@ -1920,7 +1930,7 @@ class Langfuse:
             else:
                 prompt = TextPromptClient(prompt_response)
 
-            self.langfuse_tracer.prompt_cache.set(cache_key, prompt, ttl_seconds)
+            self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
             return prompt
 
@@ -2019,7 +2029,7 @@ class Langfuse:
                 )
                 server_prompt = self.api.prompts.create(request=request)
 
-                self.langfuse_tracer.prompt_cache.invalidate(name)
+                self._resources.prompt_cache.invalidate(name)
 
                 return ChatPromptClient(prompt=cast(Prompt_Chat, server_prompt))
 
@@ -2038,7 +2048,7 @@ class Langfuse:
 
             server_prompt = self.api.prompts.create(request=request)
 
-            self.langfuse_tracer.prompt_cache.invalidate(name)
+            self._resources.prompt_cache.invalidate(name)
 
             return TextPromptClient(prompt=cast(Prompt_Text, server_prompt))
 
@@ -2069,7 +2079,7 @@ class Langfuse:
             version=version,
             new_labels=new_labels,
         )
-        self.langfuse_tracer.prompt_cache.invalidate(name)
+        self._resources.prompt_cache.invalidate(name)
 
         return updated_prompt
 

@@ -461,12 +461,14 @@ class LangfuseSpanWrapper(ABC):
         Returns:
             The data with any media content processed
         """
-        media_processed_attribute = self._langfuse_client.langfuse_tracer._media_manager._find_and_process_media(
-            data=data,
-            field=field,
-            trace_id=self.trace_id,
-            observation_id=self.id,
-            project_id=self._langfuse_client.langfuse_tracer.project_id,
+        media_processed_attribute = (
+            self._langfuse_client._resources._media_manager._find_and_process_media(
+                data=data,
+                field=field,
+                trace_id=self.trace_id,
+                observation_id=self.id,
+                project_id=self._langfuse_client._resources.project_id,
+            )
         )
 
         return media_processed_attribute
@@ -628,7 +630,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         )
 
         with otel_trace_api.use_span(self._otel_span):
-            new_otel_span = self._langfuse_client.tracer.start_span(
+            new_otel_span = self._langfuse_client._otel_tracer.start_span(
                 name=name, attributes=attributes
             )
 
@@ -803,7 +805,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         )
 
         with otel_trace_api.use_span(self._otel_span):
-            new_otel_span = self._langfuse_client.tracer.start_span(
+            new_otel_span = self._langfuse_client._otel_tracer.start_span(
                 name=name, attributes=attributes
             )
 

@@ -652,7 +652,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
     result_call_3 = langfuse.get_prompt(prompt_name)
 
     while True:
-        if langfuse.langfuse_tracer.prompt_cache._task_manager.active_tasks() == 0:
+        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
             break
         sleep(0.1)
 
@@ -772,7 +772,7 @@ def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     langfuse.get_prompt(prompt_name)
 
     while True:
-        if langfuse.langfuse_tracer.prompt_cache._task_manager.active_tasks() == 0:
+        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
             break
         sleep(0.1)
 
@@ -820,7 +820,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
 
     result_call_3 = langfuse.get_prompt(prompt_name)
     while True:
-        if langfuse.langfuse_tracer.prompt_cache._task_manager.active_tasks() == 0:
+        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
             break
         sleep(0.1)
 
@@ -859,7 +859,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
 
     result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
     while True:
-        if langfuse.langfuse_tracer.prompt_cache._task_manager.active_tasks() == 0:
+        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
             break
         sleep(0.1)
 

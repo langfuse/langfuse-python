@@ -16,7 +16,7 @@ from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
-from langfuse._client.tracer import LangfuseTracer
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.media import LangfuseMedia
 
 
@@ -104,7 +104,7 @@ class TestOTelBase:
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
             mock_fetch,
         )
 
@@ -121,9 +121,9 @@ class TestOTelBase:
         )
 
         # Configure client for testing
-        client.langfuse_tracer._project_id = "test-project-id"
-        client.langfuse_tracer._project_id_fetched.set()
-        client.tracer = tracer_provider.get_tracer("langfuse-test")
+        client._resources._project_id = "test-project-id"
+        client._resources._project_id_fetched.set()
+        client._otel_tracer = tracer_provider.get_tracer("langfuse-test")
 
         yield client
 
@@ -140,7 +140,7 @@ class TestOTelBase:
                 self._project_id_fetched.set()
 
             monkeypatch.setattr(
-                "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
+                "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
                 mock_fetch,
             )
 
@@ -158,9 +158,9 @@ class TestOTelBase:
             )
 
             # Configure client
-            client.langfuse_tracer._project_id = "test-project-id"
-            client.langfuse_tracer._project_id_fetched.set()
-            client.tracer = tracer_provider.get_tracer("langfuse-test")
+            client._resources._project_id = "test-project-id"
+            client._resources._project_id_fetched.set()
+            client._otel_tracer = tracer_provider.get_tracer("langfuse-test")
 
             return client
 
@@ -867,7 +867,7 @@ class TestAdvancedSpans(TestOTelBase):
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
             mock_fetch,
         )
 
@@ -1459,12 +1459,12 @@ class TestMultiProjectSetup(TestOTelBase):
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
             mock_fetch,
         )
 
         # Clear singleton instances to avoid cross-test contamination
-        monkeypatch.setattr(LangfuseTracer, "_instances", {})
+        monkeypatch.setattr(LangfuseResourceManager, "_instances", {})
 
         # Setup tracers with appropriate project-specific span exporting
         def mock_processor_init(self, **kwargs):
@@ -1502,7 +1502,7 @@ class TestMultiProjectSetup(TestOTelBase):
 
         # Instead of global mocking, directly patch the _initialize_instance method
         # to provide appropriate tracer providers
-        original_initialize = LangfuseTracer._initialize_instance
+        original_initialize = LangfuseResourceManager._initialize_instance
 
         def mock_initialize(self, **kwargs):
             original_initialize(self, **kwargs)
@@ -1516,7 +1516,9 @@ class TestMultiProjectSetup(TestOTelBase):
                     f"langfuse:{project2_key}", "test"
                 )
 
-        monkeypatch.setattr(LangfuseTracer, "_initialize_instance", mock_initialize)
+        monkeypatch.setattr(
+            LangfuseResourceManager, "_initialize_instance", mock_initialize
+        )
 
         # Initialize the two clients
         langfuse_project1 = Langfuse(
@@ -1543,7 +1545,9 @@ class TestMultiProjectSetup(TestOTelBase):
 
         # Clean up and restore
         trace_api_reset.set_tracer_provider(original_provider)
-        monkeypatch.setattr(LangfuseTracer, "_initialize_instance", original_initialize)
+        monkeypatch.setattr(
+            LangfuseResourceManager, "_initialize_instance", original_initialize
+        )
 
         exporter_project1.shutdown()
         exporter_project2.shutdown()
@@ -2429,7 +2433,7 @@ class TestOtelIdGeneration:
             self._project_id_fetched.set()
 
         monkeypatch.setattr(
-            "langfuse._client.tracer.LangfuseTracer._fetch_project_id_background",
+            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
             mock_fetch,
         )
 
