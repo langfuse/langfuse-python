@@ -1,7 +1,7 @@
-from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
 import pytest
+from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
 
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from tests.utils import get_api
 
 
