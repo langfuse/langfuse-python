@@ -148,6 +148,7 @@ class OpenAiArgsExtractor:
     def __init__(
         self,
         metadata=None,
+        name=None,
         langfuse_prompt=None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
         langfuse_public_key=None,
         **kwargs,
@@ -164,6 +165,7 @@ class OpenAiArgsExtractor:
                 else kwargs["response_format"],
             }
         )
+        self.args["name"] = name
         self.args["langfuse_public_key"] = langfuse_public_key
         self.args["langfuse_prompt"] = langfuse_prompt
 
@@ -680,7 +682,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
         metadata=langfuse_data.get("metadata", None),
         model_parameters=langfuse_data.get("model_parameters", None),
         model=langfuse_data.get("model", None),
-        prompt=langfuse_data.get("langfuse_prompt", None),
+        prompt=langfuse_data.get("prompt", None),
     )
 
     try:
