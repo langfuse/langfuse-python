@@ -1,14 +1,14 @@
-from datetime import datetime, date, timezone
-from uuid import UUID
-from enum import Enum
-from dataclasses import dataclass
-from pathlib import Path
-from pydantic import BaseModel
 import json
-import pytest
 import threading
-import langfuse.serializer
-from langfuse.serializer import (
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from enum import Enum
+from pathlib import Path
+from uuid import UUID
+
+from pydantic import BaseModel
+
+from langfuse._utils.serializer import (
     EventSerializer,
 )
 
@@ -160,12 +160,6 @@ def test_exception():
 
 
 def test_none():
-    serializer = EventSerializer()
-    assert serializer.encode(None) == "null"
-
-
-def test_none_without_langchain(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(langfuse.serializer, "Serializable", type(None), raising=True)
     serializer = EventSerializer()
     assert serializer.encode(None) == "null"
 

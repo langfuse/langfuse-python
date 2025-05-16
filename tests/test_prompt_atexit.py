@@ -1,5 +1,6 @@
-import pytest
 import subprocess
+
+import pytest
 
 
 @pytest.mark.timeout(10)
@@ -7,15 +8,14 @@ def test_prompts_atexit():
     python_code = """
 import time
 import logging
-from langfuse.prompt_cache import PromptCache  # assuming task_manager is the module name
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+from langfuse.logger import langfuse_logger
+from langfuse._utils.prompt_cache import PromptCache
+
+langfuse_logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+langfuse_logger.addHandler(handler)
 
 print("Adding prompt cache", PromptCache)
 prompt_cache = PromptCache(max_prompt_refresh_workers=10)
@@ -61,15 +61,14 @@ def test_prompts_atexit_async():
 import time
 import asyncio
 import logging
-from langfuse.prompt_cache import PromptCache  # assuming task_manager is the module name
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+from langfuse.logger import langfuse_logger
+from langfuse._utils.prompt_cache import PromptCache
+
+langfuse_logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+langfuse_logger.addHandler(handler)
 
 async def main():
     print("Adding prompt cache", PromptCache)

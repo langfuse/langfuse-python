@@ -1,17 +1,20 @@
+import base64
+import hashlib
 import logging
 import time
-from queue import Empty, Queue
-from typing import Any, Callable, Optional, TypeVar
+from queue import Empty, Full, Queue
+from typing import Any, Callable, Optional, TypeVar, cast
 
 import backoff
 import requests
 from typing_extensions import ParamSpec
 
+from langfuse._utils import _get_timestamp
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
 from langfuse.api.client import FernLangfuse
 from langfuse.api.core import ApiError
+from langfuse.api.resources.media.types.media_content_type import MediaContentType
 from langfuse.media import LangfuseMedia
-from langfuse.utils import _get_timestamp
 
 from .media_upload_queue import UploadMediaJob
 
@@ -20,7 +23,7 @@ P = ParamSpec("P")
 
 
 class MediaManager:
-    _log = logging.getLogger(__name__)
+    _log = logging.getLogger("langfuse")
 
     def __init__(
         self,
@@ -36,15 +39,19 @@ class MediaManager:
     def process_next_media_upload(self):
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(f"Processing upload for {upload_job['media_id']}")
+            self._log.debug(
+                f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
+            )
             self._process_upload_media_job(data=upload_job)
 
             self._queue.task_done()
         except Empty:
-            self._log.debug("Media upload queue is empty")
+            self._log.debug("Queue: Media upload queue is empty, waiting for new jobs")
             pass
         except Exception as e:
-            self._log.error(f"Error uploading media: {e}")
+            self._log.error(
+                f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
+            )
             self._queue.task_done()
 
     def process_media_in_event(self, event: dict):
@@ -83,7 +90,9 @@ class MediaManager:
                     body[field] = processed_data
 
         except Exception as e:
-            self._log.error(f"Error processing multimodal event: {e}")
+            self._log.error(
+                f"Media processing error: Failed to process multimodal event content. Event data may be incomplete. Error: {e}"
+            )
 
     def _find_and_process_media(
         self,
@@ -92,7 +101,11 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
+        project_id: Optional[str],
     ):
+        if not project_id:
+            return data
+
         seen = set()
         max_levels = 10
 
@@ -108,6 +121,7 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
+                    project_id=project_id,
                 )
 
                 return data
@@ -123,6 +137,7 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
+                    project_id=project_id,
                 )
 
                 return media
@@ -144,6 +159,7 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
+                    project_id=project_id,
                 )
 
                 data["data"] = media
@@ -167,6 +183,7 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
+                    project_id=project_id,
                 )
 
                 data["data"] = media
@@ -193,6 +210,7 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
+        project_id: str,
     ):
         if (
             media._content_length is None
@@ -202,47 +220,85 @@ class MediaManager:
         ):
             return
 
-        upload_url_response = self._request_with_backoff(
-            self._api_client.media.get_upload_url,
-            request=GetMediaUploadUrlRequest(
-                contentLength=media._content_length,
-                contentType=media._content_type,
-                sha256Hash=media._content_sha256_hash,
-                field=field,
-                traceId=trace_id,
-                observationId=observation_id,
-            ),
+        # Important as this is will be used in the media reference string in serializer
+        media._media_id = self._get_media_id(
+            project_id=project_id, content_sha256_hash=media._content_sha256_hash
         )
 
-        upload_url = upload_url_response.upload_url
-        media._media_id = upload_url_response.media_id  # Important as this is will be used in the media reference string in serializer
-
-        if upload_url is not None:
-            self._log.debug(f"Scheduling upload for {media._media_id}")
-            self._queue.put(
-                item={
-                    "upload_url": upload_url,
-                    "media_id": media._media_id,
-                    "content_bytes": media._content_bytes,
-                    "content_type": media._content_type,
-                    "content_sha256_hash": media._content_sha256_hash,
-                },
-                block=True,
-                timeout=1,
+        try:
+            upload_media_job = UploadMediaJob(
+                media_id=media._media_id,
+                content_bytes=media._content_bytes,
+                content_type=media._content_type,
+                content_length=media._content_length,
+                content_sha256_hash=media._content_sha256_hash,
+                trace_id=trace_id,
+                observation_id=observation_id,
+                field=field,
             )
 
-        else:
-            self._log.debug(f"Media {media._media_id} already uploaded")
+            self._queue.put(
+                item=upload_media_job,
+                block=False,
+            )
+            self._log.debug(
+                f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
+            )
+
+        except Full:
+            self._log.warning(
+                f"Queue capacity: Media queue is full. Failed to process media_id={media._media_id} for trace_id={trace_id}. Consider increasing queue capacity."
+            )
+
+        except Exception as e:
+            self._log.error(
+                f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
+            )
+
+    def _get_media_id(self, *, project_id: str, content_sha256_hash) -> str:
+        hash_obj = hashlib.sha256()
+        hash_obj.update((project_id + content_sha256_hash).encode("utf-8"))
+        media_id = base64.urlsafe_b64encode(hash_obj.digest()).decode("utf-8")[:22]
+
+        return media_id
 
     def _process_upload_media_job(
         self,
         *,
         data: UploadMediaJob,
     ):
+        upload_url_response = self._request_with_backoff(
+            self._api_client.media.get_upload_url,
+            request=GetMediaUploadUrlRequest(
+                contentLength=data["content_length"],
+                contentType=cast(MediaContentType, data["content_type"]),
+                sha256Hash=data["content_sha256_hash"],
+                field=data["field"],
+                traceId=data["trace_id"],
+                observationId=data["observation_id"],
+            ),
+        )
+
+        upload_url = upload_url_response.upload_url
+
+        if not upload_url:
+            self._log.debug(
+                f"Media status: Media with ID {data['media_id']} already uploaded. Skipping duplicate upload."
+            )
+
+            return
+
+        if upload_url_response.media_id != data["media_id"]:
+            self._log.error(
+                f"Media integrity error: Media ID mismatch between SDK ({data['media_id']}) and Server ({upload_url_response.media_id}). Upload cancelled. Please check media ID generation logic."
+            )
+
+            return
+
         upload_start_time = time.time()
         upload_response = self._request_with_backoff(
             requests.put,
-            data["upload_url"],
+            upload_url,
             headers={
                 "Content-Type": data["content_type"],
                 "x-amz-checksum-sha256": data["content_sha256_hash"],
@@ -264,7 +320,7 @@ class MediaManager:
         )
 
         self._log.debug(
-            f"Media upload completed for {data['media_id']} in {upload_time_ms}ms"
+            f"Media upload: Successfully uploaded media_id={data['media_id']} for trace_id={data['trace_id']} | status_code={upload_response.status_code} | duration={upload_time_ms}ms | size={data['content_length']} bytes"
         )
 
     def _request_with_backoff(

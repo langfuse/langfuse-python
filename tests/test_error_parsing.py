@@ -1,17 +1,17 @@
 """@private"""
 
-from langfuse.request import APIErrors, APIError
-from langfuse.parse_error import (
+from langfuse._utils.parse_error import (
     generate_error_message,
     generate_error_message_fern,
 )
+from langfuse._utils.request import APIError, APIErrors
+from langfuse.api.core import ApiError
 from langfuse.api.resources.commons.errors import (
     AccessDeniedError,
     MethodNotAllowedError,
     NotFoundError,
     UnauthorizedError,
 )
-from langfuse.api.core import ApiError
 from langfuse.api.resources.health.errors import ServiceUnavailableError
 
 
