@@ -6,12 +6,16 @@ from typing import (
     Dict,
     List,
     Literal,
-    NotRequired,
     Optional,
     Protocol,
     TypedDict,
     Union,
 )
+
+try:
+    from typing import NotRequired  # type: ignore
+except ImportError:
+    from typing_extensions import NotRequired
 
 from pydantic import BaseModel
 
