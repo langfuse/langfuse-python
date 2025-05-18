@@ -850,6 +850,7 @@ class OpenAILangfuse:
 
         return self._langfuse
 
+    @classmethod
     def flush(cls):
         cls._langfuse.flush()
 

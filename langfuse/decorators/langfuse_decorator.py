@@ -289,10 +289,12 @@ class LangfuseDecorator:
         capture_input: bool,
         is_method: bool = False,
         func_args: Tuple = (),
-        func_kwargs: Dict = {},
+        func_kwargs: Optional[Dict] = None,
     ) -> Optional[
         Union[StatefulSpanClient, StatefulTraceClient, StatefulGenerationClient]
     ]:
+        if func_kwargs is None:
+            func_kwargs = {}
         try:
             stack = _observation_stack_context.get().copy()
             parent = stack[-1] if stack else None
@@ -392,8 +394,10 @@ class LangfuseDecorator:
         *,
         is_method: bool = False,
         func_args: Tuple = (),
-        func_kwargs: Dict = {},
+        func_kwargs: Optional[Dict] = None,
     ) -> Any:
+        if func_kwargs is None:
+            func_kwargs = {}
         # Remove implicitly passed "self" or "cls" argument for instance or class methods
         logged_args = func_args[1:] if is_method else func_args
         raw_input = {
