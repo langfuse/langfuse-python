@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import logging
 import time
 from queue import Empty, Full, Queue
@@ -54,46 +52,6 @@ class MediaManager:
             )
             self._queue.task_done()
 
-    def process_media_in_event(self, event: dict):
-        try:
-            if "body" not in event:
-                return
-
-            body = event["body"]
-            trace_id = body.get("traceId", None) or (
-                body.get("id", None)
-                if "type" in event and "trace" in event["type"]
-                else None
-            )
-
-            if trace_id is None:
-                raise ValueError("trace_id is required for media upload")
-
-            observation_id = (
-                body.get("id", None)
-                if "type" in event
-                and ("generation" in event["type"] or "span" in event["type"])
-                else None
-            )
-
-            multimodal_fields = ["input", "output", "metadata"]
-
-            for field in multimodal_fields:
-                if field in body:
-                    processed_data = self._find_and_process_media(
-                        data=body[field],
-                        trace_id=trace_id,
-                        observation_id=observation_id,
-                        field=field,
-                    )
-
-                    body[field] = processed_data
-
-        except Exception as e:
-            self._log.error(
-                f"Media processing error: Failed to process multimodal event content. Event data may be incomplete. Error: {e}"
-            )
-
     def _find_and_process_media(
         self,
         *,
@@ -101,11 +59,7 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
-        project_id: Optional[str],
     ):
-        if not project_id:
-            return data
-
         seen = set()
         max_levels = 10
 
@@ -121,7 +75,6 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
-                    project_id=project_id,
                 )
 
                 return data
@@ -137,7 +90,6 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
-                    project_id=project_id,
                 )
 
                 return media
@@ -159,7 +111,6 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
-                    project_id=project_id,
                 )
 
                 data["data"] = media
@@ -183,7 +134,6 @@ class MediaManager:
                     trace_id=trace_id,
                     observation_id=observation_id,
                     field=field,
-                    project_id=project_id,
                 )
 
                 data["data"] = media
@@ -210,7 +160,6 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
-        project_id: str,
     ):
         if (
             media._content_length is None
@@ -220,10 +169,9 @@ class MediaManager:
         ):
             return
 
-        # Important as this is will be used in the media reference string in serializer
-        media._media_id = self._get_media_id(
-            project_id=project_id, content_sha256_hash=media._content_sha256_hash
-        )
+        if media._media_id is None:
+            self._log.error("Media ID is None. Skipping upload.")
+            return
 
         try:
             upload_media_job = UploadMediaJob(
@@ -254,13 +202,6 @@ class MediaManager:
             self._log.error(
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
-
-    def _get_media_id(self, *, project_id: str, content_sha256_hash) -> str:
-        hash_obj = hashlib.sha256()
-        hash_obj.update((project_id + content_sha256_hash).encode("utf-8"))
-        media_id = base64.urlsafe_b64encode(hash_obj.digest()).decode("utf-8")[:22]
-
-        return media_id
 
     def _process_upload_media_job(
         self,

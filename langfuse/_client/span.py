@@ -467,7 +467,6 @@ class LangfuseSpanWrapper(ABC):
                 field=field,
                 trace_id=self.trace_id,
                 observation_id=self.id,
-                project_id=self._langfuse_client._resources.project_id,
             )
         )
 

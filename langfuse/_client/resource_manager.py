@@ -229,16 +229,6 @@ class LangfuseResourceManager:
         ingestion_consumer.start()
         self._ingestion_consumers.append(ingestion_consumer)
 
-        # Project ID handling
-        self._project_id = None
-        self._project_id_fetched = threading.Event()
-        self._fetch_project_id_thread = threading.Thread(
-            target=self._fetch_project_id_background,
-            name="langfuse-project-id-fetcher",
-            daemon=True,
-        )
-        self._fetch_project_id_thread.start()
-
         # Register shutdown handler
         atexit.register(self.shutdown)
 
@@ -250,49 +240,6 @@ class LangfuseResourceManager:
             f"sample_rate={sample_rate if sample_rate is not None else 1.0} | "
             f"media_threads={media_upload_thread_count or 1}"
         )
-
-    def _fetch_project_id_background(self):
-        try:
-            projects = self.api.projects.get(
-                request_options={"max_retries": 3, "timeout_in_seconds": 5}
-            )
-            self._project_id = projects.data[0].id if projects.data else None
-
-            langfuse_logger.debug(
-                f"API: Successfully fetched project ID: {self._project_id} for project with public_key={self.public_key}"
-            )
-        except Exception as e:
-            langfuse_logger.warning(
-                f"API error: Failed to fetch project ID. This may affect media uploads and URL generation. Error: {str(e)}"
-            )
-
-        finally:
-            self._project_id_fetched.set()
-
-    @property
-    def project_id(self):
-        if self._project_id:
-            return self._project_id
-
-        if self._project_id_fetched.is_set():
-            langfuse_logger.warning(
-                "Configuration issue: Project ID unavailable. Media uploads and project-specific features may be affected. "
-                "Check API connectivity and permissions for your public/secret key pair."
-            )
-            return None
-
-        fetch_completed = self._project_id_fetched.wait(0.5)
-
-        if not self._project_id:
-            langfuse_logger.warning(
-                "Configuration issue: Project ID retrieval failed. Media uploads and project-specific features may be affected. "
-                "Check API connectivity and permissions for your public/secret key pair."
-                if fetch_completed
-                else "Timing issue: Project ID still being fetched. Operation proceeding without project ID. "
-                "This is normal during startup, but may temporarily affect media uploads and URL generation."
-            )
-
-        return self._project_id
 
     def add_score_task(self, event: dict):
         try:
