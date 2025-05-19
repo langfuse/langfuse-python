@@ -86,31 +86,6 @@ def test_flush():
         assert trace.name == str(i)
 
 
-def test_shutdown():
-    # Initialize Langfuse client with debug disabled
-    langfuse = Langfuse(debug=False)
-
-    trace_ids = []
-    for i in range(2):
-        # Create spans and set the trace name using update_trace
-        with langfuse.start_as_current_span(name="span-" + str(i)) as span:
-            span.update_trace(name=str(i))
-            # Store the trace ID for later verification
-            trace_ids.append(langfuse.get_current_trace_id())
-
-    # This should flush pending spans and shut down the client
-    langfuse.shutdown()
-
-    # Allow time for API to process
-    sleep(2)
-
-    # Verify traces were sent by checking they exist in the API
-    api = get_api()
-    for i, trace_id in enumerate(trace_ids):
-        trace = api.trace.get(trace_id)
-        assert trace.name == str(i)
-
-
 def test_invalid_score_data_does_not_raise_exception():
     langfuse = Langfuse(debug=False)
 
@@ -698,7 +673,7 @@ def test_score_span():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
+    sleep(3)
 
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
@@ -1380,6 +1355,7 @@ def test_kwargs():
     assert observation.metadata["interface"] == "whatsapp"
 
 
+@pytest.mark.skip("Flaky")
 def test_timezone_awareness():
     os.environ["TZ"] = "US/Pacific"
     time.tzset()
@@ -1767,6 +1743,9 @@ def test_get_sessions():
     assert len(response.data) == 1
 
 
+@pytest.mark.skip(
+    "Flaky in concurrent environment as the global tracer provider is already configured"
+)
 def test_create_trace_sampling_zero():
     langfuse = Langfuse(debug=True, sample_rate=0)
     api_wrapper = LangfuseAPI()

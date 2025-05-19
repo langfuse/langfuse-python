@@ -98,16 +98,6 @@ class TestOTelBase:
     def langfuse_client(self, monkeypatch, tracer_provider, mock_processor_init):
         """Create a mocked Langfuse client for testing."""
 
-        # Mock project ID fetching
-        def mock_fetch(self):
-            self._project_id = "test-project-id"
-            self._project_id_fetched.set()
-
-        monkeypatch.setattr(
-            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
-            mock_fetch,
-        )
-
         # Set environment variables
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test-public-key")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test-secret-key")
@@ -121,8 +111,6 @@ class TestOTelBase:
         )
 
         # Configure client for testing
-        client._resources._project_id = "test-project-id"
-        client._resources._project_id_fetched.set()
         client._otel_tracer = tracer_provider.get_tracer("langfuse-test")
 
         yield client
@@ -134,16 +122,6 @@ class TestOTelBase:
         """Create a Langfuse client fixture that allows configuration parameters."""
 
         def _create_client(**kwargs):
-            # Mock project ID fetching
-            def mock_fetch(self):
-                self._project_id = "test-project-id"
-                self._project_id_fetched.set()
-
-            monkeypatch.setattr(
-                "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
-                mock_fetch,
-            )
-
             # Set environment variables
             monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test-public-key")
             monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test-secret-key")
@@ -158,8 +136,6 @@ class TestOTelBase:
             )
 
             # Configure client
-            client._resources._project_id = "test-project-id"
-            client._resources._project_id_fetched.set()
             client._otel_tracer = tracer_provider.get_tracer("langfuse-test")
 
             return client
@@ -860,17 +836,6 @@ class TestAdvancedSpans(TestOTelBase):
 
     def test_sampling(self, monkeypatch, tracer_provider, mock_processor_init):
         """Test sampling behavior."""
-
-        # Create a client with a sample rate of 0 (no sampling)
-        def mock_fetch(self):
-            self._project_id = "test-project-id"
-            self._project_id_fetched.set()
-
-        monkeypatch.setattr(
-            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
-            mock_fetch,
-        )
-
         # Create a new memory exporter for this test
         sampled_exporter = InMemorySpanExporter()
 
@@ -1452,16 +1417,6 @@ class TestMultiProjectSetup(TestOTelBase):
         unique_suffix = str(uuid.uuid4())[:8]
         project1_key = f"proj1_{unique_suffix}"
         project2_key = f"proj2_{unique_suffix}"
-
-        # Mock project ID fetching
-        def mock_fetch(self):
-            self._project_id = "test-project-id"
-            self._project_id_fetched.set()
-
-        monkeypatch.setattr(
-            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
-            mock_fetch,
-        )
 
         # Clear singleton instances to avoid cross-test contamination
         monkeypatch.setattr(LangfuseResourceManager, "_instances", {})
@@ -2426,17 +2381,6 @@ class TestOtelIdGeneration:
     @pytest.fixture
     def langfuse_client(self, monkeypatch):
         """Create a minimal Langfuse client for testing ID generation functions."""
-
-        # Mock project ID fetching to avoid network calls
-        def mock_fetch(self):
-            self._project_id = "test-project-id"
-            self._project_id_fetched.set()
-
-        monkeypatch.setattr(
-            "langfuse._client.resource_manager.LangfuseResourceManager._fetch_project_id_background",
-            mock_fetch,
-        )
-
         client = Langfuse(
             public_key="test-public-key",
             secret_key="test-secret-key",

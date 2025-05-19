@@ -283,7 +283,7 @@ class LangfuseResourceManager:
     def get_current_span():
         return otel_trace_api.get_current_span()
 
-    def _join_consumer_threads(self):
+    def _stop_and_join_consumer_threads(self):
         """End the consumer threads once the queue is empty.
 
         Blocks execution until finished
@@ -328,6 +328,13 @@ class LangfuseResourceManager:
             return
 
         tracer_provider.force_flush()
+        langfuse_logger.debug("Successfully flushed OTEL tracer provider")
+
+        self._score_ingestion_queue.join()
+        langfuse_logger.debug("Successfully flushed score ingestion queue")
+
+        self._media_upload_queue.join()
+        langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self):
         # Unregister the atexit handler first
@@ -339,7 +346,7 @@ class LangfuseResourceManager:
 
         tracer_provider.force_flush()
 
-        self._join_consumer_threads()
+        self._stop_and_join_consumer_threads()
 
 
 def _init_tracer_provider(
