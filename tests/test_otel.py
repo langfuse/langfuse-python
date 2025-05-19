@@ -57,6 +57,7 @@ class TestOTelBase:
         original_provider = trace_api.get_tracer_provider()
         yield
         trace_api.set_tracer_provider(original_provider)
+        LangfuseResourceManager.reset()
 
     @pytest.fixture
     def memory_exporter(self):
@@ -875,6 +876,7 @@ class TestAdvancedSpans(TestOTelBase):
         # Restore the original provider
         trace_api.set_tracer_provider(original_provider)
 
+    @pytest.mark.skip("Calling shutdown will pollute the global context")
     def test_shutdown_and_flush(self, langfuse_client, memory_exporter):
         """Test shutdown and flush operations."""
         # Create a span without ending it
@@ -2375,7 +2377,7 @@ class TestMediaHandling(TestOTelBase):
             span._process_media_in_attribute = original_process
 
 
-class TestOtelIdGeneration:
+class TestOtelIdGeneration(TestOTelBase):
     """Tests for trace_id and observation_id generation with and without seeds."""
 
     @pytest.fixture

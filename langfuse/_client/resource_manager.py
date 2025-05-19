@@ -241,6 +241,10 @@ class LangfuseResourceManager:
             f"media_threads={media_upload_thread_count or 1}"
         )
 
+    @classmethod
+    def reset(cls):
+        cls._instances.clear()
+
     def add_score_task(self, event: dict):
         try:
             # Sample scores with the same sampler that is used for tracing
