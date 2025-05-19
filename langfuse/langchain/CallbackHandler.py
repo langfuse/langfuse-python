@@ -57,7 +57,7 @@ except ImportError:
 
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(self, *, public_key: Optional[str] = None) -> None:
-        self.langfuse_client = get_client(public_key=public_key)
+        self.client = get_client(public_key=public_key)
 
         self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
         self.prompt_to_parent_run_map = {}
@@ -174,7 +174,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             }
 
             if parent_run_id is None:
-                self.runs[run_id] = self.langfuse_client.start_span(**content)
+                self.runs[run_id] = self.client.start_span(**content)
             else:
                 self.runs[run_id] = cast(
                     LangfuseSpan, self.runs[parent_run_id]
@@ -439,7 +439,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 }
 
-                self.runs[run_id] = self.langfuse_client.start_span(**content)
+                self.runs[run_id] = self.client.start_span(**content)
             else:
                 self.runs[run_id] = cast(
                     LangfuseSpan, self.runs[parent_run_id]
@@ -562,7 +562,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     LangfuseSpan, self.runs[parent_run_id]
                 ).start_generation(**content)
             else:
-                self.runs[run_id] = self.langfuse_client.start_generation(**content)
+                self.runs[run_id] = self.client.start_generation(**content)
 
         except Exception as e:
             langfuse_logger.exception(e)

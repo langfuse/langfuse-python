@@ -135,7 +135,7 @@ def test_models(expected_model: str, model: Any):
 def test_entire_llm_call(expected_model, model):
     callback = CallbackHandler()
 
-    with callback.langfuse_client.start_as_current_span(name="parent") as span:
+    with callback.client.start_as_current_span(name="parent") as span:
         trace_id = span.trace_id
 
         try:
@@ -146,7 +146,7 @@ def test_entire_llm_call(expected_model, model):
             print(e)
             pass
 
-    callback.langfuse_client.flush()
+    callback.client.flush()
     api = get_api()
 
     trace = api.trace.get(trace_id)
