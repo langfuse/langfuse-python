@@ -35,7 +35,7 @@ async def test_concurrency():
             generation.end()
 
     # Create Langfuse client
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Run concurrent operations
     await gather(*(update_generation(i, langfuse) for i in range(100)))
@@ -63,7 +63,7 @@ async def test_concurrency():
 
 def test_flush():
     # Initialize Langfuse client with debug disabled
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     trace_ids = []
     for i in range(2):
@@ -87,7 +87,7 @@ def test_flush():
 
 
 def test_invalid_score_data_does_not_raise_exception():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create a span and set trace properties
     with langfuse.start_as_current_span(name="test-span") as span:
@@ -118,7 +118,7 @@ def test_invalid_score_data_does_not_raise_exception():
 
 
 def test_create_numeric_score():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
@@ -164,7 +164,7 @@ def test_create_numeric_score():
 
 
 def test_create_boolean_score():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
@@ -211,7 +211,7 @@ def test_create_boolean_score():
 
 
 def test_create_categorical_score():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
@@ -257,7 +257,7 @@ def test_create_categorical_score():
 
 
 def test_create_trace():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     trace_name = create_uuid()
 
     # Create a span and update the trace properties
@@ -327,7 +327,7 @@ def test_create_update_trace():
 
 
 def test_create_generation():
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse()
 
     # Create a generation using OTEL approach
     generation = langfuse.start_generation(
@@ -427,7 +427,7 @@ def test_create_generation_complex(
     expected_output_cost,
     expected_total_cost,
 ):
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     generation = langfuse.start_generation(
         name="query-generation",
@@ -478,7 +478,7 @@ def test_create_generation_complex(
 
 
 def test_create_span():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create span using OTEL-based client
     span = langfuse.start_span(
@@ -521,7 +521,7 @@ def test_create_span():
 
 
 def test_score_trace():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -560,7 +560,7 @@ def test_score_trace():
 
 
 def test_score_trace_nested_trace():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     trace_name = create_uuid()
 
@@ -599,7 +599,7 @@ def test_score_trace_nested_trace():
 
 
 def test_score_trace_nested_observation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     trace_name = create_uuid()
 
@@ -644,7 +644,7 @@ def test_score_trace_nested_observation():
 
 
 def test_score_span():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     # Create a span
@@ -691,7 +691,7 @@ def test_score_span():
 
 
 def test_create_trace_and_span():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     trace_name = create_uuid()
 
@@ -729,7 +729,7 @@ def test_create_trace_and_span():
 
 
 def test_create_trace_and_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     trace_name = create_uuid()
 
@@ -777,7 +777,7 @@ def test_create_trace_and_generation():
 
 
 def test_create_generation_and_trace():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -826,7 +826,7 @@ def test_create_generation_and_trace():
 
 
 def test_create_span_and_get_observation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create span
     span = langfuse.start_span(name="span")
@@ -850,7 +850,7 @@ def test_create_span_and_get_observation():
 
 
 def test_update_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create a generation
     generation = langfuse.start_generation(name="generation")
@@ -886,7 +886,7 @@ def test_update_generation():
 
 
 def test_update_span():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create a span
     span = langfuse.start_span(name="span")
@@ -919,7 +919,7 @@ def test_update_span():
 
 
 def test_create_span_and_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create initial span
     span = langfuse.start_span(name="span")
@@ -962,7 +962,7 @@ def test_create_span_and_generation():
 
 
 def test_create_trace_with_id_and_generation():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
@@ -1247,7 +1247,7 @@ def test_end_span_with_data():
 
 
 def test_get_generations():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create a first generation with random name
     generation1 = langfuse.start_generation(
@@ -1280,7 +1280,7 @@ def test_get_generations():
 
 
 def test_get_generations_by_user():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Generate unique IDs for test
     user_id = create_uuid()
@@ -1365,7 +1365,7 @@ def test_timezone_awareness():
     assert utc_now.tzinfo is not None
 
     # Create Langfuse client
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create a trace with various observation types
     with langfuse.start_as_current_span(name="test") as parent_span:
@@ -1425,7 +1425,7 @@ def test_timezone_awareness_setting_timestamps():
     assert utc_now.tzinfo is not None
 
     # Create client
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create a trace with different observation types
     with langfuse.start_as_current_span(name="test") as parent_span:
@@ -1473,7 +1473,7 @@ def test_timezone_awareness_setting_timestamps():
 
 
 def test_get_trace_by_session_id():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
 
     # Create unique IDs for test
     trace_name = create_uuid()
@@ -1747,7 +1747,7 @@ def test_get_sessions():
     "Flaky in concurrent environment as the global tracer provider is already configured"
 )
 def test_create_trace_sampling_zero():
-    langfuse = Langfuse(debug=True, sample_rate=0)
+    langfuse = Langfuse(sample_rate=0)
     api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
@@ -1788,7 +1788,7 @@ def test_mask_function():
             return "MASKED"
         return data
 
-    langfuse = Langfuse(debug=True, mask=mask_func)
+    langfuse = Langfuse(mask=mask_func)
     api_wrapper = LangfuseAPI()
 
     # Create a root span with trace properties
@@ -1836,7 +1836,7 @@ def test_mask_function():
     def faulty_mask_func(data):
         raise Exception("Masking error")
 
-    langfuse = Langfuse(debug=True, mask=faulty_mask_func)
+    langfuse = Langfuse(mask=faulty_mask_func)
 
     # Create a root span with trace properties
     with langfuse.start_as_current_span(name="test-span") as root_span:
@@ -1857,14 +1857,14 @@ def test_mask_function():
 
 
 def test_get_project_id():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     res = langfuse._get_project_id()
     assert res is not None
     assert res == "7a88fb47-b4e2-43b8-a06c-a5ce950dc53a"
 
 
 def test_generate_trace_id():
-    langfuse = Langfuse(debug=False)
+    langfuse = Langfuse()
     trace_id = langfuse.create_trace_id()
 
     # Create a trace with the specific ID using trace_context

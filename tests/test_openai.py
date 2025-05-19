@@ -1,3 +1,4 @@
+import importlib
 import os
 
 import pytest
@@ -11,9 +12,13 @@ langfuse = Langfuse()
 
 @pytest.fixture(scope="module")
 def openai():
+    import openai
+
     from langfuse.openai import openai as _openai
 
     yield _openai
+
+    importlib.reload(openai)
 
 
 def test_openai_chat_completion(openai):

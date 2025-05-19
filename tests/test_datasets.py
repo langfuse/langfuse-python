@@ -345,7 +345,7 @@ def sorted_dependencies(
 
 def test_observe_dataset_run():
     # Create dataset
-    langfuse = Langfuse(debug=True)
+    langfuse = Langfuse()
     dataset_name = create_uuid()
     langfuse.create_dataset(name=dataset_name)
 

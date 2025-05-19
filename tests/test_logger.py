@@ -31,3 +31,6 @@ def test_via_env():
 def test_debug_langfuse():
     Langfuse(debug=True)
     assert langfuse_logger.level == 10
+
+    # Reset
+    langfuse_logger.setLevel("WARNING")
