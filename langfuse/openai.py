@@ -681,6 +681,12 @@ def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
         model_parameters=langfuse_data.get("model_parameters", None),
+        trace_context={
+            "trace_id": cast(str, langfuse_data.get("trace_id", None)),
+            "parent_span_id": cast(
+                str, langfuse_data.get("parent_observation_id", None)
+            ),
+        },
         model=langfuse_data.get("model", None),
         prompt=langfuse_data.get("prompt", None),
     )
@@ -743,7 +749,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs)
         },
         model_parameters=langfuse_data.get("model_parameters", None),
         model=langfuse_data.get("model", None),
-        prompt=langfuse_data.get("langfuse_prompt", None),
+        prompt=langfuse_data.get("prompt", None),
     )
 
     try:
