@@ -1,38 +1,24 @@
 import os
 
 import pytest
-from openai import APIConnectionError
 from pydantic import BaseModel
 
 from langfuse._client.client import Langfuse
-from langfuse.openai import (
-    AsyncAzureOpenAI,
-    AsyncOpenAI,
-    AzureOpenAI,
-    _is_openai_v1,
-    openai,
-)
 from tests.utils import create_uuid, encode_file_to_base64, get_api
-
-chat_func = (
-    openai.OpenAI().chat.completions.create
-    if _is_openai_v1()
-    else openai.ChatCompletion.create
-)
-completion_func = (
-    openai.OpenAI().completions.create if _is_openai_v1() else openai.Completion.create
-)
-expected_err = openai.APIError if _is_openai_v1() else openai.error.AuthenticationError
-expected_err_msg = (
-    "Connection error." if _is_openai_v1() else "You didn't provide an API key."
-)
 
 langfuse = Langfuse()
 
 
-def test_openai_chat_completion():
+@pytest.fixture(scope="module")
+def openai():
+    from langfuse.openai import openai as _openai
+
+    yield _openai
+
+
+def test_openai_chat_completion(openai):
     generation_name = create_uuid()
-    completion = chat_func(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[
@@ -79,9 +65,9 @@ def test_openai_chat_completion():
     assert generation.data[0].output["role"] == "assistant"
 
 
-def test_openai_chat_completion_stream():
+def test_openai_chat_completion_stream(openai):
     generation_name = create_uuid()
-    completion = chat_func(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -134,9 +120,9 @@ def test_openai_chat_completion_stream():
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
-def test_openai_chat_completion_stream_with_next_iteration():
+def test_openai_chat_completion_stream_with_next_iteration(openai):
     generation_name = create_uuid()
-    completion = chat_func(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -194,12 +180,12 @@ def test_openai_chat_completion_stream_with_next_iteration():
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
-def test_openai_chat_completion_stream_fail():
+def test_openai_chat_completion_stream_fail(openai):
     generation_name = create_uuid()
     openai.api_key = ""
 
     with pytest.raises(Exception):
-        chat_func(
+        openai.OpenAI().chat.completions.create(
             name=generation_name,
             model="fake",
             messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -241,7 +227,7 @@ def test_openai_chat_completion_stream_fail():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def test_openai_chat_completion_with_langfuse_prompt():
+def test_openai_chat_completion_with_langfuse_prompt(openai):
     generation_name = create_uuid()
     langfuse = Langfuse()
     prompt_name = create_uuid()
@@ -251,7 +237,7 @@ def test_openai_chat_completion_with_langfuse_prompt():
 
     prompt_client = langfuse.get_prompt(name=prompt_name)
 
-    chat_func(
+    openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Make me laugh"}],
@@ -269,13 +255,11 @@ def test_openai_chat_completion_with_langfuse_prompt():
     assert isinstance(generation.data[0].prompt_id, str)
 
 
-def test_openai_chat_completion_fail():
+def test_openai_chat_completion_fail(openai):
     generation_name = create_uuid()
 
-    openai.api_key = ""
-
     with pytest.raises(Exception):
-        chat_func(
+        openai.OpenAI().chat.completions.create(
             name=generation_name,
             model="fake",
             messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -312,8 +296,8 @@ def test_openai_chat_completion_fail():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def test_openai_chat_completion_without_extra_param():
-    completion = chat_func(
+def test_openai_chat_completion_without_extra_param(openai):
+    completion = openai.OpenAI().chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
@@ -323,9 +307,9 @@ def test_openai_chat_completion_without_extra_param():
     assert len(completion.choices) != 0
 
 
-def test_openai_chat_completion_two_calls():
+def test_openai_chat_completion_two_calls(openai):
     generation_name = create_uuid()
-    completion = chat_func(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -335,7 +319,7 @@ def test_openai_chat_completion_two_calls():
 
     generation_name_2 = create_uuid()
 
-    completion_2 = chat_func(
+    completion_2 = openai.OpenAI().chat.completions.create(
         name=generation_name_2,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "2 + 2 = "}],
@@ -366,9 +350,9 @@ def test_openai_chat_completion_two_calls():
     assert generation_2.data[0].input == [{"content": "2 + 2 = ", "role": "user"}]
 
 
-def test_openai_chat_completion_with_seed():
+def test_openai_chat_completion_with_seed(openai):
     generation_name = create_uuid()
-    completion = chat_func(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "1 + 1 = "}],
@@ -394,9 +378,9 @@ def test_openai_chat_completion_with_seed():
     assert len(completion.choices) != 0
 
 
-def test_openai_completion():
+def test_openai_completion(openai):
     generation_name = create_uuid()
-    completion = completion_func(
+    completion = openai.OpenAI().completions.create(
         name=generation_name,
         model="gpt-3.5-turbo-instruct",
         prompt="1 + 1 = ",
@@ -434,9 +418,9 @@ def test_openai_completion():
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
-def test_openai_completion_stream():
+def test_openai_completion_stream(openai):
     generation_name = create_uuid()
-    completion = completion_func(
+    completion = openai.OpenAI().completions.create(
         name=generation_name,
         model="gpt-3.5-turbo-instruct",
         prompt="1 + 1 = ",
@@ -487,13 +471,13 @@ def test_openai_completion_stream():
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
-def test_openai_completion_fail():
+def test_openai_completion_fail(openai):
     generation_name = create_uuid()
 
     openai.api_key = ""
 
     with pytest.raises(Exception):
-        completion_func(
+        openai.OpenAI().completions.create(
             name=generation_name,
             model="fake",
             prompt="1 + 1 = ",
@@ -530,12 +514,12 @@ def test_openai_completion_fail():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def test_openai_completion_stream_fail():
+def test_openai_completion_stream_fail(openai):
     generation_name = create_uuid()
     openai.api_key = ""
 
     with pytest.raises(Exception):
-        completion_func(
+        openai.OpenAI().completions.create(
             name=generation_name,
             model="gpt-3.5-turbo",
             prompt="1 + 1 = ",
@@ -577,14 +561,14 @@ def test_openai_completion_stream_fail():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def test_openai_completion_with_langfuse_prompt():
+def test_openai_completion_with_langfuse_prompt(openai):
     generation_name = create_uuid()
     langfuse = Langfuse()
     prompt_name = create_uuid()
     prompt_client = langfuse.create_prompt(
         name=prompt_name, prompt="test prompt", labels=["production"]
     )
-    completion_func(
+    openai.OpenAI().completions.create(
         name=generation_name,
         model="gpt-3.5-turbo-instruct",
         prompt="1 + 1 = ",
@@ -604,9 +588,9 @@ def test_openai_completion_with_langfuse_prompt():
     assert isinstance(generation.data[0].prompt_id, str)
 
 
-def test_fails_wrong_name():
+def test_fails_wrong_name(openai):
     with pytest.raises(TypeError, match="name must be a string"):
-        completion_func(
+        openai.OpenAI().completions.create(
             name={"key": "generation_name"},
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
@@ -614,9 +598,9 @@ def test_fails_wrong_name():
         )
 
 
-def test_fails_wrong_metadata():
+def test_fails_wrong_metadata(openai):
     with pytest.raises(TypeError, match="metadata must be a dictionary"):
-        completion_func(
+        openai.OpenAI().completions.create(
             metadata="metadata",
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
@@ -624,9 +608,9 @@ def test_fails_wrong_metadata():
         )
 
 
-def test_fails_wrong_trace_id():
+def test_fails_wrong_trace_id(openai):
     with pytest.raises(TypeError, match="trace_id must be a string"):
-        completion_func(
+        openai.OpenAI().completions.create(
             trace_id={"trace_id": "metadata"},
             model="gpt-3.5-turbo-instruct",
             prompt="1 + 1 = ",
@@ -635,8 +619,8 @@ def test_fails_wrong_trace_id():
 
 
 @pytest.mark.asyncio
-async def test_async_chat():
-    client = AsyncOpenAI()
+async def test_async_chat(openai):
+    client = openai.AsyncOpenAI()
     generation_name = create_uuid()
 
     completion = await client.chat.completions.create(
@@ -676,8 +660,8 @@ async def test_async_chat():
 
 
 @pytest.mark.asyncio
-async def test_async_chat_stream():
-    client = AsyncOpenAI()
+async def test_async_chat_stream(openai):
+    client = openai.AsyncOpenAI()
 
     generation_name = create_uuid()
 
@@ -724,8 +708,8 @@ async def test_async_chat_stream():
 
 
 @pytest.mark.asyncio
-async def test_async_chat_stream_with_anext():
-    client = AsyncOpenAI()
+async def test_async_chat_stream_with_anext(openai):
+    client = openai.AsyncOpenAI()
 
     generation_name = create_uuid()
 
@@ -782,7 +766,7 @@ async def test_async_chat_stream_with_anext():
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
-def test_openai_function_call():
+def test_openai_function_call(openai):
     from typing import List
 
     from pydantic import BaseModel
@@ -825,7 +809,7 @@ def test_openai_function_call():
     assert output["title"] is not None
 
 
-def test_openai_function_call_streamed():
+def test_openai_function_call_streamed(openai):
     from typing import List
 
     from pydantic import BaseModel
@@ -836,7 +820,7 @@ def test_openai_function_call_streamed():
         title: str
         steps: List[str]
 
-    response = chat_func(
+    response = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
@@ -867,7 +851,7 @@ def test_openai_function_call_streamed():
     assert "function_call" in generation.data[0].output
 
 
-def test_openai_tool_call():
+def test_openai_tool_call(openai):
     generation_name = create_uuid()
 
     tools = [
@@ -918,7 +902,7 @@ def test_openai_tool_call():
     assert generation.data[0].input["messages"] == messages
 
 
-def test_openai_tool_call_streamed():
+def test_openai_tool_call_streamed(openai):
     generation_name = create_uuid()
 
     tools = [
@@ -975,98 +959,7 @@ def test_openai_tool_call_streamed():
     assert generation.data[0].input["messages"] == messages
 
 
-def test_azure():
-    generation_name = create_uuid()
-    azure = AzureOpenAI(
-        api_key="missing",
-        api_version="2020-07-01-preview",
-        base_url="https://api.labs.azure.com",
-    )
-
-    with pytest.raises(APIConnectionError):
-        azure.chat.completions.create(
-            name=generation_name,
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "1 + 1 = "}],
-            temperature=0,
-            metadata={"someKey": "someResponse"},
-        )
-
-    langfuse.flush()
-
-    generation = get_api().observations.get_many(
-        name=generation_name, type="GENERATION"
-    )
-
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
-        "temperature": 0,
-        "top_p": 1,
-        "frequency_penalty": 0,
-        "max_tokens": "Infinity",
-        "presence_penalty": 0,
-    }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].level == "ERROR"
-
-
-@pytest.mark.asyncio
-async def test_async_azure():
-    generation_name = create_uuid()
-    azure = AsyncAzureOpenAI(
-        api_key="missing",
-        api_version="2020-07-01-preview",
-        base_url="https://api.labs.azure.com",
-    )
-
-    with pytest.raises(APIConnectionError):
-        await azure.chat.completions.create(
-            name=generation_name,
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "1 + 1 = "}],
-            temperature=0,
-            metadata={"someKey": "someResponse"},
-        )
-
-    langfuse.flush()
-
-    generation = get_api().observations.get_many(
-        name=generation_name, type="GENERATION"
-    )
-
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
-        "temperature": 0,
-        "top_p": 1,
-        "frequency_penalty": 0,
-        "max_tokens": "Infinity",
-        "presence_penalty": 0,
-    }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].level == "ERROR"
-
-
-def test_langchain_integration():
+def test_langchain_integration(openai):
     from langchain_openai import ChatOpenAI
 
     chat = ChatOpenAI(model="gpt-4o")
@@ -1080,7 +973,7 @@ def test_langchain_integration():
     assert result != ""
 
 
-def test_structured_output_response_format_kwarg():
+def test_structured_output_response_format_kwarg(openai):
     generation_name = (
         "test_structured_output_response_format_kwarg" + create_uuid()[0:10]
     )
@@ -1110,7 +1003,7 @@ def test_structured_output_response_format_kwarg():
         },
     }
 
-    chat_func(
+    openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-4o-2024-08-06",
         messages=[
@@ -1160,7 +1053,7 @@ def test_structured_output_response_format_kwarg():
     assert generation.data[0].output["role"] == "assistant"
 
 
-def test_structured_output_beta_completions_parse():
+def test_structured_output_beta_completions_parse(openai):
     from typing import List
 
     from packaging.version import Version
@@ -1223,8 +1116,8 @@ def test_structured_output_beta_completions_parse():
 
 
 @pytest.mark.asyncio
-async def test_close_async_stream():
-    client = AsyncOpenAI()
+async def test_close_async_stream(openai):
+    client = openai.AsyncOpenAI()
     generation_name = create_uuid()
 
     stream = await client.chat.completions.create(
@@ -1271,7 +1164,7 @@ async def test_close_async_stream():
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
 
 
-def test_base_64_image_input():
+def test_base_64_image_input(openai):
     client = openai.OpenAI()
     generation_name = "test_base_64_image_input" + create_uuid()[:8]
 
@@ -1324,7 +1217,7 @@ def test_base_64_image_input():
     assert "dog" in generation.data[0].output["content"]
 
 
-def test_audio_input_and_output():
+def test_audio_input_and_output(openai):
     client = openai.OpenAI()
     openai.langfuse_debug = True
     generation_name = "test_audio_input_and_output" + create_uuid()[:8]
@@ -1382,7 +1275,7 @@ def test_audio_input_and_output():
     )
 
 
-def test_response_api_text_input():
+def test_response_api_text_input(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_text_input" + create_uuid()[:8]
 
@@ -1415,7 +1308,7 @@ def test_response_api_text_input():
     assert generationData.output is not None
 
 
-def test_response_api_image_input():
+def test_response_api_image_input(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_image_input" + create_uuid()[:8]
 
@@ -1457,7 +1350,7 @@ def test_response_api_image_input():
     assert generationData.output is not None
 
 
-def test_response_api_web_search():
+def test_response_api_web_search(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_web_search" + create_uuid()[:8]
 
@@ -1490,7 +1383,7 @@ def test_response_api_web_search():
     assert generationData.metadata is not None
 
 
-def test_response_api_streaming():
+def test_response_api_streaming(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_streaming" + create_uuid()[:8]
 
@@ -1528,7 +1421,7 @@ def test_response_api_streaming():
     assert generationData.metadata["instructions"] == "You are a helpful assistant."
 
 
-def test_response_api_functions():
+def test_response_api_functions(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_functions" + create_uuid()[:8]
 
@@ -1581,7 +1474,7 @@ def test_response_api_functions():
     assert generationData.metadata is not None
 
 
-def test_response_api_reasoning():
+def test_response_api_reasoning(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_reasoning" + create_uuid()[:8]
 

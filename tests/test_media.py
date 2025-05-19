@@ -61,16 +61,13 @@ def test_content_sha256_hash():
 
 def test_reference_string():
     media = LangfuseMedia(content_bytes=SAMPLE_JPEG_BYTES, content_type="image/jpeg")
-    # Reference string should be None initially as media_id is not set
-    assert media._reference_string is None
 
-    # Set media_id
-    media._media_id = "test-id"
+    media._media_id = "MwoGlsMS6lW8ijWeRyZKfD"
     reference = media._reference_string
-    assert reference is not None
-    assert "test-id" in reference
-    assert "image/jpeg" in reference
-    assert "bytes" in reference
+    assert (
+        reference
+        == "@@@langfuseMedia:type=image/jpeg|id=MwoGlsMS6lW8ijWeRyZKfD|source=bytes@@@"
+    )
 
 
 def test_parse_reference_string():

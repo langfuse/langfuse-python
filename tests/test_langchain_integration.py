@@ -11,7 +11,6 @@ from tests.utils import get_api
 from .utils import create_uuid
 
 
-# to avoid the instanciation of langfuse in side langfuse.openai.
 def _is_streaming_response(response):
     return isinstance(response, types.GeneratorType) or isinstance(
         response, types.AsyncGeneratorType

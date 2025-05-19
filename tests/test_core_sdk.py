@@ -923,6 +923,7 @@ def test_create_span_and_generation():
 
     # Create initial span
     span = langfuse.start_span(name="span")
+    sleep(0.1)
     # Get trace ID for later use
     trace_id = span.trace_id
     # End the span

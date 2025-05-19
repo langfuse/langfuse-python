@@ -11,7 +11,6 @@ from langchain_openai import ChatOpenAI
 from langfuse import get_client, observe
 from langfuse.langchain import CallbackHandler
 from langfuse.media import LangfuseMedia
-from langfuse.openai import AsyncOpenAI
 from tests.utils import get_api
 
 mock_metadata = {"key": "metadata"}
@@ -804,6 +803,8 @@ async def test_async_generator_as_return_value():
 
 @pytest.mark.asyncio
 async def test_async_nested_openai_chat_stream():
+    from langfuse.openai import AsyncOpenAI
+
     mock_name = "test_async_nested_openai_chat_stream"
     langfuse = get_client()
     mock_trace_id = langfuse.create_trace_id()

@@ -434,7 +434,7 @@ def test_throw_if_name_unspecified(langfuse):
 
 # Should throw an error if nothing in cache and fetch fails
 def test_throw_when_failing_fetch_and_no_cache(langfuse):
-    prompt_name = "test"
+    prompt_name = "failing_fetch_and_no_cache"
 
     mock_server_call = langfuse.api.prompts.get
     mock_server_call.side_effect = Exception("Prompt not found")
