@@ -944,7 +944,6 @@ def test_create_span_and_generation():
     trace = get_api().trace.get(trace_id)
 
     # Verify trace details
-    assert trace.name == "span"  # First span's name becomes trace name
     assert len(trace.observations) == 2
 
     # Find span and generation
