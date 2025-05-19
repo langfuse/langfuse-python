@@ -1,10 +1,10 @@
 import json
-import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
-from langchain import OpenAI, PromptTemplate
+from langchain import PromptTemplate
+from langchain_openai import OpenAI
 
 from langfuse import Langfuse, observe
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
@@ -253,7 +253,7 @@ def test_langchain_dataset():
             dataset_item_id = item.id
             final_trace_id = span.trace_id
 
-            llm = OpenAI(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+            llm = OpenAI()
             template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
                 Title: {title}
                 Playwright: This is a synopsis for the above play:"""
@@ -284,6 +284,11 @@ def test_langchain_dataset():
     def sorted_dependencies_from_trace(trace):
         parent_to_observation = {}
         for obs in trace.observations:
+            # Filter out the generation that might leak in due to the monkey patching OpenAI integration
+            # that might have run in the previous test suite. TODO: fix this hack
+            if obs.name == "OpenAI-generation":
+                continue
+
             parent_to_observation[obs.parent_observation_id] = obs
 
         # Start with the root observation (parent_observation_id is None)
