@@ -1,19 +1,6 @@
 """Langfuse OpenTelemetry integration module.
 
-This module implements Langfuse's core observability functionality using the OpenTelemetry (OTel) standard.
-It provides structured tracing of AI/LLM application events, including spans, generations, and scoring,
-with built-in support for batching, sampling, and distributed tracing.
-
-The main class, Langfuse, provides a high-level interface for:
-- Creating and managing distributed trace contexts
-- Tracking AI model interactions with specialized span types (spans, generations)
-- Scoring and evaluating model outputs with different metrics types
-- Capturing detailed metadata, usage statistics, and cost information
-- Processing and uploading media content in observations
-
-This implementation uses OpenTelemetry's distributed tracing framework to ensure
-consistency, interoperability, and compliance with observability standards.
-All span and trace IDs follow the W3C Trace Context specification.
+This module implements Langfuse's core observability functionality on top of the OpenTelemetry (OTel) standard.
 """
 
 import logging
@@ -44,6 +31,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
     LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SAMPLE_RATE,
     LANGFUSE_SECRET_KEY,
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
@@ -79,7 +67,7 @@ from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
 
 
 class Langfuse:
-    """Main client for Langfuse observability using OpenTelemetry.
+    """Main client for Langfuse tracing and platform features.
 
     This class provides an interface for creating and managing traces, spans,
     and generations in Langfuse as well as interacting with the Langfuse API.
@@ -97,10 +85,21 @@ class Langfuse:
         async_api: Asynchronous API client for Langfuse backend communication
         langfuse_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
 
-    Thread Safety:
-        All methods are thread-safe. The client maintains context propagation using
-        OpenTelemetry's context management, allowing concurrent operations across
-        different threads while maintaining correct trace relationships.
+    Parameters:
+        public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
+        secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
+        host (Optional[str]): The Langfuse API host URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_HOST environment variable.
+        timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 30 seconds.
+        httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
+        debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
+        tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
+        flush_at (Optional[int]): Number of spans to batch before sending to the API. Defaults to 512. Can also be set via LANGFUSE_FLUSH_AT environment variable.
+        flush_interval (Optional[float]): Time in seconds between batch flushes. Defaults to 5 seconds. Can also be set via LANGFUSE_FLUSH_INTERVAL environment variable.
+        environment (Optional[str]): Environment name for tracing. Default is 'default'. Can also be set via LANGFUSE_TRACING_ENVIRONMENT environment variable. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
+        release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
+        media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
+        sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
+        mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
 
     Example:
         ```python
@@ -111,8 +110,6 @@ class Langfuse:
             public_key="your-public-key",
             secret_key="your-secret-key",
             host="https://cloud.langfuse.com",  # Optional, default shown
-            debug=False,                         # Optional, enables detailed logging
-            sample_rate=1.0                      # Optional, control trace sampling
         )
 
         # Create a trace span
@@ -188,6 +185,7 @@ class Langfuse:
 
         self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
 
         self._tracing_enabled = (
             tracing_enabled
@@ -241,6 +239,8 @@ class Langfuse:
 
         This method creates a new span but does not set it as the current span in the
         context. To create and use a span within a context, use start_as_current_span().
+
+        The created span will be the child of the current span in the context.
 
         Args:
             trace_context: Optional context for connecting to an existing trace
@@ -327,6 +327,8 @@ class Langfuse:
         This method creates a new span and sets it as the current span within a context
         manager. Use this method with a 'with' statement to automatically handle span
         lifecycle within a code block.
+
+        The created span will be the child of the current span in the context.
 
         Args:
             trace_context: Optional context for connecting to an existing trace
@@ -419,11 +421,13 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> LangfuseGeneration:
-        """Create a new generation span for AI model interactions.
+        """Create a new generation span for model generations.
 
-        This method creates a specialized span for tracking AI model generations/completions.
-        It includes additional fields specific to LLM operations such as model name,
+        This method creates a specialized span for tracking model generations.
+        It includes additional fields specific to model generations such as model name,
         token usage, and cost details.
+
+        The created generation span will be the child of the current span in the context.
 
         Args:
             trace_context: Optional context for connecting to an existing trace
@@ -538,9 +542,11 @@ class Langfuse:
     ) -> _AgnosticContextManager[LangfuseGeneration]:
         """Create a new generation span and set it as the current span in a context manager.
 
-        This method creates a specialized span for AI model generations and sets it as the
+        This method creates a specialized span for model generations and sets it as the
         current span within a context manager. Use this method with a 'with' statement to
         automatically handle the generation span lifecycle within a code block.
+
+        The created generation span will be the child of the current span in the context.
 
         Args:
             trace_context: Optional context for connecting to an existing trace
@@ -869,20 +875,20 @@ class Langfuse:
     ):
         """Update the current trace with additional information.
 
-        This method updates the trace that the current span belongs to. It's useful for
+        This method updates the Langfuse trace that the current span belongs to. It's useful for
         adding trace-level metadata like user ID, session ID, or tags that apply to
-        the entire trace rather than just a single span.
+        the entire Langfuse trace rather than just a single observation.
 
         Args:
-            name: Updated name for the trace
-            user_id: ID of the user who initiated the trace
-            session_id: Session identifier for grouping related traces
+            name: Updated name for the Langfuse trace
+            user_id: ID of the user who initiated the Langfuse trace
+            session_id: Session identifier for grouping related Langfuse traces
             version: Version identifier for the application or service
-            input: Input data for the overall trace
-            output: Output data from the overall trace
-            metadata: Additional metadata to associate with the trace
-            tags: List of tags to categorize the trace
-            public: Whether the trace should be publicly accessible
+            input: Input data for the overall Langfuse trace
+            output: Output data from the overall Langfuse trace
+            metadata: Additional metadata to associate with the Langfuse trace
+            tags: List of tags to categorize the Langfuse trace
+            public: Whether the Langfuse trace should be publicly accessible
 
         Example:
             ```python
@@ -1032,7 +1038,7 @@ class Langfuse:
                  If not provided, a random ID will be generated.
 
         Returns:
-            A 32-character lowercase hexadecimal string representing the trace ID.
+            A 32-character lowercase hexadecimal string representing the Langfuse trace ID.
 
         Example:
             ```python
@@ -1142,13 +1148,13 @@ class Langfuse:
     ) -> None:
         """Create a score for a specific trace or observation.
 
-        This method creates a score for evaluating a trace or observation. Scores can be
+        This method creates a score for evaluating a Langfuse trace or observation. Scores can be
         used to track quality metrics, user feedback, or automated evaluations.
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
             value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
-            trace_id: ID of the trace to associate the score with
+            trace_id: ID of the Langfuse trace to associate the score with
             observation_id: Optional ID of the specific observation to score
             score_id: Optional custom ID for the score (auto-generated if not provided)
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
@@ -1161,7 +1167,7 @@ class Langfuse:
             langfuse.create_score(
                 name="accuracy",
                 value=0.92,
-                trace_id="abcdef123456",
+                trace_id="abcdef1234567890abcdef1234567890",
                 data_type="NUMERIC",
                 comment="High accuracy with minor irrelevant details"
             )
@@ -1170,8 +1176,8 @@ class Langfuse:
             langfuse.create_score(
                 name="sentiment",
                 value="positive",
-                trace_id="abcdef123456",
-                observation_id="789012",
+                trace_id="abcdef1234567890abcdef1234567890",
+                observation_id="abcdef1234567890",
                 data_type="CATEGORICAL"
             )
             ```

@@ -15,7 +15,7 @@ The tracing environment. Can be any lowercase alphanumeric string with hyphens a
 
 LANGFUSE_RELEASE = "LANGFUSE_RELEASE"
 """
-.. envvar:: LANGFUSE_TRACING_ENVIRONMENT
+.. envvar:: LANGFUSE_RELEASE
 
 Release number/hash of the application to provide analytics grouped by release.
 """
@@ -85,4 +85,13 @@ LANGFUSE_FLUSH_INTERVAL = "LANGFUSE_FLUSH_INTERVAL"
 
 Max delay until a new ingestion batch is sent to the API.
 **Default value:** ``1``
+"""
+
+LANGFUSE_SAMPLE_RATE = "LANGFUSE_SAMPLE_RATE"
+"""
+.. envvar: LANGFUSE_SAMPLE_RATE
+
+Float between 0 and 1 indicating the sample rate of traces to bet sent to Langfuse servers.
+
+**Default value**: ``1.0``
 """

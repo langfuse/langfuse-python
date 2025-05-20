@@ -1,4 +1,4 @@
-"""Span implementations for Langfuse OpenTelemetry integration.
+"""OTEL span wrapper for Langfuse.
 
 This module defines custom span classes that extend OpenTelemetry spans with
 Langfuse-specific functionality. These wrapper classes provide methods for

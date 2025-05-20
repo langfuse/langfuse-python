@@ -88,7 +88,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # This is important to not send spans to wrong project in multi-project setups
         if self._is_langfuse_span(span) and not self._is_langfuse_project_span(span):
             langfuse_logger.debug(
-                f"Security: Span rejected - belongs to project '{span.instrumentation_scope.attributes.get('public_key')}' but processor is for '{self.public_key}'. "
+                f"Security: Span rejected - belongs to project '{span.instrumentation_scope.attributes.get('public_key') if span.instrumentation_scope and span.instrumentation_scope.attributes else None}' but processor is for '{self.public_key}'. "
                 f"This prevents cross-project data leakage in multi-project environments."
             )
             return

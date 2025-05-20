@@ -377,7 +377,9 @@ def _init_tracer_provider(
     if isinstance(default_provider, otel_trace_api.ProxyTracerProvider):
         provider = TracerProvider(
             resource=resource,
-            sampler=TraceIdRatioBased(sample_rate) if sample_rate is not None else None,
+            sampler=TraceIdRatioBased(sample_rate)
+            if sample_rate is not None and sample_rate < 1
+            else None,
         )
         otel_trace_api.set_tracer_provider(provider)
 
