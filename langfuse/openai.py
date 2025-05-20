@@ -22,19 +22,17 @@ import types
 from collections import defaultdict
 from dataclasses import dataclass
 from inspect import isclass
-from typing import Optional
+from typing import Optional, cast
 
 from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
 
-from langfuse import Langfuse
-from langfuse.client import StatefulGenerationClient
-from langfuse.decorators import langfuse_context
+from langfuse._client.get_client import get_client
+from langfuse._client.span import LangfuseGeneration
+from langfuse._utils import _get_timestamp
 from langfuse.media import LangfuseMedia
-from langfuse.utils import _get_timestamp
-from langfuse.utils.langfuse_singleton import LangfuseSingleton
 
 try:
     import openai
@@ -149,18 +147,13 @@ OPENAI_METHODS_V1 = [
 class OpenAiArgsExtractor:
     def __init__(
         self,
-        name=None,
         metadata=None,
-        trace_id=None,
-        session_id=None,
-        user_id=None,
-        tags=None,
-        parent_observation_id=None,
+        name=None,
         langfuse_prompt=None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
+        langfuse_public_key=None,
         **kwargs,
     ):
         self.args = {}
-        self.args["name"] = name
         self.args["metadata"] = (
             metadata
             if "response_format" not in kwargs
@@ -172,12 +165,10 @@ class OpenAiArgsExtractor:
                 else kwargs["response_format"],
             }
         )
-        self.args["trace_id"] = trace_id
-        self.args["session_id"] = session_id
-        self.args["user_id"] = user_id
-        self.args["tags"] = tags
-        self.args["parent_observation_id"] = parent_observation_id
+        self.args["name"] = name
+        self.args["langfuse_public_key"] = langfuse_public_key
         self.args["langfuse_prompt"] = langfuse_prompt
+
         self.kwargs = kwargs
 
     def get_langfuse_args(self):
@@ -199,9 +190,9 @@ class OpenAiArgsExtractor:
 
 
 def _langfuse_wrapper(func):
-    def _with_langfuse(open_ai_definitions, initialize):
+    def _with_langfuse(open_ai_definitions):
         def wrapper(wrapped, instance, args, kwargs):
-            return func(open_ai_definitions, initialize, wrapped, args, kwargs)
+            return func(open_ai_definitions, wrapped, args, kwargs)
 
         return wrapper
 
@@ -306,9 +297,7 @@ def _extract_chat_response(kwargs: any):
     return response
 
 
-def _get_langfuse_data_from_kwargs(
-    resource: OpenAiDefinition, langfuse: Langfuse, start_time, kwargs
-):
+def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs):
     name = kwargs.get("name", "OpenAI-generation")
 
     if name is None:
@@ -317,10 +306,11 @@ def _get_langfuse_data_from_kwargs(
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
 
-    decorator_context_observation_id = langfuse_context.get_current_observation_id()
-    decorator_context_trace_id = langfuse_context.get_current_trace_id()
+    langfuse_public_key = kwargs.get("langfuse_public_key", None)
+    if langfuse_public_key is not None and not isinstance(langfuse_public_key, str):
+        raise TypeError("langfuse_public_key must be a string")
 
-    trace_id = kwargs.get("trace_id", None) or decorator_context_trace_id
+    trace_id = kwargs.get("trace_id", None)
     if trace_id is not None and not isinstance(trace_id, str):
         raise TypeError("trace_id must be a string")
 
@@ -338,24 +328,14 @@ def _get_langfuse_data_from_kwargs(
     ):
         raise TypeError("tags must be a list of strings")
 
-    # Update trace params in decorator context if specified in openai call
-    if decorator_context_trace_id:
-        langfuse_context.update_current_trace(
-            session_id=session_id, user_id=user_id, tags=tags
-        )
-
-    parent_observation_id = kwargs.get("parent_observation_id", None) or (
-        decorator_context_observation_id
-        if decorator_context_observation_id != decorator_context_trace_id
-        else None
-    )
+    parent_observation_id = kwargs.get("parent_observation_id", None)
     if parent_observation_id is not None and not isinstance(parent_observation_id, str):
         raise TypeError("parent_observation_id must be a string")
+
     if parent_observation_id is not None and trace_id is None:
         raise ValueError("parent_observation_id requires trace_id to be set")
 
     metadata = kwargs.get("metadata", {})
-
     if metadata is not None and not isinstance(metadata, dict):
         raise TypeError("metadata must be a dictionary")
 
@@ -365,29 +345,10 @@ def _get_langfuse_data_from_kwargs(
 
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
-
     elif resource.object == "Responses":
         prompt = kwargs.get("input", None)
-
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
-
-    is_nested_trace = False
-    if trace_id:
-        is_nested_trace = True
-        langfuse.trace(id=trace_id, session_id=session_id, user_id=user_id, tags=tags)
-    else:
-        trace_id = (
-            decorator_context_trace_id
-            or langfuse.trace(
-                session_id=session_id,
-                user_id=user_id,
-                tags=tags,
-                name=name,
-                input=prompt,
-                metadata=metadata,
-            ).id
-        )
 
     parsed_temperature = (
         kwargs.get("temperature", 1)
@@ -445,27 +406,26 @@ def _get_langfuse_data_from_kwargs(
     return {
         "name": name,
         "metadata": metadata,
+        "langfuse_public_key": langfuse_public_key,
         "trace_id": trace_id,
         "parent_observation_id": parent_observation_id,
         "user_id": user_id,
-        "start_time": start_time,
         "input": prompt,
         "model_parameters": modelParameters,
         "model": model or None,
         "prompt": langfuse_prompt,
-    }, is_nested_trace
+    }
 
 
 def _create_langfuse_update(
     completion,
-    generation: StatefulGenerationClient,
+    generation: LangfuseGeneration,
     completion_start_time,
     model=None,
     usage=None,
     metadata=None,
 ):
     update = {
-        "end_time": _get_timestamp(),
         "output": completion,
         "completion_start_time": completion_start_time,
     }
@@ -476,10 +436,7 @@ def _create_langfuse_update(
         update["metadata"] = metadata
 
     if usage is not None:
-        parsed_usage = _parse_usage(usage)
-
-        update["usage"] = parsed_usage
-        update["usage_details"] = parsed_usage
+        update["usage_details"] = _parse_usage(usage)
 
     generation.update(**update)
 
@@ -712,16 +669,28 @@ def _is_streaming_response(response):
 
 
 @_langfuse_wrapper
-def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs):
-    new_langfuse: Langfuse = initialize()
-
-    start_time = _get_timestamp()
+def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+    langfuse_args = arg_extractor.get_langfuse_args()
 
-    generation, is_nested_trace = _get_langfuse_data_from_kwargs(
-        open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
+    langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
+    langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
+
+    generation = langfuse_client.start_generation(
+        name=langfuse_data["name"],
+        input=langfuse_data.get("input", None),
+        metadata=langfuse_data.get("metadata", None),
+        model_parameters=langfuse_data.get("model_parameters", None),
+        trace_context={
+            "trace_id": cast(str, langfuse_data.get("trace_id", None)),
+            "parent_span_id": cast(
+                str, langfuse_data.get("parent_observation_id", None)
+            ),
+        },
+        model=langfuse_data.get("model", None),
+        prompt=langfuse_data.get("prompt", None),
     )
-    generation = new_langfuse.generation(**generation)
+
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
@@ -730,8 +699,6 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
-                langfuse=new_langfuse,
-                is_nested_trace=is_nested_trace,
             )
 
         else:
@@ -741,49 +708,50 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 if _is_openai_v1()
                 else openai_response,
             )
+
             generation.update(
                 model=model,
                 output=completion,
-                end_time=_get_timestamp(),
-                usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
-            )
-
-            # Avoiding the trace-update if trace-id is provided by user.
-            if not is_nested_trace:
-                new_langfuse.trace(id=generation.trace_id, output=completion)
+            ).end()
 
         return openai_response
     except Exception as ex:
         log.warning(ex)
         model = kwargs.get("model", None) or None
         generation.update(
-            end_time=_get_timestamp(),
             status_message=str(ex),
             level="ERROR",
             model=model,
-            usage={
-                "input_cost": 0,
-                "output_cost": 0,
-                "total_cost": 0,
-            },  # backward compat for all V2 self hosters
             cost_details={"input": 0, "output": 0, "total": 0},
-        )
+        ).end()
+
         raise ex
 
 
 @_langfuse_wrapper
-async def _wrap_async(
-    open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs
-):
-    new_langfuse = initialize()
-    start_time = _get_timestamp()
+async def _wrap_async(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+    langfuse_args = arg_extractor.get_langfuse_args()
 
-    generation, is_nested_trace = _get_langfuse_data_from_kwargs(
-        open_ai_resource, new_langfuse, start_time, arg_extractor.get_langfuse_args()
+    langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
+    langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
+
+    generation = langfuse_client.start_generation(
+        name=langfuse_data["name"],
+        input=langfuse_data.get("input", None),
+        metadata=langfuse_data.get("metadata", None),
+        trace_context={
+            "trace_id": cast(str, langfuse_data.get("trace_id", None)),
+            "parent_span_id": cast(
+                str, langfuse_data.get("parent_observation_id", None)
+            ),
+        },
+        model_parameters=langfuse_data.get("model_parameters", None),
+        model=langfuse_data.get("model", None),
+        prompt=langfuse_data.get("prompt", None),
     )
-    generation = new_langfuse.generation(**generation)
+
     try:
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
@@ -792,8 +760,6 @@ async def _wrap_async(
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
-                langfuse=new_langfuse,
-                is_nested_trace=is_nested_trace,
             )
 
         else:
@@ -806,106 +772,41 @@ async def _wrap_async(
             generation.update(
                 model=model,
                 output=completion,
-                end_time=_get_timestamp(),
                 usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
-            )
-            # Avoiding the trace-update if trace-id is provided by user.
-            if not is_nested_trace:
-                new_langfuse.trace(id=generation.trace_id, output=completion)
+            ).end()
 
         return openai_response
     except Exception as ex:
+        log.warning(ex)
         model = kwargs.get("model", None) or None
         generation.update(
-            end_time=_get_timestamp(),
             status_message=str(ex),
             level="ERROR",
             model=model,
-            usage={
-                "input_cost": 0,
-                "output_cost": 0,
-                "total_cost": 0,
-            },  # Backward compat for all V2 self hosters
             cost_details={"input": 0, "output": 0, "total": 0},
-        )
+        ).end()
+
         raise ex
 
 
-class OpenAILangfuse:
-    _langfuse: Optional[Langfuse] = None
+def register_tracing():
+    resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
 
-    def initialize(self):
-        self._langfuse = LangfuseSingleton().get(
-            public_key=openai.langfuse_public_key,
-            secret_key=openai.langfuse_secret_key,
-            host=openai.langfuse_host,
-            debug=openai.langfuse_debug,
-            enabled=openai.langfuse_enabled,
-            sdk_integration="openai",
-            sample_rate=openai.langfuse_sample_rate,
-            environment=openai.langfuse_environment,
-            mask=openai.langfuse_mask,
+    for resource in resources:
+        if resource.min_version is not None and Version(openai.__version__) < Version(
+            resource.min_version
+        ):
+            continue
+
+        wrap_function_wrapper(
+            resource.module,
+            f"{resource.object}.{resource.method}",
+            _wrap(resource) if resource.sync else _wrap_async(resource),
         )
 
-        return self._langfuse
 
-    def flush(cls):
-        cls._langfuse.flush()
-
-    def langfuse_auth_check(self):
-        """Check if the provided Langfuse credentials (public and secret key) are valid.
-
-        Raises:
-            Exception: If no projects were found for the provided credentials.
-
-        Note:
-            This method is blocking. It is discouraged to use it in production code.
-        """
-        if self._langfuse is None:
-            self.initialize()
-
-        return self._langfuse.auth_check()
-
-    def register_tracing(self):
-        resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
-
-        for resource in resources:
-            if resource.min_version is not None and Version(
-                openai.__version__
-            ) < Version(resource.min_version):
-                continue
-
-            wrap_function_wrapper(
-                resource.module,
-                f"{resource.object}.{resource.method}",
-                _wrap(resource, self.initialize)
-                if resource.sync
-                else _wrap_async(resource, self.initialize),
-            )
-
-        setattr(openai, "langfuse_public_key", None)
-        setattr(openai, "langfuse_secret_key", None)
-        setattr(openai, "langfuse_host", None)
-        setattr(openai, "langfuse_debug", None)
-        setattr(openai, "langfuse_enabled", True)
-        setattr(openai, "langfuse_sample_rate", None)
-        setattr(openai, "langfuse_environment", None)
-        setattr(openai, "langfuse_mask", None)
-        setattr(openai, "langfuse_auth_check", self.langfuse_auth_check)
-        setattr(openai, "flush_langfuse", self.flush)
-
-
-modifier = OpenAILangfuse()
-modifier.register_tracing()
-
-
-# DEPRECATED: Use `openai.langfuse_auth_check()` instead
-def auth_check():
-    if modifier._langfuse is None:
-        modifier.initialize()
-
-    return modifier._langfuse.auth_check()
+register_tracing()
 
 
 class LangfuseResponseGeneratorSync:
@@ -915,16 +816,12 @@ class LangfuseResponseGeneratorSync:
         resource,
         response,
         generation,
-        langfuse,
-        is_nested_trace,
     ):
         self.items = []
 
         self.resource = resource
         self.response = response
         self.generation = generation
-        self.langfuse = langfuse
-        self.is_nested_trace = is_nested_trace
         self.completion_start_time = None
 
     def __iter__(self):
@@ -961,24 +858,25 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self):
-        model, completion, usage, metadata = (
-            _extract_streamed_response_api_response(self.items)
-            if self.resource.object == "Responses"
-            else _extract_streamed_openai_response(self.resource, self.items)
-        )
+        try:
+            model, completion, usage, metadata = (
+                _extract_streamed_response_api_response(self.items)
+                if self.resource.object == "Responses"
+                else _extract_streamed_openai_response(self.resource, self.items)
+            )
 
-        # Avoiding the trace-update if trace-id is provided by user.
-        if not self.is_nested_trace:
-            self.langfuse.trace(id=self.generation.trace_id, output=completion)
-
-        _create_langfuse_update(
-            completion,
-            self.generation,
-            self.completion_start_time,
-            model=model,
-            usage=usage,
-            metadata=metadata,
-        )
+            _create_langfuse_update(
+                completion,
+                self.generation,
+                self.completion_start_time,
+                model=model,
+                usage=usage,
+                metadata=metadata,
+            )
+        except Exception:
+            pass
+        finally:
+            self.generation.end()
 
 
 class LangfuseResponseGeneratorAsync:
@@ -988,16 +886,12 @@ class LangfuseResponseGeneratorAsync:
         resource,
         response,
         generation,
-        langfuse,
-        is_nested_trace,
     ):
         self.items = []
 
         self.resource = resource
         self.response = response
         self.generation = generation
-        self.langfuse = langfuse
-        self.is_nested_trace = is_nested_trace
         self.completion_start_time = None
 
     async def __aiter__(self):
@@ -1034,24 +928,25 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self):
-        model, completion, usage, metadata = (
-            _extract_streamed_response_api_response(self.items)
-            if self.resource.object == "Responses"
-            else _extract_streamed_openai_response(self.resource, self.items)
-        )
+        try:
+            model, completion, usage, metadata = (
+                _extract_streamed_response_api_response(self.items)
+                if self.resource.object == "Responses"
+                else _extract_streamed_openai_response(self.resource, self.items)
+            )
 
-        # Avoiding the trace-update if trace-id is provided by user.
-        if not self.is_nested_trace:
-            self.langfuse.trace(id=self.generation.trace_id, output=completion)
-
-        _create_langfuse_update(
-            completion,
-            self.generation,
-            self.completion_start_time,
-            model=model,
-            usage=usage,
-            metadata=metadata,
-        )
+            _create_langfuse_update(
+                completion,
+                self.generation,
+                self.completion_start_time,
+                model=model,
+                usage=usage,
+                metadata=metadata,
+            )
+        except Exception:
+            pass
+        finally:
+            self.generation.end()
 
     async def close(self) -> None:
         """Close the response and release the connection.

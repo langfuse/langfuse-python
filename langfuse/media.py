@@ -5,8 +5,12 @@ import hashlib
 import logging
 import os
 import re
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
+
 import requests
-from typing import Optional, cast, Tuple, Any, TypeVar, Literal
+
+if TYPE_CHECKING:
+    from langfuse._client.client import Langfuse
 
 from langfuse.api import MediaContentType
 from langfuse.types import ParsedMediaReference
@@ -64,7 +68,6 @@ class LangfuseMedia:
                 the current working directory is used.
         """
         self.obj = obj
-        self._media_id = None
 
         if base64_data_uri is not None:
             parsed_data = self._parse_base64_data_uri(base64_data_uri)
@@ -92,6 +95,8 @@ class LangfuseMedia:
             self._content_type = None
             self._source = None
 
+        self._media_id = self._get_media_id()
+
     def _read_file(self, file_path: str) -> Optional[bytes]:
         try:
             with open(file_path, "rb") as file:
@@ -100,6 +105,17 @@ class LangfuseMedia:
             self._log.error(f"Error reading file at path {file_path}", exc_info=e)
 
             return None
+
+    def _get_media_id(self):
+        content_hash = self._content_sha256_hash
+
+        if content_hash is None:
+            return
+
+        # Convert hash to base64Url
+        url_safe_content_hash = content_hash.replace("+", "-").replace("/", "_")
+
+        return url_safe_content_hash[:22]
 
     @property
     def _content_length(self) -> Optional[int]:
@@ -210,7 +226,7 @@ class LangfuseMedia:
     def resolve_media_references(
         *,
         obj: T,
-        langfuse_client: Any,
+        langfuse_client: "Langfuse",
         resolve_with: Literal["base64_data_uri"],
         max_depth: int = 10,
         content_fetch_timeout_seconds: int = 10,
@@ -274,9 +290,9 @@ class LangfuseMedia:
                         parsed_media_reference = LangfuseMedia.parse_reference_string(
                             reference_string
                         )
-                        media_data = langfuse_client.fetch_media(
+                        media_data = langfuse_client.api.media.get(
                             parsed_media_reference["media_id"]
-                        ).data
+                        )
                         media_content = requests.get(
                             media_data.url, timeout=content_fetch_timeout_seconds
                         )
