@@ -297,6 +297,7 @@ class Langfuse:
                         input=input,
                         output=output,
                         metadata=metadata,
+                        environment=self._environment,
                     )
 
         otel_span = self._otel_tracer.start_span(name=name, attributes=attributes)
@@ -307,6 +308,7 @@ class Langfuse:
             input=input,
             output=output,
             metadata=metadata,
+            environment=self._environment,
         )
 
     def start_as_current_span(
@@ -697,6 +699,7 @@ class Langfuse:
                     input=input,
                     output=output,
                     metadata=metadata,
+                    environment=self._environment,
                 )
                 if as_type == "span"
                 else LangfuseGeneration(
@@ -705,6 +708,7 @@ class Langfuse:
                     input=input,
                     output=output,
                     metadata=metadata,
+                    environment=self._environment,
                 )
             )
 
@@ -849,7 +853,11 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(otel_span=current_otel_span, langfuse_client=self)
+            span = LangfuseSpan(
+                otel_span=current_otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+            )
 
             span.update(
                 input=input,
@@ -919,7 +927,11 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(otel_span=current_otel_span, langfuse_client=self)
+            span = LangfuseSpan(
+                otel_span=current_otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+            )
 
             span.update_trace(
                 name=name,

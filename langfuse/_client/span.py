@@ -68,6 +68,7 @@ class LangfuseSpanWrapper(ABC):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
+        environment: Optional[str] = None,
     ):
         """Initialize a new Langfuse span wrapper.
 
@@ -78,6 +79,7 @@ class LangfuseSpanWrapper(ABC):
             input: Input data for the span (any JSON-serializable object)
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
+            environment: The tracing environment
         """
         self._otel_span = otel_span
         self._otel_span.set_attribute(
@@ -87,6 +89,12 @@ class LangfuseSpanWrapper(ABC):
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
         self.id = self._langfuse_client._get_otel_span_id(otel_span)
+
+        self._environment = environment
+        if self._environment is not None:
+            self._otel_span.set_attribute(
+                LangfuseOtelSpanAttributes.ENVIRONMENT, self._environment
+            )
 
         # Handle media only if span is sampled
         if self._otel_span.is_recording:
@@ -490,6 +498,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
+        environment: Optional[str] = None,
     ):
         """Initialize a new LangfuseSpan.
 
@@ -499,6 +508,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
             input: Input data for the span (any JSON-serializable object)
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
+            environment: The tracing environment
         """
         super().__init__(
             otel_span=otel_span,
@@ -507,6 +517,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
             input=input,
             output=output,
             metadata=metadata,
+            environment=environment,
         )
 
     def update(
@@ -643,7 +654,9 @@ class LangfuseSpan(LangfuseSpanWrapper):
                 )
 
         return LangfuseSpan(
-            otel_span=new_otel_span, langfuse_client=self._langfuse_client
+            otel_span=new_otel_span,
+            langfuse_client=self._langfuse_client,
+            environment=self._environment,
         )
 
     def start_as_current_span(
@@ -818,7 +831,9 @@ class LangfuseSpan(LangfuseSpanWrapper):
                 )
 
         return LangfuseGeneration(
-            otel_span=new_otel_span, langfuse_client=self._langfuse_client
+            otel_span=new_otel_span,
+            langfuse_client=self._langfuse_client,
+            environment=self._environment,
         )
 
     def start_as_current_generation(
@@ -936,6 +951,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
+        environment: Optional[str] = None,
     ):
         """Initialize a new LangfuseGeneration span.
 
@@ -945,6 +961,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
             input: Input data for the generation (e.g., prompts)
             output: Output from the generation (e.g., completions)
             metadata: Additional metadata to associate with the generation
+            environment: The tracing environment
         """
         super().__init__(
             otel_span=otel_span,
@@ -953,6 +970,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
             input=input,
             output=output,
             metadata=metadata,
+            environment=environment,
         )
 
     def update(
