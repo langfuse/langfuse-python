@@ -9,6 +9,7 @@ import re
 import urllib.parse
 from datetime import datetime
 from hashlib import sha256
+from time import time_ns
 from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
 
 import backoff
@@ -37,7 +38,11 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENVIRONMENT,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
-from langfuse._client.span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.span import (
+    LangfuseEvent,
+    LangfuseGeneration,
+    LangfuseSpan,
+)
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -944,6 +949,89 @@ class Langfuse:
                 tags=tags,
                 public=public,
             )
+
+    def create_event(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseEvent:
+        """Create a new Langfuse observation of type 'EVENT'.
+
+        The created Langfuse Event observation will be the child of the current span in the context.
+
+        Args:
+            trace_context: Optional context for connecting to an existing trace
+            name: Name of the span (e.g., function or operation name)
+            input: Input data for the operation (can be any JSON-serializable object)
+            output: Output data from the operation (can be any JSON-serializable object)
+            metadata: Additional metadata to associate with the span
+            version: Version identifier for the code or component
+            level: Importance level of the span (info, warning, error)
+            status_message: Optional status message for the span
+
+        Returns:
+            The Langfuse Event object
+
+        Example:
+            ```python
+            event = langfuse.create_event(name="process-event")
+            ```
+        """
+        timestamp = time_ns()
+        attributes = create_span_attributes(
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+        )
+
+        if trace_context:
+            trace_id = trace_context.get("trace_id", None)
+            parent_span_id = trace_context.get("parent_span_id", None)
+
+            if trace_id:
+                remote_parent_span = self._create_remote_parent_span(
+                    trace_id=trace_id, parent_span_id=parent_span_id
+                )
+
+                with otel_trace_api.use_span(
+                    cast(otel_trace_api.Span, remote_parent_span)
+                ):
+                    otel_span = self._otel_tracer.start_span(
+                        name=name, attributes=attributes, start_time=timestamp
+                    )
+                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+
+                    return LangfuseEvent(
+                        otel_span=otel_span,
+                        langfuse_client=self,
+                        input=input,
+                        output=output,
+                        metadata=metadata,
+                        environment=self._environment,
+                    ).end(end_time=timestamp)
+
+        otel_span = self._otel_tracer.start_span(
+            name=name, attributes=attributes, start_time=timestamp
+        )
+
+        return LangfuseEvent(
+            otel_span=otel_span,
+            langfuse_client=self,
+            input=input,
+            output=output,
+            metadata=metadata,
+            environment=self._environment,
+        ).end(end_time=timestamp)
 
     def _create_remote_parent_span(
         self, *, trace_id: str, parent_span_id: Optional[str]

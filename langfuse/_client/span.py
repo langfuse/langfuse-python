@@ -13,8 +13,8 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime
+from time import time_ns
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -45,7 +45,7 @@ from langfuse.logger import langfuse_logger
 from langfuse.types import MapValue, ScoreDataType, SpanLevel
 
 
-class LangfuseSpanWrapper(ABC):
+class LangfuseSpanWrapper:
     """Abstract base class for all Langfuse span types.
 
     This class provides common functionality for all Langfuse span types, including
@@ -64,7 +64,7 @@ class LangfuseSpanWrapper(ABC):
         *,
         otel_span: otel_trace_api.Span,
         langfuse_client: "Langfuse",
-        as_type: Literal["span", "generation"],
+        as_type: Literal["span", "generation", "event"],
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -132,18 +132,6 @@ class LangfuseSpanWrapper(ABC):
         self._otel_span.end(end_time=end_time)
 
         return self
-
-    @abstractmethod
-    def update(self, **kwargs) -> Union["LangfuseSpan", "LangfuseGeneration"]:
-        """Update the span with new information.
-
-        Abstract method that must be implemented by subclasses to update
-        the span with new information during its lifecycle.
-
-        Args:
-            **kwargs: Subclass-specific update parameters
-        """
-        pass
 
     def update_trace(
         self,
@@ -352,7 +340,7 @@ class LangfuseSpanWrapper(ABC):
         self,
         *,
         span: otel_trace_api.Span,
-        as_type: Optional[Literal["span", "generation"]] = None,
+        as_type: Optional[Literal["span", "generation", "event"]] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -934,6 +922,69 @@ class LangfuseSpan(LangfuseSpanWrapper):
             ),
         )
 
+    def create_event(
+        self,
+        *,
+        name: str,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> "LangfuseEvent":
+        """Create a new Langfuse observation of type 'EVENT'.
+
+        Args:
+            name: Name of the span (e.g., function or operation name)
+            input: Input data for the operation (can be any JSON-serializable object)
+            output: Output data from the operation (can be any JSON-serializable object)
+            metadata: Additional metadata to associate with the span
+            version: Version identifier for the code or component
+            level: Importance level of the span (info, warning, error)
+            status_message: Optional status message for the span
+
+        Returns:
+            The LangfuseEvent object
+
+        Example:
+            ```python
+            event = langfuse.create_event(name="process-event")
+            ```
+        """
+        timestamp = time_ns()
+        attributes = create_span_attributes(
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+        )
+
+        with otel_trace_api.use_span(self._otel_span):
+            new_otel_span = self._langfuse_client._otel_tracer.start_span(
+                name=name, attributes=attributes, start_time=timestamp
+            )
+
+            if new_otel_span.is_recording:
+                self._set_processed_span_attributes(
+                    span=new_otel_span,
+                    as_type="event",
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                )
+
+        return LangfuseEvent(
+            otel_span=new_otel_span,
+            langfuse_client=self._langfuse_client,
+            input=input,
+            output=output,
+            metadata=metadata,
+            environment=self._environment,
+        ).end(end_time=timestamp)
+
 
 class LangfuseGeneration(LangfuseSpanWrapper):
     """Specialized span implementation for AI model generations in Langfuse.
@@ -1069,3 +1120,37 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         self._otel_span.set_attributes(attributes=attributes)
 
         return self
+
+
+class LangfuseEvent(LangfuseSpanWrapper):
+    """Specialized span implementation for Langfuse Events."""
+
+    def __init__(
+        self,
+        *,
+        otel_span: otel_trace_api.Span,
+        langfuse_client: "Langfuse",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        environment: Optional[str] = None,
+    ):
+        """Initialize a new LangfuseEvent span.
+
+        Args:
+            otel_span: The OpenTelemetry span to wrap
+            langfuse_client: Reference to the parent Langfuse client
+            input: Input data for the generation (e.g., prompts)
+            output: Output from the generation (e.g., completions)
+            metadata: Additional metadata to associate with the generation
+            environment: The tracing environment
+        """
+        super().__init__(
+            otel_span=otel_span,
+            as_type="event",
+            langfuse_client=langfuse_client,
+            input=input,
+            output=output,
+            metadata=metadata,
+            environment=environment,
+        )
