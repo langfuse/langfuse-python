@@ -1120,7 +1120,8 @@ class Langfuse:
 
         return sha256(seed.encode("utf-8")).digest()[:8].hex()
 
-    def create_trace_id(self, *, seed: Optional[str] = None) -> str:
+    @staticmethod
+    def create_trace_id(*, seed: Optional[str] = None) -> str:
         """Create a unique trace ID for use with Langfuse.
 
         This method generates a unique trace ID for use with various Langfuse APIs.
@@ -1164,7 +1165,7 @@ class Langfuse:
         if not seed:
             trace_id_int = RandomIdGenerator().generate_trace_id()
 
-            return self._format_otel_trace_id(trace_id_int)
+            return Langfuse._format_otel_trace_id(trace_id_int)
 
         return sha256(seed.encode("utf-8")).digest()[:16].hex()
 
@@ -1178,7 +1179,8 @@ class Langfuse:
 
         return self._format_otel_span_id(span_context.span_id)
 
-    def _format_otel_span_id(self, span_id_int: int) -> str:
+    @staticmethod
+    def _format_otel_span_id(span_id_int: int) -> str:
         """Format an integer span ID to a 16-character lowercase hex string.
 
         Internal method to convert an OpenTelemetry integer span ID to the standard
@@ -1192,7 +1194,8 @@ class Langfuse:
         """
         return format(span_id_int, "016x")
 
-    def _format_otel_trace_id(self, trace_id_int: int) -> str:
+    @staticmethod
+    def _format_otel_trace_id(trace_id_int: int) -> str:
         """Format an integer trace ID to a 32-character lowercase hex string.
 
         Internal method to convert an OpenTelemetry integer trace ID to the standard
@@ -1481,9 +1484,6 @@ class Langfuse:
                 comment=comment,
                 config_id=config_id,
             )
-
-    def update_finished_trace(self):
-        pass
 
     def flush(self):
         """Force flush all pending spans and events to the Langfuse API.

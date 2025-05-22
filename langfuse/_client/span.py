@@ -1140,8 +1140,8 @@ class LangfuseEvent(LangfuseSpanWrapper):
         Args:
             otel_span: The OpenTelemetry span to wrap
             langfuse_client: Reference to the parent Langfuse client
-            input: Input data for the generation (e.g., prompts)
-            output: Output from the generation (e.g., completions)
+            input: Input data for the event
+            output: Output from the event
             metadata: Additional metadata to associate with the generation
             environment: The tracing environment
         """
