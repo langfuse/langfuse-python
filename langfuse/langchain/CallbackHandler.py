@@ -880,6 +880,8 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                         "token_count"
                     ]
 
+    usage_model = {k: v for k, v in usage_model.items() if not isinstance(v, str)}
+
     return usage_model if usage_model else None
 
 

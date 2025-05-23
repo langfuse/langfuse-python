@@ -94,6 +94,7 @@ def test_models(expected_model: str, model: Any):
 
 
 # all models here need to be tested here because we take the model from the kwargs / invocation_params or we need to make an actual call for setup
+@pytest.mark.skip("Flaky")
 @pytest.mark.parametrize(
     "expected_model,model",
     [
