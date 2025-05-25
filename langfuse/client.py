@@ -3371,7 +3371,7 @@ class DatasetItemClient:
             "run_name": run_name,
             "dataset_id": self.dataset_id,
         }
-        trace = self.langfuse.trace(name="dataset-run", metadata=metadata)
+        trace = self.langfuse.trace(name="dataset-run", metadata=metadata, version=self.langfuse.release)
 
         self.link(
             trace, run_name, run_metadata=run_metadata, run_description=run_description
