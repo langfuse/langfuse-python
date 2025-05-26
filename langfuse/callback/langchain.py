@@ -56,9 +56,11 @@ CONTROL_FLOW_EXCEPTION_TYPES: Set[Type[BaseException]] = set()
 
 try:
     from langgraph.errors import GraphBubbleUp
+
     CONTROL_FLOW_EXCEPTION_TYPES.add(GraphBubbleUp)
 except ImportError:
     pass
+
 
 class LangchainCallbackHandler(
     LangchainBaseCallbackHandler, LangfuseBaseCallbackHandler
@@ -1172,6 +1174,16 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                     usage_model[f"cached_modality_{item['modality']}"] = item[
                         "token_count"
                     ]
+
+    usage_model = (
+        {
+            k: v
+            for k, v in usage_model.items()
+            if v is not None and not isinstance(v, str)
+        }
+        if isinstance(usage_model, dict)
+        else usage_model
+    )
 
     return usage_model if usage_model else None
 
