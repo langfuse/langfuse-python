@@ -140,6 +140,21 @@ def test_upsert_and_get_dataset_item():
     assert get_new_item.status == DatasetStatus.ARCHIVED
 
 
+def test_dataset_special_characters():
+    langfuse = Langfuse(debug=False)
+
+    special_name = "Special Characters !@#/$%^&"
+    langfuse.create_dataset(name=special_name)
+    dataset = langfuse.get_dataset(special_name)
+    assert dataset.name == special_name
+
+    # Test with unicode characters
+    unicode_name = "Unicode Characters ñáéíóú"
+    langfuse.create_dataset(name=unicode_name)
+    dataset = langfuse.get_dataset(unicode_name)
+    assert dataset.name == unicode_name
+
+
 def test_dataset_run_with_metadata_and_description():
     langfuse = Langfuse(debug=False)
 

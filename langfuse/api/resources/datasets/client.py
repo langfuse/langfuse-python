@@ -3,6 +3,8 @@
 import typing
 from json.decoder import JSONDecodeError
 
+import urllib.parse
+
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.jsonable_encoder import jsonable_encoder
@@ -136,7 +138,7 @@ class DatasetsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/datasets/{jsonable_encoder(dataset_name)}",
+            f"api/public/v2/datasets/{urllib.parse.quote(dataset_name, safe='')}",
             method="GET",
             request_options=request_options,
         )
