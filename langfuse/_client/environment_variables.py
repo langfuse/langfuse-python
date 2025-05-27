@@ -94,4 +94,19 @@ LANGFUSE_SAMPLE_RATE = "LANGFUSE_SAMPLE_RATE"
 Float between 0 and 1 indicating the sample rate of traces to bet sent to Langfuse servers.
 
 **Default value**: ``1.0``
+
+"""
+LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED = (
+    "LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED"
+)
+"""
+.. envvar: LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED
+
+Default capture of function args, kwargs and return value when using the @observe decorator.
+
+Having default IO capture enabled for observe decorated function may have a performance impact on your application
+if large or deeply nested objects are attempted to be serialized. Set this value to `False` and use manual
+input/output setting on your observation to avoid this.
+
+**Default value**: ``True``
 """

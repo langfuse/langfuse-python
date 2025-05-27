@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import logging
+import os
 from functools import wraps
 from typing import (
     Any,
@@ -20,6 +21,9 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
+from langfuse._client.environment_variables import (
+    LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
+)
 from langfuse._client.get_client import get_client
 from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
@@ -141,6 +145,10 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
+        function_io_capture_enabled = (
+            os.environ.get(LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True")
+            != "False"
+        )
 
         def decorator(func: F) -> F:
             return (
@@ -148,8 +156,8 @@ class LangfuseDecorator:
                     func,
                     name=name,
                     as_type=as_type,
-                    capture_input=capture_input,
-                    capture_output=capture_output,
+                    capture_input=function_io_capture_enabled and capture_input,
+                    capture_output=function_io_capture_enabled and capture_output,
                     transform_to_string=transform_to_string,
                 )
                 if asyncio.iscoroutinefunction(func)
@@ -157,8 +165,8 @@ class LangfuseDecorator:
                     func,
                     name=name,
                     as_type=as_type,
-                    capture_input=capture_input,
-                    capture_output=capture_output,
+                    capture_input=function_io_capture_enabled and capture_input,
+                    capture_output=function_io_capture_enabled and capture_output,
                     transform_to_string=transform_to_string,
                 )
             )
