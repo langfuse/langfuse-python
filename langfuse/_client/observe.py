@@ -147,7 +147,7 @@ class LangfuseDecorator:
         """
         function_io_capture_enabled = (
             os.environ.get(LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True")
-            != "False"
+            .lower() not in ("false", "0")
         )
 
         def decorator(func: F) -> F:
