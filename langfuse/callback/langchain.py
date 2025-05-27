@@ -1139,9 +1139,11 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                     and "modality" in item
                     and "token_count" in item
                 ):
-                    usage_model[f"input_modality_{item['modality']}"] = item[
-                        "token_count"
-                    ]
+                    value = item["token_count"]
+                    usage_model[f"input_modality_{item['modality']}"] = value
+
+                    if "input" in usage_model:
+                        usage_model["input"] = max(0, usage_model["input"] - value)
 
         # Vertex AI
         if "candidates_tokens_details" in usage_model and isinstance(
@@ -1155,9 +1157,11 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                     and "modality" in item
                     and "token_count" in item
                 ):
-                    usage_model[f"output_modality_{item['modality']}"] = item[
-                        "token_count"
-                    ]
+                    value = item["token_count"]
+                    usage_model[f"output_modality_{item['modality']}"] = value
+
+                    if "output" in usage_model:
+                        usage_model["output"] = max(0, usage_model["output"] - value)
 
         # Vertex AI
         if "cache_tokens_details" in usage_model and isinstance(
@@ -1171,9 +1175,11 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
                     and "modality" in item
                     and "token_count" in item
                 ):
-                    usage_model[f"cached_modality_{item['modality']}"] = item[
-                        "token_count"
-                    ]
+                    value = item["token_count"]
+                    usage_model[f"cached_modality_{item['modality']}"] = value
+
+                    if "input" in usage_model:
+                        usage_model["input"] = max(0, usage_model["input"] - value)
 
     usage_model = (
         {
