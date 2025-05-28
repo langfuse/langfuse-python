@@ -160,8 +160,22 @@ class Langfuse:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
     ):
-        debug = debug if debug else (os.getenv(LANGFUSE_DEBUG, "False") == "True")
+        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        self._mask = mask
+        self._project_id = None
+        sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
 
+        self._tracing_enabled = (
+            tracing_enabled
+            and os.environ.get(LANGFUSE_TRACING_ENABLED, "True") != "False"
+        )
+        if not self._tracing_enabled:
+            langfuse_logger.info(
+                "Configuration: Langfuse tracing is explicitly disabled. No data will be sent to the Langfuse API."
+            )
+
+        debug = debug if debug else (os.getenv(LANGFUSE_DEBUG, "False") == "True")
         if debug:
             logging.basicConfig(
                 format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -187,23 +201,6 @@ class Langfuse:
             )
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
-
-        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
-        sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
-
-        self._tracing_enabled = (
-            tracing_enabled
-            and os.environ.get(LANGFUSE_TRACING_ENABLED, "True") != "False"
-        )
-
-        if not self._tracing_enabled:
-            langfuse_logger.info(
-                "Configuration: Langfuse tracing is explicitly disabled. No data will be sent to the Langfuse API."
-            )
-
-        self._mask = mask
-        self._project_id = None
 
         # Initialize api and tracer if requirements are met
         self._resources = LangfuseResourceManager(
