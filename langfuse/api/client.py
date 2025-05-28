@@ -22,14 +22,20 @@ from .resources.media.client import AsyncMediaClient, MediaClient
 from .resources.metrics.client import AsyncMetricsClient, MetricsClient
 from .resources.models.client import AsyncModelsClient, ModelsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
+from .resources.organizations.client import (
+    AsyncOrganizationsClient,
+    OrganizationsClient,
+)
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.prompt_version.client import (
     AsyncPromptVersionClient,
     PromptVersionClient,
 )
 from .resources.prompts.client import AsyncPromptsClient, PromptsClient
+from .resources.scim.client import AsyncScimClient, ScimClient
 from .resources.score.client import AsyncScoreClient, ScoreClient
 from .resources.score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
+from .resources.score_v_2.client import AsyncScoreV2Client, ScoreV2Client
 from .resources.sessions.client import AsyncSessionsClient, SessionsClient
 from .resources.trace.client import AsyncTraceClient, TraceClient
 
@@ -118,10 +124,13 @@ class FernLangfuse:
         self.metrics = MetricsClient(client_wrapper=self._client_wrapper)
         self.models = ModelsClient(client_wrapper=self._client_wrapper)
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
+        self.organizations = OrganizationsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.prompt_version = PromptVersionClient(client_wrapper=self._client_wrapper)
         self.prompts = PromptsClient(client_wrapper=self._client_wrapper)
+        self.scim = ScimClient(client_wrapper=self._client_wrapper)
         self.score_configs = ScoreConfigsClient(client_wrapper=self._client_wrapper)
+        self.score_v_2 = ScoreV2Client(client_wrapper=self._client_wrapper)
         self.score = ScoreClient(client_wrapper=self._client_wrapper)
         self.sessions = SessionsClient(client_wrapper=self._client_wrapper)
         self.trace = TraceClient(client_wrapper=self._client_wrapper)
@@ -213,14 +222,19 @@ class AsyncFernLangfuse:
         self.metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         self.models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
+        self.organizations = AsyncOrganizationsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.prompt_version = AsyncPromptVersionClient(
             client_wrapper=self._client_wrapper
         )
         self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
+        self.scim = AsyncScimClient(client_wrapper=self._client_wrapper)
         self.score_configs = AsyncScoreConfigsClient(
             client_wrapper=self._client_wrapper
         )
+        self.score_v_2 = AsyncScoreV2Client(client_wrapper=self._client_wrapper)
         self.score = AsyncScoreClient(client_wrapper=self._client_wrapper)
         self.sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
         self.trace = AsyncTraceClient(client_wrapper=self._client_wrapper)

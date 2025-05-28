@@ -1221,6 +1221,7 @@ class Langfuse:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -1235,6 +1236,7 @@ class Langfuse:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def create_score(
@@ -1242,12 +1244,15 @@ class Langfuse:
         *,
         name: str,
         value: Union[float, str],
-        trace_id: str,
+        session_id: Optional[str] = None,
+        dataset_run_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
         observation_id: Optional[str] = None,
         score_id: Optional[str] = None,
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for a specific trace or observation.
 
@@ -1257,12 +1262,15 @@ class Langfuse:
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
             value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            session_id: ID of the Langfuse session to associate the score with
+            dataset_run_id: ID of the Langfuse dataset run to associate the score with
             trace_id: ID of the Langfuse trace to associate the score with
-            observation_id: Optional ID of the specific observation to score
+            observation_id: Optional ID of the specific observation to score. Trace ID must be provided too.
             score_id: Optional custom ID for the score (auto-generated if not provided)
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -1293,6 +1301,8 @@ class Langfuse:
         try:
             score_event = {
                 "id": score_id,
+                "session_id": session_id,
+                "dataset_run_id": dataset_run_id,
                 "trace_id": trace_id,
                 "observation_id": observation_id,
                 "name": name,
@@ -1301,6 +1311,7 @@ class Langfuse:
                 "comment": comment,
                 "config_id": config_id,
                 "environment": self._environment,
+                "metadata": metadata,
             }
 
             new_body = ScoreBody(**score_event)

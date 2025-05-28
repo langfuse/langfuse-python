@@ -132,7 +132,7 @@ class ObservationsClient:
             Optional filter for observations where the environment is one of the provided values.
 
         from_start_time : typing.Optional[dt.datetime]
-            Retrieve only observations with a start_time or or after this datetime (ISO 8601).
+            Retrieve only observations with a start_time on or after this datetime (ISO 8601).
 
         to_start_time : typing.Optional[dt.datetime]
             Retrieve only observations with a start_time before this datetime (ISO 8601).
@@ -331,7 +331,7 @@ class AsyncObservationsClient:
             Optional filter for observations where the environment is one of the provided values.
 
         from_start_time : typing.Optional[dt.datetime]
-            Retrieve only observations with a start_time or or after this datetime (ISO 8601).
+            Retrieve only observations with a start_time on or after this datetime (ISO 8601).
 
         to_start_time : typing.Optional[dt.datetime]
             Retrieve only observations with a start_time before this datetime (ISO 8601).

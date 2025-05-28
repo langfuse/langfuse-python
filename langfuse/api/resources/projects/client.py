@@ -5,6 +5,7 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import pydantic_v1
 from ...core.request_options import RequestOptions
 from ..commons.errors.access_denied_error import AccessDeniedError
@@ -12,7 +13,15 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
+from .types.api_key_deletion_response import ApiKeyDeletionResponse
+from .types.api_key_list import ApiKeyList
+from .types.api_key_response import ApiKeyResponse
+from .types.project import Project
+from .types.project_deletion_response import ProjectDeletionResponse
 from .types.projects import Projects
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class ProjectsClient:
@@ -54,6 +63,448 @@ class ProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(Projects, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def create(
+        self,
+        *,
+        name: str,
+        retention: int,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Project:
+        """
+        Create a new project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        name : str
+
+        retention : int
+            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Optional metadata for the project
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Project
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.projects.create(
+            name="name",
+            retention=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/public/projects",
+            method="POST",
+            json={"name": name, "metadata": metadata, "retention": retention},
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Project, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def update(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        retention: int,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Project:
+        """
+        Update a project by ID (requires organization-scoped API key).
+
+        Parameters
+        ----------
+        project_id : str
+
+        name : str
+
+        retention : int
+            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Optional metadata for the project
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Project
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.projects.update(
+            project_id="projectId",
+            name="name",
+            retention=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}",
+            method="PUT",
+            json={"name": name, "metadata": metadata, "retention": retention},
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Project, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete(
+        self,
+        project_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ProjectDeletionResponse:
+        """
+        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously.
+
+        Parameters
+        ----------
+        project_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ProjectDeletionResponse
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.projects.delete(
+            project_id="projectId",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    ProjectDeletionResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_api_keys(
+        self,
+        project_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiKeyList:
+        """
+        Get all API keys for a project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        project_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiKeyList
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.projects.get_api_keys(
+            project_id="projectId",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(ApiKeyList, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def create_api_key(
+        self,
+        project_id: str,
+        *,
+        note: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiKeyResponse:
+        """
+        Create a new API key for a project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        project_id : str
+
+        note : typing.Optional[str]
+            Optional note for the API key
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiKeyResponse
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.projects.create_api_key(
+            project_id="projectId",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
+            method="POST",
+            json={"note": note},
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(ApiKeyResponse, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_api_key(
+        self,
+        project_id: str,
+        api_key_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiKeyDeletionResponse:
+        """
+        Delete an API key for a project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        project_id : str
+
+        api_key_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiKeyDeletionResponse
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.projects.delete_api_key(
+            project_id="projectId",
+            api_key_id="apiKeyId",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys/{jsonable_encoder(api_key_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    ApiKeyDeletionResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -125,6 +576,496 @@ class AsyncProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(Projects, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create(
+        self,
+        *,
+        name: str,
+        retention: int,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Project:
+        """
+        Create a new project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        name : str
+
+        retention : int
+            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Optional metadata for the project
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Project
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.projects.create(
+                name="name",
+                retention=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/public/projects",
+            method="POST",
+            json={"name": name, "metadata": metadata, "retention": retention},
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Project, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def update(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        retention: int,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Project:
+        """
+        Update a project by ID (requires organization-scoped API key).
+
+        Parameters
+        ----------
+        project_id : str
+
+        name : str
+
+        retention : int
+            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Optional metadata for the project
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Project
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.projects.update(
+                project_id="projectId",
+                name="name",
+                retention=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}",
+            method="PUT",
+            json={"name": name, "metadata": metadata, "retention": retention},
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(Project, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete(
+        self,
+        project_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ProjectDeletionResponse:
+        """
+        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously.
+
+        Parameters
+        ----------
+        project_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ProjectDeletionResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.projects.delete(
+                project_id="projectId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    ProjectDeletionResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_api_keys(
+        self,
+        project_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiKeyList:
+        """
+        Get all API keys for a project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        project_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiKeyList
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.projects.get_api_keys(
+                project_id="projectId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(ApiKeyList, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_api_key(
+        self,
+        project_id: str,
+        *,
+        note: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiKeyResponse:
+        """
+        Create a new API key for a project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        project_id : str
+
+        note : typing.Optional[str]
+            Optional note for the API key
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiKeyResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.projects.create_api_key(
+                project_id="projectId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
+            method="POST",
+            json={"note": note},
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(ApiKeyResponse, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_api_key(
+        self,
+        project_id: str,
+        api_key_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiKeyDeletionResponse:
+        """
+        Delete an API key for a project (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        project_id : str
+
+        api_key_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiKeyDeletionResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.projects.delete_api_key(
+                project_id="projectId",
+                api_key_id="apiKeyId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys/{jsonable_encoder(api_key_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    ApiKeyDeletionResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
