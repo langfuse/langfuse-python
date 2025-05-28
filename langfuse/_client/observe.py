@@ -145,10 +145,9 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        function_io_capture_enabled = (
-            os.environ.get(LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True")
-            .lower() not in ("false", "0")
-        )
+        function_io_capture_enabled = os.environ.get(
+            LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True"
+        ).lower() not in ("false", "0")
 
         def decorator(func: F) -> F:
             return (
