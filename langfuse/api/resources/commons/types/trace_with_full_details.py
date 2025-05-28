@@ -6,7 +6,7 @@ import typing
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from .observations_view import ObservationsView
-from .score import Score
+from .score_v_1 import ScoreV1
 from .trace import Trace
 
 
@@ -31,7 +31,7 @@ class TraceWithFullDetails(Trace):
     List of observations
     """
 
-    scores: typing.List[Score] = pydantic_v1.Field()
+    scores: typing.List[ScoreV1] = pydantic_v1.Field()
     """
     List of scores
     """

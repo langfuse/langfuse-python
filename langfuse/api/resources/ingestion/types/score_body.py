@@ -23,7 +23,16 @@ class ScoreBody(pydantic_v1.BaseModel):
     """
 
     id: typing.Optional[str] = None
-    trace_id: str = pydantic_v1.Field(alias="traceId")
+    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
+    session_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="sessionId", default=None
+    )
+    observation_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="observationId", default=None
+    )
+    dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="datasetRunId", default=None
+    )
     name: str
     environment: typing.Optional[str] = None
     value: CreateScoreValue = pydantic_v1.Field()
@@ -31,10 +40,8 @@ class ScoreBody(pydantic_v1.BaseModel):
     The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)
     """
 
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     data_type: typing.Optional[ScoreDataType] = pydantic_v1.Field(
         alias="dataType", default=None
     )

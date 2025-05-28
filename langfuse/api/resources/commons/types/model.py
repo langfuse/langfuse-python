@@ -5,6 +5,7 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .model_price import ModelPrice
 from .model_usage_unit import ModelUsageUnit
 
 
@@ -40,21 +41,21 @@ class Model(pydantic_v1.BaseModel):
         alias="inputPrice", default=None
     )
     """
-    Price (USD) per input unit
+    Deprecated. See 'prices' instead. Price (USD) per input unit
     """
 
     output_price: typing.Optional[float] = pydantic_v1.Field(
         alias="outputPrice", default=None
     )
     """
-    Price (USD) per output unit
+    Deprecated. See 'prices' instead. Price (USD) per output unit
     """
 
     total_price: typing.Optional[float] = pydantic_v1.Field(
         alias="totalPrice", default=None
     )
     """
-    Price (USD) per total unit. Cannot be set if input or output price is set.
+    Deprecated. See 'prices' instead. Price (USD) per total unit. Cannot be set if input or output price is set.
     """
 
     tokenizer_id: typing.Optional[str] = pydantic_v1.Field(
@@ -72,6 +73,10 @@ class Model(pydantic_v1.BaseModel):
     """
 
     is_langfuse_managed: bool = pydantic_v1.Field(alias="isLangfuseManaged")
+    prices: typing.Dict[str, ModelPrice] = pydantic_v1.Field()
+    """
+    Price (USD) by usage type
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
