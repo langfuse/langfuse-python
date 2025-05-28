@@ -29,6 +29,7 @@ from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
+    LANGFUSE_MEDIA_UPLOAD_ENABLED,
     LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT,
     LANGFUSE_RELEASE,
     LANGFUSE_TRACING_ENVIRONMENT,
@@ -190,6 +191,10 @@ class LangfuseResourceManager:
         )
 
         # Media
+        self._media_upload_enabled = os.environ.get(
+            LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
+        ).lower() not in ("false", "0")
+
         self._media_upload_queue = Queue(100_000)
         self._media_manager = MediaManager(
             api_client=self.api,
@@ -202,13 +207,14 @@ class LangfuseResourceManager:
             int(os.getenv(LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT, 1)), 1
         )
 
-        for i in range(media_upload_thread_count):
-            media_upload_consumer = MediaUploadConsumer(
-                identifier=i,
-                media_manager=self._media_manager,
-            )
-            media_upload_consumer.start()
-            self._media_upload_consumers.append(media_upload_consumer)
+        if self._media_upload_enabled:
+            for i in range(media_upload_thread_count):
+                media_upload_consumer = MediaUploadConsumer(
+                    identifier=i,
+                    media_manager=self._media_manager,
+                )
+                media_upload_consumer.start()
+                self._media_upload_consumers.append(media_upload_consumer)
 
         # Prompt cache
         self.prompt_cache = PromptCache()
