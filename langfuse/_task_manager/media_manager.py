@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
@@ -7,6 +8,7 @@ import backoff
 import requests
 from typing_extensions import ParamSpec
 
+from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
 from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
 from langfuse.api.client import FernLangfuse
@@ -33,6 +35,9 @@ class MediaManager:
         self._api_client = api_client
         self._queue = media_upload_queue
         self._max_retries = max_retries
+        self._enabled = os.environ.get(
+            LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
+        ).lower() not in ("false", "0")
 
     def process_next_media_upload(self):
         try:
@@ -60,6 +65,9 @@ class MediaManager:
         observation_id: Optional[str],
         field: str,
     ):
+        if not self._enabled:
+            return data
+
         seen = set()
         max_levels = 10
 

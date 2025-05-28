@@ -110,3 +110,12 @@ input/output setting on your observation to avoid this.
 
 **Default value**: ``True``
 """
+
+LANGFUSE_MEDIA_UPLOAD_ENABLED = "LANGFUSE_MEDIA_UPLOAD_ENABLED"
+"""
+.. envvar: LANGFUSE_MEDIA_UPLOAD_ENABLED
+
+Controls whether media detection and upload is attempted by the SDK.
+
+**Default value**: ``True``
+"""
