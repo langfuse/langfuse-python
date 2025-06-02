@@ -5,19 +5,21 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .usage_by_model import UsageByModel
+from .resource_meta import ResourceMeta
+from .schema_extension import SchemaExtension
 
 
-class DailyMetricsDetails(pydantic_v1.BaseModel):
-    date: dt.date
-    count_traces: int = pydantic_v1.Field(alias="countTraces")
-    count_observations: int = pydantic_v1.Field(alias="countObservations")
-    total_cost: float = pydantic_v1.Field(alias="totalCost")
-    """
-    Total model cost in USD
-    """
-
-    usage: typing.List[UsageByModel]
+class ResourceType(pydantic_v1.BaseModel):
+    schemas: typing.Optional[typing.List[str]] = None
+    id: str
+    name: str
+    endpoint: str
+    description: str
+    schema_: str = pydantic_v1.Field(alias="schema")
+    schema_extensions: typing.List[SchemaExtension] = pydantic_v1.Field(
+        alias="schemaExtensions"
+    )
+    meta: ResourceMeta
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

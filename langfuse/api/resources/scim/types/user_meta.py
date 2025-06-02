@@ -5,12 +5,14 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from ...commons.types.numeric_score import NumericScore
-from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 
-class GetScoresResponseDataNumeric(NumericScore):
-    trace: GetScoresResponseTraceData
+class UserMeta(pydantic_v1.BaseModel):
+    resource_type: str = pydantic_v1.Field(alias="resourceType")
+    created: typing.Optional[str] = None
+    last_modified: typing.Optional[str] = pydantic_v1.Field(
+        alias="lastModified", default=None
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

@@ -5,12 +5,11 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from ...commons.types.categorical_score import CategoricalScore
-from .get_scores_response_trace_data import GetScoresResponseTraceData
+from .membership_response import MembershipResponse
 
 
-class GetScoresResponseDataCategorical(CategoricalScore):
-    trace: GetScoresResponseTraceData
+class MembershipsResponse(pydantic_v1.BaseModel):
+    memberships: typing.List[MembershipResponse]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -40,7 +39,5 @@ class GetScoresResponseDataCategorical(CategoricalScore):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

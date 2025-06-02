@@ -12,15 +12,21 @@ from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 
 class GetScoresResponseData_Numeric(pydantic_v1.BaseModel):
-    trace: GetScoresResponseTraceData
+    trace: typing.Optional[GetScoresResponseTraceData] = None
     value: float
     id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
+    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
+    session_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="sessionId", default=None
+    )
     observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="observationId", default=None
     )
+    dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="datasetRunId", default=None
+    )
+    name: str
+    source: ScoreSource
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
@@ -28,6 +34,7 @@ class GetScoresResponseData_Numeric(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     environment: typing.Optional[str] = None
@@ -70,16 +77,22 @@ class GetScoresResponseData_Numeric(pydantic_v1.BaseModel):
 
 
 class GetScoresResponseData_Categorical(pydantic_v1.BaseModel):
-    trace: GetScoresResponseTraceData
+    trace: typing.Optional[GetScoresResponseTraceData] = None
     value: typing.Optional[float] = None
     string_value: str = pydantic_v1.Field(alias="stringValue")
     id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
+    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
+    session_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="sessionId", default=None
+    )
     observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="observationId", default=None
     )
+    dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="datasetRunId", default=None
+    )
+    name: str
+    source: ScoreSource
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
@@ -87,6 +100,7 @@ class GetScoresResponseData_Categorical(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     environment: typing.Optional[str] = None
@@ -129,16 +143,22 @@ class GetScoresResponseData_Categorical(pydantic_v1.BaseModel):
 
 
 class GetScoresResponseData_Boolean(pydantic_v1.BaseModel):
-    trace: GetScoresResponseTraceData
+    trace: typing.Optional[GetScoresResponseTraceData] = None
     value: float
     string_value: str = pydantic_v1.Field(alias="stringValue")
     id: str
-    trace_id: str = pydantic_v1.Field(alias="traceId")
-    name: str
-    source: ScoreSource
+    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
+    session_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="sessionId", default=None
+    )
     observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="observationId", default=None
     )
+    dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
+        alias="datasetRunId", default=None
+    )
+    name: str
+    source: ScoreSource
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
@@ -146,6 +166,7 @@ class GetScoresResponseData_Boolean(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
+    metadata: typing.Optional[typing.Any] = None
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     environment: typing.Optional[str] = None

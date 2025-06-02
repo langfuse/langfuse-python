@@ -5,17 +5,15 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from ...utils.resources.pagination.types.meta_response import MetaResponse
-from .daily_metrics_details import DailyMetricsDetails
+from .api_key_summary import ApiKeySummary
 
 
-class DailyMetrics(pydantic_v1.BaseModel):
-    data: typing.List[DailyMetricsDetails] = pydantic_v1.Field()
+class ApiKeyList(pydantic_v1.BaseModel):
     """
-    A list of daily metrics, only days with ingested data are included.
+    List of API keys for a project
     """
 
-    meta: MetaResponse
+    api_keys: typing.List[ApiKeySummary] = pydantic_v1.Field(alias="apiKeys")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -45,5 +43,7 @@ class DailyMetrics(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
