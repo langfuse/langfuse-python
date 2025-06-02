@@ -15,7 +15,9 @@ class Project(pydantic_v1.BaseModel):
     Metadata for the project
     """
 
-    retention_days: int = pydantic_v1.Field(alias="retentionDays")
+    retention_days: typing.Optional[int] = pydantic_v1.Field(
+        alias="retentionDays", default=None
+    )
     """
     Number of days to retain data. Null or 0 means no retention. Omitted if no retention is configured.
     """
