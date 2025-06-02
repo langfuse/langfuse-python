@@ -166,7 +166,9 @@ class Langfuse:
         self._project_id = None
         sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
-            raise ValueError(f"Sample rate must be between 0.0 and 1.0, got {sample_rate}")
+            raise ValueError(
+                f"Sample rate must be between 0.0 and 1.0, got {sample_rate}"
+            )
 
         self._tracing_enabled = (
             tracing_enabled
@@ -1231,9 +1233,9 @@ class Langfuse:
         *,
         name: str,
         value: str,
-        trace_id: Optional[str] = None,
         session_id: Optional[str] = None,
         dataset_run_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
         score_id: Optional[str] = None,
         observation_id: Optional[str] = None,
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
