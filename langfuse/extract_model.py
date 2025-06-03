@@ -59,9 +59,11 @@ def _extract_model_name(
         if serialized.get("kwargs").get("deployment_name"):
             deployment_name = serialized.get("kwargs").get("deployment_name")
 
+        if not deployment_name:
+            return None
         return (
-            deployment_name + "-" + deployment_version
-            if deployment_version not in deployment_name
+            f"{deployment_name}-{deployment_version}"
+            if deployment_version and deployment_version not in deployment_name
             else deployment_name
         )
 
