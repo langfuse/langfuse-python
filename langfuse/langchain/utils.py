@@ -53,11 +53,14 @@ def _extract_model_name(
             return kwargs.get("invocation_params").get("model_name")
 
         deployment_name = None
-        if serialized.get("kwargs").get("openai_api_version"):
-            deployment_name = serialized.get("kwargs").get("deployment_version")
         deployment_version = None
+
+        if serialized.get("kwargs").get("openai_api_version"):
+            deployment_version = serialized.get("kwargs").get("deployment_version")
+
         if serialized.get("kwargs").get("deployment_name"):
             deployment_name = serialized.get("kwargs").get("deployment_name")
+
         return (
             deployment_name + "-" + deployment_version
             if deployment_version not in deployment_name
