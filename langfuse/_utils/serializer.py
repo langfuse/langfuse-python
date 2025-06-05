@@ -21,24 +21,26 @@ from langfuse.media import LangfuseMedia
 try:
     from langchain.load.serializable import Serializable
 except ImportError:
-    # If Serializable is not available, set it to NoneType
-    Serializable = type(None)
+    # If Serializable is not available, set it to a placeholder type
+    class Serializable:
+        pass
+
 
 # Attempt to import numpy
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore
 
 logger = getLogger(__name__)
 
 
 class EventSerializer(JSONEncoder):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.seen = set()  # Track seen objects to detect circular references
 
-    def default(self, obj: Any):
+    def default(self, obj: Any) -> Any:
         try:
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
