@@ -91,7 +91,7 @@ class DatasetItemClient:
         run_name: str,
         run_metadata: Optional[Any] = None,
         run_description: Optional[str] = None,
-    ):
+    ) -> Any:
         """Create a context manager for the dataset item run that links the execution to a Langfuse trace.
 
         This method is a context manager that creates a trace for the dataset run and yields a span

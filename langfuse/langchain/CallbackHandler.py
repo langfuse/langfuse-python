@@ -186,10 +186,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def _register_langfuse_prompt(
         self,
         *,
-        run_id,
+        run_id: UUID,
         parent_run_id: Optional[UUID],
         metadata: Optional[Dict[str, Any]],
-    ):
+    ) -> None:
         """We need to register any passed Langfuse prompt to the parent_run_id so that we can link following generations with that prompt.
 
         If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
@@ -209,7 +209,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             registered_prompt = self.prompt_to_parent_run_map[parent_run_id]
             self.prompt_to_parent_run_map[run_id] = registered_prompt
 
-    def _deregister_langfuse_prompt(self, run_id: Optional[UUID]):
+    def _deregister_langfuse_prompt(self, run_id: Optional[UUID]) -> None:
         if run_id in self.prompt_to_parent_run_map:
             del self.prompt_to_parent_run_map[run_id]
 
@@ -751,7 +751,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         )
 
 
-def _extract_raw_response(last_response):
+def _extract_raw_response(last_response: Any) -> Any:
     """Extract the response from the last response of the LLM call."""
     # We return the text of the response if not empty
     if last_response.text is not None and last_response.text.strip() != "":
@@ -764,11 +764,13 @@ def _extract_raw_response(last_response):
         return ""
 
 
-def _flatten_comprehension(matrix):
+def _flatten_comprehension(matrix: Any) -> List[Any]:
     return [item for row in matrix for item in row]
 
 
-def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
+def _parse_usage_model(
+    usage: typing.Union[pydantic.BaseModel, dict],
+) -> typing.Optional[typing.Dict[str, typing.Any]]:
     # maintains a list of key translations. For each key, the usage model is checked
     # and a new object will be created with the new key if the key exists in the usage model
     # All non matched keys will remain on the object.
@@ -891,7 +893,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
     return usage_model if usage_model else None
 
 
-def _parse_usage(response: LLMResult):
+def _parse_usage(response: LLMResult) -> typing.Optional[typing.Dict[str, typing.Any]]:
     # langchain-anthropic uses the usage field
     llm_usage_keys = ["token_usage", "usage"]
     llm_usage = None
@@ -938,7 +940,7 @@ def _parse_usage(response: LLMResult):
     return llm_usage
 
 
-def _parse_model(response: LLMResult):
+def _parse_model(response: LLMResult) -> typing.Optional[str]:
     # langchain-anthropic uses the usage field
     llm_model_keys = ["model_name"]
     llm_model = None
@@ -951,14 +953,18 @@ def _parse_model(response: LLMResult):
     return llm_model
 
 
-def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]):
+def _parse_model_name_from_metadata(
+    metadata: Optional[Dict[str, Any]],
+) -> typing.Optional[str]:
     if metadata is None or not isinstance(metadata, dict):
         return None
 
     return metadata.get("ls_model_name", None)
 
 
-def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]):
+def _strip_langfuse_keys_from_dict(
+    metadata: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
     if metadata is None or not isinstance(metadata, dict):
         return metadata
 

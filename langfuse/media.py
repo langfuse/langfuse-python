@@ -106,7 +106,7 @@ class LangfuseMedia:
 
             return None
 
-    def _get_media_id(self):
+    def _get_media_id(self) -> Optional[str]:
         content_hash = self._content_sha256_hash
 
         if content_hash is None:
@@ -187,7 +187,7 @@ class LangfuseMedia:
         return ParsedMediaReference(
             media_id=parsed_data["id"],
             source=parsed_data["source"],
-            content_type=parsed_data["type"],
+            content_type=cast(MediaContentType, parsed_data["type"]),
         )
 
     def _parse_base64_data_uri(
@@ -293,14 +293,14 @@ class LangfuseMedia:
                         media_data = langfuse_client.api.media.get(
                             parsed_media_reference["media_id"]
                         )
-                        media_content = requests.get(
+                        media_response = requests.get(
                             media_data.url, timeout=content_fetch_timeout_seconds
                         )
-                        if not media_content.ok:
+                        if not media_response.ok:
                             raise Exception("Failed to fetch media content")
 
                         base64_media_content = base64.b64encode(
-                            media_content.content
+                            media_response.content
                         ).decode()
                         base64_data_uri = f"data:{media_data.content_type};base64,{base64_media_content}"
 

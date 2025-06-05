@@ -38,6 +38,7 @@ pytest-asyncio = ">=0.21.1,<0.24.0"
 pytest-httpserver = "^1.0.8"
 boto3 = "^1.28.59"
 ruff = ">=0.1.8,<0.6.0"
+mypy = "^1.0.0"
 langchain-mistralai = ">=0.0.1,<0.3"
 google-cloud-aiplatform = "^1.38.1"
 cohere = ">=4.46,<6.0"
@@ -71,6 +72,48 @@ build-backend = "poetry.core.masonry.api"
 log_cli = true
 
 [tool.poetry_bumpversion.file."langfuse/version.py"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "langchain.*",
+    "openai.*",
+    "chromadb.*",
+    "tiktoken.*",
+    "google.*",
+    "anthropic.*",
+    "cohere.*",
+    "dashscope.*",
+    "pymongo.*",
+    "bson.*",
+    "boto3.*",
+    "llama_index.*",
+    "respx.*",
+    "bs4.*",
+    "lark.*",
+    "huggingface_hub.*",
+    "backoff.*",
+    "wrapt.*",
+    "packaging.*",
+    "requests.*",
+    "opentelemetry.*"
+]
+ignore_missing_imports = true
 
 [tool.poetry.scripts]
 release = "scripts.release:main"

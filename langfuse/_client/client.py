@@ -159,7 +159,7 @@ class Langfuse:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
-    ):
+    ) -> None:
         self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         self._mask = mask

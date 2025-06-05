@@ -1,6 +1,7 @@
 """@private"""
 
 import os
+from typing import Optional
 
 common_release_envs = [
     # Render
@@ -26,7 +27,7 @@ common_release_envs = [
 ]
 
 
-def get_common_release_envs():
+def get_common_release_envs() -> Optional[str]:
     for env in common_release_envs:
         if env in os.environ:
             return os.environ[env]

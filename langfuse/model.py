@@ -138,7 +138,9 @@ class BasePromptClient(ABC):
         self.is_fallback = is_fallback
 
     @abstractmethod
-    def compile(self, **kwargs) -> Union[str, List[ChatMessage]]:
+    def compile(
+        self, **kwargs: Any
+    ) -> Union[str, List[ChatMessage], List[ChatMessageDict]]:
         pass
 
     @property
@@ -147,15 +149,15 @@ class BasePromptClient(ABC):
         pass
 
     @abstractmethod
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         pass
 
     @abstractmethod
-    def get_langchain_prompt(self):
+    def get_langchain_prompt(self) -> Any:
         pass
 
     @staticmethod
-    def _get_langchain_prompt_string(content: str):
+    def _get_langchain_prompt_string(content: str) -> str:
         return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
 
 
@@ -172,8 +174,8 @@ class TextPromptClient(BasePromptClient):
         """Return all the variable names in the prompt template."""
         return TemplateParser.find_variable_names(self.prompt)
 
-    def __eq__(self, other):
-        if isinstance(self, other.__class__):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
             return (
                 self.name == other.name
                 and self.version == other.version
@@ -183,7 +185,7 @@ class TextPromptClient(BasePromptClient):
 
         return False
 
-    def get_langchain_prompt(self, **kwargs) -> str:
+    def get_langchain_prompt(self, **kwargs: Any) -> str:
         """Convert Langfuse prompt into string compatible with Langchain PromptTemplate.
 
         This method adapts the mustache-style double curly braces {{variable}} used in Langfuse
@@ -212,7 +214,7 @@ class ChatPromptClient(BasePromptClient):
             ChatMessageDict(role=p.role, content=p.content) for p in prompt.prompt
         ]
 
-    def compile(self, **kwargs) -> List[ChatMessageDict]:
+    def compile(self, **kwargs: Any) -> List[ChatMessageDict]:
         return [
             ChatMessageDict(
                 content=TemplateParser.compile_template(
@@ -232,8 +234,8 @@ class ChatPromptClient(BasePromptClient):
             for variable in TemplateParser.find_variable_names(chat_message["content"])
         ]
 
-    def __eq__(self, other):
-        if isinstance(self, other.__class__):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
             return (
                 self.name == other.name
                 and self.version == other.version
@@ -246,7 +248,7 @@ class ChatPromptClient(BasePromptClient):
 
         return False
 
-    def get_langchain_prompt(self, **kwargs):
+    def get_langchain_prompt(self, **kwargs: Any) -> Any:
         """Convert Langfuse prompt into string compatible with Langchain ChatPromptTemplate.
 
         It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
