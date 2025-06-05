@@ -18,7 +18,7 @@ import atexit
 import os
 import threading
 from queue import Full, Queue
-from typing import Dict, Optional, cast
+from typing import Dict, Optional, cast, Any
 
 import httpx
 from opentelemetry import trace as otel_trace_api
@@ -148,7 +148,7 @@ class LangfuseResourceManager:
         )
         tracer_provider.add_span_processor(langfuse_processor)
 
-        tracer_provider = otel_trace_api.get_tracer_provider()
+        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
         self._otel_tracer = tracer_provider.get_tracer(
             LANGFUSE_TRACER_NAME,
             langfuse_version,
@@ -195,7 +195,7 @@ class LangfuseResourceManager:
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
 
-        self._media_upload_queue = Queue(100_000)
+        self._media_upload_queue: Queue[Any] = Queue(100_000)
         self._media_manager = MediaManager(
             api_client=self.api,
             media_upload_queue=self._media_upload_queue,
@@ -220,7 +220,7 @@ class LangfuseResourceManager:
         self.prompt_cache = PromptCache()
 
         # Score ingestion
-        self._score_ingestion_queue = Queue(100_000)
+        self._score_ingestion_queue: Queue[Any] = Queue(100_000)
         self._ingestion_consumers = []
 
         ingestion_consumer = ScoreIngestionConsumer(

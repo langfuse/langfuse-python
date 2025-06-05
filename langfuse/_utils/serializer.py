@@ -21,14 +21,16 @@ from langfuse.media import LangfuseMedia
 try:
     from langchain.load.serializable import Serializable
 except ImportError:
-    # If Serializable is not available, set it to NoneType
-    Serializable = type(None)
+    # If Serializable is not available, set it to a placeholder type
+    class Serializable:  # type: ignore
+        pass
+
 
 # Attempt to import numpy
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore
 
 logger = getLogger(__name__)
 

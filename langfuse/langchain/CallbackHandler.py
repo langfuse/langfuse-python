@@ -60,8 +60,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self.client = get_client(public_key=public_key)
 
         self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
-        self.prompt_to_parent_run_map = {}
-        self.updated_completion_start_time_memo = set()
+        self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
+        self.updated_completion_start_time_memo: Set[UUID] = set()
 
     def on_llm_new_token(
         self,
@@ -166,19 +166,26 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 run_id=run_id, parent_run_id=parent_run_id, metadata=metadata
             )
 
-            content = {
-                "name": self.get_langchain_run_name(serialized, **kwargs),
-                "metadata": self.__join_tags_and_metadata(tags, metadata),
-                "input": inputs,
-                "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
-            }
+            span_name = self.get_langchain_run_name(serialized, **kwargs)
+            span_metadata = self.__join_tags_and_metadata(tags, metadata)
+            span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
             if parent_run_id is None:
-                self.runs[run_id] = self.client.start_span(**content)
+                self.runs[run_id] = self.client.start_span(
+                    name=span_name,
+                    metadata=span_metadata,
+                    input=inputs,
+                    level=span_level,
+                )
             else:
                 self.runs[run_id] = cast(
                     LangfuseSpan, self.runs[parent_run_id]
-                ).start_span(**content)
+                ).start_span(
+                    name=span_name,
+                    metadata=span_metadata,
+                    input=inputs,
+                    level=span_level,
+                )
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -431,23 +438,25 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_retriever_start", run_id, parent_run_id, query=query
             )
-            if parent_run_id is None:
-                content = {
-                    "name": self.get_langchain_run_name(serialized, **kwargs),
-                    "metadata": self.__join_tags_and_metadata(tags, metadata),
-                    "input": query,
-                    "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
-                }
+            span_name = self.get_langchain_run_name(serialized, **kwargs)
+            span_metadata = self.__join_tags_and_metadata(tags, metadata)
+            span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
-                self.runs[run_id] = self.client.start_span(**content)
+            if parent_run_id is None:
+                self.runs[run_id] = self.client.start_span(
+                    name=span_name,
+                    metadata=span_metadata,
+                    input=query,
+                    level=span_level,
+                )
             else:
                 self.runs[run_id] = cast(
                     LangfuseSpan, self.runs[parent_run_id]
                 ).start_span(
-                    name=self.get_langchain_run_name(serialized, **kwargs),
+                    name=span_name,
                     input=query,
-                    metadata=self.__join_tags_and_metadata(tags, metadata),
-                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                    metadata=span_metadata,
+                    level=span_level,
                 )
 
         except Exception as e:

@@ -1304,22 +1304,20 @@ class Langfuse:
         score_id = score_id or self._create_observation_id()
 
         try:
-            score_event = {
-                "id": score_id,
-                "session_id": session_id,
-                "dataset_run_id": dataset_run_id,
-                "trace_id": trace_id,
-                "observation_id": observation_id,
-                "name": name,
-                "value": value,
-                "data_type": data_type,
-                "comment": comment,
-                "config_id": config_id,
-                "environment": self._environment,
-                "metadata": metadata,
-            }
-
-            new_body = ScoreBody(**score_event)
+            new_body = ScoreBody(
+                id=score_id,
+                session_id=session_id,
+                dataset_run_id=dataset_run_id,
+                trace_id=trace_id,
+                observation_id=observation_id,
+                name=name,
+                value=value,
+                data_type=data_type,
+                comment=comment,
+                config_id=config_id,
+                environment=self._environment,
+                metadata=metadata,
+            )
 
             event = {
                 "id": self.create_trace_id(),
@@ -1960,7 +1958,7 @@ class Langfuse:
                         f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
                     )
 
-                    fallback_client_args = {
+                    fallback_client_args: Dict[str, Any] = {
                         "name": name,
                         "prompt": fallback,
                         "type": type,
