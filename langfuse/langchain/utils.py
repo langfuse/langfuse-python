@@ -49,11 +49,12 @@ def _extract_model_name(
             return model
 
     # Second, we match AzureOpenAI as we need to extract the model name, fdeployment version and deployment name
+    serialized_id = serialized.get("id") if serialized else None
     if (
         serialized
-        and serialized.get("id")
-        and isinstance(serialized.get("id"), list)
-        and serialized.get("id")[-1] == "AzureOpenAI"
+        and serialized_id
+        and isinstance(serialized_id, list)
+        and serialized_id[-1] == "AzureOpenAI"
     ):
         invocation_params = kwargs.get("invocation_params")
         if invocation_params and invocation_params.get("model"):
@@ -140,11 +141,8 @@ def _extract_model_from_repr_by_pattern(
     if serialized is None:
         return None
 
-    if (
-        serialized.get("id")
-        and isinstance(serialized.get("id"), list)
-        and serialized.get("id")[-1] == id
-    ):
+    serialized_id = serialized.get("id") if serialized else None
+    if serialized_id and isinstance(serialized_id, list) and serialized_id[-1] == id:
         repr_str = serialized.get("repr")
         if repr_str:
             extracted = _extract_model_with_regex(pattern, repr_str)
@@ -170,11 +168,12 @@ def _extract_model_by_path_for_id(
     if serialized is None and select_from == "serialized":
         return None
 
+    serialized_id = serialized.get("id") if serialized else None
     if (
         serialized
-        and serialized.get("id")
-        and isinstance(serialized.get("id"), list)
-        and serialized.get("id")[-1] == id
+        and serialized_id
+        and isinstance(serialized_id, list)
+        and serialized_id[-1] == id
     ):
         return _extract_model_by_path(serialized, kwargs, keys, select_from)
 

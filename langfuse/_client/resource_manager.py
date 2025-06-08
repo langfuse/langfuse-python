@@ -18,7 +18,7 @@ import atexit
 import os
 import threading
 from queue import Full, Queue
-from typing import Dict, Optional, cast
+from typing import Any, Dict, Optional, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
@@ -75,6 +75,7 @@ class LangfuseResourceManager:
 
     _instances: Dict[str, "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
+    _otel_tracer: Optional[otel_trace_api.Tracer]
 
     def __new__(
         cls,
@@ -130,7 +131,7 @@ class LangfuseResourceManager:
         media_upload_thread_count: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
-    ):
+    ) -> None:
         self.public_key = public_key
 
         # OTEL Tracer
@@ -148,7 +149,7 @@ class LangfuseResourceManager:
         )
         tracer_provider.add_span_processor(langfuse_processor)
 
-        tracer_provider = otel_trace_api.get_tracer_provider()
+        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
         self._otel_tracer = tracer_provider.get_tracer(
             LANGFUSE_TRACER_NAME,
             langfuse_version,
@@ -195,7 +196,7 @@ class LangfuseResourceManager:
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
 
-        self._media_upload_queue = Queue(100_000)
+        self._media_upload_queue: Queue[Any] = Queue(100_000)
         self._media_manager = MediaManager(
             api_client=self.api,
             media_upload_queue=self._media_upload_queue,
@@ -220,7 +221,7 @@ class LangfuseResourceManager:
         self.prompt_cache = PromptCache()
 
         # Score ingestion
-        self._score_ingestion_queue = Queue(100_000)
+        self._score_ingestion_queue: Queue[Any] = Queue(100_000)
         self._ingestion_consumers = []
 
         ingestion_consumer = ScoreIngestionConsumer(
@@ -248,10 +249,10 @@ class LangfuseResourceManager:
         )
 
     @classmethod
-    def reset(cls):
+    def reset(cls) -> None:
         cls._instances.clear()
 
-    def add_score_task(self, event: dict):
+    def add_score_task(self, event: dict) -> None:
         try:
             # Sample scores with the same sampler that is used for tracing
             tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
@@ -291,14 +292,14 @@ class LangfuseResourceManager:
             return
 
     @property
-    def tracer(self):
+    def tracer(self) -> Optional[otel_trace_api.Tracer]:
         return self._otel_tracer
 
     @staticmethod
-    def get_current_span():
+    def get_current_span() -> otel_trace_api.Span:
         return otel_trace_api.get_current_span()
 
-    def _stop_and_join_consumer_threads(self):
+    def _stop_and_join_consumer_threads(self) -> None:
         """End the consumer threads once the queue is empty.
 
         Blocks execution until finished
@@ -337,7 +338,7 @@ class LangfuseResourceManager:
                 f"Shutdown: Score ingestion thread #{score_ingestion_consumer._identifier} successfully terminated"
             )
 
-    def flush(self):
+    def flush(self) -> None:
         tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
         if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
             return
@@ -351,7 +352,7 @@ class LangfuseResourceManager:
         self._media_upload_queue.join()
         langfuse_logger.debug("Successfully flushed media upload queue")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
 

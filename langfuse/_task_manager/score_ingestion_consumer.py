@@ -11,9 +11,9 @@ import backoff
 from ..version import __version__ as langfuse_version
 
 try:
-    import pydantic.v1 as pydantic
+    import pydantic.v1 as pydantic_lib
 except ImportError:
-    import pydantic
+    import pydantic as pydantic_lib  # type: ignore[no-redef]
 
 from langfuse._utils.parse_error import handle_exception
 from langfuse._utils.request import APIError, LangfuseClient
@@ -23,7 +23,7 @@ MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000
 MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))
 
 
-class ScoreIngestionMetadata(pydantic.BaseModel):
+class ScoreIngestionMetadata(pydantic_lib.BaseModel):
     batch_size: int
     sdk_name: str
     sdk_version: str
@@ -61,9 +61,9 @@ class ScoreIngestionConsumer(threading.Thread):
         self._max_retries = max_retries or 3
         self._public_key = public_key
 
-    def _next(self):
+    def _next(self) -> List[Any]:
         """Return the next batch of items to upload."""
-        events = []
+        events: List[Any] = []
 
         start_time = time.monotonic()
         total_size = 0
@@ -78,7 +78,9 @@ class ScoreIngestionConsumer(threading.Thread):
                 )
 
                 # convert pydantic models to dicts
-                if "body" in event and isinstance(event["body"], pydantic.BaseModel):
+                if "body" in event and isinstance(
+                    event["body"], pydantic_lib.BaseModel
+                ):
                     event["body"] = event["body"].dict(exclude_none=True)
 
                 item_size = self._get_item_size(event)
@@ -119,7 +121,7 @@ class ScoreIngestionConsumer(threading.Thread):
         """Return the size of the item in bytes."""
         return len(json.dumps(item, cls=EventSerializer).encode())
 
-    def run(self):
+    def run(self) -> None:
         """Run the consumer."""
         self._log.debug(
             f"Startup: Score ingestion consumer thread #{self._identifier} started with batch size {self._flush_at} and interval {self._flush_interval}s"
@@ -127,7 +129,7 @@ class ScoreIngestionConsumer(threading.Thread):
         while self.running:
             self.upload()
 
-    def upload(self):
+    def upload(self) -> None:
         """Upload the next batch of items, return whether successful."""
         batch = self._next()
         if len(batch) == 0:
@@ -142,11 +144,11 @@ class ScoreIngestionConsumer(threading.Thread):
             for _ in batch:
                 self._ingestion_queue.task_done()
 
-    def pause(self):
+    def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
 
-    def _upload_batch(self, batch: List[Any]):
+    def _upload_batch(self, batch: List[Any]) -> None:
         self._log.debug(
             f"API: Uploading batch of {len(batch)} score events to Langfuse API"
         )
@@ -161,7 +163,7 @@ class ScoreIngestionConsumer(threading.Thread):
         @backoff.on_exception(
             backoff.expo, Exception, max_tries=self._max_retries, logger=None
         )
-        def execute_task_with_backoff(batch: List[Any]):
+        def execute_task_with_backoff(batch: List[Any]) -> None:
             try:
                 self._client.batch_post(batch=batch, metadata=metadata)
             except Exception as e:

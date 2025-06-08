@@ -19,6 +19,7 @@ from uuid import UUID
 
 from langfuse._utils import _get_timestamp
 from langfuse.langchain.utils import _extract_model_name
+from langfuse.types import SpanLevel
 
 try:
     from langchain.callbacks.base import (
@@ -60,8 +61,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self.client = get_client(public_key=public_key)
 
         self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
-        self.prompt_to_parent_run_map = {}
-        self.updated_completion_start_time_memo = set()
+        self.prompt_to_parent_run_map: Dict[str, str] = {}
+        self.updated_completion_start_time_memo: set[str] = set()
 
     def on_llm_new_token(
         self,
@@ -110,12 +111,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             return "<unknown>"
 
         try:
-            return serialized["name"]
+            return str(serialized["name"])
         except (KeyError, TypeError):
             pass
 
         try:
-            return serialized["id"][-1]
+            return str(serialized["id"][-1])
         except (KeyError, TypeError):
             pass
 
@@ -170,7 +171,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "metadata": self.__join_tags_and_metadata(tags, metadata),
                 "input": inputs,
-                "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                "level": cast(
+                    Optional[SpanLevel],
+                    "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                ),
             }
 
             if parent_run_id is None:
@@ -436,7 +440,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     "name": self.get_langchain_run_name(serialized, **kwargs),
                     "metadata": self.__join_tags_and_metadata(tags, metadata),
                     "input": query,
-                    "level": "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                    "level": cast(
+                        Optional[SpanLevel],
+                        "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                    ),
                 }
 
                 self.runs[run_id] = self.client.start_span(**content)
@@ -447,7 +454,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     input=query,
                     metadata=self.__join_tags_and_metadata(tags, metadata),
-                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                    level=cast(
+                        Optional[SpanLevel],
+                        "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                    ),
                 )
 
         except Exception as e:
@@ -538,12 +548,18 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
-                prompts.extend([{"role": "tool", "content": tool} for tool in tools])
+                prompts.extend(
+                    [{"role": "tool", "content": str(tool)} for tool in tools]
+                )
 
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
             )
-            registered_prompt = self.prompt_to_parent_run_map.get(parent_run_id, None)
+            registered_prompt = (
+                self.prompt_to_parent_run_map.get(parent_run_id)
+                if parent_run_id
+                else None
+            )
 
             if registered_prompt:
                 self._deregister_langfuse_prompt(parent_run_id)
@@ -638,11 +654,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
-                generation = response.generations[-1][-1]
+                llm_generation = response.generations[-1][-1]
                 extracted_response = (
-                    self._convert_message_to_dict(generation.message)
-                    if isinstance(generation, ChatGeneration)
-                    else _extract_raw_response(generation)
+                    self._convert_message_to_dict(llm_generation.message)
+                    if isinstance(llm_generation, ChatGeneration)
+                    else _extract_raw_response(llm_generation)
                 )
 
                 llm_usage = _parse_usage(response)
@@ -730,7 +746,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             message_dict["name"] = message.additional_kwargs["name"]
 
         if message.additional_kwargs:
-            message_dict["additional_kwargs"] = message.additional_kwargs
+            message_dict["additional_kwargs"] = cast(Any, message.additional_kwargs)
 
         return message_dict
 

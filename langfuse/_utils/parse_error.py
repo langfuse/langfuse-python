@@ -61,9 +61,10 @@ def generate_error_message_fern(error: Error) -> str:
             if isinstance(error.status_code, str)
             else error.status_code
         )
-        return errorResponseByCode.get(status_code, defaultErrorResponse)
-    else:
-        return defaultErrorResponse
+        if status_code is not None:
+            return errorResponseByCode.get(status_code, defaultErrorResponse)
+
+    return defaultErrorResponse
 
 
 def handle_fern_exception(exception: Error) -> None:

@@ -110,7 +110,7 @@ class LangfuseMedia:
         content_hash = self._content_sha256_hash
 
         if content_hash is None:
-            return
+            return None
 
         # Convert hash to base64Url
         url_safe_content_hash = content_hash.replace("+", "-").replace("/", "_")
@@ -336,4 +336,4 @@ class LangfuseMedia:
 
             return obj
 
-        return traverse(obj, 0)
+        return cast(T, traverse(obj, 0))

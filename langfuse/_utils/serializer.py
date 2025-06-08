@@ -20,10 +20,12 @@ from langfuse.media import LangfuseMedia
 # Attempt to import Serializable
 try:
     from langchain.load.serializable import Serializable
+
+    SERIALIZABLE_AVAILABLE = True
 except ImportError:
     # If Serializable is not available, set it to a placeholder type
-    class Serializable:
-        pass
+    Serializable = None  # type: ignore
+    SERIALIZABLE_AVAILABLE = False
 
 
 # Attempt to import numpy
@@ -38,7 +40,7 @@ logger = getLogger(__name__)
 class EventSerializer(JSONEncoder):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.seen = set()  # Track seen objects to detect circular references
+        self.seen: set[int] = set()  # Track seen objects to detect circular references
 
     def default(self, obj: Any) -> Any:
         try:
@@ -77,7 +79,7 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, Queue):
                 return type(obj).__name__
 
-            if is_dataclass(obj):
+            if is_dataclass(obj) and not isinstance(obj, type):
                 return asdict(obj)
 
             if isinstance(obj, UUID):
@@ -108,8 +110,8 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, Path):
                 return str(obj)
 
-            # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not type(None) and isinstance(obj, Serializable):
+            # if langchain is not available, the Serializable type is None
+            if SERIALIZABLE_AVAILABLE and isinstance(obj, Serializable):
                 return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.

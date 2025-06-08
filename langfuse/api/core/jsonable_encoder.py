@@ -59,7 +59,7 @@ def jsonable_encoder(
         if "__root__" in obj_dict:
             obj_dict = obj_dict["__root__"]
         return jsonable_encoder(obj_dict, custom_encoder=encoder)
-    if dataclasses.is_dataclass(obj):
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
         obj_dict = dataclasses.asdict(obj)
         return jsonable_encoder(obj_dict, custom_encoder=custom_encoder)
     if isinstance(obj, bytes):

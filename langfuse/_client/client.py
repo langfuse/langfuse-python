@@ -49,6 +49,7 @@ from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
+    ChatMessage,
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
     Prompt_Chat,
@@ -163,7 +164,7 @@ class Langfuse:
         self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         self._mask = mask
-        self._project_id = None
+        self._project_id: Optional[str] = None
         sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
             raise ValueError(
@@ -210,7 +211,7 @@ class Langfuse:
         self._resources = LangfuseResourceManager(
             public_key=public_key,
             secret_key=secret_key,
-            host=self._host,
+            host=self._host or "https://cloud.langfuse.com",
             timeout=timeout,
             environment=environment,
             release=release,
@@ -221,9 +222,9 @@ class Langfuse:
             sample_rate=sample_rate,
         )
 
-        self._otel_tracer = (
+        self._otel_tracer: Union[otel_trace_api.Tracer, otel_trace_api.NoOpTracer] = (
             self._resources.tracer
-            if self._tracing_enabled
+            if self._tracing_enabled and self._resources.tracer is not None
             else otel_trace_api.NoOpTracer()
         )
         self.api = self._resources.api
@@ -652,16 +653,16 @@ class Langfuse:
     def _create_span_with_parent_context(
         self,
         *,
-        name,
-        parent,
-        remote_parent_span,
-        attributes,
+        name: str,
+        parent: Optional[otel_trace_api.Span],
+        remote_parent_span: Optional[otel_trace_api.Span],
+        attributes: Dict[str, Any],
         as_type: Literal["generation", "span"],
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         end_on_exit: Optional[bool] = None,
-    ):
+    ) -> _AgnosticContextManager[Union[LangfuseSpan, LangfuseGeneration]]:
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
         with otel_trace_api.use_span(parent_span):
@@ -674,6 +675,7 @@ class Langfuse:
                 metadata=metadata,
                 end_on_exit=end_on_exit,
             ) as langfuse_span:
+                langfuse_span: Union[LangfuseSpan, LangfuseGeneration]
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
                         LangfuseOtelSpanAttributes.AS_ROOT, True
@@ -692,7 +694,7 @@ class Langfuse:
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         end_on_exit: Optional[bool] = None,
-    ):
+    ) -> _AgnosticContextManager[Union[LangfuseSpan, LangfuseGeneration]]:
         with self._otel_tracer.start_as_current_span(
             name=name,
             attributes=attributes,
@@ -886,7 +888,7 @@ class Langfuse:
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
-    ):
+    ) -> None:
         """Update the current trace with additional information.
 
         This method updates the Langfuse trace that the current span belongs to. It's useful for
@@ -1012,31 +1014,35 @@ class Langfuse:
                     )
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
-                    return LangfuseEvent(
+                    event = LangfuseEvent(
                         otel_span=otel_span,
                         langfuse_client=self,
                         input=input,
                         output=output,
                         metadata=metadata,
                         environment=self._environment,
-                    ).end(end_time=timestamp)
+                    )
+                    event.end(end_time=timestamp)
+                    return event
 
         otel_span = self._otel_tracer.start_span(
             name=name, attributes=attributes, start_time=timestamp
         )
 
-        return LangfuseEvent(
+        event = LangfuseEvent(
             otel_span=otel_span,
             langfuse_client=self,
             input=input,
             output=output,
             metadata=metadata,
             environment=self._environment,
-        ).end(end_time=timestamp)
+        )
+        event.end(end_time=timestamp)
+        return event
 
     def _create_remote_parent_span(
         self, *, trace_id: str, parent_span_id: Optional[str]
-    ):
+    ) -> otel_trace_api.Span:
         if not self._is_valid_trace_id(trace_id):
             langfuse_logger.warning(
                 f"Passed trace ID '{trace_id}' is not a valid 32 lowercase hex char Langfuse trace id. Ignoring trace ID."
@@ -1063,12 +1069,12 @@ class Langfuse:
 
         return trace.NonRecordingSpan(span_context)
 
-    def _is_valid_trace_id(self, trace_id):
+    def _is_valid_trace_id(self, trace_id: str) -> bool:
         pattern = r"^[0-9a-f]{32}$"
 
         return bool(re.match(pattern, trace_id))
 
-    def _is_valid_span_id(self, span_id):
+    def _is_valid_span_id(self, span_id: str) -> bool:
         pattern = r"^[0-9a-f]{16}$"
 
         return bool(re.match(pattern, span_id))
@@ -1170,12 +1176,12 @@ class Langfuse:
 
         return sha256(seed.encode("utf-8")).digest()[:16].hex()
 
-    def _get_otel_trace_id(self, otel_span: otel_trace_api.Span):
+    def _get_otel_trace_id(self, otel_span: otel_trace_api.Span) -> str:
         span_context = otel_span.get_span_context()
 
         return self._format_otel_trace_id(span_context.trace_id)
 
-    def _get_otel_span_id(self, otel_span: otel_trace_api.Span):
+    def _get_otel_span_id(self, otel_span: otel_trace_api.Span) -> str:
         span_context = otel_span.get_span_context()
 
         return self._format_otel_span_id(span_context.span_id)
@@ -1304,22 +1310,20 @@ class Langfuse:
         score_id = score_id or self._create_observation_id()
 
         try:
-            score_event = {
-                "id": score_id,
-                "session_id": session_id,
-                "dataset_run_id": dataset_run_id,
-                "trace_id": trace_id,
-                "observation_id": observation_id,
-                "name": name,
-                "value": value,
-                "data_type": data_type,
-                "comment": comment,
-                "config_id": config_id,
-                "environment": self._environment,
-                "metadata": metadata,
-            }
-
-            new_body = ScoreBody(**score_event)
+            new_body = ScoreBody(
+                id=score_id,
+                sessionId=session_id,
+                datasetRunId=dataset_run_id,
+                traceId=trace_id,
+                observationId=observation_id,
+                name=name,
+                value=value,
+                dataType=data_type,
+                comment=comment,
+                configId=config_id,
+                environment=self._environment,
+                metadata=metadata,
+            )
 
             event = {
                 "id": self.create_trace_id(),
@@ -1501,7 +1505,7 @@ class Langfuse:
                 config_id=config_id,
             )
 
-    def flush(self):
+    def flush(self) -> None:
         """Force flush all pending spans and events to the Langfuse API.
 
         This method manually flushes any pending spans, scores, and other events to the
@@ -1523,7 +1527,7 @@ class Langfuse:
         """
         self._resources.flush()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shut down the Langfuse client and flush all pending data.
 
         This method cleanly shuts down the Langfuse client, ensuring all pending data
@@ -1810,7 +1814,7 @@ class Langfuse:
         resolve_with: Literal["base64_data_uri"],
         max_depth: int = 10,
         content_fetch_timeout_seconds: int = 10,
-    ):
+    ) -> Any:
         """Replace media reference strings in an object with base64 data URIs.
 
         This method recursively traverses an object (up to max_depth) looking for media reference strings
@@ -1960,7 +1964,7 @@ class Langfuse:
                         f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
                     )
 
-                    fallback_client_args = {
+                    fallback_client_args: Dict[str, Any] = {
                         "name": name,
                         "prompt": fallback,
                         "type": type,
@@ -1972,13 +1976,34 @@ class Langfuse:
 
                     if type == "text":
                         return TextPromptClient(
-                            prompt=Prompt_Text(**fallback_client_args),
+                            prompt=Prompt_Text(
+                                name=name,
+                                prompt=cast(str, fallback),
+                                version=version or 0,
+                                config=fallback_client_args["config"],
+                                labels=fallback_client_args["labels"],
+                                tags=fallback_client_args["tags"],
+                                type="text",
+                            ),
                             is_fallback=True,
                         )
 
                     if type == "chat":
                         return ChatPromptClient(
-                            prompt=Prompt_Chat(**fallback_client_args),
+                            prompt=Prompt_Chat(
+                                name=name,
+                                prompt=[
+                                    ChatMessage(
+                                        role=msg["role"], content=msg["content"]
+                                    )
+                                    for msg in cast(List[ChatMessageDict], fallback)
+                                ],
+                                version=version or 0,
+                                config=fallback_client_args["config"],
+                                labels=fallback_client_args["labels"],
+                                tags=fallback_client_args["tags"],
+                                type="chat",
+                            ),
                             is_fallback=True,
                         )
 
@@ -2023,7 +2048,7 @@ class Langfuse:
         label: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
         max_retries: int,
-        fetch_timeout_seconds,
+        fetch_timeout_seconds: int,
     ) -> PromptClient:
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
         langfuse_logger.debug(f"Fetching prompt '{cache_key}' from server...")
@@ -2033,7 +2058,7 @@ class Langfuse:
             @backoff.on_exception(
                 backoff.constant, Exception, max_tries=max_retries, logger=None
             )
-            def fetch_prompts():
+            def fetch_prompts() -> Any:
                 return self.api.prompts.get(
                     self._url_encode(name),
                     version=version,

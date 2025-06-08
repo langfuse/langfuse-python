@@ -196,7 +196,7 @@ class LangfuseDecorator:
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = kwargs.pop("langfuse_trace_id", None)
             parent_observation_id = kwargs.pop("langfuse_parent_observation_id", None)
             trace_context: Optional[TraceContext] = (
@@ -284,7 +284,7 @@ class LangfuseDecorator:
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = kwargs.pop("langfuse_trace_id", None)
             parent_observation_id = kwargs.pop("langfuse_parent_observation_id", None)
             trace_context: Optional[TraceContext] = (
@@ -388,7 +388,7 @@ class LangfuseDecorator:
         langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
         generator: Generator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ):
+    ) -> Generator:
         items = []
 
         try:
@@ -401,10 +401,10 @@ class LangfuseDecorator:
             output = items
 
             if transform_to_string is not None:
-                output = transform_to_string(items)
+                output = cast(Any, transform_to_string(items))
 
             elif all(isinstance(item, str) for item in items):
-                output = "".join(items)
+                output = cast(Any, "".join(items))
 
             langfuse_span_or_generation.update(output=output)
             langfuse_span_or_generation.end()
@@ -427,10 +427,10 @@ class LangfuseDecorator:
             output = items
 
             if transform_to_string is not None:
-                output = transform_to_string(items)
+                output = cast(Any, transform_to_string(items))
 
             elif all(isinstance(item, str) for item in items):
-                output = "".join(items)
+                output = cast(Any, "".join(items))
 
             langfuse_span_or_generation.update(output=output)
             langfuse_span_or_generation.end()

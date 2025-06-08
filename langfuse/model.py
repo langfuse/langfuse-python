@@ -166,7 +166,7 @@ class TextPromptClient(BasePromptClient):
         super().__init__(prompt, is_fallback)
         self.prompt = prompt.prompt
 
-    def compile(self, **kwargs) -> str:
+    def compile(self, **kwargs: Any) -> str:
         return TemplateParser.compile_template(self.prompt, kwargs)
 
     @property
