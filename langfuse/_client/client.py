@@ -143,6 +143,8 @@ class Langfuse:
         ```
     """
 
+    _otel_tracer: Union[otel_trace_api.Tracer, otel_trace_api.NoOpTracer]
+
     def __init__(
         self,
         *,
@@ -222,7 +224,7 @@ class Langfuse:
             sample_rate=sample_rate,
         )
 
-        self._otel_tracer: Union[otel_trace_api.Tracer, otel_trace_api.NoOpTracer] = (
+        self._otel_tracer = (
             self._resources.tracer
             if self._tracing_enabled and self._resources.tracer is not None
             else otel_trace_api.NoOpTracer()
@@ -290,9 +292,7 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                with otel_trace_api.use_span(
-                    cast(otel_trace_api.Span, remote_parent_span)
-                ):
+                with otel_trace_api.use_span(remote_parent_span):
                     otel_span = self._otel_tracer.start_span(
                         name=name, attributes=attributes
                     )
@@ -504,9 +504,7 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                with otel_trace_api.use_span(
-                    cast(otel_trace_api.Span, remote_parent_span)
-                ):
+                with otel_trace_api.use_span(remote_parent_span):
                     otel_span = self._otel_tracer.start_span(
                         name=name, attributes=attributes
                     )
@@ -662,7 +660,7 @@ class Langfuse:
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[Union[LangfuseSpan, LangfuseGeneration]]:
+    ) -> Any:
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
         with otel_trace_api.use_span(parent_span):
@@ -675,7 +673,6 @@ class Langfuse:
                 metadata=metadata,
                 end_on_exit=end_on_exit,
             ) as langfuse_span:
-                langfuse_span: Union[LangfuseSpan, LangfuseGeneration]
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
                         LangfuseOtelSpanAttributes.AS_ROOT, True
@@ -694,7 +691,7 @@ class Langfuse:
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[Union[LangfuseSpan, LangfuseGeneration]]:
+    ) -> Any:
         with self._otel_tracer.start_as_current_span(
             name=name,
             attributes=attributes,
@@ -1006,9 +1003,7 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                with otel_trace_api.use_span(
-                    cast(otel_trace_api.Span, remote_parent_span)
-                ):
+                with otel_trace_api.use_span(remote_parent_span):
                     otel_span = self._otel_tracer.start_span(
                         name=name, attributes=attributes, start_time=timestamp
                     )
@@ -1318,7 +1313,7 @@ class Langfuse:
                 observationId=observation_id,
                 name=name,
                 value=value,
-                dataType=data_type,
+                dataType=data_type,  # type: ignore[arg-type]
                 comment=comment,
                 configId=config_id,
                 environment=self._environment,
@@ -1956,7 +1951,7 @@ class Langfuse:
                     label=label,
                     ttl_seconds=cache_ttl_seconds,
                     max_retries=bounded_max_retries,
-                    fetch_timeout_seconds=fetch_timeout_seconds,
+                    fetch_timeout_seconds=fetch_timeout_seconds or 10,
                 )
             except Exception as e:
                 if fallback:
@@ -2022,7 +2017,7 @@ class Langfuse:
                         label=label,
                         ttl_seconds=cache_ttl_seconds,
                         max_retries=bounded_max_retries,
-                        fetch_timeout_seconds=fetch_timeout_seconds,
+                        fetch_timeout_seconds=fetch_timeout_seconds or 10,
                     ),
                 )
                 langfuse_logger.debug(
@@ -2072,6 +2067,7 @@ class Langfuse:
 
             prompt_response = fetch_prompts()
 
+            prompt: Union[ChatPromptClient, TextPromptClient]
             if prompt_response.type == "chat":
                 prompt = ChatPromptClient(prompt_response)
             else:
@@ -2165,7 +2161,7 @@ class Langfuse:
                     raise ValueError(
                         "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
                     )
-                request = CreatePromptRequest_Chat(
+                request_chat = CreatePromptRequest_Chat(
                     name=name,
                     prompt=cast(Any, prompt),
                     labels=labels,
@@ -2174,7 +2170,7 @@ class Langfuse:
                     commitMessage=commit_message,
                     type="chat",
                 )
-                server_prompt = self.api.prompts.create(request=request)
+                server_prompt = self.api.prompts.create(request=request_chat)
 
                 self._resources.prompt_cache.invalidate(name)
 
@@ -2183,7 +2179,7 @@ class Langfuse:
             if not isinstance(prompt, str):
                 raise ValueError("For 'text' type, 'prompt' must be a string.")
 
-            request = CreatePromptRequest_Text(
+            request_text = CreatePromptRequest_Text(
                 name=name,
                 prompt=prompt,
                 labels=labels,
@@ -2193,7 +2189,7 @@ class Langfuse:
                 type="text",
             )
 
-            server_prompt = self.api.prompts.create(request=request)
+            server_prompt = self.api.prompts.create(request=request_text)
 
             self._resources.prompt_cache.invalidate(name)
 
@@ -2209,7 +2205,7 @@ class Langfuse:
         name: str,
         version: int,
         new_labels: List[str] = [],
-    ):
+    ) -> Any:
         """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
 
         Args:

@@ -44,10 +44,10 @@ except ImportError:
 try:
     from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
-    AsyncAzureOpenAI = None
-    AsyncOpenAI = None
-    AzureOpenAI = None
-    OpenAI = None
+    AsyncAzureOpenAI = None  # type: ignore[misc,assignment]
+    AsyncOpenAI = None  # type: ignore[misc,assignment]
+    AzureOpenAI = None  # type: ignore[misc,assignment]
+    OpenAI = None  # type: ignore[misc,assignment]
 
 log = logging.getLogger("langfuse")
 
@@ -447,7 +447,7 @@ def _create_langfuse_update(
 
 def _parse_usage(usage: Optional[Any] = None) -> Optional[Dict[str, Any]]:
     if usage is None:
-        return
+        return None
 
     usage_dict = usage.copy() if isinstance(usage, dict) else usage.__dict__.copy()
 
@@ -502,7 +502,7 @@ def _extract_streamed_response_api_response(
 def _extract_streamed_openai_response(
     resource: OpenAiDefinition, chunks: List[Any]
 ) -> Tuple[Optional[str], Any, Optional[Any], Optional[Any]]:
-    completion = defaultdict(str) if resource.type == "chat" else ""
+    completion: Any = defaultdict(str) if resource.type == "chat" else ""
     model, usage = None, None
 
     for chunk in chunks:
