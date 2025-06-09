@@ -89,6 +89,12 @@ warn_unreachable = true
 strict_equality = true
 show_error_codes = true
 
+# Performance optimizations for CI
+cache_dir = ".mypy_cache"
+sqlite_cache = true
+incremental = true
+show_column_numbers = true
+
 [[tool.mypy.overrides]]
 module = [
     "langchain.*",
