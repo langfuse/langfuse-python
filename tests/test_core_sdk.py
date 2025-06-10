@@ -7,6 +7,7 @@ from time import sleep
 import pytest
 
 from langfuse import Langfuse
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._utils import _get_timestamp
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import (
@@ -1781,6 +1782,8 @@ def test_create_trace_sampling_zero():
 
 
 def test_mask_function():
+    LangfuseResourceManager.reset()
+
     def mask_func(data):
         if isinstance(data, dict):
             if "should_raise" in data:
