@@ -130,9 +130,9 @@ class LangfuseSpanWrapper:
 
             if as_type == "generation":
                 attributes = create_generation_attributes(
-                    input=input,
-                    output=output,
-                    metadata=metadata,
+                    input=media_processed_input,
+                    output=media_processed_output,
+                    metadata=media_processed_metadata,
                     version=version,
                     level=level,
                     status_message=status_message,
