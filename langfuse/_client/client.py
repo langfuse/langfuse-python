@@ -1348,7 +1348,15 @@ class Langfuse:
             }
 
             if self._resources is not None:
-                self._resources.add_score_task(event)
+                # Force the score to be in sample if it was for a legacy trace ID, i.e. non-32 hexchar
+                force_sample = (
+                    not self._is_valid_trace_id(trace_id) if trace_id else True
+                )
+
+                self._resources.add_score_task(
+                    event,
+                    force_sample=force_sample,
+                )
 
         except Exception as e:
             langfuse_logger.exception(

@@ -258,11 +258,11 @@ class LangfuseResourceManager:
     def reset(cls):
         cls._instances.clear()
 
-    def add_score_task(self, event: dict):
+    def add_score_task(self, event: dict, *, force_sample: bool = False):
         try:
             # Sample scores with the same sampler that is used for tracing
             tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-            should_sample = (
+            should_sample = force_sample or (
                 (
                     tracer_provider.sampler.should_sample(
                         parent_context=None,
