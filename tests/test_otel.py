@@ -2355,7 +2355,7 @@ class TestMediaHandling(TestOTelBase):
         # Since _process_media_in_attribute makes calls to media_manager
         original_process = span._process_media_in_attribute
 
-        def mock_process_media(*, data, span, field):
+        def mock_process_media(*, data, field):
             # Just return the data directly without processing
             return data
 

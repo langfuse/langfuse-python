@@ -142,6 +142,9 @@ class Langfuse:
         ```
     """
 
+    _resources: Optional[LangfuseResourceManager] = None
+    _mask: Optional[MaskFunction] = None
+
     def __init__(
         self,
         *,
@@ -190,7 +193,6 @@ class Langfuse:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without public_key. Client will be disabled. "
                 "Provide a public_key parameter or set LANGFUSE_PUBLIC_KEY environment variable. "
-                "See documentation: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
             )
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
@@ -200,7 +202,6 @@ class Langfuse:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without secret_key. Client will be disabled. "
                 "Provide a secret_key parameter or set LANGFUSE_SECRET_KEY environment variable. "
-                "See documentation: https://langfuse.com/docs/sdk/python/low-level-sdk#initialize-client"
             )
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
@@ -1326,7 +1327,9 @@ class Langfuse:
                 "timestamp": _get_timestamp(),
                 "body": new_body,
             }
-            self._resources.add_score_task(event)
+
+            if self._resources is not None:
+                self._resources.add_score_task(event)
 
         except Exception as e:
             langfuse_logger.exception(
@@ -1520,7 +1523,8 @@ class Langfuse:
             # Continue with other work
             ```
         """
-        self._resources.flush()
+        if self._resources is not None:
+            self._resources.flush()
 
     def shutdown(self):
         """Shut down the Langfuse client and flush all pending data.
@@ -1544,7 +1548,8 @@ class Langfuse:
             langfuse.shutdown()
             ```
         """
-        self._resources.shutdown()
+        if self._resources is not None:
+            self._resources.shutdown()
 
     def get_current_trace_id(self) -> Optional[str]:
         """Get the trace ID of the current active span.
@@ -1926,6 +1931,10 @@ class Langfuse:
             Exception: Propagates any exceptions raised during the fetching of a new prompt, unless there is an
             expired prompt in the cache, in which case it logs a warning and returns the expired prompt.
         """
+        if self._resources is None:
+            raise Error(
+                "SDK is not correctly initalized. Check the init logs for more details."
+            )
         if version is not None and label is not None:
             raise ValueError("Cannot specify both version and label at the same time.")
 
@@ -2051,7 +2060,8 @@ class Langfuse:
             else:
                 prompt = TextPromptClient(prompt_response)
 
-            self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
+            if self._resources is not None:
+                self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
             return prompt
 
@@ -2150,7 +2160,8 @@ class Langfuse:
                 )
                 server_prompt = self.api.prompts.create(request=request)
 
-                self._resources.prompt_cache.invalidate(name)
+                if self._resources is not None:
+                    self._resources.prompt_cache.invalidate(name)
 
                 return ChatPromptClient(prompt=cast(Prompt_Chat, server_prompt))
 
@@ -2169,7 +2180,8 @@ class Langfuse:
 
             server_prompt = self.api.prompts.create(request=request)
 
-            self._resources.prompt_cache.invalidate(name)
+            if self._resources is not None:
+                self._resources.prompt_cache.invalidate(name)
 
             return TextPromptClient(prompt=cast(Prompt_Text, server_prompt))
 
@@ -2200,7 +2212,9 @@ class Langfuse:
             version=version,
             new_labels=new_labels,
         )
-        self._resources.prompt_cache.invalidate(name)
+
+        if self._resources is not None:
+            self._resources.prompt_cache.invalidate(name)
 
         return updated_prompt
 

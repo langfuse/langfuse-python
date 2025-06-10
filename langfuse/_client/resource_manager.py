@@ -136,6 +136,8 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
     ):
         self.public_key = public_key
+        self.secret_key = secret_key
+        self.host = host
         self.mask = mask
 
         # OTEL Tracer

@@ -410,7 +410,7 @@ class LangfuseSpanWrapper:
             The processed and masked data
         """
         return self._mask_attribute(
-            data=self._process_media_in_attribute(data=data, span=span, field=field)
+            data=self._process_media_in_attribute(data=data, field=field)
         )
 
     def _mask_attribute(self, *, data):
@@ -441,7 +441,6 @@ class LangfuseSpanWrapper:
         self,
         *,
         data: Optional[Any] = None,
-        span: otel_trace_api.Span,
         field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
     ):
         """Process any media content in the attribute data.
@@ -457,16 +456,17 @@ class LangfuseSpanWrapper:
         Returns:
             The data with any media content processed
         """
-        media_processed_attribute = (
-            self._langfuse_client._resources._media_manager._find_and_process_media(
-                data=data,
-                field=field,
-                trace_id=self.trace_id,
-                observation_id=self.id,
+        if self._langfuse_client._resources is not None:
+            return (
+                self._langfuse_client._resources._media_manager._find_and_process_media(
+                    data=data,
+                    field=field,
+                    trace_id=self.trace_id,
+                    observation_id=self.id,
+                )
             )
-        )
 
-        return media_processed_attribute
+        return data
 
 
 class LangfuseSpan(LangfuseSpanWrapper):
