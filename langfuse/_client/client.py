@@ -22,11 +22,7 @@ from opentelemetry.util._decorator import (
     _agnosticcontextmanager,
 )
 
-from langfuse._client.attributes import (
-    LangfuseOtelSpanAttributes,
-    create_generation_attributes,
-    create_span_attributes,
-)
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
@@ -273,15 +269,6 @@ class Langfuse:
                 span.end()
             ```
         """
-        attributes = create_span_attributes(
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
             parent_span_id = trace_context.get("parent_span_id", None)
@@ -294,29 +281,33 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self._otel_tracer.start_span(
-                        name=name, attributes=attributes
-                    )
+                    otel_span = self._otel_tracer.start_span(name=name)
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseSpan(
                         otel_span=otel_span,
                         langfuse_client=self,
+                        environment=self._environment,
                         input=input,
                         output=output,
                         metadata=metadata,
-                        environment=self._environment,
+                        version=version,
+                        level=level,
+                        status_message=status_message,
                     )
 
-        otel_span = self._otel_tracer.start_span(name=name, attributes=attributes)
+        otel_span = self._otel_tracer.start_span(name=name)
 
         return LangfuseSpan(
             otel_span=otel_span,
             langfuse_client=self,
+            environment=self._environment,
             input=input,
             output=output,
             metadata=metadata,
-            environment=self._environment,
+            version=version,
+            level=level,
+            status_message=status_message,
         )
 
     def start_as_current_span(
@@ -367,15 +358,6 @@ class Langfuse:
                     child_span.update(output="sub-result")
             ```
         """
-        attributes = create_span_attributes(
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
             parent_span_id = trace_context.get("parent_span_id", None)
@@ -390,13 +372,15 @@ class Langfuse:
                     self._create_span_with_parent_context(
                         as_type="span",
                         name=name,
-                        attributes=attributes,
                         remote_parent_span=remote_parent_span,
                         parent=None,
+                        end_on_exit=end_on_exit,
                         input=input,
                         output=output,
                         metadata=metadata,
-                        end_on_exit=end_on_exit,
+                        version=version,
+                        level=level,
+                        status_message=status_message,
                     ),
                 )
 
@@ -405,11 +389,13 @@ class Langfuse:
             self._start_as_current_otel_span_with_processed_media(
                 as_type="span",
                 name=name,
-                attributes=attributes,
+                end_on_exit=end_on_exit,
                 input=input,
                 output=output,
                 metadata=metadata,
-                end_on_exit=end_on_exit,
+                version=version,
+                level=level,
+                status_message=status_message,
             ),
         )
 
@@ -481,21 +467,6 @@ class Langfuse:
                 generation.end()
             ```
         """
-        attributes = create_generation_attributes(
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
             parent_span_id = trace_context.get("parent_span_id", None)
@@ -508,9 +479,7 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self._otel_tracer.start_span(
-                        name=name, attributes=attributes
-                    )
+                    otel_span = self._otel_tracer.start_span(name=name)
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseGeneration(
@@ -519,9 +488,18 @@ class Langfuse:
                         input=input,
                         output=output,
                         metadata=metadata,
+                        version=version,
+                        level=level,
+                        status_message=status_message,
+                        completion_start_time=completion_start_time,
+                        model=model,
+                        model_parameters=model_parameters,
+                        usage_details=usage_details,
+                        cost_details=cost_details,
+                        prompt=prompt,
                     )
 
-        otel_span = self._otel_tracer.start_span(name=name, attributes=attributes)
+        otel_span = self._otel_tracer.start_span(name=name)
 
         return LangfuseGeneration(
             otel_span=otel_span,
@@ -529,6 +507,15 @@ class Langfuse:
             input=input,
             output=output,
             metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
         )
 
     def start_as_current_generation(
@@ -598,21 +585,6 @@ class Langfuse:
                 )
             ```
         """
-        attributes = create_generation_attributes(
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
             parent_span_id = trace_context.get("parent_span_id", None)
@@ -627,13 +599,21 @@ class Langfuse:
                     self._create_span_with_parent_context(
                         as_type="generation",
                         name=name,
-                        attributes=attributes,
                         remote_parent_span=remote_parent_span,
                         parent=None,
+                        end_on_exit=end_on_exit,
                         input=input,
                         output=output,
                         metadata=metadata,
-                        end_on_exit=end_on_exit,
+                        version=version,
+                        level=level,
+                        status_message=status_message,
+                        completion_start_time=completion_start_time,
+                        model=model,
+                        model_parameters=model_parameters,
+                        usage_details=usage_details,
+                        cost_details=cost_details,
+                        prompt=prompt,
                     ),
                 )
 
@@ -642,11 +622,19 @@ class Langfuse:
             self._start_as_current_otel_span_with_processed_media(
                 as_type="generation",
                 name=name,
-                attributes=attributes,
+                end_on_exit=end_on_exit,
                 input=input,
                 output=output,
                 metadata=metadata,
-                end_on_exit=end_on_exit,
+                version=version,
+                level=level,
+                status_message=status_message,
+                completion_start_time=completion_start_time,
+                model=model,
+                model_parameters=model_parameters,
+                usage_details=usage_details,
+                cost_details=cost_details,
+                prompt=prompt,
             ),
         )
 
@@ -657,24 +645,40 @@ class Langfuse:
         name,
         parent,
         remote_parent_span,
-        attributes,
         as_type: Literal["generation", "span"],
+        end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        end_on_exit: Optional[bool] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
     ):
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
         with otel_trace_api.use_span(parent_span):
             with self._start_as_current_otel_span_with_processed_media(
                 name=name,
-                attributes=attributes,
                 as_type=as_type,
+                end_on_exit=end_on_exit,
                 input=input,
                 output=output,
                 metadata=metadata,
-                end_on_exit=end_on_exit,
+                version=version,
+                level=level,
+                status_message=status_message,
+                completion_start_time=completion_start_time,
+                model=model,
+                model_parameters=model_parameters,
+                usage_details=usage_details,
+                cost_details=cost_details,
+                prompt=prompt,
             ) as langfuse_span:
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
@@ -688,35 +692,54 @@ class Langfuse:
         self,
         *,
         name: str,
-        attributes: Dict[str, str],
         as_type: Optional[Literal["generation", "span"]] = None,
+        end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        end_on_exit: Optional[bool] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
     ):
         with self._otel_tracer.start_as_current_span(
             name=name,
-            attributes=attributes,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
             yield (
                 LangfuseSpan(
                     otel_span=otel_span,
                     langfuse_client=self,
+                    environment=self._environment,
                     input=input,
                     output=output,
                     metadata=metadata,
-                    environment=self._environment,
+                    version=version,
+                    level=level,
+                    status_message=status_message,
                 )
                 if as_type == "span"
                 else LangfuseGeneration(
                     otel_span=otel_span,
                     langfuse_client=self,
+                    environment=self._environment,
                     input=input,
                     output=output,
                     metadata=metadata,
-                    environment=self._environment,
+                    version=version,
+                    level=level,
+                    status_message=status_message,
+                    completion_start_time=completion_start_time,
+                    model=model,
+                    model_parameters=model_parameters,
+                    usage_details=usage_details,
+                    cost_details=cost_details,
+                    prompt=prompt,
                 )
             )
 
@@ -988,14 +1011,6 @@ class Langfuse:
             ```
         """
         timestamp = time_ns()
-        attributes = create_span_attributes(
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
 
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
@@ -1010,30 +1025,34 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(
-                        name=name, attributes=attributes, start_time=timestamp
+                        name=name, start_time=timestamp
                     )
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return LangfuseEvent(
                         otel_span=otel_span,
                         langfuse_client=self,
+                        environment=self._environment,
                         input=input,
                         output=output,
                         metadata=metadata,
-                        environment=self._environment,
+                        version=version,
+                        level=level,
+                        status_message=status_message,
                     ).end(end_time=timestamp)
 
-        otel_span = self._otel_tracer.start_span(
-            name=name, attributes=attributes, start_time=timestamp
-        )
+        otel_span = self._otel_tracer.start_span(name=name, start_time=timestamp)
 
         return LangfuseEvent(
             otel_span=otel_span,
             langfuse_client=self,
+            environment=self._environment,
             input=input,
             output=output,
             metadata=metadata,
-            environment=self._environment,
+            version=version,
+            level=level,
+            status_message=status_message,
         ).end(end_time=timestamp)
 
     def _create_remote_parent_span(
