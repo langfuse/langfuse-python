@@ -162,7 +162,6 @@ class Langfuse:
     ):
         self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
-        self._mask = mask
         self._project_id = None
         sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -219,7 +218,9 @@ class Langfuse:
             httpx_client=httpx_client,
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,
+            mask=mask,
         )
+        self._mask = self._resources.mask
 
         self._otel_tracer = (
             self._resources.tracer
