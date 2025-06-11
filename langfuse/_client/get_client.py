@@ -56,7 +56,16 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
 
             if len(active_instances) == 1:
                 # Only one client exists, safe to use without specifying key
-                return Langfuse(public_key=public_key)
+                instance = list(active_instances.values())[0]
+
+                # Initialize with the credentials bound to the instance
+                # This is important if the original instance was instantiated
+                # via constructor arguments
+                return Langfuse(
+                    public_key=instance.public_key,
+                    secret_key=instance.secret_key,
+                    host=instance.host,
+                )
 
             else:
                 # Multiple clients exist but no key specified - disable tracing

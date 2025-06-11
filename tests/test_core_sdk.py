@@ -7,6 +7,7 @@ from time import sleep
 import pytest
 
 from langfuse import Langfuse
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._utils import _get_timestamp
 from tests.api_wrapper import LangfuseAPI
 from tests.utils import (
@@ -1781,8 +1782,12 @@ def test_create_trace_sampling_zero():
 
 
 def test_mask_function():
+    LangfuseResourceManager.reset()
+
     def mask_func(data):
         if isinstance(data, dict):
+            if "should_raise" in data:
+                raise
             return {k: "MASKED" for k in data}
         elif isinstance(data, str):
             return "MASKED"
@@ -1832,19 +1837,13 @@ def test_mask_function():
     assert fetched_span["input"] == {"data": "MASKED"}
     assert fetched_span["output"] == "MASKED"
 
-    # Test with faulty mask function
-    def faulty_mask_func(data):
-        raise Exception("Masking error")
-
-    langfuse = Langfuse(mask=faulty_mask_func)
-
     # Create a root span with trace properties
     with langfuse.start_as_current_span(name="test-span") as root_span:
-        root_span.update_trace(name="test_trace", input={"sensitive": "data"})
+        root_span.update_trace(name="test_trace", input={"should_raise": "data"})
         # Get trace ID for later use
         trace_id = root_span.trace_id
         # Add output to the trace
-        root_span.update_trace(output={"more": "sensitive"})
+        root_span.update_trace(output={"should_raise": "sensitive"})
 
     # Ensure data is sent
     langfuse.flush()
