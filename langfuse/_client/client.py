@@ -1697,7 +1697,7 @@ class Langfuse:
         """
         try:
             langfuse_logger.debug(f"Getting datasets {name}")
-            dataset = self.api.datasets.get(dataset_name=name)
+            dataset = self.api.datasets.get(dataset_name=self._url_encode(name))
 
             dataset_items = []
             page = 1
@@ -2249,4 +2249,4 @@ class Langfuse:
         return updated_prompt
 
     def _url_encode(self, url: str) -> str:
-        return urllib.parse.quote(url)
+        return urllib.parse.quote(url, safe='')
