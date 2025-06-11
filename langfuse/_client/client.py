@@ -30,6 +30,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SAMPLE_RATE,
     LANGFUSE_SECRET_KEY,
+    LANGFUSE_TIMEOUT,
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
@@ -90,7 +91,7 @@ class Langfuse:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
         host (Optional[str]): The Langfuse API host URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_HOST environment variable.
-        timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 30 seconds.
+        timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
         httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
         debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
         tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
@@ -167,6 +168,8 @@ class Langfuse:
             raise ValueError(
                 f"Sample rate must be between 0.0 and 1.0, got {sample_rate}"
             )
+
+        timeout = timeout or int(os.environ.get(LANGFUSE_TIMEOUT, 5))
 
         self._tracing_enabled = (
             tracing_enabled
@@ -1840,7 +1843,7 @@ class Langfuse:
         obj: Any,
         resolve_with: Literal["base64_data_uri"],
         max_depth: int = 10,
-        content_fetch_timeout_seconds: int = 10,
+        content_fetch_timeout_seconds: int = 5,
     ):
         """Replace media reference strings in an object with base64 data URIs.
 
@@ -1857,7 +1860,7 @@ class Langfuse:
             resolve_with: The representation of the media content to replace the media reference string with.
                 Currently only "base64_data_uri" is supported.
             max_depth: int: The maximum depth to traverse the object. Default is 10.
-            content_fetch_timeout_seconds: int: The timeout in seconds for fetching media content. Default is 10.
+            content_fetch_timeout_seconds: int: The timeout in seconds for fetching media content. Default is 5.
 
         Returns:
             A deep copy of the input object with all media references replaced with base64 data URIs where possible.
@@ -1947,7 +1950,7 @@ class Langfuse:
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
-            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 10 seconds per default.
+            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -2066,7 +2069,7 @@ class Langfuse:
         try:
 
             @backoff.on_exception(
-                backoff.constant, Exception, max_tries=max_retries, logger=None
+                backoff.constant, Exception, max_tries=max_retries + 1, logger=None
             )
             def fetch_prompts():
                 return self.api.prompts.get(

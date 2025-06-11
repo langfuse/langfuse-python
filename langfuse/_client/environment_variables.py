@@ -119,3 +119,12 @@ Controls whether media detection and upload is attempted by the SDK.
 
 **Default value**: ``True``
 """
+
+LANGFUSE_TIMEOUT = "LANGFUSE_TIMEOUT"
+"""
+.. envvar: LANGFUSE_TIMEOUT
+
+Controls the timeout for all API requests in seconds
+
+**Default value**: ``5``
+"""

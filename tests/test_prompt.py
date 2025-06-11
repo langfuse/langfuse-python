@@ -863,7 +863,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
             break
         sleep(0.1)
 
-    assert mock_server_call.call_count == 2
+    assert mock_server_call.call_count == 3
     assert result_call_2 == prompt_client
 
 
