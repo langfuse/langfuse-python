@@ -256,8 +256,11 @@ class LangfuseResourceManager:
 
     @classmethod
     def reset(cls):
-        for key in cls._instances:
-            cls._instances.pop(key).shutdown()
+        with cls._lock:
+            for key in cls._instances:
+                cls._instances[key].shutdown()
+
+            cls._instances.clear()
 
     def add_score_task(self, event: dict, *, force_sample: bool = False):
         try:
