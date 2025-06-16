@@ -972,11 +972,7 @@ def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]):
     if metadata is None or not isinstance(metadata, dict):
         return metadata
 
-    langfuse_metadata_keys = [
-        "langfuse_prompt",
-        "langfuse_session_id",
-        "langfuse_user_id",
-    ]
+    langfuse_metadata_keys = ["langfuse_prompt"]
 
     metadata_copy = metadata.copy()
 
