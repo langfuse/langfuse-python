@@ -2249,7 +2249,7 @@ class Langfuse:
         return updated_prompt
 
     def _url_encode(self, url: str) -> str:
-        # urllib.quote does not escape slashes "/" by default
+        # urllib.parse.quote does not escape slashes "/" by default; we need to add safe="" to force escaping
         # we need add safe="" to force escaping of slashes
         # This is necessary for prompts in prompt folders
         return urllib.parse.quote(url, safe="")
