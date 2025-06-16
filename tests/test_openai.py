@@ -1313,7 +1313,7 @@ def test_response_api_text_input(openai):
     assert generationData.output is not None
 
 
-@pytest.skip("Flaky")
+@pytest.mark.skip("Flaky")
 def test_response_api_image_input(openai):
     client = openai.OpenAI()
     generation_name = "test_response_api_image_input" + create_uuid()[:8]
