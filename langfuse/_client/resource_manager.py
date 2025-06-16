@@ -92,6 +92,7 @@ class LangfuseResourceManager:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        tracing_enabled: Optional[bool] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -113,6 +114,7 @@ class LangfuseResourceManager:
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
                     mask=mask,
+                    tracing_enabled=tracing_enabled if tracing_enabled is not None else True,
                 )
 
                 cls._instances[public_key] = instance
@@ -134,6 +136,7 @@ class LangfuseResourceManager:
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        tracing_enabled: bool = True,
     ):
         self.public_key = public_key
         self.secret_key = secret_key
@@ -141,26 +144,27 @@ class LangfuseResourceManager:
         self.mask = mask
 
         # OTEL Tracer
-        tracer_provider = _init_tracer_provider(
-            environment=environment, release=release, sample_rate=sample_rate
-        )
+        if tracing_enabled:
+            tracer_provider = _init_tracer_provider(
+                environment=environment, release=release, sample_rate=sample_rate
+            )
 
-        langfuse_processor = LangfuseSpanProcessor(
-            public_key=self.public_key,
-            secret_key=secret_key,
-            host=host,
-            timeout=timeout,
-            flush_at=flush_at,
-            flush_interval=flush_interval,
-        )
-        tracer_provider.add_span_processor(langfuse_processor)
+            langfuse_processor = LangfuseSpanProcessor(
+                public_key=self.public_key,
+                secret_key=secret_key,
+                host=host,
+                timeout=timeout,
+                flush_at=flush_at,
+                flush_interval=flush_interval,
+            )
+            tracer_provider.add_span_processor(langfuse_processor)
 
-        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        self._otel_tracer = tracer_provider.get_tracer(
-            LANGFUSE_TRACER_NAME,
-            langfuse_version,
-            attributes={"public_key": self.public_key},
-        )
+            tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+            self._otel_tracer = tracer_provider.get_tracer(
+                LANGFUSE_TRACER_NAME,
+                langfuse_version,
+                attributes={"public_key": self.public_key},
+            )
 
         # API Clients
 
