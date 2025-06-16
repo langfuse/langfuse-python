@@ -219,6 +219,7 @@ class Langfuse:
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,
             mask=mask,
+            tracing_enabled=self._tracing_enabled,
         )
         self._mask = self._resources.mask
 
