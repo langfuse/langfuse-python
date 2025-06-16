@@ -114,7 +114,7 @@ class LangfuseResourceManager:
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
                     mask=mask,
-                    tracing_enabled=tracing_enabled or True,
+                    tracing_enabled=tracing_enabled if tracing_enabled is not None else True,
                 )
 
                 cls._instances[public_key] = instance
