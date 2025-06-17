@@ -90,4 +90,8 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
                     tracing_enabled=False, public_key="fake", secret_key="fake"
                 )
 
-            return Langfuse(public_key=public_key)
+            return Langfuse(
+                public_key=public_key,
+                secret_key=instance.secret_key,
+                host=instance.host,
+            )
