@@ -2419,7 +2419,7 @@ JSON string containing the query parameters with the following structure:
   "metrics": [              // Required. At least one metric must be provided
     {
       "measure": string,    // What to measure, e.g. "count", "latency", "value"
-      "aggregation": string // How to aggregate, e.g. "count", "sum", "avg", "p95"
+      "aggregation": string // How to aggregate, e.g. "count", "sum", "avg", "p95", "histogram"
     }
   ],
   "filters": [              // Optional. Default: []
@@ -2441,7 +2441,11 @@ JSON string containing the query parameters with the following structure:
       "field": string,      // Field to order by
       "direction": string   // "asc" or "desc"
     }
-  ]
+  ],
+  "config": {               // Optional. Query-specific configuration
+    "bins": number,         // Optional. Number of bins for histogram (1-100), default: 10
+    "row_limit": number     // Optional. Row limit for results (1-1000)
+  }
 }
 ```
     
@@ -6017,6 +6021,14 @@ client.trace.list()
 <dd>
 
 **environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for traces where the environment is one of the provided values.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**fields:** `typing.Optional[str]` — Comma-separated list of fields to include in the response. Available field groups are 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not provided, all fields are included. Example: 'core,scores,metrics'
     
 </dd>
 </dl>

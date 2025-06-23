@@ -40,7 +40,7 @@ class MetricsClient:
               "metrics": [              // Required. At least one metric must be provided
                 {
                   "measure": string,    // What to measure, e.g. "count", "latency", "value"
-                  "aggregation": string // How to aggregate, e.g. "count", "sum", "avg", "p95"
+                  "aggregation": string // How to aggregate, e.g. "count", "sum", "avg", "p95", "histogram"
                 }
               ],
               "filters": [              // Optional. Default: []
@@ -62,7 +62,11 @@ class MetricsClient:
                   "field": string,      // Field to order by
                   "direction": string   // "asc" or "desc"
                 }
-              ]
+              ],
+              "config": {               // Optional. Query-specific configuration
+                "bins": number,         // Optional. Number of bins for histogram (1-100), default: 10
+                "row_limit": number     // Optional. Row limit for results (1-1000)
+              }
             }
             ```
 
@@ -147,7 +151,7 @@ class AsyncMetricsClient:
               "metrics": [              // Required. At least one metric must be provided
                 {
                   "measure": string,    // What to measure, e.g. "count", "latency", "value"
-                  "aggregation": string // How to aggregate, e.g. "count", "sum", "avg", "p95"
+                  "aggregation": string // How to aggregate, e.g. "count", "sum", "avg", "p95", "histogram"
                 }
               ],
               "filters": [              // Optional. Default: []
@@ -169,7 +173,11 @@ class AsyncMetricsClient:
                   "field": string,      // Field to order by
                   "direction": string   // "asc" or "desc"
                 }
-              ]
+              ],
+              "config": {               // Optional. Query-specific configuration
+                "bins": number,         // Optional. Number of bins for histogram (1-100), default: 10
+                "row_limit": number     // Optional. Row limit for results (1-1000)
+              }
             }
             ```
 

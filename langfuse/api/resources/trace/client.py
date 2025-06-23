@@ -172,6 +172,7 @@ class TraceClient:
         version: typing.Optional[str] = None,
         release: typing.Optional[str] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        fields: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
         """
@@ -211,6 +212,9 @@ class TraceClient:
 
         environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for traces where the environment is one of the provided values.
+
+        fields : typing.Optional[str]
+            Comma-separated list of fields to include in the response. Available field groups are 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not provided, all fields are included. Example: 'core,scores,metrics'
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -253,6 +257,7 @@ class TraceClient:
                 "version": version,
                 "release": release,
                 "environment": environment,
+                "fields": fields,
             },
             request_options=request_options,
         )
@@ -518,6 +523,7 @@ class AsyncTraceClient:
         version: typing.Optional[str] = None,
         release: typing.Optional[str] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        fields: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Traces:
         """
@@ -557,6 +563,9 @@ class AsyncTraceClient:
 
         environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for traces where the environment is one of the provided values.
+
+        fields : typing.Optional[str]
+            Comma-separated list of fields to include in the response. Available field groups are 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not provided, all fields are included. Example: 'core,scores,metrics'
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -607,6 +616,7 @@ class AsyncTraceClient:
                 "version": version,
                 "release": release,
                 "environment": environment,
+                "fields": fields,
             },
             request_options=request_options,
         )
