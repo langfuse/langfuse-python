@@ -65,6 +65,7 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
                     public_key=instance.public_key,
                     secret_key=instance.secret_key,
                     host=instance.host,
+                    tracing_enabled=instance.tracing_enabled,
                 )
 
             else:
@@ -94,4 +95,5 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
                 public_key=public_key,
                 secret_key=instance.secret_key,
                 host=instance.host,
+                tracing_enabled=instance.tracing_enabled,
             )
