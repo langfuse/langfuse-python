@@ -381,7 +381,7 @@ def test_create_generation():
     assert generation_api.model_parameters == {
         "max_tokens": "1000",
         "temperature": "0.9",
-        "stop": ["user-1", "user-2"],
+        "stop": '["user-1","user-2"]',
     }
     assert generation_api.input == [
         {"role": "system", "content": "You are a helpful assistant."},
