@@ -18,7 +18,7 @@ import atexit
 import os
 import threading
 from queue import Full, Queue
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
@@ -93,6 +93,7 @@ class LangfuseResourceManager:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         tracing_enabled: Optional[bool] = None,
+        blocked_instrumentation_scopes: Optional[List[str]] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -117,6 +118,7 @@ class LangfuseResourceManager:
                     tracing_enabled=tracing_enabled
                     if tracing_enabled is not None
                     else True,
+                    blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                 )
 
                 cls._instances[public_key] = instance
@@ -139,6 +141,7 @@ class LangfuseResourceManager:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         tracing_enabled: bool = True,
+        blocked_instrumentation_scopes: Optional[List[str]] = None,
     ):
         self.public_key = public_key
         self.secret_key = secret_key
@@ -159,6 +162,7 @@ class LangfuseResourceManager:
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,
+                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 
