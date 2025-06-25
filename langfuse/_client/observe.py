@@ -65,8 +65,8 @@ class LangfuseDecorator:
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
-        capture_input: bool = True,
-        capture_output: bool = True,
+        capture_input: Optional[bool] = None,
+        capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Callable[[F], F]: ...
 
@@ -76,8 +76,8 @@ class LangfuseDecorator:
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
-        capture_input: bool = True,
-        capture_output: bool = True,
+        capture_input: Optional[bool] = None,
+        capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Union[F, Callable[[F], F]]:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
@@ -149,14 +149,24 @@ class LangfuseDecorator:
             LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True"
         ).lower() not in ("false", "0")
 
+        should_capture_input = (
+            capture_input if capture_input is not None else function_io_capture_enabled
+        )
+
+        should_capture_output = (
+            capture_output
+            if capture_output is not None
+            else function_io_capture_enabled
+        )
+
         def decorator(func: F) -> F:
             return (
                 self._async_observe(
                     func,
                     name=name,
                     as_type=as_type,
-                    capture_input=function_io_capture_enabled and capture_input,
-                    capture_output=function_io_capture_enabled and capture_output,
+                    capture_input=should_capture_input,
+                    capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
                 if asyncio.iscoroutinefunction(func)
@@ -164,8 +174,8 @@ class LangfuseDecorator:
                     func,
                     name=name,
                     as_type=as_type,
-                    capture_input=function_io_capture_enabled and capture_input,
-                    capture_output=function_io_capture_enabled and capture_output,
+                    capture_input=should_capture_input,
+                    capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
             )

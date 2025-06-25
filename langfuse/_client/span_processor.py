@@ -13,7 +13,7 @@ Key features:
 
 import base64
 import os
-from typing import Optional
+from typing import List, Optional
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan
@@ -34,10 +34,11 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
     This processor extends OpenTelemetry's BatchSpanProcessor with Langfuse-specific functionality:
     1. Project-scoped span filtering to prevent cross-project data leakage
-    2. Configurable batch processing parameters for optimal performance
-    3. HTTP-based span export to the Langfuse OTLP endpoint
-    4. Debug logging for span processing operations
-    5. Authentication with Langfuse API using Basic Auth
+    2. Instrumentation scope filtering to block spans from specific libraries/frameworks
+    3. Configurable batch processing parameters for optimal performance
+    4. HTTP-based span export to the Langfuse OTLP endpoint
+    5. Debug logging for span processing operations
+    6. Authentication with Langfuse API using Basic Auth
 
     The processor is designed to efficiently handle large volumes of spans with
     minimal overhead, while ensuring spans are only sent to the correct project.
@@ -54,8 +55,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
+        blocked_instrumentation_scopes: Optional[List[str]] = None,
     ):
         self.public_key = public_key
+        self.blocked_instrumentation_scopes = (
+            blocked_instrumentation_scopes
+            if blocked_instrumentation_scopes is not None
+            else []
+        )
         flush_at = flush_at or int(os.environ.get(LANGFUSE_FLUSH_AT, 15))
         flush_interval = flush_interval or float(
             os.environ.get(LANGFUSE_FLUSH_INTERVAL, 0.5)
@@ -93,6 +100,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
             return
 
+        # Do not export spans from blocked instrumentation scopes
+        if self._is_blocked_instrumentation_scope(span):
+            return
+
         langfuse_logger.debug(
             f"Trace: Processing span name='{span._name}' | Full details:\n{span_formatter(span)}"
         )
@@ -104,6 +115,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         return (
             span.instrumentation_scope is not None
             and span.instrumentation_scope.name == LANGFUSE_TRACER_NAME
+        )
+
+    def _is_blocked_instrumentation_scope(self, span: ReadableSpan) -> bool:
+        return (
+            span.instrumentation_scope is not None
+            and span.instrumentation_scope.name in self.blocked_instrumentation_scopes
         )
 
     def _is_langfuse_project_span(self, span: ReadableSpan) -> bool:
