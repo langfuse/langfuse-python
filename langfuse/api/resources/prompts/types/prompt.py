@@ -7,11 +7,11 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .chat_message import ChatMessage
+from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
 
 class Prompt_Chat(pydantic_v1.BaseModel):
-    prompt: typing.List[ChatMessage]
+    prompt: typing.List[ChatMessageWithPlaceholders]
     name: str
     version: int
     config: typing.Any
