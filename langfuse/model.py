@@ -271,10 +271,16 @@ class ChatPromptClient(BasePromptClient):
             return (
                 self.name == other.name
                 and self.version == other.version
+                and len(self.prompt) == len(other.prompt)
                 and all(
-                    m1["role"] == m2["role"] and m1["content"] == m2["content"]
+                    # chatmessage equality
+                    (m1["type"] == "message" and m2["type"] == "message"
+                     and m1["role"] == m2["role"] and m1["content"] == m2["content"])
+                    or
+                    # placeholder equality
+                    (m1["type"] == "placeholder" and m2["type"] == "placeholder"
+                     and m1["name"] == m2["name"])
                     for m1, m2 in zip(self.prompt, other.prompt)
-                    if m1["type"] == "message" and m2["type"] == "message"
                 )
                 and self.config == other.config
             )
