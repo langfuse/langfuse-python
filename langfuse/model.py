@@ -231,7 +231,7 @@ class ChatPromptClient(BasePromptClient):
         self.prompt: List[ChatMessageWithPlaceholdersDict] = []
 
         for p in prompt.prompt:
-            if hasattr(p, "type") and p.type == "placeholder":
+            if hasattr(p, "type") and hasattr(p, "name"):
                 self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Placeholder(
                         type="placeholder",
@@ -240,7 +240,7 @@ class ChatPromptClient(BasePromptClient):
                         name=p.name,
                     )
                 )
-            elif hasattr(p, "type") and p.type == "message":
+            elif hasattr(p, "role") and hasattr(p, "content"):
                 self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Message(
                         type="message",
