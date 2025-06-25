@@ -13,6 +13,7 @@ from .create_prompt_request import (
     CreatePromptRequest,
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
+)
 
 from .create_text_prompt_request import CreateTextPromptRequest
 from .placeholder_message import PlaceholderMessage
