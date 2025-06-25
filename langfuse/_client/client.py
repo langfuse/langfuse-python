@@ -2153,7 +2153,9 @@ class Langfuse:
         self,
         *,
         name: str,
-        prompt: Union[str, List[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict]]],
+        prompt: Union[
+            str, List[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict]]
+        ],
         labels: List[str] = [],
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",

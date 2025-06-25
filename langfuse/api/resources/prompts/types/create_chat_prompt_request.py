@@ -5,12 +5,12 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .chat_message import ChatMessage
+from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
 
 class CreateChatPromptRequest(pydantic_v1.BaseModel):
     name: str
-    prompt: typing.List[ChatMessage]
+    prompt: typing.List[ChatMessageWithPlaceholders]
     config: typing.Optional[typing.Any] = None
     labels: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
     """
