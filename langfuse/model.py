@@ -2,7 +2,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -52,6 +52,26 @@ class ModelUsage(TypedDict):
 class ChatMessageDict(TypedDict):
     role: str
     content: str
+
+
+class ChatMessageWithPlaceholdersDict_Message(TypedDict):
+    type: Literal["message"]
+    role: str
+    content: str
+    name: None
+
+
+class ChatMessageWithPlaceholdersDict_Placeholder(TypedDict):
+    type: Literal["placeholder"]
+    role: None
+    content: None
+    name: str
+
+
+ChatMessageWithPlaceholdersDict = Union[
+    ChatMessageWithPlaceholdersDict_Message,
+    ChatMessageWithPlaceholdersDict_Placeholder,
+]
 
 
 class TemplateParser:
@@ -208,9 +228,27 @@ class TextPromptClient(BasePromptClient):
 class ChatPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Chat, is_fallback: bool = False):
         super().__init__(prompt, is_fallback)
-        self.prompt = [
-            ChatMessageDict(role=p.role, content=p.content) for p in prompt.prompt
-        ]
+        self.prompt: List[ChatMessageWithPlaceholdersDict] = []
+
+        for p in prompt.prompt:
+            if hasattr(p, "type") and p.type == "placeholder":
+                self.prompt.append(
+                    ChatMessageWithPlaceholdersDict_Placeholder(
+                        type="placeholder",
+                        role=None,
+                        content=None,
+                        name=p.name,
+                    )
+                )
+            elif hasattr(p, "type") and p.type == "message":
+                self.prompt.append(
+                    ChatMessageWithPlaceholdersDict_Message(
+                        type="message",
+                        role=p.role,
+                        content=p.content,
+                        name=None,
+                    )
+                )
 
     def compile(self, **kwargs) -> List[ChatMessageDict]:
         return [
@@ -221,6 +259,7 @@ class ChatPromptClient(BasePromptClient):
                 role=chat_message["role"],
             )
             for chat_message in self.prompt
+            if chat_message["type"] == "message"
         ]
 
     @property
@@ -229,6 +268,7 @@ class ChatPromptClient(BasePromptClient):
         return [
             variable
             for chat_message in self.prompt
+            if chat_message["type"] == "message"
             for variable in TemplateParser.find_variable_names(chat_message["content"])
         ]
 
@@ -245,6 +285,47 @@ class ChatPromptClient(BasePromptClient):
             )
 
         return False
+
+    def compileWithPlaceholders(
+        self,
+        variables: Dict[str, Any],
+        placeholders: Dict[str, List[ChatMessage]],
+    ) -> List[ChatMessageDict]:
+        """Compile chat prompt by first replacing placeholders, then expanding variables.
+
+        Args:
+            variables: Dictionary of variable names to values for template substitution
+            placeholders: Dictionary of placeholder names to lists of ChatMessage objects
+
+        Returns:
+            List[ChatMessageDict]: Compiled chat messages
+        """
+        messages_with_placeholders_replaced: List[ChatMessage] = []
+
+        # Subsitute the placeholders for their supplied ChatMessages
+        for item in self.prompt:
+            if item["type"] == "placeholder" and item["name"] in placeholders:
+                messages_with_placeholders_replaced.extend(placeholders[item["name"]])
+            elif item["type"] == "message":
+                messages_with_placeholders_replaced.append(
+                    ChatMessage(
+                        role=item["role"],
+                        content=item["content"],
+                    )
+                )
+
+        # Then, replace the variables in the ChatMessage content.
+        return [
+            ChatMessageDict(
+                content=TemplateParser.compile_template(
+                    chat_message.content, variables,
+                ),
+                role=chat_message.role,
+            )
+            for chat_message in messages_with_placeholders_replaced
+            if hasattr(chat_message, "role") and hasattr(chat_message, "content")
+        ]
+
 
     def get_langchain_prompt(self, **kwargs):
         """Convert Langfuse prompt into string compatible with Langchain ChatPromptTemplate.
@@ -269,6 +350,7 @@ class ChatPromptClient(BasePromptClient):
                 ),
             )
             for msg in self.prompt
+            if msg["type"] == "message"
         ]
 
 
