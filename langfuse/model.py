@@ -313,14 +313,14 @@ class ChatPromptClient(BasePromptClient):
         return [
             ChatMessageDict(
                 content=TemplateParser.compile_template(
-                    chat_message["content"], variables,
+                    chat_message["content"],
+                    variables,
                 ),
                 role=chat_message["role"],
             )
             for chat_message in messages_with_placeholders_replaced
-            if hasattr(chat_message, "role") and hasattr(chat_message, "content")
+            if "role" in chat_message and "content" in chat_message
         ]
-
 
     def get_langchain_prompt(self, **kwargs):
         """Convert Langfuse prompt into string compatible with Langchain ChatPromptTemplate.
