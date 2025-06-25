@@ -58,13 +58,10 @@ class ChatMessageWithPlaceholdersDict_Message(TypedDict):
     type: Literal["message"]
     role: str
     content: str
-    name: None
 
 
 class ChatMessageWithPlaceholdersDict_Placeholder(TypedDict):
     type: Literal["placeholder"]
-    role: None
-    content: None
     name: str
 
 
@@ -235,8 +232,6 @@ class ChatPromptClient(BasePromptClient):
                 self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Placeholder(
                         type="placeholder",
-                        role=None,
-                        content=None,
                         name=p.name,
                     )
                 )
@@ -246,7 +241,6 @@ class ChatPromptClient(BasePromptClient):
                         type="message",
                         role=p.role,
                         content=p.content,
-                        name=None,
                     )
                 )
 
@@ -280,6 +274,7 @@ class ChatPromptClient(BasePromptClient):
                 and all(
                     m1["role"] == m2["role"] and m1["content"] == m2["content"]
                     for m1, m2 in zip(self.prompt, other.prompt)
+                    if m1["type"] == "message" and m2["type"] == "message"
                 )
                 and self.config == other.config
             )
@@ -289,7 +284,7 @@ class ChatPromptClient(BasePromptClient):
     def compileWithPlaceholders(
         self,
         variables: Dict[str, Any],
-        placeholders: Dict[str, List[ChatMessage]],
+        placeholders: Dict[str, List[ChatMessageDict]],
     ) -> List[ChatMessageDict]:
         """Compile chat prompt by first replacing placeholders, then expanding variables.
 
@@ -300,7 +295,7 @@ class ChatPromptClient(BasePromptClient):
         Returns:
             List[ChatMessageDict]: Compiled chat messages
         """
-        messages_with_placeholders_replaced: List[ChatMessage] = []
+        messages_with_placeholders_replaced: List[ChatMessageDict] = []
 
         # Subsitute the placeholders for their supplied ChatMessages
         for item in self.prompt:
@@ -308,7 +303,7 @@ class ChatPromptClient(BasePromptClient):
                 messages_with_placeholders_replaced.extend(placeholders[item["name"]])
             elif item["type"] == "message":
                 messages_with_placeholders_replaced.append(
-                    ChatMessage(
+                    ChatMessageDict(
                         role=item["role"],
                         content=item["content"],
                     )
@@ -318,9 +313,9 @@ class ChatPromptClient(BasePromptClient):
         return [
             ChatMessageDict(
                 content=TemplateParser.compile_template(
-                    chat_message.content, variables,
+                    chat_message["content"], variables,
                 ),
-                role=chat_message.role,
+                role=chat_message["role"],
             )
             for chat_message in messages_with_placeholders_replaced
             if hasattr(chat_message, "role") and hasattr(chat_message, "content")
