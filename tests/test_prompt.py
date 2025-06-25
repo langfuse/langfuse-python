@@ -141,6 +141,161 @@ def test_create_chat_prompt_with_placeholders():
     assert prompt_client.config == {}
 
 
+def test_create_prompt_with_placeholders():
+    """Test creating a prompt with placeholder messages."""
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt=[
+            {"role": "system", "content": "System message"},
+            {"type": "placeholder", "name": "context"},
+            {"role": "user", "content": "User message"},
+        ],
+        type="chat",
+    )
+
+    # Verify the full prompt structure with placeholders
+    assert len(prompt_client.prompt) == 3
+
+    # First message - system
+    assert prompt_client.prompt[0]["type"] == "message"
+    assert prompt_client.prompt[0]["role"] == "system"
+    assert prompt_client.prompt[0]["content"] == "System message"
+    # Placeholder
+    assert prompt_client.prompt[1]["type"] == "placeholder"
+    assert prompt_client.prompt[1]["name"] == "context"
+    # Third message - user
+    assert prompt_client.prompt[2]["type"] == "message"
+    assert prompt_client.prompt[2]["role"] == "user"
+    assert prompt_client.prompt[2]["content"] == "User message"
+
+
+def test_get_prompt_with_placeholders():
+    """Test retrieving a prompt with placeholders."""
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt=[
+            {"role": "system", "content": "You are {{name}}"},
+            {"type": "placeholder", "name": "history"},
+            {"role": "user", "content": "{{question}}"},
+        ],
+        type="chat",
+    )
+
+    prompt_client = langfuse.get_prompt(prompt_name, type="chat", version=1)
+
+    # Verify placeholder structure is preserved
+    assert len(prompt_client.prompt) == 3
+
+    # First message - system with variable
+    assert prompt_client.prompt[0]["type"] == "message"
+    assert prompt_client.prompt[0]["role"] == "system"
+    assert prompt_client.prompt[0]["content"] == "You are {{name}}"
+    # Placeholder
+    assert prompt_client.prompt[1]["type"] == "placeholder"
+    assert prompt_client.prompt[1]["name"] == "history"
+    # Third message - user with variable
+    assert prompt_client.prompt[2]["type"] == "message"
+    assert prompt_client.prompt[2]["role"] == "user"
+    assert prompt_client.prompt[2]["content"] == "{{question}}"
+
+
+@pytest.mark.parametrize(
+    "variables,placeholders,expected_len,expected_contents",
+    [
+        # Variables only, no placeholders
+        (
+            {"role": "helpful", "task": "coding"},
+            {},
+            2,
+            ["You are a helpful assistant", "Help me with coding"],
+        ),
+        # No variables, no placeholders
+        ({}, {}, 2, ["You are a {{role}} assistant", "Help me with {{task}}"]),
+        # Placeholders only, no variables
+        (
+            {},
+            {
+                "examples": [
+                    {"role": "user", "content": "Example question"},
+                    {"role": "assistant", "content": "Example answer"},
+                ]
+            },
+            4,
+            [
+                "You are a {{role}} assistant",
+                "Example question",
+                "Example answer",
+                "Help me with {{task}}",
+            ],
+        ),
+        # Both variables and placeholders
+        (
+            {"role": "helpful", "task": "coding"},
+            {
+                "examples": [
+                    {"role": "user", "content": "Show me {{task}}"},
+                    {"role": "assistant", "content": "Here's {{task}}"},
+                ]
+            },
+            4,
+            [
+                "You are a helpful assistant",
+                "Show me coding",
+                "Here's coding",
+                "Help me with coding",
+            ],
+        ),
+        # Empty placeholder array
+        (
+            {"role": "helpful", "task": "coding"},
+            {"examples": []},
+            2,
+            ["You are a helpful assistant", "Help me with coding"],
+        ),
+        # Unused placeholders
+        (
+            {"role": "helpful", "task": "coding"},
+            {"unused": [{"role": "user", "content": "Won't appear"}]},
+            2,
+            ["You are a helpful assistant", "Help me with coding"],
+        ),
+    ],
+)
+def test_compile_with_placeholders(
+    variables, placeholders, expected_len, expected_contents
+):
+    """Test compileWithPlaceholders with different variable/placeholder combinations."""
+    from langfuse.api.resources.prompts import Prompt_Chat
+    from langfuse.model import ChatPromptClient
+
+    mock_prompt = Prompt_Chat(
+        name="test_prompt",
+        version=1,
+        type="chat",
+        config={},
+        tags=[],
+        labels=[],
+        prompt=[
+            {"role": "system", "content": "You are a {{role}} assistant"},
+            {"type": "placeholder", "name": "examples"},
+            {"role": "user", "content": "Help me with {{task}}"},
+        ],
+    )
+
+    result = ChatPromptClient(mock_prompt).compileWithPlaceholders(
+        variables, placeholders
+    )
+
+    assert len(result) == expected_len
+    for i, expected_content in enumerate(expected_contents):
+        assert result[i]["content"] == expected_content
+
+
 def test_compiling_chat_prompt():
     langfuse = Langfuse()
     prompt_name = create_uuid()
@@ -1165,119 +1320,3 @@ def test_update_prompt():
     expected_labels = sorted(["latest", "doe", "production", "john"])
     assert sorted(fetched_prompt.labels) == expected_labels
     assert sorted(updated_prompt.labels) == expected_labels
-
-
-def test_compile_with_placeholders():
-    """Test compileWithPlaceholders method with chat prompt."""
-    langfuse = Langfuse()
-    prompt_name = create_uuid()
-
-    prompt_client = langfuse.create_prompt(
-        name=prompt_name,
-        prompt=[
-            {"role": "system", "content": "You are a {{role}} assistant"},
-            {"role": "user", "content": "Help me with {{task}}"},
-        ],
-        labels=["production"],
-        type="chat",
-    )
-
-    second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
-
-    # Test compileWithPlaceholders with no placeholders (should work like compile)
-    result = second_prompt_client.compileWithPlaceholders(
-        variables={"role": "helpful", "task": "coding"}, placeholders={}
-    )
-
-    assert len(result) == 2
-    assert result[0]["role"] == "system"
-    assert result[0]["content"] == "You are a helpful assistant"
-    assert result[1]["role"] == "user"
-    assert result[1]["content"] == "Help me with coding"
-
-
-def test_compile_with_placeholders_valid():
-    """Test compileWithPlaceholders with valid placeholders."""
-    from langfuse.api.resources.prompts.types import PromptChatMessage
-
-    langfuse = Langfuse()
-    prompt_name = create_uuid()
-
-    # Create prompt with placeholders
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt=[
-            {"role": "system", "content": "You are a {{role}} assistant"},
-            {"type": "placeholder", "name": "examples"},
-            {"role": "user", "content": "Help me with {{task}}"},
-        ],
-        type="chat",
-    )
-
-    prompt_client = langfuse.get_prompt(prompt_name, type="chat")
-
-    # Test compileWithPlaceholders with valid placeholders
-    result = prompt_client.compileWithPlaceholders(
-        variables={"role": "helpful", "task": "coding"},
-        placeholders={
-            "examples": [
-                PromptChatMessage(role="user", content="Example: {{task}}"),
-                PromptChatMessage(role="assistant", content="Example response"),
-            ]
-        },
-    )
-
-    assert len(result) == 4
-    assert result[0]["content"] == "You are a helpful assistant"
-    assert result[1]["content"] == "Example: coding"
-    assert result[2]["content"] == "Example response"
-    assert result[3]["content"] == "Help me with coding"
-
-
-def test_create_prompt_with_placeholders():
-    """Test creating a prompt with placeholder messages."""
-    langfuse = Langfuse()
-    prompt_name = create_uuid()
-
-    prompt_client = langfuse.create_prompt(
-        name=prompt_name,
-        prompt=[
-            {"role": "system", "content": "System message"},
-            {"type": "placeholder", "name": "context"},
-            {"role": "user", "content": "User message"},
-        ],
-        type="chat",
-    )
-
-    # Verify prompt_with_placeholders structure
-    assert len(prompt_client.prompt_with_placeholders) == 3
-    assert prompt_client.prompt_with_placeholders[0]["type"] == "message"
-    assert prompt_client.prompt_with_placeholders[1]["type"] == "placeholder"
-    assert prompt_client.prompt_with_placeholders[1]["name"] == "context"
-    assert prompt_client.prompt_with_placeholders[2]["type"] == "message"
-
-    # Regular prompt should only contain messages
-    assert len(prompt_client.prompt) == 2
-
-
-def test_get_prompt_with_placeholders():
-    """Test retrieving a prompt with placeholders."""
-    langfuse = Langfuse()
-    prompt_name = create_uuid()
-
-    langfuse.create_prompt(
-        name=prompt_name,
-        prompt=[
-            {"role": "system", "content": "You are {{name}}"},
-            {"type": "placeholder", "name": "history"},
-            {"role": "user", "content": "{{question}}"},
-        ],
-        type="chat",
-    )
-
-    prompt_client = langfuse.get_prompt(prompt_name, type="chat")
-
-    # Verify placeholder structure is preserved
-    assert len(prompt_client.prompt_with_placeholders) == 3
-    assert prompt_client.prompt_with_placeholders[1]["type"] == "placeholder"
-    assert prompt_client.prompt_with_placeholders[1]["name"] == "history"
