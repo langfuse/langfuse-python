@@ -1747,6 +1747,12 @@ class Langfuse:
                 )
             return True
 
+        except AttributeError as e:
+            langfuse_logger.warning(
+                f"Auth check failed: Client not properly initialized. Error: {e}"
+            )
+            return False
+
         except Error as e:
             handle_fern_exception(e)
             raise e
