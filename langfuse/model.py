@@ -2,6 +2,7 @@
 
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -296,7 +297,7 @@ class ChatPromptClient(BasePromptClient):
         self.prompt: List[ChatMessageWithPlaceholdersDict] = []
 
         for p in prompt.prompt:
-            if hasattr(p, "type") and hasattr(p, "name"):
+            if hasattr(p, "type") and hasattr(p, "name") and p.type == "placeholder":
                 self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Placeholder(
                         type="placeholder",
@@ -313,16 +314,21 @@ class ChatPromptClient(BasePromptClient):
                 )
 
     def compile(self, **kwargs) -> List[ChatMessageDict]:
-        return [
-            ChatMessageDict(
-                content=TemplateParser.compile_template(
-                    chat_message["content"], kwargs
-                ),
-                role=chat_message["role"],
-            )
-            for chat_message in self.prompt
-            if chat_message["type"] == "message"
-        ]
+        compiled_messages: List[ChatMessageDict] = []
+        for chat_message in self.prompt:
+            if chat_message["type"] == "message":
+                compiled_messages.append(
+                    ChatMessageDict(
+                        content=TemplateParser.compile_template(
+                            chat_message["content"], kwargs
+                        ),
+                        role=chat_message["role"],
+                    )
+                )
+            elif chat_message["type"] == "placeholder":
+                placeholder_in_compile_error = f"Called compile on chat client with placeholder: {chat_message['name']}. Please use compile_with_placeholders instead."
+                raise ValueError(placeholder_in_compile_error)
+        return compiled_messages
 
     @property
     def variables(self) -> List[str]:
@@ -342,12 +348,19 @@ class ChatPromptClient(BasePromptClient):
                 and len(self.prompt) == len(other.prompt)
                 and all(
                     # chatmessage equality
-                    (m1["type"] == "message" and m2["type"] == "message"
-                     and m1["role"] == m2["role"] and m1["content"] == m2["content"])
+                    (
+                        m1["type"] == "message"
+                        and m2["type"] == "message"
+                        and m1["role"] == m2["role"]
+                        and m1["content"] == m2["content"]
+                    )
                     or
                     # placeholder equality
-                    (m1["type"] == "placeholder" and m2["type"] == "placeholder"
-                     and m1["name"] == m2["name"])
+                    (
+                        m1["type"] == "placeholder"
+                        and m2["type"] == "placeholder"
+                        and m1["name"] == m2["name"]
+                    )
                     for m1, m2 in zip(self.prompt, other.prompt)
                 )
                 and self.config == other.config
@@ -355,9 +368,9 @@ class ChatPromptClient(BasePromptClient):
 
         return False
 
-    def compileWithPlaceholders(
+    def compile_with_placeholders(
         self,
-        variables: Dict[str, Any],
+        variables: Dict[str, str],
         placeholders: Dict[str, List[ChatMessageDict]],
     ) -> List[ChatMessageDict]:
         """Compile chat prompt by first replacing placeholders, then expanding variables.
@@ -374,7 +387,17 @@ class ChatPromptClient(BasePromptClient):
         # Subsitute the placeholders for their supplied ChatMessages
         for item in self.prompt:
             if item["type"] == "placeholder" and item["name"] in placeholders:
-                messages_with_placeholders_replaced.extend(placeholders[item["name"]])
+                if (
+                    isinstance(placeholders[item["name"]], Iterable)
+                    and len(placeholders[item["name"]]) > 0
+                ):
+                    messages_with_placeholders_replaced.extend(
+                        placeholders[item["name"]]
+                    )
+                else:
+                    raise ValueError(
+                        f"The provided placeholder: {item['name']} is empty"
+                    )
             elif item["type"] == "message":
                 messages_with_placeholders_replaced.append(
                     ChatMessageDict(
@@ -393,7 +416,6 @@ class ChatPromptClient(BasePromptClient):
                 role=chat_message["role"],
             )
             for chat_message in messages_with_placeholders_replaced
-            if "role" in chat_message and "content" in chat_message
         ]
 
     def get_langchain_prompt(self, **kwargs):

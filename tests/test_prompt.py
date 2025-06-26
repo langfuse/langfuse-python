@@ -109,7 +109,7 @@ def test_create_chat_prompt_with_placeholders():
 
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
 
-    messages = second_prompt_client.compileWithPlaceholders(
+    messages = second_prompt_client.compile_with_placeholders(
         variables={"role": "helpful", "task": "coding"},
         placeholders={
             "history": [
@@ -269,7 +269,7 @@ def test_get_prompt_with_placeholders():
 def test_compile_with_placeholders(
     variables, placeholders, expected_len, expected_contents
 ):
-    """Test compileWithPlaceholders with different variable/placeholder combinations."""
+    """Test compile_with_placeholders with different variable/placeholder combinations."""
     from langfuse.api.resources.prompts import Prompt_Chat
     from langfuse.model import ChatPromptClient
 
@@ -287,7 +287,7 @@ def test_compile_with_placeholders(
         ],
     )
 
-    result = ChatPromptClient(mock_prompt).compileWithPlaceholders(
+    result = ChatPromptClient(mock_prompt).compile_with_placeholders(
         variables, placeholders
     )
 
