@@ -2,9 +2,11 @@ import typing
 
 import pydantic
 
+from langfuse._client.client import Langfuse
 from langfuse._client.get_client import get_client
 from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.logger import langfuse_logger
+from langfuse.types import TraceContext
 
 try:
     import langchain  # noqa
@@ -172,6 +174,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             if parent_run_id is None:
                 self.runs[run_id] = self.client.start_span(
+                    trace_context=TraceContext(
+                        trace_id=Langfuse.create_trace_id(seed=str(run_id)),
+                    ),
                     name=span_name,
                     metadata=span_metadata,
                     input=inputs,
@@ -444,6 +449,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             if parent_run_id is None:
                 self.runs[run_id] = self.client.start_span(
+                    trace_context=TraceContext(
+                        trace_id=Langfuse.create_trace_id(seed=str(run_id)),
+                    ),
                     name=span_name,
                     metadata=span_metadata,
                     input=query,
@@ -571,7 +579,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     LangfuseSpan, self.runs[parent_run_id]
                 ).start_generation(**content)
             else:
-                self.runs[run_id] = self.client.start_generation(**content)
+                self.runs[run_id] = self.client.start_generation(
+                    trace_context=TraceContext(
+                        trace_id=Langfuse.create_trace_id(seed=str(run_id)),
+                    ),
+                    **content,
+                )
 
         except Exception as e:
             langfuse_logger.exception(e)
