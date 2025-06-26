@@ -156,7 +156,75 @@ class BasePromptClient(ABC):
 
     @staticmethod
     def _get_langchain_prompt_string(content: str):
-        return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", content)
+        json_escaped_content = BasePromptClient._escape_json_for_langchain(content)
+
+        return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", json_escaped_content)
+
+    @staticmethod
+    def _escape_json_for_langchain(text: str) -> str:
+        """Escapes every curly-brace that is part of a JSON object by doubling it.
+
+        A curly brace is considered “JSON-related” when, after skipping any
+        immediate whitespace, the next non-whitespace character is a single
+        or double quote.
+
+        Braces that are already doubled (e.g. {{variable}} placeholders) are
+        left untouched.
+
+        Parameters
+        ----------
+        text : str
+            The input string that may contain JSON snippets.
+
+        Returns:
+        -------
+        str
+            The string with JSON-related braces doubled.
+        """
+        out = []  # collected characters
+        stack = []  # True = “this { belongs to JSON”, False = normal “{”
+        i, n = 0, len(text)
+
+        while i < n:
+            ch = text[i]
+
+            # ---------- opening brace ----------
+            if ch == "{":
+                # leave existing “{{ …” untouched
+                if i + 1 < n and text[i + 1] == "{":
+                    out.append("{{")
+                    i += 2
+                    continue
+
+                # look ahead to find the next non-space character
+                j = i + 1
+                while j < n and text[j].isspace():
+                    j += 1
+
+                is_json = j < n and text[j] in {"'", '"'}
+                out.append("{{" if is_json else "{")
+                stack.append(is_json)  # remember how this “{” was treated
+                i += 1
+                continue
+
+            # ---------- closing brace ----------
+            elif ch == "}":
+                # leave existing “… }}” untouched
+                if i + 1 < n and text[i + 1] == "}":
+                    out.append("}}")
+                    i += 2
+                    continue
+
+                is_json = stack.pop() if stack else False
+                out.append("}}" if is_json else "}")
+                i += 1
+                continue
+
+            # ---------- any other character ----------
+            out.append(ch)
+            i += 1
+
+        return "".join(out)
 
 
 class TextPromptClient(BasePromptClient):
