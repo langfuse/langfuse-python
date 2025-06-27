@@ -63,9 +63,15 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             if blocked_instrumentation_scopes is not None
             else []
         )
-        flush_at = flush_at or int(os.environ.get(LANGFUSE_FLUSH_AT, 15))
-        flush_interval = flush_interval or float(
-            os.environ.get(LANGFUSE_FLUSH_INTERVAL, 0.5)
+
+        env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
+        flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
+
+        env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL, None)
+        flush_interval = (
+            flush_interval or float(env_flush_interval)
+            if env_flush_interval is not None
+            else None
         )
 
         basic_auth_header = "Basic " + base64.b64encode(
