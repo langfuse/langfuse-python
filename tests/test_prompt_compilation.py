@@ -769,22 +769,18 @@ Configuration:
         }
 
         # Test compile_with_placeholders with only placeholders (no variables)
-        compiled_messages = prompt_client.compile_with_placeholders(
+        messages_with_placeholders = prompt_client.update(
             placeholders=placeholders,
-        )
+        ).prompt
 
-        assert len(compiled_messages) == 4
+        assert len(messages_with_placeholders) == 4
         assert (
-            compiled_messages[0]["content"]
+            messages_with_placeholders[0]["content"]
             == "You are a {{role}} assistant with {{capability}} capabilities."
         )
-        assert compiled_messages[1]["content"] == "Example: What is 2+2?"
-        assert compiled_messages[2]["content"] == "2+2 equals 4."
-        assert compiled_messages[3]["content"] == "Help me with {{task}}."
-
-        compiled_messages = prompt_client.compile_with_placeholders(
-            placeholders=placeholders, persist_compilation=True,
-        )
+        assert messages_with_placeholders[1]["content"] == "Example: What is 2+2?"
+        assert messages_with_placeholders[2]["content"] == "2+2 equals 4."
+        assert messages_with_placeholders[3]["content"] == "Help me with {{task}}."
 
         langchain_messages = prompt_client.get_langchain_prompt(
             role="helpful",

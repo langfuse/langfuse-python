@@ -108,16 +108,15 @@ def test_create_chat_prompt_with_placeholders():
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
-
-    messages = second_prompt_client.compile_with_placeholders(
-        placeholders={
+    second_prompt_client.update(
+        {
             "history": [
                 {"role": "user", "content": "Example: {{task}}"},
                 {"role": "assistant", "content": "Example response"},
             ],
         },
-        variables={"role": "helpful", "task": "coding"},
     )
+    messages = second_prompt_client.compile(role="helpful", task="coding")
 
     # Create a test generation using compiled messages
     completion = openai.OpenAI().chat.completions.create(
@@ -159,16 +158,16 @@ def test_create_prompt_with_placeholders():
     assert len(prompt_client.prompt) == 3
 
     # First message - system
-    assert prompt_client.prompt[0]["type"] == "message"
-    assert prompt_client.prompt[0]["role"] == "system"
-    assert prompt_client.prompt[0]["content"] == "System message"
+    assert prompt_client.raw_prompt[0]["type"] == "message"
+    assert prompt_client.raw_prompt[0]["role"] == "system"
+    assert prompt_client.raw_prompt[0]["content"] == "System message"
     # Placeholder
-    assert prompt_client.prompt[1]["type"] == "placeholder"
-    assert prompt_client.prompt[1]["name"] == "context"
+    assert prompt_client.raw_prompt[1]["type"] == "placeholder"
+    assert prompt_client.raw_prompt[1]["name"] == "context"
     # Third message - user
-    assert prompt_client.prompt[2]["type"] == "message"
-    assert prompt_client.prompt[2]["role"] == "user"
-    assert prompt_client.prompt[2]["content"] == "User message"
+    assert prompt_client.raw_prompt[2]["type"] == "message"
+    assert prompt_client.raw_prompt[2]["role"] == "user"
+    assert prompt_client.raw_prompt[2]["content"] == "User message"
 
 
 def test_get_prompt_with_placeholders():
@@ -192,31 +191,32 @@ def test_get_prompt_with_placeholders():
     assert len(prompt_client.prompt) == 3
 
     # First message - system with variable
-    assert prompt_client.prompt[0]["type"] == "message"
-    assert prompt_client.prompt[0]["role"] == "system"
-    assert prompt_client.prompt[0]["content"] == "You are {{name}}"
+    assert prompt_client.raw_prompt[0]["type"] == "message"
+    assert prompt_client.raw_prompt[0]["role"] == "system"
+    assert prompt_client.raw_prompt[0]["content"] == "You are {{name}}"
     # Placeholder
-    assert prompt_client.prompt[1]["type"] == "placeholder"
-    assert prompt_client.prompt[1]["name"] == "history"
+    assert prompt_client.raw_prompt[1]["type"] == "placeholder"
+    assert prompt_client.raw_prompt[1]["name"] == "history"
     # Third message - user with variable
-    assert prompt_client.prompt[2]["type"] == "message"
-    assert prompt_client.prompt[2]["role"] == "user"
-    assert prompt_client.prompt[2]["content"] == "{{question}}"
+    assert prompt_client.raw_prompt[2]["type"] == "message"
+    assert prompt_client.raw_prompt[2]["role"] == "user"
+    assert prompt_client.raw_prompt[2]["content"] == "{{question}}"
 
 
 @pytest.mark.parametrize(
     ("variables", "placeholders", "expected_len", "expected_contents"),
     [
-        # Variables only, no placeholders
+        # 0. Variables only, no placeholders. Expect verbatim message only
+        # Compile kills not filled placeholders
         (
             {"role": "helpful", "task": "coding"},
             {},
             2,
             ["You are a helpful assistant", "Help me with coding"],
         ),
-        # No variables, no placeholders
+        # 1. No variables, no placeholders. Expect verbatim message+placeholder output
         ({}, {}, 2, ["You are a {{role}} assistant", "Help me with {{task}}"]),
-        # Placeholders only, no variables
+        # 2. Placeholders only, empty variables. Expect output with placeholders filled in
         (
             {},
             {
@@ -233,24 +233,7 @@ def test_get_prompt_with_placeholders():
                 "Help me with {{task}}",
             ],
         ),
-        # Placeholders only, variables None
-        (
-            None,
-            {
-                "examples": [
-                    {"role": "user", "content": "Example question"},
-                    {"role": "assistant", "content": "Example answer"},
-                ],
-            },
-            4,
-            [
-                "You are a {{role}} assistant",
-                "Example question",
-                "Example answer",
-                "Help me with {{task}}",
-            ],
-        ),
-        # Both variables and placeholders
+        # 3. Both variables and placeholders. Expect fully compiled output
         (
             {"role": "helpful", "task": "coding"},
             {
@@ -275,7 +258,7 @@ def test_get_prompt_with_placeholders():
         #     2,
         #     ["You are a helpful assistant", "Help me with coding"],
         # ),
-        # Unused placeholders
+        # 4. Unused placeholder fill ins. Expect verbatim message+placeholder output
         (
             {"role": "helpful", "task": "coding"},
             {"unused": [{"role": "user", "content": "Won't appear"}]},
@@ -305,14 +288,52 @@ def test_compile_with_placeholders(
         ],
     )
 
-    result = ChatPromptClient(mock_prompt).compile_with_placeholders(
-        placeholders,
-        variables,
+    result = (
+        ChatPromptClient(mock_prompt)
+        .update(placeholders)
+        .compile(
+            **variables,
+        )
     )
 
     assert len(result) == expected_len
     for i, expected_content in enumerate(expected_contents):
-        assert result[i]["content"] == expected_content
+        if "content" in result[i]:
+            assert result[i]["content"] == expected_content
+        elif "name" in result[i]:
+            # this is a placeholder
+            continue
+        else:
+            raise ValueError("Unexpected item in prompt compile output")
+
+
+def test_warning_on_unresolved_placeholders():
+    """Test that a warning is emitted when accessing prompt with unresolved placeholders."""
+    from unittest.mock import patch
+
+    langfuse = Langfuse()
+    prompt_name = create_uuid()
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt=[
+            {"role": "system", "content": "You are {{name}}"},
+            {"type": "placeholder", "name": "history"},
+            {"role": "user", "content": "{{question}}"},
+        ],
+        type="chat",
+    )
+
+    prompt_client = langfuse.get_prompt(prompt_name, type="chat", version=1)
+
+    # Test that warning is emitted when accessing prompt with unresolved placeholders
+    with patch("langfuse.logger.langfuse_logger.warning") as mock_warning:
+        _ = prompt_client.prompt  # This should trigger the warning
+
+        # Verify the warning was called with the expected message
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args[0][0]
+        assert "Placeholders ['history'] have no values set" in warning_message
 
 
 def test_compiling_chat_prompt():
