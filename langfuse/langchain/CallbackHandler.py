@@ -63,6 +63,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
 
+        self.last_trace_id = None
+
     def on_llm_new_token(
         self,
         token: str,
@@ -186,6 +188,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     input=inputs,
                     level=span_level,
                 )
+
+            self.last_trace_id = self.runs[run_id].trace_id
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -572,6 +576,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 ).start_generation(**content)
             else:
                 self.runs[run_id] = self.client.start_generation(**content)
+
+            self.last_trace_id = self.runs[run_id].trace_id
 
         except Exception as e:
             langfuse_logger.exception(e)
