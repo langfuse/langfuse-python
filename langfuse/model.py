@@ -2,7 +2,6 @@
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 from langfuse.api.resources.commons.types.dataset import (
@@ -372,12 +371,14 @@ class ChatPromptClient(BasePromptClient):
         self,
         placeholders: Dict[str, List[ChatMessageDict]],
         variables: Optional[Dict[str, str]] = None,
+        persist_compilation: bool = False,
     ) -> List[ChatMessageDict]:
         """Compile chat prompt by first replacing placeholders, then expanding variables.
 
         Args:
             variables: Dictionary of variable names to values for template substitution
             placeholders: Dictionary of placeholder names to lists of ChatMessage objects
+            persist_compilation: If True, saves the compiled output to the internal state. Useful if using the output for langchain prompts.
 
         Returns:
             List[ChatMessageDict]: Compiled chat messages
@@ -411,7 +412,7 @@ class ChatPromptClient(BasePromptClient):
                 )
 
         # Then, replace the variables in the ChatMessage content.
-        return [
+        compiled_messages = [
             ChatMessageDict(
                 content=TemplateParser.compile_template(
                     chat_message["content"],
@@ -421,6 +422,19 @@ class ChatPromptClient(BasePromptClient):
             )
             for chat_message in messages_with_placeholders_replaced
         ]
+
+        # Mutate the internal prompt object if requested
+        if persist_compilation:
+            self.prompt = [
+                ChatMessageWithPlaceholdersDict_Message(
+                    type="message",
+                    role=msg["role"],
+                    content=msg["content"],
+                )
+                for msg in compiled_messages
+            ]
+
+        return compiled_messages
 
     def get_langchain_prompt(self, **kwargs):
         """Convert Langfuse prompt into string compatible with Langchain ChatPromptTemplate.
