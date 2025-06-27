@@ -370,8 +370,8 @@ class ChatPromptClient(BasePromptClient):
 
     def compile_with_placeholders(
         self,
-        variables: Dict[str, str],
         placeholders: Dict[str, List[ChatMessageDict]],
+        variables: Optional[Dict[str, str]] = None,
     ) -> List[ChatMessageDict]:
         """Compile chat prompt by first replacing placeholders, then expanding variables.
 
@@ -382,22 +382,26 @@ class ChatPromptClient(BasePromptClient):
         Returns:
             List[ChatMessageDict]: Compiled chat messages
         """
+        if variables is None:
+            variables = {}
+
         messages_with_placeholders_replaced: List[ChatMessageDict] = []
 
         # Subsitute the placeholders for their supplied ChatMessages
         for item in self.prompt:
             if item["type"] == "placeholder" and item["name"] in placeholders:
                 if (
-                    isinstance(placeholders[item["name"]], Iterable)
+                    isinstance(placeholders[item["name"]], List)
                     and len(placeholders[item["name"]]) > 0
                 ):
                     messages_with_placeholders_replaced.extend(
                         placeholders[item["name"]]
                     )
                 else:
-                    raise ValueError(
+                    empty_placeholder_error = (
                         f"The provided placeholder: {item['name']} is empty"
                     )
+                    raise ValueError(empty_placeholder_error)
             elif item["type"] == "message":
                 messages_with_placeholders_replaced.append(
                     ChatMessageDict(
@@ -437,7 +441,7 @@ class ChatPromptClient(BasePromptClient):
                 self._get_langchain_prompt_string(
                     TemplateParser.compile_template(msg["content"], kwargs)
                     if kwargs
-                    else msg["content"]
+                    else msg["content"],
                 ),
             )
             for msg in self.prompt
