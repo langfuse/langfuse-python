@@ -732,3 +732,69 @@ Configuration:
         assert len(formatted_messages) == 2
         assert formatted_messages[0].content == expected_system
         assert formatted_messages[1].content == expected_user
+
+    def test_chat_prompt_with_placeholders_langchain(self):
+        """Test that chat prompts with placeholders work correctly with Langchain."""
+        from langfuse.api.resources.prompts import Prompt_Chat
+
+        chat_messages = [
+            ChatMessage(
+                role="system",
+                content="You are a {{role}} assistant with {{capability}} capabilities.",
+            ),
+            {"type": "placeholder", "name": "examples"},
+            ChatMessage(
+                role="user",
+                content="Help me with {{task}}.",
+            ),
+        ]
+
+        prompt_client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat",
+                name="chat_placeholder_langchain_test",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=chat_messages,
+            ),
+        )
+
+        placeholders = {
+            "examples": [
+                {"role": "user", "content": "Example: What is 2+2?"},
+                {"role": "assistant", "content": "2+2 equals 4."},
+            ],
+        }
+
+        # Test compile_with_placeholders with only placeholders (no variables)
+        messages_with_placeholders = prompt_client.update(
+            placeholders=placeholders,
+        ).prompt
+
+        assert len(messages_with_placeholders) == 4
+        assert (
+            messages_with_placeholders[0]["content"]
+            == "You are a {{role}} assistant with {{capability}} capabilities."
+        )
+        assert messages_with_placeholders[1]["content"] == "Example: What is 2+2?"
+        assert messages_with_placeholders[2]["content"] == "2+2 equals 4."
+        assert messages_with_placeholders[3]["content"] == "Help me with {{task}}."
+
+        langchain_messages = prompt_client.get_langchain_prompt(
+            role="helpful",
+            capability="math",
+            task="addition",
+        )
+        langchain_prompt = ChatPromptTemplate.from_messages(langchain_messages)
+        formatted_messages = langchain_prompt.format_messages()
+
+        assert len(formatted_messages) == 4
+        assert (
+            formatted_messages[0].content
+            == "You are a helpful assistant with math capabilities."
+        )
+        assert formatted_messages[1].content == "Example: What is 2+2?"
+        assert formatted_messages[2].content == "2+2 equals 4."
+        assert formatted_messages[3].content == "Help me with addition."

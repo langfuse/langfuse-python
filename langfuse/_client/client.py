@@ -55,6 +55,7 @@ from langfuse.logger import langfuse_logger
 from langfuse.media import LangfuseMedia
 from langfuse.model import (
     ChatMessageDict,
+    ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
     CreateDatasetItemRequest,
     CreateDatasetRequest,
@@ -2133,7 +2134,7 @@ class Langfuse:
         self,
         *,
         name: str,
-        prompt: List[ChatMessageDict],
+        prompt: List[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict]],
         labels: List[str] = [],
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat"]],
@@ -2158,7 +2159,9 @@ class Langfuse:
         self,
         *,
         name: str,
-        prompt: Union[str, List[ChatMessageDict]],
+        prompt: Union[
+            str, List[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict]]
+        ],
         labels: List[str] = [],
         tags: Optional[List[str]] = None,
         type: Optional[Literal["chat", "text"]] = "text",

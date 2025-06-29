@@ -6,11 +6,11 @@ import typing
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from .base_prompt import BasePrompt
-from .chat_message import ChatMessage
+from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
 
 class ChatPrompt(BasePrompt):
-    prompt: typing.List[ChatMessage]
+    prompt: typing.List[ChatMessageWithPlaceholders]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

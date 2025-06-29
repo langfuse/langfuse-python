@@ -5,29 +5,10 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
 
-class CreateChatPromptRequest(pydantic_v1.BaseModel):
+class PlaceholderMessage(pydantic_v1.BaseModel):
     name: str
-    prompt: typing.List[ChatMessageWithPlaceholders]
-    config: typing.Optional[typing.Any] = None
-    labels: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of deployment labels of this prompt version.
-    """
-
-    tags: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of tags to apply to all versions of this prompt.
-    """
-
-    commit_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="commitMessage", default=None
-    )
-    """
-    Commit message for this prompt version.
-    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -57,7 +38,5 @@ class CreateChatPromptRequest(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

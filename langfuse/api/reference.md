@@ -4290,7 +4290,10 @@ Create a new version for the prompt with the given `name`
 <dd>
 
 ```python
-from langfuse import ChatMessage, CreatePromptRequest_Chat
+from langfuse import (
+    ChatMessageWithPlaceholders_Chatmessage,
+    CreatePromptRequest_Chat,
+)
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -4305,11 +4308,11 @@ client.prompts.create(
     request=CreatePromptRequest_Chat(
         name="name",
         prompt=[
-            ChatMessage(
+            ChatMessageWithPlaceholders_Chatmessage(
                 role="role",
                 content="content",
             ),
-            ChatMessage(
+            ChatMessageWithPlaceholders_Chatmessage(
                 role="role",
                 content="content",
             ),

@@ -7,23 +7,12 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
 
-class Prompt_Chat(pydantic_v1.BaseModel):
-    prompt: typing.List[ChatMessageWithPlaceholders]
-    name: str
-    version: int
-    config: typing.Any
-    labels: typing.List[str]
-    tags: typing.List[str]
-    commit_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="commitMessage", default=None
-    )
-    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
-        alias="resolutionGraph", default=None
-    )
-    type: typing.Literal["chat"] = "chat"
+class ChatMessageWithPlaceholders_Chatmessage(pydantic_v1.BaseModel):
+    role: str
+    content: str
+    type: typing.Literal["chatmessage"] = "chatmessage"
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -53,26 +42,13 @@ class Prompt_Chat(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
 
 
-class Prompt_Text(pydantic_v1.BaseModel):
-    prompt: str
+class ChatMessageWithPlaceholders_Placeholder(pydantic_v1.BaseModel):
     name: str
-    version: int
-    config: typing.Any
-    labels: typing.List[str]
-    tags: typing.List[str]
-    commit_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="commitMessage", default=None
-    )
-    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
-        alias="resolutionGraph", default=None
-    )
-    type: typing.Literal["text"] = "text"
+    type: typing.Literal["placeholder"] = "placeholder"
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -102,10 +78,10 @@ class Prompt_Text(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}
 
 
-Prompt = typing.Union[Prompt_Chat, Prompt_Text]
+ChatMessageWithPlaceholders = typing.Union[
+    ChatMessageWithPlaceholders_Chatmessage, ChatMessageWithPlaceholders_Placeholder
+]
