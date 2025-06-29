@@ -129,6 +129,22 @@ OPENAI_METHODS_V1 = [
         max_version="1.92.0",
     ),
     OpenAiDefinition(
+        module="openai.resources.chat.completions",
+        object="Completions",
+        method="parse",
+        type="chat",
+        sync=True,
+        min_version="1.92.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.chat.completions",
+        object="AsyncCompletions",
+        method="parse",
+        type="chat",
+        sync=False,
+        min_version="1.92.0",
+    ),
+    OpenAiDefinition(
         module="openai.resources.responses",
         object="Responses",
         method="create",

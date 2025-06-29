@@ -1087,7 +1087,7 @@ def test_structured_output_beta_completions_parse(openai):
     if Version(openai.__version__) < Version("1.50.0"):
         params.pop("name")
 
-    openai.OpenAI().beta.chat.completions.parse(**params)
+    openai.OpenAI().chat.completions.parse(**params)
 
     langfuse.flush()
 
