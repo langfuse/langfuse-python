@@ -290,7 +290,7 @@ def test_compile_with_placeholders(
 
     result = (
         ChatPromptClient(mock_prompt)
-        .update(placeholders)
+        .update(placeholders=placeholders)
         .compile(
             **variables,
         )
