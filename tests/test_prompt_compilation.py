@@ -761,31 +761,34 @@ Configuration:
             ),
         )
 
-        placeholders = {
-            "examples": [
+        # Test compile with placeholders and variables
+        compiled_messages = prompt_client.compile(
+            role="helpful",
+            capability="math",
+            task="addition",
+            examples=[
                 {"role": "user", "content": "Example: What is 2+2?"},
                 {"role": "assistant", "content": "2+2 equals 4."},
             ],
-        }
-
-        # Test compile_with_placeholders with only placeholders (no variables)
-        messages_with_placeholders = prompt_client.update(
-            placeholders=placeholders,
-        ).prompt
-
-        assert len(messages_with_placeholders) == 4
-        assert (
-            messages_with_placeholders[0]["content"]
-            == "You are a {{role}} assistant with {{capability}} capabilities."
         )
-        assert messages_with_placeholders[1]["content"] == "Example: What is 2+2?"
-        assert messages_with_placeholders[2]["content"] == "2+2 equals 4."
-        assert messages_with_placeholders[3]["content"] == "Help me with {{task}}."
+
+        assert len(compiled_messages) == 4
+        assert (
+            compiled_messages[0]["content"]
+            == "You are a helpful assistant with math capabilities."
+        )
+        assert compiled_messages[1]["content"] == "Example: What is 2+2?"
+        assert compiled_messages[2]["content"] == "2+2 equals 4."
+        assert compiled_messages[3]["content"] == "Help me with addition."
 
         langchain_messages = prompt_client.get_langchain_prompt(
             role="helpful",
             capability="math",
             task="addition",
+            examples=[
+                {"role": "user", "content": "Example: What is 2+2?"},
+                {"role": "assistant", "content": "2+2 equals 4."},
+            ],
         )
         langchain_prompt = ChatPromptTemplate.from_messages(langchain_messages)
         formatted_messages = langchain_prompt.format_messages()

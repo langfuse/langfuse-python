@@ -108,15 +108,14 @@ def test_create_chat_prompt_with_placeholders():
     )
 
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
-    second_prompt_client.update(
-        placeholders={
-            "history": [
-                {"role": "user", "content": "Example: {{task}}"},
-                {"role": "assistant", "content": "Example response"},
-            ],
-        },
+    messages = second_prompt_client.compile(
+        role="helpful",
+        task="coding",
+        history=[
+            {"role": "user", "content": "Example: {{task}}"},
+            {"role": "assistant", "content": "Example response"},
+        ],
     )
-    messages = second_prompt_client.compile(role="helpful", task="coding")
 
     # Create a test generation using compiled messages
     completion = openai.OpenAI().chat.completions.create(
@@ -158,16 +157,16 @@ def test_create_prompt_with_placeholders():
     assert len(prompt_client.prompt) == 3
 
     # First message - system
-    assert prompt_client.raw_prompt[0]["type"] == "message"
-    assert prompt_client.raw_prompt[0]["role"] == "system"
-    assert prompt_client.raw_prompt[0]["content"] == "System message"
+    assert prompt_client.prompt[0]["type"] == "message"
+    assert prompt_client.prompt[0]["role"] == "system"
+    assert prompt_client.prompt[0]["content"] == "System message"
     # Placeholder
-    assert prompt_client.raw_prompt[1]["type"] == "placeholder"
-    assert prompt_client.raw_prompt[1]["name"] == "context"
+    assert prompt_client.prompt[1]["type"] == "placeholder"
+    assert prompt_client.prompt[1]["name"] == "context"
     # Third message - user
-    assert prompt_client.raw_prompt[2]["type"] == "message"
-    assert prompt_client.raw_prompt[2]["role"] == "user"
-    assert prompt_client.raw_prompt[2]["content"] == "User message"
+    assert prompt_client.prompt[2]["type"] == "message"
+    assert prompt_client.prompt[2]["role"] == "user"
+    assert prompt_client.prompt[2]["content"] == "User message"
 
 
 def test_get_prompt_with_placeholders():
@@ -191,16 +190,16 @@ def test_get_prompt_with_placeholders():
     assert len(prompt_client.prompt) == 3
 
     # First message - system with variable
-    assert prompt_client.raw_prompt[0]["type"] == "message"
-    assert prompt_client.raw_prompt[0]["role"] == "system"
-    assert prompt_client.raw_prompt[0]["content"] == "You are {{name}}"
+    assert prompt_client.prompt[0]["type"] == "message"
+    assert prompt_client.prompt[0]["role"] == "system"
+    assert prompt_client.prompt[0]["content"] == "You are {{name}}"
     # Placeholder
-    assert prompt_client.raw_prompt[1]["type"] == "placeholder"
-    assert prompt_client.raw_prompt[1]["name"] == "history"
+    assert prompt_client.prompt[1]["type"] == "placeholder"
+    assert prompt_client.prompt[1]["name"] == "history"
     # Third message - user with variable
-    assert prompt_client.raw_prompt[2]["type"] == "message"
-    assert prompt_client.raw_prompt[2]["role"] == "user"
-    assert prompt_client.raw_prompt[2]["content"] == "{{question}}"
+    assert prompt_client.prompt[2]["type"] == "message"
+    assert prompt_client.prompt[2]["role"] == "user"
+    assert prompt_client.prompt[2]["content"] == "{{question}}"
 
 
 @pytest.mark.parametrize(
@@ -288,13 +287,8 @@ def test_compile_with_placeholders(
         ],
     )
 
-    result = (
-        ChatPromptClient(mock_prompt)
-        .update(placeholders=placeholders)
-        .compile(
-            **variables,
-        )
-    )
+    compile_kwargs = {**placeholders, **variables}
+    result = ChatPromptClient(mock_prompt).compile(**compile_kwargs)
 
     assert len(result) == expected_len
     for i, expected_content in enumerate(expected_contents):
@@ -308,7 +302,7 @@ def test_compile_with_placeholders(
 
 
 def test_warning_on_unresolved_placeholders():
-    """Test that a warning is emitted when accessing prompt with unresolved placeholders."""
+    """Test that a warning is emitted when compiling with unresolved placeholders."""
     from unittest.mock import patch
 
     langfuse = Langfuse()
@@ -326,14 +320,20 @@ def test_warning_on_unresolved_placeholders():
 
     prompt_client = langfuse.get_prompt(prompt_name, type="chat", version=1)
 
-    # Test that warning is emitted when accessing prompt with unresolved placeholders
+    # Test that warning is emitted when compiling with unresolved placeholders
     with patch("langfuse.logger.langfuse_logger.warning") as mock_warning:
-        _ = prompt_client.prompt  # This should trigger the warning
+        # Compile without providing the 'history' placeholder
+        result = prompt_client.compile(name="Assistant", question="What is 2+2?")
 
         # Verify the warning was called with the expected message
         mock_warning.assert_called_once()
         warning_message = mock_warning.call_args[0][0]
-        assert "Placeholders ['history'] have no values set" in warning_message
+        assert "Placeholders ['history'] have not been resolved" in warning_message
+
+        # Verify the result only contains the resolved messages
+        assert len(result) == 2
+        assert result[0]["content"] == "You are Assistant"
+        assert result[1]["content"] == "What is 2+2?"
 
 
 def test_compiling_chat_prompt():
@@ -1201,7 +1201,13 @@ def test_fallback_chat_prompt():
         "nonexistent_chat_prompt", type="chat", fallback=fallback_chat_prompt
     )
 
-    assert prompt.prompt == fallback_chat_prompt
+    # Check that the prompt structure contains the fallback data (allowing for internal formatting)
+    assert len(prompt.prompt) == len(fallback_chat_prompt)
+    assert all(msg["type"] == "message" for msg in prompt.prompt)
+    assert prompt.prompt[0]["role"] == "system"
+    assert prompt.prompt[0]["content"] == "fallback system"
+    assert prompt.prompt[1]["role"] == "user"
+    assert prompt.prompt[1]["content"] == "fallback user name {{name}}"
     assert prompt.compile(name="Jane") == [
         {"role": "system", "content": "fallback system"},
         {"role": "user", "content": "fallback user name Jane"},

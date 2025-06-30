@@ -302,134 +302,121 @@ class TextPromptClient(BasePromptClient):
 class ChatPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Chat, is_fallback: bool = False):
         super().__init__(prompt, is_fallback)
-        self.raw_prompt: List[ChatMessageWithPlaceholdersDict] = []
-        self.placeholder_fillins: Dict[str, List[ChatMessageDict]] = {}
-        self.prompt = prompt.prompt
 
-    @property
-    def prompt(self) -> List[Union[ChatMessageDict, ChatMessagePlaceholderDict]]:
-        """Returns the prompt with placeholders substituted for their values.
-        If no placeholder fill-ins are set and raw_prompt contains placeholders, returns messages and placeholders
-        with a warning.
-        """
-        compiled_messages = []
-        has_unresolved_placeholders = False
-
-        for chat_message in self.raw_prompt:
-            if chat_message["type"] == "message":
-                compiled_messages.append(
-                    ChatMessageDict(
-                        content=chat_message["content"],
-                        role=chat_message["role"],
-                    ),
-                )
-            elif chat_message["type"] == "placeholder":
-                if chat_message["name"] in self.placeholder_fillins:
-                    placeholder_messages = self.placeholder_fillins[
-                        chat_message["name"]
-                    ]
-                    if isinstance(placeholder_messages, List):
-                        compiled_messages.extend(placeholder_messages)
-                    else:
-                        err_placeholder_not_list = f"Placeholder '{chat_message['name']}' must contain a list of chat messages, got {type(placeholder_messages)}"
-                        raise ValueError(err_placeholder_not_list)
-                else:
-                    compiled_messages.append(
-                        {
-                            "type": "placeholder",
-                            "name": chat_message["name"],
-                        },
-                    )
-                    has_unresolved_placeholders = True
-        if has_unresolved_placeholders and len(self.placeholder_fillins) == 0:
-            unresolved = [
-                msg["name"] for msg in self.raw_prompt if msg["type"] == "placeholder"
-            ]
-            err_unresolved_placeholders = f"Placeholders {unresolved} have no values set. Use update() to set placeholder values."
-            # Warning because users might want to further process placeholders as well
-            langfuse_logger.warning(err_unresolved_placeholders)
-        elif has_unresolved_placeholders:
-            unresolved = [
-                msg["name"]
-                for msg in self.raw_prompt
-                if msg["type"] == "placeholder"
-                and msg["name"] not in self.placeholder_fillins
-            ]
-            err_unresolved_placeholders = f"Placeholders {unresolved} have no values set. Use update() to set placeholder values."
-            # Warning because users might want to further process placeholders as well
-            langfuse_logger.warning(err_unresolved_placeholders)
-
-        return compiled_messages
-
-    @prompt.setter
-    def prompt(
-        self,
-        prompt: Sequence[
-            Union[ChatMessageWithPlaceholdersDict, ChatMessageWithPlaceholders]
-        ],
-    ) -> None:
-        """Backward-compatible setter for raw prompt structure."""
-        for p in prompt:
+        # Convert and store the prompt directly
+        self.prompt = []
+        for p in prompt.prompt:
+            # Handle objects with attributes (normal case)
             if hasattr(p, "type") and hasattr(p, "name") and p.type == "placeholder":
-                self.raw_prompt.append(
+                self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Placeholder(
                         type="placeholder",
                         name=p.name,
                     ),
                 )
             elif hasattr(p, "role") and hasattr(p, "content"):
-                self.raw_prompt.append(
+                self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Message(
                         type="message",
                         role=p.role,
                         content=p.content,
                     ),
                 )
-
-        self.placeholder_fillins = {}  # Clear because user expects old placeholders not to linger
+            # Handle plain dictionaries (fallback case)
+            elif isinstance(p, dict):
+                if p.get("type") == "placeholder" and "name" in p:
+                    self.prompt.append(
+                        ChatMessageWithPlaceholdersDict_Placeholder(
+                            type="placeholder",
+                            name=p["name"],
+                        ),
+                    )
+                elif "role" in p and "content" in p:
+                    self.prompt.append(
+                        ChatMessageWithPlaceholdersDict_Message(
+                            type="message",
+                            role=p["role"],
+                            content=p["content"],
+                        ),
+                    )
 
     def compile(self, **kwargs) -> List[ChatMessageDict]:
-        # Compile skips placeholders which aren't resolved
-        return [
-            ChatMessageDict(
-                content=TemplateParser.compile_template(
-                    chat_message["content"],
-                    kwargs,
-                ),
-                role=chat_message["role"],
-            )
-            for chat_message in self.prompt
-            if "content" in chat_message and "role" in chat_message
-        ]
-
-    def update(
-        self, *, placeholders: Dict[str, List[ChatMessageDict]]
-    ) -> "ChatPromptClient":
-        """Updates the stored placeholder values with the provided ones.
+        """Compile the prompt with placeholders and variables.
 
         Args:
-            placeholders: Dictionary mapping placeholder names to lists of chat messages
+            **kwargs: Can contain both placeholder values (list of chat messages) and variable values.
+                     Placeholders are resolved first, then variables are substituted.
 
         Returns:
-            ChatPromptClient: Self for method chaining
+            List of compiled chat messages as plain dictionaries.
         """
-        self.placeholder_fillins.update(placeholders)
-        return self
+        compiled_messages = []
+        unresolved_placeholders = []
+
+        for chat_message in self.prompt:
+            if chat_message["type"] == "message":
+                # For regular messages, compile variables and add to output
+                compiled_messages.append(
+                    {
+                        "role": chat_message["role"],
+                        "content": TemplateParser.compile_template(
+                            chat_message["content"],
+                            kwargs,
+                        ),
+                    }
+                )
+            elif chat_message["type"] == "placeholder":
+                # Check if placeholder value is provided in kwargs
+                placeholder_name = chat_message["name"]
+                if placeholder_name in kwargs:
+                    placeholder_value = kwargs[placeholder_name]
+                    if isinstance(placeholder_value, list):
+                        # Add all messages from the placeholder
+                        for msg in placeholder_value:
+                            if (
+                                isinstance(msg, dict)
+                                and "role" in msg
+                                and "content" in msg
+                            ):
+                                # Compile variables in placeholder messages too
+                                compiled_messages.append(
+                                    {
+                                        "role": msg["role"],
+                                        "content": TemplateParser.compile_template(
+                                            msg["content"],
+                                            kwargs,
+                                        ),
+                                    }
+                                )
+                            else:
+                                raise ValueError(
+                                    f"Placeholder '{placeholder_name}' must contain a list of chat messages with 'role' and 'content' fields"
+                                )
+                    else:
+                        raise ValueError(
+                            f"Placeholder '{placeholder_name}' must contain a list of chat messages, got {type(placeholder_value)}"
+                        )
+                else:
+                    # Placeholder not resolved - track it
+                    unresolved_placeholders.append(placeholder_name)
+
+        # Warn about unresolved placeholders
+        if unresolved_placeholders:
+            warning_msg = f"Placeholders {unresolved_placeholders} have not been resolved. Pass them as keyword arguments to compile()."
+            langfuse_logger.warning(warning_msg)
+
+        return compiled_messages
 
     @property
     def variables(self) -> List[str]:
         """Return all the variable names in the chat prompt template."""
         variables = []
-        # Variables from raw prompt messages
-        for chat_message in self.raw_prompt:
+        # Variables from prompt messages
+        for chat_message in self.prompt:
             if chat_message["type"] == "message":
                 variables.extend(
                     TemplateParser.find_variable_names(chat_message["content"])
                 )
-        # Variables from placeholder messages
-        for placeholder_messages in self.placeholder_fillins.values():
-            for msg in placeholder_messages:
-                variables.extend(TemplateParser.find_variable_names(msg["content"]))
         return variables
 
     def __eq__(self, other):
@@ -437,7 +424,7 @@ class ChatPromptClient(BasePromptClient):
             return (
                 self.name == other.name
                 and self.version == other.version
-                and len(self.raw_prompt) == len(other.raw_prompt)
+                and len(self.prompt) == len(other.prompt)
                 and all(
                     # chatmessage equality
                     (
@@ -453,10 +440,9 @@ class ChatPromptClient(BasePromptClient):
                         and m2["type"] == "placeholder"
                         and m1["name"] == m2["name"]
                     )
-                    for m1, m2 in zip(self.raw_prompt, other.raw_prompt)
+                    for m1, m2 in zip(self.prompt, other.prompt)
                 )
                 and self.config == other.config
-                and self.placeholder_fillins == other.placeholder_fillins
             )
 
         return False
@@ -470,20 +456,21 @@ class ChatPromptClient(BasePromptClient):
         kwargs: Optional keyword arguments to precompile the template string. Variables that match
                 the provided keyword arguments will be precompiled. Remaining variables must then be
                 handled by Langchain's prompt template.
+                Can also contain placeholders (list of chat messages) which will be expanded.
 
         Returns:
             List of messages in the format expected by Langchain's ChatPromptTemplate: (role, content) tuple.
         """
+        # First compile with placeholders and variables to get full message list
+        compiled_messages = self.compile(**kwargs)
+
+        # Then convert to Langchain format
         return [
             (
                 msg["role"],
-                self._get_langchain_prompt_string(
-                    TemplateParser.compile_template(msg["content"], kwargs)
-                    if kwargs
-                    else msg["content"],
-                ),
+                self._get_langchain_prompt_string(msg["content"]),
             )
-            for msg in self.prompt
+            for msg in compiled_messages
         ]
 
 
