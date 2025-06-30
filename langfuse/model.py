@@ -405,9 +405,7 @@ class ChatPromptClient(BasePromptClient):
     def update(
         self, placeholders: Dict[str, List[ChatMessageDict]]
     ) -> "ChatPromptClient":
-        """Updates the stored placeholder values.
-
-        Only adds new placeholders or updates existing ones. Does not delete existing keys.
+        """Sets the stored placeholder values to the provided ones.
 
         Args:
             placeholders: Dictionary mapping placeholder names to lists of chat messages
@@ -415,7 +413,7 @@ class ChatPromptClient(BasePromptClient):
         Returns:
             ChatPromptClient: Self for method chaining
         """
-        self.placeholder_fillins.update(placeholders)
+        self.placeholder_fillins = placeholders.copy()
         return self
 
     @property
