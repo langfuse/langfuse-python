@@ -253,16 +253,17 @@ class LangchainCallbackHandler(
             # Update trace-level information if this is a root-level chain (no parent)
             # and if tags or metadata are provided
             if parent_run_id is None and (tags or metadata):
+                update_dict = {
+                    "tags": [str(tag) for tag in tags] if tags else None,
+                    "session_id": None,
+                    "user_id": None,
+                }
+                if metadata:
+                    for key, value in metadata.items():
+                        if key.startswith("langfuse_"):
+                            update_dict[key[len("langfuse_"):]] = value
                 self.trace_updates[run_id].update(
-                    {
-                        "tags": [str(tag) for tag in tags] if tags else None,
-                        "session_id": metadata.get("langfuse_session_id")
-                        if metadata
-                        else None,
-                        "user_id": metadata.get("langfuse_user_id")
-                        if metadata
-                        else None,
-                    }
+                    update_dict
                 )
 
             content = {
