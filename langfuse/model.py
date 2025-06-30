@@ -309,7 +309,8 @@ class ChatPromptClient(BasePromptClient):
     @property
     def prompt(self) -> List[Union[ChatMessageDict, ChatMessagePlaceholderDict]]:
         """Returns the prompt with placeholders substituted for their values.
-        If no placeholders are set and raw_prompt contains placeholders, returns only messages.
+        If no placeholder fill-ins are set and raw_prompt contains placeholders, returns messages and placeholders
+        with a warning.
         """
         compiled_messages = []
         has_unresolved_placeholders = False
@@ -345,8 +346,8 @@ class ChatPromptClient(BasePromptClient):
                 msg["name"] for msg in self.raw_prompt if msg["type"] == "placeholder"
             ]
             err_unresolved_placeholders = f"Placeholders {unresolved} have no values set. Use update() to set placeholder values."
+            # Warning because users might want to further process placeholders as well
             langfuse_logger.warning(err_unresolved_placeholders)
-            # raise ValueError(err_unresolved_placeholders)
         elif has_unresolved_placeholders:
             unresolved = [
                 msg["name"]
@@ -355,8 +356,8 @@ class ChatPromptClient(BasePromptClient):
                 and msg["name"] not in self.placeholder_fillins
             ]
             err_unresolved_placeholders = f"Placeholders {unresolved} have no values set. Use update() to set placeholder values."
+            # Warning because users might want to further process placeholders as well
             langfuse_logger.warning(err_unresolved_placeholders)
-            # raise ValueError(err_unresolved_placeholders)
 
         return compiled_messages
 
@@ -374,7 +375,7 @@ class ChatPromptClient(BasePromptClient):
                     ChatMessageWithPlaceholdersDict_Placeholder(
                         type="placeholder",
                         name=p.name,
-                    )
+                    ),
                 )
             elif hasattr(p, "role") and hasattr(p, "content"):
                 self.raw_prompt.append(
@@ -382,7 +383,7 @@ class ChatPromptClient(BasePromptClient):
                         type="message",
                         role=p.role,
                         content=p.content,
-                    )
+                    ),
                 )
 
         self.placeholder_fillins = {}  # Clear because user expects old placeholders not to linger
