@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import logging
 import os
@@ -169,7 +168,7 @@ class LangfuseDecorator:
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
-                if asyncio.iscoroutinefunction(func)
+                if inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func) 
                 else self._sync_observe(
                     func,
                     name=name,
