@@ -402,18 +402,6 @@ class ChatPromptClient(BasePromptClient):
             if "content" in chat_message and "role" in chat_message
         ]
 
-    def set(self, placeholders: Dict[str, List[ChatMessageDict]]) -> "ChatPromptClient":
-        """Sets the internal placeholders to the given dict
-
-        Args:
-            placeholders: Dictionary mapping placeholder names to lists of chat messages
-
-        Returns:
-            ChatPromptClient: Self for method chaining
-        """
-        self.placeholder_fillins = placeholders.copy()
-        return self
-
     def update(
         self, placeholders: Dict[str, List[ChatMessageDict]]
     ) -> "ChatPromptClient":
