@@ -109,7 +109,7 @@ def test_create_chat_prompt_with_placeholders():
 
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
     second_prompt_client.update(
-        {
+        placeholders={
             "history": [
                 {"role": "user", "content": "Example: {{task}}"},
                 {"role": "assistant", "content": "Example response"},
