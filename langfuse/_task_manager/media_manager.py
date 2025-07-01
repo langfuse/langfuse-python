@@ -121,9 +121,10 @@ class MediaManager:
                     field=field,
                 )
 
-                data["data"] = media
+                copied = data.copy()
+                copied["data"] = media
 
-                return data
+                return copied
 
             # Vertex
             if (

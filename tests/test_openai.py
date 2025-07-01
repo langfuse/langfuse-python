@@ -1,5 +1,6 @@
 import importlib
 import os
+from time import sleep
 
 import pytest
 from pydantic import BaseModel
@@ -35,6 +36,8 @@ def test_openai_chat_completion(openai):
     )
 
     langfuse.flush()
+
+    sleep(1)
 
     generation = get_api().observations.get_many(
         name=generation_name, type="GENERATION"
