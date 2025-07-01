@@ -318,23 +318,6 @@ class ChatPromptClient(BasePromptClient):
                         content=p.content,
                     ),
                 )
-            # Handle plain dictionaries (fallback case)
-            elif isinstance(p, dict):
-                if p.get("type") == "placeholder" and "name" in p:
-                    self.prompt.append(
-                        ChatMessageWithPlaceholdersDict_Placeholder(
-                            type="placeholder",
-                            name=p["name"],
-                        ),
-                    )
-                elif "role" in p and "content" in p:
-                    self.prompt.append(
-                        ChatMessageWithPlaceholdersDict_Message(
-                            type="message",
-                            role=p["role"],
-                            content=p["content"],
-                        ),
-                    )
 
     def compile(
         self, **kwargs
