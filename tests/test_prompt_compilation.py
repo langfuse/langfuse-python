@@ -827,7 +827,8 @@ Configuration:
 
         # Call get_langchain_prompt without resolving placeholder
         langchain_messages = prompt_client.get_langchain_prompt(
-            role="helpful", task="coding",
+            role="helpful",
+            task="coding",
         )
 
         # Should have 3 items: system message, MessagesPlaceholder, user message

@@ -276,25 +276,30 @@ def test_get_prompt_with_placeholders():
                 "Help me with coding",
             ],  # None = placeholder
         ),
-        # 5. Placeholder with non-list value (should log warning and create invalid dict)
+        # 5. Placeholder with non-list value (should log warning and append as string)
         (
             {"role": "helpful", "task": "coding"},
             {"examples": "not a list"},
             3,
             [
                 "You are a helpful assistant",
-                "{'not a list'}",  # Invalid dict becomes string when checked
+                "not a list",  # String value appended directly
                 "Help me with coding",
             ],
         ),
         # 6. Placeholder with invalid message structure (should log warning and include both)
         (
             {"role": "helpful", "task": "coding"},
-            {"examples": ["invalid message", {"role": "user", "content": "valid message"}]},
+            {
+                "examples": [
+                    "invalid message",
+                    {"role": "user", "content": "valid message"},
+                ]
+            },
             4,
             [
                 "You are a helpful assistant",
-                "{\"['invalid message', {'role': 'user', 'content': 'valid message'}]\"}",  # Invalid structure becomes string
+                "['invalid message', {'role': 'user', 'content': 'valid message'}]",  # Invalid structure becomes string
                 "valid message",  # Valid message processed normally
                 "Help me with coding",
             ],
@@ -330,9 +335,9 @@ def test_compile_with_placeholders(
         if expected_content is None:
             # This should be an unresolved placeholder
             assert "type" in result[i] and result[i]["type"] == "placeholder"
-        elif expected_content.startswith("{") and expected_content.endswith("}"):
-            # This is an invalid dictionary that becomes a string representation
-            assert str(result[i]) == expected_content
+        elif isinstance(result[i], str):
+            # This is a string value from invalid placeholder
+            assert result[i] == expected_content
         else:
             # This should be a regular message
             assert "content" in result[i]
