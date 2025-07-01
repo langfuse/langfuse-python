@@ -376,7 +376,8 @@ def test_warning_on_unresolved_placeholders():
         # Verify the result only contains the resolved messages
         assert len(result) == 3
         assert result[0]["content"] == "You are Assistant"
-        assert result[1]["content"] == "What is 2+2?"
+        assert result[1]["name"] == "history"
+        assert result[2]["content"] == "What is 2+2?"
 
 
 def test_compiling_chat_prompt():
