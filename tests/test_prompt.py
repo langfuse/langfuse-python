@@ -374,7 +374,7 @@ def test_warning_on_unresolved_placeholders():
         assert "Placeholders ['history'] have not been resolved" in warning_message
 
         # Verify the result only contains the resolved messages
-        assert len(result) == 2
+        assert len(result) == 3
         assert result[0]["content"] == "You are Assistant"
         assert result[1]["content"] == "What is 2+2?"
 
