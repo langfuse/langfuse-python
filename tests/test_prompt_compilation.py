@@ -801,3 +801,51 @@ Configuration:
         assert formatted_messages[1].content == "Example: What is 2+2?"
         assert formatted_messages[2].content == "2+2 equals 4."
         assert formatted_messages[3].content == "Help me with addition."
+
+    def test_get_langchain_prompt_with_unresolved_placeholders(self):
+        """Test that unresolved placeholders become MessagesPlaceholder objects."""
+        from langfuse.api.resources.prompts import Prompt_Chat
+        from langfuse.model import ChatPromptClient
+
+        chat_messages = [
+            {"role": "system", "content": "You are a {{role}} assistant"},
+            {"type": "placeholder", "name": "examples"},
+            {"role": "user", "content": "Help me with {{task}}"},
+        ]
+
+        prompt_client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat",
+                name="test_unresolved_placeholder",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=chat_messages,
+            ),
+        )
+
+        # Call get_langchain_prompt without resolving placeholder
+        langchain_messages = prompt_client.get_langchain_prompt(
+            role="helpful", task="coding",
+        )
+
+        # Should have 3 items: system message, MessagesPlaceholder, user message
+        assert len(langchain_messages) == 3
+
+        # First message should be the system message
+        assert langchain_messages[0] == ("system", "You are a helpful assistant")
+
+        # Second should be a MessagesPlaceholder for the unresolved placeholder
+        placeholder_msg = langchain_messages[1]
+        try:
+            from langchain_core.prompts.chat import MessagesPlaceholder
+
+            assert isinstance(placeholder_msg, MessagesPlaceholder)
+            assert placeholder_msg.variable_name == "examples"
+        except ImportError:
+            # Fallback case when langchain_core is not available
+            assert placeholder_msg == ("system", "{examples}")
+
+        # Third message should be the user message
+        assert langchain_messages[2] == ("user", "Help me with coding")

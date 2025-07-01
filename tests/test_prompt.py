@@ -205,16 +205,24 @@ def test_get_prompt_with_placeholders():
 @pytest.mark.parametrize(
     ("variables", "placeholders", "expected_len", "expected_contents"),
     [
-        # 0. Variables only, no placeholders. Expect verbatim message only
-        # Compile kills not filled placeholders
+        # 0. Variables only, no placeholders. Unresolved placeholders kept in output
         (
             {"role": "helpful", "task": "coding"},
             {},
-            2,
-            ["You are a helpful assistant", "Help me with coding"],
+            3,
+            [
+                "You are a helpful assistant",
+                None,
+                "Help me with coding",
+            ],  # None = placeholder
         ),
         # 1. No variables, no placeholders. Expect verbatim message+placeholder output
-        ({}, {}, 2, ["You are a {{role}} assistant", "Help me with {{task}}"]),
+        (
+            {},
+            {},
+            3,
+            ["You are a {{role}} assistant", None, "Help me with {{task}}"],
+        ),  # None = placeholder
         # 2. Placeholders only, empty variables. Expect output with placeholders filled in
         (
             {},
@@ -257,18 +265,45 @@ def test_get_prompt_with_placeholders():
         #     2,
         #     ["You are a helpful assistant", "Help me with coding"],
         # ),
-        # 4. Unused placeholder fill ins. Expect verbatim message+placeholder output
+        # 4. Unused placeholder fill ins. Unresolved placeholders kept in output
         (
             {"role": "helpful", "task": "coding"},
             {"unused": [{"role": "user", "content": "Won't appear"}]},
-            2,
-            ["You are a helpful assistant", "Help me with coding"],
+            3,
+            [
+                "You are a helpful assistant",
+                None,
+                "Help me with coding",
+            ],  # None = placeholder
+        ),
+        # 5. Placeholder with non-list value (should log warning and create invalid dict)
+        (
+            {"role": "helpful", "task": "coding"},
+            {"examples": "not a list"},
+            3,
+            [
+                "You are a helpful assistant",
+                "{'not a list'}",  # Invalid dict becomes string when checked
+                "Help me with coding",
+            ],
+        ),
+        # 6. Placeholder with invalid message structure (should log warning and include both)
+        (
+            {"role": "helpful", "task": "coding"},
+            {"examples": ["invalid message", {"role": "user", "content": "valid message"}]},
+            4,
+            [
+                "You are a helpful assistant",
+                "{\"['invalid message', {'role': 'user', 'content': 'valid message'}]\"}",  # Invalid structure becomes string
+                "valid message",  # Valid message processed normally
+                "Help me with coding",
+            ],
         ),
     ],
 )
 def test_compile_with_placeholders(
     variables, placeholders, expected_len, expected_contents
-):
+) -> None:
     """Test compile_with_placeholders with different variable/placeholder combinations."""
     from langfuse.api.resources.prompts import Prompt_Chat
     from langfuse.model import ChatPromptClient
@@ -292,13 +327,16 @@ def test_compile_with_placeholders(
 
     assert len(result) == expected_len
     for i, expected_content in enumerate(expected_contents):
-        if "content" in result[i]:
-            assert result[i]["content"] == expected_content
-        elif "name" in result[i]:
-            # this is a placeholder
-            continue
+        if expected_content is None:
+            # This should be an unresolved placeholder
+            assert "type" in result[i] and result[i]["type"] == "placeholder"
+        elif expected_content.startswith("{") and expected_content.endswith("}"):
+            # This is an invalid dictionary that becomes a string representation
+            assert str(result[i]) == expected_content
         else:
-            raise ValueError("Unexpected item in prompt compile output")
+            # This should be a regular message
+            assert "content" in result[i]
+            assert result[i]["content"] == expected_content
 
 
 def test_warning_on_unresolved_placeholders():
