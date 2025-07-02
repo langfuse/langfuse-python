@@ -21,6 +21,7 @@ from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
 )
+from packaging.version import Version
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
@@ -1709,7 +1710,7 @@ class Langfuse:
 
             while True:
                 new_items = self.api.dataset_items.list(
-                    dataset_name=self._url_encode(name),
+                    dataset_name=self._url_encode(name, is_url_param=True),
                     page=page,
                     limit=fetch_items_page_size,
                 )
@@ -2261,7 +2262,14 @@ class Langfuse:
 
         return updated_prompt
 
-    def _url_encode(self, url: str) -> str:
+    def _url_encode(self, url: str, *, is_url_param: Optional[bool] = False) -> str:
+        # httpx ≥ 0.28 does its own WHATWG-compliant quoting (eg. encodes bare
+        # “%”, “?”, “#”, “|”, … in query/path parts).  Re-quoting here would
+        # double-encode, so we skip when the value is about to be sent straight
+        # to httpx (`is_url_param=True`) and the installed version is ≥ 0.28.
+        if is_url_param and Version(httpx.__version__) >= Version("0.28.0"):
+            return url
+
         # urllib.parse.quote does not escape slashes "/" by default; we need to add safe="" to force escaping
         # we need add safe="" to force escaping of slashes
         # This is necessary for prompts in prompt folders
