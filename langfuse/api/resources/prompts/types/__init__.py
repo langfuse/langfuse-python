@@ -2,6 +2,11 @@
 
 from .base_prompt import BasePrompt
 from .chat_message import ChatMessage
+from .chat_message_with_placeholders import (
+    ChatMessageWithPlaceholders,
+    ChatMessageWithPlaceholders_Chatmessage,
+    ChatMessageWithPlaceholders_Placeholder,
+)
 from .chat_prompt import ChatPrompt
 from .create_chat_prompt_request import CreateChatPromptRequest
 from .create_prompt_request import (
@@ -10,6 +15,7 @@ from .create_prompt_request import (
     CreatePromptRequest_Text,
 )
 from .create_text_prompt_request import CreateTextPromptRequest
+from .placeholder_message import PlaceholderMessage
 from .prompt import Prompt, Prompt_Chat, Prompt_Text
 from .prompt_meta import PromptMeta
 from .prompt_meta_list_response import PromptMetaListResponse
@@ -18,12 +24,16 @@ from .text_prompt import TextPrompt
 __all__ = [
     "BasePrompt",
     "ChatMessage",
+    "ChatMessageWithPlaceholders",
+    "ChatMessageWithPlaceholders_Chatmessage",
+    "ChatMessageWithPlaceholders_Placeholder",
     "ChatPrompt",
     "CreateChatPromptRequest",
     "CreatePromptRequest",
     "CreatePromptRequest_Chat",
     "CreatePromptRequest_Text",
     "CreateTextPromptRequest",
+    "PlaceholderMessage",
     "Prompt",
     "PromptMeta",
     "PromptMetaListResponse",

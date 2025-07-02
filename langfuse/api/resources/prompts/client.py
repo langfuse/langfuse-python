@@ -228,7 +228,10 @@ class PromptsClient:
 
         Examples
         --------
-        from langfuse import ChatMessage, CreatePromptRequest_Chat
+        from langfuse import (
+            ChatMessageWithPlaceholders_Chatmessage,
+            CreatePromptRequest_Chat,
+        )
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -243,11 +246,11 @@ class PromptsClient:
             request=CreatePromptRequest_Chat(
                 name="name",
                 prompt=[
-                    ChatMessage(
+                    ChatMessageWithPlaceholders_Chatmessage(
                         role="role",
                         content="content",
                     ),
-                    ChatMessage(
+                    ChatMessageWithPlaceholders_Chatmessage(
                         role="role",
                         content="content",
                     ),
@@ -512,7 +515,10 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from langfuse import ChatMessage, CreatePromptRequest_Chat
+        from langfuse import (
+            ChatMessageWithPlaceholders_Chatmessage,
+            CreatePromptRequest_Chat,
+        )
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -530,11 +536,11 @@ class AsyncPromptsClient:
                 request=CreatePromptRequest_Chat(
                     name="name",
                     prompt=[
-                        ChatMessage(
+                        ChatMessageWithPlaceholders_Chatmessage(
                             role="role",
                             content="content",
                         ),
-                        ChatMessage(
+                        ChatMessageWithPlaceholders_Chatmessage(
                             role="role",
                             content="content",
                         ),
