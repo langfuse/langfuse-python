@@ -170,6 +170,10 @@ def _flatten_and_serialize_metadata(
         metadata_attributes[prefix] = _serialize(metadata)
     else:
         for key, value in metadata.items():
-            metadata_attributes[f"{prefix}.{key}"] = _serialize(value)
+            metadata_attributes[f"{prefix}.{key}"] = (
+                value
+                if isinstance(value, str) or isinstance(value, int)
+                else _serialize(value)
+            )
 
     return metadata_attributes
