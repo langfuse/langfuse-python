@@ -732,3 +732,121 @@ Configuration:
         assert len(formatted_messages) == 2
         assert formatted_messages[0].content == expected_system
         assert formatted_messages[1].content == expected_user
+
+    def test_chat_prompt_with_placeholders_langchain(self):
+        """Test that chat prompts with placeholders work correctly with Langchain."""
+        from langfuse.api.resources.prompts import Prompt_Chat
+
+        chat_messages = [
+            ChatMessage(
+                role="system",
+                content="You are a {{role}} assistant with {{capability}} capabilities.",
+            ),
+            {"type": "placeholder", "name": "examples"},
+            ChatMessage(
+                role="user",
+                content="Help me with {{task}}.",
+            ),
+        ]
+
+        prompt_client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat",
+                name="chat_placeholder_langchain_test",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=chat_messages,
+            ),
+        )
+
+        # Test compile with placeholders and variables
+        compiled_messages = prompt_client.compile(
+            role="helpful",
+            capability="math",
+            task="addition",
+            examples=[
+                {"role": "user", "content": "Example: What is 2+2?"},
+                {"role": "assistant", "content": "2+2 equals 4."},
+            ],
+        )
+
+        assert len(compiled_messages) == 4
+        assert (
+            compiled_messages[0]["content"]
+            == "You are a helpful assistant with math capabilities."
+        )
+        assert compiled_messages[1]["content"] == "Example: What is 2+2?"
+        assert compiled_messages[2]["content"] == "2+2 equals 4."
+        assert compiled_messages[3]["content"] == "Help me with addition."
+
+        langchain_messages = prompt_client.get_langchain_prompt(
+            role="helpful",
+            capability="math",
+            task="addition",
+            examples=[
+                {"role": "user", "content": "Example: What is 2+2?"},
+                {"role": "assistant", "content": "2+2 equals 4."},
+            ],
+        )
+        langchain_prompt = ChatPromptTemplate.from_messages(langchain_messages)
+        formatted_messages = langchain_prompt.format_messages()
+
+        assert len(formatted_messages) == 4
+        assert (
+            formatted_messages[0].content
+            == "You are a helpful assistant with math capabilities."
+        )
+        assert formatted_messages[1].content == "Example: What is 2+2?"
+        assert formatted_messages[2].content == "2+2 equals 4."
+        assert formatted_messages[3].content == "Help me with addition."
+
+    def test_get_langchain_prompt_with_unresolved_placeholders(self):
+        """Test that unresolved placeholders become MessagesPlaceholder objects."""
+        from langfuse.api.resources.prompts import Prompt_Chat
+        from langfuse.model import ChatPromptClient
+
+        chat_messages = [
+            {"role": "system", "content": "You are a {{role}} assistant"},
+            {"type": "placeholder", "name": "examples"},
+            {"role": "user", "content": "Help me with {{task}}"},
+        ]
+
+        prompt_client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat",
+                name="test_unresolved_placeholder",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=chat_messages,
+            ),
+        )
+
+        # Call get_langchain_prompt without resolving placeholder
+        langchain_messages = prompt_client.get_langchain_prompt(
+            role="helpful",
+            task="coding",
+        )
+
+        # Should have 3 items: system message, MessagesPlaceholder, user message
+        assert len(langchain_messages) == 3
+
+        # First message should be the system message
+        assert langchain_messages[0] == ("system", "You are a helpful assistant")
+
+        # Second should be a MessagesPlaceholder for the unresolved placeholder
+        placeholder_msg = langchain_messages[1]
+        try:
+            from langchain_core.prompts.chat import MessagesPlaceholder
+
+            assert isinstance(placeholder_msg, MessagesPlaceholder)
+            assert placeholder_msg.variable_name == "examples"
+        except ImportError:
+            # Fallback case when langchain_core is not available
+            assert placeholder_msg == ("system", "{examples}")
+
+        # Third message should be the user message
+        assert langchain_messages[2] == ("user", "Help me with coding")
