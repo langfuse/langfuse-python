@@ -355,7 +355,11 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs):
         raise ValueError("parent_observation_id requires trace_id to be set")
 
     metadata = kwargs.get("metadata", {})
-    if metadata is not None and not isinstance(metadata, dict):
+    if (
+        metadata is not None
+        and not isinstance(metadata, NotGiven)
+        and not isinstance(metadata, dict)
+    ):
         raise TypeError("metadata must be a dictionary")
 
     model = kwargs.get("model", None) or None
