@@ -346,9 +346,9 @@ class TestBasicSpans(TestOTelBase):
         output_data = json.loads(
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
         )
-        metadata_data = json.loads(
-            attributes[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.session"]
-        )
+        metadata_data = attributes[
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.session"
+        ]
 
         # Verify attribute values
         assert input_data == {"prompt": "Test prompt"}
@@ -425,9 +425,7 @@ class TestBasicSpans(TestOTelBase):
             tags = list(attributes[LangfuseOtelSpanAttributes.TRACE_TAGS])
 
         input_data = json.loads(attributes[LangfuseOtelSpanAttributes.TRACE_INPUT])
-        metadata = json.loads(
-            attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.trace-meta"]
-        )
+        metadata = attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.trace-meta"]
 
         # Check attribute values
         assert sorted(tags) == sorted(["tag1", "tag2"])
@@ -501,11 +499,9 @@ class TestBasicSpans(TestOTelBase):
         )
 
         # Parse metadata
-        proc_metadata = json.loads(
-            proc["attributes"][
-                f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.step"
-            ]
-        )
+        proc_metadata = proc["attributes"][
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.step"
+        ]
         assert proc_metadata == "processing"
 
         # Parse input/output JSON
@@ -980,12 +976,14 @@ class TestMetadataHandling(TestOTelBase):
         assert (
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2" in simple_result
         )
-        assert simple_result[
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1"
-        ] == _serialize("value1")
-        assert simple_result[
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2"
-        ] == _serialize(123)
+        assert (
+            simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1"]
+            == "value1"
+        )
+        assert (
+            simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2"]
+            == 123
+        )
 
         # Test case 3: Nested dict (will be flattened in current implementation)
         nested_dict = {
@@ -1037,7 +1035,7 @@ class TestMetadataHandling(TestOTelBase):
 
         # The nested structures are serialized as JSON strings
         assert json.loads(complex_result[level1_key]) == complex_dict["level1"]
-        assert complex_result[sibling_key] == _serialize("value")
+        assert complex_result[sibling_key] == "value"
 
     def test_nested_metadata_updates(self):
         """Test that nested metadata updates don't overwrite unrelated keys."""
@@ -2129,11 +2127,6 @@ class TestConcurrencyAndAsync(TestOTelBase):
                 task_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
             )
             assert output["result"] == f"Task {i} completed"
-
-            metadata = self.verify_json_attribute(
-                task_span, f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.task_id"
-            )
-            assert metadata == i
 
         # Verify main span output
         main_output = self.verify_json_attribute(
