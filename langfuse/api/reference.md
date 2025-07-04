@@ -1308,11 +1308,7 @@ List dataset run items
 <dd>
 
 ```python
-import datetime
-
-from langfuse import DatasetRunItem, PaginatedDatasetRunItems
 from langfuse.client import FernLangfuse
-from langfuse.resources.utils import MetaResponse
 
 client = FernLangfuse(
     x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -1325,42 +1321,6 @@ client = FernLangfuse(
 client.dataset_run_items.list(
     dataset_id="datasetId",
     run_name="runName",
-    response=PaginatedDatasetRunItems(
-        data=[
-            DatasetRunItem(
-                id="id",
-                dataset_run_id="datasetRunId",
-                dataset_run_name="datasetRunName",
-                dataset_item_id="datasetItemId",
-                trace_id="traceId",
-                created_at=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                updated_at=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-            ),
-            DatasetRunItem(
-                id="id",
-                dataset_run_id="datasetRunId",
-                dataset_run_name="datasetRunName",
-                dataset_item_id="datasetItemId",
-                trace_id="traceId",
-                created_at=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-                updated_at=datetime.datetime.fromisoformat(
-                    "2024-01-15 09:30:00+00:00",
-                ),
-            ),
-        ],
-        meta=MetaResponse(
-            page=1,
-            limit=1,
-            total_items=1,
-            total_pages=1,
-        ),
-    ),
 )
 
 ```
@@ -1386,14 +1346,6 @@ client.dataset_run_items.list(
 <dd>
 
 **run_name:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**response:** `PaginatedDatasetRunItems` 
     
 </dd>
 </dl>
