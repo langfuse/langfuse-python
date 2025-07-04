@@ -59,7 +59,7 @@ async def test_concurrency():
         # Verify metadata
         observation = generation_obs[0]
         assert observation.name == str(i)
-        assert observation.metadata["count"] == f"{i}"
+        assert observation.metadata["count"] == i
 
 
 def test_flush():
