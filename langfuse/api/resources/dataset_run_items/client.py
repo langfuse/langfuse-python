@@ -5,7 +5,6 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import pydantic_v1
 from ...core.request_options import RequestOptions
 from ..commons.errors.access_denied_error import AccessDeniedError
@@ -103,11 +102,10 @@ class DatasetRunItemsClient:
         *,
         dataset_id: str,
         run_name: str,
-        response: PaginatedDatasetRunItems,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
+    ) -> PaginatedDatasetRunItems:
         """
         List dataset run items
 
@@ -116,8 +114,6 @@ class DatasetRunItemsClient:
         dataset_id : str
 
         run_name : str
-
-        response : PaginatedDatasetRunItems
 
         page : typing.Optional[int]
             page number, starts at 1
@@ -130,15 +126,11 @@ class DatasetRunItemsClient:
 
         Returns
         -------
-        None
+        PaginatedDatasetRunItems
 
         Examples
         --------
-        import datetime
-
-        from langfuse import DatasetRunItem, PaginatedDatasetRunItems
         from langfuse.client import FernLangfuse
-        from langfuse.resources.utils import MetaResponse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -151,42 +143,6 @@ class DatasetRunItemsClient:
         client.dataset_run_items.list(
             dataset_id="datasetId",
             run_name="runName",
-            response=PaginatedDatasetRunItems(
-                data=[
-                    DatasetRunItem(
-                        id="id",
-                        dataset_run_id="datasetRunId",
-                        dataset_run_name="datasetRunName",
-                        dataset_item_id="datasetItemId",
-                        trace_id="traceId",
-                        created_at=datetime.datetime.fromisoformat(
-                            "2024-01-15 09:30:00+00:00",
-                        ),
-                        updated_at=datetime.datetime.fromisoformat(
-                            "2024-01-15 09:30:00+00:00",
-                        ),
-                    ),
-                    DatasetRunItem(
-                        id="id",
-                        dataset_run_id="datasetRunId",
-                        dataset_run_name="datasetRunName",
-                        dataset_item_id="datasetItemId",
-                        trace_id="traceId",
-                        created_at=datetime.datetime.fromisoformat(
-                            "2024-01-15 09:30:00+00:00",
-                        ),
-                        updated_at=datetime.datetime.fromisoformat(
-                            "2024-01-15 09:30:00+00:00",
-                        ),
-                    ),
-                ],
-                meta=MetaResponse(
-                    page=1,
-                    limit=1,
-                    total_items=1,
-                    total_pages=1,
-                ),
-            ),
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -197,13 +153,14 @@ class DatasetRunItemsClient:
                 "runName": run_name,
                 "page": page,
                 "limit": limit,
-                "response": jsonable_encoder(response),
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                return
+                return pydantic_v1.parse_obj_as(
+                    PaginatedDatasetRunItems, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -318,11 +275,10 @@ class AsyncDatasetRunItemsClient:
         *,
         dataset_id: str,
         run_name: str,
-        response: PaginatedDatasetRunItems,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> None:
+    ) -> PaginatedDatasetRunItems:
         """
         List dataset run items
 
@@ -331,8 +287,6 @@ class AsyncDatasetRunItemsClient:
         dataset_id : str
 
         run_name : str
-
-        response : PaginatedDatasetRunItems
 
         page : typing.Optional[int]
             page number, starts at 1
@@ -345,16 +299,13 @@ class AsyncDatasetRunItemsClient:
 
         Returns
         -------
-        None
+        PaginatedDatasetRunItems
 
         Examples
         --------
         import asyncio
-        import datetime
 
-        from langfuse import DatasetRunItem, PaginatedDatasetRunItems
         from langfuse.client import AsyncFernLangfuse
-        from langfuse.resources.utils import MetaResponse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -370,42 +321,6 @@ class AsyncDatasetRunItemsClient:
             await client.dataset_run_items.list(
                 dataset_id="datasetId",
                 run_name="runName",
-                response=PaginatedDatasetRunItems(
-                    data=[
-                        DatasetRunItem(
-                            id="id",
-                            dataset_run_id="datasetRunId",
-                            dataset_run_name="datasetRunName",
-                            dataset_item_id="datasetItemId",
-                            trace_id="traceId",
-                            created_at=datetime.datetime.fromisoformat(
-                                "2024-01-15 09:30:00+00:00",
-                            ),
-                            updated_at=datetime.datetime.fromisoformat(
-                                "2024-01-15 09:30:00+00:00",
-                            ),
-                        ),
-                        DatasetRunItem(
-                            id="id",
-                            dataset_run_id="datasetRunId",
-                            dataset_run_name="datasetRunName",
-                            dataset_item_id="datasetItemId",
-                            trace_id="traceId",
-                            created_at=datetime.datetime.fromisoformat(
-                                "2024-01-15 09:30:00+00:00",
-                            ),
-                            updated_at=datetime.datetime.fromisoformat(
-                                "2024-01-15 09:30:00+00:00",
-                            ),
-                        ),
-                    ],
-                    meta=MetaResponse(
-                        page=1,
-                        limit=1,
-                        total_items=1,
-                        total_pages=1,
-                    ),
-                ),
             )
 
 
@@ -419,13 +334,14 @@ class AsyncDatasetRunItemsClient:
                 "runName": run_name,
                 "page": page,
                 "limit": limit,
-                "response": jsonable_encoder(response),
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                return
+                return pydantic_v1.parse_obj_as(
+                    PaginatedDatasetRunItems, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
