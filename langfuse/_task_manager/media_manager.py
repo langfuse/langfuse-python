@@ -145,9 +145,10 @@ class MediaManager:
                     field=field,
                 )
 
-                data["data"] = media
+                copied = data.copy()
+                copied["data"] = media
 
-                return data
+                return copied
 
             if isinstance(data, list):
                 return [_process_data_recursively(item, level + 1) for item in data]
