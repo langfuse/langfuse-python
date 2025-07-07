@@ -83,7 +83,7 @@ LANGFUSE_FLUSH_INTERVAL = "LANGFUSE_FLUSH_INTERVAL"
 """
 .. envvar:: LANGFUSE_FLUSH_INTERVAL
 
-Max delay until a new ingestion batch is sent to the API.
+Max delay in seconds until a new ingestion batch is sent to the API.
 **Default value:** ``1``
 """
 
