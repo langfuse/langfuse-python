@@ -93,7 +93,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             span_exporter=langfuse_span_exporter,
             export_timeout_millis=timeout * 1_000 if timeout else None,
             max_export_batch_size=flush_at,
-            schedule_delay_millis=flush_interval,
+            schedule_delay_millis=flush_interval * 1_000
+            if flush_interval is not None
+            else None,
         )
 
     def on_end(self, span: ReadableSpan) -> None:
