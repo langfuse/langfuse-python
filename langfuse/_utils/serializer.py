@@ -57,6 +57,11 @@ class EventSerializer(JSONEncoder):
             if np is not None and isinstance(obj, np.generic):
                 return obj.item()
 
+            # Check if numpy is available and if the object is a numpy array
+            # If so, convert it to a Python list using the tolist() method
+            if np is not None and isinstance(obj, np.ndarray):
+                return obj.tolist()
+
             if isinstance(obj, float) and math.isnan(obj):
                 return None
 
