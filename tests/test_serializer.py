@@ -183,3 +183,29 @@ def test_numpy_float32():
     serializer = EventSerializer()
 
     assert serializer.encode(data) == "1.0"
+
+
+def test_numpy_arrays():
+    import numpy as np
+
+    serializer = EventSerializer()
+
+    # Test 1D array
+    arr_1d = np.array([1, 2, 3])
+    assert json.loads(serializer.encode(arr_1d)) == [1, 2, 3]
+
+    # Test 2D array
+    arr_2d = np.array([[1, 2], [3, 4]])
+    assert json.loads(serializer.encode(arr_2d)) == [[1, 2], [3, 4]]
+
+    # Test float array
+    arr_float = np.array([1.1, 2.2, 3.3])
+    assert json.loads(serializer.encode(arr_float)) == [1.1, 2.2, 3.3]
+
+    # Test empty array
+    arr_empty = np.array([])
+    assert json.loads(serializer.encode(arr_empty)) == []
+
+    # Test mixed types that numpy can handle
+    arr_mixed = np.array([1, 2.5, 3])
+    assert json.loads(serializer.encode(arr_mixed)) == [1.0, 2.5, 3.0]
