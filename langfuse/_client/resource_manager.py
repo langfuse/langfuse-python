@@ -184,18 +184,12 @@ class LangfuseResourceManager:
         ## could exhaust the OS's maximum number of available TCP sockets (file descriptors),
         ## leading to connection errors.
         if httpx_client is not None:
-            # If additional_headers are provided with a custom httpx_client, log warning and ignore additional_headers
-            if additional_headers:
-                langfuse_logger.warning(
-                    "Configuration warning: Both httpx_client and additional_headers were provided. "
-                    "additional_headers will be ignored when using a custom httpx_client. "
-                    "To use additional_headers, either omit httpx_client or configure headers directly on your custom httpx_client."
-                )
             self.httpx_client = httpx_client
         else:
             # Create a new httpx client with additional_headers if provided
             client_headers = additional_headers if additional_headers else {}
             self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
+
         self.api = FernLangfuse(
             base_url=host,
             username=self.public_key,
