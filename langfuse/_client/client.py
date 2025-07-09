@@ -108,6 +108,7 @@ class Langfuse:
         blocked_instrumentation_scopes (Optional[List[str]]): List of instrumentation scope names to block from being exported to Langfuse. Spans from these scopes will be filtered out before being sent to the API. Useful for filtering out spans from specific libraries or frameworks. For exported spans, you can see the instrumentation scope name in the span metadata in Langfuse (`metadata.scope.name`)
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
+        default_cache_ttl_seconds (Optional[int]): Override the default cache TTL (time-to-live) of 60 seconds with a custom value (in seconds) for prompts. 
 
     Example:
         ```python
@@ -169,6 +170,7 @@ class Langfuse:
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        default_cache_ttl_seconds: Optional[int] = None,
     ):
         self._host = host or cast(
             str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
@@ -237,6 +239,7 @@ class Langfuse:
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
+            default_cache_ttl_seconds=default_cache_ttl_seconds
         )
         self._mask = self._resources.mask
 
