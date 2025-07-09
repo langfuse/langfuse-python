@@ -94,6 +94,7 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        additional_headers: Optional[Dict[str, str]] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -119,6 +120,7 @@ class LangfuseResourceManager:
                     if tracing_enabled is not None
                     else True,
                     blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                    additional_headers=additional_headers,
                 )
 
                 cls._instances[public_key] = instance
@@ -142,6 +144,7 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        additional_headers: Optional[Dict[str, str]] = None,
     ):
         self.public_key = public_key
         self.secret_key = secret_key
@@ -163,6 +166,7 @@ class LangfuseResourceManager:
                 flush_at=flush_at,
                 flush_interval=flush_interval,
                 blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                additional_headers=additional_headers,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 
@@ -179,7 +183,13 @@ class LangfuseResourceManager:
         ## use connection pools with limited capacity. Creating multiple instances
         ## could exhaust the OS's maximum number of available TCP sockets (file descriptors),
         ## leading to connection errors.
-        self.httpx_client = httpx_client or httpx.Client(timeout=timeout)
+        if httpx_client is not None:
+            self.httpx_client = httpx_client
+        else:
+            # Create a new httpx client with additional_headers if provided
+            client_headers = additional_headers if additional_headers else {}
+            self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
+
         self.api = FernLangfuse(
             base_url=host,
             username=self.public_key,

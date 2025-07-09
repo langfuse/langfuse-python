@@ -13,7 +13,7 @@ Key features:
 
 import base64
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan
@@ -56,6 +56,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        additional_headers: Optional[Dict[str, str]] = None,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -78,14 +79,20 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             f"{public_key}:{secret_key}".encode("utf-8")
         ).decode("ascii")
 
+        # Prepare default headers
+        default_headers = {
+            "Authorization": basic_auth_header,
+            "x_langfuse_sdk_name": "python",
+            "x_langfuse_sdk_version": langfuse_version,
+            "x_langfuse_public_key": public_key,
+        }
+
+        # Merge additional headers if provided
+        headers = {**default_headers, **(additional_headers or {})}
+
         langfuse_span_exporter = OTLPSpanExporter(
             endpoint=f"{host}/api/public/otel/v1/traces",
-            headers={
-                "Authorization": basic_auth_header,
-                "x_langfuse_sdk_name": "python",
-                "x_langfuse_sdk_version": langfuse_version,
-                "x_langfuse_public_key": public_key,
-            },
+            headers=headers,
             timeout=timeout,
         )
 
