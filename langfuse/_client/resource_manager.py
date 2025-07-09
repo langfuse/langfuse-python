@@ -95,6 +95,7 @@ class LangfuseResourceManager:
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
+        default_cache_ttl_seconds: Optional[int] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -121,6 +122,7 @@ class LangfuseResourceManager:
                     else True,
                     blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                     additional_headers=additional_headers,
+                    default_cache_ttl_seconds=default_cache_ttl_seconds,
                 )
 
                 cls._instances[public_key] = instance
@@ -145,6 +147,7 @@ class LangfuseResourceManager:
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
+        default_cache_ttl_seconds: Optional[int] = None,
     ):
         self.public_key = public_key
         self.secret_key = secret_key
@@ -245,7 +248,7 @@ class LangfuseResourceManager:
                 self._media_upload_consumers.append(media_upload_consumer)
 
         # Prompt cache
-        self.prompt_cache = PromptCache()
+        self.prompt_cache = PromptCache(default_cache_ttl_seconds=default_cache_ttl_seconds)
 
         # Score ingestion
         self._score_ingestion_queue: Queue[Any] = Queue(100_000)
