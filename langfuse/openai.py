@@ -170,6 +170,8 @@ class OpenAiArgsExtractor:
         name=None,
         langfuse_prompt=None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
         langfuse_public_key=None,
+        trace_id=None,
+        parent_observation_id=None,
         **kwargs,
     ):
         self.args = {}
@@ -187,6 +189,8 @@ class OpenAiArgsExtractor:
         self.args["name"] = name
         self.args["langfuse_public_key"] = langfuse_public_key
         self.args["langfuse_prompt"] = langfuse_prompt
+        self.args["trace_id"] = trace_id
+        self.args["parent_observation_id"] = parent_observation_id
 
         self.kwargs = kwargs
 
