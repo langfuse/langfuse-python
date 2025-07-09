@@ -106,6 +106,7 @@ class Langfuse:
         mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
         blocked_instrumentation_scopes (Optional[List[str]]): List of instrumentation scope names to block from being exported to Langfuse. Spans from these scopes will be filtered out before being sent to the API. Useful for filtering out spans from specific libraries or frameworks. For exported spans, you can see the instrumentation scope name in the span metadata in Langfuse (`metadata.scope.name`)
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
+        default_cache_ttl_seconds (Optional[int]): Override the default cache TTL (time-to-live) of 60 seconds with a custom value (in seconds) for prompts. 
 
     Example:
         ```python
@@ -165,6 +166,7 @@ class Langfuse:
         mask: Optional[MaskFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
+        default_cache_ttl_seconds: Optional[int] = None,
     ):
         self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
@@ -228,6 +230,7 @@ class Langfuse:
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             additional_headers=additional_headers,
+            default_cache_ttl_seconds=default_cache_ttl_seconds
         )
         self._mask = self._resources.mask
 
