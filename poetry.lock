@@ -176,14 +176,14 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.39.0"
+version = "0.57.1"
 description = "The official Python library for the anthropic API"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "anthropic-0.39.0-py3-none-any.whl", hash = "sha256:ea17093ae0ce0e1768b0c46501d6086b5bcd74ff39d68cd2d6396374e9de7c09"},
-    {file = "anthropic-0.39.0.tar.gz", hash = "sha256:94671cc80765f9ce693f76d63a97ee9bef4c2d6063c044e983d21a2e262f63ba"},
+    {file = "anthropic-0.57.1-py3-none-any.whl", hash = "sha256:33afc1f395af207d07ff1bffc0a3d1caac53c371793792569c5d2f09283ea306"},
+    {file = "anthropic-0.57.1.tar.gz", hash = "sha256:7815dd92245a70d21f65f356f33fc80c5072eada87fb49437767ea2918b2c4b0"},
 ]
 
 [package.dependencies]
@@ -191,16 +191,17 @@ anyio = ">=3.5.0,<5"
 boto3 = {version = ">=1.28.57", optional = true, markers = "extra == \"bedrock\""}
 botocore = {version = ">=1.31.57", optional = true, markers = "extra == \"bedrock\""}
 distro = ">=1.7.0,<2"
-google-auth = {version = ">=2,<3", optional = true, markers = "extra == \"vertex\""}
-httpx = ">=0.23.0,<1"
+google-auth = {version = ">=2,<3", extras = ["requests"], optional = true, markers = "extra == \"vertex\""}
+httpx = ">=0.25.0,<1"
 jiter = ">=0.4.0,<1"
 pydantic = ">=1.9.0,<3"
 sniffio = "*"
-typing-extensions = ">=4.7,<5"
+typing-extensions = ">=4.10,<5"
 
 [package.extras]
+aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.6)"]
 bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
-vertex = ["google-auth (>=2,<3)"]
+vertex = ["google-auth[requests] (>=2,<3)"]
 
 [[package]]
 name = "anyio"
@@ -1230,6 +1231,7 @@ files = [
 [package.dependencies]
 cachetools = ">=2.0.0,<6.0"
 pyasn1-modules = ">=0.2.1"
+requests = {version = ">=2.20.0,<3.0.0.dev0", optional = true, markers = "extra == \"requests\""}
 rsa = ">=3.1.4,<5"
 
 [package.extras]
@@ -2541,19 +2543,19 @@ wrapt = "*"
 
 [[package]]
 name = "llama-index-llms-anthropic"
-version = "0.5.0"
+version = "0.7.3"
 description = "llama-index llms anthropic integration"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["dev"]
 files = [
-    {file = "llama_index_llms_anthropic-0.5.0-py3-none-any.whl", hash = "sha256:2b9367db45deabcbda4db1b1216c95e2663e1e6f129570fc2d275207dd3901cf"},
-    {file = "llama_index_llms_anthropic-0.5.0.tar.gz", hash = "sha256:14e400ccc2deb8e9024ef8cdc24550b67f4240f3563b4564d4870be85de2d9d8"},
+    {file = "llama_index_llms_anthropic-0.7.3-py3-none-any.whl", hash = "sha256:2c066d69e578f4b019502a645100c6edcd7a2714c50637230e7ef4ae0fcee73b"},
+    {file = "llama_index_llms_anthropic-0.7.3.tar.gz", hash = "sha256:25bc23dee74a5a3779496721ac509d73f33f29664011acf67ed5b3d69d1c777b"},
 ]
 
 [package.dependencies]
-anthropic = {version = ">=0.39.0", extras = ["bedrock", "vertex"]}
-llama-index-core = ">=0.12.0,<0.13.0"
+anthropic = {version = ">=0.52.0", extras = ["bedrock", "vertex"]}
+llama-index-core = ">=0.12.36,<0.13"
 
 [[package]]
 name = "markdown-it-py"
@@ -5788,4 +5790,4 @@ openai = ["openai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "d0353d0579f11dc634c6da45be88e85310fd9f1172500b9670b2cbc428370eb9"
+content-hash = "ec4fa2d88177d17747685a407505914a237dfeb2670b07d34d61724281ac1705"
