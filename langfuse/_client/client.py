@@ -1683,8 +1683,7 @@ class Langfuse:
             ```
         """
         project_id = self._get_project_id()
-        current_trace_id = self.get_current_trace_id()
-        final_trace_id = trace_id or current_trace_id
+        final_trace_id = trace_id or self.get_current_trace_id()
 
         return (
             f"{self._host}/project/{project_id}/traces/{final_trace_id}"
