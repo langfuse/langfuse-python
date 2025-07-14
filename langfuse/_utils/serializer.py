@@ -63,7 +63,7 @@ class EventSerializer(JSONEncoder):
                 return obj.tolist()
 
             if isinstance(obj, float) and math.isnan(obj):
-                return None
+                return "NaN"
 
             if isinstance(obj, float) and math.isinf(obj):
                 return "Infinity"
