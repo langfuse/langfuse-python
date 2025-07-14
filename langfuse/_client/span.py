@@ -561,6 +561,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
     def update(
         self,
         *,
+        name: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -575,6 +576,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         during execution, such as outputs, metadata, or status changes.
 
         Args:
+            name: Span name
             input: Updated input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the span
@@ -606,6 +608,9 @@ class LangfuseSpan(LangfuseSpanWrapper):
         processed_metadata = self._process_media_and_apply_mask(
             data=metadata, field="metadata", span=self._otel_span
         )
+
+        if name:
+            self._otel_span.update_name(name)
 
         attributes = create_span_attributes(
             input=processed_input,
@@ -1048,6 +1053,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
     def update(
         self,
         *,
+        name: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -1069,6 +1075,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         token usage statistics, or cost details.
 
         Args:
+            name: The generation name
             input: Updated input data for the model
             output: Output from the model (e.g., completions)
             metadata: Additional metadata to associate with the generation
@@ -1122,6 +1129,9 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         processed_metadata = self._process_media_and_apply_mask(
             data=metadata, field="metadata", span=self._otel_span
         )
+
+        if name:
+            self._otel_span.update_name(name)
 
         attributes = create_generation_attributes(
             input=processed_input,
