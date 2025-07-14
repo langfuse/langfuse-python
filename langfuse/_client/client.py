@@ -773,6 +773,7 @@ class Langfuse:
     def update_current_generation(
         self,
         *,
+        name: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -793,6 +794,7 @@ class Langfuse:
         details that become available during or after model generation.
 
         Args:
+            name: The generation name
             input: Updated input data for the model
             output: Output from the model (e.g., completions)
             metadata: Additional metadata to associate with the generation
@@ -835,6 +837,9 @@ class Langfuse:
                 otel_span=current_otel_span, langfuse_client=self
             )
 
+            if name:
+                current_otel_span.update_name(name)
+
             generation.update(
                 input=input,
                 output=output,
@@ -853,6 +858,7 @@ class Langfuse:
     def update_current_span(
         self,
         *,
+        name: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -867,6 +873,7 @@ class Langfuse:
         that become available during execution.
 
         Args:
+            name: The span name
             input: Updated input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the span
@@ -904,6 +911,9 @@ class Langfuse:
                 langfuse_client=self,
                 environment=self._environment,
             )
+
+            if name:
+                current_otel_span.update_name(name)
 
             span.update(
                 input=input,

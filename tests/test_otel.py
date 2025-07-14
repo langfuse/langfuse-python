@@ -309,6 +309,23 @@ class TestBasicSpans(TestOTelBase):
         # All spans should have the same trace ID
         assert len(set(s["trace_id"] for s in spans)) == 1
 
+    def test_update_current_span_name(self, langfuse_client, memory_exporter):
+        """Test updating current span name via update_current_span method."""
+        # Create a span using context manager
+        with langfuse_client.start_as_current_span(name="original-current-span"):
+            # Update the current span name
+            langfuse_client.update_current_span(name="updated-current-span")
+
+        # Verify the span name was updated
+        spans = self.get_spans_by_name(memory_exporter, "updated-current-span")
+        assert len(spans) == 1, "Expected one span with updated name"
+
+        # Also verify no spans exist with the original name
+        original_spans = self.get_spans_by_name(
+            memory_exporter, "original-current-span"
+        )
+        assert len(original_spans) == 0, "Expected no spans with original name"
+
     def test_span_attributes(self, langfuse_client, memory_exporter):
         """Test that span attributes are correctly set and updated."""
         # Create a span with attributes
@@ -360,6 +377,23 @@ class TestBasicSpans(TestOTelBase):
             == "Test status"
         )
 
+    def test_span_name_update(self, langfuse_client, memory_exporter):
+        """Test updating span name via update method."""
+        # Create a span with initial name
+        span = langfuse_client.start_span(name="original-span-name")
+
+        # Update the span name
+        span.update(name="updated-span-name")
+        span.end()
+
+        # Verify the span name was updated
+        spans = self.get_spans_by_name(memory_exporter, "updated-span-name")
+        assert len(spans) == 1, "Expected one span with updated name"
+
+        # Also verify no spans exist with the original name
+        original_spans = self.get_spans_by_name(memory_exporter, "original-span-name")
+        assert len(original_spans) == 0, "Expected no spans with original name"
+
     def test_generation_span(self, langfuse_client, memory_exporter):
         """Test creating a generation span with model-specific attributes."""
         # Create a generation
@@ -393,6 +427,27 @@ class TestBasicSpans(TestOTelBase):
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS]
         )
         assert usage == {"input": 10, "output": 5, "total": 15}
+
+    def test_generation_name_update(self, langfuse_client, memory_exporter):
+        """Test updating generation name via update method."""
+        # Create a generation with initial name
+        generation = langfuse_client.start_generation(
+            name="original-generation-name", model="gpt-4"
+        )
+
+        # Update the generation name
+        generation.update(name="updated-generation-name")
+        generation.end()
+
+        # Verify the generation name was updated
+        spans = self.get_spans_by_name(memory_exporter, "updated-generation-name")
+        assert len(spans) == 1, "Expected one generation with updated name"
+
+        # Also verify no spans exist with the original name
+        original_spans = self.get_spans_by_name(
+            memory_exporter, "original-generation-name"
+        )
+        assert len(original_spans) == 0, "Expected no generations with original name"
 
     def test_trace_update(self, langfuse_client, memory_exporter):
         """Test updating trace level attributes."""
@@ -513,6 +568,25 @@ class TestBasicSpans(TestOTelBase):
         )
         assert llm_input == {"prompt": "Summarize this text"}
         assert llm_output == {"text": "This is a summary"}
+
+    def test_update_current_generation_name(self, langfuse_client, memory_exporter):
+        """Test updating current generation name via update_current_generation method."""
+        # Create a generation using context manager
+        with langfuse_client.start_as_current_generation(
+            name="original-current-generation", model="gpt-4"
+        ):
+            # Update the current generation name
+            langfuse_client.update_current_generation(name="updated-current-generation")
+
+        # Verify the generation name was updated
+        spans = self.get_spans_by_name(memory_exporter, "updated-current-generation")
+        assert len(spans) == 1, "Expected one generation with updated name"
+
+        # Also verify no spans exist with the original name
+        original_spans = self.get_spans_by_name(
+            memory_exporter, "original-current-generation"
+        )
+        assert len(original_spans) == 0, "Expected no generations with original name"
 
     def test_custom_trace_id(self, langfuse_client, memory_exporter):
         """Test setting a custom trace ID."""
