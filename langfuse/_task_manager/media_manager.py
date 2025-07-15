@@ -170,18 +170,18 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
-    ) -> str:
+    ) -> None:
         if (
             media._content_length is None
             or media._content_type is None
             or media._content_sha256_hash is None
             or media._content_bytes is None
         ):
-            return ""
+            return
 
         if media._media_id is None:
             self._log.error("Media ID is None. Skipping upload.")
-            return ""
+            return
 
         try:
             upload_media_job = UploadMediaJob(
@@ -212,9 +212,6 @@ class MediaManager:
             self._log.error(
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
-            return ""
-
-        return media._reference_string or ""
 
     def _process_upload_media_job(
         self,

@@ -207,9 +207,11 @@ class LangfuseDecorator:
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            trace_id = kwargs.pop("langfuse_trace_id", None)
-            parent_observation_id = kwargs.pop("langfuse_parent_observation_id", None)
+        async def async_wrapper(*args: Tuple[Any], **kwargs: Dict[str, Any]) -> Any:
+            trace_id = cast(str, kwargs.pop("langfuse_trace_id", None))
+            parent_observation_id = cast(
+                str, kwargs.pop("langfuse_parent_observation_id", None)
+            )
             trace_context: Optional[TraceContext] = (
                 {
                     "trace_id": trace_id,
@@ -228,7 +230,7 @@ class LangfuseDecorator:
                 if capture_input
                 else None
             )
-            public_key = kwargs.pop("langfuse_public_key", None)
+            public_key = cast(str, kwargs.pop("langfuse_public_key", None))
             langfuse_client = get_client(public_key=public_key)
             context_manager: Optional[
                 Union[

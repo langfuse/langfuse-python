@@ -63,7 +63,7 @@ def generate_error_message_fern(error: Error) -> str:
             else defaultErrorResponse
         )
 
-    # This line is unreachable but kept for completeness
+    return defaultErrorResponse  # type: ignore
 
 
 def handle_fern_exception(exception: Error) -> None:

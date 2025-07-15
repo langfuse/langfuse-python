@@ -1071,7 +1071,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-        **kwargs: Any,
+        **kwargs: Dict[str, Any],
     ) -> "LangfuseGeneration":
         """Update this generation span with new information.
 

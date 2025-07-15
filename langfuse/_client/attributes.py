@@ -12,7 +12,7 @@ The module includes:
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
@@ -164,14 +164,14 @@ def _flatten_and_serialize_metadata(
         else LangfuseOtelSpanAttributes.TRACE_METADATA
     )
 
-    metadata_attributes = {}
+    metadata_attributes: Dict[str, Union[str, int, None]] = {}
 
     if not isinstance(metadata, dict):
         metadata_attributes[prefix] = _serialize(metadata)
     else:
         for key, value in metadata.items():
             metadata_attributes[f"{prefix}.{key}"] = (
-                str(value)
+                value
                 if isinstance(value, str) or isinstance(value, int)
                 else _serialize(value)
             )

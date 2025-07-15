@@ -147,6 +147,7 @@ class Langfuse:
 
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
+    _otel_tracer: otel_trace_api.Tracer
 
     def __init__(
         self,
@@ -167,10 +168,14 @@ class Langfuse:
         mask: Optional[MaskFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
-        tracer_provider: Optional[otel_trace_api.TracerProvider] = None,
+        tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        self._host = host or cast(
+            str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        )
+        self._environment = environment or cast(
+            str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        )
         self._project_id: Optional[str] = None
         sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -218,7 +223,7 @@ class Langfuse:
         self._resources = LangfuseResourceManager(
             public_key=public_key,
             secret_key=secret_key,
-            host=self._host or "https://cloud.langfuse.com",
+            host=self._host,
             timeout=timeout,
             environment=environment,
             release=release,
@@ -231,15 +236,14 @@ class Langfuse:
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             additional_headers=additional_headers,
-            tracer_provider=cast(Optional[TracerProvider], tracer_provider),
+            tracer_provider=tracer_provider,
         )
         self._mask = self._resources.mask
 
-        self._otel_tracer = cast(
-            Any,
+        self._otel_tracer = (
             self._resources.tracer
             if self._tracing_enabled and self._resources.tracer is not None
-            else otel_trace_api.NoOpTracer(),
+            else otel_trace_api.NoOpTracer()
         )
         self.api = self._resources.api
         self.async_api = self._resources.async_api
@@ -660,8 +664,8 @@ class Langfuse:
         self,
         *,
         name: str,
-        parent: Any,
-        remote_parent_span: Any,
+        parent: Optional[otel_trace_api.Span] = None,
+        remote_parent_span: Optional[otel_trace_api.Span] = None,
         as_type: Literal["generation", "span"],
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
