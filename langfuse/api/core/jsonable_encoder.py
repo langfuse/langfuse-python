@@ -60,7 +60,7 @@ def jsonable_encoder(
             obj_dict = obj_dict["__root__"]
         return jsonable_encoder(obj_dict, custom_encoder=encoder)
     if dataclasses.is_dataclass(obj):
-        obj_dict = dataclasses.asdict(obj)  # type: ignore
+        obj_dict = dataclasses.asdict(obj)
         return jsonable_encoder(obj_dict, custom_encoder=custom_encoder)
     if isinstance(obj, bytes):
         return base64.b64encode(obj).decode("utf-8")
