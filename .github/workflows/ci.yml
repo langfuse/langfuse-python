@@ -23,36 +23,36 @@ jobs:
         with:
           args: check --config ci.ruff.toml
 
-    type-checking:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v3
-        - name: Set up Python
-          uses: actions/setup-python@v4
-          with:
-            python-version: "3.12"
-        - name: Install poetry
-          uses: abatilo/actions-poetry@v2
-        - name: Setup a local virtual environment
-          run: |
-            poetry config virtualenvs.create true --local
-            poetry config virtualenvs.in-project true --local
-        - uses: actions/cache@v3
-          name: Define a cache for the virtual environment based on the dependencies lock file
-          with:
-            path: ./.venv
-            key: venv-type-check-${{ hashFiles('poetry.lock') }}
-        - uses: actions/cache@v3
-          name: Cache mypy cache
-          with:
-            path: ./.mypy_cache
-            key: mypy-${{ hashFiles('**/*.py', 'pyproject.toml') }}
-            restore-keys: |
-              mypy-
-        - name: Install dependencies
-          run: poetry install --only=main,dev --no-extras
-        - name: Run mypy type checking
-          run: poetry run mypy langfuse --no-error-summary
+  type-checking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+      - name: Setup a local virtual environment
+        run: |
+          poetry config virtualenvs.create true --local
+          poetry config virtualenvs.in-project true --local
+      - uses: actions/cache@v3
+        name: Define a cache for the virtual environment based on the dependencies lock file
+        with:
+          path: ./.venv
+          key: venv-type-check-${{ hashFiles('poetry.lock') }}
+      - uses: actions/cache@v3
+        name: Cache mypy cache
+        with:
+          path: ./.mypy_cache
+          key: mypy-${{ hashFiles('**/*.py', 'pyproject.toml') }}
+          restore-keys: |
+            mypy-
+      - name: Install dependencies
+        run: poetry install --only=main,dev --no-extras
+      - name: Run mypy type checking
+        run: poetry run mypy langfuse --no-error-summary
 
   ci:
     runs-on: ubuntu-latest
