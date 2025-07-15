@@ -130,7 +130,7 @@ def _extract_model_name(
                 serialized, kwargs, path, cast(Literal["serialized", "kwargs"], select)
             )
             if model:
-                return model
+                return str(model)
 
     return None
 
@@ -159,7 +159,7 @@ def _extract_model_from_repr_by_pattern(
     return None
 
 
-def _extract_model_with_regex(pattern: str, text: str):
+def _extract_model_with_regex(pattern: str, text: str) -> Optional[str]:
     match = re.search(rf"{pattern}='(.*?)'", text)
     if match:
         return match.group(1)
@@ -184,7 +184,8 @@ def _extract_model_by_path_for_id(
             and len(serialized_id) > 0
             and serialized_id[-1] == id
         ):
-            return _extract_model_by_path(serialized, kwargs, keys, select_from)
+            result = _extract_model_by_path(serialized, kwargs, keys, select_from)
+            return str(result) if result is not None else None
 
     return None
 
@@ -194,7 +195,7 @@ def _extract_model_by_path(
     kwargs: dict,
     keys: List[str],
     select_from: Literal["serialized", "kwargs"],
-):
+) -> Optional[str]:
     if serialized is None and select_from == "serialized":
         return None
 
@@ -208,4 +209,4 @@ def _extract_model_by_path(
         if not current_obj:
             return None
 
-    return current_obj if current_obj else None
+    return str(current_obj) if current_obj else None

@@ -2,12 +2,34 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.2
     hooks:
-      # Run the linter and fix 
+      # Run the linter and fix
       - id: ruff
-        types_or: [ python, pyi, jupyter ]
-        args: [ --fix,  --config=ci.ruff.toml ]
+        types_or: [python, pyi, jupyter]
+        args: [--fix, --config=ci.ruff.toml]
 
       # Run the formatter.
       - id: ruff-format
-        types_or: [ python, pyi, jupyter ]
+        types_or: [python, pyi, jupyter]
 
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-setuptools
+          - httpx
+          - pydantic>=1.10.7
+          - backoff>=1.10.0
+          - openai>=0.27.8
+          - wrapt
+          - packaging>=23.2
+          - opentelemetry-api
+          - opentelemetry-sdk
+          - opentelemetry-exporter-otlp
+          - numpy
+          - langchain>=0.0.309
+          - langchain-core
+          - langgraph
+        args: [--no-error-summary]
+        files: ^langfuse/

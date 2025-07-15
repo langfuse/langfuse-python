@@ -1,15 +1,15 @@
 import functools
 import logging
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 
 logger = logging.getLogger("langfuse")
 
 
-def catch_and_log_errors(func):
+def catch_and_log_errors(func: Callable[..., Any]) -> Callable[..., Any]:
     """Catch all exceptions and log them. Do NOT re-raise the exception."""
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return func(*args, **kwargs)
         except Exception as e:
@@ -18,14 +18,17 @@ def catch_and_log_errors(func):
     return wrapper
 
 
-def auto_decorate_methods_with(decorator, exclude: Optional[List[str]] = []):
+def auto_decorate_methods_with(
+    decorator: Callable[[Callable[..., Any]], Callable[..., Any]],
+    exclude: Optional[List[str]] = None,
+) -> Callable[[type], type]:
     """Class decorator to automatically apply a given decorator to all
     methods of a class.
     """
 
-    def class_decorator(cls):
+    def class_decorator(cls: type) -> type:
         for attr_name, attr_value in cls.__dict__.items():
-            if attr_name in exclude:
+            if exclude and attr_name in exclude:
                 continue
             if callable(attr_value):
                 # Wrap callable attributes (methods) with the decorator

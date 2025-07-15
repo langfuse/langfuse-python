@@ -20,6 +20,7 @@ from typing import (
 )
 
 from typing_extensions import ParamSpec
+from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
@@ -206,7 +207,7 @@ class LangfuseDecorator:
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = kwargs.pop("langfuse_trace_id", None)
             parent_observation_id = kwargs.pop("langfuse_parent_observation_id", None)
             trace_context: Optional[TraceContext] = (
@@ -229,7 +230,12 @@ class LangfuseDecorator:
             )
             public_key = kwargs.pop("langfuse_public_key", None)
             langfuse_client = get_client(public_key=public_key)
-            context_manager = (
+            context_manager: Optional[
+                Union[
+                    _AgnosticContextManager[LangfuseGeneration],
+                    _AgnosticContextManager[LangfuseSpan],
+                ]
+            ] = (
                 (
                     langfuse_client.start_as_current_generation(
                         name=final_name,
@@ -294,7 +300,7 @@ class LangfuseDecorator:
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> F:
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = kwargs.pop("langfuse_trace_id", None)
             parent_observation_id = kwargs.pop("langfuse_parent_observation_id", None)
             trace_context: Optional[TraceContext] = (
@@ -317,7 +323,12 @@ class LangfuseDecorator:
             )
             public_key = kwargs.pop("langfuse_public_key", None)
             langfuse_client = get_client(public_key=public_key)
-            context_manager = (
+            context_manager: Optional[
+                Union[
+                    _AgnosticContextManager[LangfuseGeneration],
+                    _AgnosticContextManager[LangfuseSpan],
+                ]
+            ] = (
                 (
                     langfuse_client.start_as_current_generation(
                         name=final_name,
@@ -398,7 +409,7 @@ class LangfuseDecorator:
         langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
         generator: Generator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ):
+    ) -> Any:
         items = []
 
         try:
@@ -408,7 +419,7 @@ class LangfuseDecorator:
                 yield item
 
         finally:
-            output = items
+            output: Any = items
 
             if transform_to_string is not None:
                 output = transform_to_string(items)
@@ -434,7 +445,7 @@ class LangfuseDecorator:
                 yield item
 
         finally:
-            output = items
+            output: Any = items
 
             if transform_to_string is not None:
                 output = transform_to_string(items)

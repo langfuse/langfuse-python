@@ -80,9 +80,11 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
 
         else:
             # Specific key provided, look up existing instance
-            instance = active_instances.get(public_key, None)
+            target_instance: Optional[LangfuseResourceManager] = active_instances.get(
+                public_key, None
+            )
 
-            if instance is None:
+            if target_instance is None:
                 # No instance found with this key - client not initialized properly
                 langfuse_logger.warning(
                     f"No Langfuse client with public key {public_key} has been initialized. Skipping tracing for decorated function."
@@ -91,9 +93,10 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
                     tracing_enabled=False, public_key="fake", secret_key="fake"
                 )
 
+            # target_instance is guaranteed to be not None at this point
             return Langfuse(
                 public_key=public_key,
-                secret_key=instance.secret_key,
-                host=instance.host,
-                tracing_enabled=instance.tracing_enabled,
+                secret_key=target_instance.secret_key,
+                host=target_instance.host,
+                tracing_enabled=target_instance.tracing_enabled,
             )

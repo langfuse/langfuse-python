@@ -34,7 +34,7 @@ class LangfuseClient:
         self._timeout = timeout
         self._session = session
 
-    def generate_headers(self):
+    def generate_headers(self) -> dict:
         return {
             "Authorization": "Basic "
             + b64encode(
@@ -46,7 +46,7 @@ class LangfuseClient:
             "x_langfuse_public_key": self._public_key,
         }
 
-    def batch_post(self, **kwargs) -> httpx.Response:
+    def batch_post(self, **kwargs: Any) -> httpx.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
         log = logging.getLogger("langfuse")
         log.debug("uploading data: %s", kwargs)
@@ -56,7 +56,7 @@ class LangfuseClient:
             res, success_message="data uploaded successfully", return_json=False
         )
 
-    def post(self, **kwargs) -> httpx.Response:
+    def post(self, **kwargs: Any) -> httpx.Response:
         """Post the `kwargs` to the API"""
         log = logging.getLogger("langfuse")
         url = self._remove_trailing_slash(self._base_url) + "/api/public/ingestion"
@@ -125,7 +125,7 @@ class APIError(Exception):
         self.status = status
         self.details = details
 
-    def __str__(self):
+    def __str__(self) -> str:
         msg = "{0} ({1}): {2}"
         return msg.format(self.message, self.status, self.details)
 
@@ -134,7 +134,7 @@ class APIErrors(Exception):
     def __init__(self, errors: List[APIError]):
         self.errors = errors
 
-    def __str__(self):
+    def __str__(self) -> str:
         errors = ", ".join(str(error) for error in self.errors)
 
         return f"[Langfuse] {errors}"

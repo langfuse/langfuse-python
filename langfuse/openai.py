@@ -21,8 +21,9 @@ import logging
 import types
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from inspect import isclass
-from typing import Optional, cast
+from typing import Optional, cast, Any
 
 from openai._types import NotGiven
 from packaging.version import Version
@@ -44,10 +45,10 @@ except ImportError:
 try:
     from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
-    AsyncAzureOpenAI = None
-    AsyncOpenAI = None
-    AzureOpenAI = None
-    OpenAI = None
+    AsyncAzureOpenAI = None  # type: ignore
+    AsyncOpenAI = None  # type: ignore
+    AzureOpenAI = None  # type: ignore
+    OpenAI = None  # type: ignore
 
 log = logging.getLogger("langfuse")
 
@@ -166,14 +167,16 @@ OPENAI_METHODS_V1 = [
 class OpenAiArgsExtractor:
     def __init__(
         self,
-        metadata=None,
-        name=None,
-        langfuse_prompt=None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
-        langfuse_public_key=None,
-        trace_id=None,
-        parent_observation_id=None,
-        **kwargs,
-    ):
+        metadata: Optional[Any] = None,
+        name: Optional[str] = None,
+        langfuse_prompt: Optional[
+            Any
+        ] = None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
+        langfuse_public_key: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        parent_observation_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
         self.args = {}
         self.args["metadata"] = (
             metadata
@@ -194,10 +197,10 @@ class OpenAiArgsExtractor:
 
         self.kwargs = kwargs
 
-    def get_langfuse_args(self):
+    def get_langfuse_args(self) -> Any:
         return {**self.args, **self.kwargs}
 
-    def get_openai_args(self):
+    def get_openai_args(self) -> Any:
         # If OpenAI model distillation is enabled, we need to add the metadata to the kwargs
         # https://platform.openai.com/docs/guides/distillation
         if self.kwargs.get("store", False):
@@ -212,9 +215,9 @@ class OpenAiArgsExtractor:
         return self.kwargs
 
 
-def _langfuse_wrapper(func):
-    def _with_langfuse(open_ai_definitions):
-        def wrapper(wrapped, instance, args, kwargs):
+def _langfuse_wrapper(func: Any) -> Any:
+    def _with_langfuse(open_ai_definitions: Any) -> Any:
+        def wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
             return func(open_ai_definitions, wrapped, args, kwargs)
 
         return wrapper
@@ -222,7 +225,7 @@ def _langfuse_wrapper(func):
     return _with_langfuse
 
 
-def _extract_chat_prompt(kwargs: any):
+def _extract_chat_prompt(kwargs: Any) -> Any:
     """Extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
     prompt = {}
 
@@ -250,7 +253,7 @@ def _extract_chat_prompt(kwargs: any):
         return [_process_message(message) for message in kwargs.get("messages", [])]
 
 
-def _process_message(message):
+def _process_message(message: Any) -> Any:
     if not isinstance(message, dict):
         return message
 
@@ -287,7 +290,7 @@ def _process_message(message):
     return processed_message
 
 
-def _extract_chat_response(kwargs: any):
+def _extract_chat_response(kwargs: Any) -> Any:
     """Extracts the llm output from the response."""
     response = {
         "role": kwargs.get("role", None),
@@ -320,7 +323,7 @@ def _extract_chat_response(kwargs: any):
     return response
 
 
-def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs):
+def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> Any:
     name = kwargs.get("name", "OpenAI-generation")
 
     if name is None:
@@ -445,13 +448,13 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs):
 
 
 def _create_langfuse_update(
-    completion,
+    completion: Any,
     generation: LangfuseGeneration,
-    completion_start_time,
-    model=None,
-    usage=None,
-    metadata=None,
-):
+    completion_start_time: Any,
+    model: Optional[str] = None,
+    usage: Optional[Any] = None,
+    metadata: Optional[Any] = None,
+) -> Any:
     update = {
         "output": completion,
         "completion_start_time": completion_start_time,
@@ -468,7 +471,7 @@ def _create_langfuse_update(
     generation.update(**update)
 
 
-def _parse_usage(usage=None):
+def _parse_usage(usage: Optional[Any] = None) -> Any:
     if usage is None:
         return
 
@@ -493,7 +496,7 @@ def _parse_usage(usage=None):
     return usage_dict
 
 
-def _extract_streamed_response_api_response(chunks):
+def _extract_streamed_response_api_response(chunks: Any) -> Any:
     completion, model, usage = None, None, None
     metadata = {}
 
@@ -520,8 +523,8 @@ def _extract_streamed_response_api_response(chunks):
     return (model, completion, usage, metadata)
 
 
-def _extract_streamed_openai_response(resource, chunks):
-    completion = defaultdict(str) if resource.type == "chat" else ""
+def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
+    completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
     model, usage = None, None
 
     for chunk in chunks:
@@ -602,7 +605,7 @@ def _extract_streamed_openai_response(resource, chunks):
             if resource.type == "completion":
                 completion += choice.get("text", "")
 
-    def get_response_for_chat():
+    def get_response_for_chat() -> Any:
         return (
             completion["content"]
             or (
@@ -633,7 +636,9 @@ def _extract_streamed_openai_response(resource, chunks):
     )
 
 
-def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, response):
+def _get_langfuse_data_from_default_response(
+    resource: OpenAiDefinition, response: Any
+) -> Any:
     if response is None:
         return None, "<NoneType response returned from OpenAI>", None
 
@@ -682,11 +687,11 @@ def _get_langfuse_data_from_default_response(resource: OpenAiDefinition, respons
     return (model, completion, usage)
 
 
-def _is_openai_v1():
+def _is_openai_v1() -> bool:
     return Version(openai.__version__) >= Version("1.0.0")
 
 
-def _is_streaming_response(response):
+def _is_streaming_response(response: Any) -> bool:
     return (
         isinstance(response, types.GeneratorType)
         or isinstance(response, types.AsyncGeneratorType)
@@ -696,7 +701,9 @@ def _is_streaming_response(response):
 
 
 @_langfuse_wrapper
-def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
+def _wrap(
+    open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
+) -> Any:
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
     langfuse_args = arg_extractor.get_langfuse_args()
 
@@ -757,7 +764,9 @@ def _wrap(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
 
 
 @_langfuse_wrapper
-async def _wrap_async(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs):
+async def _wrap_async(
+    open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
+) -> Any:
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
     langfuse_args = arg_extractor.get_langfuse_args()
 
@@ -817,7 +826,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, wrapped, args, kwargs)
         raise ex
 
 
-def register_tracing():
+def register_tracing() -> None:
     resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
 
     for resource in resources:
@@ -845,18 +854,18 @@ class LangfuseResponseGeneratorSync:
     def __init__(
         self,
         *,
-        resource,
-        response,
-        generation,
-    ):
-        self.items = []
+        resource: Any,
+        response: Any,
+        generation: Any,
+    ) -> None:
+        self.items: list[Any] = []
 
         self.resource = resource
         self.response = response
         self.generation = generation
-        self.completion_start_time = None
+        self.completion_start_time: Optional[datetime] = None
 
-    def __iter__(self):
+    def __iter__(self) -> Any:
         try:
             for i in self.response:
                 self.items.append(i)
@@ -868,7 +877,7 @@ class LangfuseResponseGeneratorSync:
         finally:
             self._finalize()
 
-    def __next__(self):
+    def __next__(self) -> Any:
         try:
             item = self.response.__next__()
             self.items.append(item)
@@ -883,13 +892,13 @@ class LangfuseResponseGeneratorSync:
 
             raise
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         return self.__iter__()
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         pass
 
-    def _finalize(self):
+    def _finalize(self) -> None:
         try:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
@@ -915,18 +924,18 @@ class LangfuseResponseGeneratorAsync:
     def __init__(
         self,
         *,
-        resource,
-        response,
-        generation,
-    ):
-        self.items = []
+        resource: Any,
+        response: Any,
+        generation: Any,
+    ) -> None:
+        self.items: list[Any] = []
 
         self.resource = resource
         self.response = response
         self.generation = generation
-        self.completion_start_time = None
+        self.completion_start_time: Optional[datetime] = None
 
-    async def __aiter__(self):
+    async def __aiter__(self) -> Any:
         try:
             async for i in self.response:
                 self.items.append(i)
@@ -938,7 +947,7 @@ class LangfuseResponseGeneratorAsync:
         finally:
             await self._finalize()
 
-    async def __anext__(self):
+    async def __anext__(self) -> Any:
         try:
             item = await self.response.__anext__()
             self.items.append(item)
@@ -953,13 +962,13 @@ class LangfuseResponseGeneratorAsync:
 
             raise
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Any:
         return self.__aiter__()
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         pass
 
-    async def _finalize(self):
+    async def _finalize(self) -> None:
         try:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)

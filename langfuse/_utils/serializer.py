@@ -36,11 +36,11 @@ logger = getLogger(__name__)
 
 
 class EventSerializer(JSONEncoder):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.seen = set()  # Track seen objects to detect circular references
+        self.seen: set[int] = set()  # Track seen objects to detect circular references
 
-    def default(self, obj: Any):
+    def default(self, obj: Any) -> Any:
         try:
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
@@ -83,7 +83,7 @@ class EventSerializer(JSONEncoder):
                 return type(obj).__name__
 
             if is_dataclass(obj):
-                return asdict(obj)
+                return asdict(obj)  # type: ignore
 
             if isinstance(obj, UUID):
                 return str(obj)
@@ -114,7 +114,7 @@ class EventSerializer(JSONEncoder):
                 return str(obj)
 
             # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not type(None) and isinstance(obj, Serializable):
+            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
                 return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.

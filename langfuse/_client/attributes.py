@@ -68,7 +68,7 @@ def create_trace_attributes(
     metadata: Optional[Any] = None,
     tags: Optional[List[str]] = None,
     public: Optional[bool] = None,
-):
+) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.TRACE_NAME: name,
         LangfuseOtelSpanAttributes.TRACE_USER_ID: user_id,
@@ -93,7 +93,7 @@ def create_span_attributes(
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
-):
+) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "span",
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
@@ -122,7 +122,7 @@ def create_generation_attributes(
     usage_details: Optional[Dict[str, int]] = None,
     cost_details: Optional[Dict[str, float]] = None,
     prompt: Optional[PromptClient] = None,
-):
+) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "generation",
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
@@ -151,13 +151,13 @@ def create_generation_attributes(
     return {k: v for k, v in attributes.items() if v is not None}
 
 
-def _serialize(obj):
+def _serialize(obj: Any) -> Optional[str]:
     return json.dumps(obj, cls=EventSerializer) if obj is not None else None
 
 
 def _flatten_and_serialize_metadata(
     metadata: Any, type: Literal["observation", "trace"]
-):
+) -> dict:
     prefix = (
         LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         if type == "observation"
@@ -171,7 +171,7 @@ def _flatten_and_serialize_metadata(
     else:
         for key, value in metadata.items():
             metadata_attributes[f"{prefix}.{key}"] = (
-                value
+                str(value)
                 if isinstance(value, str) or isinstance(value, int)
                 else _serialize(value)
             )
