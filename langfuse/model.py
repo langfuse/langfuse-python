@@ -3,7 +3,6 @@
 import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
-from langfuse.logger import langfuse_logger
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -38,6 +37,7 @@ from langfuse.api.resources.datasets.types.create_dataset_request import (  # no
     CreateDatasetRequest,
 )
 from langfuse.api.resources.prompts import Prompt, Prompt_Chat, Prompt_Text
+from langfuse.logger import langfuse_logger
 
 
 class ModelUsage(TypedDict):
@@ -337,21 +337,23 @@ class ChatPromptClient(BasePromptClient):
         Returns:
             List of compiled chat messages as plain dictionaries, with unresolved placeholders kept as-is.
         """
-        compiled_messages: List[Dict[str, Any]] = []
+        compiled_messages: List[
+            Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]
+        ] = []
         unresolved_placeholders: List[ChatMessageWithPlaceholdersDict_Placeholder] = []
 
         for chat_message in self.prompt:
             if chat_message["type"] == "message":
                 # For regular messages, compile variables and add to output
-                message_obj = chat_message  # type: ChatMessageWithPlaceholdersDict_Message
+                message_obj = chat_message  # type: ignore
                 compiled_messages.append(
-                    {
-                        "role": message_obj["role"],
-                        "content": TemplateParser.compile_template(
-                            message_obj["content"],
+                    ChatMessageDict(
+                        role=message_obj["role"],  # type: ignore
+                        content=TemplateParser.compile_template(
+                            message_obj["content"],  # type: ignore
                             kwargs,
                         ),
-                    },
+                    ),
                 )
             elif chat_message["type"] == "placeholder":
                 placeholder_name = chat_message["name"]
@@ -365,36 +367,36 @@ class ChatPromptClient(BasePromptClient):
                                 and "content" in msg
                             ):
                                 compiled_messages.append(
-                                    {
-                                        "role": msg["role"],  # type: ignore
-                                        "content": TemplateParser.compile_template(
+                                    ChatMessageDict(
+                                        role=msg["role"],  # type: ignore
+                                        content=TemplateParser.compile_template(
                                             msg["content"],  # type: ignore
                                             kwargs,
                                         ),
-                                    },
+                                    ),
                                 )
                             else:
                                 compiled_messages.append(
-                                    {
-                                        "role": "system",
-                                        "content": str(placeholder_value),
-                                    }
+                                    ChatMessageDict(
+                                        role="NOT_GIVEN",
+                                        content=str(placeholder_value),
+                                    )
                                 )
                                 no_role_content_in_placeholder = f"Placeholder '{placeholder_name}' should contain a list of chat messages with 'role' and 'content' fields. Appended as string."
                                 langfuse_logger.warning(no_role_content_in_placeholder)
                     else:
                         compiled_messages.append(
-                            {
-                                "role": "system",
-                                "content": str(placeholder_value),
-                            }
+                            ChatMessageDict(
+                                role="NOT_GIVEN",
+                                content=str(placeholder_value),
+                            ),
                         )
                         placeholder_not_a_list = f"Placeholder '{placeholder_name}' must contain a list of chat messages, got {type(placeholder_value)}"
                         langfuse_logger.warning(placeholder_not_a_list)
                 else:
                     # Keep unresolved placeholder in the compiled messages
-                    compiled_messages.append(dict(chat_message))
-                    unresolved_placeholders.append(chat_message)
+                    compiled_messages.append(chat_message)
+                    unresolved_placeholders.append(chat_message["name"])  # type: ignore
 
         if unresolved_placeholders:
             unresolved_placeholders_message = f"Placeholders {unresolved_placeholders} have not been resolved. Pass them as keyword arguments to compile()."

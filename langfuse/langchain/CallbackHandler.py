@@ -565,9 +565,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
-                prompts.extend(
-                    [{"role": "tool", "content": str(tool)} for tool in tools]
-                )
+                prompts.extend([{"role": "tool", "content": tool} for tool in tools])
 
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
