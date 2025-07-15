@@ -22,10 +22,10 @@ from typing import Any, Dict, List, Optional, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
-from opentelemetry.trace import Tracer
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
+from opentelemetry.trace import Tracer
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
@@ -104,7 +104,14 @@ class LangfuseResourceManager:
         with cls._lock:
             if public_key not in cls._instances:
                 instance = super(LangfuseResourceManager, cls).__new__(cls)
-                instance._otel_tracer = cast(Tracer, None)
+
+                # Initialize tracer (will be noop until init instance)
+                instance._otel_tracer = otel_trace_api.get_tracer(
+                    LANGFUSE_TRACER_NAME,
+                    langfuse_version,
+                    attributes={"public_key": public_key},
+                )
+
                 instance._initialize_instance(
                     public_key=public_key,
                     secret_key=secret_key,
