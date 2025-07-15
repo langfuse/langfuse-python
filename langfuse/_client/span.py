@@ -115,7 +115,7 @@ class LangfuseSpanWrapper:
             )
 
         # Handle media only if span is sampled
-        if self._otel_span.is_recording:
+        if self._otel_span.is_recording():
             media_processed_input = self._process_media_and_apply_mask(
                 data=input, field="input", span=self._otel_span
             )
@@ -160,7 +160,7 @@ class LangfuseSpanWrapper:
                 {k: v for k, v in attributes.items() if v is not None}
             )
 
-    def end(self, *, end_time: Optional[int] = None):
+    def end(self, *, end_time: Optional[int] = None) -> "LangfuseSpanWrapper":
         """End the span, marking it as completed.
 
         This method ends the wrapped OpenTelemetry span, marking the end of the
@@ -186,7 +186,7 @@ class LangfuseSpanWrapper:
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
-    ):
+    ) -> "LangfuseSpanWrapper":
         """Update the trace that this span belongs to.
 
         This method updates trace-level attributes of the trace that this span
@@ -205,7 +205,7 @@ class LangfuseSpanWrapper:
             public: Whether the trace should be publicly accessible
         """
         if not self._otel_span.is_recording():
-            return
+            return self
 
         media_processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=self._otel_span
@@ -230,6 +230,8 @@ class LangfuseSpanWrapper:
         )
 
         self._otel_span.set_attributes(attributes)
+
+        return self
 
     @overload
     def score(
@@ -385,7 +387,7 @@ class LangfuseSpanWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-    ):
+    ) -> None:
         """Set span attributes after processing media and applying masks.
 
         Internal method that processes media in the input, output, and metadata
@@ -436,7 +438,7 @@ class LangfuseSpanWrapper:
         data: Optional[Any] = None,
         span: otel_trace_api.Span,
         field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
-    ):
+    ) -> Optional[Any]:
         """Process media in an attribute and apply masking.
 
         Internal method that processes any media content in the data and applies
@@ -454,7 +456,7 @@ class LangfuseSpanWrapper:
             data=self._process_media_in_attribute(data=data, field=field)
         )
 
-    def _mask_attribute(self, *, data):
+    def _mask_attribute(self, *, data: Any) -> Any:
         """Apply the configured mask function to data.
 
         Internal method that applies the client's configured masking function to
@@ -483,7 +485,7 @@ class LangfuseSpanWrapper:
         *,
         data: Optional[Any] = None,
         field: Union[Literal["input"], Literal["output"], Literal["metadata"]],
-    ):
+    ) -> Optional[Any]:
         """Process any media content in the attribute data.
 
         Internal method that identifies and processes any media content in the
@@ -568,7 +570,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "LangfuseSpan":
         """Update this span with new information.
 
@@ -765,7 +767,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-    ):
+    ) -> "LangfuseGeneration":
         """Create a new child generation span.
 
         This method creates a new child generation span with this span as the parent.
@@ -972,17 +974,20 @@ class LangfuseSpan(LangfuseSpanWrapper):
                 name=name, start_time=timestamp
             )
 
-        return LangfuseEvent(
-            otel_span=new_otel_span,
-            langfuse_client=self._langfuse_client,
-            input=input,
-            output=output,
-            metadata=metadata,
-            environment=self._environment,
-            version=version,
-            level=level,
-            status_message=status_message,
-        ).end(end_time=timestamp)
+        return cast(
+            "LangfuseEvent",
+            LangfuseEvent(
+                otel_span=new_otel_span,
+                langfuse_client=self._langfuse_client,
+                input=input,
+                output=output,
+                metadata=metadata,
+                environment=self._environment,
+                version=version,
+                level=level,
+                status_message=status_message,
+            ).end(end_time=timestamp),
+        )
 
 
 class LangfuseGeneration(LangfuseSpanWrapper):
@@ -1066,7 +1071,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-        **kwargs,
+        **kwargs: Dict[str, Any],
     ) -> "LangfuseGeneration":
         """Update this generation span with new information.
 

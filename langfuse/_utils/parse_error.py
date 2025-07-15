@@ -56,14 +56,14 @@ def generate_error_message_fern(error: Error) -> str:
     elif isinstance(error, ServiceUnavailableError):
         return errorResponseByCode.get(503, defaultErrorResponse)
     elif isinstance(error, ApiError):
-        status_code = (
-            int(error.status_code)
-            if isinstance(error.status_code, str)
-            else error.status_code
+        status_code = error.status_code
+        return (
+            errorResponseByCode.get(status_code, defaultErrorResponse)
+            if status_code is not None
+            else defaultErrorResponse
         )
-        return errorResponseByCode.get(status_code, defaultErrorResponse)
-    else:
-        return defaultErrorResponse
+
+    return defaultErrorResponse  # type: ignore
 
 
 def handle_fern_exception(exception: Error) -> None:

@@ -11,7 +11,7 @@ from opentelemetry.sdk import util
 from opentelemetry.sdk.trace import ReadableSpan
 
 
-def span_formatter(span: ReadableSpan):
+def span_formatter(span: ReadableSpan) -> str:
     parent_id = (
         otel_trace_api.format_span_id(span.parent.span_id) if span.parent else None
     )

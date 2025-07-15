@@ -13,7 +13,7 @@ from ..version import __version__ as langfuse_version
 try:
     import pydantic.v1 as pydantic
 except ImportError:
-    import pydantic
+    import pydantic  # type: ignore
 
 from langfuse._utils.parse_error import handle_exception
 from langfuse._utils.request import APIError, LangfuseClient
@@ -61,9 +61,9 @@ class ScoreIngestionConsumer(threading.Thread):
         self._max_retries = max_retries or 3
         self._public_key = public_key
 
-    def _next(self):
+    def _next(self) -> list:
         """Return the next batch of items to upload."""
-        events = []
+        events: list = []
 
         start_time = time.monotonic()
         total_size = 0
@@ -119,7 +119,7 @@ class ScoreIngestionConsumer(threading.Thread):
         """Return the size of the item in bytes."""
         return len(json.dumps(item, cls=EventSerializer).encode())
 
-    def run(self):
+    def run(self) -> None:
         """Run the consumer."""
         self._log.debug(
             f"Startup: Score ingestion consumer thread #{self._identifier} started with batch size {self._flush_at} and interval {self._flush_interval}s"
@@ -127,7 +127,7 @@ class ScoreIngestionConsumer(threading.Thread):
         while self.running:
             self.upload()
 
-    def upload(self):
+    def upload(self) -> None:
         """Upload the next batch of items, return whether successful."""
         batch = self._next()
         if len(batch) == 0:
@@ -142,11 +142,11 @@ class ScoreIngestionConsumer(threading.Thread):
             for _ in batch:
                 self._ingestion_queue.task_done()
 
-    def pause(self):
+    def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
 
-    def _upload_batch(self, batch: List[Any]):
+    def _upload_batch(self, batch: List[Any]) -> None:
         self._log.debug(
             f"API: Uploading batch of {len(batch)} score events to Langfuse API"
         )
@@ -161,7 +161,7 @@ class ScoreIngestionConsumer(threading.Thread):
         @backoff.on_exception(
             backoff.expo, Exception, max_tries=self._max_retries, logger=None
         )
-        def execute_task_with_backoff(batch: List[Any]):
+        def execute_task_with_backoff(batch: List[Any]) -> None:
             try:
                 self._client.batch_post(batch=batch, metadata=metadata)
             except Exception as e:

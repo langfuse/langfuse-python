@@ -39,7 +39,7 @@ class MediaManager:
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
 
-    def process_next_media_upload(self):
+    def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
             self._log.debug(
@@ -64,14 +64,14 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
-    ):
+    ) -> Any:
         if not self._enabled:
             return data
 
         seen = set()
         max_levels = 10
 
-        def _process_data_recursively(data: Any, level: int):
+        def _process_data_recursively(data: Any, level: int) -> Any:
             if id(data) in seen or level > max_levels:
                 return data
 
@@ -170,7 +170,7 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
-    ):
+    ) -> None:
         if (
             media._content_length is None
             or media._content_type is None
@@ -217,7 +217,7 @@ class MediaManager:
         self,
         *,
         data: UploadMediaJob,
-    ):
+    ) -> None:
         upload_url_response = self._request_with_backoff(
             self._api_client.media.get_upload_url,
             request=GetMediaUploadUrlRequest(

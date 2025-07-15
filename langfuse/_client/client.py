@@ -17,6 +17,7 @@ import httpx
 from opentelemetry import trace
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
@@ -146,6 +147,7 @@ class Langfuse:
 
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
+    _otel_tracer: otel_trace_api.Tracer
 
     def __init__(
         self,
@@ -166,11 +168,15 @@ class Langfuse:
         mask: Optional[MaskFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
-        tracer_provider: Optional[otel_trace_api.TracerProvider] = None,
+        tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
-        self._project_id = None
+        self._host = host or cast(
+            str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        )
+        self._environment = environment or cast(
+            str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        )
+        self._project_id: Optional[str] = None
         sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
             raise ValueError(
@@ -236,7 +242,7 @@ class Langfuse:
 
         self._otel_tracer = (
             self._resources.tracer
-            if self._tracing_enabled
+            if self._tracing_enabled and self._resources.tracer is not None
             else otel_trace_api.NoOpTracer()
         )
         self.api = self._resources.api
@@ -657,9 +663,9 @@ class Langfuse:
     def _create_span_with_parent_context(
         self,
         *,
-        name,
-        parent,
-        remote_parent_span,
+        name: str,
+        parent: Optional[otel_trace_api.Span] = None,
+        remote_parent_span: Optional[otel_trace_api.Span] = None,
         as_type: Literal["generation", "span"],
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
@@ -674,7 +680,7 @@ class Langfuse:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-    ):
+    ) -> Any:
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
         with otel_trace_api.use_span(parent_span):
@@ -721,7 +727,7 @@ class Langfuse:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-    ):
+    ) -> Any:
         with self._otel_tracer.start_as_current_span(
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
@@ -936,7 +942,7 @@ class Langfuse:
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
-    ):
+    ) -> None:
         """Update the current trace with additional information.
 
         This method updates the Langfuse trace that the current span belongs to. It's useful for
@@ -1054,35 +1060,41 @@ class Langfuse:
                     )
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
-                    return LangfuseEvent(
-                        otel_span=otel_span,
-                        langfuse_client=self,
-                        environment=self._environment,
-                        input=input,
-                        output=output,
-                        metadata=metadata,
-                        version=version,
-                        level=level,
-                        status_message=status_message,
-                    ).end(end_time=timestamp)
+                    return cast(
+                        LangfuseEvent,
+                        LangfuseEvent(
+                            otel_span=otel_span,
+                            langfuse_client=self,
+                            environment=self._environment,
+                            input=input,
+                            output=output,
+                            metadata=metadata,
+                            version=version,
+                            level=level,
+                            status_message=status_message,
+                        ).end(end_time=timestamp),
+                    )
 
         otel_span = self._otel_tracer.start_span(name=name, start_time=timestamp)
 
-        return LangfuseEvent(
-            otel_span=otel_span,
-            langfuse_client=self,
-            environment=self._environment,
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        ).end(end_time=timestamp)
+        return cast(
+            LangfuseEvent,
+            LangfuseEvent(
+                otel_span=otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+            ).end(end_time=timestamp),
+        )
 
     def _create_remote_parent_span(
         self, *, trace_id: str, parent_span_id: Optional[str]
-    ):
+    ) -> Any:
         if not self._is_valid_trace_id(trace_id):
             langfuse_logger.warning(
                 f"Passed trace ID '{trace_id}' is not a valid 32 lowercase hex char Langfuse trace id. Ignoring trace ID."
@@ -1109,12 +1121,12 @@ class Langfuse:
 
         return trace.NonRecordingSpan(span_context)
 
-    def _is_valid_trace_id(self, trace_id):
+    def _is_valid_trace_id(self, trace_id: str) -> bool:
         pattern = r"^[0-9a-f]{32}$"
 
         return bool(re.match(pattern, trace_id))
 
-    def _is_valid_span_id(self, span_id):
+    def _is_valid_span_id(self, span_id: str) -> bool:
         pattern = r"^[0-9a-f]{16}$"
 
         return bool(re.match(pattern, span_id))
@@ -1216,12 +1228,12 @@ class Langfuse:
 
         return sha256(seed.encode("utf-8")).digest()[:16].hex()
 
-    def _get_otel_trace_id(self, otel_span: otel_trace_api.Span):
+    def _get_otel_trace_id(self, otel_span: otel_trace_api.Span) -> str:
         span_context = otel_span.get_span_context()
 
         return self._format_otel_trace_id(span_context.trace_id)
 
-    def _get_otel_span_id(self, otel_span: otel_trace_api.Span):
+    def _get_otel_span_id(self, otel_span: otel_trace_api.Span) -> str:
         span_context = otel_span.get_span_context()
 
         return self._format_otel_span_id(span_context.span_id)
@@ -1352,15 +1364,15 @@ class Langfuse:
         try:
             new_body = ScoreBody(
                 id=score_id,
-                session_id=session_id,
-                dataset_run_id=dataset_run_id,
-                trace_id=trace_id,
-                observation_id=observation_id,
+                sessionId=session_id,
+                datasetRunId=dataset_run_id,
+                traceId=trace_id,
+                observationId=observation_id,
                 name=name,
                 value=value,
-                data_type=data_type,
+                dataType=data_type,  # type: ignore
                 comment=comment,
-                config_id=config_id,
+                configId=config_id,
                 environment=self._environment,
                 metadata=metadata,
             )
@@ -1555,7 +1567,7 @@ class Langfuse:
                 config_id=config_id,
             )
 
-    def flush(self):
+    def flush(self) -> None:
         """Force flush all pending spans and events to the Langfuse API.
 
         This method manually flushes any pending spans, scores, and other events to the
@@ -1578,7 +1590,7 @@ class Langfuse:
         if self._resources is not None:
             self._resources.flush()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shut down the Langfuse client and flush all pending data.
 
         This method cleanly shuts down the Langfuse client, ensuring all pending data
@@ -1871,7 +1883,7 @@ class Langfuse:
         resolve_with: Literal["base64_data_uri"],
         max_depth: int = 10,
         content_fetch_timeout_seconds: int = 5,
-    ):
+    ) -> Any:
         """Replace media reference strings in an object with base64 data URIs.
 
         This method recursively traverses an object (up to max_depth) looking for media reference strings
@@ -2054,16 +2066,20 @@ class Langfuse:
             try:
                 # refresh prompt in background thread, refresh_prompt deduplicates tasks
                 langfuse_logger.debug(f"Refreshing prompt '{cache_key}' in background.")
-                self._resources.prompt_cache.add_refresh_prompt_task(
-                    cache_key,
-                    lambda: self._fetch_prompt_and_update_cache(
+
+                def refresh_task() -> None:
+                    self._fetch_prompt_and_update_cache(
                         name,
                         version=version,
                         label=label,
                         ttl_seconds=cache_ttl_seconds,
                         max_retries=bounded_max_retries,
                         fetch_timeout_seconds=fetch_timeout_seconds,
-                    ),
+                    )
+
+                self._resources.prompt_cache.add_refresh_prompt_task(
+                    cache_key,
+                    refresh_task,
                 )
                 langfuse_logger.debug(
                     f"Returning stale prompt '{cache_key}' from cache."
@@ -2088,7 +2104,7 @@ class Langfuse:
         label: Optional[str] = None,
         ttl_seconds: Optional[int] = None,
         max_retries: int,
-        fetch_timeout_seconds,
+        fetch_timeout_seconds: Optional[int],
     ) -> PromptClient:
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
         langfuse_logger.debug(f"Fetching prompt '{cache_key}' from server...")
@@ -2098,7 +2114,7 @@ class Langfuse:
             @backoff.on_exception(
                 backoff.constant, Exception, max_tries=max_retries + 1, logger=None
             )
-            def fetch_prompts():
+            def fetch_prompts() -> Any:
                 return self.api.prompts.get(
                     self._url_encode(name),
                     version=version,
@@ -2112,6 +2128,7 @@ class Langfuse:
 
             prompt_response = fetch_prompts()
 
+            prompt: PromptClient
             if prompt_response.type == "chat":
                 prompt = ChatPromptClient(prompt_response)
             else:
@@ -2208,14 +2225,16 @@ class Langfuse:
                     raise ValueError(
                         "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
                     )
-                request = CreatePromptRequest_Chat(
-                    name=name,
-                    prompt=cast(Any, prompt),
-                    labels=labels,
-                    tags=tags,
-                    config=config or {},
-                    commitMessage=commit_message,
-                    type="chat",
+                request: Union[CreatePromptRequest_Chat, CreatePromptRequest_Text] = (
+                    CreatePromptRequest_Chat(
+                        name=name,
+                        prompt=cast(Any, prompt),
+                        labels=labels,
+                        tags=tags,
+                        config=config or {},
+                        commitMessage=commit_message,
+                        type="chat",
+                    )
                 )
                 server_prompt = self.api.prompts.create(request=request)
 
@@ -2254,7 +2273,7 @@ class Langfuse:
         name: str,
         version: int,
         new_labels: List[str] = [],
-    ):
+    ) -> Any:
         """Update an existing prompt version in Langfuse. The Langfuse SDK prompt cache is invalidated for all prompts witht he specified name.
 
         Args:

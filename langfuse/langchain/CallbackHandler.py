@@ -14,7 +14,7 @@ except ImportError as e:
         f"Could not import langchain. The langchain integration will not work. {e}"
     )
 
-from typing import Any, Dict, List, Optional, Sequence, Set, Type, Union, cast
+from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Type, Union, cast
 from uuid import UUID
 
 from langfuse._utils import _get_timestamp
@@ -63,7 +63,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
 
-        self.last_trace_id = None
+        self.last_trace_id: Optional[str] = None
 
     def on_llm_new_token(
         self,
@@ -106,18 +106,18 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             str: The determined name of the Langchain runnable.
         """
         if "name" in kwargs and kwargs["name"] is not None:
-            return kwargs["name"]
+            return str(kwargs["name"])
 
         if serialized is None:
             return "<unknown>"
 
         try:
-            return serialized["name"]
+            return str(serialized["name"])
         except (KeyError, TypeError):
             pass
 
         try:
-            return serialized["id"][-1]
+            return str(serialized["id"][-1])
         except (KeyError, TypeError):
             pass
 
@@ -177,7 +177,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     name=span_name,
                     metadata=span_metadata,
                     input=inputs,
-                    level=span_level,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
                 )
             else:
                 self.runs[run_id] = cast(
@@ -186,7 +189,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     name=span_name,
                     metadata=span_metadata,
                     input=inputs,
-                    level=span_level,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
                 )
 
             self.last_trace_id = self.runs[run_id].trace_id
@@ -197,10 +203,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def _register_langfuse_prompt(
         self,
         *,
-        run_id,
+        run_id: UUID,
         parent_run_id: Optional[UUID],
         metadata: Optional[Dict[str, Any]],
-    ):
+    ) -> None:
         """We need to register any passed Langfuse prompt to the parent_run_id so that we can link following generations with that prompt.
 
         If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
@@ -220,7 +226,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             registered_prompt = self.prompt_to_parent_run_map[parent_run_id]
             self.prompt_to_parent_run_map[run_id] = registered_prompt
 
-    def _deregister_langfuse_prompt(self, run_id: Optional[UUID]):
+    def _deregister_langfuse_prompt(self, run_id: Optional[UUID]) -> None:
         if run_id in self.prompt_to_parent_run_map:
             del self.prompt_to_parent_run_map[run_id]
 
@@ -317,7 +323,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     level = "ERROR"
 
                 self.runs[run_id].update(
-                    level=level,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]], level
+                    ),
                     status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                 ).end()
@@ -451,7 +459,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     name=span_name,
                     metadata=span_metadata,
                     input=query,
-                    level=span_level,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
                 )
             else:
                 self.runs[run_id] = cast(
@@ -460,7 +471,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     name=span_name,
                     input=query,
                     metadata=span_metadata,
-                    level=span_level,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
                 )
 
         except Exception as e:
@@ -542,12 +556,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self,
         serialized: Optional[Dict[str, Any]],
         run_id: UUID,
-        prompts: List[str],
+        prompts: List[Any],
         parent_run_id: Optional[UUID] = None,
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
@@ -556,7 +570,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
             )
-            registered_prompt = self.prompt_to_parent_run_map.get(parent_run_id, None)
+            registered_prompt = (
+                self.prompt_to_parent_run_map.get(parent_run_id)
+                if parent_run_id is not None
+                else None
+            )
 
             if registered_prompt:
                 self._deregister_langfuse_prompt(parent_run_id)
@@ -573,9 +591,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if parent_run_id is not None and parent_run_id in self.runs:
                 self.runs[run_id] = cast(
                     LangfuseSpan, self.runs[parent_run_id]
-                ).start_generation(**content)
+                ).start_generation(**content)  # type: ignore
             else:
-                self.runs[run_id] = self.client.start_generation(**content)
+                self.runs[run_id] = self.client.start_generation(**content)  # type: ignore
 
             self.last_trace_id = self.runs[run_id].trace_id
 
@@ -583,7 +601,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
 
     @staticmethod
-    def _parse_model_parameters(kwargs):
+    def _parse_model_parameters(kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Parse the model parameters from the kwargs."""
         if kwargs["invocation_params"].get("_type") == "IBM watsonx.ai" and kwargs[
             "invocation_params"
@@ -615,7 +633,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if value is not None
         }
 
-    def _parse_model_and_log_errors(self, *, serialized, metadata, kwargs):
+    def _parse_model_and_log_errors(
+        self,
+        *,
+        serialized: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]],
+        kwargs: Dict[str, Any],
+    ) -> Optional[str]:
         """Parse the model name and log errors if parsing fails."""
         try:
             model_name = _parse_model_name_from_metadata(
@@ -629,8 +653,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
 
         self._log_model_parse_warning()
+        return None
 
-    def _log_model_parse_warning(self):
+    def _log_model_parse_warning(self) -> None:
         if not hasattr(self, "_model_parse_warning_logged"):
             langfuse_logger.warning(
                 "Langfuse was not able to parse the LLM model. The LLM call will be recorded without model name. Please create an issue: https://github.com/langfuse/langfuse/issues/new/choose"
@@ -653,26 +678,26 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("Run not found, see docs what to do in this case.")
             else:
-                generation = response.generations[-1][-1]
+                response_generation = response.generations[-1][-1]
                 extracted_response = (
-                    self._convert_message_to_dict(generation.message)
-                    if isinstance(generation, ChatGeneration)
-                    else _extract_raw_response(generation)
+                    self._convert_message_to_dict(response_generation.message)
+                    if isinstance(response_generation, ChatGeneration)
+                    else _extract_raw_response(response_generation)
                 )
 
                 llm_usage = _parse_usage(response)
 
                 # e.g. azure returns the model name in the response
                 model = _parse_model(response)
-                generation = cast(LangfuseGeneration, self.runs[run_id])
-                generation.update(
+                langfuse_generation = cast(LangfuseGeneration, self.runs[run_id])
+                langfuse_generation.update(
                     output=extracted_response,
                     usage=llm_usage,
                     usage_details=llm_usage,
                     input=kwargs.get("inputs"),
                     model=model,
                 )
-                generation.end()
+                langfuse_generation.end()
 
                 del self.runs[run_id]
 
@@ -745,7 +770,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             message_dict["name"] = message.additional_kwargs["name"]
 
         if message.additional_kwargs:
-            message_dict["additional_kwargs"] = message.additional_kwargs
+            message_dict["additional_kwargs"] = message.additional_kwargs  # type: ignore
 
         return message_dict
 
@@ -759,14 +784,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         event_name: str,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         langfuse_logger.debug(
             f"Event: {event_name}, run_id: {str(run_id)[:5]}, parent_run_id: {str(parent_run_id)[:5]}"
         )
 
 
-def _extract_raw_response(last_response):
+def _extract_raw_response(last_response: Any) -> Any:
     """Extract the response from the last response of the LLM call."""
     # We return the text of the response if not empty
     if last_response.text is not None and last_response.text.strip() != "":
@@ -779,11 +804,11 @@ def _extract_raw_response(last_response):
         return ""
 
 
-def _flatten_comprehension(matrix):
+def _flatten_comprehension(matrix: Any) -> Any:
     return [item for row in matrix for item in row]
 
 
-def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
+def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
     # maintains a list of key translations. For each key, the usage model is checked
     # and a new object will be created with the new key if the key exists in the usage model
     # All non matched keys will remain on the object.
@@ -907,7 +932,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]):
     return usage_model if usage_model else None
 
 
-def _parse_usage(response: LLMResult):
+def _parse_usage(response: LLMResult) -> Any:
     # langchain-anthropic uses the usage field
     llm_usage_keys = ["token_usage", "usage"]
     llm_usage = None
@@ -954,7 +979,7 @@ def _parse_usage(response: LLMResult):
     return llm_usage
 
 
-def _parse_model(response: LLMResult):
+def _parse_model(response: LLMResult) -> Any:
     # langchain-anthropic uses the usage field
     llm_model_keys = ["model_name"]
     llm_model = None
@@ -967,14 +992,14 @@ def _parse_model(response: LLMResult):
     return llm_model
 
 
-def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]):
+def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]) -> Any:
     if metadata is None or not isinstance(metadata, dict):
         return None
 
     return metadata.get("ls_model_name", None)
 
 
-def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]):
+def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]) -> Any:
     if metadata is None or not isinstance(metadata, dict):
         return metadata
 

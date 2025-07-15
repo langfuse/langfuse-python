@@ -25,6 +25,7 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
+from opentelemetry.trace import Tracer
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
@@ -103,7 +104,14 @@ class LangfuseResourceManager:
         with cls._lock:
             if public_key not in cls._instances:
                 instance = super(LangfuseResourceManager, cls).__new__(cls)
-                instance._otel_tracer = None
+
+                # Initialize tracer (will be noop until init instance)
+                instance._otel_tracer = otel_trace_api.get_tracer(
+                    LANGFUSE_TRACER_NAME,
+                    langfuse_version,
+                    attributes={"public_key": public_key},
+                )
+
                 instance._initialize_instance(
                     public_key=public_key,
                     secret_key=secret_key,
@@ -148,7 +156,7 @@ class LangfuseResourceManager:
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
-    ):
+    ) -> None:
         self.public_key = public_key
         self.secret_key = secret_key
         self.tracing_enabled = tracing_enabled
@@ -278,14 +286,14 @@ class LangfuseResourceManager:
         )
 
     @classmethod
-    def reset(cls):
+    def reset(cls) -> None:
         with cls._lock:
             for key in cls._instances:
                 cls._instances[key].shutdown()
 
             cls._instances.clear()
 
-    def add_score_task(self, event: dict, *, force_sample: bool = False):
+    def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
         try:
             # Sample scores with the same sampler that is used for tracing
             tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
@@ -331,14 +339,14 @@ class LangfuseResourceManager:
             return
 
     @property
-    def tracer(self):
+    def tracer(self) -> Optional[Tracer]:
         return self._otel_tracer
 
     @staticmethod
-    def get_current_span():
+    def get_current_span() -> Any:
         return otel_trace_api.get_current_span()
 
-    def _stop_and_join_consumer_threads(self):
+    def _stop_and_join_consumer_threads(self) -> None:
         """End the consumer threads once the queue is empty.
 
         Blocks execution until finished
@@ -377,7 +385,7 @@ class LangfuseResourceManager:
                 f"Shutdown: Score ingestion thread #{score_ingestion_consumer._identifier} successfully terminated"
             )
 
-    def flush(self):
+    def flush(self) -> None:
         tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
         if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
             return
@@ -391,7 +399,7 @@ class LangfuseResourceManager:
         self._media_upload_queue.join()
         langfuse_logger.debug("Successfully flushed media upload queue")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
 

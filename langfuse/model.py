@@ -3,7 +3,6 @@
 import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
-from langfuse.logger import langfuse_logger
 
 from langfuse.api.resources.commons.types.dataset import (
     Dataset,  # noqa: F401
@@ -37,7 +36,8 @@ from langfuse.api.resources.dataset_run_items.types.create_dataset_run_item_requ
 from langfuse.api.resources.datasets.types.create_dataset_request import (  # noqa: F401
     CreateDatasetRequest,
 )
-from langfuse.api.resources.prompts import ChatMessage, Prompt, Prompt_Chat, Prompt_Text
+from langfuse.api.resources.prompts import Prompt, Prompt_Chat, Prompt_Text
+from langfuse.logger import langfuse_logger
 
 
 class ModelUsage(TypedDict):
@@ -161,7 +161,12 @@ class BasePromptClient(ABC):
         self.is_fallback = is_fallback
 
     @abstractmethod
-    def compile(self, **kwargs) -> Union[str, List[ChatMessage]]:
+    def compile(
+        self, **kwargs: Union[str, Any]
+    ) -> Union[
+        str,
+        Sequence[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]],
+    ]:
         pass
 
     @property
@@ -170,15 +175,15 @@ class BasePromptClient(ABC):
         pass
 
     @abstractmethod
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         pass
 
     @abstractmethod
-    def get_langchain_prompt(self):
+    def get_langchain_prompt(self) -> Any:
         pass
 
     @staticmethod
-    def _get_langchain_prompt_string(content: str):
+    def _get_langchain_prompt_string(content: str) -> str:
         json_escaped_content = BasePromptClient._escape_json_for_langchain(content)
 
         return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", json_escaped_content)
@@ -255,7 +260,7 @@ class TextPromptClient(BasePromptClient):
         super().__init__(prompt, is_fallback)
         self.prompt = prompt.prompt
 
-    def compile(self, **kwargs) -> str:
+    def compile(self, **kwargs: Union[str, Any]) -> str:
         return TemplateParser.compile_template(self.prompt, kwargs)
 
     @property
@@ -263,8 +268,8 @@ class TextPromptClient(BasePromptClient):
         """Return all the variable names in the prompt template."""
         return TemplateParser.find_variable_names(self.prompt)
 
-    def __eq__(self, other):
-        if isinstance(self, other.__class__):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
             return (
                 self.name == other.name
                 and self.version == other.version
@@ -274,7 +279,7 @@ class TextPromptClient(BasePromptClient):
 
         return False
 
-    def get_langchain_prompt(self, **kwargs) -> str:
+    def get_langchain_prompt(self, **kwargs: Union[str, Any]) -> str:
         """Convert Langfuse prompt into string compatible with Langchain PromptTemplate.
 
         This method adapts the mustache-style double curly braces {{variable}} used in Langfuse
@@ -299,7 +304,7 @@ class TextPromptClient(BasePromptClient):
 class ChatPromptClient(BasePromptClient):
     def __init__(self, prompt: Prompt_Chat, is_fallback: bool = False):
         super().__init__(prompt, is_fallback)
-        self.prompt = []
+        self.prompt: List[ChatMessageWithPlaceholdersDict] = []
 
         for p in prompt.prompt:
             # Handle objects with attributes (normal case)
@@ -314,13 +319,14 @@ class ChatPromptClient(BasePromptClient):
                 self.prompt.append(
                     ChatMessageWithPlaceholdersDict_Message(
                         type="message",
-                        role=p.role,
-                        content=p.content,
+                        role=p.role,  # type: ignore
+                        content=p.content,  # type: ignore
                     ),
                 )
 
     def compile(
-        self, **kwargs
+        self,
+        **kwargs: Union[str, Any],
     ) -> Sequence[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]]:
         """Compile the prompt with placeholders and variables.
 
@@ -331,20 +337,23 @@ class ChatPromptClient(BasePromptClient):
         Returns:
             List of compiled chat messages as plain dictionaries, with unresolved placeholders kept as-is.
         """
-        compiled_messages = []
-        unresolved_placeholders = []
+        compiled_messages: List[
+            Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]
+        ] = []
+        unresolved_placeholders: List[ChatMessageWithPlaceholdersDict_Placeholder] = []
 
         for chat_message in self.prompt:
             if chat_message["type"] == "message":
                 # For regular messages, compile variables and add to output
+                message_obj = chat_message  # type: ignore
                 compiled_messages.append(
-                    {
-                        "role": chat_message["role"],
-                        "content": TemplateParser.compile_template(
-                            chat_message["content"],
+                    ChatMessageDict(
+                        role=message_obj["role"],  # type: ignore
+                        content=TemplateParser.compile_template(
+                            message_obj["content"],  # type: ignore
                             kwargs,
                         ),
-                    },
+                    ),
                 )
             elif chat_message["type"] == "placeholder":
                 placeholder_name = chat_message["name"]
@@ -358,36 +367,42 @@ class ChatPromptClient(BasePromptClient):
                                 and "content" in msg
                             ):
                                 compiled_messages.append(
-                                    {
-                                        "role": msg["role"],
-                                        "content": TemplateParser.compile_template(
-                                            msg["content"],
+                                    ChatMessageDict(
+                                        role=msg["role"],  # type: ignore
+                                        content=TemplateParser.compile_template(
+                                            msg["content"],  # type: ignore
                                             kwargs,
                                         ),
-                                    },
+                                    ),
                                 )
                             else:
                                 compiled_messages.append(
-                                    str(placeholder_value),
+                                    ChatMessageDict(
+                                        role="NOT_GIVEN",
+                                        content=str(placeholder_value),
+                                    )
                                 )
                                 no_role_content_in_placeholder = f"Placeholder '{placeholder_name}' should contain a list of chat messages with 'role' and 'content' fields. Appended as string."
                                 langfuse_logger.warning(no_role_content_in_placeholder)
                     else:
                         compiled_messages.append(
-                            str(placeholder_value),
+                            ChatMessageDict(
+                                role="NOT_GIVEN",
+                                content=str(placeholder_value),
+                            ),
                         )
                         placeholder_not_a_list = f"Placeholder '{placeholder_name}' must contain a list of chat messages, got {type(placeholder_value)}"
                         langfuse_logger.warning(placeholder_not_a_list)
                 else:
                     # Keep unresolved placeholder in the compiled messages
                     compiled_messages.append(chat_message)
-                    unresolved_placeholders.append(placeholder_name)
+                    unresolved_placeholders.append(chat_message["name"])  # type: ignore
 
         if unresolved_placeholders:
-            unresolved_placeholders = f"Placeholders {unresolved_placeholders} have not been resolved. Pass them as keyword arguments to compile()."
-            langfuse_logger.warning(unresolved_placeholders)
+            unresolved_placeholders_message = f"Placeholders {unresolved_placeholders} have not been resolved. Pass them as keyword arguments to compile()."
+            langfuse_logger.warning(unresolved_placeholders_message)
 
-        return compiled_messages
+        return compiled_messages  # type: ignore
 
     @property
     def variables(self) -> List[str]:
@@ -401,8 +416,8 @@ class ChatPromptClient(BasePromptClient):
                 )
         return variables
 
-    def __eq__(self, other):
-        if isinstance(self, other.__class__):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
             return (
                 self.name == other.name
                 and self.version == other.version
@@ -429,7 +444,9 @@ class ChatPromptClient(BasePromptClient):
 
         return False
 
-    def get_langchain_prompt(self, **kwargs):
+    def get_langchain_prompt(
+        self, **kwargs: Union[str, Any]
+    ) -> List[Union[Tuple[str, str], Any]]:
         """Convert Langfuse prompt into string compatible with Langchain ChatPromptTemplate.
 
         It specifically adapts the mustache-style double curly braces {{variable}} used in Langfuse
@@ -447,12 +464,12 @@ class ChatPromptClient(BasePromptClient):
             (role, content) tuples for regular messages or MessagesPlaceholder objects for unresolved placeholders.
         """
         compiled_messages = self.compile(**kwargs)
-        langchain_messages = []
+        langchain_messages: List[Union[Tuple[str, str], Any]] = []
 
         for msg in compiled_messages:
-            if "type" in msg and msg["type"] == "placeholder":
+            if isinstance(msg, dict) and "type" in msg and msg["type"] == "placeholder":  # type: ignore
                 # unresolved placeholder -> add LC MessagesPlaceholder
-                placeholder_name = msg["name"]
+                placeholder_name = msg["name"]  # type: ignore
                 try:
                     from langchain_core.prompts.chat import MessagesPlaceholder  # noqa: PLC0415, I001
 
@@ -463,9 +480,13 @@ class ChatPromptClient(BasePromptClient):
                     import_error = "langchain_core is required to use get_langchain_prompt() with unresolved placeholders."
                     raise ImportError(import_error) from e
             else:
-                langchain_messages.append(
-                    (msg["role"], self._get_langchain_prompt_string(msg["content"])),
-                )
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    langchain_messages.append(
+                        (
+                            msg["role"],  # type: ignore
+                            self._get_langchain_prompt_string(msg["content"]),  # type: ignore
+                        ),
+                    )
 
         return langchain_messages
 

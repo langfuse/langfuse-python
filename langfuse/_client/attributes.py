@@ -12,7 +12,7 @@ The module includes:
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
@@ -68,7 +68,7 @@ def create_trace_attributes(
     metadata: Optional[Any] = None,
     tags: Optional[List[str]] = None,
     public: Optional[bool] = None,
-):
+) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.TRACE_NAME: name,
         LangfuseOtelSpanAttributes.TRACE_USER_ID: user_id,
@@ -93,7 +93,7 @@ def create_span_attributes(
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
-):
+) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "span",
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
@@ -122,7 +122,7 @@ def create_generation_attributes(
     usage_details: Optional[Dict[str, int]] = None,
     cost_details: Optional[Dict[str, float]] = None,
     prompt: Optional[PromptClient] = None,
-):
+) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "generation",
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
@@ -151,20 +151,20 @@ def create_generation_attributes(
     return {k: v for k, v in attributes.items() if v is not None}
 
 
-def _serialize(obj):
+def _serialize(obj: Any) -> Optional[str]:
     return json.dumps(obj, cls=EventSerializer) if obj is not None else None
 
 
 def _flatten_and_serialize_metadata(
     metadata: Any, type: Literal["observation", "trace"]
-):
+) -> dict:
     prefix = (
         LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         if type == "observation"
         else LangfuseOtelSpanAttributes.TRACE_METADATA
     )
 
-    metadata_attributes = {}
+    metadata_attributes: Dict[str, Union[str, int, None]] = {}
 
     if not isinstance(metadata, dict):
         metadata_attributes[prefix] = _serialize(metadata)

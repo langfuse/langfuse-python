@@ -106,11 +106,11 @@ class LangfuseMedia:
 
             return None
 
-    def _get_media_id(self):
+    def _get_media_id(self) -> Optional[str]:
         content_hash = self._content_sha256_hash
 
         if content_hash is None:
-            return
+            return None
 
         # Convert hash to base64Url
         url_safe_content_hash = content_hash.replace("+", "-").replace("/", "_")
@@ -187,7 +187,7 @@ class LangfuseMedia:
         return ParsedMediaReference(
             media_id=parsed_data["id"],
             source=parsed_data["source"],
-            content_type=parsed_data["type"],
+            content_type=cast(MediaContentType, parsed_data["type"]),
         )
 
     def _parse_base64_data_uri(
@@ -314,8 +314,11 @@ class LangfuseMedia:
                         # Do not replace the reference string if there's an error
                         continue
 
-                for ref_str, media_content in reference_string_to_media_content.items():
-                    result = result.replace(ref_str, media_content)
+                for (
+                    ref_str,
+                    media_content_str,
+                ) in reference_string_to_media_content.items():
+                    result = result.replace(ref_str, media_content_str)
 
                 return result
 
@@ -336,4 +339,4 @@ class LangfuseMedia:
 
             return obj
 
-        return traverse(obj, 0)
+        return cast(T, traverse(obj, 0))
