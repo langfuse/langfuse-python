@@ -50,7 +50,7 @@ jobs:
           restore-keys: |
             mypy-
       - name: Install dependencies
-        run: poetry install --only=main,dev --no-extras
+        run: poetry install --only=main,dev
       - name: Run mypy type checking
         run: poetry run mypy langfuse --no-error-summary
 
