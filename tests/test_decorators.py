@@ -798,7 +798,7 @@ async def test_async_generator_as_return_value():
     assert main_observation.output == mock_output
 
     assert nested_observation.name == "async_generator_function"
-    assert nested_observation.output == "<async_generator>"
+    assert nested_observation.output == "Hello--, async --World!"
 
 
 @pytest.mark.asyncio
