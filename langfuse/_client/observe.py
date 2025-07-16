@@ -19,8 +19,8 @@ from typing import (
     overload,
 )
 
-from typing_extensions import ParamSpec
 from opentelemetry.util._decorator import _AgnosticContextManager
+from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
@@ -267,6 +267,15 @@ class LangfuseDecorator:
                     result = await func(*args, **kwargs)
 
                     if capture_output is True:
+                        if inspect.isgenerator(result):
+                            is_return_type_generator = True
+
+                            return self._wrap_sync_generator_result(
+                                langfuse_span_or_generation,
+                                result,
+                                transform_to_string,
+                            )
+
                         if inspect.isasyncgen(result):
                             is_return_type_generator = True
 
@@ -364,6 +373,15 @@ class LangfuseDecorator:
                             is_return_type_generator = True
 
                             return self._wrap_sync_generator_result(
+                                langfuse_span_or_generation,
+                                result,
+                                transform_to_string,
+                            )
+
+                        if inspect.isasyncgen(result):
+                            is_return_type_generator = True
+
+                            return self._wrap_async_generator_result(
                                 langfuse_span_or_generation,
                                 result,
                                 transform_to_string,
