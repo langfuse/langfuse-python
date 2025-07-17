@@ -1,4 +1,4 @@
-![GitHub Banner](https://github.com/langfuse/langfuse-python/assets/2834609/3c36488e-6fe6-4a82-b0f5-5419250ddf86)
+![Langfuse GitHub Banner](https://langfuse.com/langfuse_logo_white.png)
 
 # Langfuse Python SDK
 
@@ -12,7 +12,7 @@
 ## Installation
 
 > [!IMPORTANT]
-> The SDK was rewritten in v2 and released on December 17, 2023. Refer to the [v2 migration guide](https://langfuse.com/docs/sdk/python/low-level-sdk#upgrading-from-v1xx-to-v2xx) for instructions on updating your code.
+> The SDK was rewritten in v3 and released on December 17, 2023. Refer to the [v3 migration guide](https://langfuse.com/docs/sdk/python/sdk-v3#upgrade-from-v2) for instructions on updating your code.
 
 ```
 pip install langfuse
@@ -20,20 +20,4 @@ pip install langfuse
 
 ## Docs
 
-- Decorators: https://langfuse.com/docs/sdk/python/decorators
-- Low-level SDK: https://langfuse.com/docs/sdk/python/low-level-sdk
-- Langchain integration: https://langfuse.com/docs/integrations/langchain/tracing
-
-## Interfaces
-
-Interfaces:
-
-- `@observe()` decorator ([docs](https://langfuse.com/docs/sdk/python/decorators))
-- Low-level tracing SDK ([docs](https://langfuse.com/docs/sdk/python/low-level-sdk))
-- Wrapper of Langfuse public API
-
-Integrations
-
-- OpenAI SDK ([docs](https://langfuse.com/docs/integrations/openai))
-- LlamaIndex ([docs](https://langfuse.com/docs/integrations/llama-index))
-- LangChain ([docs](https://langfuse.com/docs/integrations/langchain))
+Please [see our docs](https://langfuse.com/docs/sdk/python/sdk-v3) for detailed information on this SDK.
