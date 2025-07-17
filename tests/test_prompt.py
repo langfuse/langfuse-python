@@ -13,6 +13,7 @@ from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
 from langfuse.model import ChatPromptClient, TextPromptClient
 from tests.utils import create_uuid, get_api
 
+OVERRIDE_DEFAULT_PROMPT_CACHE_TTL_SECONDS = 120
 
 def test_create_prompt():
     langfuse = Langfuse()
@@ -679,11 +680,25 @@ def test_prompt_end_to_end():
 
 @pytest.fixture
 def langfuse():
-    langfuse_instance = Langfuse()
+    langfuse_instance = Langfuse(
+        public_key="test-public-key",
+        secret_key="test-secret-key",
+        host="https://mock-host.com",
+    )
     langfuse_instance.api = Mock()
 
     return langfuse_instance
 
+@pytest.fixture
+def langfuse_with_override_default_cache():
+    langfuse_instance = Langfuse(
+        public_key="test-public-key",
+        secret_key="test-secret-key",
+        host="https://mock-host.com",
+        default_cache_ttl_seconds=OVERRIDE_DEFAULT_PROMPT_CACHE_TTL_SECONDS,
+    )
+    langfuse_instance.api = Mock()
+    return langfuse_instance
 
 # Fetching a new prompt when nothing in cache
 def test_get_fresh_prompt(langfuse):
@@ -1116,6 +1131,69 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
 
     assert mock_server_call.call_count == 2  # New call
     assert result_call_3 == prompt_client
+
+# Should refetch and return new prompt if cached one is expired according overridden to default TTL
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_get_fresh_prompt_when_expired_cache_overridden_default_ttl(mock_time, langfuse_with_override_default_cache: Langfuse):
+    langfuse = langfuse_with_override_default_cache
+
+    mock_time.return_value = 0
+
+    prompt_name = "test_get_fresh_prompt_when_expired_cache_overridden_default_ttl"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    # Set time to just BEFORE cache expiry using DEFAULT TTL (should NOT expire)
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS - 1
+
+    result_call_2 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1  # No new call - cache still valid
+    assert result_call_2 == prompt_client
+
+    # Set time to just AFTER cache expiry using DEFAULT TTL (should NOT expire with overridden TTL)
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+
+    result_call_3 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1  # Still no new call - overridden TTL is longer
+    assert result_call_3 == prompt_client
+
+    # Set time to just BEFORE cache expiry using OVERRIDDEN TTL (should NOT expire)
+    mock_time.return_value = OVERRIDE_DEFAULT_PROMPT_CACHE_TTL_SECONDS - 1
+
+    result_call_4 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1  # No new call
+    assert result_call_4 == prompt_client
+
+    # Set time to just AFTER cache expiry using OVERRIDDEN TTL (should expire)
+    mock_time.return_value = OVERRIDE_DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+
+    result_call_5 = langfuse.get_prompt(prompt_name)
+    while True:
+        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
+            break
+        sleep(0.1)
+
+    assert mock_server_call.call_count == 2  # New call - cache expired at overridden TTL
+    assert result_call_5 == prompt_client
+
+    # Verify that the overridden TTL is actually being used by checking the cache configuration
+    assert langfuse._resources.prompt_cache._default_cache_ttl_seconds == OVERRIDE_DEFAULT_PROMPT_CACHE_TTL_SECONDS
+    assert langfuse._resources.prompt_cache._default_cache_ttl_seconds != DEFAULT_PROMPT_CACHE_TTL_SECONDS
 
 
 # Should return expired prompt if refetch fails
