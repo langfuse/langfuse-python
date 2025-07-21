@@ -31,3 +31,5 @@ docs
 
 # Llamaindex
 tests/mocks/llama-index-storage
+
+*.local.*
