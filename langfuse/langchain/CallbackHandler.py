@@ -174,6 +174,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             if parent_run_id is None:
                 self.runs[run_id] = self.client.start_span(
+                    trace_context=(
+                        {"trace_id": metadata["langfuse_trace_id"]}
+                        if metadata and "langfuse_trace_id" in metadata
+                        else None
+                    ),
                     name=span_name,
                     metadata=span_metadata,
                     input=inputs,
