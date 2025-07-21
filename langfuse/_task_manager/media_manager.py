@@ -246,15 +246,17 @@ class MediaManager:
 
             return
 
+        headers = {"Content-Type": data["content_type"]}
+        
+        if not "storage.googleapis.com" in upload_url:
+            headers["x-ms-blob-type"] = "BlockBlob"
+            headers["x-amz-checksum-sha256"] = data["content_sha256_hash"]
+
         upload_start_time = time.time()
         upload_response = self._request_with_backoff(
             requests.put,
             upload_url,
-            headers={
-                "Content-Type": data["content_type"],
-                "x-amz-checksum-sha256": data["content_sha256_hash"],
-                "x-ms-blob-type": "BlockBlob",
-            },
+            headers=headers,
             data=data["content_bytes"],
         )
         upload_time_ms = int((time.time() - upload_start_time) * 1000)
