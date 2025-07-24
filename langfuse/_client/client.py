@@ -1641,7 +1641,7 @@ class Langfuse:
         """
         if not self._tracing_enabled:
             langfuse_logger.debug(
-                "Operation skipped: update_current_span - Tracing is disabled or client is in no-op mode."
+                "Operation skipped: get_current_trace_id - Tracing is disabled or client is in no-op mode."
             )
             return
         current_otel_span = self._get_current_otel_span()
@@ -1673,7 +1673,7 @@ class Langfuse:
         """
         if not self._tracing_enabled:
             langfuse_logger.debug(
-                "Operation skipped: update_current_span - Tracing is disabled or client is in no-op mode."
+                "Operation skipped: get_current_observation_id - Tracing is disabled or client is in no-op mode."
             )
             return
         current_otel_span = self._get_current_otel_span()
