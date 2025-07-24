@@ -3,6 +3,7 @@
 import datetime as dt
 import typing
 from json.decoder import JSONDecodeError
+import urllib.parse
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
@@ -73,7 +74,7 @@ class PromptsClient:
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}",
+            f"api/public/v2/prompts/{urllib.parse.quote(prompt_name, safe='')}",
             method="GET",
             params={"version": version, "label": label},
             request_options=request_options,
@@ -350,7 +351,7 @@ class AsyncPromptsClient:
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}",
+            f"api/public/v2/prompts/{urllib.parse.quote(prompt_name, safe='')}",
             method="GET",
             params={"version": version, "label": label},
             request_options=request_options,
