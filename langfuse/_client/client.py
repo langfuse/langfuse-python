@@ -1639,6 +1639,11 @@ class Langfuse:
                 external_system.process(data, trace_id=trace_id)
             ```
         """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: update_current_span - Tracing is disabled or client is in no-op mode."
+            )
+            return
         current_otel_span = self._get_current_otel_span()
 
         return self._get_otel_trace_id(current_otel_span) if current_otel_span else None
@@ -1666,6 +1671,11 @@ class Langfuse:
                 # Process the query...
             ```
         """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: update_current_span - Tracing is disabled or client is in no-op mode."
+            )
+            return
         current_otel_span = self._get_current_otel_span()
 
         return self._get_otel_span_id(current_otel_span) if current_otel_span else None
