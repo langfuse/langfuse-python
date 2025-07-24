@@ -16,8 +16,8 @@ import backoff
 import httpx
 from opentelemetry import trace
 from opentelemetry import trace as otel_trace_api
-from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
@@ -1639,6 +1639,12 @@ class Langfuse:
                 external_system.process(data, trace_id=trace_id)
             ```
         """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: get_current_trace_id - Tracing is disabled or client is in no-op mode."
+            )
+            return None
+
         current_otel_span = self._get_current_otel_span()
 
         return self._get_otel_trace_id(current_otel_span) if current_otel_span else None
@@ -1666,6 +1672,12 @@ class Langfuse:
                 # Process the query...
             ```
         """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: get_current_observation_id - Tracing is disabled or client is in no-op mode."
+            )
+            return None
+
         current_otel_span = self._get_current_otel_span()
 
         return self._get_otel_span_id(current_otel_span) if current_otel_span else None
