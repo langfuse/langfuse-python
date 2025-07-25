@@ -570,7 +570,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         )
                         curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
 
-                elif delta.get("tool_calls", None) is not None:
+                elif delta.get("tool_calls", None) is not None and len(delta.get("tool_calls")) > 0:
                     curr = completion["tool_calls"]
                     tool_call_chunk = getattr(
                         delta.get("tool_calls", None)[0], "function", None
