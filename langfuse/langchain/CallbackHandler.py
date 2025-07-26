@@ -821,6 +821,9 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
         ("input_tokens", "input"),
         ("output_tokens", "output"),
         ("total_tokens", "total"),
+        # ChatBedrock API follows a separate format compared to ChatBedrockConverse API
+        ("prompt_tokens", "input"),
+        ("completion_tokens", "output"),
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
@@ -837,10 +840,16 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
     usage_model = cast(Dict, usage.copy())  # Copy all existing key-value pairs
 
     # Skip OpenAI usage types as they are handled server side
-    if not all(
-        openai_key in usage_model
-        for openai_key in ["prompt_tokens", "completion_tokens", "total_tokens"]
-    ):
+    openai_keys = [
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        # We add the below two since OpenAI keys look similar to ChatBedRock
+        # keys except for the below two keys
+        "completion_token_details",
+        "prompt_token_details",
+    ]
+    if not all(openai_key in usage_model for openai_key in openai_keys):
         for model_key, langfuse_key in conversion_list:
             if model_key in usage_model:
                 captured_count = usage_model.pop(model_key)
