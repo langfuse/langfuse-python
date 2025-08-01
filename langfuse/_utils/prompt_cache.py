@@ -162,6 +162,10 @@ class PromptCache:
         self._log.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
 
+    def invalidate_by_key(self, key: str) -> None:
+        """Invalidate cached prompt with the given cache key."""
+        self._cache.pop(key, None)
+
     @staticmethod
     def generate_cache_key(
         name: str, *, version: Optional[int], label: Optional[str]
