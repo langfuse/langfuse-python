@@ -679,7 +679,11 @@ def test_prompt_end_to_end():
 
 @pytest.fixture
 def langfuse():
-    langfuse_instance = Langfuse()
+    langfuse_instance = Langfuse(
+        public_key="test-public-key",
+        secret_key="test-secret-key",
+        host="https://mock-host.com",
+    )
     langfuse_instance.api = Mock()
 
     return langfuse_instance
@@ -1410,3 +1414,127 @@ def test_update_prompt():
     expected_labels = sorted(["latest", "doe", "production", "john"])
     assert sorted(fetched_prompt.labels) == expected_labels
     assert sorted(updated_prompt.labels) == expected_labels
+
+
+def test_invalidate_cache_by_name(langfuse):
+    """Test invalidating cache by name only."""
+    prompt_name = create_uuid()
+    
+    # Mock the API calls
+    mock_prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="test prompt",
+        type="text",
+        labels=["production"],
+        config={},
+        tags=[],
+    )
+    
+    # Mock the create_prompt API call
+    langfuse.api.prompts.create.return_value = mock_prompt
+    
+    # Mock the get_prompt API call
+    langfuse.api.prompts.get.return_value = mock_prompt
+    
+    # Create a prompt and cache it
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["production"],
+    )
+    
+    # Get the prompt to cache it
+    cached_prompt = langfuse.get_prompt(prompt_name)
+    assert cached_prompt.name == prompt_name
+
+    # Verify that the prompt is in the cache
+    cache_key = f"{prompt_name}-label:production"
+    assert langfuse._resources.prompt_cache.get(cache_key) is not None, "Prompt should be in cache before invalidation"
+    
+    # Verify the prompt was created and cached correctly
+    assert prompt_client.name == prompt_name
+    assert prompt_client.prompt == "test prompt"
+    assert "production" in prompt_client.labels
+    
+    # Invalidate the cache by name
+    langfuse.invalidate_cache(name=prompt_name)
+    
+    # Test that the method can be called multiple times without issues
+    langfuse.invalidate_cache(name=prompt_name)
+    langfuse.invalidate_cache(name=prompt_name)
+    
+    assert langfuse._resources.prompt_cache.get(cache_key) is None, "Prompt should be removed from cache after invalidation"
+    
+    # Final assertions to verify data integrity
+    assert prompt_client.name == prompt_name, "Prompt name should remain unchanged"
+    assert prompt_client.prompt == "test prompt", "Prompt content should remain unchanged"
+    assert prompt_client.version == 1, "Prompt version should remain unchanged"
+    assert "production" in prompt_client.labels, "Production label should be present"
+    assert cached_prompt.name == prompt_name, "Cached prompt name should match"
+    assert cached_prompt.prompt == "test prompt", "Cached prompt content should match"
+
+def test_invalidate_cache_by_name_version_and_label(langfuse):
+    """Test invalidating cache by name, version, and label."""
+    prompt_name = create_uuid()
+    
+    # Mock the API calls
+    mock_prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="test prompt",
+        type="text",
+        labels=["test-label"],
+        config={},
+        tags=[],
+    )
+    
+    # Mock the create_prompt API call
+    langfuse.api.prompts.create.return_value = mock_prompt
+    
+    # Mock the get_prompt API call
+    langfuse.api.prompts.get.return_value = mock_prompt
+    
+    # Create a prompt with specific version and label
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["test-label"],
+    )
+    
+    # Cache by version
+    cached_prompt_version = langfuse.get_prompt(prompt_name, version=1)
+    assert cached_prompt_version.name == prompt_name
+    assert cached_prompt_version.version == 1
+
+    version_cache_key = f"{prompt_name}-version:1"
+    assert langfuse._resources.prompt_cache.get(version_cache_key) is not None, "Version-specific prompt should be in cache before invalidation"
+    
+    # Invalidate by name (should NOT remove version-specific cache entry)
+    langfuse.invalidate_cache(name=prompt_name)
+    assert langfuse._resources.prompt_cache.get(version_cache_key) is not None, "Version-specific prompt should remain after name-only invalidation"
+    
+    # Invalidate by name + version (should remove version-specific cache entry)
+    langfuse.invalidate_cache(name=prompt_name, version=1)
+    assert langfuse._resources.prompt_cache.get(version_cache_key) is None, "Version-specific prompt should be removed after version invalidation"
+    
+    # Re-cache the prompt by version
+    langfuse.get_prompt(prompt_name, version=1)
+    assert langfuse._resources.prompt_cache.get(version_cache_key) is not None, "Version-specific prompt should be re-cached"
+    
+    # Invalidate by name + label (should remove only the label-specific cache entry, not version)
+    langfuse.invalidate_cache(name=prompt_name, label="test-label")
+    assert langfuse._resources.prompt_cache.get(version_cache_key) is not None, "Version-specific prompt should remain after label invalidation"
+    
+    # Invalidate by name + version + label (should remove version-specific cache entry)
+    langfuse.invalidate_cache(name=prompt_name, version=1, label="test-label")
+    assert langfuse._resources.prompt_cache.get(version_cache_key) is None, "Version-specific prompt should be removed after version+label invalidation"
+    
+    # Final assertions to verify data integrity
+    assert prompt_client.name == prompt_name, "Prompt name should remain unchanged"
+    assert prompt_client.prompt == "test prompt", "Prompt content should remain unchanged"
+    assert prompt_client.version == 1, "Prompt version should remain unchanged"
+    assert "test-label" in prompt_client.labels, "Test label should be present"
+    assert cached_prompt_version.name == prompt_name, "Cached prompt name should match"
+    assert cached_prompt_version.prompt == "test prompt", "Cached prompt content should match"
+    assert cached_prompt_version.version == 1, "Cached prompt version should match"
