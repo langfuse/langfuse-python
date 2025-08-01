@@ -679,7 +679,11 @@ def test_prompt_end_to_end():
 
 @pytest.fixture
 def langfuse():
-    langfuse_instance = Langfuse()
+    langfuse_instance = Langfuse(
+        public_key="test-public-key",
+        secret_key="test-secret-key",
+        host="https://mock-host.com",
+    )
     langfuse_instance.api = Mock()
 
     return langfuse_instance
@@ -1410,3 +1414,50 @@ def test_update_prompt():
     expected_labels = sorted(["latest", "doe", "production", "john"])
     assert sorted(fetched_prompt.labels) == expected_labels
     assert sorted(updated_prompt.labels) == expected_labels
+
+
+def test_clear_prompt_cache(langfuse):
+    """Test clearing the entire prompt cache."""
+    prompt_name = create_uuid()
+    
+    # Mock the API calls
+    mock_prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="test prompt",
+        type="text",
+        labels=["production"],
+        config={},
+        tags=[],
+    )
+    
+    # Mock the create_prompt API call
+    langfuse.api.prompts.create.return_value = mock_prompt
+    
+    # Mock the get_prompt API call
+    langfuse.api.prompts.get.return_value = mock_prompt
+    
+    # Create a prompt and cache it
+    prompt_client = langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["production"],
+    )
+    
+    # Get the prompt to cache it
+    cached_prompt = langfuse.get_prompt(prompt_name)
+    assert cached_prompt.name == prompt_name
+
+    # Verify that the prompt is in the cache
+    cache_key = f"{prompt_name}-label:production"
+    assert langfuse._resources.prompt_cache.get(cache_key) is not None, "Prompt should be in cache before clearing"
+    
+    # Clear the entire prompt cache
+    langfuse.clear_prompt_cache()
+    
+    # Verify cache is completely cleared
+    assert langfuse._resources.prompt_cache.get(cache_key) is None, "Prompt should be removed from cache after clearing"
+    
+    # Verify data integrity
+    assert prompt_client.name == prompt_name
+    assert cached_prompt.name == prompt_name
