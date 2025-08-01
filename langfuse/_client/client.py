@@ -703,7 +703,7 @@ class Langfuse:
             ) as langfuse_span:
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
-                        LangfuseOtelSpanAttributes.AS_ROOT, True
+                        LangfuseOtelSpanAttributes.AS_ROOT, False
                     )
 
                 yield langfuse_span
