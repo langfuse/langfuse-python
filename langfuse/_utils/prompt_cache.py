@@ -137,9 +137,12 @@ class PromptCache:
     _log = logging.getLogger("langfuse")
 
     def __init__(
-        self, max_prompt_refresh_workers: int = DEFAULT_PROMPT_CACHE_REFRESH_WORKERS
+        self,
+        default_cache_ttl_seconds: Optional[int],
+        max_prompt_refresh_workers: int = DEFAULT_PROMPT_CACHE_REFRESH_WORKERS,
     ):
-        self._cache = {}
+        self._cache = {}        
+        self._default_cache_ttl_seconds = default_cache_ttl_seconds if default_cache_ttl_seconds is not None else DEFAULT_PROMPT_CACHE_TTL_SECONDS
         self._task_manager = PromptCacheTaskManager(threads=max_prompt_refresh_workers)
         self._log.debug("Prompt cache initialized.")
 
@@ -148,7 +151,7 @@ class PromptCache:
 
     def set(self, key: str, value: PromptClient, ttl_seconds: Optional[int]) -> None:
         if ttl_seconds is None:
-            ttl_seconds = DEFAULT_PROMPT_CACHE_TTL_SECONDS
+            ttl_seconds = self._default_cache_ttl_seconds
 
         self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
