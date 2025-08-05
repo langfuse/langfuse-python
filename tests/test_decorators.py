@@ -1657,3 +1657,5 @@ async def test_multiproject_async_context_exception_handling():
         if obs.metadata and obs.metadata.get("caught_exception")
     )
     assert caught_obs is not None
+
+    LangfuseResourceManager.reset()
