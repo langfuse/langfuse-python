@@ -1,5 +1,5 @@
-from contextvars import ContextVar
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Iterator, Optional
 
 from langfuse._client.client import Langfuse
