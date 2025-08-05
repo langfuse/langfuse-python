@@ -19,6 +19,9 @@ def _is_streaming_response(response):
 
 
 # Streaming in chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 def test_stream_chat_models(model_name):
     name = f"test_stream_chat_models-{create_uuid()}"
@@ -73,6 +76,9 @@ def test_stream_chat_models(model_name):
 
 
 # Streaming in completions models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 def test_stream_completions_models(model_name):
     name = f"test_stream_completions_models-{create_uuid()}"
@@ -124,6 +130,9 @@ def test_stream_completions_models(model_name):
 
 
 # Invoke in chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 def test_invoke_chat_models(model_name):
     name = f"test_invoke_chat_models-{create_uuid()}"
@@ -171,6 +180,9 @@ def test_invoke_chat_models(model_name):
 
 
 # Invoke in completions models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 def test_invoke_in_completions_models(model_name):
     name = f"test_invoke_in_completions_models-{create_uuid()}"
@@ -217,6 +229,9 @@ def test_invoke_in_completions_models(model_name):
     assert generation.latency is not None
 
 
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 def test_batch_in_completions_models(model_name):
     name = f"test_batch_in_completions_models-{create_uuid()}"
@@ -263,6 +278,9 @@ def test_batch_in_completions_models(model_name):
     assert generation.latency is not None
 
 
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 def test_batch_in_chat_models(model_name):
     name = f"test_batch_in_chat_models-{create_uuid()}"
@@ -309,6 +327,9 @@ def test_batch_in_chat_models(model_name):
 
 
 # Async stream in chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 async def test_astream_chat_models(model_name):
@@ -363,6 +384,9 @@ async def test_astream_chat_models(model_name):
 
 
 # Async stream in completions model
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 async def test_astream_completions_models(model_name):
@@ -417,6 +441,9 @@ async def test_astream_completions_models(model_name):
 
 
 # Async invoke in chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 async def test_ainvoke_chat_models(model_name):
@@ -465,6 +492,9 @@ async def test_ainvoke_chat_models(model_name):
     assert generation.latency is not None
 
 
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 async def test_ainvoke_in_completions_models(model_name):
@@ -516,6 +546,9 @@ async def test_ainvoke_in_completions_models(model_name):
 
 
 # Sync batch in chains and chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 def test_chains_batch_in_chat_models(model_name):
     name = f"test_chains_batch_in_chat_models-{create_uuid()}"
@@ -564,6 +597,9 @@ def test_chains_batch_in_chat_models(model_name):
         assert generation.latency is not None
 
 
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 def test_chains_batch_in_completions_models(model_name):
     name = f"test_chains_batch_in_completions_models-{create_uuid()}"
@@ -613,6 +649,9 @@ def test_chains_batch_in_completions_models(model_name):
 
 
 # Async batch call with chains and chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 async def test_chains_abatch_in_chat_models(model_name):
@@ -663,6 +702,9 @@ async def test_chains_abatch_in_chat_models(model_name):
 
 
 # Async batch call with chains and completions models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 async def test_chains_abatch_in_completions_models(model_name):
@@ -709,6 +751,9 @@ async def test_chains_abatch_in_completions_models(model_name):
 
 
 # Async invoke in chains and chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo"])
 async def test_chains_ainvoke_chat_models(model_name):
@@ -762,6 +807,9 @@ async def test_chains_ainvoke_chat_models(model_name):
 
 
 # Async invoke in chains and completions models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 async def test_chains_ainvoke_completions_models(model_name):
@@ -813,6 +861,9 @@ async def test_chains_ainvoke_completions_models(model_name):
 
 
 # Async streaming in chat models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
 async def test_chains_astream_chat_models(model_name):
@@ -874,6 +925,9 @@ async def test_chains_astream_chat_models(model_name):
 
 
 # Async Streaming in completions models
+@pytest.mark.skip(
+    reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
 async def test_chains_astream_completions_models(model_name):

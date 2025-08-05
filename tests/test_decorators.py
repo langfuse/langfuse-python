@@ -1094,9 +1094,6 @@ def test_merge_metadata_and_tags():
 
 
 # Multi-project context propagation tests
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 def test_multiproject_context_propagation_basic():
     """Test that nested decorated functions inherit langfuse_public_key from parent in multi-project setup"""
     client1 = Langfuse()  # Reads from environment
@@ -1158,9 +1155,6 @@ def test_multiproject_context_propagation_basic():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 def test_multiproject_context_propagation_deep_nesting():
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
@@ -1224,9 +1218,6 @@ def test_multiproject_context_propagation_deep_nesting():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 def test_multiproject_context_propagation_override():
     # Initialize two separate Langfuse instances
     client1 = Langfuse()  # Reads from environment
@@ -1281,9 +1272,6 @@ def test_multiproject_context_propagation_override():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 def test_multiproject_context_propagation_no_public_key():
     # Initialize two separate Langfuse instances
     client1 = Langfuse()  # Reads from environment
@@ -1339,9 +1327,6 @@ def test_multiproject_context_propagation_no_public_key():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 @pytest.mark.asyncio
 async def test_multiproject_async_context_propagation_basic():
     """Test that nested async decorated functions inherit langfuse_public_key from parent in multi-project setup"""
@@ -1411,9 +1396,6 @@ async def test_multiproject_async_context_propagation_basic():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 @pytest.mark.asyncio
 async def test_multiproject_mixed_sync_async_context_propagation():
     """Test context propagation between sync and async decorated functions in multi-project setup"""
@@ -1485,9 +1467,6 @@ async def test_multiproject_mixed_sync_async_context_propagation():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 @pytest.mark.asyncio
 async def test_multiproject_concurrent_async_context_isolation():
     """Test that concurrent async executions don't interfere with each other's context in multi-project setup"""
@@ -1578,9 +1557,6 @@ async def test_multiproject_concurrent_async_context_isolation():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 @pytest.mark.asyncio
 async def test_multiproject_async_generator_context_propagation():
     """Test context propagation with async generators in multi-project setup"""
@@ -1645,9 +1621,6 @@ async def test_multiproject_async_generator_context_propagation():
     removeMockResourceManagerInstances()
 
 
-@pytest.mark.skip(
-    reason="Somehow adding another client is polluting the global context in LangfuseResourceManager that makes other test suites fail."
-)
 @pytest.mark.asyncio
 async def test_multiproject_async_context_exception_handling():
     """Test that async context is properly restored even when exceptions occur in multi-project setup"""
