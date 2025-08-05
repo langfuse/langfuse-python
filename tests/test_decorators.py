@@ -23,6 +23,12 @@ mock_args = (1, 2, 3)
 mock_kwargs = {"a": 1, "b": 2, "c": 3}
 
 
+def removeMockResourceManagerInstances():
+    for public_key in LangfuseResourceManager._instances.keys():
+        if public_key != "pk-lf-1234567890":
+            LangfuseResourceManager._instances.pop(public_key)
+
+
 def test_nested_observations():
     mock_name = "test_nested_observations"
     langfuse = get_client()
@@ -1144,6 +1150,9 @@ def test_multiproject_context_propagation_basic():
     assert len(trace_data.observations) == 3
     assert trace_data.name == mock_name
 
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
+
 
 def test_multiproject_context_propagation_deep_nesting():
     client1 = Langfuse()  # Reads from environment
@@ -1204,6 +1213,9 @@ def test_multiproject_context_propagation_deep_nesting():
     ]
     assert set(levels) == {"1", "2", "3", "4"}
 
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
+
 
 def test_multiproject_context_propagation_override():
     # Initialize two separate Langfuse instances
@@ -1254,6 +1266,9 @@ def test_multiproject_context_propagation_override():
     trace_data = get_api().trace.get(mock_trace_id)
     assert len(trace_data.observations) == 2
     assert trace_data.name == mock_name
+
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
 
 
 def test_multiproject_context_propagation_no_public_key():
@@ -1306,6 +1321,9 @@ def test_multiproject_context_propagation_no_public_key():
     except Exception:
         # Trace not found is also expected - tracing was completely disabled
         pass
+
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
 
 
 @pytest.mark.asyncio
@@ -1373,6 +1391,9 @@ async def test_multiproject_async_context_propagation_basic():
         obs.metadata.get("async") for obs in trace_data.observations if obs.metadata
     ]
     assert all(async_flags)
+
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
 
 
 @pytest.mark.asyncio
@@ -1442,6 +1463,9 @@ async def test_multiproject_mixed_sync_async_context_propagation():
     ]
     assert "sync" in types
     assert "async" in types
+
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
 
 
 @pytest.mark.asyncio
@@ -1531,6 +1555,9 @@ async def test_multiproject_concurrent_async_context_isolation():
     assert "async_level_2_function" in trace_2_names
     assert "async_level_3_function" in trace_2_names
 
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
+
 
 @pytest.mark.asyncio
 async def test_multiproject_async_generator_context_propagation():
@@ -1592,6 +1619,9 @@ async def test_multiproject_async_generator_context_propagation():
     # Verify that context propagation worked - both functions should be in the same trace
     # This confirms that the async generator inherited the public key context
     assert len(trace_data.observations) == 2
+
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
 
 
 @pytest.mark.asyncio
@@ -1658,4 +1688,5 @@ async def test_multiproject_async_context_exception_handling():
     )
     assert caught_obs is not None
 
-    LangfuseResourceManager.reset()
+    # Reset instances to not leak to other test suites
+    removeMockResourceManagerInstances()
