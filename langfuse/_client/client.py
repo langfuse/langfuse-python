@@ -187,14 +187,16 @@ class Langfuse:
 
         self._tracing_enabled = (
             tracing_enabled
-            and os.environ.get(LANGFUSE_TRACING_ENABLED, "True") != "False"
+            and os.environ.get(LANGFUSE_TRACING_ENABLED, "true").lower() != "false"
         )
         if not self._tracing_enabled:
             langfuse_logger.info(
                 "Configuration: Langfuse tracing is explicitly disabled. No data will be sent to the Langfuse API."
             )
 
-        debug = debug if debug else (os.getenv(LANGFUSE_DEBUG, "False") == "True")
+        debug = (
+            debug if debug else (os.getenv(LANGFUSE_DEBUG, "false").lower() == "true")
+        )
         if debug:
             logging.basicConfig(
                 format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
