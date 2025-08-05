@@ -1306,3 +1306,354 @@ def test_multiproject_context_propagation_no_public_key():
     except Exception:
         # Trace not found is also expected - tracing was completely disabled
         pass
+
+
+@pytest.mark.asyncio
+async def test_multiproject_async_context_propagation_basic():
+    """Test that nested async decorated functions inherit langfuse_public_key from parent in multi-project setup"""
+    LangfuseResourceManager.reset()
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_async_context_propagation_basic"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(as_type="generation", capture_output=False)
+    async def async_level_3_function():
+        # This function should inherit the public key from level_1_function
+        # and NOT need langfuse_public_key parameter
+        await asyncio.sleep(0.01)  # Simulate async work
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(
+            metadata={"level": "3", "async": True}
+        )
+        langfuse_client.update_current_trace(name=mock_name)
+        return "async_level_3"
+
+    @observe()
+    async def async_level_2_function():
+        # This function should also inherit the public key
+        result = await async_level_3_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "2", "async": True})
+        return result
+
+    @observe()
+    async def async_level_1_function(*args, **kwargs):
+        # Only this top-level function receives langfuse_public_key
+        result = await async_level_2_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "1", "async": True})
+        return result
+
+    result = await async_level_1_function(
+        *mock_args,
+        **mock_kwargs,
+        langfuse_trace_id=mock_trace_id,
+        langfuse_public_key=env_public_key,  # Only provided to top-level function
+    )
+
+    # Use the correct client for flushing
+    client1.flush()
+
+    assert result == "async_level_3"
+
+    # Verify trace was created properly
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 3
+    assert trace_data.name == mock_name
+
+    # Verify all observations have async metadata
+    async_flags = [
+        obs.metadata.get("async") for obs in trace_data.observations if obs.metadata
+    ]
+    assert all(async_flags)
+
+
+@pytest.mark.asyncio
+async def test_multiproject_mixed_sync_async_context_propagation():
+    """Test context propagation between sync and async decorated functions in multi-project setup"""
+    LangfuseResourceManager.reset()
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_mixed_sync_async_context_propagation"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(as_type="generation")
+    def sync_level_4_function():
+        # Sync function called from async should inherit context
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(
+            metadata={"level": "4", "type": "sync"}
+        )
+        return "sync_level_4"
+
+    @observe()
+    async def async_level_3_function():
+        # Async function calls sync function
+        await asyncio.sleep(0.01)
+        result = sync_level_4_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "3", "type": "async"})
+        return result
+
+    @observe()
+    async def async_level_2_function():
+        # Changed to async to avoid event loop issues
+        result = await async_level_3_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "2", "type": "async"})
+        return result
+
+    @observe()
+    async def async_level_1_function(*args, **kwargs):
+        # Top-level async function
+        langfuse_client = get_client()
+        langfuse_client.update_current_trace(name=mock_name)
+        result = await async_level_2_function()
+        langfuse_client.update_current_span(metadata={"level": "1", "type": "async"})
+        return result
+
+    result = await async_level_1_function(
+        langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
+    )
+    client1.flush()
+
+    assert result == "sync_level_4"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 4
+    assert trace_data.name == mock_name
+
+    # Verify mixed sync/async execution
+    types = [
+        obs.metadata.get("type") for obs in trace_data.observations if obs.metadata
+    ]
+    assert "sync" in types
+    assert "async" in types
+
+
+@pytest.mark.asyncio
+async def test_multiproject_concurrent_async_context_isolation():
+    """Test that concurrent async executions don't interfere with each other's context in multi-project setup"""
+    LangfuseResourceManager.reset()
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_concurrent_async_context_isolation"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+
+    trace_id_1 = langfuse.create_trace_id()
+    trace_id_2 = langfuse.create_trace_id()
+
+    # Use the same valid public key for both tasks to avoid credential issues
+    # The isolation test is about trace contexts, not different projects
+    public_key_1 = env_public_key
+    public_key_2 = env_public_key
+
+    @observe(as_type="generation")
+    async def async_level_3_function(task_id):
+        # Simulate work and ensure contexts don't leak
+        await asyncio.sleep(0.1)  # Ensure concurrency overlap
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(
+            metadata={"task_id": task_id, "level": "3"}
+        )
+        return f"async_level_3_task_{task_id}"
+
+    @observe()
+    async def async_level_2_function(task_id):
+        result = await async_level_3_function(task_id)
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"task_id": task_id, "level": "2"})
+        return result
+
+    @observe()
+    async def async_level_1_function(task_id, *args, **kwargs):
+        langfuse_client = get_client()
+        langfuse_client.update_current_trace(name=f"{mock_name}_task_{task_id}")
+        result = await async_level_2_function(task_id)
+        langfuse_client.update_current_span(metadata={"task_id": task_id, "level": "1"})
+        return result
+
+    # Run two concurrent async tasks with the same public key but different trace contexts
+    task1 = async_level_1_function(
+        "1", langfuse_trace_id=trace_id_1, langfuse_public_key=public_key_1
+    )
+    task2 = async_level_1_function(
+        "2", langfuse_trace_id=trace_id_2, langfuse_public_key=public_key_2
+    )
+
+    result1, result2 = await asyncio.gather(task1, task2)
+
+    client1.flush()
+
+    assert result1 == "async_level_3_task_1"
+    assert result2 == "async_level_3_task_2"
+
+    # Verify both traces were created correctly and didn't interfere
+    trace_data_1 = get_api().trace.get(trace_id_1)
+    trace_data_2 = get_api().trace.get(trace_id_2)
+
+    assert trace_data_1.name == f"{mock_name}_task_1"
+    assert trace_data_2.name == f"{mock_name}_task_2"
+
+    # Verify that both traces have the expected number of observations (context propagation worked)
+    assert (
+        len(trace_data_1.observations) == 3
+    )  # All 3 levels should be captured for task 1
+    assert (
+        len(trace_data_2.observations) == 3
+    )  # All 3 levels should be captured for task 2
+
+    # Verify traces are properly isolated (no cross-contamination)
+    trace_1_names = [obs.name for obs in trace_data_1.observations]
+    trace_2_names = [obs.name for obs in trace_data_2.observations]
+    assert "async_level_1_function" in trace_1_names
+    assert "async_level_2_function" in trace_1_names
+    assert "async_level_3_function" in trace_1_names
+    assert "async_level_1_function" in trace_2_names
+    assert "async_level_2_function" in trace_2_names
+    assert "async_level_3_function" in trace_2_names
+
+
+@pytest.mark.asyncio
+async def test_multiproject_async_generator_context_propagation():
+    """Test context propagation with async generators in multi-project setup"""
+    LangfuseResourceManager.reset()
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_async_generator_context_propagation"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(capture_output=True)
+    async def async_generator_function():
+        # Async generator should inherit context from parent
+        await asyncio.sleep(0.01)
+        yield "Hello"
+        await asyncio.sleep(0.01)
+        yield ", "
+        await asyncio.sleep(0.01)
+        yield "Async"
+        await asyncio.sleep(0.01)
+        yield " World!"
+
+    @observe()
+    async def async_consumer_function():
+        langfuse_client = get_client()
+        langfuse_client.update_current_trace(name=mock_name)
+
+        result = ""
+        async for item in async_generator_function():
+            result += item
+
+        langfuse_client.update_current_span(
+            metadata={"type": "consumer", "result": result}
+        )
+        return result
+
+    result = await async_consumer_function(
+        langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
+    )
+    client1.flush()
+
+    assert result == "Hello, Async World!"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+    assert trace_data.name == mock_name
+
+    # Verify both generator and consumer were captured by name (most reliable test)
+    observation_names = [obs.name for obs in trace_data.observations]
+    assert "async_generator_function" in observation_names
+    assert "async_consumer_function" in observation_names
+
+    # Verify that context propagation worked - both functions should be in the same trace
+    # This confirms that the async generator inherited the public key context
+    assert len(trace_data.observations) == 2
+
+
+@pytest.mark.asyncio
+async def test_multiproject_async_context_exception_handling():
+    """Test that async context is properly restored even when exceptions occur in multi-project setup"""
+    LangfuseResourceManager.reset()
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_async_context_exception_handling"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(as_type="generation")
+    async def async_failing_function():
+        # This function should inherit context but will raise an exception
+        await asyncio.sleep(0.01)
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(metadata={"will_fail": True})
+        langfuse_client.update_current_trace(name=mock_name)
+        raise ValueError("Async function failed")
+
+    @observe()
+    async def async_caller_function():
+        try:
+            await async_failing_function()
+        except ValueError:
+            # Context should still be available here
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"caught_exception": True})
+            return "exception_handled"
+
+    @observe()
+    async def async_root_function(*args, **kwargs):
+        result = await async_caller_function()
+        # Context should still be available after exception
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"root": True})
+        return result
+
+    result = await async_root_function(
+        langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
+    )
+    client1.flush()
+
+    assert result == "exception_handled"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 3
+    assert trace_data.name == mock_name
+
+    # Verify exception was properly handled and context maintained
+    exception_obs = next(obs for obs in trace_data.observations if obs.level == "ERROR")
+    assert exception_obs.status_message == "Async function failed"
+
+    caught_obs = next(
+        obs
+        for obs in trace_data.observations
+        if obs.metadata and obs.metadata.get("caught_exception")
+    )
+    assert caught_obs is not None

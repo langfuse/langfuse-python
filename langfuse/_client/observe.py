@@ -25,7 +25,7 @@ from typing_extensions import ParamSpec
 from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
 )
-from langfuse._client.get_client import get_client, _set_current_public_key
+from langfuse._client.get_client import _set_current_public_key, get_client
 from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
 
