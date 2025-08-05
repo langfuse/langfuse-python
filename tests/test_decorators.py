@@ -1,4 +1,5 @@
 import asyncio
+import os
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
@@ -8,7 +9,9 @@ import pytest
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from langfuse import get_client, observe
+from langfuse import Langfuse, get_client, observe
+from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.langchain import CallbackHandler
 from langfuse.media import LangfuseMedia
 from tests.utils import get_api
@@ -1081,3 +1084,218 @@ def test_merge_metadata_and_tags():
     assert trace_data.metadata["key2"] == "value2"
 
     assert trace_data.tags == ["tag1", "tag2"]
+
+
+# Multi-project context propagation tests
+def test_multiproject_context_propagation_basic():
+    """Test that nested decorated functions inherit langfuse_public_key from parent in multi-project setup"""
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_context_propagation_basic"
+    # Use known public key from environment
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    # In multi-project setup, must specify which client to use
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(as_type="generation", capture_output=False)
+    def level_3_function():
+        # This function should inherit the public key from level_1_function
+        # and NOT need langfuse_public_key parameter
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(metadata={"level": "3"})
+        langfuse_client.update_current_trace(name=mock_name)
+        return "level_3"
+
+    @observe()
+    def level_2_function():
+        # This function should also inherit the public key
+        level_3_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "2"})
+        return "level_2"
+
+    @observe()
+    def level_1_function(*args, **kwargs):
+        # Only this top-level function receives langfuse_public_key
+        level_2_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "1"})
+        return "level_1"
+
+    result = level_1_function(
+        *mock_args,
+        **mock_kwargs,
+        langfuse_trace_id=mock_trace_id,
+        langfuse_public_key=env_public_key,  # Only provided to top-level function
+    )
+
+    # Use the correct client for flushing
+    client1.flush()
+
+    assert result == "level_1"
+
+    # Verify trace was created properly
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 3
+    assert trace_data.name == mock_name
+
+
+def test_multiproject_context_propagation_deep_nesting():
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_context_propagation_deep_nesting"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(as_type="generation")
+    def level_4_function():
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(metadata={"level": "4"})
+        return "level_4"
+
+    @observe()
+    def level_3_function():
+        result = level_4_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "3"})
+        return result
+
+    @observe()
+    def level_2_function():
+        result = level_3_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "2"})
+        return result
+
+    @observe()
+    def level_1_function(*args, **kwargs):
+        langfuse_client = get_client()
+        langfuse_client.update_current_trace(name=mock_name)
+        result = level_2_function()
+        langfuse_client.update_current_span(metadata={"level": "1"})
+        return result
+
+    result = level_1_function(
+        langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
+    )
+    client1.flush()
+
+    assert result == "level_4"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 4
+    assert trace_data.name == mock_name
+
+    # Verify all levels were captured
+    levels = [
+        obs.metadata.get("level") for obs in trace_data.observations if obs.metadata
+    ]
+    assert set(levels) == {"1", "2", "3", "4"}
+
+
+def test_multiproject_context_propagation_override():
+    # Initialize two separate Langfuse instances
+    client1 = Langfuse()  # Reads from environment
+    client2 = Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_context_propagation_override"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    primary_public_key = env_public_key
+    override_public_key = "pk-test-project2"
+
+    @observe(as_type="generation")
+    def level_3_function():
+        # This function explicitly overrides the inherited public key
+        langfuse_client = get_client(public_key=override_public_key)
+        langfuse_client.update_current_generation(metadata={"used_override": "true"})
+        return "level_3"
+
+    @observe()
+    def level_2_function():
+        # This function should use the overridden key when calling level_3
+        level_3_function(langfuse_public_key=override_public_key)
+        langfuse_client = get_client(public_key=primary_public_key)
+        langfuse_client.update_current_span(metadata={"level": "2"})
+        return "level_2"
+
+    @observe()
+    def level_1_function(*args, **kwargs):
+        langfuse_client = get_client(public_key=primary_public_key)
+        langfuse_client.update_current_trace(name=mock_name)
+        level_2_function()
+        return "level_1"
+
+    result = level_1_function(
+        langfuse_trace_id=mock_trace_id, langfuse_public_key=primary_public_key
+    )
+    client1.flush()
+    client2.flush()
+
+    assert result == "level_1"
+
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+    assert trace_data.name == mock_name
+
+
+def test_multiproject_context_propagation_no_public_key():
+    # Initialize two separate Langfuse instances
+    client1 = Langfuse()  # Reads from environment
+    Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
+
+    # Verify both instances are registered
+    assert len(LangfuseResourceManager._instances) == 2
+
+    mock_name = "test_multiproject_context_propagation_no_public_key"
+    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+    langfuse = get_client(public_key=env_public_key)
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(as_type="generation")
+    def level_3_function():
+        # Should use default client since no public key provided
+        langfuse_client = get_client()
+        langfuse_client.update_current_generation(metadata={"level": "3"})
+        return "level_3"
+
+    @observe()
+    def level_2_function():
+        result = level_3_function()
+        langfuse_client = get_client()
+        langfuse_client.update_current_span(metadata={"level": "2"})
+        return result
+
+    @observe()
+    def level_1_function(*args, **kwargs):
+        langfuse_client = get_client()
+        langfuse_client.update_current_trace(name=mock_name)
+        result = level_2_function()
+        langfuse_client.update_current_span(metadata={"level": "1"})
+        return result
+
+    # No langfuse_public_key provided - should use default client
+    result = level_1_function(langfuse_trace_id=mock_trace_id)
+    client1.flush()
+
+    assert result == "level_3"
+
+    # Should still work with default client
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 0
+    assert trace_data.name == mock_name
