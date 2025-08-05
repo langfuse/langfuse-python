@@ -1329,7 +1329,6 @@ def test_multiproject_context_propagation_no_public_key():
 @pytest.mark.asyncio
 async def test_multiproject_async_context_propagation_basic():
     """Test that nested async decorated functions inherit langfuse_public_key from parent in multi-project setup"""
-    LangfuseResourceManager._instances.pop("fake", None)
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
@@ -1399,7 +1398,6 @@ async def test_multiproject_async_context_propagation_basic():
 @pytest.mark.asyncio
 async def test_multiproject_mixed_sync_async_context_propagation():
     """Test context propagation between sync and async decorated functions in multi-project setup"""
-    LangfuseResourceManager._instances.pop("fake", None)
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
@@ -1471,7 +1469,6 @@ async def test_multiproject_mixed_sync_async_context_propagation():
 @pytest.mark.asyncio
 async def test_multiproject_concurrent_async_context_isolation():
     """Test that concurrent async executions don't interfere with each other's context in multi-project setup"""
-    LangfuseResourceManager._instances.pop("fake", None)
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
@@ -1562,7 +1559,6 @@ async def test_multiproject_concurrent_async_context_isolation():
 @pytest.mark.asyncio
 async def test_multiproject_async_generator_context_propagation():
     """Test context propagation with async generators in multi-project setup"""
-    LangfuseResourceManager._instances.pop("fake", None)
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
@@ -1627,7 +1623,6 @@ async def test_multiproject_async_generator_context_propagation():
 @pytest.mark.asyncio
 async def test_multiproject_async_context_exception_handling():
     """Test that async context is properly restored even when exceptions occur in multi-project setup"""
-    LangfuseResourceManager._instances.pop("fake", None)
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
