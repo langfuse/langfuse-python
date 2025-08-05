@@ -95,7 +95,8 @@ class TestOTelBase:
             )
 
         monkeypatch.setattr(
-            "langfuse._client.span_processor.LangfuseSpanProcessor.__init__", mock_init
+            "langfuse._client.span_processor.LangfuseSpanProcessor.__init__",
+            mock_init,
         )
 
     @pytest.fixture
