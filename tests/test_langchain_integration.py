@@ -5,6 +5,7 @@ from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import StrOutputParser
 from langchain_openai import ChatOpenAI, OpenAI
 
+from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 from tests.utils import get_api
 
@@ -28,8 +29,10 @@ def test_stream_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         res = model.stream(
             [{"role": "user", "content": "return the exact phrase - This is a test!"}],
             config={"callbacks": [handler]},
@@ -78,8 +81,10 @@ def test_stream_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         res = model.stream(
             "return the exact phrase - This is a test!",
             config={"callbacks": [handler]},
@@ -127,8 +132,10 @@ def test_invoke_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         _ = model.invoke(
             [{"role": "user", "content": "return the exact phrase - This is a test!"}],
             config={"callbacks": [handler]},
@@ -172,8 +179,10 @@ def test_invoke_in_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         test_phrase = "This is a test!"
         _ = model.invoke(
             f"return the exact phrase - {test_phrase}",
@@ -216,8 +225,10 @@ def test_batch_in_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         input1 = "Who is the first president of America ?"
         input2 = "Who is the first president of Ireland ?"
         _ = model.batch(
@@ -260,8 +271,10 @@ def test_batch_in_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         input1 = "Who is the first president of America ?"
         input2 = "Who is the first president of Ireland ?"
         _ = model.batch(
@@ -307,8 +320,10 @@ async def test_astream_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         res = model.astream(
             [{"role": "user", "content": "Who was the first American president "}],
             config={"callbacks": [handler]},
@@ -358,8 +373,10 @@ async def test_astream_completions_models(model_name):
 
     langfuse_client = handler.client
 
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         test_phrase = "This is a test!"
         res = model.astream(
             f"return the exact phrase - {test_phrase}",
@@ -409,8 +426,10 @@ async def test_ainvoke_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         test_phrase = "This is a test!"
         _ = await model.ainvoke(
             [{"role": "user", "content": f"return the exact phrase - {test_phrase} "}],
@@ -455,8 +474,10 @@ async def test_ainvoke_in_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         test_phrase = "This is a test!"
         _ = await model.ainvoke(
             f"return the exact phrase - {test_phrase}",
@@ -503,8 +524,10 @@ def test_chains_batch_in_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt = ChatPromptTemplate.from_template(
             "tell me a joke about {foo} in 300 words"
         )
@@ -549,8 +572,10 @@ def test_chains_batch_in_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt = ChatPromptTemplate.from_template(
             "tell me a joke about {foo} in 300 words"
         )
@@ -597,8 +622,10 @@ async def test_chains_abatch_in_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt = ChatPromptTemplate.from_template(
             "tell me a joke about {foo} in 300 words"
         )
@@ -645,8 +672,10 @@ async def test_chains_abatch_in_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt = ChatPromptTemplate.from_template(
             "tell me a joke about {foo} in 300 words"
         )
@@ -689,8 +718,10 @@ async def test_chains_ainvoke_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt1 = ChatPromptTemplate.from_template(
             """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
             Topic: {topic}
@@ -740,8 +771,10 @@ async def test_chains_ainvoke_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt1 = PromptTemplate.from_template(
             """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
             Topic: {topic}
@@ -791,8 +824,10 @@ async def test_chains_astream_chat_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt1 = PromptTemplate.from_template(
             """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
             Topic: {topic}
@@ -848,8 +883,10 @@ async def test_chains_astream_completions_models(model_name):
     handler = CallbackHandler()
 
     langfuse_client = handler.client
-    with langfuse_client.start_as_current_span(name=name) as span:
-        trace_id = span.trace_id
+    trace_id = Langfuse.create_trace_id()
+    with langfuse_client.start_as_current_span(
+        name=name, trace_context={"trace_id": trace_id}
+    ):
         prompt1 = PromptTemplate.from_template(
             """You are a skilled writer tasked with crafting an engaging introduction for a blog post on the following topic:
             Topic: {topic}
