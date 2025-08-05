@@ -24,9 +24,10 @@ mock_kwargs = {"a": 1, "b": 2, "c": 3}
 
 
 def removeMockResourceManagerInstances():
-    for public_key in list(LangfuseResourceManager._instances.keys()):
-        if public_key != "pk-lf-1234567890":
-            LangfuseResourceManager._instances.pop(public_key)
+    with LangfuseResourceManager._lock:
+        for public_key in list(LangfuseResourceManager._instances.keys()):
+            if public_key != os.getenv(LANGFUSE_PUBLIC_KEY):
+                LangfuseResourceManager._instances.pop(public_key)
 
 
 def test_nested_observations():
