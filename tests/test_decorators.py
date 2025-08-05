@@ -24,7 +24,7 @@ mock_kwargs = {"a": 1, "b": 2, "c": 3}
 
 
 def removeMockResourceManagerInstances():
-    for public_key in LangfuseResourceManager._instances.keys():
+    for public_key in list(LangfuseResourceManager._instances.keys()):
         if public_key != "pk-lf-1234567890":
             LangfuseResourceManager._instances.pop(public_key)
 
