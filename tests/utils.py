@@ -9,15 +9,6 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-from llama_index.core import (
-    Settings,
-    SimpleDirectoryReader,
-    StorageContext,
-    VectorStoreIndex,
-    load_index_from_storage,
-)
-from llama_index.core.callbacks import CallbackManager
-
 from langfuse.api.client import FernLangfuse
 
 
@@ -89,26 +80,6 @@ class LlmUsage(pydantic.BaseModel):
             **kwargs,
         }
         return super().dict(**kwargs_with_defaults)
-
-
-def get_llama_index_index(callback, force_rebuild: bool = False):
-    if callback:
-        Settings.callback_manager = CallbackManager([callback])
-    PERSIST_DIR = "tests/mocks/llama-index-storage"
-
-    if not os.path.exists(PERSIST_DIR) or force_rebuild:
-        print("Building RAG index...")
-        documents = SimpleDirectoryReader(
-            "static", ["static/state_of_the_union_short.txt"]
-        ).load_data()
-        index = VectorStoreIndex.from_documents(documents)
-        index.storage_context.persist(persist_dir=PERSIST_DIR)
-    else:
-        print("Using pre-built index from storage...")
-        storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
-        index = load_index_from_storage(storage_context)
-
-    return index
 
 
 def encode_file_to_base64(image_path) -> str:
