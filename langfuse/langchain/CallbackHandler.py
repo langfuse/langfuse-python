@@ -149,6 +149,30 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         except Exception as e:
             langfuse_logger.exception(e)
 
+    def _parse_langfuse_trace_attributes_from_metadata(
+        self,
+        metadata: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        attributes: Dict[str, Any] = {}
+
+        if metadata is None:
+            return attributes
+
+        if "langfuse_session_id" in metadata and isinstance(
+            metadata["langfuse_session_id"], str
+        ):
+            attributes["session_id"] = metadata["langfuse_session_id"]
+
+        if "langfuse_user_id" in metadata and isinstance(
+            metadata["langfuse_user_id"], str
+        ):
+            attributes["user_id"] = metadata["langfuse_user_id"]
+
+        if "langfuse_tags" in metadata and isinstance(metadata["langfuse_tags"], list):
+            attributes["tags"] = [str(tag) for tag in metadata["langfuse_tags"]]
+
+        return attributes
+
     def on_chain_start(
         self,
         serialized: Optional[Dict[str, Any]],
@@ -173,7 +197,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
             if parent_run_id is None:
-                self.runs[run_id] = self.client.start_span(
+                span = self.client.start_span(
                     name=span_name,
                     metadata=span_metadata,
                     input=inputs,
@@ -182,6 +206,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                         span_level,
                     ),
                 )
+                span.update_trace(
+                    **self._parse_langfuse_trace_attributes_from_metadata(metadata)
+                )
+                self.runs[run_id] = span
             else:
                 self.runs[run_id] = cast(
                     LangfuseSpan, self.runs[parent_run_id]
@@ -1003,7 +1031,12 @@ def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]) -> Any:
     if metadata is None or not isinstance(metadata, dict):
         return metadata
 
-    langfuse_metadata_keys = ["langfuse_prompt"]
+    langfuse_metadata_keys = [
+        "langfuse_prompt",
+        "langfuse_session_id",
+        "langfuse_user_id",
+        "langfuse_tags",
+    ]
 
     metadata_copy = metadata.copy()
 
