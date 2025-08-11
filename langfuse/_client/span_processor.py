@@ -12,6 +12,7 @@ Key features:
 """
 
 import base64
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -152,3 +153,4 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             return public_key_on_span == self.public_key
 
         return False
+
