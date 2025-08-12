@@ -19,14 +19,15 @@ from typing import (
     overload,
 )
 
-from opentelemetry import trace
 from opentelemetry.util._decorator import _AgnosticContextManager
 from typing_extensions import ParamSpec
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
 )
+
+from langfuse._client.constants import VALID_OBSERVATION_TYPES
+from langfuse._client.get_client import _set_current_public_key, get_client
 from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
 
@@ -67,7 +68,18 @@ class LangfuseDecorator:
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
-        type: Optional[Literal["SPAN", "EVENT", "GENERATION", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"]] = None,
+        type: Optional[
+            Literal[
+                "SPAN",
+                "EVENT",
+                "GENERATION",
+                "AGENT",
+                "TOOL",
+                "CHAIN",
+                "RETRIEVER",
+                "EMBEDDING",
+            ]
+        ] = None,
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -79,7 +91,18 @@ class LangfuseDecorator:
         *,
         name: Optional[str] = None,
         as_type: Optional[Literal["generation"]] = None,
-        type: Optional[Literal["SPAN", "EVENT", "GENERATION", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"]] = None,
+        type: Optional[
+            Literal[
+                "SPAN",
+                "EVENT",
+                "GENERATION",
+                "AGENT",
+                "TOOL",
+                "CHAIN",
+                "RETRIEVER",
+                "EMBEDDING",
+            ]
+        ] = None,
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -98,8 +121,8 @@ class LangfuseDecorator:
             name (Optional[str]): Custom name for the created trace or span. If not provided, the function name is used.
             as_type (Optional[Literal["generation"]]): Set to "generation" to create a specialized LLM generation span
                     with model metrics support, suitable for tracking language model outputs.
-            type (Optional[Literal]): Set the observation type directly. Supported values: "SPAN", "EVENT", 
-                    "GENERATION", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING". When specified, creates spans with 
+            type (Optional[Literal]): Set the observation type for agentic workflows. Supported values: "SPAN", "EVENT",
+                    "GENERATION", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING". When specified, creates spans with
                     the specified type for graph visualization and filtering in the Langfuse UI.
 
         Returns:
@@ -130,14 +153,7 @@ class LangfuseDecorator:
             ```python
             @observe(type="AGENT")
             def planning_agent():
-                # Creates a span with observation type "AGENT" for graph visualization
                 return create_plan()
-
-            @observe(type="AGENT") 
-            def execution_agent():
-                # Creates a span with observation type "AGENT" 
-                # Parent relationships inferred from OpenTelemetry span hierarchy
-                return execute_plan()
             ```
 
             For trace context propagation between functions:
@@ -166,13 +182,19 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        # Validate type parameter if provided
-        if type is not None:
-            from langfuse._client.constants import VALID_OBSERVATION_TYPES
-            if type not in VALID_OBSERVATION_TYPES:
-                raise ValueError(
-                    f"Invalid observation type '{type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
-                )
+        # Validate parameters
+        if type is not None and type not in VALID_OBSERVATION_TYPES:
+            raise ValueError(
+                f"Invalid observation type '{type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
+            )
+        if as_type is not None and as_type.upper() not in VALID_OBSERVATION_TYPES:
+            valid_values = sorted(
+                list(VALID_OBSERVATION_TYPES)
+                + [t.lower() for t in VALID_OBSERVATION_TYPES]
+            )
+            raise ValueError(
+                f"Invalid as_type '{as_type}'. Valid values are: {', '.join(valid_values)}"
+            )
 
         function_io_capture_enabled = os.environ.get(
             LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True"
@@ -189,12 +211,14 @@ class LangfuseDecorator:
         )
 
         def decorator(func: F) -> F:
+            # Merge as_type and type parameters - type takes precedence for graph observations
+            final_as_type = type or as_type
+
             return (
                 self._async_observe(
                     func,
                     name=name,
-                    as_type=as_type,
-                    observation_type=type,
+                    as_type=final_as_type,
                     capture_input=should_capture_input,
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
@@ -203,8 +227,7 @@ class LangfuseDecorator:
                 else self._sync_observe(
                     func,
                     name=name,
-                    as_type=as_type,
-                    observation_type=type,
+                    as_type=final_as_type,
                     capture_input=should_capture_input,
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
@@ -231,8 +254,7 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[Literal["generation"]],
-        observation_type: Optional[str],
+        as_type: Optional[str],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -252,7 +274,6 @@ class LangfuseDecorator:
                 else None
             )
             final_name = name or func.__name__
-            
             input = (
                 self._get_input_from_func_args(
                     is_method=self._is_method(func),
@@ -264,9 +285,9 @@ class LangfuseDecorator:
             )
             public_key = cast(str, kwargs.pop("langfuse_public_key", None))
             langfuse_client = get_client(public_key=public_key)
-            
-            # Determine final observation type and create appropriate span
-            final_obs_type = observation_type or as_type
+
+            # Use consolidated as_type parameter
+            final_obs_type = as_type
 
             context_manager: Optional[
                 Union[
@@ -281,13 +302,13 @@ class LangfuseDecorator:
                         input=input,
                         end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
-                    if final_obs_type == "generation" or observation_type == "GENERATION"
+                    if final_obs_type in ("generation", "GENERATION")
                     else langfuse_client.start_as_current_span(
                         name=final_name,
                         trace_context=trace_context,
                         input=input,
                         end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                        observation_type=observation_type,
+                        as_type=final_obs_type,
                     )
                 )
                 if langfuse_client
@@ -298,7 +319,6 @@ class LangfuseDecorator:
                 return await func(*args, **kwargs)
 
             with context_manager as langfuse_span_or_generation:
-                
                 is_return_type_generator = False
 
                 try:
@@ -343,8 +363,7 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[Literal["generation"]],
-        observation_type: Optional[str],
+        as_type: Optional[str],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -362,7 +381,6 @@ class LangfuseDecorator:
                 else None
             )
             final_name = name or func.__name__
-            
             input = (
                 self._get_input_from_func_args(
                     is_method=self._is_method(func),
@@ -374,9 +392,9 @@ class LangfuseDecorator:
             )
             public_key = kwargs.pop("langfuse_public_key", None)
             langfuse_client = get_client(public_key=public_key)
-            
-            # Determine final observation type and create appropriate span
-            final_obs_type = observation_type or as_type
+
+            # Use consolidated as_type parameter
+            final_obs_type = as_type
 
             context_manager: Optional[
                 Union[
@@ -391,13 +409,13 @@ class LangfuseDecorator:
                         input=input,
                         end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
-                    if final_obs_type == "generation" or observation_type == "GENERATION"
+                    if final_obs_type in ("generation", "GENERATION")
                     else langfuse_client.start_as_current_span(
                         name=final_name,
                         trace_context=trace_context,
                         input=input,
                         end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                        observation_type=observation_type,
+                        as_type=final_obs_type,
                     )
                 )
                 if langfuse_client
@@ -453,7 +471,6 @@ class LangfuseDecorator:
             "self" in inspect.signature(func).parameters
             or "cls" in inspect.signature(func).parameters
         )
-
 
     def _get_input_from_func_args(
         self,

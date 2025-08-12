@@ -350,7 +350,7 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-        observation_type: Optional[str] = None,
+        as_type: Optional[str] = None,
     ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
@@ -410,14 +410,13 @@ class Langfuse:
                         version=version,
                         level=level,
                         status_message=status_message,
-                        observation_type=observation_type,
                     ),
                 )
 
         return cast(
             _AgnosticContextManager[LangfuseSpan],
             self._start_as_current_otel_span_with_processed_media(
-                as_type="span",
+                as_type=as_type,
                 name=name,
                 end_on_exit=end_on_exit,
                 input=input,
@@ -426,7 +425,6 @@ class Langfuse:
                 version=version,
                 level=level,
                 status_message=status_message,
-                observation_type=observation_type,
             ),
         )
 
@@ -669,27 +667,26 @@ class Langfuse:
             ),
         )
 
-    def _get_span_class(self, as_type: str, observation_type: Optional[str] = None):
-        """Get the appropriate span class based on as_type and observation_type."""
-        if observation_type == "AGENT":
+    def _get_span_class(self, as_type: str):
+        """Get the appropriate span class based on as_type."""
+        if as_type == "AGENT":
             return LangfuseAgent
-        elif observation_type == "TOOL":
+        elif as_type == "TOOL":
             return LangfuseTool
-        elif observation_type == "CHAIN":
+        elif as_type == "CHAIN":
             return LangfuseChain
-        elif observation_type == "RETRIEVER":
+        elif as_type == "RETRIEVER":
             return LangfuseRetriever
-        elif observation_type == "EMBEDDING":
+        elif as_type == "EMBEDDING":
             return LangfuseEmbedding
-        if as_type == "generation" or observation_type == "GENERATION":
+        elif as_type in ("generation", "GENERATION"):
             return LangfuseGeneration
-        elif as_type == "event" or observation_type == "EVENT":
+        elif as_type in ("event", "EVENT"):
             return LangfuseEvent
-        elif as_type == "span" or observation_type == "SPAN":
+        elif as_type in ("span", "SPAN"):
             return LangfuseSpan
         else:
-            # TODO: this should never happen -> error out?
-            # for now default to LangfuseSpan for unknown types or "span" as_type
+            # Default to LangfuseSpan for unknown types
             return LangfuseSpan
 
     @_agnosticcontextmanager
@@ -699,7 +696,7 @@ class Langfuse:
         name: str,
         parent: Optional[otel_trace_api.Span] = None,
         remote_parent_span: Optional[otel_trace_api.Span] = None,
-        as_type: Literal["generation", "span"],
+        as_type: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -713,7 +710,6 @@ class Langfuse:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-        observation_type: Optional[str] = None,
     ) -> Any:
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
@@ -734,7 +730,6 @@ class Langfuse:
                 usage_details=usage_details,
                 cost_details=cost_details,
                 prompt=prompt,
-                observation_type=observation_type,
             ) as langfuse_span:
                 if remote_parent_span is not None:
                     langfuse_span._otel_span.set_attribute(
@@ -748,7 +743,7 @@ class Langfuse:
         self,
         *,
         name: str,
-        as_type: Optional[Literal["generation", "span"]] = None,
+        as_type: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -762,13 +757,12 @@ class Langfuse:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-        observation_type: Optional[str] = None,
     ) -> Any:
         with self._otel_tracer.start_as_current_span(
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
-            span_class = self._get_span_class(as_type, observation_type)
+            span_class = self._get_span_class(as_type)
             common_args = {
                 "otel_span": otel_span,
                 "langfuse_client": self,
@@ -790,12 +784,21 @@ class Langfuse:
                         "usage_details": usage_details,
                         "cost_details": cost_details,
                         "prompt": prompt,
-                        "observation_type": observation_type,
                     }
                 )
+            elif span_class in [
+                LangfuseAgent,
+                LangfuseTool,
+                LangfuseChain,
+                LangfuseRetriever,
+                LangfuseEmbedding,
+            ]:
+                # Graph observation classes set their specific observation_type internally
+                pass
             else:
-                if observation_type is not None:
-                    common_args["observation_type"] = observation_type
+                # Regular spans (LangfuseSpan, LangfuseEvent) need as_type
+                if as_type is not None:
+                    common_args["as_type"] = as_type
 
             yield span_class(**common_args)
 

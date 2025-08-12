@@ -64,7 +64,7 @@ class LangfuseSpanWrapper:
         *,
         otel_span: otel_trace_api.Span,
         langfuse_client: "Langfuse",
-        as_type: Literal["span", "generation", "event"],
+        as_type: Literal["span", "generation", "event", "agent", "tool", "chain", "retriever", "embedding"],
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -100,9 +100,6 @@ class LangfuseSpanWrapper:
             prompt: Associated prompt template from Langfuse prompt management
         """
         self._otel_span = otel_span
-        self._otel_span.set_attribute(
-            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
-        )
         self._langfuse_client = langfuse_client
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
@@ -152,12 +149,19 @@ class LangfuseSpanWrapper:
                     version=version,
                     level=level,
                     status_message=status_message,
+                    observation_type=as_type,
                 )
 
-            attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
+            # Keep OBSERVATION_TYPE in attributes - don't remove it
+            # attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
 
-            self._otel_span.set_attributes(
-                {k: v for k, v in attributes.items() if v is not None}
+            final_attributes = {k: v for k, v in attributes.items() if v is not None}
+            self._otel_span.set_attributes(final_attributes)
+
+            # Check what actually got set
+            actual_attributes = dict(self._otel_span.attributes)
+            obs_type_value = actual_attributes.get(
+                "langfuse.observation.type", "NOT_FOUND"
             )
 
     def end(self, *, end_time: Optional[int] = None) -> "LangfuseSpanWrapper":
@@ -533,6 +537,7 @@ class LangfuseSpan(LangfuseSpanWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        as_type: Optional[Literal["span", "generation", "event", "agent", "tool", "chain", "retriever", "embedding"]] = None,
     ):
         """Initialize a new LangfuseSpan.
 
@@ -547,9 +552,11 @@ class LangfuseSpan(LangfuseSpanWrapper):
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
         """
+        # Default to span if not provided mimicing previous behavior
+        final_as_type = as_type or "span"
         super().__init__(
             otel_span=otel_span,
-            as_type="span",
+            as_type=final_as_type,
             langfuse_client=langfuse_client,
             input=input,
             output=output,
@@ -1199,3 +1206,158 @@ class LangfuseEvent(LangfuseSpanWrapper):
             level=level,
             status_message=status_message,
         )
+
+
+class LangfuseGraphObservation(LangfuseSpanWrapper):
+    """Base class for agentic workflow observations.
+
+    This class provides a common foundation for specialized observation types
+    used in agentic workflows: AGENT, TOOL, CHAIN, RETRIEVER, and EMBEDDING.
+    All graph observations use span-type attributes but with specific observation types.
+    """
+
+    def __init__(
+        self,
+        *,
+        observation_type: str,
+        otel_span: otel_trace_api.Span,
+        langfuse_client: "Langfuse",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        environment: Optional[str] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ):
+        """Initialize a new graph observation span.
+
+        Args:
+            observation_type: The specific observation type (e.g., "AGENT", "TOOL")
+            otel_span: The OpenTelemetry span to wrap
+            langfuse_client: Reference to the parent Langfuse client
+            input: Input data for the observation
+            output: Output data from the observation
+            metadata: Additional metadata to associate with the observation
+            environment: The tracing environment
+            version: Version identifier for the code or component
+            level: Importance level of the observation (info, warning, error)
+            status_message: Optional status message for the observation
+        """
+        super().__init__(
+            otel_span=otel_span,
+            as_type="span",  # Use span-type attributes for all graph observations
+            langfuse_client=langfuse_client,
+            input=input,
+            output=output,
+            metadata=metadata,
+            environment=environment,
+            version=version,
+            level=level,
+            status_message=status_message,
+        )
+
+        # Store the observation type for use in update method
+        self._observation_type = observation_type
+
+    def update(
+        self,
+        *,
+        name: Optional[str] = None,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "LangfuseGraphObservation":
+        """Update this graph observation with new information.
+
+        This method updates the observation with new information that becomes available
+        during execution, such as outputs, metadata, or status changes.
+
+        Args:
+            name: Observation name
+            input: Updated input data for the operation
+            output: Output data from the operation
+            metadata: Additional metadata to associate with the observation
+            version: Version identifier for the code or component
+            level: Importance level of the observation (info, warning, error)
+            status_message: Optional status message for the observation
+            **kwargs: Additional keyword arguments (ignored)
+        """
+        if not self._otel_span.is_recording():
+            return self
+
+        processed_input = self._process_media_and_apply_mask(
+            data=input, field="input", span=self._otel_span
+        )
+        processed_output = self._process_media_and_apply_mask(
+            data=output, field="output", span=self._otel_span
+        )
+        processed_metadata = self._process_media_and_apply_mask(
+            data=metadata, field="metadata", span=self._otel_span
+        )
+
+        if name:
+            self._otel_span.update_name(name)
+
+        attributes = create_span_attributes(
+            input=processed_input,
+            output=processed_output,
+            metadata=processed_metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            observation_type=self._observation_type,
+        )
+
+        self._otel_span.set_attributes(attributes=attributes)
+
+        return self
+
+
+class LangfuseAgent(LangfuseGraphObservation):
+    """Specialized span for AGENT observations in agentic workflows."""
+
+    def __init__(self, **kwargs):
+        """Initialize a new LangfuseAgent span."""
+        kwargs["observation_type"] = "AGENT"
+        super().__init__(**kwargs)
+
+
+class LangfuseTool(LangfuseGraphObservation):
+    """Specialized span for TOOL observations in agentic workflows."""
+
+    def __init__(self, **kwargs):
+        """Initialize a new LangfuseTool span."""
+        kwargs["observation_type"] = "TOOL"
+        super().__init__(**kwargs)
+
+
+class LangfuseChain(LangfuseGraphObservation):
+    """Specialized span for CHAIN observations in agentic workflows."""
+
+    def __init__(self, **kwargs):
+        """Initialize a new LangfuseChain span."""
+        kwargs["observation_type"] = "CHAIN"
+        super().__init__(**kwargs)
+
+
+class LangfuseRetriever(LangfuseGraphObservation):
+    """Specialized span for RETRIEVER observations in agentic workflows."""
+
+    def __init__(self, **kwargs):
+        """Initialize a new LangfuseRetriever span."""
+        kwargs["observation_type"] = "RETRIEVER"
+        super().__init__(**kwargs)
+
+
+class LangfuseEmbedding(LangfuseGraphObservation):
+    """Specialized span for EMBEDDING observations in agentic workflows."""
+
+    def __init__(self, **kwargs):
+        """Initialize a new LangfuseEmbedding span."""
+        kwargs["observation_type"] = "EMBEDDING"
+        super().__init__(**kwargs)
