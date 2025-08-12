@@ -1333,7 +1333,7 @@ class LangfuseGraphObservation(LangfuseSpanWrapper):
 class LangfuseAgent(LangfuseGraphObservation):
     """Specialized span for agent observations in agentic workflows."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize a new LangfuseAgent span."""
         kwargs["observation_type"] = "agent"
         super().__init__(**kwargs)
@@ -1342,7 +1342,7 @@ class LangfuseAgent(LangfuseGraphObservation):
 class LangfuseTool(LangfuseGraphObservation):
     """Specialized span for tool observations in agentic workflows."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize a new LangfuseTool span."""
         kwargs["observation_type"] = "tool"
         super().__init__(**kwargs)
@@ -1351,7 +1351,7 @@ class LangfuseTool(LangfuseGraphObservation):
 class LangfuseChain(LangfuseGraphObservation):
     """Specialized span for chain observations in agentic workflows."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize a new LangfuseChain span."""
         kwargs["observation_type"] = "chain"
         super().__init__(**kwargs)
@@ -1360,7 +1360,7 @@ class LangfuseChain(LangfuseGraphObservation):
 class LangfuseRetriever(LangfuseGraphObservation):
     """Specialized span for retriever observations in agentic workflows."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize a new LangfuseRetriever span."""
         kwargs["observation_type"] = "retriever"
         super().__init__(**kwargs)
@@ -1369,7 +1369,7 @@ class LangfuseRetriever(LangfuseGraphObservation):
 class LangfuseEmbedding(LangfuseGraphObservation):
     """Specialized span for embedding observations in agentic workflows."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize a new LangfuseEmbedding span."""
         kwargs["observation_type"] = "embedding"
         super().__init__(**kwargs)

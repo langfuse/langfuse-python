@@ -366,7 +366,7 @@ class Langfuse:
                 "retriever",
                 "embedding",
             ]
-        ],
+        ] = None,
     ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
@@ -695,9 +695,8 @@ class Langfuse:
             "retriever",
             "embedding",
         ],
-    ):
+    ) -> type:
         """Get the appropriate span class based on as_type."""
-        # TODO: make it case insensitive
         if as_type == "agent":
             return LangfuseAgent
         elif as_type == "tool":

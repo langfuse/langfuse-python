@@ -303,9 +303,6 @@ class LangfuseDecorator:
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
 
-                # Use consolidated as_type parameter
-                final_obs_type = as_type
-
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],
@@ -319,13 +316,13 @@ class LangfuseDecorator:
                             input=input,
                             end_on_exit=False,  # when returning a generator, closing on exit would be to early
                         )
-                        if final_obs_type in ("generation", "GENERATION")
+                        if as_type == "generation"
                         else langfuse_client.start_as_current_span(
                             name=final_name,
                             trace_context=trace_context,
                             input=input,
                             end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                            as_type=final_obs_type,
+                            as_type=as_type,
                         )
                     )
                     if langfuse_client
@@ -413,9 +410,6 @@ class LangfuseDecorator:
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
 
-                # Use consolidated as_type parameter
-                final_obs_type = as_type
-
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],
@@ -429,13 +423,13 @@ class LangfuseDecorator:
                             input=input,
                             end_on_exit=False,  # when returning a generator, closing on exit would be to early
                         )
-                        if final_obs_type in ("generation", "GENERATION")
+                        if as_type == "generation"
                         else langfuse_client.start_as_current_span(
                             name=final_name,
                             trace_context=trace_context,
                             input=input,
                             end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                            as_type=final_obs_type,
+                            as_type=as_type,
                         )
                     )
                     if langfuse_client

@@ -1,7 +1,6 @@
 import time
 
 from langfuse import Langfuse, observe
-from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, get_api
 
 
@@ -35,7 +34,7 @@ def test_observe_type_agent_instrumentation():
     # Run the workflow within a trace context
     with langfuse.start_as_current_span(
         name="agent_workflow", as_type="agent"
-    ) as root_span:
+    ):
         langfuse.update_current_trace(name=trace_name)
 
         start_result = start_agent()
@@ -43,7 +42,7 @@ def test_observe_type_agent_instrumentation():
         tool_result = tool_call()
         end_result = end_agent()
 
-        workflow_result = {
+        _workflow_result = {
             "start": start_result,
             "process": process_result,
             "tool": tool_result,
@@ -122,7 +121,7 @@ def test_observe_type_parallel_tool_execution():
     # Execute the parallel workflow
     with langfuse.start_as_current_span(
         name="parallel_workflow", as_type="span"
-    ) as root_span:
+    ):
         langfuse.update_current_trace(name=trace_name)
         start_result = start_agent()
 
@@ -143,7 +142,7 @@ def test_observe_type_parallel_tool_execution():
 
         end_result = end_agent()
 
-        workflow_result = {
+        _workflow_result = {
             "start": start_result,
             "tools": tool_results,
             "end": end_result,
@@ -171,8 +170,6 @@ def test_observe_type_parallel_tool_execution():
         for obs in all_observations
         if obs.type in ["agent", "tool", "AGENT", "TOOL"]
     ]
-    print(all_observations)
-    print(graph_observations)
 
     # Should have: start_agent (1) + 3 tools (3) + end_agent (1) = 5 total
     expected_count = 5
@@ -194,6 +191,3 @@ def test_observe_type_parallel_tool_execution():
     ), f"Expected 3 tool observations, got {len(tool_observations)}"
 
 
-if __name__ == "__main__":
-    test_observe_type_agent_instrumentation()
-    test_observe_type_parallel_tool_execution()
