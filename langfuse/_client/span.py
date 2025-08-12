@@ -64,7 +64,16 @@ class LangfuseSpanWrapper:
         *,
         otel_span: otel_trace_api.Span,
         langfuse_client: "Langfuse",
-        as_type: Literal["span", "generation", "event", "agent", "tool", "chain", "retriever", "embedding"],
+        as_type: Literal[
+            "span",
+            "generation",
+            "event",
+            "agent",
+            "tool",
+            "chain",
+            "retriever",
+            "embedding",
+        ],
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -531,7 +540,18 @@ class LangfuseSpan(LangfuseSpanWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        as_type: Optional[Literal["span", "generation", "event", "agent", "tool", "chain", "retriever", "embedding"]] = None,
+        as_type: Optional[
+            Literal[
+                "span",
+                "generation",
+                "event",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
+            ]
+        ] = None,
     ):
         """Initialize a new LangfuseSpan.
 

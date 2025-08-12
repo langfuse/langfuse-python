@@ -355,7 +355,20 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-        as_type: Optional[Literal["generation", "span", "GENERATION", "EVENT", "SPAN", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"]],
+        as_type: Optional[
+            Literal[
+                "generation",
+                "span",
+                "GENERATION",
+                "EVENT",
+                "SPAN",
+                "AGENT",
+                "TOOL",
+                "CHAIN",
+                "RETRIEVER",
+                "EMBEDDING",
+            ]
+        ],
     ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
@@ -672,7 +685,19 @@ class Langfuse:
             ),
         )
 
-    def _get_span_class(self, as_type: Literal["span", "generation", "event", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"]):
+    def _get_span_class(
+        self,
+        as_type: Literal[
+            "span",
+            "generation",
+            "event",
+            "AGENT",
+            "TOOL",
+            "CHAIN",
+            "RETRIEVER",
+            "EMBEDDING",
+        ],
+    ):
         """Get the appropriate span class based on as_type."""
         # TODO: make it case insensitive
         if as_type == "AGENT":
@@ -701,7 +726,7 @@ class Langfuse:
         name: str,
         parent: Optional[otel_trace_api.Span] = None,
         remote_parent_span: Optional[otel_trace_api.Span] = None,
-        as_type: Literal["generation", "span", "AGENT", "TOOL", "CHAIN", "RETRIEVER"],
+        as_type: Literal["generation", "span", "agent", "tool", "chain", "retriever"],
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -748,7 +773,11 @@ class Langfuse:
         self,
         *,
         name: str,
-        as_type: Optional[Literal["generation", "span", "event", "AGENT", "TOOL", "CHAIN", "RETRIEVER"]] = None,
+        as_type: Optional[
+            Literal[
+                "generation", "span", "event", "AGENT", "TOOL", "CHAIN", "RETRIEVER"
+            ]
+        ] = None,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
