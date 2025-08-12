@@ -377,7 +377,18 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[str],
+        as_type: Optional[
+            Literal[
+                "span",
+                "generation",
+                "event",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
+            ]
+        ],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
