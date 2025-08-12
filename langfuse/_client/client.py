@@ -707,13 +707,11 @@ class Langfuse:
             return LangfuseRetriever
         elif as_type == "embedding":
             return LangfuseEmbedding
-        elif as_type in ("generation"):
+        elif as_type == "generation":
             return LangfuseGeneration
-        elif as_type in ("event"):
+        elif as_type == "event":
             return LangfuseEvent
-        elif as_type in ("span"):
-            return LangfuseSpan
-        else:
+        elif as_type == "span":
             return LangfuseSpan
 
     @_agnosticcontextmanager
@@ -825,6 +823,7 @@ class Langfuse:
                     }
                 )
             elif span_class in [
+                LangfuseSpan,
                 LangfuseAgent,
                 LangfuseTool,
                 LangfuseChain,
@@ -833,9 +832,6 @@ class Langfuse:
             ]:
                 # set their type internally in the class
                 pass
-            else:
-                if as_type is not None:
-                    common_args["as_type"] = as_type
 
             yield span_class(**common_args)
 

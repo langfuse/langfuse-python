@@ -190,13 +190,9 @@ class LangfuseDecorator:
             raise ValueError(
                 f"Invalid observation type '{type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
             )
-        if as_type is not None and as_type.upper() not in VALID_OBSERVATION_TYPES:
-            valid_values = sorted(
-                list(VALID_OBSERVATION_TYPES)
-                + [t.lower() for t in VALID_OBSERVATION_TYPES]
-            )
+        if as_type is not None and as_type not in VALID_OBSERVATION_TYPES:
             raise ValueError(
-                f"Invalid as_type '{as_type}'. Valid values are: {', '.join(valid_values)}"
+                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
             )
 
         function_io_capture_enabled = os.environ.get(

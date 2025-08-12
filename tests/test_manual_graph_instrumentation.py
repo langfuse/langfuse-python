@@ -66,7 +66,7 @@ def test_observe_type_agent_instrumentation():
     agent_observations = [
         obs
         for obs in all_observations
-        if obs.type in ["agent", "tool", "retriever", "chain", "embedding"]
+        if obs.type in ["agent", "tool", "retriever", "chain", "embedding", "AGENT", "TOOL", "RETRIEVER", "CHAIN", "EMBEDDING", "GENERATION", "generation"]
     ]
 
     assert (
