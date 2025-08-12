@@ -121,7 +121,7 @@ class LangfuseDecorator:
             name (Optional[str]): Custom name for the created trace or span. If not provided, the function name is used.
             as_type (Optional[Literal["generation"]]): Set to "generation" to create a specialized LLM generation span
                     with model metrics support, suitable for tracking language model outputs.
-            type (Optional[Literal]): Set the observation type for agentic workflows. Supported values: "SPAN", "EVENT",
+            type (Optional[Literal]): Set the observation type for agentic workflows. Supported values:
                     "GENERATION", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING". When specified, creates spans with
                     the specified type for graph visualization and filtering in the Langfuse UI.
 
@@ -182,7 +182,6 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        # Validate parameters
         if type is not None and type not in VALID_OBSERVATION_TYPES:
             raise ValueError(
                 f"Invalid observation type '{type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
@@ -235,11 +234,11 @@ class LangfuseDecorator:
             )
 
         """Handle decorator with or without parentheses.
-        
+
         This logic enables the decorator to work both with and without parentheses:
         - @observe - Python passes the function directly to the decorator
         - @observe() - Python calls the decorator first, which must return a function decorator
-        
+
         When called without arguments (@observe), the func parameter contains the function to decorate,
         so we directly apply the decorator to it. When called with parentheses (@observe()),
         func is None, so we return the decorator function itself for Python to apply in the next step.

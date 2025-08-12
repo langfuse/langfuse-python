@@ -669,6 +669,7 @@ class Langfuse:
 
     def _get_span_class(self, as_type: str):
         """Get the appropriate span class based on as_type."""
+        # TODO: make it case insensitive
         if as_type == "AGENT":
             return LangfuseAgent
         elif as_type == "TOOL":
@@ -686,7 +687,6 @@ class Langfuse:
         elif as_type in ("span", "SPAN"):
             return LangfuseSpan
         else:
-            # Default to LangfuseSpan for unknown types
             return LangfuseSpan
 
     @_agnosticcontextmanager
@@ -696,7 +696,7 @@ class Langfuse:
         name: str,
         parent: Optional[otel_trace_api.Span] = None,
         remote_parent_span: Optional[otel_trace_api.Span] = None,
-        as_type: Optional[str] = None,
+        as_type: Literal["generation", "span", "AGENT", "TOOL", "CHAIN", "RETRIEVER"],
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -793,10 +793,9 @@ class Langfuse:
                 LangfuseRetriever,
                 LangfuseEmbedding,
             ]:
-                # Graph observation classes set their specific observation_type internally
+                # set their type internally in the class
                 pass
             else:
-                # Regular spans (LangfuseSpan, LangfuseEvent) need as_type
                 if as_type is not None:
                     common_args["as_type"] = as_type
 
