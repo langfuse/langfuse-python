@@ -152,16 +152,10 @@ class LangfuseSpanWrapper:
                     observation_type=as_type,
                 )
 
-            # Keep OBSERVATION_TYPE in attributes - don't remove it
-            # attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
+            attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
 
-            final_attributes = {k: v for k, v in attributes.items() if v is not None}
-            self._otel_span.set_attributes(final_attributes)
-
-            # Check what actually got set
-            actual_attributes = dict(self._otel_span.attributes)
-            obs_type_value = actual_attributes.get(
-                "langfuse.observation.type", "NOT_FOUND"
+            self._otel_span.set_attributes(
+                {k: v for k, v in attributes.items() if v is not None}
             )
 
     def end(self, *, end_time: Optional[int] = None) -> "LangfuseSpanWrapper":
@@ -552,11 +546,9 @@ class LangfuseSpan(LangfuseSpanWrapper):
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
         """
-        # Default to span if not provided mimicing previous behavior
-        final_as_type = as_type or "span"
         super().__init__(
             otel_span=otel_span,
-            as_type=final_as_type,
+            as_type="span",
             langfuse_client=langfuse_client,
             input=input,
             output=output,

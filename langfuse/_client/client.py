@@ -667,7 +667,7 @@ class Langfuse:
             ),
         )
 
-    def _get_span_class(self, as_type: str):
+    def _get_span_class(self, as_type: Literal["span", "generation", "event", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"]):
         """Get the appropriate span class based on as_type."""
         # TODO: make it case insensitive
         if as_type == "AGENT":
