@@ -95,9 +95,8 @@ def create_span_attributes(
     version: Optional[str] = None,
     observation_type: Optional[str] = None,
 ) -> dict:
-    final_observation_type = observation_type or "span"
     attributes = {
-        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: final_observation_type,
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type or "span",
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
         LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
         LangfuseOtelSpanAttributes.VERSION: version,

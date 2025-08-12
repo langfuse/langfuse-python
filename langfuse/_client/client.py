@@ -350,7 +350,7 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-        as_type: Optional[str] = None,
+        as_type: Optional[Literal["generation", "span", "event", "agent", "tool", "chain", "retriever"]] = None,
     ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
@@ -743,7 +743,7 @@ class Langfuse:
         self,
         *,
         name: str,
-        as_type: Optional[str] = None,
+        as_type: Optional[Literal["generation", "span", "event", "AGENT", "TOOL", "CHAIN", "RETRIEVER"]] = None,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -762,7 +762,7 @@ class Langfuse:
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
-            span_class = self._get_span_class(as_type)
+            span_class = self._get_span_class(as_type or "generation")
             common_args = {
                 "otel_span": otel_span,
                 "langfuse_client": self,
