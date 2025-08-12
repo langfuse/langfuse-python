@@ -32,9 +32,7 @@ def test_observe_type_agent_instrumentation():
         return {"status": "completed", "data": "final_data"}
 
     # Run the workflow within a trace context
-    with langfuse.start_as_current_span(
-        name="agent_workflow", as_type="agent"
-    ):
+    with langfuse.start_as_current_span(name="agent_workflow", as_type="agent"):
         langfuse.update_current_trace(name=trace_name)
 
         start_result = start_agent()
@@ -119,9 +117,7 @@ def test_observe_type_parallel_tool_execution():
         return {"status": "completed", "summary": "all_tools_processed"}
 
     # Execute the parallel workflow
-    with langfuse.start_as_current_span(
-        name="parallel_workflow", as_type="span"
-    ):
+    with langfuse.start_as_current_span(name="parallel_workflow", as_type="span"):
         langfuse.update_current_trace(name=trace_name)
         start_result = start_agent()
 
@@ -189,5 +185,3 @@ def test_observe_type_parallel_tool_execution():
     assert (
         len(tool_observations) == 3
     ), f"Expected 3 tool observations, got {len(tool_observations)}"
-
-
