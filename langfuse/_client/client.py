@@ -359,14 +359,12 @@ class Langfuse:
             Literal[
                 "generation",
                 "span",
-                "GENERATION",
-                "EVENT",
-                "SPAN",
-                "AGENT",
-                "TOOL",
-                "CHAIN",
-                "RETRIEVER",
-                "EMBEDDING",
+                "event",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
             ]
         ],
     ) -> _AgnosticContextManager[LangfuseSpan]:
@@ -691,30 +689,30 @@ class Langfuse:
             "span",
             "generation",
             "event",
-            "AGENT",
-            "TOOL",
-            "CHAIN",
-            "RETRIEVER",
-            "EMBEDDING",
+            "agent",
+            "tool",
+            "chain",
+            "retriever",
+            "embedding",
         ],
     ):
         """Get the appropriate span class based on as_type."""
         # TODO: make it case insensitive
-        if as_type == "AGENT":
+        if as_type == "agent":
             return LangfuseAgent
-        elif as_type == "TOOL":
+        elif as_type == "tool":
             return LangfuseTool
-        elif as_type == "CHAIN":
+        elif as_type == "chain":
             return LangfuseChain
-        elif as_type == "RETRIEVER":
+        elif as_type == "retriever":
             return LangfuseRetriever
-        elif as_type == "EMBEDDING":
+        elif as_type == "embedding":
             return LangfuseEmbedding
-        elif as_type in ("generation", "GENERATION"):
+        elif as_type in ("generation"):
             return LangfuseGeneration
-        elif as_type in ("event", "EVENT"):
+        elif as_type in ("event"):
             return LangfuseEvent
-        elif as_type in ("span", "SPAN"):
+        elif as_type in ("span"):
             return LangfuseSpan
         else:
             return LangfuseSpan
@@ -775,7 +773,14 @@ class Langfuse:
         name: str,
         as_type: Optional[
             Literal[
-                "generation", "span", "event", "AGENT", "TOOL", "CHAIN", "RETRIEVER"
+                "generation",
+                "span",
+                "event",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
             ]
         ] = None,
         end_on_exit: Optional[bool] = None,

@@ -70,14 +70,14 @@ class LangfuseDecorator:
         as_type: Optional[Literal["generation"]] = None,
         type: Optional[
             Literal[
-                "SPAN",
-                "EVENT",
-                "GENERATION",
-                "AGENT",
-                "TOOL",
-                "CHAIN",
-                "RETRIEVER",
-                "EMBEDDING",
+                "span",
+                "event",
+                "generation",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
             ]
         ] = None,
         capture_input: Optional[bool] = None,
@@ -93,14 +93,14 @@ class LangfuseDecorator:
         as_type: Optional[Literal["generation"]] = None,
         type: Optional[
             Literal[
-                "SPAN",
-                "EVENT",
-                "GENERATION",
-                "AGENT",
-                "TOOL",
-                "CHAIN",
-                "RETRIEVER",
-                "EMBEDDING",
+                "span",
+                "event",
+                "generation",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
             ]
         ] = None,
         capture_input: Optional[bool] = None,
@@ -122,7 +122,7 @@ class LangfuseDecorator:
             as_type (Optional[Literal["generation"]]): Set to "generation" to create a specialized LLM generation span
                     with model metrics support, suitable for tracking language model outputs.
             type (Optional[Literal]): Set the observation type for agentic workflows. Supported values:
-                    "GENERATION", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING". When specified, creates spans with
+                    "generation", "agent", "tool", "chain", "retriever", "embedding". When specified, creates spans with
                     the specified type for graph visualization and filtering in the Langfuse UI.
 
         Returns:
@@ -151,7 +151,7 @@ class LangfuseDecorator:
 
             For automatic graph instrumentation with agent workflows:
             ```python
-            @observe(type="AGENT")
+            @observe(type="agent")
             def planning_agent():
                 return create_plan()
             ```
@@ -259,15 +259,14 @@ class LangfuseDecorator:
         name: Optional[str],
         as_type: Optional[
             Literal[
+                "span",
                 "generation",
-                "GENERATION",
-                "EVENT",
-                "SPAN",
-                "AGENT",
-                "TOOL",
-                "CHAIN",
-                "RETRIEVER",
-                "EMBEDDING",
+                "event",
+                "agent",
+                "tool",
+                "chain",
+                "retriever",
+                "embedding",
             ]
         ],
         capture_input: bool,

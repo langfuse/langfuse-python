@@ -1224,7 +1224,7 @@ class LangfuseGraphObservation(LangfuseSpanWrapper):
     """Base class for agentic workflow observations.
 
     This class provides a common foundation for specialized observation types
-    used in agentic workflows: AGENT, TOOL, CHAIN, RETRIEVER, and EMBEDDING.
+    used in agentic workflows: agent, tool, chain, retriever, and embedding.
     All graph observations use span-type attributes but with specific observation types.
     """
 
@@ -1245,7 +1245,7 @@ class LangfuseGraphObservation(LangfuseSpanWrapper):
         """Initialize a new graph observation span.
 
         Args:
-            observation_type: The specific observation type (e.g., "AGENT", "TOOL")
+            observation_type: The specific observation type (e.g., "agent", "tool", ...)
             otel_span: The OpenTelemetry span to wrap
             langfuse_client: Reference to the parent Langfuse client
             input: Input data for the observation
@@ -1331,45 +1331,45 @@ class LangfuseGraphObservation(LangfuseSpanWrapper):
 
 
 class LangfuseAgent(LangfuseGraphObservation):
-    """Specialized span for AGENT observations in agentic workflows."""
+    """Specialized span for agent observations in agentic workflows."""
 
     def __init__(self, **kwargs):
         """Initialize a new LangfuseAgent span."""
-        kwargs["observation_type"] = "AGENT"
+        kwargs["observation_type"] = "agent"
         super().__init__(**kwargs)
 
 
 class LangfuseTool(LangfuseGraphObservation):
-    """Specialized span for TOOL observations in agentic workflows."""
+    """Specialized span for tool observations in agentic workflows."""
 
     def __init__(self, **kwargs):
         """Initialize a new LangfuseTool span."""
-        kwargs["observation_type"] = "TOOL"
+        kwargs["observation_type"] = "tool"
         super().__init__(**kwargs)
 
 
 class LangfuseChain(LangfuseGraphObservation):
-    """Specialized span for CHAIN observations in agentic workflows."""
+    """Specialized span for chain observations in agentic workflows."""
 
     def __init__(self, **kwargs):
         """Initialize a new LangfuseChain span."""
-        kwargs["observation_type"] = "CHAIN"
+        kwargs["observation_type"] = "chain"
         super().__init__(**kwargs)
 
 
 class LangfuseRetriever(LangfuseGraphObservation):
-    """Specialized span for RETRIEVER observations in agentic workflows."""
+    """Specialized span for retriever observations in agentic workflows."""
 
     def __init__(self, **kwargs):
         """Initialize a new LangfuseRetriever span."""
-        kwargs["observation_type"] = "RETRIEVER"
+        kwargs["observation_type"] = "retriever"
         super().__init__(**kwargs)
 
 
 class LangfuseEmbedding(LangfuseGraphObservation):
-    """Specialized span for EMBEDDING observations in agentic workflows."""
+    """Specialized span for embedding observations in agentic workflows."""
 
     def __init__(self, **kwargs):
         """Initialize a new LangfuseEmbedding span."""
-        kwargs["observation_type"] = "EMBEDDING"
+        kwargs["observation_type"] = "embedding"
         super().__init__(**kwargs)

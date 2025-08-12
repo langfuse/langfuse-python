@@ -7,12 +7,12 @@ LANGFUSE_TRACER_NAME = "langfuse-sdk"
 
 # Valid observation types for the @observe decorator
 VALID_OBSERVATION_TYPES = {
-    "SPAN",
-    "EVENT",
-    "GENERATION",
-    "AGENT",
-    "TOOL",
-    "CHAIN",
-    "RETRIEVER",
-    "EMBEDDING",
+    "span",
+    "event",
+    "generation",
+    "agent",
+    "tool",
+    "chain",
+    "retriever",
+    "embedding",
 }

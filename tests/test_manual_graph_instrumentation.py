@@ -1,8 +1,4 @@
-# Test manual graph instrumentation using Python SDK.
-
 import time
-
-import pytest
 
 from langfuse import Langfuse, observe
 from tests.api_wrapper import LangfuseAPI
@@ -10,40 +6,35 @@ from tests.utils import create_uuid, get_api
 
 
 def test_observe_type_agent_instrumentation():
-    """Test @observe(type='AGENT') with the type-based approach.
-    """
+    """Test @observe(type='agent') with the type-based approach."""
     langfuse = Langfuse()
     api = get_api()
 
     trace_name = f"type_based_graph_test_{create_uuid()}"
 
-    @observe(type="GENERATION")
+    @observe(type="generation")
     def start_agent():
-        print("🔍 Executing start_agent function")
         time.sleep(0.1)
         return {"status": "started", "data": "initial_data"}
 
-    @observe(type="RETRIEVER")
+    @observe(type="retriever")
     def process_agent():
-        print("🔍 Executing process_agent function")
         time.sleep(0.1)
         return {"status": "processed", "data": "processed_data"}
 
-    @observe(type="TOOL")
+    @observe(type="tool")
     def tool_call():
-        print("🔍 Executing tool_call function")
         time.sleep(0.1)
         return {"status": "intermediate", "data": "intermediate_data"}
 
-    @observe(type="GENERATION")
+    @observe(type="generation")
     def end_agent():
-        print("🔍 Executing end_agent function")
         time.sleep(0.1)
         return {"status": "completed", "data": "final_data"}
 
     # Run the workflow within a trace context
     with langfuse.start_as_current_span(
-        name="agent_workflow", as_type="AGENT"
+        name="agent_workflow", as_type="agent"
     ) as root_span:
         langfuse.update_current_trace(name=trace_name)
 
@@ -78,7 +69,7 @@ def test_observe_type_agent_instrumentation():
     agent_observations = [
         obs
         for obs in all_observations
-        if obs.type in ["AGENT", "TOOL", "RETRIEVER", "CHAIN", "EMBEDDING"]
+        if obs.type in ["agent", "tool", "retriever", "chain", "embedding"]
     ]
 
     assert (
@@ -90,7 +81,8 @@ def test_observe_type_agent_instrumentation():
     #         f"{agent_obs.name} ({agent_obs.type}): {agent_obs.start_time} - {agent_obs.end_time}"
     #     )
 
-def test_observe_parallel_tool_execution():
+
+def test_observe_type_parallel_tool_execution():
     """Test parallel tool execution where an agent starts multiple tools simultaneously.
 
     Creates a graph structure:
@@ -102,34 +94,34 @@ def test_observe_parallel_tool_execution():
 
     trace_name = f"parallel_tools_test_{create_uuid()}"
 
-    @observe(type="AGENT")
+    @observe(type="agent")
     def start_agent():
         time.sleep(0.05)
         return {"status": "tools_initiated", "tool_count": 3}
 
-    @observe(type="TOOL")
+    @observe(type="tool")
     def search_tool():
         time.sleep(0.2)
         return {"tool": "search", "results": ["result1", "result2"]}
 
-    @observe(type="TOOL")
+    @observe(type="tool")
     def calculation_tool():
         time.sleep(0.15)
         return {"tool": "calc", "result": 42}
 
-    @observe(type="TOOL")
+    @observe(type="tool")
     def api_tool():
         time.sleep(0.1)
         return {"tool": "api", "data": {"status": "success"}}
 
-    @observe(type="AGENT")
+    @observe(type="agent")
     def end_agent():
         time.sleep(0.05)
         return {"status": "completed", "summary": "all_tools_processed"}
 
     # Execute the parallel workflow
     with langfuse.start_as_current_span(
-        name="parallel_workflow", as_type="SPAN"
+        name="parallel_workflow", as_type="span"
     ) as root_span:
         langfuse.update_current_trace(name=trace_name)
         start_result = start_agent()
@@ -175,8 +167,12 @@ def test_observe_parallel_tool_execution():
     all_observations = trace_details.observations
 
     graph_observations = [
-        obs for obs in all_observations if obs.type in ["AGENT", "TOOL"]
+        obs
+        for obs in all_observations
+        if obs.type in ["agent", "tool", "AGENT", "TOOL"]
     ]
+    print(all_observations)
+    print(graph_observations)
 
     # Should have: start_agent (1) + 3 tools (3) + end_agent (1) = 5 total
     expected_count = 5
@@ -187,12 +183,17 @@ def test_observe_parallel_tool_execution():
     # for obs in sorted(graph_observations, key=lambda x: x.start_time):
     #     print(f"   {obs.name} ({obs.type}): {obs.start_time} - {obs.end_time}")
 
-    agent_observations = [obs for obs in graph_observations if obs.type == "AGENT"]
-    tool_observations = [obs for obs in graph_observations if obs.type == "TOOL"]
+    agent_observations = [obs for obs in graph_observations if obs.type == "agent"]
+    tool_observations = [obs for obs in graph_observations if obs.type == "tool"]
 
     assert (
         len(agent_observations) == 2
-    ), f"Expected 2 AGENT observations, got {len(agent_observations)}"
+    ), f"Expected 2 agent observations, got {len(agent_observations)}"
     assert (
         len(tool_observations) == 3
-    ), f"Expected 3 TOOL observations, got {len(tool_observations)}"
+    ), f"Expected 3 tool observations, got {len(tool_observations)}"
+
+
+if __name__ == "__main__":
+    test_observe_type_agent_instrumentation()
+    test_observe_type_parallel_tool_execution()
