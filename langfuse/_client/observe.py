@@ -409,77 +409,80 @@ class LangfuseDecorator:
                 else None
             )
             public_key = kwargs.pop("langfuse_public_key", None)
-            langfuse_client = get_client(public_key=public_key)
 
-            # Use consolidated as_type parameter
-            final_obs_type = as_type
+            # Set public key in execution context for nested decorated functions
+            with _set_current_public_key(public_key):
+                langfuse_client = get_client(public_key=public_key)
 
-            context_manager: Optional[
-                Union[
-                    _AgnosticContextManager[LangfuseGeneration],
-                    _AgnosticContextManager[LangfuseSpan],
-                ]
-            ] = (
-                (
-                    langfuse_client.start_as_current_generation(
-                        name=final_name,
-                        trace_context=trace_context,
-                        input=input,
-                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                # Use consolidated as_type parameter
+                final_obs_type = as_type
+
+                context_manager: Optional[
+                    Union[
+                        _AgnosticContextManager[LangfuseGeneration],
+                        _AgnosticContextManager[LangfuseSpan],
+                    ]
+                ] = (
+                    (
+                        langfuse_client.start_as_current_generation(
+                            name=final_name,
+                            trace_context=trace_context,
+                            input=input,
+                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        )
+                        if final_obs_type in ("generation", "GENERATION")
+                        else langfuse_client.start_as_current_span(
+                            name=final_name,
+                            trace_context=trace_context,
+                            input=input,
+                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                            as_type=final_obs_type,
+                        )
                     )
-                    if final_obs_type in ("generation", "GENERATION")
-                    else langfuse_client.start_as_current_span(
-                        name=final_name,
-                        trace_context=trace_context,
-                        input=input,
-                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                        as_type=final_obs_type,
-                    )
+                    if langfuse_client
+                    else None
                 )
-                if langfuse_client
-                else None
-            )
 
-            if context_manager is None:
-                return func(*args, **kwargs)
+                if context_manager is None:
+                    return func(*args, **kwargs)
 
-            with context_manager as langfuse_span_or_generation:
-                is_return_type_generator = False
+                with context_manager as langfuse_span_or_generation:
+                    is_return_type_generator = False
 
-                try:
-                    result = func(*args, **kwargs)
+                    try:
+                        result = func(*args, **kwargs)
 
-                    if capture_output is True:
-                        if inspect.isgenerator(result):
-                            is_return_type_generator = True
+                        if capture_output is True:
+                            if inspect.isgenerator(result):
+                                is_return_type_generator = True
 
-                            return self._wrap_sync_generator_result(
-                                langfuse_span_or_generation,
-                                result,
-                                transform_to_string,
-                            )
+                                return self._wrap_sync_generator_result(
+                                    langfuse_span_or_generation,
+                                    result,
+                                    transform_to_string,
+                                )
 
-                        if inspect.isasyncgen(result):
-                            is_return_type_generator = True
+                            if inspect.isasyncgen(result):
+                                is_return_type_generator = True
 
-                            return self._wrap_async_generator_result(
-                                langfuse_span_or_generation,
-                                result,
-                                transform_to_string,
-                            )
+                                return self._wrap_async_generator_result(
+                                    langfuse_span_or_generation,
+                                    result,
+                                    transform_to_string,
+                                )
 
-                        langfuse_span_or_generation.update(output=result)
+                            langfuse_span_or_generation.update(output=result)
 
-                    return result
-                except Exception as e:
-                    langfuse_span_or_generation.update(
-                        level="ERROR", status_message=str(e)
-                    )
+                        return result
+                    except Exception as e:
+                        langfuse_span_or_generation.update(
+                            level="ERROR", status_message=str(e)
+                        )
 
-                    raise e
-                finally:
-                    if not is_return_type_generator:
-                        langfuse_span_or_generation.end()
+                        raise e
+                    finally:
+                        if not is_return_type_generator:
+                            langfuse_span_or_generation.end()
 
         return cast(F, sync_wrapper)
 
