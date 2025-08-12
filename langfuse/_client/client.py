@@ -221,6 +221,11 @@ class Langfuse:
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
 
+        if os.environ.get("OTEL_SDK_DISABLED", "false").lower() == "true":
+            langfuse_logger.warning(
+                "OTEL_SDK_DISABLED is set. Langfuse tracing will be disabled and no traces will appear in the UI."
+            )
+
         # Initialize api and tracer if requirements are met
         self._resources = LangfuseResourceManager(
             public_key=public_key,
