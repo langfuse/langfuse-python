@@ -355,7 +355,7 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-        as_type: Optional[Literal["generation", "span", "event", "agent", "tool", "chain", "retriever"]] = None,
+        as_type: Optional[Literal["generation", "span", "GENERATION", "EVENT", "SPAN", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"]],
     ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
