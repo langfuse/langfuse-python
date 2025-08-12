@@ -23,7 +23,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from inspect import isclass
-from typing import Optional, cast, Any
+from typing import Any, Optional, cast
 
 from openai._types import NotGiven
 from packaging.version import Version
@@ -157,6 +157,22 @@ OPENAI_METHODS_V1 = [
         module="openai.resources.responses",
         object="AsyncResponses",
         method="create",
+        type="chat",
+        sync=False,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="Responses",
+        method="parse",
+        type="chat",
+        sync=True,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="AsyncResponses",
+        method="parse",
         type="chat",
         sync=False,
         min_version="1.66.0",
@@ -570,7 +586,10 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         )
                         curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
 
-                elif delta.get("tool_calls", None) is not None and len(delta.get("tool_calls")) > 0:
+                elif (
+                    delta.get("tool_calls", None) is not None
+                    and len(delta.get("tool_calls")) > 0
+                ):
                     curr = completion["tool_calls"]
                     tool_call_chunk = getattr(
                         delta.get("tool_calls", None)[0], "function", None
