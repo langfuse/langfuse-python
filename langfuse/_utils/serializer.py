@@ -28,7 +28,7 @@ except ImportError:
 
 # Attempt to import numpy
 try:
-    import numpy as np
+    import numpy as np  # type: ignore[import-not-found]
 except ImportError:
     np = None  # type: ignore
 

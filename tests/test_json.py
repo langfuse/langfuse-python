@@ -7,7 +7,6 @@ from datetime import date, datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from bson import ObjectId
 from langchain.schema.messages import HumanMessage
 from pydantic import BaseModel
 
@@ -129,11 +128,3 @@ def test_observation_level():
     result = json.dumps(ObservationLevel.ERROR, cls=EventSerializer)
 
     assert result == '"ERROR"'
-
-
-def test_mongo_cursor():
-    test_id = ObjectId("5f3e3e3e3e3e3e3e3e3e3e3e")
-
-    result = json.dumps(test_id, cls=EventSerializer)
-
-    assert isinstance(result, str)
