@@ -240,7 +240,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
         Otherwise it would have been traced in with a parent run consisting of the prompt template formatting and the LLM invocation.
         """
-        if not parent_run_id:
+        if not parent_run_id or not run_id:
             return
 
         langfuse_prompt = metadata and metadata.get("langfuse_prompt", None)
@@ -255,7 +255,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self.prompt_to_parent_run_map[run_id] = registered_prompt
 
     def _deregister_langfuse_prompt(self, run_id: Optional[UUID]) -> None:
-        if run_id in self.prompt_to_parent_run_map:
+        if run_id is not None and run_id in self.prompt_to_parent_run_map:
             del self.prompt_to_parent_run_map[run_id]
 
     def on_agent_action(
@@ -610,7 +610,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
-                "metadata": self.__join_tags_and_metadata(tags, metadata),
+                "metadata": self.__join_tags_and_metadata(
+                    tags,
+                    metadata,
+                    # If llm is run isolated and outside chain, keep trace attributes
+                    keep_langfuse_trace_attributes=True
+                    if parent_run_id is None
+                    else False,
+                ),
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
                 "prompt": registered_prompt,
@@ -763,16 +770,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self,
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        trace_metadata: Optional[Dict[str, Any]] = None,
+        keep_langfuse_trace_attributes: bool = False,
     ) -> Optional[Dict[str, Any]]:
         final_dict = {}
         if tags is not None and len(tags) > 0:
             final_dict["tags"] = tags
         if metadata is not None:
             final_dict.update(metadata)
-        if trace_metadata is not None:
-            final_dict.update(trace_metadata)
-        return _strip_langfuse_keys_from_dict(final_dict) if final_dict != {} else None
+
+        return (
+            _strip_langfuse_keys_from_dict(final_dict, keep_langfuse_trace_attributes)
+            if final_dict != {}
+            else None
+        )
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
@@ -1027,12 +1037,17 @@ def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]) -> Any:
     return metadata.get("ls_model_name", None)
 
 
-def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]) -> Any:
+def _strip_langfuse_keys_from_dict(
+    metadata: Optional[Dict[str, Any]], keep_langfuse_trace_attributes: bool
+) -> Any:
     if metadata is None or not isinstance(metadata, dict):
         return metadata
 
     langfuse_metadata_keys = [
         "langfuse_prompt",
+    ]
+
+    langfuse_trace_attribute_keys = [
         "langfuse_session_id",
         "langfuse_user_id",
         "langfuse_tags",
@@ -1042,5 +1057,9 @@ def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]) -> Any:
 
     for key in langfuse_metadata_keys:
         metadata_copy.pop(key, None)
+
+    if not keep_langfuse_trace_attributes:
+        for key in langfuse_trace_attribute_keys:
+            metadata_copy.pop(key, None)
 
     return metadata_copy
