@@ -432,7 +432,7 @@ class Langfuse:
         return cast(
             _AgnosticContextManager[LangfuseSpan],
             self._start_as_current_otel_span_with_processed_media(
-                as_type=as_type,
+                as_type="span",
                 name=name,
                 end_on_exit=end_on_exit,
                 input=input,
