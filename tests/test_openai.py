@@ -119,7 +119,7 @@ def test_openai_chat_completion_stream(openai):
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == "2"
+    assert generation.data[0].output == 2
     assert generation.data[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
@@ -179,7 +179,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
     assert generation.data[0].usage.input is not None
     assert generation.data[0].usage.output is not None
     assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == "2"
+    assert generation.data[0].output == 2
     assert generation.data[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
