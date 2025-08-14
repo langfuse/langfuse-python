@@ -152,7 +152,10 @@ def create_generation_attributes(
 
 
 def _serialize(obj: Any) -> Optional[str]:
-    return json.dumps(obj, cls=EventSerializer) if obj is not None else None
+    if obj is None or isinstance(obj, str):
+        return obj
+
+    return json.dumps(obj, cls=EventSerializer)
 
 
 def _flatten_and_serialize_metadata(
