@@ -31,7 +31,7 @@ pytest-httpserver = "^1.0.8"
 ruff = ">=0.1.8,<0.6.0"
 mypy = "^1.0.0"
 langchain-openai = ">=0.0.5,<0.3"
-langgraph = "^0.2.62"
+langgraph = ">=0.2.62,<0.7.0"
 
 [tool.poetry.group.docs.dependencies]
 pdoc = "^14.4.0"
