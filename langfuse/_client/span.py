@@ -41,6 +41,7 @@ from langfuse._client.attributes import (
     create_span_attributes,
     create_trace_attributes,
 )
+from langfuse._client.constants import ObservationTypeLiteral
 from langfuse.logger import langfuse_logger
 from langfuse.types import MapValue, ScoreDataType, SpanLevel
 
@@ -64,16 +65,7 @@ class LangfuseSpanWrapper:
         *,
         otel_span: otel_trace_api.Span,
         langfuse_client: "Langfuse",
-        as_type: Literal[
-            "span",
-            "generation",
-            "event",
-            "agent",
-            "tool",
-            "chain",
-            "retriever",
-            "embedding",
-        ],
+        as_type: ObservationTypeLiteral,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -393,7 +385,7 @@ class LangfuseSpanWrapper:
         self,
         *,
         span: otel_trace_api.Span,
-        as_type: Optional[Literal["span", "generation", "event"]] = None,
+        as_type: Optional[ObservationTypeLiteral] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -543,18 +535,6 @@ class LangfuseSpan(LangfuseSpanWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        as_type: Optional[
-            Literal[
-                "span",
-                "generation",
-                "event",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ] = None,
     ):
         """Initialize a new LangfuseSpan.
 
@@ -1261,6 +1241,7 @@ class LangfuseGraphObservation(LangfuseSpanWrapper):
         """
         super().__init__(
             otel_span=otel_span,
+            # TODO: decided attributes
             as_type="span",  # Use span-type attributes for all graph observations
             langfuse_client=langfuse_client,
             input=input,
@@ -1338,7 +1319,7 @@ class LangfuseAgent(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseAgent span."""
-        kwargs["observation_type"] = "agent"
+        kwargs["observation_type"] = "AGENT"
         super().__init__(**kwargs)
 
 
@@ -1347,7 +1328,7 @@ class LangfuseTool(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseTool span."""
-        kwargs["observation_type"] = "tool"
+        kwargs["observation_type"] = "TOOL"
         super().__init__(**kwargs)
 
 
@@ -1356,7 +1337,7 @@ class LangfuseChain(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseChain span."""
-        kwargs["observation_type"] = "chain"
+        kwargs["observation_type"] = "CHAIN"
         super().__init__(**kwargs)
 
 
@@ -1365,7 +1346,7 @@ class LangfuseRetriever(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseRetriever span."""
-        kwargs["observation_type"] = "retriever"
+        kwargs["observation_type"] = "RETRIEVER"
         super().__init__(**kwargs)
 
 

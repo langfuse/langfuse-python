@@ -25,9 +25,22 @@ from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
 )
 
-from langfuse._client.constants import VALID_OBSERVATION_TYPES, ObservationTypeLiteralNoEvent
+from langfuse._client.constants import (
+    VALID_OBSERVATION_TYPES,
+    ObservationTypeLiteralNoEvent,
+)
 from langfuse._client.get_client import _set_current_public_key, get_client
-from langfuse._client.span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.span import (
+    LangfuseGeneration,
+    LangfuseSpan,
+    LangfuseAgent,
+    LangfuseTool,
+    LangfuseChain,
+    LangfuseRetriever,
+    LangfuseEvaluator,
+    LangfuseEmbedding,
+    LangfuseGuardrail,
+)
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -177,7 +190,6 @@ class LangfuseDecorator:
         )
 
         def decorator(func: F) -> F:
-
             return (
                 self._async_observe(
                     func,
@@ -255,25 +267,23 @@ class LangfuseDecorator:
 
                 context_manager: Optional[
                     Union[
-                        _AgnosticContextManager[LangfuseGeneration],
                         _AgnosticContextManager[LangfuseSpan],
+                        _AgnosticContextManager[LangfuseGeneration],
+                        _AgnosticContextManager[LangfuseAgent],
+                        _AgnosticContextManager[LangfuseTool],
+                        _AgnosticContextManager[LangfuseChain],
+                        _AgnosticContextManager[LangfuseRetriever],
+                        _AgnosticContextManager[LangfuseEvaluator],
+                        _AgnosticContextManager[LangfuseEmbedding],
+                        _AgnosticContextManager[LangfuseGuardrail],
                     ]
                 ] = (
-                    (
-                        langfuse_client.start_as_current_generation(
-                            name=final_name,
-                            trace_context=trace_context,
-                            input=input,
-                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                        )
-                        if as_type == "generation"
-                        else langfuse_client.start_as_current_span(
-                            name=final_name,
-                            trace_context=trace_context,
-                            input=input,
-                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                            as_type=as_type,
-                        )
+                    langfuse_client.start_as_current_observation(
+                        name=final_name,
+                        as_type=as_type,
+                        trace_context=trace_context,
+                        input=input,
+                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
                     if langfuse_client
                     else None
@@ -362,25 +372,23 @@ class LangfuseDecorator:
 
                 context_manager: Optional[
                     Union[
-                        _AgnosticContextManager[LangfuseGeneration],
                         _AgnosticContextManager[LangfuseSpan],
+                        _AgnosticContextManager[LangfuseGeneration],
+                        _AgnosticContextManager[LangfuseAgent],
+                        _AgnosticContextManager[LangfuseTool],
+                        _AgnosticContextManager[LangfuseChain],
+                        _AgnosticContextManager[LangfuseRetriever],
+                        _AgnosticContextManager[LangfuseEvaluator],
+                        _AgnosticContextManager[LangfuseEmbedding],
+                        _AgnosticContextManager[LangfuseGuardrail],
                     ]
                 ] = (
-                    (
-                        langfuse_client.start_as_current_generation(
-                            name=final_name,
-                            trace_context=trace_context,
-                            input=input,
-                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                        )
-                        if as_type == "generation"
-                        else langfuse_client.start_as_current_span(
-                            name=final_name,
-                            trace_context=trace_context,
-                            input=input,
-                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
-                            as_type=as_type,
-                        )
+                    langfuse_client.start_as_current_observation(
+                        name=final_name,
+                        as_type=as_type,
+                        trace_context=trace_context,
+                        input=input,
+                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
                     )
                     if langfuse_client
                     else None
