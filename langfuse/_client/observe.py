@@ -10,6 +10,7 @@ from typing import (
     Dict,
     Generator,
     Iterable,
+    Literal,
     Optional,
     Tuple,
     TypeVar,
@@ -24,23 +25,8 @@ from typing_extensions import ParamSpec
 from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
 )
-
-from langfuse._client.constants import (
-    VALID_OBSERVATION_TYPES,
-    ObservationTypeLiteralNoEvent,
-)
 from langfuse._client.get_client import _set_current_public_key, get_client
-from langfuse._client.span import (
-    LangfuseGeneration,
-    LangfuseSpan,
-    LangfuseAgent,
-    LangfuseTool,
-    LangfuseChain,
-    LangfuseRetriever,
-    LangfuseEvaluator,
-    LangfuseEmbedding,
-    LangfuseGuardrail,
-)
+from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -79,7 +65,7 @@ class LangfuseDecorator:
         func: None = None,
         *,
         name: Optional[str] = None,
-        as_type: Optional[ObservationTypeLiteralNoEvent] = None,
+        as_type: Optional[Literal["generation"]] = None,
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -90,7 +76,7 @@ class LangfuseDecorator:
         func: Optional[F] = None,
         *,
         name: Optional[str] = None,
-        as_type: Optional[ObservationTypeLiteralNoEvent] = None,
+        as_type: Optional[Literal["generation"]] = None,
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -107,10 +93,8 @@ class LangfuseDecorator:
         Args:
             func (Optional[Callable]): The function to decorate. When used with parentheses @observe(), this will be None.
             name (Optional[str]): Custom name for the created trace or span. If not provided, the function name is used.
-            as_type (Optional[Literal]): Set the observation type. Supported values:
-                    "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
-                    When set to "generation", creates a specialized LLM generation span with model metrics support.
-                    Other types create spans with the specified type for graph visualization and filtering in the Langfuse UI.
+            as_type (Optional[Literal["generation"]]): Set to "generation" to create a specialized LLM generation span
+                    with model metrics support, suitable for tracking language model outputs.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -134,13 +118,6 @@ class LangfuseDecorator:
                     messages=[{"role": "user", "content": query}]
                 )
                 return response.choices[0].message.content
-            ```
-
-            For automatic graph instrumentation with agent workflows:
-            ```python
-            @observe(as_type="agent")
-            def planning_agent():
-                return create_plan()
             ```
 
             For trace context propagation between functions:
@@ -169,12 +146,6 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        if as_type is not None and as_type not in VALID_OBSERVATION_TYPES:
-            self._log.warning(
-                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}. Defaulting to 'span'."
-            )
-            as_type = "span"
-
         function_io_capture_enabled = os.environ.get(
             LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True"
         ).lower() not in ("false", "0")
@@ -211,13 +182,13 @@ class LangfuseDecorator:
             )
 
         """Handle decorator with or without parentheses.
-
+        
         This logic enables the decorator to work both with and without parentheses:
         - @observe - Python passes the function directly to the decorator
         - @observe() - Python calls the decorator first, which must return a function decorator
-
+        
         When called without arguments (@observe), the func parameter contains the function to decorate,
-        so we directly apply the decorator to it. When called with parentheses (@observe()),
+        so we directly apply the decorator to it. When called with parentheses (@observe()), 
         func is None, so we return the decorator function itself for Python to apply in the next step.
         """
         if func is None:
@@ -230,7 +201,7 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[ObservationTypeLiteralNoEvent],
+        as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -264,26 +235,26 @@ class LangfuseDecorator:
             # Set public key in execution context for nested decorated functions
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
-
                 context_manager: Optional[
                     Union[
-                        _AgnosticContextManager[LangfuseSpan],
                         _AgnosticContextManager[LangfuseGeneration],
-                        _AgnosticContextManager[LangfuseAgent],
-                        _AgnosticContextManager[LangfuseTool],
-                        _AgnosticContextManager[LangfuseChain],
-                        _AgnosticContextManager[LangfuseRetriever],
-                        _AgnosticContextManager[LangfuseEvaluator],
-                        _AgnosticContextManager[LangfuseEmbedding],
-                        _AgnosticContextManager[LangfuseGuardrail],
+                        _AgnosticContextManager[LangfuseSpan],
                     ]
                 ] = (
-                    langfuse_client.start_as_current_observation(
-                        name=final_name,
-                        as_type=as_type or "span",
-                        trace_context=trace_context,
-                        input=input,
-                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                    (
+                        langfuse_client.start_as_current_generation(
+                            name=final_name,
+                            trace_context=trace_context,
+                            input=input,
+                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        )
+                        if as_type == "generation"
+                        else langfuse_client.start_as_current_span(
+                            name=final_name,
+                            trace_context=trace_context,
+                            input=input,
+                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        )
                     )
                     if langfuse_client
                     else None
@@ -337,7 +308,7 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[ObservationTypeLiteralNoEvent],
+        as_type: Optional[Literal["generation"]],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -369,26 +340,26 @@ class LangfuseDecorator:
             # Set public key in execution context for nested decorated functions
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
-
                 context_manager: Optional[
                     Union[
-                        _AgnosticContextManager[LangfuseSpan],
                         _AgnosticContextManager[LangfuseGeneration],
-                        _AgnosticContextManager[LangfuseAgent],
-                        _AgnosticContextManager[LangfuseTool],
-                        _AgnosticContextManager[LangfuseChain],
-                        _AgnosticContextManager[LangfuseRetriever],
-                        _AgnosticContextManager[LangfuseEvaluator],
-                        _AgnosticContextManager[LangfuseEmbedding],
-                        _AgnosticContextManager[LangfuseGuardrail],
+                        _AgnosticContextManager[LangfuseSpan],
                     ]
                 ] = (
-                    langfuse_client.start_as_current_observation(
-                        name=final_name,
-                        as_type=as_type or "span",
-                        trace_context=trace_context,
-                        input=input,
-                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                    (
+                        langfuse_client.start_as_current_generation(
+                            name=final_name,
+                            trace_context=trace_context,
+                            input=input,
+                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        )
+                        if as_type == "generation"
+                        else langfuse_client.start_as_current_span(
+                            name=final_name,
+                            trace_context=trace_context,
+                            input=input,
+                            end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        )
                     )
                     if langfuse_client
                     else None
@@ -461,17 +432,7 @@ class LangfuseDecorator:
 
     def _wrap_sync_generator_result(
         self,
-        langfuse_span_or_generation: Union[
-            LangfuseSpan,
-            LangfuseGeneration,
-            LangfuseAgent,
-            LangfuseTool,
-            LangfuseChain,
-            LangfuseRetriever,
-            LangfuseEvaluator,
-            LangfuseEmbedding,
-            LangfuseGuardrail,
-        ],
+        langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
         generator: Generator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
@@ -497,17 +458,7 @@ class LangfuseDecorator:
 
     async def _wrap_async_generator_result(
         self,
-        langfuse_span_or_generation: Union[
-            LangfuseSpan,
-            LangfuseGeneration,
-            LangfuseAgent,
-            LangfuseTool,
-            LangfuseChain,
-            LangfuseRetriever,
-            LangfuseEvaluator,
-            LangfuseEmbedding,
-            LangfuseGuardrail,
-        ],
+        langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
         generator: AsyncGenerator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> AsyncGenerator:
