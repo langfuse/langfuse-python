@@ -1319,7 +1319,7 @@ class LangfuseAgent(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseAgent span."""
-        kwargs["observation_type"] = "AGENT"
+        kwargs["observation_type"] = "agent"
         super().__init__(**kwargs)
 
 
@@ -1328,7 +1328,7 @@ class LangfuseTool(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseTool span."""
-        kwargs["observation_type"] = "TOOL"
+        kwargs["observation_type"] = "tool"
         super().__init__(**kwargs)
 
 
@@ -1337,7 +1337,7 @@ class LangfuseChain(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseChain span."""
-        kwargs["observation_type"] = "CHAIN"
+        kwargs["observation_type"] = "chain"
         super().__init__(**kwargs)
 
 
@@ -1346,7 +1346,7 @@ class LangfuseRetriever(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseRetriever span."""
-        kwargs["observation_type"] = "RETRIEVER"
+        kwargs["observation_type"] = "retriever"
         super().__init__(**kwargs)
 
 
@@ -1355,7 +1355,7 @@ class LangfuseEmbedding(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEmbedding span."""
-        kwargs["observation_type"] = "EMBEDDING"
+        kwargs["observation_type"] = "embedding"
         super().__init__(**kwargs)
 
 
@@ -1364,7 +1364,7 @@ class LangfuseEvaluator(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEvaluator span."""
-        kwargs["observation_type"] = "EVALUATOR"
+        kwargs["observation_type"] = "evaluator"
         super().__init__(**kwargs)
 
 
@@ -1373,5 +1373,5 @@ class LangfuseGuardrail(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseGuardrail span."""
-        kwargs["observation_type"] = "GUARDRAIL"
+        kwargs["observation_type"] = "guardrail"
         super().__init__(**kwargs)
