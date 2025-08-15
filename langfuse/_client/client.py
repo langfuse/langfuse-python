@@ -848,22 +848,22 @@ class Langfuse:
 
         if as_type == "generation":
             return self.start_as_current_generation(
-                    trace_context=trace_context,
-                    name=name,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    version=version,
-                    level=level,
-                    status_message=status_message,
-                    completion_start_time=completion_start_time,
-                    model=model,
-                    model_parameters=model_parameters,
-                    usage_details=usage_details,
-                    cost_details=cost_details,
-                    prompt=prompt,
-                    end_on_exit=end_on_exit,
-                )
+                trace_context=trace_context,
+                name=name,
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+                completion_start_time=completion_start_time,
+                model=model,
+                model_parameters=model_parameters,
+                usage_details=usage_details,
+                cost_details=cost_details,
+                prompt=prompt,
+                end_on_exit=end_on_exit,
+            )
 
         if trace_context:
             trace_id = trace_context.get("trace_id", None)

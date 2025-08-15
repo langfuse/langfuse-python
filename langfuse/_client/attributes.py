@@ -93,10 +93,10 @@ def create_span_attributes(
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
-    observation_type: Optional[str] = None,
+    observation_type: Optional[Literal["span", "guardrail"]] = "span",
 ) -> dict:
     attributes = {
-        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type or "span",
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
         LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
         LangfuseOtelSpanAttributes.VERSION: version,
@@ -123,9 +123,20 @@ def create_generation_attributes(
     usage_details: Optional[Dict[str, int]] = None,
     cost_details: Optional[Dict[str, float]] = None,
     prompt: Optional[PromptClient] = None,
+    observation_type: Optional[
+        Literal[
+            "generation",
+            "agent",
+            "tool",
+            "chain",
+            "retriever",
+            "evaluator",
+            "embedding",
+        ]
+    ] = "generation",
 ) -> dict:
     attributes = {
-        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "generation",
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
         LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
         LangfuseOtelSpanAttributes.VERSION: version,
