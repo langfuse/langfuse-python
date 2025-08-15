@@ -27,21 +27,6 @@ class ObservationType(str, enum.Enum):
     EVALUATOR = "EVALUATOR"
     GUARDRAIL = "GUARDRAIL"
 
-
-# Valid observation types for the @observe decorator (lowercase user interface)
-VALID_OBSERVATION_TYPES = {
-    "span",
-    "event",
-    "generation",
-    "agent",
-    "tool",
-    "chain",
-    "retriever",
-    "evaluator",
-    "embedding",
-    "guardrail",
-}
-
 ObservationTypeLiteralNoEvent: TypeAlias = Literal[
     "span",
     "generation",
