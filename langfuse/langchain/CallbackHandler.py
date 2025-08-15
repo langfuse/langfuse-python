@@ -875,22 +875,41 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
     usage_model = cast(Dict, usage.copy())  # Copy all existing key-value pairs
 
     # Skip OpenAI usage types as they are handled server side
-    if not all(
-        openai_key in usage_model
-        for openai_key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+    if (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                "prompt_tokens_details",
+                "completion_tokens_details",
+            ]
+        )
+        and len(usage_model.keys()) == 5
+    ) or (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+            ]
+        )
+        and len(usage_model.keys()) == 3
     ):
-        for model_key, langfuse_key in conversion_list:
-            if model_key in usage_model:
-                captured_count = usage_model.pop(model_key)
-                final_count = (
-                    sum(captured_count)
-                    if isinstance(captured_count, list)
-                    else captured_count
-                )  # For Bedrock, the token count is a list when streamed
+        return usage_model
 
-                usage_model[langfuse_key] = (
-                    final_count  # Translate key and keep the value
-                )
+    for model_key, langfuse_key in conversion_list:
+        if model_key in usage_model:
+            captured_count = usage_model.pop(model_key)
+            final_count = (
+                sum(captured_count)
+                if isinstance(captured_count, list)
+                else captured_count
+            )  # For Bedrock, the token count is a list when streamed
+
+            usage_model[langfuse_key] = final_count  # Translate key and keep the value
 
     if isinstance(usage_model, dict):
         if "input_token_details" in usage_model:
@@ -965,7 +984,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
                     if "input" in usage_model:
                         usage_model["input"] = max(0, usage_model["input"] - value)
 
-    usage_model = {k: v for k, v in usage_model.items() if not isinstance(v, str)}
+    usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
 
