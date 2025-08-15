@@ -266,18 +266,16 @@ class LangfuseDecorator:
                 langfuse_client = get_client(public_key=public_key)
 
                 context_manager: Optional[
-                    _AgnosticContextManager[
-                        Union[
-                            LangfuseSpan,
-                            LangfuseGeneration,
-                            LangfuseAgent,
-                            LangfuseTool,
-                            LangfuseChain,
-                            LangfuseRetriever,
-                            LangfuseEvaluator,
-                            LangfuseEmbedding,
-                            LangfuseGuardrail,
-                        ]
+                    Union[
+                        _AgnosticContextManager[LangfuseGeneration],
+                        _AgnosticContextManager[LangfuseSpan],
+                        _AgnosticContextManager[LangfuseAgent],
+                        _AgnosticContextManager[LangfuseTool],
+                        _AgnosticContextManager[LangfuseChain],
+                        _AgnosticContextManager[LangfuseRetriever],
+                        _AgnosticContextManager[LangfuseEvaluator],
+                        _AgnosticContextManager[LangfuseEmbedding],
+                        _AgnosticContextManager[LangfuseGuardrail],
                     ]
                 ] = (
                     langfuse_client.start_as_current_observation(
@@ -373,18 +371,16 @@ class LangfuseDecorator:
                 langfuse_client = get_client(public_key=public_key)
 
                 context_manager: Optional[
-                    _AgnosticContextManager[
-                        Union[
-                            LangfuseSpan,
-                            LangfuseGeneration,
-                            LangfuseAgent,
-                            LangfuseTool,
-                            LangfuseChain,
-                            LangfuseRetriever,
-                            LangfuseEvaluator,
-                            LangfuseEmbedding,
-                            LangfuseGuardrail,
-                        ]
+                    Union[
+                        _AgnosticContextManager[LangfuseGeneration],
+                        _AgnosticContextManager[LangfuseSpan],
+                        _AgnosticContextManager[LangfuseAgent],
+                        _AgnosticContextManager[LangfuseTool],
+                        _AgnosticContextManager[LangfuseChain],
+                        _AgnosticContextManager[LangfuseRetriever],
+                        _AgnosticContextManager[LangfuseEvaluator],
+                        _AgnosticContextManager[LangfuseEmbedding],
+                        _AgnosticContextManager[LangfuseGuardrail],
                     ]
                 ] = (
                     langfuse_client.start_as_current_observation(

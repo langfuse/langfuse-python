@@ -731,16 +731,14 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[
-        Union[
-            LangfuseAgent,
-            LangfuseTool,
-            LangfuseChain,
-            LangfuseRetriever,
-            LangfuseEvaluator,
-            LangfuseEmbedding,
-            LangfuseGuardrail,
-        ]
+    ) -> Union[
+        _AgnosticContextManager[LangfuseAgent],
+        _AgnosticContextManager[LangfuseTool],
+        _AgnosticContextManager[LangfuseChain],
+        _AgnosticContextManager[LangfuseRetriever],
+        _AgnosticContextManager[LangfuseEvaluator],
+        _AgnosticContextManager[LangfuseEmbedding],
+        _AgnosticContextManager[LangfuseGuardrail],
     ]: ...
 
     def start_as_current_observation(
@@ -762,18 +760,16 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[
-        Union[
-            LangfuseSpan,
-            LangfuseGeneration,
-            LangfuseAgent,
-            LangfuseTool,
-            LangfuseChain,
-            LangfuseRetriever,
-            LangfuseEvaluator,
-            LangfuseEmbedding,
-            LangfuseGuardrail,
-        ]
+    ) -> Union[
+        _AgnosticContextManager[LangfuseGeneration],
+        _AgnosticContextManager[LangfuseSpan],
+        _AgnosticContextManager[LangfuseAgent],
+        _AgnosticContextManager[LangfuseTool],
+        _AgnosticContextManager[LangfuseChain],
+        _AgnosticContextManager[LangfuseRetriever],
+        _AgnosticContextManager[LangfuseEvaluator],
+        _AgnosticContextManager[LangfuseEmbedding],
+        _AgnosticContextManager[LangfuseGuardrail],
     ]:
         """Create a new observation and set it as the current span in a context manager.
 
@@ -834,18 +830,16 @@ class Langfuse:
         # Delegate to existing methods for consistency
         if as_type == "span":
             return cast(
-                _AgnosticContextManager[
-                    Union[
-                        LangfuseSpan,
-                        LangfuseGeneration,
-                        LangfuseAgent,
-                        LangfuseTool,
-                        LangfuseChain,
-                        LangfuseRetriever,
-                        LangfuseEvaluator,
-                        LangfuseEmbedding,
-                        LangfuseGuardrail,
-                    ]
+                Union[
+                    _AgnosticContextManager[LangfuseGeneration],
+                    _AgnosticContextManager[LangfuseSpan],
+                    _AgnosticContextManager[LangfuseAgent],
+                    _AgnosticContextManager[LangfuseTool],
+                    _AgnosticContextManager[LangfuseChain],
+                    _AgnosticContextManager[LangfuseRetriever],
+                    _AgnosticContextManager[LangfuseEvaluator],
+                    _AgnosticContextManager[LangfuseEmbedding],
+                    _AgnosticContextManager[LangfuseGuardrail],
                 ],
                 self.start_as_current_span(
                     trace_context=trace_context,
@@ -862,18 +856,16 @@ class Langfuse:
 
         if as_type == "generation":
             return cast(
-                _AgnosticContextManager[
-                    Union[
-                        LangfuseSpan,
-                        LangfuseGeneration,
-                        LangfuseAgent,
-                        LangfuseTool,
-                        LangfuseChain,
-                        LangfuseRetriever,
-                        LangfuseEvaluator,
-                        LangfuseEmbedding,
-                        LangfuseGuardrail,
-                    ]
+                Union[
+                    _AgnosticContextManager[LangfuseGeneration],
+                    _AgnosticContextManager[LangfuseSpan],
+                    _AgnosticContextManager[LangfuseAgent],
+                    _AgnosticContextManager[LangfuseTool],
+                    _AgnosticContextManager[LangfuseChain],
+                    _AgnosticContextManager[LangfuseRetriever],
+                    _AgnosticContextManager[LangfuseEvaluator],
+                    _AgnosticContextManager[LangfuseEmbedding],
+                    _AgnosticContextManager[LangfuseGuardrail],
                 ],
                 self.start_as_current_generation(
                     trace_context=trace_context,
@@ -904,18 +896,16 @@ class Langfuse:
                 )
 
                 return cast(
-                    _AgnosticContextManager[
-                        Union[
-                            LangfuseSpan,
-                            LangfuseGeneration,
-                            LangfuseAgent,
-                            LangfuseTool,
-                            LangfuseChain,
-                            LangfuseRetriever,
-                            LangfuseEvaluator,
-                            LangfuseEmbedding,
-                            LangfuseGuardrail,
-                        ]
+                    Union[
+                        _AgnosticContextManager[LangfuseGeneration],
+                        _AgnosticContextManager[LangfuseSpan],
+                        _AgnosticContextManager[LangfuseAgent],
+                        _AgnosticContextManager[LangfuseTool],
+                        _AgnosticContextManager[LangfuseChain],
+                        _AgnosticContextManager[LangfuseRetriever],
+                        _AgnosticContextManager[LangfuseEvaluator],
+                        _AgnosticContextManager[LangfuseEmbedding],
+                        _AgnosticContextManager[LangfuseGuardrail],
                     ],
                     self._create_span_with_parent_context(
                         as_type=as_type,
@@ -939,18 +929,16 @@ class Langfuse:
                 )
 
         return cast(
-            _AgnosticContextManager[
-                Union[
-                    LangfuseSpan,
-                    LangfuseGeneration,
-                    LangfuseAgent,
-                    LangfuseTool,
-                    LangfuseChain,
-                    LangfuseRetriever,
-                    LangfuseEvaluator,
-                    LangfuseEmbedding,
-                    LangfuseGuardrail,
-                ]
+            Union[
+                _AgnosticContextManager[LangfuseGeneration],
+                _AgnosticContextManager[LangfuseSpan],
+                _AgnosticContextManager[LangfuseAgent],
+                _AgnosticContextManager[LangfuseTool],
+                _AgnosticContextManager[LangfuseChain],
+                _AgnosticContextManager[LangfuseRetriever],
+                _AgnosticContextManager[LangfuseEvaluator],
+                _AgnosticContextManager[LangfuseEmbedding],
+                _AgnosticContextManager[LangfuseGuardrail],
             ],
             self._start_as_current_otel_span_with_processed_media(
                 as_type=as_type,
