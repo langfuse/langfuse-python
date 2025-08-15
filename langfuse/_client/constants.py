@@ -27,6 +27,7 @@ class ObservationType(str, enum.Enum):
     EVALUATOR = "EVALUATOR"
     GUARDRAIL = "GUARDRAIL"
 
+
 ObservationTypeLiteralNoEvent: TypeAlias = Literal[
     "span",
     "generation",
