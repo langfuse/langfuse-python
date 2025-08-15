@@ -2,10 +2,14 @@
 
 from .types import (
     AnnotationQueue,
+    AnnotationQueueAssignmentRequest,
     AnnotationQueueItem,
     AnnotationQueueObjectType,
     AnnotationQueueStatus,
+    CreateAnnotationQueueAssignmentResponse,
     CreateAnnotationQueueItemRequest,
+    CreateAnnotationQueueRequest,
+    DeleteAnnotationQueueAssignmentResponse,
     DeleteAnnotationQueueItemResponse,
     PaginatedAnnotationQueueItems,
     PaginatedAnnotationQueues,
@@ -14,10 +18,14 @@ from .types import (
 
 __all__ = [
     "AnnotationQueue",
+    "AnnotationQueueAssignmentRequest",
     "AnnotationQueueItem",
     "AnnotationQueueObjectType",
     "AnnotationQueueStatus",
+    "CreateAnnotationQueueAssignmentResponse",
     "CreateAnnotationQueueItemRequest",
+    "CreateAnnotationQueueRequest",
+    "DeleteAnnotationQueueAssignmentResponse",
     "DeleteAnnotationQueueItemResponse",
     "PaginatedAnnotationQueueItems",
     "PaginatedAnnotationQueues",

@@ -81,6 +81,85 @@ client.annotation_queues.list_queues()
 </dl>
 </details>
 
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">create_queue</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create an annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import CreateAnnotationQueueRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.create_queue(
+    request=CreateAnnotationQueueRequest(
+        name="name",
+        score_config_ids=["scoreConfigIds", "scoreConfigIds"],
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `CreateAnnotationQueueRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">get_queue</a>(...)</code></summary>
 <dl>
 <dd>
@@ -586,6 +665,180 @@ client.annotation_queues.delete_queue_item(
 <dd>
 
 **item_id:** `str` — The unique identifier of the annotation queue item
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">create_queue_assignment</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create an assignment for a user to an annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import AnnotationQueueAssignmentRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.create_queue_assignment(
+    queue_id="queueId",
+    request=AnnotationQueueAssignmentRequest(
+        user_id="userId",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `AnnotationQueueAssignmentRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.annotation_queues.<a href="src/langfuse/resources/annotation_queues/client.py">delete_queue_assignment</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete an assignment for a user to an annotation queue
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import AnnotationQueueAssignmentRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.annotation_queues.delete_queue_assignment(
+    queue_id="queueId",
+    request=AnnotationQueueAssignmentRequest(
+        user_id="userId",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**queue_id:** `str` — The unique identifier of the annotation queue
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `AnnotationQueueAssignmentRequest` 
     
 </dd>
 </dl>
@@ -2051,6 +2304,168 @@ client.ingestion.batch(
 </dl>
 </details>
 
+## LlmConnections
+<details><summary><code>client.llm_connections.<a href="src/langfuse/resources/llm_connections/client.py">list</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get all LLM connections in a project
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.llm_connections.list()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**page:** `typing.Optional[int]` — page number, starts at 1
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — limit of items per page
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.llm_connections.<a href="src/langfuse/resources/llm_connections/client.py">upsert</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create or update an LLM connection. The connection is upserted on provider.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import LlmAdapter, UpsertLlmConnectionRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.llm_connections.upsert(
+    request=UpsertLlmConnectionRequest(
+        provider="provider",
+        adapter=LlmAdapter.ANTHROPIC,
+        secret_key="secretKey",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `UpsertLlmConnectionRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Media
 <details><summary><code>client.media.<a href="src/langfuse/resources/media/client.py">get</a>(...)</code></summary>
 <dl>
@@ -2900,6 +3315,14 @@ client.observations.get_many()
 <dd>
 
 **trace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**level:** `typing.Optional[ObservationLevel]` — Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
     
 </dd>
 </dl>
