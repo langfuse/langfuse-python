@@ -965,7 +965,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
                     if "input" in usage_model:
                         usage_model["input"] = max(0, usage_model["input"] - value)
 
-    usage_model = {k: v for k, v in usage_model.items() if not isinstance(v, str)}
+    usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
 
