@@ -875,15 +875,28 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
     usage_model = cast(Dict, usage.copy())  # Copy all existing key-value pairs
 
     # Skip OpenAI usage types as they are handled server side
-    if all(
-        openai_key in usage_model
-        for openai_key in [
-            "prompt_tokens",
-            "completion_tokens",
-            "total_tokens",
-            "prompt_tokens_details",
-            "completion_tokens_details",
-        ]
+    if (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                "prompt_tokens_details",
+                "completion_tokens_details",
+            ]
+        )
+        and len(usage_model.keys()) == 5
+    ) or (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+            ]
+        )
+        and len(usage_model.keys()) == 3
     ):
         return usage_model
 
@@ -971,7 +984,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
                     if "input" in usage_model:
                         usage_model["input"] = max(0, usage_model["input"] - value)
 
-    usage_model = {k: v for k, v in usage_model.items() if type(v) is int}
+    usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
 
