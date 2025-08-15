@@ -4,175 +4,115 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the **Langfuse Python SDK**, an observability and analytics platform for AI applications. It provides tracing, evaluation, and analytics for LLM applications through multiple interfaces: decorators, low-level SDK, and integrations with popular AI libraries.
+This is the Langfuse Python SDK, a client library for accessing the Langfuse observability platform. The SDK provides integration with OpenTelemetry (OTel) for tracing, automatic instrumentation for popular LLM frameworks (OpenAI, Langchain, etc.), and direct API access to Langfuse's features.
 
 ## Development Commands
 
-### Environment Setup
+### Setup
 ```bash
-# Using UV (preferred)
-uv venv --python 3.12
-source .venv/bin/activate
-uv sync
+# Install Poetry plugins (one-time setup)
+poetry self add poetry-dotenv-plugin
+poetry self add poetry-bumpversion
 
-# Using Poetry (legacy)
+# Install all dependencies including optional extras
 poetry install --all-extras
+
+# Setup pre-commit hooks
 poetry run pre-commit install
 ```
 
 ### Testing
 ```bash
-# Run all tests
+# Run all tests with verbose output
 poetry run pytest -s -v --log-cli-level=INFO
 
-# Run specific test
+# Run a specific test
 poetry run pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py::test_flush
 
-# Run with UV
-uv run pytest -s -v --log-cli-level=INFO
+# Run tests in parallel (faster)
+poetry run pytest -s -v --log-cli-level=INFO -n auto
 ```
-
-### Memory for Running Unit Tests
-- To run unit tests you must always use the env file, use: `UV_ENV_FILE=.env uv run pytest -s -v --log-cli-level=INFO tests/TESTFILE::TEST_NAME`
 
 ### Code Quality
 ```bash
-# Format code
-ruff format .
+# Format code with Ruff
+poetry run ruff format .
 
-# Run linter (development config)
-ruff check .
+# Run linting (development config)
+poetry run ruff check .
 
-# Run linter (CI config)
-ruff check --config ci.ruff.toml .
+# Run type checking
+poetry run mypy .
+
+# Run pre-commit hooks manually
+poetry run pre-commit run --all-files
 ```
 
-### Documentation
+### Building and Releasing
 ```bash
-# Generate SDK reference docs
-poetry run pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+# Build the package
+poetry build
 
-# Serve docs locally
-poetry run pdoc --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+# Run release script (handles versioning, building, tagging, and publishing)
+poetry run release
+
+# Generate documentation
+poetry run pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
 ```
 
-## Architecture Overview
+## Architecture
 
 ### Core Components
 
-**Main SDK Client** (`langfuse/_client/client.py`)
-- Built on OpenTelemetry foundations
-- Provides span management for tracing (LangfuseSpan, LangfuseGeneration, LangfuseEvent)
-- Thread-safe singleton pattern with multi-project support
-- Handles both sync and async operations
+- **`langfuse/_client/`**: Main SDK implementation built on OpenTelemetry
+  - `client.py`: Core Langfuse client with OTel integration
+  - `span.py`: LangfuseSpan, LangfuseGeneration, LangfuseEvent classes
+  - `observe.py`: Decorator for automatic instrumentation
+  - `datasets.py`: Dataset management functionality
 
-**Resource Manager** (`langfuse/_client/resource_manager.py`)
-- Central coordination hub implementing thread-safe singleton
-- Manages OpenTelemetry setup, API clients, background workers
-- Handles media upload and score ingestion queues
-- Provides graceful shutdown and resource cleanup
+- **`langfuse/api/`**: Auto-generated Fern API client
+  - Contains all API resources and types
+  - Generated from OpenAPI spec - do not manually edit these files
 
-**API Layer** (`langfuse/api/`)
-- Auto-generated from OpenAPI spec using Fern
-- Provides complete typed client for Langfuse API
-- Organized by resources (prompts, datasets, observations, etc.)
+- **`langfuse/_task_manager/`**: Background processing
+  - Media upload handling and queue management
+  - Score ingestion consumer
 
-### SDK Interfaces
+- **Integration modules**:
+  - `langfuse/openai.py`: OpenAI instrumentation
+  - `langfuse/langchain/`: Langchain integration via CallbackHandler
 
-**Three primary interaction patterns:**
+### Key Design Patterns
 
-1. **Decorator Pattern** (`@observe`)
-   ```python
-   @observe(as_type="generation")
-   def my_llm_function():
-       # Automatically traced
-   ```
+The SDK is built on OpenTelemetry for observability, using:
+- Spans for tracing LLM operations
+- Attributes for metadata (see `LangfuseOtelSpanAttributes`)
+- Resource management for efficient batching and flushing
 
-2. **Low-level Client API**
-   ```python
-   langfuse = Langfuse()
-   span = langfuse.start_span(name="operation")
-   ```
-
-3. **Integration Libraries**
-   ```python
-   from langfuse.openai import openai  # Drop-in replacement
-   ```
-
-### Integration Architecture
-
-**OpenAI Integration** (`langfuse/openai.py`)
-- Drop-in replacement supporting both v0.x and v1.x
-- Wraps all completion methods (chat, completions, streaming, async)
-- Automatic metrics collection (tokens, cost, latency)
-
-**LangChain Integration** (`langfuse/langchain/`)
-- CallbackHandler pattern for chain tracing
-- Automatic span creation for chains, tools, and agents
-- UUID mapping between LangChain runs and Langfuse spans
-
-### Background Processing
-
-**Task Manager** (`langfuse/_task_manager/`)
-- Media upload processing with configurable workers
-- Score ingestion with batching and retry logic
-- Queue-based architecture with backpressure handling
-
-## Key Development Patterns
-
-### Multi-Project Safety
-- Thread-safe singleton per public key prevents data leakage
-- Project-scoped span processor filters ensure data isolation
-- Disabled clients returned when project context is ambiguous
-
-### OpenTelemetry Foundation
-- All tracing built on OTel primitives for standards compliance
-- Custom span processor for Langfuse-specific export
-- Proper context propagation across async boundaries
-
-### Testing Approach
-- Comprehensive unit and integration tests
-- API mocking through test wrappers
-- Concurrency testing with ThreadPoolExecutor
-- Proper resource cleanup in test teardown
-
-## File Structure Notes
-
-- `langfuse/_client/` - Core client implementation and tracing logic
-- `langfuse/api/` - Auto-generated API client (excluded from linting)
-- `langfuse/_utils/` - Utility functions for serialization, error handling, etc.
-- `langfuse/_task_manager/` - Background processing workers
-- `tests/` - Comprehensive test suite with integration tests
-- `static/` - Test assets and sample files
+The client follows an async-first design with automatic batching of events and background flushing to the Langfuse API.
 
 ## Configuration
 
-### Environment Variables
-Key environment variables for development:
-- `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` - API credentials
-- `LANGFUSE_HOST` - Langfuse instance URL
-- `LANGFUSE_DEBUG` - Enable debug logging
-- `LANGFUSE_TRACING_ENABLED` - Enable/disable tracing
+Environment variables (defined in `_client/environment_variables.py`):
+- `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`: API credentials
+- `LANGFUSE_HOST`: API endpoint (defaults to https://cloud.langfuse.com)
+- `LANGFUSE_DEBUG`: Enable debug logging
+- `LANGFUSE_TRACING_ENABLED`: Enable/disable tracing
+- `LANGFUSE_SAMPLE_RATE`: Sampling rate for traces
 
-### Test Configuration
-- Tests require `.env` file based on `.env.template`
-- Some E2E tests are skipped by default (remove decorators to run)
-- CI uses different ruff config (`ci.ruff.toml`)
+## Testing Notes
 
-## Release Process
+- Create `.env` file based on `.env.template` for integration tests
+- E2E tests with external APIs (OpenAI, SERP) are typically skipped in CI
+- Remove `@pytest.mark.skip` decorators in test files to run external API tests
+- Tests use `respx` for HTTP mocking and `pytest-httpserver` for test servers
 
-```bash
-# Automated release
-poetry run release
+## Important Files
 
-# Manual release steps
-poetry version patch
-poetry build
-git commit -am "chore: release v{version}"
-git tag v{version}
-git push --tags
-poetry publish
-```
+- `pyproject.toml`: Poetry configuration, dependencies, and tool settings
+- `ruff.toml`: Local development linting config (stricter)
+- `ci.ruff.toml`: CI linting config (more permissive)
+- `langfuse/version.py`: Version string (updated by release script)
 
 ## API Generation
 
