@@ -905,7 +905,7 @@ async def test_async_nested_openai_chat_stream():
     assert generation.usage.output is not None
     assert generation.usage.total is not None
     print(generation)
-    assert generation.output == "2"
+    assert generation.output == 2
 
 
 def test_generator_as_function_input():
