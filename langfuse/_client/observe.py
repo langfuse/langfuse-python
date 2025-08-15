@@ -280,7 +280,7 @@ class LangfuseDecorator:
                 ] = (
                     langfuse_client.start_as_current_observation(
                         name=final_name,
-                        as_type=as_type,
+                        as_type=as_type or "span",
                         trace_context=trace_context,
                         input=input,
                         end_on_exit=False,  # when returning a generator, closing on exit would be to early
@@ -385,7 +385,7 @@ class LangfuseDecorator:
                 ] = (
                     langfuse_client.start_as_current_observation(
                         name=final_name,
-                        as_type=as_type,
+                        as_type=as_type or "span",
                         trace_context=trace_context,
                         input=input,
                         end_on_exit=False,  # when returning a generator, closing on exit would be to early
@@ -461,7 +461,17 @@ class LangfuseDecorator:
 
     def _wrap_sync_generator_result(
         self,
-        langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
+        langfuse_span_or_generation: Union[
+            LangfuseSpan,
+            LangfuseGeneration,
+            LangfuseAgent,
+            LangfuseTool,
+            LangfuseChain,
+            LangfuseRetriever,
+            LangfuseEvaluator,
+            LangfuseEmbedding,
+            LangfuseGuardrail,
+        ],
         generator: Generator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
@@ -487,7 +497,17 @@ class LangfuseDecorator:
 
     async def _wrap_async_generator_result(
         self,
-        langfuse_span_or_generation: Union[LangfuseSpan, LangfuseGeneration],
+        langfuse_span_or_generation: Union[
+            LangfuseSpan,
+            LangfuseGeneration,
+            LangfuseAgent,
+            LangfuseTool,
+            LangfuseChain,
+            LangfuseRetriever,
+            LangfuseEvaluator,
+            LangfuseEmbedding,
+            LangfuseGuardrail,
+        ],
         generator: AsyncGenerator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> AsyncGenerator:
