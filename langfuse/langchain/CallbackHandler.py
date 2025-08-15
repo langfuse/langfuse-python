@@ -458,6 +458,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 input=input_str,
                 metadata=meta,
                 level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                as_type="tool",
             )
 
         except Exception as e:

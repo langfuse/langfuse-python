@@ -11,22 +11,22 @@ def test_observe_type_agent_instrumentation():
 
     trace_name = f"type_based_graph_test_{create_uuid()}"
 
-    @observe(type="generation")
+    @observe(as_type="generation")
     def start_agent():
         time.sleep(0.1)
         return {"status": "started", "data": "initial_data"}
 
-    @observe(type="retriever")
+    @observe(as_type="retriever")
     def process_agent():
         time.sleep(0.1)
         return {"status": "processed", "data": "processed_data"}
 
-    @observe(type="tool")
+    @observe(as_type="tool")
     def tool_call():
         time.sleep(0.1)
         return {"status": "intermediate", "data": "intermediate_data"}
 
-    @observe(type="generation")
+    @observe(as_type="generation")
     def end_agent():
         time.sleep(0.1)
         return {"status": "completed", "data": "final_data"}
@@ -66,7 +66,21 @@ def test_observe_type_agent_instrumentation():
     agent_observations = [
         obs
         for obs in all_observations
-        if obs.type in ["agent", "tool", "retriever", "chain", "embedding", "AGENT", "TOOL", "RETRIEVER", "CHAIN", "EMBEDDING", "GENERATION", "generation"]
+        if obs.type
+        in [
+            "agent",
+            "tool",
+            "retriever",
+            "chain",
+            "embedding",
+            "AGENT",
+            "TOOL",
+            "RETRIEVER",
+            "CHAIN",
+            "EMBEDDING",
+            "GENERATION",
+            "generation",
+        ]
     ]
 
     assert (
@@ -91,27 +105,27 @@ def test_observe_type_parallel_tool_execution():
 
     trace_name = f"parallel_tools_test_{create_uuid()}"
 
-    @observe(type="agent")
+    @observe(as_type="agent")
     def start_agent():
         time.sleep(0.05)
         return {"status": "tools_initiated", "tool_count": 3}
 
-    @observe(type="tool")
+    @observe(as_type="tool")
     def search_tool():
         time.sleep(0.2)
         return {"tool": "search", "results": ["result1", "result2"]}
 
-    @observe(type="tool")
+    @observe(as_type="tool")
     def calculation_tool():
         time.sleep(0.15)
         return {"tool": "calc", "result": 42}
 
-    @observe(type="tool")
+    @observe(as_type="tool")
     def api_tool():
         time.sleep(0.1)
         return {"tool": "api", "data": {"status": "success"}}
 
-    @observe(type="agent")
+    @observe(as_type="agent")
     def end_agent():
         time.sleep(0.05)
         return {"status": "completed", "summary": "all_tools_processed"}
