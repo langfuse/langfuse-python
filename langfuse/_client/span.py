@@ -109,6 +109,9 @@ class LangfuseSpanWrapper:
             prompt: Associated prompt template from Langfuse prompt management
         """
         self._otel_span = otel_span
+        self._otel_span.set_attribute(
+            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
+        )
         self._langfuse_client = langfuse_client
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)

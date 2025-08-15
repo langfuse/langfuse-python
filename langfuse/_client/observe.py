@@ -10,7 +10,6 @@ from typing import (
     Dict,
     Generator,
     Iterable,
-    Literal,
     Optional,
     Tuple,
     TypeVar,
@@ -26,7 +25,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
 )
 
-from langfuse._client.constants import VALID_OBSERVATION_TYPES
+from langfuse._client.constants import VALID_OBSERVATION_TYPES, ObservationTypeLiteralNoEvent
 from langfuse._client.get_client import _set_current_public_key, get_client
 from langfuse._client.span import LangfuseGeneration, LangfuseSpan
 from langfuse.types import TraceContext
@@ -67,19 +66,7 @@ class LangfuseDecorator:
         func: None = None,
         *,
         name: Optional[str] = None,
-        as_type: Optional[Literal["generation"]] = None,
-        type: Optional[
-            Literal[
-                "span",
-                "event",
-                "generation",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ] = None,
+        as_type: Optional[ObservationTypeLiteralNoEvent] = None,
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -90,19 +77,7 @@ class LangfuseDecorator:
         func: Optional[F] = None,
         *,
         name: Optional[str] = None,
-        as_type: Optional[Literal["generation"]] = None,
-        type: Optional[
-            Literal[
-                "span",
-                "event",
-                "generation",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ] = None,
+        as_type: Optional[ObservationTypeLiteralNoEvent] = None,
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -119,11 +94,10 @@ class LangfuseDecorator:
         Args:
             func (Optional[Callable]): The function to decorate. When used with parentheses @observe(), this will be None.
             name (Optional[str]): Custom name for the created trace or span. If not provided, the function name is used.
-            as_type (Optional[Literal["generation"]]): Set to "generation" to create a specialized LLM generation span
-                    with model metrics support, suitable for tracking language model outputs.
-            type (Optional[Literal]): Set the observation type for agentic workflows. Supported values:
-                    "generation", "agent", "tool", "chain", "retriever", "embedding". When specified, creates spans with
-                    the specified type for graph visualization and filtering in the Langfuse UI.
+            as_type (Optional[Literal]): Set the observation type. Supported values:
+                    "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
+                    When set to "generation", creates a specialized LLM generation span with model metrics support.
+                    Other types create spans with the specified type for graph visualization and filtering in the Langfuse UI.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -151,7 +125,7 @@ class LangfuseDecorator:
 
             For automatic graph instrumentation with agent workflows:
             ```python
-            @observe(type="agent")
+            @observe(as_type="agent")
             def planning_agent():
                 return create_plan()
             ```
@@ -182,18 +156,11 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        if as_type is not None and type is not None:
-            raise ValueError(
-                "Cannot specify both 'as_type' and 'type' parameters. Please use only one of them."
-            )
-        if type is not None and type not in VALID_OBSERVATION_TYPES:
-            raise ValueError(
-                f"Invalid observation type '{type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
-            )
         if as_type is not None and as_type not in VALID_OBSERVATION_TYPES:
-            raise ValueError(
-                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}"
+            self._log.warning(
+                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(VALID_OBSERVATION_TYPES))}. Defaulting to 'span'."
             )
+            as_type = "span"
 
         function_io_capture_enabled = os.environ.get(
             LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED, "True"
@@ -210,14 +177,12 @@ class LangfuseDecorator:
         )
 
         def decorator(func: F) -> F:
-            # TODO: merge smartly with manually set as_type
-            consolidated_type = type or as_type
 
             return (
                 self._async_observe(
                     func,
                     name=name,
-                    as_type=consolidated_type,
+                    as_type=as_type,
                     capture_input=should_capture_input,
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
@@ -226,7 +191,7 @@ class LangfuseDecorator:
                 else self._sync_observe(
                     func,
                     name=name,
-                    as_type=consolidated_type,
+                    as_type=as_type,
                     capture_input=should_capture_input,
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
@@ -253,18 +218,7 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[
-            Literal[
-                "span",
-                "generation",
-                "event",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ],
+        as_type: Optional[ObservationTypeLiteralNoEvent],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
@@ -373,18 +327,7 @@ class LangfuseDecorator:
         func: F,
         *,
         name: Optional[str],
-        as_type: Optional[
-            Literal[
-                "span",
-                "generation",
-                "event",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ],
+        as_type: Optional[ObservationTypeLiteralNoEvent],
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,

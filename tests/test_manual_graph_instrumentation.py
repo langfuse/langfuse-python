@@ -5,7 +5,7 @@ from tests.utils import create_uuid, get_api
 
 
 def test_observe_type_agent_instrumentation():
-    """Test @observe(type='agent') with the type-based approach."""
+    """Test @observe(as_type='agent') with the as_type-based approach."""
     langfuse = Langfuse()
     api = get_api()
 
