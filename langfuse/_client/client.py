@@ -2327,3 +2327,44 @@ class Langfuse:
         # we need add safe="" to force escaping of slashes
         # This is necessary for prompts in prompt folders
         return urllib.parse.quote(url, safe="")
+    
+    @overload
+    def invalidate_cache(
+        self,
+        *,
+        name: str,
+    ) -> None: ...
+    
+    @overload
+    def invalidate_cache(
+        self,
+        *,
+        name: str,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+    ) -> None: ...
+    
+    def invalidate_cache(
+        self,
+        *,
+        name: str,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+    ) -> None:
+        """
+        Invalidate a prompt cache entry using name, version, and label.
+
+        Constructs a full cache key from the provided arguments and removes
+        the corresponding cache entry.
+
+        Parameters:
+            name (str): The name of the cached prompt.
+            version (Optional[int]): Optional version of the prompt.
+            label (Optional[str]): Optional label for the prompt.
+        """
+        if self._resources is not None:
+            if version is None and label is None:
+                self._resources.prompt_cache.invalidate(name)
+            else:
+                cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+                self._resources.prompt_cache.invalidate_by_key(cache_key)
