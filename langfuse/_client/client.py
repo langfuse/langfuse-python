@@ -36,6 +36,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse._client.constants import ObservationTypeLiteral, ObservationTypeLiteralNoEvent
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
     LangfuseEvent,
@@ -45,7 +46,9 @@ from langfuse._client.span import (
     LangfuseTool,
     LangfuseChain,
     LangfuseRetriever,
+    LangfuseEvaluator,
     LangfuseEmbedding,
+    LangfuseGuardrail,
 )
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
@@ -355,18 +358,6 @@ class Langfuse:
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
         end_on_exit: Optional[bool] = None,
-        as_type: Optional[
-            Literal[
-                "generation",
-                "span",
-                "event",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ] = None,
     ) -> _AgnosticContextManager[LangfuseSpan]:
         """Create a new span and set it as the current span in a context manager.
 
@@ -685,33 +676,33 @@ class Langfuse:
 
     def _get_span_class(
         self,
-        as_type: Literal[
-            "span",
-            "generation",
-            "event",
-            "agent",
-            "tool",
-            "chain",
-            "retriever",
-            "embedding",
-        ],
+        as_type: ObservationTypeLiteral,
     ) -> type:
         """Get the appropriate span class based on as_type."""
-        if as_type == "agent":
+        normalized_type = as_type.upper()
+
+        if normalized_type == "AGENT":
             return LangfuseAgent
-        elif as_type == "tool":
+        elif normalized_type == "TOOL":
             return LangfuseTool
-        elif as_type == "chain":
+        elif normalized_type == "CHAIN":
             return LangfuseChain
-        elif as_type == "retriever":
+        elif normalized_type == "RETRIEVER":
             return LangfuseRetriever
-        elif as_type == "embedding":
+        elif normalized_type == "EVALUATOR":
+            return LangfuseEvaluator
+        elif normalized_type == "EMBEDDING":
             return LangfuseEmbedding
-        elif as_type == "generation":
+        elif normalized_type == "GUARDRAIL":
+            return LangfuseGuardrail
+        elif normalized_type == "GENERATION":
             return LangfuseGeneration
-        elif as_type == "event":
+        elif normalized_type == "EVENT":
             return LangfuseEvent
-        elif as_type == "span":
+        elif normalized_type == "SPAN":
+            return LangfuseSpan
+        else:
+            # Default to LangfuseSpan for unrecognized types
             return LangfuseSpan
 
     @_agnosticcontextmanager
@@ -721,7 +712,7 @@ class Langfuse:
         name: str,
         parent: Optional[otel_trace_api.Span] = None,
         remote_parent_span: Optional[otel_trace_api.Span] = None,
-        as_type: Literal["generation", "span", "agent", "tool", "chain", "retriever"],
+        as_type: ObservationTypeLiteralNoEvent,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -768,18 +759,7 @@ class Langfuse:
         self,
         *,
         name: str,
-        as_type: Optional[
-            Literal[
-                "generation",
-                "span",
-                "event",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "embedding",
-            ]
-        ] = None,
+        as_type: Optional[ObservationTypeLiteralNoEvent] = None,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -798,7 +778,7 @@ class Langfuse:
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
-            span_class = self._get_span_class(as_type or "generation")
+            span_class = self._get_span_class(as_type or "generation")  # default was "generation"
             common_args = {
                 "otel_span": otel_span,
                 "langfuse_client": self,
@@ -822,13 +802,16 @@ class Langfuse:
                         "prompt": prompt,
                     }
                 )
+            # TODO: for some, create generation-like classes with those props.
             elif span_class in [
                 LangfuseSpan,
                 LangfuseAgent,
                 LangfuseTool,
                 LangfuseChain,
                 LangfuseRetriever,
+                LangfuseEvaluator,
                 LangfuseEmbedding,
+                LangfuseGuardrail,
             ]:
                 # set their type internally in the class
                 pass

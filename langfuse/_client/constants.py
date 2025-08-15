@@ -55,4 +55,3 @@ ObservationTypeLiteralNoEvent: TypeAlias = Literal[
 ]
 
 ObservationTypeLiteral: TypeAlias = ObservationTypeLiteralNoEvent | Literal["event"]
-]

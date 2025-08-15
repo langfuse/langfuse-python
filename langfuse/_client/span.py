@@ -1374,5 +1374,23 @@ class LangfuseEmbedding(LangfuseGraphObservation):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEmbedding span."""
-        kwargs["observation_type"] = "embedding"
+        kwargs["observation_type"] = "EMBEDDING"
+        super().__init__(**kwargs)
+
+
+class LangfuseEvaluator(LangfuseGraphObservation):
+    """Specialized span for evaluator observations in agentic workflows."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize a new LangfuseEvaluator span."""
+        kwargs["observation_type"] = "EVALUATOR"
+        super().__init__(**kwargs)
+
+
+class LangfuseGuardrail(LangfuseGraphObservation):
+    """Specialized span for guardrail observations in agentic workflows."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize a new LangfuseGuardrail span."""
+        kwargs["observation_type"] = "GUARDRAIL"
         super().__init__(**kwargs)
