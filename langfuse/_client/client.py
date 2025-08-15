@@ -791,6 +791,7 @@ class Langfuse:
             status_message: Optional status message for the observation
             end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
 
+            # TODO: also add the generation like types here!
             The following parameters are only available when as_type="generation":
             completion_start_time: When the model started generating the response
             model: Name/identifier of the AI model used (e.g., "gpt-4")
@@ -804,11 +805,16 @@ class Langfuse:
 
         Example:
             ```python
-            # Create an agent observation
-            with langfuse.start_as_current_observation(name="planning-agent", as_type="agent") as agent:
-                # Do agent work
-                plan = create_plan()
-                agent.update(output=plan)
+            # Create a span
+            with langfuse.start_as_current_observation(name="process-query", as_type="span") as span:
+                # Do work
+                result = process_data()
+                span.update(output=result)
+
+                # Create a child span automatically
+                with span.start_as_current_span(name="sub-operation") as child_span:
+                    # Do sub-operation work
+                    child_span.update(output="sub-result")
 
             # Create a tool observation
             with langfuse.start_as_current_observation(name="web-search", as_type="tool") as tool:
@@ -827,47 +833,21 @@ class Langfuse:
                 generation.update(output=response)
             ```
         """
-        # Delegate to existing methods for consistency
         if as_type == "span":
-            return cast(
-                Union[
-                    _AgnosticContextManager[LangfuseGeneration],
-                    _AgnosticContextManager[LangfuseSpan],
-                    _AgnosticContextManager[LangfuseAgent],
-                    _AgnosticContextManager[LangfuseTool],
-                    _AgnosticContextManager[LangfuseChain],
-                    _AgnosticContextManager[LangfuseRetriever],
-                    _AgnosticContextManager[LangfuseEvaluator],
-                    _AgnosticContextManager[LangfuseEmbedding],
-                    _AgnosticContextManager[LangfuseGuardrail],
-                ],
-                self.start_as_current_span(
-                    trace_context=trace_context,
-                    name=name,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    version=version,
-                    level=level,
-                    status_message=status_message,
-                    end_on_exit=end_on_exit,
-                ),
+            return self.start_as_current_span(
+                trace_context=trace_context,
+                name=name,
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+                end_on_exit=end_on_exit,
             )
 
         if as_type == "generation":
-            return cast(
-                Union[
-                    _AgnosticContextManager[LangfuseGeneration],
-                    _AgnosticContextManager[LangfuseSpan],
-                    _AgnosticContextManager[LangfuseAgent],
-                    _AgnosticContextManager[LangfuseTool],
-                    _AgnosticContextManager[LangfuseChain],
-                    _AgnosticContextManager[LangfuseRetriever],
-                    _AgnosticContextManager[LangfuseEvaluator],
-                    _AgnosticContextManager[LangfuseEmbedding],
-                    _AgnosticContextManager[LangfuseGuardrail],
-                ],
-                self.start_as_current_generation(
+            return self.start_as_current_generation(
                     trace_context=trace_context,
                     name=name,
                     input=input,
@@ -883,8 +863,7 @@ class Langfuse:
                     cost_details=cost_details,
                     prompt=prompt,
                     end_on_exit=end_on_exit,
-                ),
-            )
+                )
 
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
@@ -897,8 +876,6 @@ class Langfuse:
 
                 return cast(
                     Union[
-                        _AgnosticContextManager[LangfuseGeneration],
-                        _AgnosticContextManager[LangfuseSpan],
                         _AgnosticContextManager[LangfuseAgent],
                         _AgnosticContextManager[LangfuseTool],
                         _AgnosticContextManager[LangfuseChain],
@@ -930,8 +907,6 @@ class Langfuse:
 
         return cast(
             Union[
-                _AgnosticContextManager[LangfuseGeneration],
-                _AgnosticContextManager[LangfuseSpan],
                 _AgnosticContextManager[LangfuseAgent],
                 _AgnosticContextManager[LangfuseTool],
                 _AgnosticContextManager[LangfuseChain],
