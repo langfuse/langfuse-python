@@ -589,6 +589,55 @@ class TestBasicSpans(TestOTelBase):
         )
         assert len(original_spans) == 0, "Expected no generations with original name"
 
+    def test_start_as_current_observation_types(self, langfuse_client, memory_exporter):
+        """Test creating different observation types using start_as_current_observation."""
+        # Test each observation type from ObservationTypeLiteralNoEvent
+        observation_types = [
+            "span",
+            "generation",
+            "agent",
+            "tool",
+            "chain",
+            "retriever",
+            "evaluator",
+            "embedding",
+            "guardrail",
+        ]
+
+        for obs_type in observation_types:
+            with langfuse_client.start_as_current_observation(
+                name=f"test-{obs_type}", as_type=obs_type
+            ) as obs:
+                obs.update_trace(name=f"trace-{obs_type}")
+
+        spans = [
+            self.get_span_data(span) for span in memory_exporter.get_finished_spans()
+        ]
+
+        # Find spans by name and verify their observation types
+        for obs_type in observation_types:
+            expected_name = f"test-{obs_type}"
+            matching_spans = [span for span in spans if span["name"] == expected_name]
+            assert (
+                len(matching_spans) == 1
+            ), f"Expected one span with name {expected_name}"
+
+            span_data = matching_spans[0]
+            expected_otel_type = obs_type  # OTEL attributes use lowercase
+            actual_type = span_data["attributes"].get(
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE
+            )
+
+            # Debug: print all attributes for this span
+            print(
+                f"Span {expected_name} attributes: {list(span_data['attributes'].keys())}"
+            )
+            print(f"Expected: {expected_otel_type}, Actual: {actual_type}")
+
+            assert (
+                actual_type == expected_otel_type
+            ), f"Expected observation type {expected_otel_type}, got {actual_type}"
+
     def test_custom_trace_id(self, langfuse_client, memory_exporter):
         """Test setting a custom trace ID."""
         # Create a custom trace ID
