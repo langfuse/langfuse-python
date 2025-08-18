@@ -265,7 +265,6 @@ class LangfuseDecorator:
             # Set public key in execution context for nested decorated functions
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
-
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],

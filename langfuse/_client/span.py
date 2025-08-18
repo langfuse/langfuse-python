@@ -600,7 +600,6 @@ class LangfuseSpanWrapper:
         if name:
             self._otel_span.update_name(name)
 
-        # Use same logic as __init__ to determine which attributes to create
         if self._observation_type in get_args(ObservationTypeGenerationLike):
             attributes = create_generation_attributes(
                 input=processed_input,

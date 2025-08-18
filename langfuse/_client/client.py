@@ -962,7 +962,6 @@ class Langfuse:
         elif normalized_type == "span":
             return LangfuseSpan
         else:
-            # Default to LangfuseSpan for unrecognized types
             return LangfuseSpan
 
     @_agnosticcontextmanager
