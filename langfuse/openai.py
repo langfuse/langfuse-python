@@ -408,6 +408,12 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         else float("inf")
     )
 
+    parsed_max_completion_tokens = (
+        kwargs.get("max_completion_tokens", None)
+        if not isinstance(kwargs.get("max_completion_tokens", float("inf")), NotGiven)
+        else None
+    )
+
     parsed_top_p = (
         kwargs.get("top_p", 1)
         if not isinstance(kwargs.get("top_p", 1), NotGiven)
@@ -441,6 +447,11 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         "frequency_penalty": parsed_frequency_penalty,
         "presence_penalty": parsed_presence_penalty,
     }
+
+    if parsed_max_completion_tokens is not None:
+        modelParameters.pop("max_tokens", None)
+        modelParameters["max_completion_tokens"] = parsed_max_completion_tokens
+
     if parsed_n is not None and parsed_n > 1:
         modelParameters["n"] = parsed_n
 
