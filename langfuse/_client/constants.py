@@ -3,7 +3,7 @@
 This module defines constants used throughout the Langfuse OpenTelemetry integration.
 """
 
-from typing import Literal, List, get_args
+from typing import Literal, List, get_args, Union
 from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
@@ -20,15 +20,17 @@ ObservationTypeGenerationLike: TypeAlias = Literal[
     "embedding",
 ]
 
-ObservationTypeLiteralNoEvent: TypeAlias = (
-    ObservationTypeGenerationLike
-    | Literal[
+ObservationTypeLiteralNoEvent: TypeAlias = Union[
+    ObservationTypeGenerationLike,
+    Literal[
         "span",
         "guardrail",
-    ]
-)
+    ],
+]
 
-ObservationTypeLiteral: TypeAlias = ObservationTypeLiteralNoEvent | Literal["event"]
+ObservationTypeLiteral: TypeAlias = Union[
+    ObservationTypeLiteralNoEvent, Literal["event"]
+]
 """Enumeration of valid observation types for Langfuse tracing.
 
 This Literal defines all available observation types that can be used with the @observe
@@ -37,9 +39,11 @@ decorator and other Langfuse SDK methods.
 
 
 def get_observation_types_list(
-    literal_type: ObservationTypeGenerationLike
-    | ObservationTypeLiteralNoEvent
-    | ObservationTypeLiteral,
+    literal_type: Union[
+        ObservationTypeGenerationLike,
+        ObservationTypeLiteralNoEvent,
+        ObservationTypeLiteral,
+    ],
 ) -> List[str]:
     """Flattens the Literal type to provide a list of strings.
 
