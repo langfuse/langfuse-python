@@ -14,6 +14,8 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
+from langfuse._client.constants import ObservationTypeGenerationLike
+
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
 from langfuse.types import MapValue, SpanLevel
@@ -123,17 +125,7 @@ def create_generation_attributes(
     usage_details: Optional[Dict[str, int]] = None,
     cost_details: Optional[Dict[str, float]] = None,
     prompt: Optional[PromptClient] = None,
-    observation_type: Optional[
-        Literal[
-            "generation",
-            "agent",
-            "tool",
-            "chain",
-            "retriever",
-            "evaluator",
-            "embedding",
-        ]
-    ] = "generation",
+    observation_type: Optional[ObservationTypeGenerationLike] = "generation",
 ) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,

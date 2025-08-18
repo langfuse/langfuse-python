@@ -45,7 +45,6 @@ from langfuse._client.constants import (
     ObservationTypeLiteral,
     ObservationTypeGenerationLike,
     ObservationTypeLiteralNoEvent,
-    get_observation_types_list,
 )
 from langfuse.logger import langfuse_logger
 from langfuse.types import MapValue, ScoreDataType, SpanLevel
@@ -144,15 +143,7 @@ class LangfuseSpanWrapper:
 
             attributes = {}
 
-            if as_type in [
-                "generation",
-                "agent",
-                "tool",
-                "chain",
-                "retriever",
-                "evaluator",
-                "embedding",
-            ]:
+            if as_type in ObservationTypeGenerationLike.__args__:
                 attributes = create_generation_attributes(
                     input=media_processed_input,
                     output=media_processed_output,
@@ -611,15 +602,7 @@ class LangfuseSpanWrapper:
             self._otel_span.update_name(name)
 
         # Use same logic as __init__ to determine which attributes to create
-        if self._observation_type in [
-            "generation",
-            "agent",
-            "tool",
-            "chain",
-            "retriever",
-            "evaluator",
-            "embedding",
-        ]:
+        if self._observation_type in ObservationTypeGenerationLike.__args__:
             attributes = create_generation_attributes(
                 input=processed_input,
                 output=processed_output,
