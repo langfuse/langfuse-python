@@ -41,9 +41,22 @@ from langfuse._client.attributes import (
     create_span_attributes,
     create_trace_attributes,
 )
-from langfuse._client.constants import ObservationTypeLiteral
+from langfuse._client.constants import (
+    ObservationTypeLiteral,
+    ObservationTypeGenerationLike,
+    ObservationTypeLiteralNoEvent,
+    get_observation_types_list,
+)
 from langfuse.logger import langfuse_logger
 from langfuse.types import MapValue, ScoreDataType, SpanLevel
+
+# Factory mapping for observation classes
+# Note: "event" is handled separately due to special instantiation logic
+# Populated after class definitions
+_OBSERVATION_CLASS_MAP = {}
+
+# Cache generation-like types for performance
+_GENERATION_LIKE_TYPES = None
 
 
 class LangfuseSpanWrapper:
@@ -105,6 +118,8 @@ class LangfuseSpanWrapper:
             LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
         )
         self._langfuse_client = langfuse_client
+
+        self._observation_type = as_type
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
         self.id = self._langfuse_client._get_otel_span_id(otel_span)
@@ -537,91 +552,8 @@ class LangfuseSpanWrapper:
 
         return data
 
-
-class LangfuseGenerationLikeObservation(LangfuseSpanWrapper):
-    """Base class for generation-like observations.
-
-    This class provides a common foundation for observation types that support
-    generation-specific parameters like model, usage details, and cost tracking.
-    """
-
-    def __init__(
-        self,
-        *,
-        observation_type: Literal[
-            "generation",
-            "agent",
-            "tool",
-            "chain",
-            "retriever",
-            "evaluator",
-            "embedding",
-        ],
-        otel_span: otel_trace_api.Span,
-        langfuse_client: "Langfuse",
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        environment: Optional[str] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ):
-        """Initialize a new generation-like observation span.
-
-        Args:
-            observation_type: The specific observation type (e.g., "generation", "tool", ...)
-            otel_span: The OpenTelemetry span to wrap
-            langfuse_client: Reference to the parent Langfuse client
-            input: Input data for the observation
-            output: Output data from the observation
-            metadata: Additional metadata to associate with the observation
-            environment: The tracing environment
-            version: Version identifier for the code or component
-            level: Importance level of the observation (info, warning, error)
-            status_message: Optional status message for the observation
-            completion_start_time: When the generation started
-            model: Model identifier used for the generation
-            model_parameters: Parameters passed to the model
-            usage_details: Token or other usage statistics
-            cost_details: Cost breakdown for the operation
-            prompt: Reference to the prompt used
-        """
-        super().__init__(
-            otel_span=otel_span,
-            as_type=observation_type,
-            langfuse_client=langfuse_client,
-            input=input,
-            output=output,
-            metadata=metadata,
-            environment=environment,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
-        # Store the observation type for use in update method
-        self._observation_type: Literal[
-            "generation",
-            "agent",
-            "tool",
-            "chain",
-            "retriever",
-            "evaluator",
-            "embedding",
-        ] = observation_type
+    # Add observation type tracking and unified update method
+    _observation_type: ObservationTypeLiteral
 
     def update(
         self,
@@ -640,8 +572,8 @@ class LangfuseGenerationLikeObservation(LangfuseSpanWrapper):
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         **kwargs: Any,
-    ) -> "LangfuseGenerationLikeObservation":
-        """Update this generation-like observation with new information.
+    ) -> "LangfuseSpanWrapper":
+        """Update this observation with new information.
 
         This method updates the observation with new information that becomes available
         during execution, such as outputs, metadata, or status changes.
@@ -654,12 +586,12 @@ class LangfuseGenerationLikeObservation(LangfuseSpanWrapper):
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
-            completion_start_time: When the generation started
-            model: Model identifier used for the generation
-            model_parameters: Parameters passed to the model
-            usage_details: Token or other usage statistics
-            cost_details: Cost breakdown for the operation
-            prompt: Reference to the prompt used
+            completion_start_time: When the generation started (for generation types)
+            model: Model identifier used (for generation types)
+            model_parameters: Parameters passed to the model (for generation types)
+            usage_details: Token or other usage statistics (for generation types)
+            cost_details: Cost breakdown for the operation (for generation types)
+            prompt: Reference to the prompt used (for generation types)
             **kwargs: Additional keyword arguments (ignored)
         """
         if not self._otel_span.is_recording():
@@ -678,139 +610,65 @@ class LangfuseGenerationLikeObservation(LangfuseSpanWrapper):
         if name:
             self._otel_span.update_name(name)
 
-        attributes = create_generation_attributes(
-            input=processed_input,
-            output=processed_output,
-            metadata=processed_metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            observation_type=self._observation_type,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
+        # Use same logic as __init__ to determine which attributes to create
+        if self._observation_type in [
+            "generation",
+            "agent",
+            "tool",
+            "chain",
+            "retriever",
+            "evaluator",
+            "embedding",
+        ]:
+            attributes = create_generation_attributes(
+                input=processed_input,
+                output=processed_output,
+                metadata=processed_metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+                observation_type=cast(
+                    Literal[
+                        "generation",
+                        "agent",
+                        "tool",
+                        "chain",
+                        "retriever",
+                        "evaluator",
+                        "embedding",
+                    ],
+                    self._observation_type,
+                ),
+                completion_start_time=completion_start_time,
+                model=model,
+                model_parameters=model_parameters,
+                usage_details=usage_details,
+                cost_details=cost_details,
+                prompt=prompt,
+            )
+        else:
+            # For span-like types: "span", "guardrail", "event"
+            attributes = create_span_attributes(
+                input=processed_input,
+                output=processed_output,
+                metadata=processed_metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+                observation_type=cast(
+                    Optional[Literal["span", "guardrail"]],
+                    self._observation_type
+                    if self._observation_type in ["span", "guardrail"]
+                    else None,
+                ),
+            )
 
         self._otel_span.set_attributes(attributes=attributes)
 
         return self
 
 
-class LangfuseSpanLikeObservation(LangfuseSpanWrapper):
-    """Base class for span-like observations.
-
-    This class provides a common foundation for observation types that only need
-    basic span parameters without generation-specific features.
-    """
-
-    def __init__(
-        self,
-        *,
-        observation_type: Optional[Literal["span", "guardrail"]] = "span",
-        otel_span: otel_trace_api.Span,
-        langfuse_client: "Langfuse",
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        environment: Optional[str] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ):
-        """Initialize a new span-like observation span.
-
-        Args:
-            observation_type: The specific observation type (e.g., "guardrail", ...)
-            otel_span: The OpenTelemetry span to wrap
-            langfuse_client: Reference to the parent Langfuse client
-            input: Input data for the observation
-            output: Output data from the observation
-            metadata: Additional metadata to associate with the observation
-            environment: The tracing environment
-            version: Version identifier for the code or component
-            level: Importance level of the observation (info, warning, error)
-            status_message: Optional status message for the observation
-        """
-        super().__init__(
-            otel_span=otel_span,
-            as_type=observation_type or "span",
-            langfuse_client=langfuse_client,
-            input=input,
-            output=output,
-            metadata=metadata,
-            environment=environment,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
-        # Store the observation type for use in update method
-        self._observation_type: Literal["span", "guardrail"] = (
-            observation_type or "span"
-        )
-
-    def update(
-        self,
-        *,
-        name: Optional[str] = None,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        **kwargs: Any,
-    ) -> "LangfuseSpanLikeObservation":
-        """Update this span-like observation with new information.
-
-        This method updates the observation with new information that becomes available
-        during execution, such as outputs, metadata, or status changes.
-
-        Args:
-            name: Observation name
-            input: Updated input data for the operation
-            output: Output data from the operation
-            metadata: Additional metadata to associate with the observation
-            version: Version identifier for the code or component
-            level: Importance level of the observation (info, warning, error)
-            status_message: Optional status message for the observation
-            **kwargs: Additional keyword arguments (ignored)
-        """
-        if not self._otel_span.is_recording():
-            return self
-
-        processed_input = self._process_media_and_apply_mask(
-            data=input, field="input", span=self._otel_span
-        )
-        processed_output = self._process_media_and_apply_mask(
-            data=output, field="output", span=self._otel_span
-        )
-        processed_metadata = self._process_media_and_apply_mask(
-            data=metadata, field="metadata", span=self._otel_span
-        )
-
-        if name:
-            self._otel_span.update_name(name)
-
-        attributes = create_span_attributes(
-            input=processed_input,
-            output=processed_output,
-            metadata=processed_metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            observation_type=self._observation_type,
-        )
-
-        self._otel_span.set_attributes(attributes=attributes)
-
-        return self
-
-
-class LangfuseSpan(LangfuseSpanLikeObservation):
+class LangfuseSpan(LangfuseSpanWrapper):
     """Standard span implementation for general operations in Langfuse.
 
     This class represents a general-purpose span that can be used to trace
@@ -846,7 +704,7 @@ class LangfuseSpan(LangfuseSpanLikeObservation):
             status_message: Optional status message for the span
         """
         super().__init__(
-            observation_type="span",
+            as_type="span",
             otel_span=otel_span,
             langfuse_client=langfuse_client,
             input=input,
@@ -906,19 +764,18 @@ class LangfuseSpan(LangfuseSpanLikeObservation):
                 parent_span.end()
             ```
         """
-        with otel_trace_api.use_span(self._otel_span):
-            new_otel_span = self._langfuse_client._otel_tracer.start_span(name=name)
-
-        return LangfuseSpan(
-            otel_span=new_otel_span,
-            langfuse_client=self._langfuse_client,
-            environment=self._environment,
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
+        return cast(
+            "LangfuseSpan",
+            self.start_observation(
+                name=name,
+                as_type="span",
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+            ),
         )
 
     def start_as_current_span(
@@ -968,11 +825,9 @@ class LangfuseSpan(LangfuseSpanLikeObservation):
         """
         return cast(
             _AgnosticContextManager["LangfuseSpan"],
-            self._langfuse_client._create_span_with_parent_context(
+            self.start_as_current_observation(
                 name=name,
                 as_type="span",
-                remote_parent_span=None,
-                parent=self._otel_span,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -1056,25 +911,24 @@ class LangfuseSpan(LangfuseSpanLikeObservation):
                 span.end()
             ```
         """
-        with otel_trace_api.use_span(self._otel_span):
-            new_otel_span = self._langfuse_client._otel_tracer.start_span(name=name)
-
-        return LangfuseGeneration(
-            otel_span=new_otel_span,
-            langfuse_client=self._langfuse_client,
-            environment=self._environment,
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
+        return cast(
+            "LangfuseGeneration",
+            self.start_observation(
+                name=name,
+                as_type="generation",
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+                completion_start_time=completion_start_time,
+                model=model,
+                model_parameters=model_parameters,
+                usage_details=usage_details,
+                cost_details=cost_details,
+                prompt=prompt,
+            ),
         )
 
     def start_as_current_generation(
@@ -1148,11 +1002,9 @@ class LangfuseSpan(LangfuseSpanLikeObservation):
         """
         return cast(
             _AgnosticContextManager["LangfuseGeneration"],
-            self._langfuse_client._create_span_with_parent_context(
+            self.start_as_current_observation(
                 name=name,
                 as_type="generation",
-                remote_parent_span=None,
-                parent=self._otel_span,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -1220,8 +1072,438 @@ class LangfuseSpan(LangfuseSpanLikeObservation):
             ).end(end_time=timestamp),
         )
 
+    # Generic child creation methods with overloads for type safety
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["span"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> "LangfuseSpan": ...
 
-class LangfuseGeneration(LangfuseGenerationLikeObservation):
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["generation"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseGeneration": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["agent"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseAgent": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["tool"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseTool": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["chain"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseChain": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["retriever"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseRetriever": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["evaluator"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseEvaluator": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["embedding"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> "LangfuseEmbedding": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["guardrail"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> "LangfuseGuardrail": ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["event"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> "LangfuseEvent": ...
+
+    def start_observation(
+        self,
+        *,
+        name: str,
+        as_type: ObservationTypeLiteral,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> Union[
+        "LangfuseSpan",
+        "LangfuseGeneration",
+        "LangfuseAgent",
+        "LangfuseTool",
+        "LangfuseChain",
+        "LangfuseRetriever",
+        "LangfuseEvaluator",
+        "LangfuseEmbedding",
+        "LangfuseGuardrail",
+        "LangfuseEvent",
+    ]:
+        """Create a new child observation of the specified type.
+
+        This is the generic method for creating any type of child observation.
+        Unlike start_as_current_observation(), this method does not set the new
+        observation as the current observation in the context.
+
+        Args:
+            name: Name of the observation
+            as_type: Type of observation to create
+            input: Input data for the operation
+            output: Output data from the operation
+            metadata: Additional metadata to associate with the observation
+            version: Version identifier for the code or component
+            level: Importance level of the observation (info, warning, error)
+            status_message: Optional status message for the observation
+            completion_start_time: When the model started generating (for generation types)
+            model: Name/identifier of the AI model used (for generation types)
+            model_parameters: Parameters used for the model (for generation types)
+            usage_details: Token usage information (for generation types)
+            cost_details: Cost information (for generation types)
+            prompt: Associated prompt template (for generation types)
+
+        Returns:
+            A new observation of the specified type that must be ended with .end()
+        """
+        if as_type == "event":
+            timestamp = time_ns()
+            event_span = self._langfuse_client._otel_tracer.start_span(
+                name=name, start_time=timestamp
+            )
+            return cast(
+                LangfuseEvent,
+                LangfuseEvent(
+                    otel_span=event_span,
+                    langfuse_client=self._langfuse_client,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                    environment=self._environment,
+                    version=version,
+                    level=level,
+                    status_message=status_message,
+                ).end(end_time=timestamp),
+            )
+
+        observation_class = _OBSERVATION_CLASS_MAP.get(as_type)
+        if not observation_class:
+            raise ValueError(f"Unknown observation type: {as_type}")
+
+        with otel_trace_api.use_span(self._otel_span):
+            new_otel_span = self._langfuse_client._otel_tracer.start_span(name=name)
+
+        common_args = {
+            "otel_span": new_otel_span,
+            "langfuse_client": self._langfuse_client,
+            "environment": self._environment,
+            "input": input,
+            "output": output,
+            "metadata": metadata,
+            "version": version,
+            "level": level,
+            "status_message": status_message,
+        }
+
+        # TODO: perf, cache this value? "calculated" on every observation create
+        # if as_type in get_observation_types_list(ObservationTypeGenerationLike):
+        if as_type in ObservationTypeGenerationLike.__args__:
+            common_args.update(
+                {
+                    "completion_start_time": completion_start_time,
+                    "model": model,
+                    "model_parameters": model_parameters,
+                    "usage_details": usage_details,
+                    "cost_details": cost_details,
+                    "prompt": prompt,
+                }
+            )
+
+        return observation_class(**common_args)
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["span"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseSpan"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["generation"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> _AgnosticContextManager["LangfuseGeneration"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: ObservationTypeGenerationLike,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> _AgnosticContextManager[
+        Union[
+            "LangfuseAgent",
+            "LangfuseTool",
+            "LangfuseChain",
+            "LangfuseRetriever",
+            "LangfuseEvaluator",
+            "LangfuseEmbedding",
+        ]
+    ]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["guardrail"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseGuardrail"]: ...
+
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: ObservationTypeLiteralNoEvent,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ):
+        """Create a new child observation and set it as the current observation in a context manager.
+
+        This is the generic method for creating any type of child observation with
+        context management. It delegates to the client's _create_span_with_parent_context method.
+
+        Args:
+            name: Name of the observation
+            as_type: Type of observation to create
+            input: Input data for the operation
+            output: Output data from the operation
+            metadata: Additional metadata to associate with the observation
+            version: Version identifier for the code or component
+            level: Importance level of the observation (info, warning, error)
+            status_message: Optional status message for the observation
+            completion_start_time: When the model started generating (for generation types)
+            model: Name/identifier of the AI model used (for generation types)
+            model_parameters: Parameters used for the model (for generation types)
+            usage_details: Token usage information (for generation types)
+            cost_details: Cost information (for generation types)
+            prompt: Associated prompt template (for generation types)
+
+        Returns:
+            A context manager that yields a new observation of the specified type
+        """
+        return self._langfuse_client._create_span_with_parent_context(
+            name=name,
+            as_type=as_type,
+            remote_parent_span=None,
+            parent=self._otel_span,
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
+        )
+
+
+class LangfuseGeneration(LangfuseSpanWrapper):
     """Specialized span implementation for AI model generations in Langfuse.
 
     This class represents a generation span specifically designed for tracking
@@ -1268,7 +1550,7 @@ class LangfuseGeneration(LangfuseGenerationLikeObservation):
             prompt: Associated prompt template from Langfuse prompt management
         """
         super().__init__(
-            observation_type="generation",
+            as_type="generation",
             otel_span=otel_span,
             langfuse_client=langfuse_client,
             input=input,
@@ -1330,64 +1612,79 @@ class LangfuseEvent(LangfuseSpanWrapper):
         )
 
 
-class LangfuseAgent(LangfuseGenerationLikeObservation):
+class LangfuseAgent(LangfuseSpanWrapper):
     """Specialized span for agent observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseAgent span."""
-        kwargs["observation_type"] = "agent"
+        kwargs["as_type"] = "agent"
         super().__init__(**kwargs)
 
 
-class LangfuseTool(LangfuseGenerationLikeObservation):
+class LangfuseTool(LangfuseSpanWrapper):
     """Specialized span for tool observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseTool span."""
-        kwargs["observation_type"] = "tool"
+        kwargs["as_type"] = "tool"
         super().__init__(**kwargs)
 
 
-class LangfuseChain(LangfuseGenerationLikeObservation):
+class LangfuseChain(LangfuseSpanWrapper):
     """Specialized span for chain observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseChain span."""
-        kwargs["observation_type"] = "chain"
+        kwargs["as_type"] = "chain"
         super().__init__(**kwargs)
 
 
-class LangfuseRetriever(LangfuseGenerationLikeObservation):
+class LangfuseRetriever(LangfuseSpanWrapper):
     """Specialized span for retriever observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseRetriever span."""
-        kwargs["observation_type"] = "retriever"
+        kwargs["as_type"] = "retriever"
         super().__init__(**kwargs)
 
 
-class LangfuseEmbedding(LangfuseGenerationLikeObservation):
+class LangfuseEmbedding(LangfuseSpanWrapper):
     """Specialized span for embedding observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEmbedding span."""
-        kwargs["observation_type"] = "embedding"
+        kwargs["as_type"] = "embedding"
         super().__init__(**kwargs)
 
 
-class LangfuseEvaluator(LangfuseGenerationLikeObservation):
+class LangfuseEvaluator(LangfuseSpanWrapper):
     """Specialized span for evaluator observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEvaluator span."""
-        kwargs["observation_type"] = "evaluator"
+        kwargs["as_type"] = "evaluator"
         super().__init__(**kwargs)
 
 
-class LangfuseGuardrail(LangfuseSpanLikeObservation):
+class LangfuseGuardrail(LangfuseSpanWrapper):
     """Specialized span for guardrail observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseGuardrail span."""
-        kwargs["observation_type"] = "guardrail"
+        kwargs["as_type"] = "guardrail"
         super().__init__(**kwargs)
+
+
+_OBSERVATION_CLASS_MAP.update(
+    {
+        "span": LangfuseSpan,
+        "generation": LangfuseGeneration,
+        "agent": LangfuseAgent,
+        "tool": LangfuseTool,
+        "chain": LangfuseChain,
+        "retriever": LangfuseRetriever,
+        "evaluator": LangfuseEvaluator,
+        "embedding": LangfuseEmbedding,
+        "guardrail": LangfuseGuardrail,
+    }
+)

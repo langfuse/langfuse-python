@@ -638,6 +638,141 @@ class TestBasicSpans(TestOTelBase):
                 actual_type == expected_otel_type
             ), f"Expected observation type {expected_otel_type}, got {actual_type}"
 
+    def test_start_observation(self, langfuse_client, memory_exporter):
+        """Test creating different observation types using start_observation."""
+        from langfuse._client.constants import (
+            ObservationTypeGenerationLike,
+            ObservationTypeLiteral,
+            get_observation_types_list,
+        )
+
+        # Test each observation type defined in constants - this ensures we test all supported types
+        observation_types = get_observation_types_list(ObservationTypeLiteral)
+
+        # Create a main span to use for child creation
+        with langfuse_client.start_as_current_span(
+            name="factory-test-parent"
+        ) as parent_span:
+            created_observations = []
+
+            for obs_type in observation_types:
+                if obs_type in get_observation_types_list(
+                    ObservationTypeGenerationLike
+                ):
+                    # Generation-like types with extra parameters
+                    obs = parent_span.start_observation(
+                        name=f"factory-{obs_type}",
+                        as_type=obs_type,
+                        input={"test": f"{obs_type}_input"},
+                        model="test-model",
+                        model_parameters={"temperature": 0.7},
+                        usage_details={"input": 10, "output": 20},
+                    )
+                    if obs_type != "event":  # Events are auto-ended
+                        obs.end()
+                    created_observations.append((obs_type, obs))
+                elif obs_type == "event":
+                    # Test event creation through start_observation (should be auto-ended)
+                    obs = parent_span.start_observation(
+                        name=f"factory-{obs_type}",
+                        as_type=obs_type,
+                        input={"test": f"{obs_type}_input"},
+                    )
+                    created_observations.append((obs_type, obs))
+                else:
+                    # Span-like types (span, guardrail)
+                    obs = parent_span.start_observation(
+                        name=f"factory-{obs_type}",
+                        as_type=obs_type,
+                        input={"test": f"{obs_type}_input"},
+                    )
+                    obs.end()
+                    created_observations.append((obs_type, obs))
+
+        spans = [
+            self.get_span_data(span) for span in memory_exporter.get_finished_spans()
+        ]
+
+        # Verify factory pattern created correct observation types
+        for obs_type in observation_types:
+            expected_name = f"factory-{obs_type}"
+            matching_spans = [span for span in spans if span["name"] == expected_name]
+            assert (
+                len(matching_spans) == 1
+            ), f"Expected one span with name {expected_name}, found {len(matching_spans)}"
+
+            span_data = matching_spans[0]
+            actual_type = span_data["attributes"].get(
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE
+            )
+
+            assert (
+                actual_type == obs_type
+            ), f"Factory pattern failed: Expected observation type {obs_type}, got {actual_type}"
+
+        # Ensure returned objects are of correct types
+        for obs_type, obs_instance in created_observations:
+            if obs_type == "span":
+                from langfuse._client.span import LangfuseSpan
+
+                assert isinstance(
+                    obs_instance, LangfuseSpan
+                ), f"Expected LangfuseSpan, got {type(obs_instance)}"
+            elif obs_type == "generation":
+                from langfuse._client.span import LangfuseGeneration
+
+                assert isinstance(
+                    obs_instance, LangfuseGeneration
+                ), f"Expected LangfuseGeneration, got {type(obs_instance)}"
+            elif obs_type == "agent":
+                from langfuse._client.span import LangfuseAgent
+
+                assert isinstance(
+                    obs_instance, LangfuseAgent
+                ), f"Expected LangfuseAgent, got {type(obs_instance)}"
+            elif obs_type == "tool":
+                from langfuse._client.span import LangfuseTool
+
+                assert isinstance(
+                    obs_instance, LangfuseTool
+                ), f"Expected LangfuseTool, got {type(obs_instance)}"
+            elif obs_type == "chain":
+                from langfuse._client.span import LangfuseChain
+
+                assert isinstance(
+                    obs_instance, LangfuseChain
+                ), f"Expected LangfuseChain, got {type(obs_instance)}"
+            elif obs_type == "retriever":
+                from langfuse._client.span import LangfuseRetriever
+
+                assert isinstance(
+                    obs_instance, LangfuseRetriever
+                ), f"Expected LangfuseRetriever, got {type(obs_instance)}"
+            elif obs_type == "evaluator":
+                from langfuse._client.span import LangfuseEvaluator
+
+                assert isinstance(
+                    obs_instance, LangfuseEvaluator
+                ), f"Expected LangfuseEvaluator, got {type(obs_instance)}"
+            elif obs_type == "embedding":
+                from langfuse._client.span import LangfuseEmbedding
+
+                assert isinstance(
+                    obs_instance, LangfuseEmbedding
+                ), f"Expected LangfuseEmbedding, got {type(obs_instance)}"
+            elif obs_type == "guardrail":
+                from langfuse._client.span import LangfuseGuardrail
+
+                assert isinstance(
+                    obs_instance, LangfuseGuardrail
+                ), f"Expected LangfuseGuardrail, got {type(obs_instance)}"
+            elif obs_type == "event":
+                from langfuse._client.span import LangfuseEvent
+
+                assert isinstance(
+                    obs_instance, LangfuseEvent
+                ), f"Expected LangfuseEvent, got {type(obs_instance)}"
+
     def test_custom_trace_id(self, langfuse_client, memory_exporter):
         """Test setting a custom trace ID."""
         # Create a custom trace ID
