@@ -16,7 +16,6 @@ from typing import (
     Union,
     cast,
     overload,
-    get_args,
 )
 
 from opentelemetry.util._decorator import _AgnosticContextManager
@@ -28,6 +27,7 @@ from langfuse._client.environment_variables import (
 
 from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
+    get_observation_types_list,
 )
 from langfuse._client.get_client import _set_current_public_key, get_client
 from langfuse._client.span import (
@@ -169,7 +169,7 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        valid_types = set(get_args(ObservationTypeLiteralNoEvent))
+        valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
             self._log.warning(
                 f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."

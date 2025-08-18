@@ -3,7 +3,7 @@
 This module defines constants used throughout the Langfuse OpenTelemetry integration.
 """
 
-from typing import Literal, List, get_args, Union
+from typing import Literal, List, get_args, Union, Any
 from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
@@ -39,16 +39,12 @@ decorator and other Langfuse SDK methods.
 
 
 def get_observation_types_list(
-    literal_type: Union[
-        ObservationTypeGenerationLike,
-        ObservationTypeLiteralNoEvent,
-        ObservationTypeLiteral,
-    ],
+    literal_type: Any,
 ) -> List[str]:
     """Flattens the Literal type to provide a list of strings.
 
     Args:
-        literal_type: A Literal type or union of Literals to flatten
+        literal_type: A Literal type, TypeAlias, or union of Literals to flatten
 
     Returns:
         Flat list of all string values contained in the Literal type
