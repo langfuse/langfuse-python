@@ -391,7 +391,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
-    elif resource.object == "Responses":
+    elif resource.object == "Responses" or resource.object == "AsyncResponses":
         prompt = kwargs.get("input", None)
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
@@ -672,7 +672,7 @@ def _get_langfuse_data_from_default_response(
 
             completion = choice.text if _is_openai_v1() else choice.get("text", None)
 
-    elif resource.object == "Responses":
+    elif resource.object == "Responses" or resource.object == "AsyncResponses":
         output = response.get("output", {})
 
         if not isinstance(output, list):
@@ -922,6 +922,7 @@ class LangfuseResponseGeneratorSync:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
                 if self.resource.object == "Responses"
+                or self.resource.object == "AsyncResponses"
                 else _extract_streamed_openai_response(self.resource, self.items)
             )
 
@@ -992,6 +993,7 @@ class LangfuseResponseGeneratorAsync:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
                 if self.resource.object == "Responses"
+                or self.resource.object == "AsyncResponses"
                 else _extract_streamed_openai_response(self.resource, self.items)
             )
 
