@@ -542,9 +542,6 @@ class LangfuseSpanWrapper:
 
         return data
 
-    # Add observation type tracking and unified update method
-    _observation_type: ObservationTypeLiteral
-
     def update(
         self,
         *,
@@ -685,8 +682,8 @@ class LangfuseSpan(LangfuseSpanWrapper):
             status_message: Optional status message for the span
         """
         super().__init__(
-            as_type="span",
             otel_span=otel_span,
+            as_type="span",
             langfuse_client=langfuse_client,
             input=input,
             output=output,
@@ -1044,7 +1041,6 @@ class LangfuseSpan(LangfuseSpanWrapper):
             ).end(end_time=timestamp),
         )
 
-    # Generic child creation methods with overloads for type safety
     @overload
     def start_observation(
         self,
