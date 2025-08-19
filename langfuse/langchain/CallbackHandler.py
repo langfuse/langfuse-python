@@ -3,7 +3,15 @@ import typing
 import pydantic
 
 from langfuse._client.get_client import get_client
-from langfuse._client.span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.span import (
+    LangfuseGeneration,
+    LangfuseSpan,
+    LangfuseAgent,
+    LangfuseChain,
+    LangfuseTool,
+    LangfuseRetriever,
+    LangfuseObservationWrapper,
+)
 from langfuse.logger import langfuse_logger
 
 try:
@@ -59,7 +67,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(self, *, public_key: Optional[str] = None) -> None:
         self.client = get_client(public_key=public_key)
 
-        self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
+        self.runs: Dict[
+            UUID,
+            Union[
+                LangfuseSpan,
+                LangfuseGeneration,
+                LangfuseAgent,
+                LangfuseChain,
+                LangfuseTool,
+                LangfuseRetriever,
+            ],
+        ] = {}
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
 
@@ -86,6 +104,49 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             current_generation.update(completion_start_time=_get_timestamp())
 
             self.updated_completion_start_time_memo.add(run_id)
+
+    def _get_observation_type_from_serialized(
+        self, serialized: Optional[Dict[str, Any]], callback_type: str, **kwargs: Any
+    ) -> Union[
+        Literal["tool"],
+        Literal["retriever"],
+        Literal["generation"],
+        Literal["agent"],
+        Literal["chain"],
+        Literal["span"],
+    ]:
+        """Determine Langfuse observation type from LangChain component.
+
+        Args:
+            serialized: LangChain's serialized component dict
+            callback_type: The type of callback (e.g., "chain", "tool", "retriever", "llm")
+            **kwargs: Additional keyword arguments from the callback
+
+        Returns:
+            The appropriate Langfuse observation type string
+        """
+        # Direct mappings based on callback type
+        if callback_type == "tool":
+            return "tool"
+        elif callback_type == "retriever":
+            return "retriever"
+        elif callback_type == "llm":
+            return "generation"
+        elif callback_type == "chain":
+            # Detect if it's an agent by examining class path or name
+            if serialized and "id" in serialized:
+                class_path = serialized["id"]
+                if any("agent" in part.lower() for part in class_path):
+                    return "agent"
+
+            # Check name for agent-related keywords
+            name = self.get_langchain_run_name(serialized, **kwargs)
+            if "agent" in name.lower():
+                return "agent"
+
+            return "chain"
+
+        return "span"
 
     def get_langchain_run_name(
         self, serialized: Optional[Dict[str, Any]], **kwargs: Any
@@ -196,9 +257,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             span_metadata = self.__join_tags_and_metadata(tags, metadata)
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
+            observation_type = self._get_observation_type_from_serialized(
+                serialized, "chain", **kwargs
+            )
+
             if parent_run_id is None:
-                span = self.client.start_span(
+                span = self.client.start_observation(
                     name=span_name,
+                    as_type=observation_type,
                     metadata=span_metadata,
                     input=inputs,
                     level=cast(
@@ -212,9 +278,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 self.runs[run_id] = span
             else:
                 self.runs[run_id] = cast(
-                    LangfuseSpan, self.runs[parent_run_id]
-                ).start_span(
+                    # TODO: make this more precise (can be chain or agent here)
+                    LangfuseObservationWrapper,
+                    self.runs[parent_run_id],
+                ).start_observation(
                     name=span_name,
+                    as_type=observation_type,
                     metadata=span_metadata,
                     input=inputs,
                     level=cast(
@@ -442,8 +511,6 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
-            if parent_run_id is None or parent_run_id not in self.runs:
-                raise Exception("parent run not found")
             meta = self.__join_tags_and_metadata(tags, metadata)
 
             if not meta:
@@ -453,12 +520,30 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 {key: value for key, value in kwargs.items() if value is not None}
             )
 
-            self.runs[run_id] = cast(LangfuseSpan, self.runs[parent_run_id]).start_span(
-                name=self.get_langchain_run_name(serialized, **kwargs),
-                input=input_str,
-                metadata=meta,
-                level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+            observation_type = self._get_observation_type_from_serialized(
+                serialized, "tool", **kwargs
             )
+
+            if parent_run_id is None or parent_run_id not in self.runs:
+                # Create root observation for direct tool calls
+                self.runs[run_id] = self.client.start_observation(
+                    name=self.get_langchain_run_name(serialized, **kwargs),
+                    as_type=observation_type,
+                    input=input_str,
+                    metadata=meta,
+                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                )
+            else:
+                # Create child observation for tools within chains/agents
+                self.runs[run_id] = cast(
+                    LangfuseChain, self.runs[parent_run_id]
+                ).start_observation(
+                    name=self.get_langchain_run_name(serialized, **kwargs),
+                    as_type=observation_type,
+                    input=input_str,
+                    metadata=meta,
+                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                )
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -482,9 +567,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             span_metadata = self.__join_tags_and_metadata(tags, metadata)
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
+            observation_type = self._get_observation_type_from_serialized(
+                serialized, "retriever", **kwargs
+            )
+
             if parent_run_id is None:
-                self.runs[run_id] = self.client.start_span(
+                self.runs[run_id] = self.client.start_observation(
                     name=span_name,
+                    as_type=observation_type,
                     metadata=span_metadata,
                     input=query,
                     level=cast(
@@ -494,9 +584,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 )
             else:
                 self.runs[run_id] = cast(
-                    LangfuseSpan, self.runs[parent_run_id]
-                ).start_span(
+                    LangfuseRetriever, self.runs[parent_run_id]
+                ).start_observation(
                     name=span_name,
+                    as_type=observation_type,
                     input=query,
                     metadata=span_metadata,
                     level=cast(
@@ -625,10 +716,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             if parent_run_id is not None and parent_run_id in self.runs:
                 self.runs[run_id] = cast(
-                    LangfuseSpan, self.runs[parent_run_id]
-                ).start_generation(**content)  # type: ignore
+                    LangfuseGeneration, self.runs[parent_run_id]
+                ).start_observation(as_type="generation", **content)  # type: ignore
             else:
-                self.runs[run_id] = self.client.start_generation(**content)  # type: ignore
+                self.runs[run_id] = self.client.start_observation(
+                    as_type="generation", **content
+                )  # type: ignore
 
             self.last_trace_id = self.runs[run_id].trace_id
 

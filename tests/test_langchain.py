@@ -60,7 +60,7 @@ def test_callback_generated_from_trace_chain():
 
     langchain_span = list(
         filter(
-            lambda o: o.type == "SPAN" and o.name == "LLMChain",
+            lambda o: o.type == "CHAIN" and o.name == "LLMChain",
             trace.observations,
         )
     )[0]
