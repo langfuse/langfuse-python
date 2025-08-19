@@ -5,7 +5,7 @@ Langfuse-specific functionality. These wrapper classes provide methods for
 creating, updating, and scoring various types of spans used in AI application tracing.
 
 Classes:
-- LangfuseSpanWrapper: Abstract base class for all Langfuse spans
+- LangfuseObservationWrapper: Abstract base class for all Langfuse spans
 - LangfuseSpan: Implementation for general-purpose spans
 - LangfuseGeneration: Specialized span implementation for LLM generations
 
@@ -54,10 +54,10 @@ from langfuse.types import MapValue, ScoreDataType, SpanLevel
 # Factory mapping for observation classes
 # Note: "event" is handled separately due to special instantiation logic
 # Populated after class definitions
-_OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseSpanWrapper"]] = {}
+_OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
 
 
-class LangfuseSpanWrapper:
+class LangfuseObservationWrapper:
     """Abstract base class for all Langfuse span types.
 
     This class provides common functionality for all Langfuse span types, including
@@ -191,7 +191,7 @@ class LangfuseSpanWrapper:
                 {k: v for k, v in attributes.items() if v is not None}
             )
 
-    def end(self, *, end_time: Optional[int] = None) -> "LangfuseSpanWrapper":
+    def end(self, *, end_time: Optional[int] = None) -> "LangfuseObservationWrapper":
         """End the span, marking it as completed.
 
         This method ends the wrapped OpenTelemetry span, marking the end of the
@@ -217,7 +217,7 @@ class LangfuseSpanWrapper:
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
-    ) -> "LangfuseSpanWrapper":
+    ) -> "LangfuseObservationWrapper":
         """Update the trace that this span belongs to.
 
         This method updates trace-level attributes of the trace that this span
@@ -559,7 +559,7 @@ class LangfuseSpanWrapper:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         **kwargs: Any,
-    ) -> "LangfuseSpanWrapper":
+    ) -> "LangfuseObservationWrapper":
         """Update this observation with new information.
 
         This method updates the observation with new information that becomes available
@@ -646,11 +646,11 @@ class LangfuseSpanWrapper:
         return self
 
 
-class LangfuseSpan(LangfuseSpanWrapper):
+class LangfuseSpan(LangfuseObservationWrapper):
     """Standard span implementation for general operations in Langfuse.
 
     This class represents a general-purpose span that can be used to trace
-    any operation in your application. It extends the base LangfuseSpanWrapper
+    any operation in your application. It extends the base LangfuseObservationWrapper
     with specific methods for creating child spans, generations, and updating
     span-specific attributes.
     """
@@ -1462,11 +1462,11 @@ class LangfuseSpan(LangfuseSpanWrapper):
         )
 
 
-class LangfuseGeneration(LangfuseSpanWrapper):
+class LangfuseGeneration(LangfuseObservationWrapper):
     """Specialized span implementation for AI model generations in Langfuse.
 
     This class represents a generation span specifically designed for tracking
-    AI/LLM operations. It extends the base LangfuseSpanWrapper with specialized
+    AI/LLM operations. It extends the base LangfuseObservationWrapper with specialized
     attributes for model details, token usage, and costs.
     """
 
@@ -1528,7 +1528,7 @@ class LangfuseGeneration(LangfuseSpanWrapper):
         )
 
 
-class LangfuseEvent(LangfuseSpanWrapper):
+class LangfuseEvent(LangfuseObservationWrapper):
     """Specialized span implementation for Langfuse Events."""
 
     def __init__(
@@ -1571,7 +1571,7 @@ class LangfuseEvent(LangfuseSpanWrapper):
         )
 
 
-class LangfuseAgent(LangfuseSpanWrapper):
+class LangfuseAgent(LangfuseObservationWrapper):
     """Specialized span for agent observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -1580,7 +1580,7 @@ class LangfuseAgent(LangfuseSpanWrapper):
         super().__init__(**kwargs)
 
 
-class LangfuseTool(LangfuseSpanWrapper):
+class LangfuseTool(LangfuseObservationWrapper):
     """Specialized span for tool observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -1589,7 +1589,7 @@ class LangfuseTool(LangfuseSpanWrapper):
         super().__init__(**kwargs)
 
 
-class LangfuseChain(LangfuseSpanWrapper):
+class LangfuseChain(LangfuseObservationWrapper):
     """Specialized span for chain observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -1598,7 +1598,7 @@ class LangfuseChain(LangfuseSpanWrapper):
         super().__init__(**kwargs)
 
 
-class LangfuseRetriever(LangfuseSpanWrapper):
+class LangfuseRetriever(LangfuseObservationWrapper):
     """Specialized span for retriever observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -1607,7 +1607,7 @@ class LangfuseRetriever(LangfuseSpanWrapper):
         super().__init__(**kwargs)
 
 
-class LangfuseEmbedding(LangfuseSpanWrapper):
+class LangfuseEmbedding(LangfuseObservationWrapper):
     """Specialized span for embedding observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -1616,7 +1616,7 @@ class LangfuseEmbedding(LangfuseSpanWrapper):
         super().__init__(**kwargs)
 
 
-class LangfuseEvaluator(LangfuseSpanWrapper):
+class LangfuseEvaluator(LangfuseObservationWrapper):
     """Specialized span for evaluator observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -1625,7 +1625,7 @@ class LangfuseEvaluator(LangfuseSpanWrapper):
         super().__init__(**kwargs)
 
 
-class LangfuseGuardrail(LangfuseSpanWrapper):
+class LangfuseGuardrail(LangfuseObservationWrapper):
     """Specialized span for guardrail observations in agentic workflows."""
 
     def __init__(self, **kwargs: Any) -> None:
