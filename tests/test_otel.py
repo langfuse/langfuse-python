@@ -3054,7 +3054,7 @@ class TestOtelIdGeneration(TestOTelBase):
 
             # Verify warning was logged
             assert "Attempted to update LangfuseEvent observation" in caplog.text
-            assert "Events are immutable and cannot be updated after creation" in caplog.text
+            assert "Events cannot be updated after creation" in caplog.text
 
             # Verify the method returned self unchanged
             assert result is event
