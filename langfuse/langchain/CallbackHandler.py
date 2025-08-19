@@ -59,6 +59,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(
         self, *, public_key: Optional[str] = None, update_trace: bool = False
     ) -> None:
+        """Initialize the LangchainCallbackHandler.
+
+        Args:
+            public_key: Optional Langfuse public key. If not provided, will use the default client configuration.
+            update_trace: Whether to update the Langfuse trace with the chains input / output / metadata / name. Defaults to False.
+        """
         self.client = get_client(public_key=public_key)
 
         self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
