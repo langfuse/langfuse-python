@@ -57,7 +57,7 @@ except ImportError:
 
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(
-        self, *, public_key: Optional[str] = None, update_trace: Optional[bool] = False
+        self, *, public_key: Optional[str] = None, update_trace: bool = False
     ) -> None:
         self.client = get_client(public_key=public_key)
 
