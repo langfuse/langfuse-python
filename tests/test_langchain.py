@@ -458,11 +458,11 @@ def test_agent_executor_chain():
 
         prompt = PromptTemplate.from_template("""
         Answer the following questions as best you can. You have access to the following tools:
-        
+
         {tools}
-        
+
         Use the following format:
-        
+
         Question: the input question you must answer
         Thought: you should always think about what to do
         Action: the action to take, should be one of [{tool_names}]
@@ -471,9 +471,9 @@ def test_agent_executor_chain():
         ... (this Thought/Action/Action Input/Observation can repeat N times)
         Thought: I now know the final answer
         Final Answer: the final answer to the original input question
-        
+
         Begin!
-        
+
         Question: {input}
         Thought:{agent_scratchpad}
         """)
@@ -558,7 +558,7 @@ def test_unimplemented_model():
 
         template = """You are a play critic from the New York Times.
         Given the synopsis of play, it is your job to write a review for that play.
-        
+
             Play Synopsis:
             {synopsis}
             Review from a New York Times play critic of the above play:"""
@@ -604,9 +604,9 @@ def test_openai_instruct_usage():
         runnable_chain: Runnable = (
             PromptTemplate.from_template(
                 """Answer the question based only on the following context:
-                
+
                 Question: {question}
-                
+
                 Answer in the following language: {language}
                 """
             )
