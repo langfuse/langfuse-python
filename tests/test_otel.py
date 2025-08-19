@@ -102,7 +102,6 @@ class TestOTelBase:
     @pytest.fixture
     def langfuse_client(self, monkeypatch, tracer_provider, mock_processor_init):
         """Create a mocked Langfuse client for testing."""
-
         # Set environment variables
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test-public-key")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test-secret-key")
@@ -3031,7 +3030,7 @@ class TestOtelIdGeneration(TestOTelBase):
         # All observation IDs should be unique
         assert len(set(observation_ids)) == len(seeds)
 
-    def test_langfuse_event_update_immutability(self, langfuse_client, memory_exporter, caplog):
+    def test_langfuse_event_update_immutability(self, langfuse_client, caplog):
         """Test that LangfuseEvent.update() logs a warning and does nothing."""
         import logging
 
@@ -3044,12 +3043,12 @@ class TestOtelIdGeneration(TestOTelBase):
         )
 
         # Try to update the event and capture warning logs
-        with caplog.at_level(logging.WARNING, logger='langfuse._client.span'):
+        with caplog.at_level(logging.WARNING, logger="langfuse._client.span"):
             result = event.update(
                 name="updated_name",
                 input={"updated": "input"},
                 output={"updated": "output"},
-                metadata={"updated": "metadata"}
+                metadata={"updated": "metadata"},
             )
 
             # Verify warning was logged
