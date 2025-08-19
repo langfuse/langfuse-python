@@ -95,7 +95,7 @@ def create_span_attributes(
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
-    observation_type: Optional[Literal["span", "guardrail"]] = "span",
+    observation_type: Optional[Literal["span", "guardrail", "event"]] = "span",
 ) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,
