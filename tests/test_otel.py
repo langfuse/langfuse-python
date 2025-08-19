@@ -628,12 +628,6 @@ class TestBasicSpans(TestOTelBase):
                 LangfuseOtelSpanAttributes.OBSERVATION_TYPE
             )
 
-            # Debug: print all attributes for this span
-            print(
-                f"Span {expected_name} attributes: {list(span_data['attributes'].keys())}"
-            )
-            print(f"Expected: {expected_otel_type}, Actual: {actual_type}")
-
             assert (
                 actual_type == expected_otel_type
             ), f"Expected observation type {expected_otel_type}, got {actual_type}"
@@ -3036,3 +3030,33 @@ class TestOtelIdGeneration(TestOTelBase):
 
         # All observation IDs should be unique
         assert len(set(observation_ids)) == len(seeds)
+
+    def test_langfuse_event_update_immutability(self, langfuse_client, memory_exporter, caplog):
+        """Test that LangfuseEvent.update() logs a warning and does nothing."""
+        import logging
+
+        parent_span = langfuse_client.start_span(name="parent-span")
+
+        event = parent_span.start_observation(
+            name="test-event",
+            as_type="event",
+            input={"original": "input"},
+        )
+
+        # Try to update the event and capture warning logs
+        with caplog.at_level(logging.WARNING, logger='langfuse._client.span'):
+            result = event.update(
+                name="updated_name",
+                input={"updated": "input"},
+                output={"updated": "output"},
+                metadata={"updated": "metadata"}
+            )
+
+            # Verify warning was logged
+            assert "Attempted to update LangfuseEvent observation" in caplog.text
+            assert "Events are immutable and cannot be updated after creation" in caplog.text
+
+            # Verify the method returned self unchanged
+            assert result is event
+
+        parent_span.end()

@@ -1570,6 +1570,36 @@ class LangfuseEvent(LangfuseObservationWrapper):
             status_message=status_message,
         )
 
+    def update(
+        self,
+        *,
+        name: Optional[str] = None,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+        **kwargs: Any,
+    ) -> "LangfuseObservationWrapper":
+        """Update is not allowed for LangfuseEvent because events cannot be updated.
+
+        This method logs a warning and returns self without making changes.
+
+        Returns:
+            self: Returns the unchanged LangfuseEvent instance
+        """
+        langfuse_logger.warning(
+            "Attempted to update LangfuseEvent observation. Events cannot be updated after creation."
+        )
+        return self
+
 
 class LangfuseAgent(LangfuseObservationWrapper):
     """Specialized span for agent observations in agentic workflows."""
