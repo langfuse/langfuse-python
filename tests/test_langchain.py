@@ -1353,3 +1353,91 @@ def test_cached_token_usage():
         )
         < 0.0001
     )
+
+
+def test_langchain_automatic_observation_types():
+    """Test that LangChain components automatically get correct observation types:
+    AGENT, TOOL, GENERATION, RETRIEVER, CHAIN"""
+    langfuse = Langfuse()
+
+    with langfuse.start_as_current_span(name="observation_types_test_agent") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
+
+        from langchain.agents import AgentExecutor, create_react_agent
+        from langchain.tools import tool
+
+        # for type TOOL
+        @tool
+        def test_tool(x: str) -> str:
+            """Process input string."""
+            return f"processed {x}"
+
+        # for type GENERATION
+        llm = ChatOpenAI(temperature=0)
+        tools = [test_tool]
+
+        prompt = PromptTemplate.from_template("""
+        Answer: {input}
+
+        Tools: {tools}
+        Tool names: {tool_names}
+
+        Question: {input}
+        {agent_scratchpad}
+        """)
+
+        # for type AGENT
+        agent = create_react_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(
+            agent=agent, tools=tools, handle_parsing_errors=True, max_iterations=1
+        )
+
+        try:
+            agent_executor.invoke({"input": "hello"}, {"callbacks": [handler]})
+        except Exception:
+            pass
+
+        try:
+            test_tool.invoke("simple input", {"callbacks": [handler]})
+        except Exception:
+            pass
+
+        from langchain_core.prompts import PromptTemplate as CorePromptTemplate
+
+        # for type CHAIN
+        chain_prompt = CorePromptTemplate.from_template("Answer: {question}")
+        simple_chain = chain_prompt | llm
+
+        try:
+            simple_chain.invoke({"question": "hi"}, {"callbacks": [handler]})
+        except Exception:
+            pass
+
+        # for type RETRIEVER
+        from langchain_core.retrievers import BaseRetriever
+        from langchain_core.documents import Document
+
+        class SimpleRetriever(BaseRetriever):
+            def _get_relevant_documents(self, query: str, *, run_manager):
+                return [Document(page_content="test doc")]
+
+        try:
+            SimpleRetriever().invoke("query", {"callbacks": [handler]})
+        except Exception:
+            pass
+
+    handler.client.flush()
+    trace = get_api().trace.get(trace_id)
+
+    # Validate all expected observation types are created
+    types_found = {obs.type for obs in trace.observations}
+    expected_types = {"AGENT", "TOOL", "CHAIN", "RETRIEVER", "GENERATION"}
+
+    for obs_type in expected_types:
+        obs_count = len([obs for obs in trace.observations if obs.type == obs_type])
+        assert obs_count > 0, f"Expected {obs_type} observations, found {obs_count}"
+
+    assert expected_types.issubset(
+        types_found
+    ), f"Missing types: {expected_types - types_found}"
