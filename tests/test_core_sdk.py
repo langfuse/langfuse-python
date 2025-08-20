@@ -1878,3 +1878,53 @@ def test_generate_trace_id():
     project_id = langfuse._get_project_id()
     trace_url = langfuse.get_trace_url(trace_id=trace_id)
     assert trace_url == f"http://localhost:3000/project/{project_id}/traces/{trace_id}"
+
+
+def test_start_as_current_observation_types():
+    """Test creating different observation types using start_as_current_observation."""
+    langfuse = Langfuse()
+
+    observation_types = [
+        "span",
+        "generation",
+        "agent",
+        "tool",
+        "chain",
+        "retriever",
+        "evaluator",
+        "embedding",
+        "guardrail",
+    ]
+
+    with langfuse.start_as_current_span(name="parent") as parent_span:
+        parent_span.update_trace(name="observation-types-test")
+        trace_id = parent_span.trace_id
+
+        for obs_type in observation_types:
+            with parent_span.start_as_current_observation(
+                name=f"test-{obs_type}", as_type=obs_type
+            ):
+                pass
+
+    langfuse.flush()
+
+    api = get_api()
+    trace = api.trace.get(trace_id)
+
+    # Check we have all expected observation types
+    found_types = {obs.type for obs in trace.observations}
+    expected_types = {obs_type.upper() for obs_type in observation_types} | {
+        "SPAN"
+    }  # includes parent span
+    assert expected_types.issubset(
+        found_types
+    ), f"Missing types: {expected_types - found_types}"
+
+    # Verify each specific observation exists
+    for obs_type in observation_types:
+        observations = [
+            obs
+            for obs in trace.observations
+            if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
+        ]
+        assert len(observations) == 1, f"Expected one {obs_type.upper()} observation"
