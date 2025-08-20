@@ -5,6 +5,7 @@ This module implements Langfuse's core observability functionality on top of the
 
 import logging
 import os
+import warnings
 import re
 import urllib.parse
 from datetime import datetime
@@ -727,7 +728,10 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> LangfuseGeneration:
-        """Create a new generation span for model generations.
+        """[DEPRECATED] Create a new generation span for model generations.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_observation(as_type='generation') instead.
 
         This method creates a specialized span for tracking model generations.
         It includes additional fields specific to model generations such as model name,
@@ -777,6 +781,12 @@ class Langfuse:
                 generation.end()
             ```
         """
+        warnings.warn(
+            "start_generation is deprecated and will be removed in a future version. "
+            "Use start_observation(as_type='generation') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.start_observation(
             trace_context=trace_context,
             name=name,
@@ -814,7 +824,10 @@ class Langfuse:
         prompt: Optional[PromptClient] = None,
         end_on_exit: Optional[bool] = None,
     ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """Create a new generation span and set it as the current span in a context manager.
+        """[DEPRECATED] Create a new generation span and set it as the current span in a context manager.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_as_current_observation(as_type='generation') instead.
 
         This method creates a specialized span for model generations and sets it as the
         current span within a context manager. Use this method with a 'with' statement to
@@ -862,6 +875,12 @@ class Langfuse:
                 )
             ```
         """
+        warnings.warn(
+            "start_as_current_generation is deprecated and will be removed in a future version. "
+            "Use start_as_current_observation(as_type='generation') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.start_as_current_observation(
             trace_context=trace_context,
             name=name,

@@ -15,6 +15,7 @@ and scoring integration specific to Langfuse's observability platform.
 
 from datetime import datetime
 from time import time_ns
+import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1176,7 +1177,10 @@ class LangfuseSpan(LangfuseObservationWrapper):
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
     ) -> _AgnosticContextManager["LangfuseSpan"]:
-        """Create a new child span and set it as the current span in a context manager.
+        """[DEPRECATED] Create a new child span and set it as the current span in a context manager.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_as_current_observation(as_type='span') instead.
 
         This method creates a new child span and sets it as the current span within
         a context manager. It should be used with a 'with' statement to automatically
@@ -1210,6 +1214,12 @@ class LangfuseSpan(LangfuseObservationWrapper):
                 parent_span.update(output=result)
             ```
         """
+        warnings.warn(
+            "start_as_current_span is deprecated and will be removed in a future version. "
+            "Use start_as_current_observation(as_type='span') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.start_as_current_observation(
             name=name,
             as_type="span",
@@ -1238,7 +1248,10 @@ class LangfuseSpan(LangfuseObservationWrapper):
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> "LangfuseGeneration":
-        """Create a new child generation span.
+        """[DEPRECATED] Create a new child generation span.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_observation(as_type='generation') instead.
 
         This method creates a new child generation span with this span as the parent.
         Generation spans are specialized for AI/LLM operations and include additional
@@ -1295,6 +1308,12 @@ class LangfuseSpan(LangfuseObservationWrapper):
                 span.end()
             ```
         """
+        warnings.warn(
+            "start_generation is deprecated and will be removed in a future version. "
+            "Use start_observation(as_type='generation') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.start_observation(
             name=name,
             as_type="generation",
@@ -1329,7 +1348,10 @@ class LangfuseSpan(LangfuseObservationWrapper):
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> _AgnosticContextManager["LangfuseGeneration"]:
-        """Create a new child generation span and set it as the current span in a context manager.
+        """[DEPRECATED] Create a new child generation span and set it as the current span in a context manager.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_as_current_observation(as_type='generation') instead.
 
         This method creates a new child generation span and sets it as the current span
         within a context manager. Generation spans are specialized for AI/LLM operations
@@ -1381,6 +1403,12 @@ class LangfuseSpan(LangfuseObservationWrapper):
                 span.update(output={"answer": response.text, "source": "gpt-4"})
             ```
         """
+        warnings.warn(
+            "start_as_current_generation is deprecated and will be removed in a future version. "
+            "Use start_as_current_observation(as_type='generation') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return cast(
             _AgnosticContextManager["LangfuseGeneration"],
             self.start_as_current_observation(
