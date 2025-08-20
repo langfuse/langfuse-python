@@ -116,7 +116,6 @@ class LangfuseObservationWrapper:
             LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
         )
         self._langfuse_client = langfuse_client
-
         self._observation_type = as_type
 
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
@@ -606,15 +605,7 @@ class LangfuseObservationWrapper:
                 level=level,
                 status_message=status_message,
                 observation_type=cast(
-                    Literal[
-                        "generation",
-                        "agent",
-                        "tool",
-                        "chain",
-                        "retriever",
-                        "evaluator",
-                        "embedding",
-                    ],
+                    ObservationTypeGenerationLike,
                     self._observation_type,
                 ),
                 completion_start_time=completion_start_time,
@@ -1072,7 +1063,8 @@ class LangfuseSpan(LangfuseObservationWrapper):
     This class represents a general-purpose span that can be used to trace
     any operation in your application. It extends the base LangfuseObservationWrapper
     with specific methods for creating child spans, generations, and updating
-    span-specific attributes.
+    span-specific attributes. If possible, use a more specific type for
+    better observability and insights.
     """
 
     def __init__(
@@ -1602,7 +1594,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
 
 
 class LangfuseAgent(LangfuseObservationWrapper):
-    """Specialized span for agent observations in agentic workflows."""
+    """Agent observation for reasoning blocks that act on tools using LLM guidance."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseAgent span."""
@@ -1611,7 +1603,7 @@ class LangfuseAgent(LangfuseObservationWrapper):
 
 
 class LangfuseTool(LangfuseObservationWrapper):
-    """Specialized span for tool observations in agentic workflows."""
+    """Tool observation representing external tool calls, e.g., calling a weather API."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseTool span."""
@@ -1620,7 +1612,7 @@ class LangfuseTool(LangfuseObservationWrapper):
 
 
 class LangfuseChain(LangfuseObservationWrapper):
-    """Specialized span for chain observations in agentic workflows."""
+    """Chain observation for connecting LLM application steps, e.g. passing context from retriever to LLM."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseChain span."""
@@ -1629,7 +1621,7 @@ class LangfuseChain(LangfuseObservationWrapper):
 
 
 class LangfuseRetriever(LangfuseObservationWrapper):
-    """Specialized span for retriever observations in agentic workflows."""
+    """Retriever observation for data retrieval steps, e.g. vector store or database queries."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseRetriever span."""
@@ -1638,7 +1630,7 @@ class LangfuseRetriever(LangfuseObservationWrapper):
 
 
 class LangfuseEmbedding(LangfuseObservationWrapper):
-    """Specialized span for embedding observations in agentic workflows."""
+    """Embedding observation for LLM embedding calls, typically used before retrieval."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEmbedding span."""
@@ -1647,7 +1639,7 @@ class LangfuseEmbedding(LangfuseObservationWrapper):
 
 
 class LangfuseEvaluator(LangfuseObservationWrapper):
-    """Specialized span for evaluator observations in agentic workflows."""
+    """Evaluator observation for assessing relevance, correctness, or helpfulness of LLM outputs."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseEvaluator span."""
@@ -1656,7 +1648,7 @@ class LangfuseEvaluator(LangfuseObservationWrapper):
 
 
 class LangfuseGuardrail(LangfuseObservationWrapper):
-    """Specialized span for guardrail observations in agentic workflows."""
+    """Guardrail observation for protection e.g. against jailbreaks or offensive content."""
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a new LangfuseGuardrail span."""

@@ -109,8 +109,9 @@ class LangfuseDecorator:
             name (Optional[str]): Custom name for the created trace or span. If not provided, the function name is used.
             as_type (Optional[Literal]): Set the observation type. Supported values:
                     "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
-                    When set to "generation", creates a specialized LLM generation span with model metrics support.
-                    Other types create spans with the specified type for graph visualization and filtering in the Langfuse UI.
+                    Observation types are highlighted in the Langfuse UI for filtering and visualization.
+                    The types "generation", "agent", "tool", "chain", "retriever", "embedding", "evaluator" create a span which
+                    allows to set additional attributes such as model metrics..
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -134,13 +135,6 @@ class LangfuseDecorator:
                     messages=[{"role": "user", "content": query}]
                 )
                 return response.choices[0].message.content
-            ```
-
-            For automatic graph instrumentation with agent workflows:
-            ```python
-            @observe(as_type="agent")
-            def planning_agent():
-                return create_plan()
             ```
 
             For trace context propagation between functions:
@@ -369,7 +363,6 @@ class LangfuseDecorator:
             # Set public key in execution context for nested decorated functions
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
-
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],

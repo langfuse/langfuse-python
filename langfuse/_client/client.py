@@ -10,7 +10,18 @@ import urllib.parse
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
-from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Union,
+    Type,
+    cast,
+    overload,
+    get_args,
+)
 
 import backoff
 import httpx
@@ -39,6 +50,7 @@ from langfuse._client.environment_variables import (
 from langfuse._client.constants import (
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
+    ObservationTypeGenerationLike,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
@@ -656,10 +668,14 @@ class Langfuse:
         LangfuseGuardrail,
     ]:
         """Create the appropriate observation type from an OTEL span."""
-        if as_type == "generation":
-            return LangfuseGeneration(
+        if as_type in get_args(ObservationTypeGenerationLike):
+            observation_class = self._get_span_class(as_type)
+            # Type ignore to prevent overloads of internal _get_span_class function,
+            # issue is that LangfuseEvent could be returned
+            return observation_class(  # type: ignore[return-value]
                 otel_span=otel_span,
                 langfuse_client=self,
+                environment=self._environment,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -673,21 +689,12 @@ class Langfuse:
                 cost_details=cost_details,
                 prompt=prompt,
             )
-        elif as_type == "span":
-            return LangfuseSpan(
-                otel_span=otel_span,
-                langfuse_client=self,
-                environment=self._environment,
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-            )
         else:
-            # For all other observation types (agent, tool, etc.), create a span and set the type
-            span = LangfuseSpan(
+            # For other types (e.g. span, guardrail), create appropriate class without generation properties
+            observation_class = self._get_span_class(as_type)
+            # Type ignore to prevent overloads of internal _get_span_class function,
+            # issue is that LangfuseEvent could be returned
+            return observation_class(  # type: ignore[return-value]
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
@@ -698,10 +705,9 @@ class Langfuse:
                 level=level,
                 status_message=status_message,
             )
-            # Set the observation type on the span
-            span._observation_type = as_type
-            span._otel_span.set_attribute("langfuse.observation.type", as_type)
-            return span
+            # span._observation_type = as_type
+            # span._otel_span.set_attribute("langfuse.observation.type", as_type)
+            # return span
 
     def start_generation(
         self,
@@ -1075,8 +1081,8 @@ class Langfuse:
             status_message: Optional status message for the observation
             end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
 
-            # TODO: also add the generation like types here!
-            The following parameters are only available when as_type="generation":
+            The following parameters are available when as_type is: "generation", "agent",
+            "tool", "chain", "retriever", "evaluator" or "embedding".
             completion_start_time: When the model started generating the response
             model: Name/identifier of the AI model used (e.g., "gpt-4")
             model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
@@ -1285,7 +1291,18 @@ class Langfuse:
     def _get_span_class(
         self,
         as_type: ObservationTypeLiteral,
-    ) -> type:
+    ) -> Union[
+        Type[LangfuseAgent],
+        Type[LangfuseTool],
+        Type[LangfuseChain],
+        Type[LangfuseRetriever],
+        Type[LangfuseEvaluator],
+        Type[LangfuseEmbedding],
+        Type[LangfuseGuardrail],
+        Type[LangfuseGeneration],
+        Type[LangfuseEvent],
+        Type[LangfuseSpan],
+    ]:
         """Get the appropriate span class based on as_type."""
         normalized_type = as_type.lower()
 
@@ -1400,7 +1417,15 @@ class Langfuse:
                 "status_message": status_message,
             }
 
-            if span_class == LangfuseGeneration:
+            if span_class in [
+                LangfuseGeneration,
+                LangfuseAgent,
+                LangfuseTool,
+                LangfuseChain,
+                LangfuseRetriever,
+                LangfuseEvaluator,
+                LangfuseEmbedding,
+            ]:
                 common_args.update(
                     {
                         "completion_start_time": completion_start_time,
@@ -1411,19 +1436,7 @@ class Langfuse:
                         "prompt": prompt,
                     }
                 )
-            # TODO: for some, create generation-like classes with those props.
-            elif span_class in [
-                LangfuseSpan,
-                LangfuseAgent,
-                LangfuseTool,
-                LangfuseChain,
-                LangfuseRetriever,
-                LangfuseEvaluator,
-                LangfuseEmbedding,
-                LangfuseGuardrail,
-            ]:
-                # set their type internally in the class
-                pass
+            # For span and guardrail types, no generation properties needed
 
             yield span_class(**common_args)
 
