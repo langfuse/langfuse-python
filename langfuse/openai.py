@@ -391,7 +391,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
-    elif resource.object == "Responses":
+    elif resource.object == "Responses" or resource.object == "AsyncResponses":
         prompt = kwargs.get("input", None)
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
@@ -406,6 +406,12 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         kwargs.get("max_tokens", float("inf"))
         if not isinstance(kwargs.get("max_tokens", float("inf")), NotGiven)
         else float("inf")
+    )
+
+    parsed_max_completion_tokens = (
+        kwargs.get("max_completion_tokens", None)
+        if not isinstance(kwargs.get("max_completion_tokens", float("inf")), NotGiven)
+        else None
     )
 
     parsed_top_p = (
@@ -441,6 +447,11 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         "frequency_penalty": parsed_frequency_penalty,
         "presence_penalty": parsed_presence_penalty,
     }
+
+    if parsed_max_completion_tokens is not None:
+        modelParameters.pop("max_tokens", None)
+        modelParameters["max_completion_tokens"] = parsed_max_completion_tokens
+
     if parsed_n is not None and parsed_n > 1:
         modelParameters["n"] = parsed_n
 
@@ -672,7 +683,7 @@ def _get_langfuse_data_from_default_response(
 
             completion = choice.text if _is_openai_v1() else choice.get("text", None)
 
-    elif resource.object == "Responses":
+    elif resource.object == "Responses" or resource.object == "AsyncResponses":
         output = response.get("output", {})
 
         if not isinstance(output, list):
@@ -924,6 +935,7 @@ class LangfuseResponseGeneratorSync:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
                 if self.resource.object == "Responses"
+                or self.resource.object == "AsyncResponses"
                 else _extract_streamed_openai_response(self.resource, self.items)
             )
 
@@ -994,6 +1006,7 @@ class LangfuseResponseGeneratorAsync:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
                 if self.resource.object == "Responses"
+                or self.resource.object == "AsyncResponses"
                 else _extract_streamed_openai_response(self.resource, self.items)
             )
 

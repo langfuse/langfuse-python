@@ -64,7 +64,15 @@ except ImportError:
 
 
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
-    def __init__(self, *, public_key: Optional[str] = None) -> None:
+    def __init__(
+        self, *, public_key: Optional[str] = None, update_trace: bool = False
+    ) -> None:
+        """Initialize the LangchainCallbackHandler.
+
+        Args:
+            public_key: Optional Langfuse public key. If not provided, will use the default client configuration.
+            update_trace: Whether to update the Langfuse trace with the chains input / output / metadata / name. Defaults to False.
+        """
         self.client = get_client(public_key=public_key)
 
         self.runs: Dict[
@@ -82,6 +90,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self.updated_completion_start_time_memo: Set[UUID] = set()
 
         self.last_trace_id: Optional[str] = None
+        self.update_trace = update_trace
 
     def on_llm_new_token(
         self,
@@ -273,7 +282,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     ),
                 )
                 span.update_trace(
-                    **self._parse_langfuse_trace_attributes_from_metadata(metadata)
+                    **(
+                        cast(
+                            Any,
+                            {
+                                "input": inputs,
+                                "name": span_name,
+                                "metadata": span_metadata,
+                            },
+                        )
+                        if self.update_trace
+                        else {}
+                    ),
+                    **self._parse_langfuse_trace_attributes_from_metadata(metadata),
                 )
                 self.runs[run_id] = span
             else:
@@ -391,14 +412,21 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id].update(
+            span = self.runs[run_id]
+            span.update(
                 output=outputs,
                 input=kwargs.get("inputs"),
-            ).end()
+            )
+
+            if parent_run_id is None and self.update_trace:
+                span.update_trace(output=outputs, input=kwargs.get("inputs"))
+
+            span.end()
 
             del self.runs[run_id]
 
             self._deregister_langfuse_prompt(run_id)
+
         except Exception as e:
             langfuse_logger.exception(e)
 
@@ -968,22 +996,41 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
     usage_model = cast(Dict, usage.copy())  # Copy all existing key-value pairs
 
     # Skip OpenAI usage types as they are handled server side
-    if not all(
-        openai_key in usage_model
-        for openai_key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+    if (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                "prompt_tokens_details",
+                "completion_tokens_details",
+            ]
+        )
+        and len(usage_model.keys()) == 5
+    ) or (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+            ]
+        )
+        and len(usage_model.keys()) == 3
     ):
-        for model_key, langfuse_key in conversion_list:
-            if model_key in usage_model:
-                captured_count = usage_model.pop(model_key)
-                final_count = (
-                    sum(captured_count)
-                    if isinstance(captured_count, list)
-                    else captured_count
-                )  # For Bedrock, the token count is a list when streamed
+        return usage_model
 
-                usage_model[langfuse_key] = (
-                    final_count  # Translate key and keep the value
-                )
+    for model_key, langfuse_key in conversion_list:
+        if model_key in usage_model:
+            captured_count = usage_model.pop(model_key)
+            final_count = (
+                sum(captured_count)
+                if isinstance(captured_count, list)
+                else captured_count
+            )  # For Bedrock, the token count is a list when streamed
+
+            usage_model[langfuse_key] = final_count  # Translate key and keep the value
 
     if isinstance(usage_model, dict):
         if "input_token_details" in usage_model:
@@ -1058,7 +1105,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
                     if "input" in usage_model:
                         usage_model["input"] = max(0, usage_model["input"] - value)
 
-    usage_model = {k: v for k, v in usage_model.items() if not isinstance(v, str)}
+    usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
 
