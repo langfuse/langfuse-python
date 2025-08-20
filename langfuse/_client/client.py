@@ -672,8 +672,8 @@ class Langfuse:
         if as_type in get_args(ObservationTypeGenerationLike):
             observation_class = self._get_span_class(as_type)
             # Type ignore to prevent overloads of internal _get_span_class function,
-            # issue is that LangfuseEvent could be returned
-            return observation_class(  # type: ignore[return-value]
+            # issue is that LangfuseEvent could be returned and that classes have diff. args
+            return observation_class(  # type: ignore[return-value,call-arg]
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
@@ -694,8 +694,8 @@ class Langfuse:
             # For other types (e.g. span, guardrail), create appropriate class without generation properties
             observation_class = self._get_span_class(as_type)
             # Type ignore to prevent overloads of internal _get_span_class function,
-            # issue is that LangfuseEvent could be returned
-            return observation_class(  # type: ignore[return-value]
+            # issue is that LangfuseEvent could be returned and that classes have diff. args
+            return observation_class(  # type: ignore[return-value,call-arg]
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
@@ -1457,7 +1457,7 @@ class Langfuse:
                 )
             # For span and guardrail types, no generation properties needed
 
-            yield span_class(**common_args)
+            yield span_class(**common_args)  # type: ignore[arg-type]
 
     def _get_current_otel_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
