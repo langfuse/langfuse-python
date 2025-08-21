@@ -1907,6 +1907,7 @@ def test_start_as_current_observation_types():
                 pass
 
     langfuse.flush()
+    sleep(2)
 
     api = get_api()
     trace = api.trace.get(trace_id)

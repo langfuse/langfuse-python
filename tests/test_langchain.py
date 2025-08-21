@@ -1357,7 +1357,8 @@ def test_cached_token_usage():
 
 def test_langchain_automatic_observation_types():
     """Test that LangChain components automatically get correct observation types:
-    AGENT, TOOL, GENERATION, RETRIEVER, CHAIN"""
+    AGENT, TOOL, GENERATION, RETRIEVER, CHAIN
+    """
     langfuse = Langfuse()
 
     with langfuse.start_as_current_span(name="observation_types_test_agent") as span:
