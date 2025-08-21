@@ -53,6 +53,7 @@ from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
     ObservationTypeGenerationLike,
 )
+from langfuse._client.observation_factory import ObservationFactory
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
     LangfuseEvent,
@@ -278,6 +279,9 @@ class Langfuse:
         )
         self.api = self._resources.api
         self.async_api = self._resources.async_api
+        
+        # Initialize observation factory for clean delegation
+        self._observation_factory = ObservationFactory(self)
 
     def start_span(
         self,
@@ -589,43 +593,10 @@ class Langfuse:
         Returns:
             An observation object of the appropriate type that must be ended with .end()
         """
-        if trace_context:
-            trace_id = trace_context.get("trace_id", None)
-            parent_span_id = trace_context.get("parent_span_id", None)
-
-            if trace_id:
-                remote_parent_span = self._create_remote_parent_span(
-                    trace_id=trace_id, parent_span_id=parent_span_id
-                )
-
-                with otel_trace_api.use_span(
-                    cast(otel_trace_api.Span, remote_parent_span)
-                ):
-                    otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
-
-                    return self._create_observation_from_otel_span(
-                        otel_span=otel_span,
-                        as_type=as_type,
-                        input=input,
-                        output=output,
-                        metadata=metadata,
-                        version=version,
-                        level=level,
-                        status_message=status_message,
-                        completion_start_time=completion_start_time,
-                        model=model,
-                        model_parameters=model_parameters,
-                        usage_details=usage_details,
-                        cost_details=cost_details,
-                        prompt=prompt,
-                    )
-
-        otel_span = self._otel_tracer.start_span(name=name)
-
-        return self._create_observation_from_otel_span(
-            otel_span=otel_span,
+        return self._observation_factory.create_observation(
             as_type=as_type,
+            name=name,
+            trace_context=trace_context,
             input=input,
             output=output,
             metadata=metadata,
@@ -1142,169 +1113,23 @@ class Langfuse:
                 generation.update(output=response)
             ```
         """
-        if as_type == "generation":
-            if trace_context:
-                trace_id = trace_context.get("trace_id", None)
-                parent_span_id = trace_context.get("parent_span_id", None)
-
-                if trace_id:
-                    remote_parent_span = self._create_remote_parent_span(
-                        trace_id=trace_id, parent_span_id=parent_span_id
-                    )
-
-                    return cast(
-                        _AgnosticContextManager[LangfuseGeneration],
-                        self._create_span_with_parent_context(
-                            as_type="generation",
-                            name=name,
-                            remote_parent_span=remote_parent_span,
-                            parent=None,
-                            end_on_exit=end_on_exit,
-                            input=input,
-                            output=output,
-                            metadata=metadata,
-                            version=version,
-                            level=level,
-                            status_message=status_message,
-                            completion_start_time=completion_start_time,
-                            model=model,
-                            model_parameters=model_parameters,
-                            usage_details=usage_details,
-                            cost_details=cost_details,
-                            prompt=prompt,
-                        ),
-                    )
-
-            return cast(
-                _AgnosticContextManager[LangfuseGeneration],
-                self._start_as_current_otel_span_with_processed_media(
-                    as_type="generation",
-                    name=name,
-                    end_on_exit=end_on_exit,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    version=version,
-                    level=level,
-                    status_message=status_message,
-                    completion_start_time=completion_start_time,
-                    model=model,
-                    model_parameters=model_parameters,
-                    usage_details=usage_details,
-                    cost_details=cost_details,
-                    prompt=prompt,
-                ),
-            )
-
-        if as_type == "span":
-            if trace_context:
-                trace_id = trace_context.get("trace_id", None)
-                parent_span_id = trace_context.get("parent_span_id", None)
-
-                if trace_id:
-                    remote_parent_span = self._create_remote_parent_span(
-                        trace_id=trace_id, parent_span_id=parent_span_id
-                    )
-
-                    return cast(
-                        _AgnosticContextManager[LangfuseSpan],
-                        self._create_span_with_parent_context(
-                            as_type="span",
-                            name=name,
-                            remote_parent_span=remote_parent_span,
-                            parent=None,
-                            end_on_exit=end_on_exit,
-                            input=input,
-                            output=output,
-                            metadata=metadata,
-                            version=version,
-                            level=level,
-                            status_message=status_message,
-                        ),
-                    )
-
-            return cast(
-                _AgnosticContextManager[LangfuseSpan],
-                self._start_as_current_otel_span_with_processed_media(
-                    as_type="span",
-                    name=name,
-                    end_on_exit=end_on_exit,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    version=version,
-                    level=level,
-                    status_message=status_message,
-                ),
-            )
-
-        if trace_context:
-            trace_id = trace_context.get("trace_id", None)
-            parent_span_id = trace_context.get("parent_span_id", None)
-
-            if trace_id:
-                remote_parent_span = self._create_remote_parent_span(
-                    trace_id=trace_id, parent_span_id=parent_span_id
-                )
-
-                return cast(
-                    Union[
-                        _AgnosticContextManager[LangfuseAgent],
-                        _AgnosticContextManager[LangfuseTool],
-                        _AgnosticContextManager[LangfuseChain],
-                        _AgnosticContextManager[LangfuseRetriever],
-                        _AgnosticContextManager[LangfuseEvaluator],
-                        _AgnosticContextManager[LangfuseEmbedding],
-                        _AgnosticContextManager[LangfuseGuardrail],
-                    ],
-                    self._create_span_with_parent_context(
-                        as_type=as_type,
-                        name=name,
-                        remote_parent_span=remote_parent_span,
-                        parent=None,
-                        end_on_exit=end_on_exit,
-                        input=input,
-                        output=output,
-                        metadata=metadata,
-                        version=version,
-                        level=level,
-                        status_message=status_message,
-                        completion_start_time=completion_start_time,
-                        model=model,
-                        model_parameters=model_parameters,
-                        usage_details=usage_details,
-                        cost_details=cost_details,
-                        prompt=prompt,
-                    ),
-                )
-
-        return cast(
-            Union[
-                _AgnosticContextManager[LangfuseAgent],
-                _AgnosticContextManager[LangfuseTool],
-                _AgnosticContextManager[LangfuseChain],
-                _AgnosticContextManager[LangfuseRetriever],
-                _AgnosticContextManager[LangfuseEvaluator],
-                _AgnosticContextManager[LangfuseEmbedding],
-                _AgnosticContextManager[LangfuseGuardrail],
-            ],
-            self._start_as_current_otel_span_with_processed_media(
-                as_type=as_type,
-                name=name,
-                end_on_exit=end_on_exit,
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            ),
+        return self._observation_factory.create_as_current_observation(
+            as_type=as_type,
+            name=name,
+            trace_context=trace_context,
+            end_on_exit=end_on_exit,
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
         )
 
     def _get_span_class(
@@ -2158,26 +1983,14 @@ class Langfuse:
                 )
             ```
         """
-        current_span = self._get_current_otel_span()
-
-        if current_span is not None:
-            trace_id = self._get_otel_trace_id(current_span)
-            observation_id = self._get_otel_span_id(current_span)
-
-            langfuse_logger.info(
-                f"Score: Creating score name='{name}' value={value} for current span ({observation_id}) in trace {trace_id}"
-            )
-
-            self.create_score(
-                trace_id=trace_id,
-                observation_id=observation_id,
-                name=name,
-                value=cast(str, value),
-                score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL"], data_type),
-                comment=comment,
-                config_id=config_id,
-            )
+        return self._observation_factory.score_current_span(
+            name=name,
+            value=value,
+            score_id=score_id,
+            data_type=data_type,
+            comment=comment,
+            config_id=config_id,
+        )
 
     @overload
     def score_current_trace(
@@ -2243,24 +2056,14 @@ class Langfuse:
                 )
             ```
         """
-        current_span = self._get_current_otel_span()
-
-        if current_span is not None:
-            trace_id = self._get_otel_trace_id(current_span)
-
-            langfuse_logger.info(
-                f"Score: Creating score name='{name}' value={value} for entire trace {trace_id}"
-            )
-
-            self.create_score(
-                trace_id=trace_id,
-                name=name,
-                value=cast(str, value),
-                score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL"], data_type),
-                comment=comment,
-                config_id=config_id,
-            )
+        return self._observation_factory.score_current_trace(
+            name=name,
+            value=value,
+            score_id=score_id,
+            data_type=data_type,
+            comment=comment,
+            config_id=config_id,
+        )
 
     def flush(self) -> None:
         """Force flush all pending spans and events to the Langfuse API.
