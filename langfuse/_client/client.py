@@ -21,7 +21,6 @@ from typing import (
     Type,
     cast,
     overload,
-    get_args,
 )
 
 import backoff
@@ -52,6 +51,7 @@ from langfuse._client.constants import (
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
     ObservationTypeGenerationLike,
+    get_observation_types_list,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
@@ -669,7 +669,7 @@ class Langfuse:
         LangfuseGuardrail,
     ]:
         """Create the appropriate observation type from an OTEL span."""
-        if as_type in get_args(ObservationTypeGenerationLike):
+        if as_type in get_observation_types_list(ObservationTypeGenerationLike):
             observation_class = self._get_span_class(as_type)
             # Type ignore to prevent overloads of internal _get_span_class function,
             # issue is that LangfuseEvent could be returned and that classes have diff. args
