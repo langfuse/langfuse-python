@@ -12,20 +12,22 @@ LANGFUSE_TRACER_NAME = "langfuse-sdk"
 """Note: this type is used with .__args__ / get_args in some cases and therefore must remain flat"""
 ObservationTypeGenerationLike: TypeAlias = Literal[
     "generation",
+    "embedding",
+]
+
+ObservationTypeSpanLike: TypeAlias = Literal[
+    "span",
     "agent",
     "tool",
     "chain",
     "retriever",
     "evaluator",
-    "embedding",
+    "guardrail",
 ]
 
 ObservationTypeLiteralNoEvent: TypeAlias = Union[
     ObservationTypeGenerationLike,
-    Literal[
-        "span",
-        "guardrail",
-    ],
+    ObservationTypeSpanLike,
 ]
 
 ObservationTypeLiteral: TypeAlias = Union[

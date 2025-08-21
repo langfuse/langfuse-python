@@ -14,7 +14,10 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from langfuse._client.constants import ObservationTypeGenerationLike
+from langfuse._client.constants import (
+    ObservationTypeGenerationLike,
+    ObservationTypeSpanLike,
+)
 
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
@@ -95,7 +98,9 @@ def create_span_attributes(
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
-    observation_type: Optional[Literal["span", "guardrail", "event"]] = "span",
+    observation_type: Optional[
+        Union[ObservationTypeSpanLike, Literal["event"]]
+    ] = "span",
 ) -> dict:
     attributes = {
         LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,

@@ -47,7 +47,9 @@ from langfuse._client.attributes import (
 from langfuse._client.constants import (
     ObservationTypeLiteral,
     ObservationTypeGenerationLike,
+    ObservationTypeSpanLike,
     ObservationTypeLiteralNoEvent,
+    get_observation_types_list,
 )
 from langfuse.logger import langfuse_logger
 from langfuse.types import MapValue, ScoreDataType, SpanLevel
@@ -142,7 +144,7 @@ class LangfuseObservationWrapper:
 
             attributes = {}
 
-            if as_type in get_args(ObservationTypeGenerationLike):
+            if as_type in get_observation_types_list(ObservationTypeGenerationLike):
                 attributes = create_generation_attributes(
                     input=media_processed_input,
                     output=media_processed_output,
@@ -157,21 +159,13 @@ class LangfuseObservationWrapper:
                     cost_details=cost_details,
                     prompt=prompt,
                     observation_type=cast(
-                        Literal[
-                            "generation",
-                            "agent",
-                            "tool",
-                            "chain",
-                            "retriever",
-                            "evaluator",
-                            "embedding",
-                        ],
+                        ObservationTypeGenerationLike,
                         as_type,
                     ),
                 )
 
             else:
-                # For span-like types: "span", "guardrail", "event"
+                # For span-like types and events
                 attributes = create_span_attributes(
                     input=media_processed_input,
                     output=media_processed_output,
@@ -180,8 +174,12 @@ class LangfuseObservationWrapper:
                     level=level,
                     status_message=status_message,
                     observation_type=cast(
-                        Optional[Literal["span", "guardrail", "event"]],
-                        as_type if as_type in ["span", "guardrail", "event"] else None,
+                        Optional[Union[ObservationTypeSpanLike, Literal["event"]]],
+                        as_type
+                        if as_type
+                        in get_observation_types_list(ObservationTypeSpanLike)
+                        or as_type == "event"
+                        else None,
                     ),
                 )
 
@@ -597,7 +595,9 @@ class LangfuseObservationWrapper:
         if name:
             self._otel_span.update_name(name)
 
-        if self._observation_type in get_args(ObservationTypeGenerationLike):
+        if self._observation_type in get_observation_types_list(
+            ObservationTypeGenerationLike
+        ):
             attributes = create_generation_attributes(
                 input=processed_input,
                 output=processed_output,
@@ -617,7 +617,7 @@ class LangfuseObservationWrapper:
                 prompt=prompt,
             )
         else:
-            # For span-like types: "span", "guardrail", "event"
+            # For span-like types and events
             attributes = create_span_attributes(
                 input=processed_input,
                 output=processed_output,
@@ -626,9 +626,11 @@ class LangfuseObservationWrapper:
                 level=level,
                 status_message=status_message,
                 observation_type=cast(
-                    Optional[Literal["span", "guardrail", "event"]],
+                    Optional[Union[ObservationTypeSpanLike, Literal["event"]]],
                     self._observation_type
-                    if self._observation_type in ["span", "guardrail", "event"]
+                    if self._observation_type
+                    in get_observation_types_list(ObservationTypeSpanLike)
+                    or self._observation_type == "event"
                     else None,
                 ),
             )
@@ -683,12 +685,6 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
     ) -> "LangfuseAgent": ...
 
     @overload
@@ -703,12 +699,6 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
     ) -> "LangfuseTool": ...
 
     @overload
@@ -723,12 +713,6 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
     ) -> "LangfuseChain": ...
 
     @overload
@@ -743,12 +727,6 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
     ) -> "LangfuseRetriever": ...
 
     @overload
@@ -763,12 +741,6 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
     ) -> "LangfuseEvaluator": ...
 
     @overload
@@ -912,7 +884,7 @@ class LangfuseObservationWrapper:
             "status_message": status_message,
         }
 
-        if as_type in get_args(ObservationTypeGenerationLike):
+        if as_type in get_observation_types_list(ObservationTypeGenerationLike):
             common_args.update(
                 {
                     "completion_start_time": completion_start_time,
@@ -960,14 +932,80 @@ class LangfuseObservationWrapper:
         prompt: Optional[PromptClient] = None,
     ) -> _AgnosticContextManager[
         Union[
-            "LangfuseAgent",
-            "LangfuseTool",
-            "LangfuseChain",
-            "LangfuseRetriever",
-            "LangfuseEvaluator",
+            "LangfuseGeneration",
             "LangfuseEmbedding",
         ]
     ]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["agent"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseAgent"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["tool"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseTool"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["chain"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseChain"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["retriever"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseRetriever"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["evaluator"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> _AgnosticContextManager["LangfuseEvaluator"]: ...
 
     @overload
     def start_as_current_observation(
