@@ -76,7 +76,7 @@ LANGFUSE_FLUSH_AT = "LANGFUSE_FLUSH_AT"
 .. envvar:: LANGFUSE_FLUSH_AT
 
 Max batch size until a new ingestion batch is sent to the API.
-**Default value:** ``15``
+**Default value:** same as OTEL ``OTEL_BSP_MAX_EXPORT_BATCH_SIZE``
 """
 
 LANGFUSE_FLUSH_INTERVAL = "LANGFUSE_FLUSH_INTERVAL"
@@ -84,7 +84,7 @@ LANGFUSE_FLUSH_INTERVAL = "LANGFUSE_FLUSH_INTERVAL"
 .. envvar:: LANGFUSE_FLUSH_INTERVAL
 
 Max delay in seconds until a new ingestion batch is sent to the API.
-**Default value:** ``1``
+**Default value:** same as OTEL ``OTEL_BSP_SCHEDULE_DELAY``
 """
 
 LANGFUSE_SAMPLE_RATE = "LANGFUSE_SAMPLE_RATE"
