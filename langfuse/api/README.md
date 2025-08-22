@@ -16,7 +16,7 @@ pip install langfuse
 Instantiate and use the client with the following:
 
 ```python
-from langfuse import AnnotationQueueObjectType, CreateAnnotationQueueItemRequest
+from langfuse import CreateAnnotationQueueRequest
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -27,11 +27,10 @@ client = FernLangfuse(
     password="YOUR_PASSWORD",
     base_url="https://yourhost.com/path/to/api",
 )
-client.annotation_queues.create_queue_item(
-    queue_id="queueId",
-    request=CreateAnnotationQueueItemRequest(
-        object_id="objectId",
-        object_type=AnnotationQueueObjectType.TRACE,
+client.annotation_queues.create_queue(
+    request=CreateAnnotationQueueRequest(
+        name="name",
+        score_config_ids=["scoreConfigIds", "scoreConfigIds"],
     ),
 )
 ```
@@ -43,7 +42,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 ```python
 import asyncio
 
-from langfuse import AnnotationQueueObjectType, CreateAnnotationQueueItemRequest
+from langfuse import CreateAnnotationQueueRequest
 from langfuse.client import AsyncFernLangfuse
 
 client = AsyncFernLangfuse(
@@ -57,11 +56,10 @@ client = AsyncFernLangfuse(
 
 
 async def main() -> None:
-    await client.annotation_queues.create_queue_item(
-        queue_id="queueId",
-        request=CreateAnnotationQueueItemRequest(
-            object_id="objectId",
-            object_type=AnnotationQueueObjectType.TRACE,
+    await client.annotation_queues.create_queue(
+        request=CreateAnnotationQueueRequest(
+            name="name",
+            score_config_ids=["scoreConfigIds", "scoreConfigIds"],
         ),
     )
 
@@ -78,7 +76,7 @@ will be thrown.
 from .api_error import ApiError
 
 try:
-    client.annotation_queues.create_queue_item(...)
+    client.annotation_queues.create_queue(...)
 except ApiError as e:
     print(e.status_code)
     print(e.body)
@@ -101,7 +99,7 @@ A request is deemed retriable when any of the following HTTP status codes is ret
 Use the `max_retries` request option to configure this behavior.
 
 ```python
-client.annotation_queues.create_queue_item(...,{
+client.annotation_queues.create_queue(...,{
     max_retries=1
 })
 ```
@@ -118,7 +116,7 @@ client = FernLangfuse(..., { timeout=20.0 }, )
 
 
 # Override timeout for a specific method
-client.annotation_queues.create_queue_item(...,{
+client.annotation_queues.create_queue(...,{
     timeout_in_seconds=1
 })
 ```
