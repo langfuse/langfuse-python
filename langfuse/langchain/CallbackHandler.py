@@ -1036,7 +1036,9 @@ def _parse_usage(response: LLMResult) -> Any:
                     llm_usage = _parse_usage_model(
                         generation_chunk.generation_info["usage_metadata"]
                     )
-                    break
+
+                    if llm_usage is not None:
+                        break
 
                 message_chunk = getattr(generation_chunk, "message", {})
                 response_metadata = getattr(message_chunk, "response_metadata", {})
