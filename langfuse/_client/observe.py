@@ -28,6 +28,7 @@ from langfuse._client.environment_variables import (
 
 from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
+    get_observation_types_list,
 )
 from langfuse._client.get_client import _set_current_public_key, get_client
 from langfuse._client.span import (
@@ -109,8 +110,9 @@ class LangfuseDecorator:
             name (Optional[str]): Custom name for the created trace or span. If not provided, the function name is used.
             as_type (Optional[Literal]): Set the observation type. Supported values:
                     "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
-                    When set to "generation", creates a specialized LLM generation span with model metrics support.
-                    Other types create spans with the specified type for graph visualization and filtering in the Langfuse UI.
+                    Observation types are highlighted in the Langfuse UI for filtering and visualization.
+                    The types "generation", "agent", "tool", "chain", "retriever", "embedding", "evaluator" create a span which
+                    allows to set additional attributes such as model metrics..
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -134,13 +136,6 @@ class LangfuseDecorator:
                     messages=[{"role": "user", "content": query}]
                 )
                 return response.choices[0].message.content
-            ```
-
-            For automatic graph instrumentation with agent workflows:
-            ```python
-            @observe(as_type="agent")
-            def planning_agent():
-                return create_plan()
             ```
 
             For trace context propagation between functions:
@@ -169,7 +164,7 @@ class LangfuseDecorator:
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
-        valid_types = set(get_args(ObservationTypeLiteralNoEvent))
+        valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
             self._log.warning(
                 f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."
@@ -265,7 +260,6 @@ class LangfuseDecorator:
             # Set public key in execution context for nested decorated functions
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
-
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],
@@ -370,7 +364,6 @@ class LangfuseDecorator:
             # Set public key in execution context for nested decorated functions
             with _set_current_public_key(public_key):
                 langfuse_client = get_client(public_key=public_key)
-
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],

@@ -319,7 +319,7 @@ def test_langchain_dataset():
 
     if len(sorted_observations) >= 2:
         assert sorted_observations[1].name == "RunnableSequence"
-        assert sorted_observations[1].type == "SPAN"
+        assert sorted_observations[1].type == "CHAIN"
         assert sorted_observations[1].input is not None
         assert sorted_observations[1].output is not None
         assert sorted_observations[1].input != ""

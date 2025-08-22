@@ -15,6 +15,7 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
+from ..commons.types.observation_level import ObservationLevel
 from ..commons.types.observations_view import ObservationsView
 from .types.observations_views import ObservationsViews
 
@@ -100,6 +101,7 @@ class ObservationsClient:
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        level: typing.Optional[ObservationLevel] = None,
         parent_observation_id: typing.Optional[str] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
@@ -125,6 +127,9 @@ class ObservationsClient:
         type : typing.Optional[str]
 
         trace_id : typing.Optional[str]
+
+        level : typing.Optional[ObservationLevel]
+            Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
 
         parent_observation_id : typing.Optional[str]
 
@@ -171,6 +176,7 @@ class ObservationsClient:
                 "userId": user_id,
                 "type": type,
                 "traceId": trace_id,
+                "level": level,
                 "parentObservationId": parent_observation_id,
                 "environment": environment,
                 "fromStartTime": serialize_datetime(from_start_time)
@@ -299,6 +305,7 @@ class AsyncObservationsClient:
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        level: typing.Optional[ObservationLevel] = None,
         parent_observation_id: typing.Optional[str] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
@@ -324,6 +331,9 @@ class AsyncObservationsClient:
         type : typing.Optional[str]
 
         trace_id : typing.Optional[str]
+
+        level : typing.Optional[ObservationLevel]
+            Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
 
         parent_observation_id : typing.Optional[str]
 
@@ -378,6 +388,7 @@ class AsyncObservationsClient:
                 "userId": user_id,
                 "type": type,
                 "traceId": trace_id,
+                "level": level,
                 "parentObservationId": parent_observation_id,
                 "environment": environment,
                 "fromStartTime": serialize_datetime(from_start_time)
