@@ -182,6 +182,7 @@ class LangfuseObservationWrapper:
                     ),
                 )
 
+            # We don't want to overwrite the observation type, and already set it
             attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
 
             self._otel_span.set_attributes(
@@ -919,7 +920,7 @@ class LangfuseObservationWrapper:
         self,
         *,
         name: str,
-        as_type: ObservationTypeGenerationLike,
+        as_type: Literal["generation"],
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -932,12 +933,27 @@ class LangfuseObservationWrapper:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
-    ) -> _AgnosticContextManager[
-        Union[
-            "LangfuseGeneration",
-            "LangfuseEmbedding",
-        ]
-    ]: ...
+    ) -> _AgnosticContextManager["LangfuseGeneration"]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: Literal["embedding"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> _AgnosticContextManager["LangfuseEmbedding"]: ...
 
     @overload
     def start_as_current_observation(
