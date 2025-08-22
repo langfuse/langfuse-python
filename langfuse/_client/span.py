@@ -866,7 +866,10 @@ class LangfuseObservationWrapper:
 
         observation_class = _OBSERVATION_CLASS_MAP.get(as_type)
         if not observation_class:
-            raise ValueError(f"Unknown observation type: {as_type}")
+            langfuse_logger.warning(
+                f"Unknown observation type: {as_type}, falling back to LangfuseSpan"
+            )
+            observation_class = LangfuseSpan
 
         with otel_trace_api.use_span(self._otel_span):
             new_otel_span = self._langfuse_client._otel_tracer.start_span(name=name)
@@ -1644,7 +1647,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
         **kwargs: Any,
-    ) -> "LangfuseObservationWrapper":
+    ) -> "LangfuseEvent":
         """Update is not allowed for LangfuseEvent because events cannot be updated.
 
         This method logs a warning and returns self without making changes.

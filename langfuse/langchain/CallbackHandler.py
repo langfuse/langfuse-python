@@ -3,6 +3,7 @@ import typing
 import pydantic
 
 from langfuse._client.get_client import get_client
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.span import (
     LangfuseGeneration,
     LangfuseSpan,
@@ -10,7 +11,6 @@ from langfuse._client.span import (
     LangfuseChain,
     LangfuseTool,
     LangfuseRetriever,
-    LangfuseObservationWrapper,
 )
 from langfuse.logger import langfuse_logger
 
@@ -299,8 +299,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 self.runs[run_id] = span
             else:
                 self.runs[run_id] = cast(
-                    # TODO: make this more precise (can be chain or agent here)
-                    LangfuseObservationWrapper,
+                    LangfuseChain,
                     self.runs[parent_run_id],
                 ).start_observation(
                     name=span_name,
@@ -365,7 +364,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id].update(
+            agent_run = self.runs[run_id]
+            if hasattr(agent_run, '_otel_span'):
+                agent_run._otel_span.set_attribute(
+                    LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
+                )
+
+            agent_run.update(
                 output=action,
                 input=kwargs.get("inputs"),
             ).end()
@@ -388,7 +393,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if run_id not in self.runs:
                 raise Exception("run not found")
 
-            self.runs[run_id].update(
+            agent_run = self.runs[run_id]
+            if hasattr(agent_run, '_otel_span'):
+                agent_run._otel_span.set_attribute(
+                    LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
+                )
+
+            agent_run.update(
                 output=finish,
                 input=kwargs.get("inputs"),
             ).end()
