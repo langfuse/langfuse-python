@@ -1931,6 +1931,7 @@ def test_start_as_current_observation_types():
         assert len(observations) == 1, f"Expected one {obs_type.upper()} observation"
 
 
+@pytest.mark.skip(reason="Works after OSS release 3.102")
 def test_that_generation_like_properties_are_actually_created():
     """Test that generation-like observation types properly support generation properties."""
     from langfuse._client.constants import (
@@ -1943,7 +1944,7 @@ def test_that_generation_like_properties_are_actually_created():
 
     test_model = "test-model"
     test_completion_start_time = datetime.now(timezone.utc)
-    test_model_parameters = {"temperature": 0.7, "max_tokens": 100}
+    test_model_parameters = {"temperature": "0.7", "max_tokens": "100"}
     test_usage_details = {"prompt_tokens": 10, "completion_tokens": 20}
     test_cost_details = {"input": 0.01, "output": 0.02, "total": 0.03}
 
@@ -2012,8 +2013,11 @@ def test_that_generation_like_properties_are_actually_created():
             test_usage_details, total=30
         ), f"{obs_type} should persist usage_details"  # API adds total
 
-        # completion_start_time
-        if obs.completion_start_time is not None:
-            assert (
-                obs.completion_start_time is not None
-            ), f"{obs_type} should persist completion_start_time property"
+        assert (
+            obs.cost_details == test_cost_details
+        ), f"{obs_type} should persist cost_details"
+
+        # completion_start_time, because of time skew not asserting time
+        assert (
+            obs.completion_start_time is not None
+        ), f"{obs_type} should persist completion_start_time property"

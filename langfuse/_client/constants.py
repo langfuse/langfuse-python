@@ -30,14 +30,14 @@ ObservationTypeLiteralNoEvent: TypeAlias = Union[
     ObservationTypeSpanLike,
 ]
 
-ObservationTypeLiteral: TypeAlias = Union[
-    ObservationTypeLiteralNoEvent, Literal["event"]
-]
 """Enumeration of valid observation types for Langfuse tracing.
 
 This Literal defines all available observation types that can be used with the @observe
 decorator and other Langfuse SDK methods.
 """
+ObservationTypeLiteral: TypeAlias = Union[
+    ObservationTypeLiteralNoEvent, Literal["event"]
+]
 
 
 def get_observation_types_list(

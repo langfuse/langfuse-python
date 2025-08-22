@@ -110,8 +110,8 @@ class LangfuseDecorator:
             as_type (Optional[Literal]): Set the observation type. Supported values:
                     "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
                     Observation types are highlighted in the Langfuse UI for filtering and visualization.
-                    The types "generation", "agent", "tool", "chain", "retriever", "embedding", "evaluator" create a span which
-                    allows to set additional attributes such as model metrics..
+                    The types "generation" and "embedding" create a span on which additional attributes such as model metrics
+                    can be set.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
