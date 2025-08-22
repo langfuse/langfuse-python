@@ -1660,7 +1660,12 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(
+            existing_observation_type = current_otel_span.attributes.get(
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            )
+            # We need to preserve the class to keep the corret observation type
+            span_class = self._get_span_class(existing_observation_type)
+            span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,

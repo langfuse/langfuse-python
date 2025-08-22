@@ -1931,7 +1931,6 @@ def test_start_as_current_observation_types():
         assert len(observations) == 1, f"Expected one {obs_type.upper()} observation"
 
 
-@pytest.mark.skip(reason="Works after OSS release 3.102")
 def test_that_generation_like_properties_are_actually_created():
     """Test that generation-like observation types properly support generation properties."""
     from langfuse._client.constants import (
