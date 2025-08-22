@@ -365,7 +365,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 raise Exception("run not found")
 
             agent_run = self.runs[run_id]
-            if hasattr(agent_run, '_otel_span'):
+            if hasattr(agent_run, "_otel_span"):
                 agent_run._otel_span.set_attribute(
                     LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
                 )
@@ -394,7 +394,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 raise Exception("run not found")
 
             agent_run = self.runs[run_id]
-            if hasattr(agent_run, '_otel_span'):
+            if hasattr(agent_run, "_otel_span"):
                 agent_run._otel_span.set_attribute(
                     LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
                 )
