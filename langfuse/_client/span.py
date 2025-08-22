@@ -1465,11 +1465,9 @@ class LangfuseSpan(LangfuseObservationWrapper):
             DeprecationWarning,
             stacklevel=2,
         )
-        return cast(
-            _AgnosticContextManager["LangfuseGeneration"],
-            self.start_as_current_observation(
-                name=name,
-                as_type="generation",
+        return self.start_as_current_observation(
+            name=name,
+            as_type="generation",
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -1482,8 +1480,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
                 usage_details=usage_details,
                 cost_details=cost_details,
                 prompt=prompt,
-            ),
-        )
+            )
 
     def create_event(
         self,
