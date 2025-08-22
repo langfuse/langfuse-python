@@ -1929,3 +1929,91 @@ def test_start_as_current_observation_types():
             if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
         ]
         assert len(observations) == 1, f"Expected one {obs_type.upper()} observation"
+
+
+def test_that_generation_like_properties_are_actually_created():
+    """Test that generation-like observation types properly support generation properties."""
+    from langfuse._client.constants import (
+        get_observation_types_list,
+        ObservationTypeGenerationLike,
+    )
+
+    langfuse = Langfuse()
+    generation_like_types = get_observation_types_list(ObservationTypeGenerationLike)
+
+    test_model = "test-model"
+    test_completion_start_time = datetime.now(timezone.utc)
+    test_model_parameters = {"temperature": 0.7, "max_tokens": 100}
+    test_usage_details = {"prompt_tokens": 10, "completion_tokens": 20}
+    test_cost_details = {"input": 0.01, "output": 0.02, "total": 0.03}
+
+    with langfuse.start_as_current_span(name="parent") as parent_span:
+        parent_span.update_trace(name="generation-properties-test")
+        trace_id = parent_span.trace_id
+
+        for obs_type in generation_like_types:
+            with parent_span.start_as_current_observation(
+                name=f"test-{obs_type}",
+                as_type=obs_type,
+                model=test_model,
+                completion_start_time=test_completion_start_time,
+                model_parameters=test_model_parameters,
+                usage_details=test_usage_details,
+                cost_details=test_cost_details,
+            ) as obs:
+                # Verify the properties are accessible on the observation object
+                if hasattr(obs, "model"):
+                    assert (
+                        obs.model == test_model
+                    ), f"{obs_type} should have model property"
+                if hasattr(obs, "completion_start_time"):
+                    assert (
+                        obs.completion_start_time == test_completion_start_time
+                    ), f"{obs_type} should have completion_start_time property"
+                if hasattr(obs, "model_parameters"):
+                    assert (
+                        obs.model_parameters == test_model_parameters
+                    ), f"{obs_type} should have model_parameters property"
+                if hasattr(obs, "usage_details"):
+                    assert (
+                        obs.usage_details == test_usage_details
+                    ), f"{obs_type} should have usage_details property"
+                if hasattr(obs, "cost_details"):
+                    assert (
+                        obs.cost_details == test_cost_details
+                    ), f"{obs_type} should have cost_details property"
+
+    langfuse.flush()
+
+    api = get_api()
+    trace = api.trace.get(trace_id)
+
+    # Verify that the properties are persisted in the API for generation-like types
+    for obs_type in generation_like_types:
+        observations = [
+            obs
+            for obs in trace.observations
+            if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
+        ]
+        assert (
+            len(observations) == 1
+        ), f"Expected one {obs_type.upper()} observation, but found {len(observations)}"
+
+        obs = observations[0]
+
+        assert obs.model == test_model, f"{obs_type} should have model property"
+        assert (
+            obs.model_parameters == test_model_parameters
+        ), f"{obs_type} should have model_parameters property"
+
+        # usage_details
+        assert hasattr(obs, "usage_details"), f"{obs_type} should have usage_details"
+        assert obs.usage_details == dict(
+            test_usage_details, total=30
+        ), f"{obs_type} should persist usage_details"  # API adds total
+
+        # completion_start_time
+        if obs.completion_start_time is not None:
+            assert (
+                obs.completion_start_time is not None
+            ), f"{obs_type} should persist completion_start_time property"
