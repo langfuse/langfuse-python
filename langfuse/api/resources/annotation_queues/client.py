@@ -14,9 +14,17 @@ from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
 from .types.annotation_queue import AnnotationQueue
+from .types.annotation_queue_assignment_request import AnnotationQueueAssignmentRequest
 from .types.annotation_queue_item import AnnotationQueueItem
 from .types.annotation_queue_status import AnnotationQueueStatus
+from .types.create_annotation_queue_assignment_response import (
+    CreateAnnotationQueueAssignmentResponse,
+)
 from .types.create_annotation_queue_item_request import CreateAnnotationQueueItemRequest
+from .types.create_annotation_queue_request import CreateAnnotationQueueRequest
+from .types.delete_annotation_queue_assignment_response import (
+    DeleteAnnotationQueueAssignmentResponse,
+)
 from .types.delete_annotation_queue_item_response import (
     DeleteAnnotationQueueItemResponse,
 )
@@ -82,6 +90,79 @@ class AnnotationQueuesClient:
                 return pydantic_v1.parse_obj_as(
                     PaginatedAnnotationQueues, _response.json()
                 )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def create_queue(
+        self,
+        *,
+        request: CreateAnnotationQueueRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AnnotationQueue:
+        """
+        Create an annotation queue
+
+        Parameters
+        ----------
+        request : CreateAnnotationQueueRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AnnotationQueue
+
+        Examples
+        --------
+        from langfuse import CreateAnnotationQueueRequest
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.annotation_queues.create_queue(
+            request=CreateAnnotationQueueRequest(
+                name="name",
+                score_config_ids=["scoreConfigIds", "scoreConfigIds"],
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/public/annotation-queues",
+            method="POST",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(AnnotationQueue, _response.json())  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -559,6 +640,164 @@ class AnnotationQueuesClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def create_queue_assignment(
+        self,
+        queue_id: str,
+        *,
+        request: AnnotationQueueAssignmentRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateAnnotationQueueAssignmentResponse:
+        """
+        Create an assignment for a user to an annotation queue
+
+        Parameters
+        ----------
+        queue_id : str
+            The unique identifier of the annotation queue
+
+        request : AnnotationQueueAssignmentRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateAnnotationQueueAssignmentResponse
+
+        Examples
+        --------
+        from langfuse import AnnotationQueueAssignmentRequest
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.annotation_queues.create_queue_assignment(
+            queue_id="queueId",
+            request=AnnotationQueueAssignmentRequest(
+                user_id="userId",
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/annotation-queues/{jsonable_encoder(queue_id)}/assignments",
+            method="POST",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    CreateAnnotationQueueAssignmentResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_queue_assignment(
+        self,
+        queue_id: str,
+        *,
+        request: AnnotationQueueAssignmentRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DeleteAnnotationQueueAssignmentResponse:
+        """
+        Delete an assignment for a user to an annotation queue
+
+        Parameters
+        ----------
+        queue_id : str
+            The unique identifier of the annotation queue
+
+        request : AnnotationQueueAssignmentRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteAnnotationQueueAssignmentResponse
+
+        Examples
+        --------
+        from langfuse import AnnotationQueueAssignmentRequest
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.annotation_queues.delete_queue_assignment(
+            queue_id="queueId",
+            request=AnnotationQueueAssignmentRequest(
+                user_id="userId",
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/annotation-queues/{jsonable_encoder(queue_id)}/assignments",
+            method="DELETE",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    DeleteAnnotationQueueAssignmentResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
 
 class AsyncAnnotationQueuesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -622,6 +861,87 @@ class AsyncAnnotationQueuesClient:
                 return pydantic_v1.parse_obj_as(
                     PaginatedAnnotationQueues, _response.json()
                 )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_queue(
+        self,
+        *,
+        request: CreateAnnotationQueueRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AnnotationQueue:
+        """
+        Create an annotation queue
+
+        Parameters
+        ----------
+        request : CreateAnnotationQueueRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AnnotationQueue
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import CreateAnnotationQueueRequest
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.annotation_queues.create_queue(
+                request=CreateAnnotationQueueRequest(
+                    name="name",
+                    score_config_ids=["scoreConfigIds", "scoreConfigIds"],
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/public/annotation-queues",
+            method="POST",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(AnnotationQueue, _response.json())  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -1123,6 +1443,180 @@ class AsyncAnnotationQueuesClient:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(
                     DeleteAnnotationQueueItemResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_queue_assignment(
+        self,
+        queue_id: str,
+        *,
+        request: AnnotationQueueAssignmentRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateAnnotationQueueAssignmentResponse:
+        """
+        Create an assignment for a user to an annotation queue
+
+        Parameters
+        ----------
+        queue_id : str
+            The unique identifier of the annotation queue
+
+        request : AnnotationQueueAssignmentRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateAnnotationQueueAssignmentResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AnnotationQueueAssignmentRequest
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.annotation_queues.create_queue_assignment(
+                queue_id="queueId",
+                request=AnnotationQueueAssignmentRequest(
+                    user_id="userId",
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/annotation-queues/{jsonable_encoder(queue_id)}/assignments",
+            method="POST",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    CreateAnnotationQueueAssignmentResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_queue_assignment(
+        self,
+        queue_id: str,
+        *,
+        request: AnnotationQueueAssignmentRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DeleteAnnotationQueueAssignmentResponse:
+        """
+        Delete an assignment for a user to an annotation queue
+
+        Parameters
+        ----------
+        queue_id : str
+            The unique identifier of the annotation queue
+
+        request : AnnotationQueueAssignmentRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteAnnotationQueueAssignmentResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AnnotationQueueAssignmentRequest
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.annotation_queues.delete_queue_assignment(
+                queue_id="queueId",
+                request=AnnotationQueueAssignmentRequest(
+                    user_id="userId",
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/annotation-queues/{jsonable_encoder(queue_id)}/assignments",
+            method="DELETE",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    DeleteAnnotationQueueAssignmentResponse, _response.json()
                 )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore

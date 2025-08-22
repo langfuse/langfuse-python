@@ -16,6 +16,7 @@ from typing import (
     Union,
     cast,
     overload,
+    get_args,
 )
 
 from opentelemetry.util._decorator import _AgnosticContextManager
