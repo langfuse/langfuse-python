@@ -14,6 +14,11 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
+from langfuse._client.constants import (
+    ObservationTypeGenerationLike,
+    ObservationTypeSpanLike,
+)
+
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
 from langfuse.types import MapValue, SpanLevel
@@ -93,9 +98,12 @@ def create_span_attributes(
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
+    observation_type: Optional[
+        Union[ObservationTypeSpanLike, Literal["event"]]
+    ] = "span",
 ) -> dict:
     attributes = {
-        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "span",
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
         LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
         LangfuseOtelSpanAttributes.VERSION: version,
@@ -122,9 +130,10 @@ def create_generation_attributes(
     usage_details: Optional[Dict[str, int]] = None,
     cost_details: Optional[Dict[str, float]] = None,
     prompt: Optional[PromptClient] = None,
+    observation_type: Optional[ObservationTypeGenerationLike] = "generation",
 ) -> dict:
     attributes = {
-        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "generation",
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: observation_type,
         LangfuseOtelSpanAttributes.OBSERVATION_LEVEL: level,
         LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE: status_message,
         LangfuseOtelSpanAttributes.VERSION: version,
@@ -152,7 +161,10 @@ def create_generation_attributes(
 
 
 def _serialize(obj: Any) -> Optional[str]:
-    return json.dumps(obj, cls=EventSerializer) if obj is not None else None
+    if obj is None or isinstance(obj, str):
+        return obj
+
+    return json.dumps(obj, cls=EventSerializer)
 
 
 def _flatten_and_serialize_metadata(

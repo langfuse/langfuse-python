@@ -5,12 +5,23 @@ This module implements Langfuse's core observability functionality on top of the
 
 import logging
 import os
+import warnings
 import re
 import urllib.parse
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
-from typing import Any, Dict, List, Literal, Optional, Union, cast, overload
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Union,
+    Type,
+    cast,
+    overload,
+)
 
 import backoff
 import httpx
@@ -36,11 +47,25 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse._client.constants import (
+    ObservationTypeLiteral,
+    ObservationTypeLiteralNoEvent,
+    ObservationTypeGenerationLike,
+    ObservationTypeSpanLike,
+    get_observation_types_list,
+)
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
     LangfuseEvent,
     LangfuseGeneration,
     LangfuseSpan,
+    LangfuseAgent,
+    LangfuseTool,
+    LangfuseChain,
+    LangfuseRetriever,
+    LangfuseEvaluator,
+    LangfuseEmbedding,
+    LangfuseGuardrail,
 )
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
@@ -221,6 +246,11 @@ class Langfuse:
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
 
+        if os.environ.get("OTEL_SDK_DISABLED", "false").lower() == "true":
+            langfuse_logger.warning(
+                "OTEL_SDK_DISABLED is set. Langfuse tracing will be disabled and no traces will appear in the UI."
+            )
+
         # Initialize api and tracer if requirements are met
         self._resources = LangfuseResourceManager(
             public_key=public_key,
@@ -292,39 +322,10 @@ class Langfuse:
                 span.end()
             ```
         """
-        if trace_context:
-            trace_id = trace_context.get("trace_id", None)
-            parent_span_id = trace_context.get("parent_span_id", None)
-
-            if trace_id:
-                remote_parent_span = self._create_remote_parent_span(
-                    trace_id=trace_id, parent_span_id=parent_span_id
-                )
-
-                with otel_trace_api.use_span(
-                    cast(otel_trace_api.Span, remote_parent_span)
-                ):
-                    otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
-
-                    return LangfuseSpan(
-                        otel_span=otel_span,
-                        langfuse_client=self,
-                        environment=self._environment,
-                        input=input,
-                        output=output,
-                        metadata=metadata,
-                        version=version,
-                        level=level,
-                        status_message=status_message,
-                    )
-
-        otel_span = self._otel_tracer.start_span(name=name)
-
-        return LangfuseSpan(
-            otel_span=otel_span,
-            langfuse_client=self,
-            environment=self._environment,
+        return self.start_observation(
+            trace_context=trace_context,
+            name=name,
+            as_type="span",
             input=input,
             output=output,
             metadata=metadata,
@@ -381,6 +382,220 @@ class Langfuse:
                     child_span.update(output="sub-result")
             ```
         """
+        return self.start_as_current_observation(
+            trace_context=trace_context,
+            name=name,
+            as_type="span",
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            end_on_exit=end_on_exit,
+        )
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["generation"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> LangfuseGeneration: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["span"] = "span",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseSpan: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["agent"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseAgent: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["tool"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseTool: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["chain"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseChain: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["retriever"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseRetriever: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["evaluator"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseEvaluator: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["embedding"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> LangfuseEmbedding: ...
+
+    @overload
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["guardrail"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ) -> LangfuseGuardrail: ...
+
+    def start_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: ObservationTypeLiteralNoEvent = "span",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> Union[
+        LangfuseSpan,
+        LangfuseGeneration,
+        LangfuseAgent,
+        LangfuseTool,
+        LangfuseChain,
+        LangfuseRetriever,
+        LangfuseEvaluator,
+        LangfuseEmbedding,
+        LangfuseGuardrail,
+    ]:
+        """Create a new observation of the specified type.
+
+        This method creates a new observation but does not set it as the current span in the
+        context. To create and use an observation within a context, use start_as_current_observation().
+
+        Args:
+            trace_context: Optional context for connecting to an existing trace
+            name: Name of the observation
+            as_type: Type of observation to create (defaults to "span")
+            input: Input data for the operation
+            output: Output data from the operation
+            metadata: Additional metadata to associate with the observation
+            version: Version identifier for the code or component
+            level: Importance level of the observation
+            status_message: Optional status message for the observation
+            completion_start_time: When the model started generating (for generation types)
+            model: Name/identifier of the AI model used (for generation types)
+            model_parameters: Parameters used for the model (for generation types)
+            usage_details: Token usage information (for generation types)
+            cost_details: Cost information (for generation types)
+            prompt: Associated prompt template (for generation types)
+
+        Returns:
+            An observation object of the appropriate type that must be ended with .end()
+        """
         if trace_context:
             trace_id = trace_context.get("trace_id", None)
             parent_span_id = trace_context.get("parent_span_id", None)
@@ -390,37 +605,117 @@ class Langfuse:
                     trace_id=trace_id, parent_span_id=parent_span_id
                 )
 
-                return cast(
-                    _AgnosticContextManager[LangfuseSpan],
-                    self._create_span_with_parent_context(
-                        as_type="span",
-                        name=name,
-                        remote_parent_span=remote_parent_span,
-                        parent=None,
-                        end_on_exit=end_on_exit,
+                with otel_trace_api.use_span(
+                    cast(otel_trace_api.Span, remote_parent_span)
+                ):
+                    otel_span = self._otel_tracer.start_span(name=name)
+                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+
+                    return self._create_observation_from_otel_span(
+                        otel_span=otel_span,
+                        as_type=as_type,
                         input=input,
                         output=output,
                         metadata=metadata,
                         version=version,
                         level=level,
                         status_message=status_message,
-                    ),
-                )
+                        completion_start_time=completion_start_time,
+                        model=model,
+                        model_parameters=model_parameters,
+                        usage_details=usage_details,
+                        cost_details=cost_details,
+                        prompt=prompt,
+                    )
 
-        return cast(
-            _AgnosticContextManager[LangfuseSpan],
-            self._start_as_current_otel_span_with_processed_media(
-                as_type="span",
-                name=name,
-                end_on_exit=end_on_exit,
+        otel_span = self._otel_tracer.start_span(name=name)
+
+        return self._create_observation_from_otel_span(
+            otel_span=otel_span,
+            as_type=as_type,
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
+        )
+
+    def _create_observation_from_otel_span(
+        self,
+        *,
+        otel_span: otel_trace_api.Span,
+        as_type: ObservationTypeLiteralNoEvent,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+    ) -> Union[
+        LangfuseSpan,
+        LangfuseGeneration,
+        LangfuseAgent,
+        LangfuseTool,
+        LangfuseChain,
+        LangfuseRetriever,
+        LangfuseEvaluator,
+        LangfuseEmbedding,
+        LangfuseGuardrail,
+    ]:
+        """Create the appropriate observation type from an OTEL span."""
+        if as_type in get_observation_types_list(ObservationTypeGenerationLike):
+            observation_class = self._get_span_class(as_type)
+            # Type ignore to prevent overloads of internal _get_span_class function,
+            # issue is that LangfuseEvent could be returned and that classes have diff. args
+            return observation_class(  # type: ignore[return-value,call-arg]
+                otel_span=otel_span,
+                langfuse_client=self,
+                environment=self._environment,
                 input=input,
                 output=output,
                 metadata=metadata,
                 version=version,
                 level=level,
                 status_message=status_message,
-            ),
-        )
+                completion_start_time=completion_start_time,
+                model=model,
+                model_parameters=model_parameters,
+                usage_details=usage_details,
+                cost_details=cost_details,
+                prompt=prompt,
+            )
+        else:
+            # For other types (e.g. span, guardrail), create appropriate class without generation properties
+            observation_class = self._get_span_class(as_type)
+            # Type ignore to prevent overloads of internal _get_span_class function,
+            # issue is that LangfuseEvent could be returned and that classes have diff. args
+            return observation_class(  # type: ignore[return-value,call-arg]
+                otel_span=otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+                input=input,
+                output=output,
+                metadata=metadata,
+                version=version,
+                level=level,
+                status_message=status_message,
+            )
+            # span._observation_type = as_type
+            # span._otel_span.set_attribute("langfuse.observation.type", as_type)
+            # return span
 
     def start_generation(
         self,
@@ -440,7 +735,10 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> LangfuseGeneration:
-        """Create a new generation span for model generations.
+        """[DEPRECATED] Create a new generation span for model generations.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_observation(as_type='generation') instead.
 
         This method creates a specialized span for tracking model generations.
         It includes additional fields specific to model generations such as model name,
@@ -490,43 +788,16 @@ class Langfuse:
                 generation.end()
             ```
         """
-        if trace_context:
-            trace_id = trace_context.get("trace_id", None)
-            parent_span_id = trace_context.get("parent_span_id", None)
-
-            if trace_id:
-                remote_parent_span = self._create_remote_parent_span(
-                    trace_id=trace_id, parent_span_id=parent_span_id
-                )
-
-                with otel_trace_api.use_span(
-                    cast(otel_trace_api.Span, remote_parent_span)
-                ):
-                    otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
-
-                    return LangfuseGeneration(
-                        otel_span=otel_span,
-                        langfuse_client=self,
-                        input=input,
-                        output=output,
-                        metadata=metadata,
-                        version=version,
-                        level=level,
-                        status_message=status_message,
-                        completion_start_time=completion_start_time,
-                        model=model,
-                        model_parameters=model_parameters,
-                        usage_details=usage_details,
-                        cost_details=cost_details,
-                        prompt=prompt,
-                    )
-
-        otel_span = self._otel_tracer.start_span(name=name)
-
-        return LangfuseGeneration(
-            otel_span=otel_span,
-            langfuse_client=self,
+        warnings.warn(
+            "start_generation is deprecated and will be removed in a future version. "
+            "Use start_observation(as_type='generation') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.start_observation(
+            trace_context=trace_context,
+            name=name,
+            as_type="generation",
             input=input,
             output=output,
             metadata=metadata,
@@ -560,7 +831,10 @@ class Langfuse:
         prompt: Optional[PromptClient] = None,
         end_on_exit: Optional[bool] = None,
     ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """Create a new generation span and set it as the current span in a context manager.
+        """[DEPRECATED] Create a new generation span and set it as the current span in a context manager.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use start_as_current_observation(as_type='generation') instead.
 
         This method creates a specialized span for model generations and sets it as the
         current span within a context manager. Use this method with a 'with' statement to
@@ -608,58 +882,452 @@ class Langfuse:
                 )
             ```
         """
-        if trace_context:
-            trace_id = trace_context.get("trace_id", None)
-            parent_span_id = trace_context.get("parent_span_id", None)
-
-            if trace_id:
-                remote_parent_span = self._create_remote_parent_span(
-                    trace_id=trace_id, parent_span_id=parent_span_id
-                )
-
-                return cast(
-                    _AgnosticContextManager[LangfuseGeneration],
-                    self._create_span_with_parent_context(
-                        as_type="generation",
-                        name=name,
-                        remote_parent_span=remote_parent_span,
-                        parent=None,
-                        end_on_exit=end_on_exit,
-                        input=input,
-                        output=output,
-                        metadata=metadata,
-                        version=version,
-                        level=level,
-                        status_message=status_message,
-                        completion_start_time=completion_start_time,
-                        model=model,
-                        model_parameters=model_parameters,
-                        usage_details=usage_details,
-                        cost_details=cost_details,
-                        prompt=prompt,
-                    ),
-                )
-
-        return cast(
-            _AgnosticContextManager[LangfuseGeneration],
-            self._start_as_current_otel_span_with_processed_media(
-                as_type="generation",
-                name=name,
-                end_on_exit=end_on_exit,
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            ),
+        warnings.warn(
+            "start_as_current_generation is deprecated and will be removed in a future version. "
+            "Use start_as_current_observation(as_type='generation') instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
+        return self.start_as_current_observation(
+            trace_context=trace_context,
+            name=name,
+            as_type="generation",
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
+            end_on_exit=end_on_exit,
+        )
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["generation"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseGeneration]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["span"] = "span",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseSpan]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["agent"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseAgent]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["tool"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseTool]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["chain"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseChain]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["retriever"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseRetriever]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["evaluator"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseEvaluator]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["embedding"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseEmbedding]: ...
+
+    @overload
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: Literal["guardrail"],
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> _AgnosticContextManager[LangfuseGuardrail]: ...
+
+    def start_as_current_observation(
+        self,
+        *,
+        trace_context: Optional[TraceContext] = None,
+        name: str,
+        as_type: ObservationTypeLiteralNoEvent = "span",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+        completion_start_time: Optional[datetime] = None,
+        model: Optional[str] = None,
+        model_parameters: Optional[Dict[str, MapValue]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
+        cost_details: Optional[Dict[str, float]] = None,
+        prompt: Optional[PromptClient] = None,
+        end_on_exit: Optional[bool] = None,
+    ) -> Union[
+        _AgnosticContextManager[LangfuseGeneration],
+        _AgnosticContextManager[LangfuseSpan],
+        _AgnosticContextManager[LangfuseAgent],
+        _AgnosticContextManager[LangfuseTool],
+        _AgnosticContextManager[LangfuseChain],
+        _AgnosticContextManager[LangfuseRetriever],
+        _AgnosticContextManager[LangfuseEvaluator],
+        _AgnosticContextManager[LangfuseEmbedding],
+        _AgnosticContextManager[LangfuseGuardrail],
+    ]:
+        """Create a new observation and set it as the current span in a context manager.
+
+        This method creates a new observation of the specified type and sets it as the
+        current span within a context manager. Use this method with a 'with' statement to
+        automatically handle the observation lifecycle within a code block.
+
+        The created observation will be the child of the current span in the context.
+
+        Args:
+            trace_context: Optional context for connecting to an existing trace
+            name: Name of the observation (e.g., function or operation name)
+            as_type: Type of observation to create (defaults to "span")
+            input: Input data for the operation (can be any JSON-serializable object)
+            output: Output data from the operation (can be any JSON-serializable object)
+            metadata: Additional metadata to associate with the observation
+            version: Version identifier for the code or component
+            level: Importance level of the observation (info, warning, error)
+            status_message: Optional status message for the observation
+            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
+
+            The following parameters are available when as_type is: "generation" or "embedding".
+            completion_start_time: When the model started generating the response
+            model: Name/identifier of the AI model used (e.g., "gpt-4")
+            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
+            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
+            cost_details: Cost information for the model call
+            prompt: Associated prompt template from Langfuse prompt management
+
+        Returns:
+            A context manager that yields the appropriate observation type based on as_type
+
+        Example:
+            ```python
+            # Create a span
+            with langfuse.start_as_current_observation(name="process-query", as_type="span") as span:
+                # Do work
+                result = process_data()
+                span.update(output=result)
+
+                # Create a child span automatically
+                with span.start_as_current_span(name="sub-operation") as child_span:
+                    # Do sub-operation work
+                    child_span.update(output="sub-result")
+
+            # Create a tool observation
+            with langfuse.start_as_current_observation(name="web-search", as_type="tool") as tool:
+                # Do tool work
+                results = search_web(query)
+                tool.update(output=results)
+
+            # Create a generation observation
+            with langfuse.start_as_current_observation(
+                name="answer-generation",
+                as_type="generation",
+                model="gpt-4"
+            ) as generation:
+                # Generate answer
+                response = llm.generate(...)
+                generation.update(output=response)
+            ```
+        """
+        if as_type in get_observation_types_list(ObservationTypeGenerationLike):
+            if trace_context:
+                trace_id = trace_context.get("trace_id", None)
+                parent_span_id = trace_context.get("parent_span_id", None)
+
+                if trace_id:
+                    remote_parent_span = self._create_remote_parent_span(
+                        trace_id=trace_id, parent_span_id=parent_span_id
+                    )
+
+                    return cast(
+                        Union[
+                            _AgnosticContextManager[LangfuseGeneration],
+                            _AgnosticContextManager[LangfuseEmbedding],
+                        ],
+                        self._create_span_with_parent_context(
+                            as_type=as_type,
+                            name=name,
+                            remote_parent_span=remote_parent_span,
+                            parent=None,
+                            end_on_exit=end_on_exit,
+                            input=input,
+                            output=output,
+                            metadata=metadata,
+                            version=version,
+                            level=level,
+                            status_message=status_message,
+                            completion_start_time=completion_start_time,
+                            model=model,
+                            model_parameters=model_parameters,
+                            usage_details=usage_details,
+                            cost_details=cost_details,
+                            prompt=prompt,
+                        ),
+                    )
+
+            return cast(
+                Union[
+                    _AgnosticContextManager[LangfuseGeneration],
+                    _AgnosticContextManager[LangfuseEmbedding],
+                ],
+                self._start_as_current_otel_span_with_processed_media(
+                    as_type=as_type,
+                    name=name,
+                    end_on_exit=end_on_exit,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                    version=version,
+                    level=level,
+                    status_message=status_message,
+                    completion_start_time=completion_start_time,
+                    model=model,
+                    model_parameters=model_parameters,
+                    usage_details=usage_details,
+                    cost_details=cost_details,
+                    prompt=prompt,
+                ),
+            )
+
+        if as_type in get_observation_types_list(ObservationTypeSpanLike):
+            if trace_context:
+                trace_id = trace_context.get("trace_id", None)
+                parent_span_id = trace_context.get("parent_span_id", None)
+
+                if trace_id:
+                    remote_parent_span = self._create_remote_parent_span(
+                        trace_id=trace_id, parent_span_id=parent_span_id
+                    )
+
+                    return cast(
+                        Union[
+                            _AgnosticContextManager[LangfuseSpan],
+                            _AgnosticContextManager[LangfuseAgent],
+                            _AgnosticContextManager[LangfuseTool],
+                            _AgnosticContextManager[LangfuseChain],
+                            _AgnosticContextManager[LangfuseRetriever],
+                            _AgnosticContextManager[LangfuseEvaluator],
+                            _AgnosticContextManager[LangfuseGuardrail],
+                        ],
+                        self._create_span_with_parent_context(
+                            as_type=as_type,
+                            name=name,
+                            remote_parent_span=remote_parent_span,
+                            parent=None,
+                            end_on_exit=end_on_exit,
+                            input=input,
+                            output=output,
+                            metadata=metadata,
+                            version=version,
+                            level=level,
+                            status_message=status_message,
+                        ),
+                    )
+
+            return cast(
+                Union[
+                    _AgnosticContextManager[LangfuseSpan],
+                    _AgnosticContextManager[LangfuseAgent],
+                    _AgnosticContextManager[LangfuseTool],
+                    _AgnosticContextManager[LangfuseChain],
+                    _AgnosticContextManager[LangfuseRetriever],
+                    _AgnosticContextManager[LangfuseEvaluator],
+                    _AgnosticContextManager[LangfuseGuardrail],
+                ],
+                self._start_as_current_otel_span_with_processed_media(
+                    as_type=as_type,
+                    name=name,
+                    end_on_exit=end_on_exit,
+                    input=input,
+                    output=output,
+                    metadata=metadata,
+                    version=version,
+                    level=level,
+                    status_message=status_message,
+                ),
+            )
+
+        # This should never be reached since all valid types are handled above
+        langfuse_logger.warning(
+            f"Unknown observation type: {as_type}, falling back to span"
+        )
+        return self._start_as_current_otel_span_with_processed_media(
+            as_type="span",
+            name=name,
+            end_on_exit=end_on_exit,
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+        )
+
+    def _get_span_class(
+        self,
+        as_type: ObservationTypeLiteral,
+    ) -> Union[
+        Type[LangfuseAgent],
+        Type[LangfuseTool],
+        Type[LangfuseChain],
+        Type[LangfuseRetriever],
+        Type[LangfuseEvaluator],
+        Type[LangfuseEmbedding],
+        Type[LangfuseGuardrail],
+        Type[LangfuseGeneration],
+        Type[LangfuseEvent],
+        Type[LangfuseSpan],
+    ]:
+        """Get the appropriate span class based on as_type."""
+        normalized_type = as_type.lower()
+
+        if normalized_type == "agent":
+            return LangfuseAgent
+        elif normalized_type == "tool":
+            return LangfuseTool
+        elif normalized_type == "chain":
+            return LangfuseChain
+        elif normalized_type == "retriever":
+            return LangfuseRetriever
+        elif normalized_type == "evaluator":
+            return LangfuseEvaluator
+        elif normalized_type == "embedding":
+            return LangfuseEmbedding
+        elif normalized_type == "guardrail":
+            return LangfuseGuardrail
+        elif normalized_type == "generation":
+            return LangfuseGeneration
+        elif normalized_type == "event":
+            return LangfuseEvent
+        elif normalized_type == "span":
+            return LangfuseSpan
+        else:
+            return LangfuseSpan
 
     @_agnosticcontextmanager
     def _create_span_with_parent_context(
@@ -668,7 +1336,7 @@ class Langfuse:
         name: str,
         parent: Optional[otel_trace_api.Span] = None,
         remote_parent_span: Optional[otel_trace_api.Span] = None,
-        as_type: Literal["generation", "span"],
+        as_type: ObservationTypeLiteralNoEvent,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -715,7 +1383,7 @@ class Langfuse:
         self,
         *,
         name: str,
-        as_type: Optional[Literal["generation", "span"]] = None,
+        as_type: Optional[ObservationTypeLiteralNoEvent] = None,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
@@ -734,37 +1402,38 @@ class Langfuse:
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
-            yield (
-                LangfuseSpan(
-                    otel_span=otel_span,
-                    langfuse_client=self,
-                    environment=self._environment,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    version=version,
-                    level=level,
-                    status_message=status_message,
+            span_class = self._get_span_class(
+                as_type or "generation"
+            )  # default was "generation"
+            common_args = {
+                "otel_span": otel_span,
+                "langfuse_client": self,
+                "environment": self._environment,
+                "input": input,
+                "output": output,
+                "metadata": metadata,
+                "version": version,
+                "level": level,
+                "status_message": status_message,
+            }
+
+            if span_class in [
+                LangfuseGeneration,
+                LangfuseEmbedding,
+            ]:
+                common_args.update(
+                    {
+                        "completion_start_time": completion_start_time,
+                        "model": model,
+                        "model_parameters": model_parameters,
+                        "usage_details": usage_details,
+                        "cost_details": cost_details,
+                        "prompt": prompt,
+                    }
                 )
-                if as_type == "span"
-                else LangfuseGeneration(
-                    otel_span=otel_span,
-                    langfuse_client=self,
-                    environment=self._environment,
-                    input=input,
-                    output=output,
-                    metadata=metadata,
-                    version=version,
-                    level=level,
-                    status_message=status_message,
-                    completion_start_time=completion_start_time,
-                    model=model,
-                    model_parameters=model_parameters,
-                    usage_details=usage_details,
-                    cost_details=cost_details,
-                    prompt=prompt,
-                )
-            )
+            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+
+            yield span_class(**common_args)  # type: ignore[arg-type]
 
     def _get_current_otel_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
@@ -991,7 +1660,12 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(
+            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            )
+            # We need to preserve the class to keep the corret observation type
+            span_class = self._get_span_class(existing_observation_type)
+            span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
