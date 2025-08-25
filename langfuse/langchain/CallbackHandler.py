@@ -370,11 +370,6 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
                 )
 
-            agent_run.update(
-                output=action,
-                input=kwargs.get("inputs"),
-            ).end()
-
         except Exception as e:
             langfuse_logger.exception(e)
 
@@ -398,11 +393,6 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 agent_run._otel_span.set_attribute(
                     LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
                 )
-
-            agent_run.update(
-                output=finish,
-                input=kwargs.get("inputs"),
-            ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
