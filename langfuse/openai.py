@@ -740,7 +740,8 @@ def _wrap(
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
     langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
 
-    generation = langfuse_client.start_generation(
+    generation = langfuse_client.start_observation(
+        as_type="generation",
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
@@ -803,7 +804,8 @@ async def _wrap_async(
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
     langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
 
-    generation = langfuse_client.start_generation(
+    generation = langfuse_client.start_observation(
+        as_type="generation",
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
