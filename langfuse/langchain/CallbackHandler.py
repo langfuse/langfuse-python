@@ -994,6 +994,9 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
         ("input_tokens", "input"),
         ("output_tokens", "output"),
         ("total_tokens", "total"),
+        # ChatBedrock API follows a separate format compared to ChatBedrockConverse API
+        ("prompt_tokens", "input"),
+        ("completion_tokens", "output"),
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
