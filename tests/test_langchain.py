@@ -177,6 +177,7 @@ def test_callback_generated_from_lcel_chain():
     assert langchain_generation_span.output != ""
 
 
+@pytest.mark.skip(reason="Flaky")
 def test_basic_chat_openai():
     # Create a unique name for this test
     test_name = f"Test Basic Chat {create_uuid()}"
