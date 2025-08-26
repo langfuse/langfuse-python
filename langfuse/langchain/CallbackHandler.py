@@ -763,7 +763,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "prompt": registered_prompt,
             }
 
-            generation = self.client.start_observation(as_type="generation", **content)
+            generation = self.client.start_observation(as_type="generation", **content)  # type: ignore
             self._attach_observation(run_id, generation)
 
             self.last_trace_id = self.runs[run_id].trace_id
