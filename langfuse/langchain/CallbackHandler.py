@@ -276,19 +276,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 serialized, "chain", **kwargs
             )
 
-            if parent_run_id is None:
-                span = self.client.start_observation(
-                    name=span_name,
-                    as_type=observation_type,
-                    metadata=span_metadata,
-                    input=inputs,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
-                self._attach_observation(run_id, span)
+            span = self.client.start_observation(
+                name=span_name,
+                as_type=observation_type,
+                metadata=span_metadata,
+                input=inputs,
+                level=cast(
+                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                    span_level,
+                ),
+            )
+            self._attach_observation(run_id, span)
 
+            if parent_run_id is None:
                 span.update_trace(
                     **(
                         cast(
@@ -304,22 +304,6 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     ),
                     **self._parse_langfuse_trace_attributes_from_metadata(metadata),
                 )
-            else:
-                span = cast(
-                    LangfuseChain,
-                    self.runs[parent_run_id],
-                ).start_observation(
-                    name=span_name,
-                    as_type=observation_type,
-                    metadata=span_metadata,
-                    input=inputs,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
-
-                self._attach_observation(run_id, span)
 
             self.last_trace_id = self.runs[run_id].trace_id
 
@@ -509,28 +493,22 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> None:
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
-            if run_id in self.runs:
-                if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
-                    level = None
-                else:
-                    level = "ERROR"
-
-                observation = self._detach_observation(run_id)
-
-                if observation is not None:
-                    observation.update(
-                        level=cast(
-                            Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                            level,
-                        ),
-                        status_message=str(error) if level else None,
-                        input=kwargs.get("inputs"),
-                    ).end()
-
+            if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+                level = None
             else:
-                langfuse_logger.warning(
-                    f"Run ID {run_id} already popped from run map. Could not update run with error message"
-                )
+                level = "ERROR"
+
+            observation = self._detach_observation(run_id)
+
+            if observation is not None:
+                observation.update(
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
+                    status_message=str(error) if level else None,
+                    input=kwargs.get("inputs"),
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -623,29 +601,15 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 serialized, "tool", **kwargs
             )
 
-            if parent_run_id is None or parent_run_id not in self.runs:
-                # Create root observation for direct tool calls
-                span = self.client.start_observation(
-                    name=self.get_langchain_run_name(serialized, **kwargs),
-                    as_type=observation_type,
-                    input=input_str,
-                    metadata=meta,
-                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
-                )
+            span = self.client.start_observation(
+                name=self.get_langchain_run_name(serialized, **kwargs),
+                as_type=observation_type,
+                input=input_str,
+                metadata=meta,
+                level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+            )
 
-                self._attach_observation(run_id, span)
-
-            else:
-                # Create child observation for tools within chains/agents
-                span = cast(LangfuseChain, self.runs[parent_run_id]).start_observation(
-                    name=self.get_langchain_run_name(serialized, **kwargs),
-                    as_type=observation_type,
-                    input=input_str,
-                    metadata=meta,
-                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
-                )
-
-                self._attach_observation(run_id, span)
+            self._attach_observation(run_id, span)
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -673,35 +637,18 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 serialized, "retriever", **kwargs
             )
 
-            if parent_run_id is None:
-                span = self.client.start_observation(
-                    name=span_name,
-                    as_type=observation_type,
-                    metadata=span_metadata,
-                    input=query,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
+            span = self.client.start_observation(
+                name=span_name,
+                as_type=observation_type,
+                metadata=span_metadata,
+                input=query,
+                level=cast(
+                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                    span_level,
+                ),
+            )
 
-                self._attach_observation(run_id, span)
-
-            else:
-                span = cast(
-                    LangfuseRetriever, self.runs[parent_run_id]
-                ).start_observation(
-                    name=span_name,
-                    as_type=observation_type,
-                    input=query,
-                    metadata=span_metadata,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
-
-                self._attach_observation(run_id, span)
+            self._attach_observation(run_id, span)
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -816,18 +763,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "prompt": registered_prompt,
             }
 
-            if parent_run_id is not None and parent_run_id in self.runs:
-                generation = cast(
-                    LangfuseGeneration, self.runs[parent_run_id]
-                ).start_observation(as_type="generation", **content)  # type: ignore
-
-                self._attach_observation(run_id, generation)
-            else:
-                generation = self.client.start_observation(
-                    as_type="generation", **content
-                )  # type: ignore
-
-                self._attach_observation(run_id, generation)
+            generation = self.client.start_observation(as_type="generation", **content)
+            self._attach_observation(run_id, generation)
 
             self.last_trace_id = self.runs[run_id].trace_id
 
