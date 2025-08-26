@@ -18,6 +18,10 @@ from .resources.dataset_run_items.client import (
 from .resources.datasets.client import AsyncDatasetsClient, DatasetsClient
 from .resources.health.client import AsyncHealthClient, HealthClient
 from .resources.ingestion.client import AsyncIngestionClient, IngestionClient
+from .resources.llm_connections.client import (
+    AsyncLlmConnectionsClient,
+    LlmConnectionsClient,
+)
 from .resources.media.client import AsyncMediaClient, MediaClient
 from .resources.metrics.client import AsyncMetricsClient, MetricsClient
 from .resources.models.client import AsyncModelsClient, ModelsClient
@@ -120,6 +124,7 @@ class FernLangfuse:
         self.datasets = DatasetsClient(client_wrapper=self._client_wrapper)
         self.health = HealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
+        self.llm_connections = LlmConnectionsClient(client_wrapper=self._client_wrapper)
         self.media = MediaClient(client_wrapper=self._client_wrapper)
         self.metrics = MetricsClient(client_wrapper=self._client_wrapper)
         self.models = ModelsClient(client_wrapper=self._client_wrapper)
@@ -218,6 +223,9 @@ class AsyncFernLangfuse:
         self.datasets = AsyncDatasetsClient(client_wrapper=self._client_wrapper)
         self.health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         self.ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
+        self.llm_connections = AsyncLlmConnectionsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.media = AsyncMediaClient(client_wrapper=self._client_wrapper)
         self.metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         self.models = AsyncModelsClient(client_wrapper=self._client_wrapper)

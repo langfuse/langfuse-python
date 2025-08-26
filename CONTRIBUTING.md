@@ -21,6 +21,13 @@ poetry install --all-extras
 poetry run pre-commit install
 ```
 
+### Type Checking
+
+To run type checking on the langfuse package, run:
+```sh
+poetry run mypy langfuse --no-error-summary
+```
+
 ### Tests
 
 #### Setup
