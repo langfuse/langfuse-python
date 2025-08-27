@@ -494,6 +494,7 @@ def _create_langfuse_update(
 
     if usage is not None:
         update["usage_details"] = _parse_usage(usage)
+        update["cost_details"] = _parse_cost(usage)
 
     generation.update(**update)
 
@@ -521,6 +522,18 @@ def _parse_usage(usage: Optional[Any] = None) -> Any:
             }
 
     return usage_dict
+
+
+def _parse_cost(usage: Optional[Any] = None) -> Any:
+    if usage is None:
+        return
+
+    # OpenRouter is returning total cost of the invocation
+    # https://openrouter.ai/docs/use-cases/usage-accounting#cost-breakdown
+    if hasattr(usage, "cost") and isinstance(getattr(usage, "cost"), float):
+        return {"total": getattr(usage, "cost")}
+
+    return None
 
 
 def _extract_streamed_response_api_response(chunks: Any) -> Any:
