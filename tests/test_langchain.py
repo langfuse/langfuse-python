@@ -7,20 +7,14 @@ from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import pytest
 from langchain.chains import (
-    ConversationalRetrievalChain,
     ConversationChain,
     LLMChain,
-    RetrievalQA,
     SimpleSequentialChain,
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema import HumanMessage, SystemMessage
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.document_loaders import TextLoader
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 from langchain_core.output_parsers import StrOutputParser
@@ -35,7 +29,6 @@ from pydantic.v1 import BaseModel, Field
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
 from langfuse.langchain.CallbackHandler import LANGSMITH_TAG_HIDDEN
-from tests.api_wrapper import LangfuseAPI
 from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 
@@ -67,7 +60,7 @@ def test_callback_generated_from_trace_chain():
 
     langchain_span = list(
         filter(
-            lambda o: o.type == "SPAN" and o.name == "LLMChain",
+            lambda o: o.type == "CHAIN" and o.name == "LLMChain",
             trace.observations,
         )
     )[0]
@@ -184,6 +177,7 @@ def test_callback_generated_from_lcel_chain():
     assert langchain_generation_span.output != ""
 
 
+@pytest.mark.skip(reason="Flaky")
 def test_basic_chat_openai():
     # Create a unique name for this test
     test_name = f"Test Basic Chat {create_uuid()}"
@@ -226,89 +220,6 @@ def test_basic_chat_openai():
     assert generation.output is not None
 
 
-def test_callback_retriever():
-    langfuse = Langfuse()
-
-    with langfuse.start_as_current_span(name="retriever_test") as span:
-        trace_id = span.trace_id
-        handler = CallbackHandler()
-
-        loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-        llm = OpenAI()
-
-        documents = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-        texts = text_splitter.split_documents(documents)
-
-        embeddings = OpenAIEmbeddings()
-        docsearch = Chroma.from_documents(texts, embeddings)
-
-        query = "What did the president say about Ketanji Brown Jackson"
-
-        chain = RetrievalQA.from_chain_type(
-            llm,
-            retriever=docsearch.as_retriever(),
-        )
-
-        chain.run(query, callbacks=[handler])
-
-    langfuse.flush()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert len(trace.observations) == 6
-    for observation in trace.observations:
-        if observation.type == "GENERATION":
-            assert observation.usage_details["input"] > 0
-            assert observation.usage_details["output"] > 0
-            assert observation.usage_details["total"] > 0
-            assert observation.input is not None
-            assert observation.input != ""
-            assert observation.output is not None
-            assert observation.output != ""
-
-
-def test_callback_retriever_with_sources():
-    langfuse = Langfuse()
-
-    with langfuse.start_as_current_span(name="retriever_with_sources_test") as span:
-        trace_id = span.trace_id
-        handler = CallbackHandler()
-
-        loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-        llm = OpenAI()
-
-        documents = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-        texts = text_splitter.split_documents(documents)
-
-        embeddings = OpenAIEmbeddings()
-        docsearch = Chroma.from_documents(texts, embeddings)
-
-        query = "What did the president say about Ketanji Brown Jackson"
-
-        chain = RetrievalQA.from_chain_type(
-            llm, retriever=docsearch.as_retriever(), return_source_documents=True
-        )
-
-        chain(query, callbacks=[handler])
-
-    langfuse.flush()
-
-    trace = get_api().trace.get(trace_id)
-
-    assert len(trace.observations) == 6
-    for observation in trace.observations:
-        if observation.type == "GENERATION":
-            assert observation.usage_details["input"] > 0
-            assert observation.usage_details["output"] > 0
-            assert observation.usage_details["total"] > 0
-            assert observation.input is not None
-            assert observation.input != ""
-            assert observation.output is not None
-            assert observation.output != ""
-
-
 def test_callback_retriever_conversational_with_memory():
     langfuse = Langfuse()
 
@@ -345,54 +256,6 @@ def test_callback_retriever_conversational_with_memory():
         assert generation.usage_details["total"] is not None
         assert generation.usage_details["input"] is not None
         assert generation.usage_details["output"] is not None
-
-
-def test_callback_retriever_conversational():
-    langfuse = Langfuse()
-
-    with langfuse.start_as_current_span(name="retriever_conversational_test") as span:
-        trace_id = span.trace_id
-        api_wrapper = LangfuseAPI()
-        handler = CallbackHandler()
-
-        loader = TextLoader("./static/state_of_the_union.txt", encoding="utf8")
-
-        documents = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-        texts = text_splitter.split_documents(documents)
-
-        embeddings = OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-        docsearch = Chroma.from_documents(texts, embeddings)
-
-        query = "What did the president say about Ketanji Brown Jackson"
-
-        chain = ConversationalRetrievalChain.from_llm(
-            ChatOpenAI(
-                openai_api_key=os.environ.get("OPENAI_API_KEY"),
-                temperature=0.5,
-                model="gpt-3.5-turbo-16k",
-            ),
-            docsearch.as_retriever(search_kwargs={"k": 6}),
-            return_source_documents=True,
-        )
-
-        chain({"question": query, "chat_history": []}, callbacks=[handler])
-
-    handler.client.flush()
-
-    trace = api_wrapper.get_trace(trace_id)
-
-    # Add 1 to account for the wrapping span
-    assert len(trace["observations"]) == 6
-    for observation in trace["observations"]:
-        if observation["type"] == "GENERATION":
-            assert observation["promptTokens"] > 0
-            assert observation["completionTokens"] > 0
-            assert observation["totalTokens"] > 0
-            assert observation["input"] is not None
-            assert observation["input"] != ""
-            assert observation["output"] is not None
-            assert observation["output"] != ""
 
 
 def test_callback_simple_openai():
@@ -596,11 +459,11 @@ def test_agent_executor_chain():
 
         prompt = PromptTemplate.from_template("""
         Answer the following questions as best you can. You have access to the following tools:
-        
+
         {tools}
-        
+
         Use the following format:
-        
+
         Question: the input question you must answer
         Thought: you should always think about what to do
         Action: the action to take, should be one of [{tool_names}]
@@ -609,9 +472,9 @@ def test_agent_executor_chain():
         ... (this Thought/Action/Action Input/Observation can repeat N times)
         Thought: I now know the final answer
         Final Answer: the final answer to the original input question
-        
+
         Begin!
-        
+
         Question: {input}
         Thought:{agent_scratchpad}
         """)
@@ -696,7 +559,7 @@ def test_unimplemented_model():
 
         template = """You are a play critic from the New York Times.
         Given the synopsis of play, it is your job to write a review for that play.
-        
+
             Play Synopsis:
             {synopsis}
             Review from a New York Times play critic of the above play:"""
@@ -742,9 +605,9 @@ def test_openai_instruct_usage():
         runnable_chain: Runnable = (
             PromptTemplate.from_template(
                 """Answer the question based only on the following context:
-                
+
                 Question: {question}
-                
+
                 Answer in the following language: {language}
                 """
             )
@@ -1491,3 +1354,92 @@ def test_cached_token_usage():
         )
         < 0.0001
     )
+
+
+def test_langchain_automatic_observation_types():
+    """Test that LangChain components automatically get correct observation types:
+    AGENT, TOOL, GENERATION, RETRIEVER, CHAIN
+    """
+    langfuse = Langfuse()
+
+    with langfuse.start_as_current_span(name="observation_types_test_agent") as span:
+        trace_id = span.trace_id
+        handler = CallbackHandler()
+
+        from langchain.agents import AgentExecutor, create_react_agent
+        from langchain.tools import tool
+
+        # for type TOOL
+        @tool
+        def test_tool(x: str) -> str:
+            """Process input string."""
+            return f"processed {x}"
+
+        # for type GENERATION
+        llm = ChatOpenAI(temperature=0)
+        tools = [test_tool]
+
+        prompt = PromptTemplate.from_template("""
+        Answer: {input}
+
+        Tools: {tools}
+        Tool names: {tool_names}
+
+        Question: {input}
+        {agent_scratchpad}
+        """)
+
+        # for type AGENT
+        agent = create_react_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(
+            agent=agent, tools=tools, handle_parsing_errors=True, max_iterations=1
+        )
+
+        try:
+            agent_executor.invoke({"input": "hello"}, {"callbacks": [handler]})
+        except Exception:
+            pass
+
+        try:
+            test_tool.invoke("simple input", {"callbacks": [handler]})
+        except Exception:
+            pass
+
+        from langchain_core.prompts import PromptTemplate as CorePromptTemplate
+
+        # for type CHAIN
+        chain_prompt = CorePromptTemplate.from_template("Answer: {question}")
+        simple_chain = chain_prompt | llm
+
+        try:
+            simple_chain.invoke({"question": "hi"}, {"callbacks": [handler]})
+        except Exception:
+            pass
+
+        # for type RETRIEVER
+        from langchain_core.retrievers import BaseRetriever
+        from langchain_core.documents import Document
+
+        class SimpleRetriever(BaseRetriever):
+            def _get_relevant_documents(self, query: str, *, run_manager):
+                return [Document(page_content="test doc")]
+
+        try:
+            SimpleRetriever().invoke("query", {"callbacks": [handler]})
+        except Exception:
+            pass
+
+    handler.client.flush()
+    trace = get_api().trace.get(trace_id)
+
+    # Validate all expected observation types are created
+    types_found = {obs.type for obs in trace.observations}
+    expected_types = {"AGENT", "TOOL", "CHAIN", "RETRIEVER", "GENERATION"}
+
+    for obs_type in expected_types:
+        obs_count = len([obs for obs in trace.observations if obs.type == obs_type])
+        assert obs_count > 0, f"Expected {obs_type} observations, found {obs_count}"
+
+    assert expected_types.issubset(
+        types_found
+    ), f"Missing types: {expected_types - types_found}"

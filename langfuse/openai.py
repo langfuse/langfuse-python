@@ -23,7 +23,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from inspect import isclass
-from typing import Optional, cast, Any
+from typing import Any, Optional, cast
 
 from openai._types import NotGiven
 from packaging.version import Version
@@ -157,6 +157,22 @@ OPENAI_METHODS_V1 = [
         module="openai.resources.responses",
         object="AsyncResponses",
         method="create",
+        type="chat",
+        sync=False,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="Responses",
+        method="parse",
+        type="chat",
+        sync=True,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="AsyncResponses",
+        method="parse",
         type="chat",
         sync=False,
         min_version="1.66.0",
@@ -375,7 +391,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
-    elif resource.object == "Responses":
+    elif resource.object == "Responses" or resource.object == "AsyncResponses":
         prompt = kwargs.get("input", None)
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
@@ -390,6 +406,12 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         kwargs.get("max_tokens", float("inf"))
         if not isinstance(kwargs.get("max_tokens", float("inf")), NotGiven)
         else float("inf")
+    )
+
+    parsed_max_completion_tokens = (
+        kwargs.get("max_completion_tokens", None)
+        if not isinstance(kwargs.get("max_completion_tokens", float("inf")), NotGiven)
+        else None
     )
 
     parsed_top_p = (
@@ -425,6 +447,11 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         "frequency_penalty": parsed_frequency_penalty,
         "presence_penalty": parsed_presence_penalty,
     }
+
+    if parsed_max_completion_tokens is not None:
+        modelParameters.pop("max_tokens", None)
+        modelParameters["max_completion_tokens"] = parsed_max_completion_tokens
+
     if parsed_n is not None and parsed_n > 1:
         modelParameters["n"] = parsed_n
 
@@ -467,6 +494,7 @@ def _create_langfuse_update(
 
     if usage is not None:
         update["usage_details"] = _parse_usage(usage)
+        update["cost_details"] = _parse_cost(usage)
 
     generation.update(**update)
 
@@ -494,6 +522,18 @@ def _parse_usage(usage: Optional[Any] = None) -> Any:
             }
 
     return usage_dict
+
+
+def _parse_cost(usage: Optional[Any] = None) -> Any:
+    if usage is None:
+        return
+
+    # OpenRouter is returning total cost of the invocation
+    # https://openrouter.ai/docs/use-cases/usage-accounting#cost-breakdown
+    if hasattr(usage, "cost") and isinstance(getattr(usage, "cost"), float):
+        return {"total": getattr(usage, "cost")}
+
+    return None
 
 
 def _extract_streamed_response_api_response(chunks: Any) -> Any:
@@ -570,7 +610,10 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         )
                         curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
 
-                elif delta.get("tool_calls", None) is not None and len(delta.get("tool_calls")) > 0:
+                elif (
+                    delta.get("tool_calls", None) is not None
+                    and len(delta.get("tool_calls")) > 0
+                ):
                     curr = completion["tool_calls"]
                     tool_call_chunk = getattr(
                         delta.get("tool_calls", None)[0], "function", None
@@ -653,7 +696,7 @@ def _get_langfuse_data_from_default_response(
 
             completion = choice.text if _is_openai_v1() else choice.get("text", None)
 
-    elif resource.object == "Responses":
+    elif resource.object == "Responses" or resource.object == "AsyncResponses":
         output = response.get("output", {})
 
         if not isinstance(output, list):
@@ -710,7 +753,8 @@ def _wrap(
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
     langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
 
-    generation = langfuse_client.start_generation(
+    generation = langfuse_client.start_observation(
+        as_type="generation",
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
@@ -773,7 +817,8 @@ async def _wrap_async(
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
     langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
 
-    generation = langfuse_client.start_generation(
+    generation = langfuse_client.start_observation(
+        as_type="generation",
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
@@ -903,6 +948,7 @@ class LangfuseResponseGeneratorSync:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
                 if self.resource.object == "Responses"
+                or self.resource.object == "AsyncResponses"
                 else _extract_streamed_openai_response(self.resource, self.items)
             )
 
@@ -973,6 +1019,7 @@ class LangfuseResponseGeneratorAsync:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
                 if self.resource.object == "Responses"
+                or self.resource.object == "AsyncResponses"
                 else _extract_streamed_openai_response(self.resource, self.items)
             )
 

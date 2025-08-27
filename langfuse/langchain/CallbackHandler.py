@@ -1,9 +1,19 @@
 import typing
+from contextvars import Token
 
 import pydantic
+from opentelemetry import context, trace
 
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.get_client import get_client
-from langfuse._client.span import LangfuseGeneration, LangfuseSpan
+from langfuse._client.span import (
+    LangfuseAgent,
+    LangfuseChain,
+    LangfuseGeneration,
+    LangfuseRetriever,
+    LangfuseSpan,
+    LangfuseTool,
+)
 from langfuse.logger import langfuse_logger
 
 try:
@@ -56,14 +66,34 @@ except ImportError:
 
 
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
-    def __init__(self, *, public_key: Optional[str] = None) -> None:
+    def __init__(
+        self, *, public_key: Optional[str] = None, update_trace: bool = False
+    ) -> None:
+        """Initialize the LangchainCallbackHandler.
+
+        Args:
+            public_key: Optional Langfuse public key. If not provided, will use the default client configuration.
+            update_trace: Whether to update the Langfuse trace with the chains input / output / metadata / name. Defaults to False.
+        """
         self.client = get_client(public_key=public_key)
 
-        self.runs: Dict[UUID, Union[LangfuseSpan, LangfuseGeneration]] = {}
+        self.runs: Dict[
+            UUID,
+            Union[
+                LangfuseSpan,
+                LangfuseGeneration,
+                LangfuseAgent,
+                LangfuseChain,
+                LangfuseTool,
+                LangfuseRetriever,
+            ],
+        ] = {}
+        self.context_tokens: Dict[UUID, Token] = {}
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
 
         self.last_trace_id: Optional[str] = None
+        self.update_trace = update_trace
 
     def on_llm_new_token(
         self,
@@ -86,6 +116,49 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             current_generation.update(completion_start_time=_get_timestamp())
 
             self.updated_completion_start_time_memo.add(run_id)
+
+    def _get_observation_type_from_serialized(
+        self, serialized: Optional[Dict[str, Any]], callback_type: str, **kwargs: Any
+    ) -> Union[
+        Literal["tool"],
+        Literal["retriever"],
+        Literal["generation"],
+        Literal["agent"],
+        Literal["chain"],
+        Literal["span"],
+    ]:
+        """Determine Langfuse observation type from LangChain component.
+
+        Args:
+            serialized: LangChain's serialized component dict
+            callback_type: The type of callback (e.g., "chain", "tool", "retriever", "llm")
+            **kwargs: Additional keyword arguments from the callback
+
+        Returns:
+            The appropriate Langfuse observation type string
+        """
+        # Direct mappings based on callback type
+        if callback_type == "tool":
+            return "tool"
+        elif callback_type == "retriever":
+            return "retriever"
+        elif callback_type == "llm":
+            return "generation"
+        elif callback_type == "chain":
+            # Detect if it's an agent by examining class path or name
+            if serialized and "id" in serialized:
+                class_path = serialized["id"]
+                if any("agent" in part.lower() for part in class_path):
+                    return "agent"
+
+            # Check name for agent-related keywords
+            name = self.get_langchain_run_name(serialized, **kwargs)
+            if "agent" in name.lower():
+                return "agent"
+
+            return "chain"
+
+        return "span"
 
     def get_langchain_run_name(
         self, serialized: Optional[Dict[str, Any]], **kwargs: Any
@@ -136,18 +209,41 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_retriever_error", run_id, parent_run_id, error=error
             )
+            observation = self._detach_observation(run_id)
 
-            if run_id is None or run_id not in self.runs:
-                raise Exception("run not found")
-
-            self.runs[run_id].update(
-                level="ERROR",
-                status_message=str(error),
-                input=kwargs.get("inputs"),
-            ).end()
+            if observation is not None:
+                observation.update(
+                    level="ERROR",
+                    status_message=str(error),
+                    input=kwargs.get("inputs"),
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
+
+    def _parse_langfuse_trace_attributes_from_metadata(
+        self,
+        metadata: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        attributes: Dict[str, Any] = {}
+
+        if metadata is None:
+            return attributes
+
+        if "langfuse_session_id" in metadata and isinstance(
+            metadata["langfuse_session_id"], str
+        ):
+            attributes["session_id"] = metadata["langfuse_session_id"]
+
+        if "langfuse_user_id" in metadata and isinstance(
+            metadata["langfuse_user_id"], str
+        ):
+            attributes["user_id"] = metadata["langfuse_user_id"]
+
+        if "langfuse_tags" in metadata and isinstance(metadata["langfuse_tags"], list):
+            attributes["tags"] = [str(tag) for tag in metadata["langfuse_tags"]]
+
+        return attributes
 
     def on_chain_start(
         self,
@@ -172,27 +268,37 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             span_metadata = self.__join_tags_and_metadata(tags, metadata)
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
+            observation_type = self._get_observation_type_from_serialized(
+                serialized, "chain", **kwargs
+            )
+
+            span = self.client.start_observation(
+                name=span_name,
+                as_type=observation_type,
+                metadata=span_metadata,
+                input=inputs,
+                level=cast(
+                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                    span_level,
+                ),
+            )
+            self._attach_observation(run_id, span)
+
             if parent_run_id is None:
-                self.runs[run_id] = self.client.start_span(
-                    name=span_name,
-                    metadata=span_metadata,
-                    input=inputs,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
+                span.update_trace(
+                    **(
+                        cast(
+                            Any,
+                            {
+                                "input": inputs,
+                                "name": span_name,
+                                "metadata": span_metadata,
+                            },
+                        )
+                        if self.update_trace
+                        else {}
                     ),
-                )
-            else:
-                self.runs[run_id] = cast(
-                    LangfuseSpan, self.runs[parent_run_id]
-                ).start_span(
-                    name=span_name,
-                    metadata=span_metadata,
-                    input=inputs,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
+                    **self._parse_langfuse_trace_attributes_from_metadata(metadata),
                 )
 
             self.last_trace_id = self.runs[run_id].trace_id
@@ -212,7 +318,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         If parent_run_id is None, we are at the root of a trace and should not attempt to register the prompt, as there will be no LLM invocation following it.
         Otherwise it would have been traced in with a parent run consisting of the prompt template formatting and the LLM invocation.
         """
-        if not parent_run_id:
+        if not parent_run_id or not run_id:
             return
 
         langfuse_prompt = metadata and metadata.get("langfuse_prompt", None)
@@ -227,8 +333,55 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self.prompt_to_parent_run_map[run_id] = registered_prompt
 
     def _deregister_langfuse_prompt(self, run_id: Optional[UUID]) -> None:
-        if run_id in self.prompt_to_parent_run_map:
+        if run_id is not None and run_id in self.prompt_to_parent_run_map:
             del self.prompt_to_parent_run_map[run_id]
+
+    def _attach_observation(
+        self,
+        run_id: UUID,
+        observation: Union[
+            LangfuseAgent,
+            LangfuseChain,
+            LangfuseGeneration,
+            LangfuseRetriever,
+            LangfuseSpan,
+            LangfuseTool,
+        ],
+    ) -> None:
+        ctx = trace.set_span_in_context(observation._otel_span)
+        token = context.attach(ctx)
+
+        self.runs[run_id] = observation
+        self.context_tokens[run_id] = token
+
+    def _detach_observation(
+        self, run_id: UUID
+    ) -> Optional[
+        Union[
+            LangfuseAgent,
+            LangfuseChain,
+            LangfuseGeneration,
+            LangfuseRetriever,
+            LangfuseSpan,
+            LangfuseTool,
+        ]
+    ]:
+        token = self.context_tokens.pop(run_id, None)
+
+        if token:
+            context.detach(token)
+
+        return cast(
+            Union[
+                LangfuseAgent,
+                LangfuseChain,
+                LangfuseGeneration,
+                LangfuseRetriever,
+                LangfuseSpan,
+                LangfuseTool,
+            ],
+            self.runs.pop(run_id, None),
+        )
 
     def on_agent_action(
         self,
@@ -244,13 +397,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_agent_action", run_id, parent_run_id, action=action
             )
 
-            if run_id not in self.runs:
-                raise Exception("run not found")
+            agent_run = self.runs.get(run_id, None)
 
-            self.runs[run_id].update(
-                output=action,
-                input=kwargs.get("inputs"),
-            ).end()
+            if agent_run is not None:
+                agent_run._otel_span.set_attribute(
+                    LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
+                )
+
+                agent_run.update(
+                    output=action,
+                    input=kwargs.get("inputs"),
+                )
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -267,13 +424,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_agent_finish", run_id, parent_run_id, finish=finish
             )
-            if run_id not in self.runs:
-                raise Exception("run not found")
+            # Langchain is sending same run ID for both agent finish and chain end
+            # handle cleanup of observation in the chain end callback
+            agent_run = self.runs.get(run_id, None)
 
-            self.runs[run_id].update(
-                output=finish,
-                input=kwargs.get("inputs"),
-            ).end()
+            if agent_run is not None:
+                agent_run._otel_span.set_attribute(
+                    LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "agent"
+                )
+
+                agent_run.update(
+                    output=finish,
+                    input=kwargs.get("inputs"),
+                )
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -291,17 +454,21 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_chain_end", run_id, parent_run_id, outputs=outputs
             )
 
-            if run_id not in self.runs:
-                raise Exception("run not found")
+            span = self._detach_observation(run_id)
 
-            self.runs[run_id].update(
-                output=outputs,
-                input=kwargs.get("inputs"),
-            ).end()
+            if span is not None:
+                span.update(
+                    output=outputs,
+                    input=kwargs.get("inputs"),
+                )
 
-            del self.runs[run_id]
+                if parent_run_id is None and self.update_trace:
+                    span.update_trace(output=outputs, input=kwargs.get("inputs"))
 
-            self._deregister_langfuse_prompt(run_id)
+                span.end()
+
+                self._deregister_langfuse_prompt(run_id)
+
         except Exception as e:
             langfuse_logger.exception(e)
 
@@ -316,25 +483,22 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> None:
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
-            if run_id in self.runs:
-                if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
-                    level = None
-                else:
-                    level = "ERROR"
+            if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+                level = None
+            else:
+                level = "ERROR"
 
-                self.runs[run_id].update(
+            observation = self._detach_observation(run_id)
+
+            if observation is not None:
+                observation.update(
                     level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]], level
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
                     ),
                     status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                 ).end()
-
-                del self.runs[run_id]
-            else:
-                langfuse_logger.warning(
-                    f"Run ID {run_id} already popped from run map. Could not update run with error message"
-                )
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -414,8 +578,6 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
-            if parent_run_id is None or parent_run_id not in self.runs:
-                raise Exception("parent run not found")
             meta = self.__join_tags_and_metadata(tags, metadata)
 
             if not meta:
@@ -425,12 +587,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 {key: value for key, value in kwargs.items() if value is not None}
             )
 
-            self.runs[run_id] = cast(LangfuseSpan, self.runs[parent_run_id]).start_span(
+            observation_type = self._get_observation_type_from_serialized(
+                serialized, "tool", **kwargs
+            )
+
+            span = self.client.start_observation(
                 name=self.get_langchain_run_name(serialized, **kwargs),
+                as_type=observation_type,
                 input=input_str,
                 metadata=meta,
                 level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
             )
+
+            self._attach_observation(run_id, span)
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -454,28 +623,22 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             span_metadata = self.__join_tags_and_metadata(tags, metadata)
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
-            if parent_run_id is None:
-                self.runs[run_id] = self.client.start_span(
-                    name=span_name,
-                    metadata=span_metadata,
-                    input=query,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
-            else:
-                self.runs[run_id] = cast(
-                    LangfuseSpan, self.runs[parent_run_id]
-                ).start_span(
-                    name=span_name,
-                    input=query,
-                    metadata=span_metadata,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
+            observation_type = self._get_observation_type_from_serialized(
+                serialized, "retriever", **kwargs
+            )
+
+            span = self.client.start_observation(
+                name=span_name,
+                as_type=observation_type,
+                metadata=span_metadata,
+                input=query,
+                level=cast(
+                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                    span_level,
+                ),
+            )
+
+            self._attach_observation(run_id, span)
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -492,15 +655,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_retriever_end", run_id, parent_run_id, documents=documents
             )
-            if run_id is None or run_id not in self.runs:
-                raise Exception("run not found")
+            observation = self._detach_observation(run_id)
 
-            self.runs[run_id].update(
-                output=documents,
-                input=kwargs.get("inputs"),
-            ).end()
-
-            del self.runs[run_id]
+            if observation is not None:
+                observation.update(
+                    output=documents,
+                    input=kwargs.get("inputs"),
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -515,15 +676,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> Any:
         try:
             self._log_debug_event("on_tool_end", run_id, parent_run_id, output=output)
-            if run_id is None or run_id not in self.runs:
-                raise Exception("run not found")
 
-            self.runs[run_id].update(
-                output=output,
-                input=kwargs.get("inputs"),
-            ).end()
+            observation = self._detach_observation(run_id)
 
-            del self.runs[run_id]
+            if observation is not None:
+                observation.update(
+                    output=output,
+                    input=kwargs.get("inputs"),
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -538,16 +698,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> Any:
         try:
             self._log_debug_event("on_tool_error", run_id, parent_run_id, error=error)
-            if run_id is None or run_id not in self.runs:
-                raise Exception("run not found")
+            observation = self._detach_observation(run_id)
 
-            self.runs[run_id].update(
-                status_message=str(error),
-                level="ERROR",
-                input=kwargs.get("inputs"),
-            ).end()
-
-            del self.runs[run_id]
+            if observation is not None:
+                observation.update(
+                    status_message=str(error),
+                    level="ERROR",
+                    input=kwargs.get("inputs"),
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -582,18 +740,21 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
-                "metadata": self.__join_tags_and_metadata(tags, metadata),
+                "metadata": self.__join_tags_and_metadata(
+                    tags,
+                    metadata,
+                    # If llm is run isolated and outside chain, keep trace attributes
+                    keep_langfuse_trace_attributes=True
+                    if parent_run_id is None
+                    else False,
+                ),
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
                 "prompt": registered_prompt,
             }
 
-            if parent_run_id is not None and parent_run_id in self.runs:
-                self.runs[run_id] = cast(
-                    LangfuseSpan, self.runs[parent_run_id]
-                ).start_generation(**content)  # type: ignore
-            else:
-                self.runs[run_id] = self.client.start_generation(**content)  # type: ignore
+            generation = self.client.start_observation(as_type="generation", **content)  # type: ignore
+            self._attach_observation(run_id, generation)
 
             self.last_trace_id = self.runs[run_id].trace_id
 
@@ -675,31 +836,28 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_llm_end", run_id, parent_run_id, response=response, kwargs=kwargs
             )
-            if run_id not in self.runs:
-                raise Exception("Run not found, see docs what to do in this case.")
-            else:
-                response_generation = response.generations[-1][-1]
-                extracted_response = (
-                    self._convert_message_to_dict(response_generation.message)
-                    if isinstance(response_generation, ChatGeneration)
-                    else _extract_raw_response(response_generation)
-                )
+            response_generation = response.generations[-1][-1]
+            extracted_response = (
+                self._convert_message_to_dict(response_generation.message)
+                if isinstance(response_generation, ChatGeneration)
+                else _extract_raw_response(response_generation)
+            )
 
-                llm_usage = _parse_usage(response)
+            llm_usage = _parse_usage(response)
 
-                # e.g. azure returns the model name in the response
-                model = _parse_model(response)
-                langfuse_generation = cast(LangfuseGeneration, self.runs[run_id])
-                langfuse_generation.update(
+            # e.g. azure returns the model name in the response
+            model = _parse_model(response)
+
+            generation = self._detach_observation(run_id)
+
+            if generation is not None:
+                generation.update(
                     output=extracted_response,
                     usage=llm_usage,
                     usage_details=llm_usage,
                     input=kwargs.get("inputs"),
                     model=model,
-                )
-                langfuse_generation.end()
-
-                del self.runs[run_id]
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -717,16 +875,15 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> Any:
         try:
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
-            if run_id in self.runs:
-                generation = self.runs[run_id]
+
+            generation = self._detach_observation(run_id)
+
+            if generation is not None:
                 generation.update(
                     status_message=str(error),
                     level="ERROR",
                     input=kwargs.get("inputs"),
-                )
-                generation.end()
-
-                del self.runs[run_id]
+                ).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -735,16 +892,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self,
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        trace_metadata: Optional[Dict[str, Any]] = None,
+        keep_langfuse_trace_attributes: bool = False,
     ) -> Optional[Dict[str, Any]]:
         final_dict = {}
         if tags is not None and len(tags) > 0:
             final_dict["tags"] = tags
         if metadata is not None:
             final_dict.update(metadata)
-        if trace_metadata is not None:
-            final_dict.update(trace_metadata)
-        return _strip_langfuse_keys_from_dict(final_dict) if final_dict != {} else None
+
+        return (
+            _strip_langfuse_keys_from_dict(final_dict, keep_langfuse_trace_attributes)
+            if final_dict != {}
+            else None
+        )
 
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
@@ -821,6 +981,9 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
         ("input_tokens", "input"),
         ("output_tokens", "output"),
         ("total_tokens", "total"),
+        # ChatBedrock API follows a separate format compared to ChatBedrockConverse API
+        ("prompt_tokens", "input"),
+        ("completion_tokens", "output"),
         # https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/get-token-count
         ("prompt_token_count", "input"),
         ("candidates_token_count", "output"),
@@ -837,22 +1000,41 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
     usage_model = cast(Dict, usage.copy())  # Copy all existing key-value pairs
 
     # Skip OpenAI usage types as they are handled server side
-    if not all(
-        openai_key in usage_model
-        for openai_key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+    if (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                "prompt_tokens_details",
+                "completion_tokens_details",
+            ]
+        )
+        and len(usage_model.keys()) == 5
+    ) or (
+        all(
+            openai_key in usage_model
+            for openai_key in [
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+            ]
+        )
+        and len(usage_model.keys()) == 3
     ):
-        for model_key, langfuse_key in conversion_list:
-            if model_key in usage_model:
-                captured_count = usage_model.pop(model_key)
-                final_count = (
-                    sum(captured_count)
-                    if isinstance(captured_count, list)
-                    else captured_count
-                )  # For Bedrock, the token count is a list when streamed
+        return usage_model
 
-                usage_model[langfuse_key] = (
-                    final_count  # Translate key and keep the value
-                )
+    for model_key, langfuse_key in conversion_list:
+        if model_key in usage_model:
+            captured_count = usage_model.pop(model_key)
+            final_count = (
+                sum(captured_count)
+                if isinstance(captured_count, list)
+                else captured_count
+            )  # For Bedrock, the token count is a list when streamed
+
+            usage_model[langfuse_key] = final_count  # Translate key and keep the value
 
     if isinstance(usage_model, dict):
         if "input_token_details" in usage_model:
@@ -927,7 +1109,7 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
                     if "input" in usage_model:
                         usage_model["input"] = max(0, usage_model["input"] - value)
 
-    usage_model = {k: v for k, v in usage_model.items() if not isinstance(v, str)}
+    usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
 
@@ -951,7 +1133,9 @@ def _parse_usage(response: LLMResult) -> Any:
                     llm_usage = _parse_usage_model(
                         generation_chunk.generation_info["usage_metadata"]
                     )
-                    break
+
+                    if llm_usage is not None:
+                        break
 
                 message_chunk = getattr(generation_chunk, "message", {})
                 response_metadata = getattr(message_chunk, "response_metadata", {})
@@ -999,15 +1183,29 @@ def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]) -> Any:
     return metadata.get("ls_model_name", None)
 
 
-def _strip_langfuse_keys_from_dict(metadata: Optional[Dict[str, Any]]) -> Any:
+def _strip_langfuse_keys_from_dict(
+    metadata: Optional[Dict[str, Any]], keep_langfuse_trace_attributes: bool
+) -> Any:
     if metadata is None or not isinstance(metadata, dict):
         return metadata
 
-    langfuse_metadata_keys = ["langfuse_prompt"]
+    langfuse_metadata_keys = [
+        "langfuse_prompt",
+    ]
+
+    langfuse_trace_attribute_keys = [
+        "langfuse_session_id",
+        "langfuse_user_id",
+        "langfuse_tags",
+    ]
 
     metadata_copy = metadata.copy()
 
     for key in langfuse_metadata_keys:
         metadata_copy.pop(key, None)
+
+    if not keep_langfuse_trace_attributes:
+        for key in langfuse_trace_attribute_keys:
+            metadata_copy.pop(key, None)
 
     return metadata_copy
