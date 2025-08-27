@@ -128,3 +128,13 @@ Controls the timeout for all API requests in seconds
 
 **Default value**: ``5``
 """
+
+LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS = "LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS"
+"""
+.. envvar: LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS
+
+Controls the default time-to-live (TTL) in seconds for cached prompts.
+This setting determines how long prompt responses are cached before they expire.
+
+**Default value**: ``60``
+"""
