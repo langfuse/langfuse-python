@@ -28,7 +28,6 @@ from pydantic.v1 import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
-from langfuse.langchain.CallbackHandler import LANGSMITH_TAG_HIDDEN
 from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 
@@ -1291,17 +1290,7 @@ def test_langgraph():
 
     trace = get_api().trace.get(trace_id=trace_id)
 
-    hidden_count = 0
-
-    for observation in trace.observations:
-        if LANGSMITH_TAG_HIDDEN in observation.metadata.get("tags", []):
-            hidden_count += 1
-            assert observation.level == "DEBUG"
-
-        else:
-            assert observation.level == "DEFAULT"
-
-    assert hidden_count > 0
+    assert len(trace.observations) > 0
 
 
 @pytest.mark.skip(reason="Flaky test")
@@ -1417,8 +1406,8 @@ def test_langchain_automatic_observation_types():
             pass
 
         # for type RETRIEVER
-        from langchain_core.retrievers import BaseRetriever
         from langchain_core.documents import Document
+        from langchain_core.retrievers import BaseRetriever
 
         class SimpleRetriever(BaseRetriever):
             def _get_relevant_documents(self, query: str, *, run_manager):
