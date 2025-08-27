@@ -123,7 +123,7 @@ class LangfuseObservationWrapper:
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
         self.id = self._langfuse_client._get_otel_span_id(otel_span)
 
-        self._environment = environment
+        self._environment = environment or self._langfuse_client._environment
         if self._environment is not None:
             self._otel_span.set_attribute(
                 LangfuseOtelSpanAttributes.ENVIRONMENT, self._environment
