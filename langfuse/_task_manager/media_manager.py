@@ -247,7 +247,8 @@ class MediaManager:
             return
 
         headers = {"Content-Type": data["content_type"]}
-        
+
+        # In self-hosted setups with GCP, do not add unsupported headers that fail the upload 
         if not "storage.googleapis.com" in upload_url:
             headers["x-ms-blob-type"] = "BlockBlob"
             headers["x-amz-checksum-sha256"] = data["content_sha256_hash"]
