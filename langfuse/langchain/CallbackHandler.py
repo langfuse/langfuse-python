@@ -923,6 +923,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             message_dict = {"role": "system", "content": message.content}
         elif isinstance(message, ToolMessage):
             message_dict = {
+                "role": "tool",
                 "content": message.content,
                 "tool_call_id": message.tool_call_id,
             }
