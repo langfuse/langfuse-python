@@ -912,11 +912,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             message_dict = {"role": "user", "content": message.content}
         elif isinstance(message, AIMessage):
             message_dict = {"role": "assistant", "content": message.content}
+
+            if (
+                hasattr(message, "tool_calls")
+                and message.tool_calls
+                and len(message.tool_calls) > 0
+            ):
+                message_dict["tool_calls"] = message.tool_calls
         elif isinstance(message, SystemMessage):
             message_dict = {"role": "system", "content": message.content}
         elif isinstance(message, ToolMessage):
             message_dict = {
-                "role": "tool",
                 "content": message.content,
                 "tool_call_id": message.tool_call_id,
             }
