@@ -915,7 +915,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             if (
                 hasattr(message, "tool_calls")
-                and message.tool_calls
+                and message.tool_calls is not None
                 and len(message.tool_calls) > 0
             ):
                 message_dict["tool_calls"] = message.tool_calls
