@@ -6,10 +6,14 @@ from datetime import datetime
 from queue import Empty, Queue
 from threading import Thread
 from typing import Callable, Dict, List, Optional, Set
+import os
 
 from langfuse.model import PromptClient
+from langfuse._client.environment_variables import (
+    LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS
+)
 
-DEFAULT_PROMPT_CACHE_TTL_SECONDS = 60
+DEFAULT_PROMPT_CACHE_TTL_SECONDS = int(os.getenv(LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS, 60))
 
 DEFAULT_PROMPT_CACHE_REFRESH_WORKERS = 1
 
@@ -161,6 +165,10 @@ class PromptCache:
     def add_refresh_prompt_task(self, key: str, fetch_func: Callable[[], None]) -> None:
         self._log.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
+
+    def clear(self) -> None:
+        """Clear the entire prompt cache, removing all cached prompts."""
+        self._cache.clear()
 
     @staticmethod
     def generate_cache_key(

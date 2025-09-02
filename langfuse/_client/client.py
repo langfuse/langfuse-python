@@ -2996,3 +2996,14 @@ class Langfuse:
         # we need add safe="" to force escaping of slashes
         # This is necessary for prompts in prompt folders
         return urllib.parse.quote(url, safe="")
+    
+    def clear_prompt_cache(self):
+        """
+        Clear the entire prompt cache, removing all cached prompts.
+        
+        This method is useful when you want to force a complete refresh of all
+        cached prompts, for example after major updates or when you need to
+        ensure the latest versions are fetched from the server.
+        """
+        if self._resources is not None:
+            self._resources.prompt_cache.clear()
