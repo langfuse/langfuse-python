@@ -679,11 +679,7 @@ def test_prompt_end_to_end():
 
 @pytest.fixture
 def langfuse():
-    langfuse_instance = Langfuse(
-        public_key="test-public-key",
-        secret_key="test-secret-key",
-        host="https://mock-host.com",
-    )
+    langfuse_instance = Langfuse()
     langfuse_instance.api = Mock()
 
     return langfuse_instance
