@@ -166,6 +166,10 @@ class PromptCache:
         self._log.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
 
+    def clear(self) -> None:
+        """Clear the entire prompt cache, removing all cached prompts."""
+        self._cache.clear()
+
     @staticmethod
     def generate_cache_key(
         name: str, *, version: Optional[int], label: Optional[str]
