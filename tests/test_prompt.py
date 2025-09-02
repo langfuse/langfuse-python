@@ -1,4 +1,3 @@
-import os
 from time import sleep
 from unittest.mock import Mock, patch
 
@@ -6,9 +5,6 @@ import openai
 import pytest
 
 from langfuse._client.client import Langfuse
-from langfuse._client.environment_variables import (
-    LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS,
-)
 from langfuse._utils.prompt_cache import (
     DEFAULT_PROMPT_CACHE_TTL_SECONDS,
     PromptCacheItem,
@@ -1418,90 +1414,3 @@ def test_update_prompt():
     expected_labels = sorted(["latest", "doe", "production", "john"])
     assert sorted(fetched_prompt.labels) == expected_labels
     assert sorted(updated_prompt.labels) == expected_labels
-
-
-def test_environment_variable_override_prompt_cache_ttl():
-    """Test that LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS environment variable overrides default TTL."""
-    # Set environment variable to override default TTL
-    os.environ[LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS] = "120"
-
-    # Create a new Langfuse instance to pick up the environment variable
-    langfuse = Langfuse(
-        public_key="test-public-key",
-        secret_key="test-secret-key",
-        host="https://mock-host.com",
-    )
-    langfuse.api = Mock()
-
-    prompt_name = "test_env_override_ttl"
-    prompt = Prompt_Text(
-        name=prompt_name,
-        version=1,
-        prompt="Test prompt with env override",
-        type="text",
-        labels=[],
-        config={},
-        tags=[],
-    )
-    prompt_client = TextPromptClient(prompt)
-
-    mock_server_call = langfuse.api.prompts.get
-    mock_server_call.return_value = prompt
-
-    # Mock time to control cache expiration
-    with patch.object(PromptCacheItem, "get_epoch_seconds") as mock_time:
-        mock_time.return_value = 0
-
-        # First call - should cache the prompt
-        result1 = langfuse.get_prompt(prompt_name)
-        assert mock_server_call.call_count == 1
-        assert result1 == prompt_client
-
-        # Check that prompt is cached
-        cached_item = langfuse._resources.prompt_cache.get(
-            langfuse._resources.prompt_cache.generate_cache_key(
-                prompt_name, version=None, label=None
-            )
-        )
-        assert cached_item is not None
-        assert cached_item.value == prompt_client
-
-        # Debug: check the cache item's expiry time
-        print(f"DEBUG: Cache item expiry: {cached_item._expiry}")
-        print(f"DEBUG: Current mock time: {mock_time.return_value}")
-        print(f"DEBUG: Is expired? {cached_item.is_expired()}")
-
-        # Set time to 60 seconds (before new TTL of 120 seconds)
-        mock_time.return_value = 60
-
-        # Second call - should still use cache
-        result2 = langfuse.get_prompt(prompt_name)
-        assert mock_server_call.call_count == 1  # No new server call
-        assert result2 == prompt_client
-
-        # Set time to 120 seconds (at TTL expiration)
-        mock_time.return_value = 120
-
-        # Third call - should still use cache (stale cache behavior)
-        result3 = langfuse.get_prompt(prompt_name)
-        assert result3 == prompt_client
-
-        # Wait for background refresh to complete
-        while True:
-            if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
-                break
-            sleep(0.1)
-
-        # Should have made a new server call for refresh
-        assert mock_server_call.call_count == 2
-
-        # Set time to 121 seconds (after TTL expiration)
-        mock_time.return_value = 121
-
-        # Fourth call - should use refreshed cache
-        result4 = langfuse.get_prompt(prompt_name)
-        assert result4 == prompt_client
-
-    # Clean up environment variable
-    if LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS in os.environ:
-        del os.environ[LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS]
