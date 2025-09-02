@@ -2,18 +2,20 @@
 
 import atexit
 import logging
+import os
 from datetime import datetime
 from queue import Empty, Queue
 from threading import Thread
 from typing import Callable, Dict, List, Optional, Set
-import os
 
-from langfuse.model import PromptClient
 from langfuse._client.environment_variables import (
-    LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS
+    LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS,
 )
+from langfuse.model import PromptClient
 
-DEFAULT_PROMPT_CACHE_TTL_SECONDS = int(os.getenv(LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS, 60))
+DEFAULT_PROMPT_CACHE_TTL_SECONDS = int(
+    os.getenv(LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS, 60)
+)
 
 DEFAULT_PROMPT_CACHE_REFRESH_WORKERS = 1
 
