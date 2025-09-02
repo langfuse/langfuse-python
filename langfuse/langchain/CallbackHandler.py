@@ -939,9 +939,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def _convert_message_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
         # assistant message
         if isinstance(message, HumanMessage):
-            message_dict = {"role": "user", "content": message.content}
+            message_dict: Dict[str, Any] = {"role": "user", "content": message.content}
         elif isinstance(message, AIMessage):
             message_dict = {"role": "assistant", "content": message.content}
+
+            if (
+                hasattr(message, "tool_calls")
+                and message.tool_calls is not None
+                and len(message.tool_calls) > 0
+            ):
+                message_dict["tool_calls"] = message.tool_calls
+
         elif isinstance(message, SystemMessage):
             message_dict = {"role": "system", "content": message.content}
         elif isinstance(message, ToolMessage):
