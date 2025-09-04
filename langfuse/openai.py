@@ -791,6 +791,9 @@ def _wrap(
                 model=model,
                 output=completion,
                 usage_details=usage,
+                cost_details=_parse_cost(openai_response.usage)
+                if hasattr(openai_response, "usage")
+                else None,
             ).end()
 
         return openai_response
@@ -855,6 +858,9 @@ async def _wrap_async(
                 output=completion,
                 usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
+                cost_details=_parse_cost(openai_response.usage)
+                if hasattr(openai_response, "usage")
+                else None,
             ).end()
 
         return openai_response

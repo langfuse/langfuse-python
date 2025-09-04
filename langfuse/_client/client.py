@@ -5,9 +5,9 @@ This module implements Langfuse's core observability functionality on top of the
 
 import logging
 import os
-import warnings
 import re
 import urllib.parse
+import warnings
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
@@ -17,8 +17,8 @@ from typing import (
     List,
     Literal,
     Optional,
-    Union,
     Type,
+    Union,
     cast,
     overload,
 )
@@ -36,6 +36,13 @@ from opentelemetry.util._decorator import (
 from packaging.version import Version
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.constants import (
+    ObservationTypeGenerationLike,
+    ObservationTypeLiteral,
+    ObservationTypeLiteralNoEvent,
+    ObservationTypeSpanLike,
+    get_observation_types_list,
+)
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
@@ -47,25 +54,18 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
-from langfuse._client.constants import (
-    ObservationTypeLiteral,
-    ObservationTypeLiteralNoEvent,
-    ObservationTypeGenerationLike,
-    ObservationTypeSpanLike,
-    get_observation_types_list,
-)
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
+    LangfuseAgent,
+    LangfuseChain,
+    LangfuseEmbedding,
+    LangfuseEvaluator,
     LangfuseEvent,
     LangfuseGeneration,
-    LangfuseSpan,
-    LangfuseAgent,
-    LangfuseTool,
-    LangfuseChain,
-    LangfuseRetriever,
-    LangfuseEvaluator,
-    LangfuseEmbedding,
     LangfuseGuardrail,
+    LangfuseRetriever,
+    LangfuseSpan,
+    LangfuseTool,
 )
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
@@ -2996,11 +2996,10 @@ class Langfuse:
         # we need add safe="" to force escaping of slashes
         # This is necessary for prompts in prompt folders
         return urllib.parse.quote(url, safe="")
-    
-    def clear_prompt_cache(self):
-        """
-        Clear the entire prompt cache, removing all cached prompts.
-        
+
+    def clear_prompt_cache(self) -> None:
+        """Clear the entire prompt cache, removing all cached prompts.
+
         This method is useful when you want to force a complete refresh of all
         cached prompts, for example after major updates or when you need to
         ensure the latest versions are fetched from the server.
