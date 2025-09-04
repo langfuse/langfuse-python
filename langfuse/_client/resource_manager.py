@@ -453,7 +453,7 @@ class _LangfuseInstrumentedHttpx(httpx.Auth):
     def __init__(
         self,
         headers_provider: Optional[
-            Union[Mapping[str, Any], Callable[[], Mapping[str, Any]]]
+            Union[Mapping[str, str], Callable[[], Mapping[str, str]]]
         ],
     ):
         self._headers_provider = headers_provider
