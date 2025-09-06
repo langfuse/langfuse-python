@@ -66,6 +66,7 @@ from langfuse._client.span import (
     LangfuseRetriever,
     LangfuseSpan,
     LangfuseTool,
+    LangfuseBehaviouralMonitor,
 )
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
@@ -570,6 +571,7 @@ class Langfuse:
         LangfuseEvaluator,
         LangfuseEmbedding,
         LangfuseGuardrail,
+        LangfuseBehaviouralMonitor,
     ]:
         """Create a new observation of the specified type.
 
@@ -1092,6 +1094,7 @@ class Langfuse:
         _AgnosticContextManager[LangfuseEvaluator],
         _AgnosticContextManager[LangfuseEmbedding],
         _AgnosticContextManager[LangfuseGuardrail],
+        _AgnosticContextManager[LangfuseBehaviouralMonitor],
     ]:
         """Create a new observation and set it as the current span in a context manager.
 
@@ -1233,6 +1236,7 @@ class Langfuse:
                             _AgnosticContextManager[LangfuseRetriever],
                             _AgnosticContextManager[LangfuseEvaluator],
                             _AgnosticContextManager[LangfuseGuardrail],
+                            _AgnosticContextManager[LangfuseBehaviouralMonitor],
                         ],
                         self._create_span_with_parent_context(
                             as_type=as_type,
@@ -1258,6 +1262,7 @@ class Langfuse:
                     _AgnosticContextManager[LangfuseRetriever],
                     _AgnosticContextManager[LangfuseEvaluator],
                     _AgnosticContextManager[LangfuseGuardrail],
+                    _AgnosticContextManager[LangfuseBehaviouralMonitor],
                 ],
                 self._start_as_current_otel_span_with_processed_media(
                     as_type=as_type,
@@ -1302,6 +1307,7 @@ class Langfuse:
         Type[LangfuseGeneration],
         Type[LangfuseEvent],
         Type[LangfuseSpan],
+        Type[LangfuseBehaviouralMonitor],
     ]:
         """Get the appropriate span class based on as_type."""
         normalized_type = as_type.lower()
@@ -1326,6 +1332,8 @@ class Langfuse:
             return LangfuseEvent
         elif normalized_type == "span":
             return LangfuseSpan
+        elif normalized_type == "behavioural_monitor":
+            return LangfuseBehaviouralMonitor
         else:
             return LangfuseSpan
 
@@ -1431,7 +1439,7 @@ class Langfuse:
                         "prompt": prompt,
                     }
                 )
-            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail, behavioural_monitor), no generation properties needed
 
             yield span_class(**common_args)  # type: ignore[arg-type]
 

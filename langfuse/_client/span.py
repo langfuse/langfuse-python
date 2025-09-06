@@ -1468,19 +1468,19 @@ class LangfuseSpan(LangfuseObservationWrapper):
         return self.start_as_current_observation(
             name=name,
             as_type="generation",
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            )
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
+        )
 
     def create_event(
         self,
@@ -1728,6 +1728,15 @@ class LangfuseEvaluator(LangfuseObservationWrapper):
         super().__init__(**kwargs)
 
 
+class LangfuseBehaviouralMonitor(LangfuseObservationWrapper):
+    """Behavioural monitor observation for detecting pathological behavioural outputs from the LLM."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize a new LangfuseBehaviouralMonitor span."""
+        kwargs["as_type"] = "behavioural_monitor"
+        super().__init__(**kwargs)
+
+
 class LangfuseGuardrail(LangfuseObservationWrapper):
     """Guardrail observation for protection e.g. against jailbreaks or offensive content."""
 
@@ -1748,5 +1757,6 @@ _OBSERVATION_CLASS_MAP.update(
         "evaluator": LangfuseEvaluator,
         "embedding": LangfuseEmbedding,
         "guardrail": LangfuseGuardrail,
+        "behavioural_monitor": LangfuseBehaviouralMonitor,
     }
 )
