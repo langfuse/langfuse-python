@@ -218,6 +218,8 @@ class Langfuse:
             langfuse_logger.info(
                 "Configuration: Langfuse tracing is explicitly disabled. No data will be sent to the Langfuse API."
             )
+            self._otel_tracer = otel_trace_api.NoOpTracer()
+            return
 
         debug = (
             debug if debug else (os.getenv(LANGFUSE_DEBUG, "false").lower() == "true")
