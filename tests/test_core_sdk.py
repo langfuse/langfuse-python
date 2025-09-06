@@ -2020,3 +2020,17 @@ def test_that_generation_like_properties_are_actually_created():
         assert (
             obs.completion_start_time is not None
         ), f"{obs_type} should persist completion_start_time property"
+
+
+def test_disabled_tracing_no_auth_warnings(monkeypatch, caplog):
+    """Test that disabling tracing prevents authentication warnings."""
+    import logging
+
+    # Remove any existing API keys to simulate missing credentials
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+    monkeypatch.setenv("LANGFUSE_TRACING_ENABLED", "false")
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        Langfuse(tracing_enabled=False)
+        assert "Authentication error" not in caplog.text
