@@ -218,6 +218,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     level="ERROR",
                     status_message=str(error),
                     input=kwargs.get("inputs"),
+                    cost_details={"total": 0},
                 ).end()
 
         except Exception as e:
@@ -527,6 +528,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     ),
                     status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
+                    cost_details={"total": 0},
                 ).end()
 
         except Exception as e:
@@ -733,6 +735,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     status_message=str(error),
                     level="ERROR",
                     input=kwargs.get("inputs"),
+                    cost_details={"total": 0},
                 ).end()
 
         except Exception as e:
@@ -913,6 +916,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     status_message=str(error),
                     level="ERROR",
                     input=kwargs.get("inputs"),
+                    cost_details={"total": 0},
                 ).end()
 
         except Exception as e:
