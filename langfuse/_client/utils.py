@@ -55,6 +55,7 @@ def span_formatter(span: ReadableSpan) -> str:
                 "instrumentationScope": instrumentationScope,
             },
             indent=2,
+            ensure_ascii=False,
         )
         + "\n"
     )
