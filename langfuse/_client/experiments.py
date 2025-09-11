@@ -37,8 +37,8 @@ class LocalExperimentItem(TypedDict, total=False):
     metadata: Optional[Dict[str, Any]]
 
 
-ExperimentItem = Union[LocalExperimentItem, DatasetItemClient]
-ExperimentData = Union[List[LocalExperimentItem], List[DatasetItemClient]]
+ExperimentItem = Union[LocalExperimentItem, "DatasetItemClient"]
+ExperimentData = Union[List[LocalExperimentItem], List["DatasetItemClient"]]
 
 
 class Evaluation(TypedDict, total=False):

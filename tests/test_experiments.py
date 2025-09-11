@@ -281,7 +281,7 @@ def test_large_dataset_with_concurrency():
     result = langfuse_client.run_experiment(
         name="Large dataset test",
         data=large_dataset,
-        task=lambda **kwargs: f"Processed {kwargs['input']}",
+        task=lambda **kwargs: f"Processed {kwargs['item']}",
         evaluators=[lambda **kwargs: {"name": "simple_eval", "value": 1.0}],
         max_concurrency=5,
     )
@@ -525,7 +525,7 @@ def test_format_experiment_results_basic():
         name="Formatting test",
         description="Test result formatting",
         data=[{"input": "Hello", "expected_output": "Hi"}],
-        task=lambda **kwargs: f"Processed: {kwargs['input']}",
+        task=lambda **kwargs: f"Processed: {kwargs['item']}",
         evaluators=[simple_evaluator],
         run_evaluators=[run_evaluator_average_length],
     )

@@ -2670,15 +2670,13 @@ class Langfuse:
                     try:
                         from langfuse.model import CreateDatasetRunItemRequest
 
-                        dataset_run_item = (
-                            await self.async_api.dataset_run_items.create(
-                                request=CreateDatasetRunItemRequest(
-                                    runName=experiment_name,
-                                    runDescription=experiment_description,
-                                    metadata=experiment_metadata,
-                                    datasetItemId=item.id,  # type: ignore
-                                    traceId=trace_id,
-                                )
+                        dataset_run_item = self.api.dataset_run_items.create(
+                            request=CreateDatasetRunItemRequest(
+                                runName=experiment_name,
+                                runDescription=experiment_description,
+                                metadata=experiment_metadata,
+                                datasetItemId=item.id,  # type: ignore
+                                traceId=trace_id,
                             )
                         )
 
