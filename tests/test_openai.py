@@ -94,6 +94,7 @@ def test_openai_chat_completion_stream(openai):
     assert len(chat_content) > 0
 
     langfuse.flush()
+    sleep(1)
 
     generation = get_api().observations.get_many(
         name=generation_name, type="GENERATION"
