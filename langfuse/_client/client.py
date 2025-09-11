@@ -2974,7 +2974,7 @@ class Langfuse:
 
         """
         updated_prompt = self.api.prompt_version.update(
-            name=name,
+            name=self._url_encode(name),
             version=version,
             new_labels=new_labels,
         )
