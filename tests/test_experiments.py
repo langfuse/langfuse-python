@@ -96,6 +96,48 @@ def test_run_experiment_on_local_dataset(sample_dataset):
     langfuse_client.flush()
     time.sleep(2)
 
+    # Validate traces are correctly persisted with input/output/metadata
+    api = get_api()
+    expected_inputs = ["Germany", "France", "Spain"]
+    expected_outputs = ["Capital of Germany", "Capital of France", "Capital of Spain"]
+
+    for i, item_result in enumerate(result["item_results"]):
+        trace_id = item_result["trace_id"]
+        assert trace_id is not None, f"Item {i} should have a trace_id"
+
+        # Fetch trace from API
+        trace = api.trace.get(trace_id)
+        assert trace is not None, f"Trace {trace_id} should exist"
+
+        # Validate trace name
+        assert (
+            trace.name == "experiment-item-run"
+        ), f"Trace {trace_id} should have correct name"
+
+        # Validate trace input - should contain the experiment item
+        assert trace.input is not None, f"Trace {trace_id} should have input"
+        expected_input = expected_inputs[i]
+        # The input should contain the item data in some form
+        assert expected_input in str(
+            trace.input
+        ), f"Trace {trace_id} input should contain '{expected_input}'"
+
+        # Validate trace output - should be the task result
+        assert trace.output is not None, f"Trace {trace_id} should have output"
+        expected_output = expected_outputs[i]
+        assert (
+            trace.output == expected_output
+        ), f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
+
+        # Validate trace metadata contains experiment name
+        assert trace.metadata is not None, f"Trace {trace_id} should have metadata"
+        assert (
+            "experiment_name" in trace.metadata
+        ), f"Trace {trace_id} metadata should contain experiment_name"
+        assert (
+            trace.metadata["experiment_name"] == "Euro capitals"
+        ), f"Trace {trace_id} metadata should have correct experiment_name"
+
 
 def test_run_experiment_on_langfuse_dataset():
     """Test running experiment on Langfuse dataset."""
@@ -120,8 +162,10 @@ def test_run_experiment_on_langfuse_dataset():
     # Get dataset and run experiment
     dataset = langfuse_client.get_dataset(dataset_name)
 
+    # Use unique experiment name for proper identification
+    experiment_name = "Dataset Test " + create_uuid()[:8]
     result = dataset.run_experiment(
-        name="Dataset Test",
+        name=experiment_name,
         description="Test on Langfuse dataset",
         task=mock_task,
         evaluators=[factuality_evaluator],
@@ -141,6 +185,110 @@ def test_run_experiment_on_langfuse_dataset():
     api = get_api()
     runs = api.datasets.get_runs(dataset_name)
     assert len(runs.data) >= 1
+
+    # Validate traces are correctly persisted with input/output/metadata
+    expected_data = {"Germany": "Capital of Germany", "France": "Capital of France"}
+    dataset_run_id = result["dataset_run_id"]
+
+    # Create a mapping from dataset item ID to dataset item for validation
+    dataset_item_map = {item.id: item for item in dataset.items}
+
+    for i, item_result in enumerate(result["item_results"]):
+        trace_id = item_result["trace_id"]
+        assert trace_id is not None, f"Item {i} should have a trace_id"
+
+        # Fetch trace from API
+        trace = api.trace.get(trace_id)
+        assert trace is not None, f"Trace {trace_id} should exist"
+
+        # Validate trace name
+        assert (
+            trace.name == "experiment-item-run"
+        ), f"Trace {trace_id} should have correct name"
+
+        # Validate trace input and output match expected pairs
+        assert trace.input is not None, f"Trace {trace_id} should have input"
+        trace_input_str = str(trace.input)
+
+        # Find which expected input this trace corresponds to
+        matching_input = None
+        for expected_input in expected_data.keys():
+            if expected_input in trace_input_str:
+                matching_input = expected_input
+                break
+
+        assert (
+            matching_input is not None
+        ), f"Trace {trace_id} input '{trace_input_str}' should contain one of {list(expected_data.keys())}"
+
+        # Validate trace output matches the expected output for this input
+        assert trace.output is not None, f"Trace {trace_id} should have output"
+        expected_output = expected_data[matching_input]
+        assert (
+            trace.output == expected_output
+        ), f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
+
+        # Validate trace metadata contains experiment and dataset info
+        assert trace.metadata is not None, f"Trace {trace_id} should have metadata"
+        assert (
+            "experiment_name" in trace.metadata
+        ), f"Trace {trace_id} metadata should contain experiment_name"
+        assert (
+            trace.metadata["experiment_name"] == experiment_name
+        ), f"Trace {trace_id} metadata should have correct experiment_name"
+
+        # Validate dataset-specific metadata fields
+        assert (
+            "dataset_id" in trace.metadata
+        ), f"Trace {trace_id} metadata should contain dataset_id"
+        assert (
+            trace.metadata["dataset_id"] == dataset.id
+        ), f"Trace {trace_id} metadata should have correct dataset_id"
+
+        assert (
+            "dataset_item_id" in trace.metadata
+        ), f"Trace {trace_id} metadata should contain dataset_item_id"
+        # Get the dataset item ID from metadata and validate it exists
+        dataset_item_id = trace.metadata["dataset_item_id"]
+        assert (
+            dataset_item_id in dataset_item_map
+        ), f"Trace {trace_id} metadata dataset_item_id should correspond to a valid dataset item"
+
+        # Validate the dataset item input matches the trace input
+        dataset_item = dataset_item_map[dataset_item_id]
+        assert (
+            dataset_item.input == matching_input
+        ), f"Trace {trace_id} should correspond to dataset item with input '{matching_input}'"
+
+    # Verify dataset run contains the correct trace IDs
+    dataset_run = None
+    for run in runs.data:
+        if run.id == dataset_run_id:
+            dataset_run = run
+            break
+
+    assert dataset_run is not None, f"Dataset run {dataset_run_id} should exist"
+    assert dataset_run.name == experiment_name, "Dataset run should have correct name"
+    assert (
+        dataset_run.description == "Test on Langfuse dataset"
+    ), "Dataset run should have correct description"
+
+    # Get dataset run items to verify trace linkage
+    dataset_run_items = api.dataset_run_items.list(
+        dataset_id=dataset.id, run_name=experiment_name
+    )
+    assert len(dataset_run_items.data) == 2, "Dataset run should have 2 items"
+
+    # Verify each dataset run item links to the correct trace
+    run_item_trace_ids = {
+        item.trace_id for item in dataset_run_items.data if item.trace_id
+    }
+    result_trace_ids = {item["trace_id"] for item in result["item_results"]}
+
+    assert run_item_trace_ids == result_trace_ids, (
+        f"Dataset run items should link to the same traces as experiment results. "
+        f"Run items: {run_item_trace_ids}, Results: {result_trace_ids}"
+    )
 
 
 # Error Handling Tests
