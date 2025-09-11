@@ -2472,39 +2472,151 @@ class Langfuse:
         """Run an experiment on a dataset with automatic tracing and evaluation.
 
         This method executes a task function on each item in the provided dataset,
-        traces the execution with Langfuse, runs evaluators on the outputs,
-        and returns formatted results.
+        automatically traces all executions with Langfuse for observability, runs
+        item-level and run-level evaluators on the outputs, and returns comprehensive
+        results with evaluation metrics.
+
+        The experiment system provides:
+        - Automatic tracing of all task executions
+        - Concurrent processing with configurable limits
+        - Comprehensive error handling that isolates failures
+        - Integration with Langfuse datasets for experiment tracking
+        - Flexible evaluation framework supporting both sync and async evaluators
 
         Args:
-            name: Human-readable name for the experiment
-            description: Optional description of the experiment's purpose
-            data: Array of data items to process (ExperimentItem or DatasetItem)
-            task: Function that processes each data item and returns output
-            evaluators: Optional list of functions to evaluate each item's output
-            run_evaluators: Optional list of functions to evaluate the entire experiment
-            max_concurrency: Maximum number of concurrent task executions
-            metadata: Optional metadata to attach to the experiment
+            name: Human-readable name for the experiment. Used for identification
+                in the Langfuse UI and for dataset run naming if using Langfuse datasets.
+            description: Optional description explaining the experiment's purpose,
+                methodology, or expected outcomes.
+            data: Array of data items to process. Can be either:
+                - List of dict-like items with 'input', 'expected_output', 'metadata' keys
+                - List of Langfuse DatasetItem objects from dataset.items
+            task: Function that processes each data item and returns output.
+                Must accept 'item' as keyword argument and can return sync or async results.
+                The task function signature should be: task(*, item, **kwargs) -> Any
+            evaluators: List of functions to evaluate each item's output individually.
+                Each evaluator receives input, output, expected_output, and metadata.
+                Can return single Evaluation dict or list of Evaluation dicts.
+            run_evaluators: List of functions to evaluate the entire experiment run.
+                Each run evaluator receives all item_results and can compute aggregate metrics.
+                Useful for calculating averages, distributions, or cross-item comparisons.
+            max_concurrency: Maximum number of concurrent task executions (default: 50).
+                Controls the number of items processed simultaneously. Adjust based on
+                API rate limits and system resources.
+            metadata: Optional metadata dictionary to attach to all experiment traces.
+                This metadata will be included in every trace created during the experiment.
 
         Returns:
-            ExperimentResult containing item results, evaluations, and formatting functions
+            ExperimentResult dictionary containing:
+            - item_results: List of results for each processed item with outputs and evaluations
+            - run_evaluations: List of aggregate evaluation results for the entire run
+            - dataset_run_id: ID of the dataset run (if using Langfuse datasets)
+            - dataset_run_url: Direct URL to view results in Langfuse UI (if applicable)
 
-        Example:
+        Raises:
+            ValueError: If required parameters are missing or invalid
+            Exception: If experiment setup fails (individual item failures are handled gracefully)
+
+        Examples:
+            Basic experiment with local data:
             ```python
-            def task(item):
-                return f"Processed: {item['input']}"
+            def summarize_text(*, item, **kwargs):
+                return f"Summary: {item['input'][:50]}..."
 
-            def evaluator(*, input, output, expected_output=None, **kwargs):
-                return {"name": "length", "value": len(output)}
+            def length_evaluator(*, input, output, expected_output=None, **kwargs):
+                return {
+                    "name": "output_length",
+                    "value": len(output),
+                    "comment": f"Output contains {len(output)} characters"
+                }
 
             result = langfuse.run_experiment(
-                name="Test Experiment",
-                data=[{"input": "test", "expected_output": "expected"}],
-                task=task,
-                evaluators=[evaluator]
+                name="Text Summarization Test",
+                description="Evaluate summarization quality and length",
+                data=[
+                    {"input": "Long article text...", "expected_output": "Expected summary"},
+                    {"input": "Another article...", "expected_output": "Another summary"}
+                ],
+                task=summarize_text,
+                evaluators=[length_evaluator]
             )
 
-            print(result["item_results"])
+            print(f"Processed {len(result['item_results'])} items")
+            for item_result in result["item_results"]:
+                print(f"Input: {item_result['item']['input']}")
+                print(f"Output: {item_result['output']}")
+                print(f"Evaluations: {item_result['evaluations']}")
             ```
+
+            Advanced experiment with async task and multiple evaluators:
+            ```python
+            async def llm_task(*, item, **kwargs):
+                # Simulate async LLM call
+                response = await openai_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": item["input"]}]
+                )
+                return response.choices[0].message.content
+
+            def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
+                if expected_output and expected_output.lower() in output.lower():
+                    return {"name": "accuracy", "value": 1.0, "comment": "Correct answer"}
+                return {"name": "accuracy", "value": 0.0, "comment": "Incorrect answer"}
+
+            def toxicity_evaluator(*, input, output, expected_output=None, **kwargs):
+                # Simulate toxicity check
+                toxicity_score = check_toxicity(output)  # Your toxicity checker
+                return {
+                    "name": "toxicity",
+                    "value": toxicity_score,
+                    "comment": f"Toxicity level: {'high' if toxicity_score > 0.7 else 'low'}"
+                }
+
+            def average_accuracy(*, item_results, **kwargs):
+                accuracies = [
+                    eval["value"] for result in item_results
+                    for eval in result["evaluations"]
+                    if eval["name"] == "accuracy"
+                ]
+                return {
+                    "name": "average_accuracy",
+                    "value": sum(accuracies) / len(accuracies) if accuracies else 0,
+                    "comment": f"Average accuracy across {len(accuracies)} items"
+                }
+
+            result = langfuse.run_experiment(
+                name="LLM Safety and Accuracy Test",
+                description="Evaluate model accuracy and safety across diverse prompts",
+                data=test_dataset,  # Your dataset items
+                task=llm_task,
+                evaluators=[accuracy_evaluator, toxicity_evaluator],
+                run_evaluators=[average_accuracy],
+                max_concurrency=5,  # Limit concurrent API calls
+                metadata={"model": "gpt-4", "temperature": 0.7}
+            )
+            ```
+
+            Using with Langfuse datasets:
+            ```python
+            # Get dataset from Langfuse
+            dataset = langfuse.get_dataset("my-eval-dataset")
+
+            result = dataset.run_experiment(
+                name="Production Model Evaluation",
+                description="Monthly evaluation of production model performance",
+                task=my_production_task,
+                evaluators=[accuracy_evaluator, latency_evaluator]
+            )
+
+            # Results automatically linked to dataset in Langfuse UI
+            print(f"View results: {result['dataset_run_url']}")
+            ```
+
+        Note:
+            - Task and evaluator functions can be either synchronous or asynchronous
+            - Individual item failures are logged but don't stop the experiment
+            - All executions are automatically traced and visible in Langfuse UI
+            - When using Langfuse datasets, results are automatically linked for easy comparison
         """
         return asyncio.run(
             self._run_experiment_async(
@@ -2596,7 +2708,7 @@ class Langfuse:
                     self.create_score(
                         dataset_run_id=dataset_run_id,
                         name=evaluation["name"],
-                        value=evaluation["value"],
+                        value=evaluation["value"],  # type: ignore
                         comment=evaluation.get("comment"),
                         metadata=evaluation.get("metadata"),
                     )
@@ -2718,7 +2830,7 @@ class Langfuse:
                             self.create_score(
                                 trace_id=trace_id,
                                 name=evaluation.get("name", "unknown"),
-                                value=evaluation.get("value", -1),
+                                value=evaluation.get("value", -1),  # type: ignore
                                 comment=evaluation.get("comment"),
                                 metadata=evaluation.get("metadata"),
                             )

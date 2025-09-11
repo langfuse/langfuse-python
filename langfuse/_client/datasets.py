@@ -206,41 +206,182 @@ class DatasetClient:
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        """Run an experiment on this dataset.
+        """Run an experiment on this Langfuse dataset with automatic tracking.
 
-        This is a convenience method that calls the Langfuse client's run_experiment
-        method with this dataset's items as the data.
+        This is a convenience method that runs an experiment using all items in this
+        dataset. It automatically creates a dataset run in Langfuse for tracking and
+        comparison purposes, linking all experiment results to the dataset.
+
+        Key benefits of using dataset.run_experiment():
+        - Automatic dataset run creation and linking in Langfuse UI
+        - Built-in experiment tracking and versioning
+        - Easy comparison between different experiment runs
+        - Direct access to dataset items with their metadata and expected outputs
+        - Automatic URL generation for viewing results in Langfuse dashboard
 
         Args:
-            name: Human-readable name for the experiment
-            description: Optional description of the experiment's purpose
-            task: Function that processes each data item and returns output
-            evaluators: Optional list of functions to evaluate each item's output
-            run_evaluators: Optional list of functions to evaluate the entire experiment
-            max_concurrency: Maximum number of concurrent task executions
-            metadata: Optional metadata to attach to the experiment
+            name: Human-readable name for the experiment run. This will be used as
+                the dataset run name in Langfuse for tracking and identification.
+            description: Optional description of the experiment's purpose, methodology,
+                or what you're testing. Appears in the Langfuse UI for context.
+            task: Function that processes each dataset item and returns output.
+                The function will receive DatasetItem objects with .input, .expected_output,
+                .metadata attributes. Signature should be: task(*, item, **kwargs) -> Any
+            evaluators: List of functions to evaluate each item's output individually.
+                These will have access to the item's expected_output for comparison.
+            run_evaluators: List of functions to evaluate the entire experiment run.
+                Useful for computing aggregate statistics across all dataset items.
+            max_concurrency: Maximum number of concurrent task executions (default: 50).
+                Adjust based on API rate limits and system resources.
+            metadata: Optional metadata to attach to the experiment run and all traces.
+                Will be combined with individual item metadata.
 
         Returns:
-            ExperimentResult containing item results, evaluations, and formatting functions
+            ExperimentResult dictionary containing:
+            - item_results: Results for each dataset item with outputs and evaluations
+            - run_evaluations: Aggregate evaluation results for the entire run
+            - dataset_run_id: ID of the created dataset run in Langfuse
+            - dataset_run_url: Direct URL to view the experiment results in Langfuse UI
 
-        Example:
+        Raises:
+            ValueError: If the dataset has no items or no Langfuse client is available
+
+        Examples:
+            Basic dataset experiment:
             ```python
-            dataset = langfuse.get_dataset("my-dataset")
+            dataset = langfuse.get_dataset("qa-evaluation-set")
 
-            def task(item):
-                return f"Processed: {item.input}"
+            def answer_questions(*, item, **kwargs):
+                # item is a DatasetItem with .input, .expected_output, .metadata
+                question = item.input
+                return my_qa_system.answer(question)
 
-            def evaluator(*, input, output, expected_output=None, **kwargs):
-                return {"name": "length", "value": len(output)}
+            def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
+                if not expected_output:
+                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+
+                is_correct = output.strip().lower() == expected_output.strip().lower()
+                return {
+                    "name": "accuracy",
+                    "value": 1.0 if is_correct else 0.0,
+                    "comment": "Correct" if is_correct else "Incorrect"
+                }
 
             result = dataset.run_experiment(
-                name="Dataset Test Experiment",
-                task=task,
-                evaluators=[evaluator]
+                name="QA System v2.0 Evaluation",
+                description="Testing improved QA system on curated question set",
+                task=answer_questions,
+                evaluators=[accuracy_evaluator]
             )
 
-            print(result["item_results"])
+            print(f"Evaluated {len(result['item_results'])} questions")
+            print(f"View detailed results: {result['dataset_run_url']}")
             ```
+
+            Advanced experiment with multiple evaluators and run-level analysis:
+            ```python
+            dataset = langfuse.get_dataset("content-generation-benchmark")
+
+            async def generate_content(*, item, **kwargs):
+                prompt = item.input
+                response = await openai_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7
+                )
+                return response.choices[0].message.content
+
+            def quality_evaluator(*, input, output, expected_output=None, metadata=None, **kwargs):
+                # Use metadata for context-aware evaluation
+                content_type = metadata.get("type", "general") if metadata else "general"
+
+                # Basic quality checks
+                word_count = len(output.split())
+                min_words = {"blog": 300, "tweet": 10, "summary": 100}.get(content_type, 50)
+
+                return [
+                    {
+                        "name": "word_count",
+                        "value": word_count,
+                        "comment": f"Generated {word_count} words"
+                    },
+                    {
+                        "name": "meets_length_requirement",
+                        "value": word_count >= min_words,
+                        "comment": f"{'Meets' if word_count >= min_words else 'Below'} minimum {min_words} words for {content_type}"
+                    }
+                ]
+
+            def content_diversity(*, item_results, **kwargs):
+                # Analyze diversity across all generated content
+                all_outputs = [result["output"] for result in item_results]
+                unique_words = set()
+                total_words = 0
+
+                for output in all_outputs:
+                    words = output.lower().split()
+                    unique_words.update(words)
+                    total_words += len(words)
+
+                diversity_ratio = len(unique_words) / total_words if total_words > 0 else 0
+
+                return {
+                    "name": "vocabulary_diversity",
+                    "value": diversity_ratio,
+                    "comment": f"Used {len(unique_words)} unique words out of {total_words} total ({diversity_ratio:.2%} diversity)"
+                }
+
+            result = dataset.run_experiment(
+                name="Content Generation Diversity Test",
+                description="Evaluating content quality and vocabulary diversity across different content types",
+                task=generate_content,
+                evaluators=[quality_evaluator],
+                run_evaluators=[content_diversity],
+                max_concurrency=3,  # Limit API calls
+                metadata={"model": "gpt-4", "temperature": 0.7}
+            )
+
+            # Results are automatically linked to dataset in Langfuse
+            print(f"Experiment completed! View in Langfuse: {result['dataset_run_url']}")
+
+            # Access individual results
+            for i, item_result in enumerate(result["item_results"]):
+                print(f"Item {i+1}: {item_result['evaluations']}")
+            ```
+
+            Comparing different model versions:
+            ```python
+            # Run multiple experiments on the same dataset for comparison
+            dataset = langfuse.get_dataset("model-benchmark")
+
+            # Experiment 1: GPT-4
+            result_gpt4 = dataset.run_experiment(
+                name="GPT-4 Baseline",
+                description="Baseline performance with GPT-4",
+                task=lambda *, item, **kwargs: gpt4_model.generate(item.input),
+                evaluators=[accuracy_evaluator, fluency_evaluator]
+            )
+
+            # Experiment 2: Custom model
+            result_custom = dataset.run_experiment(
+                name="Custom Model v1.2",
+                description="Testing our fine-tuned model",
+                task=lambda *, item, **kwargs: custom_model.generate(item.input),
+                evaluators=[accuracy_evaluator, fluency_evaluator]
+            )
+
+            # Both experiments are now visible in Langfuse for easy comparison
+            print("Compare results in Langfuse:")
+            print(f"GPT-4: {result_gpt4['dataset_run_url']}")
+            print(f"Custom: {result_custom['dataset_run_url']}")
+            ```
+
+        Note:
+            - All experiment results are automatically tracked in Langfuse as dataset runs
+            - Dataset items provide .input, .expected_output, and .metadata attributes
+            - Results can be easily compared across different experiment runs in the UI
+            - The dataset_run_url provides direct access to detailed results and analysis
+            - Failed items are handled gracefully and logged without stopping the experiment
         """
         langfuse_client = self._get_langfuse_client()
         if not langfuse_client:
