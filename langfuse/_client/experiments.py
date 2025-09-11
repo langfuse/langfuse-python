@@ -19,13 +19,11 @@ from typing import (
     Union,
 )
 
-from langfuse.model import DatasetItem
-
 if TYPE_CHECKING:
     from langfuse._client.datasets import DatasetItemClient
 
 
-class ExperimentItem(TypedDict, total=False):
+class LocalExperimentItem(TypedDict, total=False):
     """Structure for experiment data items.
 
     Args:
@@ -37,6 +35,10 @@ class ExperimentItem(TypedDict, total=False):
     input: Any
     expected_output: Any
     metadata: Optional[Dict[str, Any]]
+
+
+ExperimentItem = Union[LocalExperimentItem, DatasetItemClient]
+ExperimentData = Union[List[LocalExperimentItem], List[DatasetItemClient]]
 
 
 class Evaluation(TypedDict, total=False):
@@ -66,7 +68,7 @@ class ExperimentItemResult(TypedDict):
         dataset_run_id: Dataset run ID if this item was part of a Langfuse dataset
     """
 
-    item: Union[ExperimentItem, DatasetItem]
+    item: ExperimentItem
     output: Any
     evaluations: List[Evaluation]
     trace_id: Optional[str]
@@ -93,7 +95,10 @@ class TaskFunction(Protocol):
     """Protocol for experiment task functions."""
 
     def __call__(
-        self, item: Union[ExperimentItem, dict, DatasetItem, "DatasetItemClient"]
+        self,
+        *,
+        item: ExperimentItem,
+        **kwargs: Dict[str, Any],
     ) -> Union[Any, Awaitable[Any]]:
         """Execute the task on an experiment item.
 
@@ -116,6 +121,7 @@ class EvaluatorFunction(Protocol):
         output: Any,
         expected_output: Any = None,
         metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Dict[str, Any],
     ) -> Union[
         Evaluation, List[Evaluation], Awaitable[Union[Evaluation, List[Evaluation]]]
     ]:
@@ -137,7 +143,10 @@ class RunEvaluatorFunction(Protocol):
     """Protocol for run-level evaluator functions."""
 
     def __call__(
-        self, *, item_results: List[ExperimentItemResult]
+        self,
+        *,
+        item_results: List[ExperimentItemResult],
+        **kwargs: Dict[str, Any],
     ) -> Union[
         Evaluation, List[Evaluation], Awaitable[Union[Evaluation, List[Evaluation]]]
     ]:
@@ -286,7 +295,7 @@ def _format_value(value: Any) -> str:
 
 
 async def _run_evaluator(
-    evaluator: EvaluatorFunction, **kwargs: Any
+    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction], **kwargs: Any
 ) -> List[Evaluation]:
     """Run an evaluator function and normalize the result."""
     try:
@@ -299,8 +308,10 @@ async def _run_evaluator(
         # Normalize to list
         if isinstance(result, dict):
             return [result]
+
         elif isinstance(result, list):
             return result
+
         else:
             return []
 
@@ -310,12 +321,9 @@ async def _run_evaluator(
         return []
 
 
-async def _run_task(
-    task: TaskFunction,
-    item: Union[ExperimentItem, dict, DatasetItem, "DatasetItemClient"],
-) -> Any:
+async def _run_task(task: TaskFunction, item: ExperimentItem) -> Any:
     """Run a task function and handle sync/async."""
-    result = task(item)
+    result = task(item=item)
 
     # Handle async tasks
     if asyncio.iscoroutine(result):

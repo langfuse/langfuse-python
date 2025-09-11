@@ -1,16 +1,22 @@
 import datetime as dt
 import logging
-from .span import LangfuseSpan
 from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
+from langfuse._client.experiments import (
+    EvaluatorFunction,
+    RunEvaluatorFunction,
+    TaskFunction,
+)
 from langfuse.model import (
     CreateDatasetRunItemRequest,
     Dataset,
     DatasetItem,
     DatasetStatus,
 )
+
+from .span import LangfuseSpan
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
@@ -194,10 +200,10 @@ class DatasetClient:
         *,
         name: str,
         description: Optional[str] = None,
-        task: Any,
-        evaluators: Optional[List[Any]] = None,
-        run_evaluators: Optional[List[Any]] = None,
-        max_concurrency: Optional[int] = None,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction] = [],
+        run_evaluators: List[RunEvaluatorFunction] = [],
+        max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Run an experiment on this dataset.

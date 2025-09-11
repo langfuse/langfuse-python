@@ -1,10 +1,17 @@
 """Comprehensive tests for Langfuse experiment functionality matching JS SDK."""
 
 import time
+from typing import Any, Dict, List
 
 import pytest
 
 from langfuse import get_client
+from langfuse._client.experiments import (
+    Evaluation,
+    ExperimentData,
+    ExperimentItem,
+    ExperimentItemResult,
+)
 from tests.utils import create_uuid, get_api
 
 
@@ -18,7 +25,7 @@ def sample_dataset():
     ]
 
 
-def mock_task(item):
+def mock_task(*, item: ExperimentItem, **kwargs: Dict[str, Any]):
     """Mock task function that simulates processing."""
     input_val = (
         item.get("input")
@@ -29,31 +36,37 @@ def mock_task(item):
 
 
 def simple_evaluator(*, input, output, expected_output=None, **kwargs):
-    """Simple evaluator that returns output length."""
-    return {"name": "length_check", "value": len(output)}
+    """Return output length."""
+    return Evaluation(**{"name": "length_check", "value": len(output)})
 
 
 def factuality_evaluator(*, input, output, expected_output=None, **kwargs):
     """Mock factuality evaluator."""
     # Simple mock: check if expected output is in the output
     if expected_output and expected_output.lower() in output.lower():
-        return {"name": "factuality", "value": 1.0, "comment": "Correct answer found"}
-    return {"name": "factuality", "value": 0.0, "comment": "Incorrect answer"}
+        return Evaluation(
+            **{"name": "factuality", "value": 1.0, "comment": "Correct answer found"}
+        )
+    return Evaluation(
+        **{"name": "factuality", "value": 0.0, "comment": "Incorrect answer"}
+    )
 
 
-def run_evaluator_average_length(*, item_results, **kwargs):
+def run_evaluator_average_length(*, item_results: List[ExperimentItemResult], **kwargs):
     """Run evaluator that calculates average output length."""
     if not item_results:
-        return {"name": "average_length", "value": 0}
+        return Evaluation(**{"name": "average_length", "value": 0})
 
     avg_length = sum(len(r["output"]) for r in item_results) / len(item_results)
-    return {"name": "average_length", "value": avg_length}
+
+    return Evaluation(**{"name": "average_length", "value": avg_length})
 
 
 # Basic Functionality Tests
 def test_run_experiment_on_local_dataset(sample_dataset):
     """Test running experiment on local dataset."""
     langfuse_client = get_client()
+
     result = langfuse_client.run_experiment(
         name="Euro capitals",
         description="Country capital experiment",
@@ -139,12 +152,12 @@ def test_evaluator_failures_handled_gracefully():
         raise Exception("Evaluator failed")
 
     def working_evaluator(**kwargs):
-        return {"name": "working_eval", "value": 1.0}
+        return Evaluation(**{"name": "working_eval", "value": 1.0})
 
     result = langfuse_client.run_experiment(
         name="Error test",
         data=[{"input": "test"}],
-        task=lambda x: "result",
+        task=lambda **kwargs: "result",
         evaluators=[working_evaluator, failing_evaluator],
     )
 
@@ -200,7 +213,7 @@ def test_run_evaluator_failures_handled():
     result = langfuse_client.run_experiment(
         name="Run evaluator error test",
         data=[{"input": "test"}],
-        task=lambda x: "result",
+        task=lambda **kwargs: "result",
         run_evaluators=[failing_run_evaluator],
     )
 
@@ -220,7 +233,7 @@ def test_empty_dataset_handling():
     result = langfuse_client.run_experiment(
         name="Empty dataset test",
         data=[],
-        task=lambda x: "result",
+        task=lambda **kwargs: "result",
         run_evaluators=[run_evaluator_average_length],
     )
 
@@ -244,7 +257,7 @@ def test_dataset_with_missing_fields():
     result = langfuse_client.run_experiment(
         name="Incomplete data test",
         data=incomplete_dataset,
-        task=lambda x: "result",
+        task=lambda **kwargs: "result",
     )
 
     # Should handle missing fields gracefully
@@ -261,14 +274,14 @@ def test_large_dataset_with_concurrency():
     """Test handling large dataset with concurrency control."""
     langfuse_client = get_client()
 
-    large_dataset = [
+    large_dataset: ExperimentData = [
         {"input": f"Item {i}", "expected_output": f"Output {i}"} for i in range(20)
     ]
 
     result = langfuse_client.run_experiment(
         name="Large dataset test",
         data=large_dataset,
-        task=lambda x: f"Processed {x['input']}",
+        task=lambda **kwargs: f"Processed {kwargs['input']}",
         evaluators=[lambda **kwargs: {"name": "simple_eval", "value": 1.0}],
         max_concurrency=5,
     )
@@ -288,12 +301,14 @@ def test_single_evaluation_return():
     langfuse_client = get_client()
 
     def single_evaluator(**kwargs):
-        return {"name": "single_eval", "value": 1, "comment": "Single evaluation"}
+        return Evaluation(
+            **{"name": "single_eval", "value": 1, "comment": "Single evaluation"}
+        )
 
     result = langfuse_client.run_experiment(
         name="Single evaluation test",
         data=[{"input": "test"}],
-        task=lambda x: "result",
+        task=lambda **kwargs: "result",
         evaluators=[single_evaluator],
     )
 
@@ -312,8 +327,7 @@ def test_no_evaluators():
     result = langfuse_client.run_experiment(
         name="No evaluators test",
         data=[{"input": "test"}],
-        task=lambda x: "result",
-        evaluators=[],
+        task=lambda **kwargs: "result",
     )
 
     assert len(result["item_results"]) == 1
@@ -329,17 +343,18 @@ def test_only_run_evaluators():
     langfuse_client = get_client()
 
     def run_only_evaluator(**kwargs):
-        return {
-            "name": "run_only_eval",
-            "value": 10,
-            "comment": "Run-level evaluation",
-        }
+        return Evaluation(
+            **{
+                "name": "run_only_eval",
+                "value": 10,
+                "comment": "Run-level evaluation",
+            }
+        )
 
     result = langfuse_client.run_experiment(
         name="Only run evaluators test",
         data=[{"input": "test"}],
-        task=lambda x: "result",
-        evaluators=[],
+        task=lambda **kwargs: "result",
         run_evaluators=[run_only_evaluator],
     )
 
@@ -357,18 +372,18 @@ def test_different_data_types():
     langfuse_client = get_client()
 
     def number_evaluator(**kwargs):
-        return {"name": "number_eval", "value": 42}
+        return Evaluation(**{"name": "number_eval", "value": 42})
 
     def string_evaluator(**kwargs):
-        return {"name": "string_eval", "value": "excellent"}
+        return Evaluation(**{"name": "string_eval", "value": "excellent"})
 
     def boolean_evaluator(**kwargs):
-        return {"name": "boolean_eval", "value": True}
+        return Evaluation(**{"name": "boolean_eval", "value": True})
 
     result = langfuse_client.run_experiment(
         name="Different data types test",
         data=[{"input": "test"}],
-        task=lambda x: "result",
+        task=lambda **kwargs: "result",
         evaluators=[number_evaluator, string_evaluator, boolean_evaluator],
     )
 
@@ -402,18 +417,22 @@ def test_scores_are_persisted():
     dataset = langfuse_client.get_dataset(dataset_name)
 
     def test_evaluator(**kwargs):
-        return {
-            "name": "persistence_test",
-            "value": 0.85,
-            "comment": "Test evaluation for persistence",
-        }
+        return Evaluation(
+            **{
+                "name": "persistence_test",
+                "value": 0.85,
+                "comment": "Test evaluation for persistence",
+            }
+        )
 
     def test_run_evaluator(**kwargs):
-        return {
-            "name": "persistence_run_test",
-            "value": 0.9,
-            "comment": "Test run evaluation for persistence",
-        }
+        return Evaluation(
+            **{
+                "name": "persistence_run_test",
+                "value": 0.9,
+                "comment": "Test run evaluation for persistence",
+            }
+        )
 
     result = dataset.run_experiment(
         name="Score persistence test",
@@ -506,7 +525,7 @@ def test_format_experiment_results_basic():
         name="Formatting test",
         description="Test result formatting",
         data=[{"input": "Hello", "expected_output": "Hi"}],
-        task=lambda x: f"Processed: {x['input']}",
+        task=lambda **kwargs: f"Processed: {kwargs['input']}",
         evaluators=[simple_evaluator],
         run_evaluators=[run_evaluator_average_length],
     )

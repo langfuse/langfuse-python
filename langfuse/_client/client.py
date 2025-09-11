@@ -57,9 +57,13 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENVIRONMENT,
 )
 from langfuse._client.experiments import (
+    EvaluatorFunction,
+    ExperimentData,
     ExperimentItem,
     ExperimentItemResult,
     ExperimentResult,
+    RunEvaluatorFunction,
+    TaskFunction,
     _run_evaluator,
     _run_task,
 )
@@ -2458,15 +2462,11 @@ class Langfuse:
         *,
         name: str,
         description: Optional[str] = None,
-        data: Union[
-            List[Union[ExperimentItem, dict, DatasetItem]], List[DatasetItemClient]
-        ],
-        task: Callable[
-            [Union[ExperimentItem, dict, DatasetItem, DatasetItemClient]], Any
-        ],
-        evaluators: Optional[List[Callable]] = None,
-        run_evaluators: Optional[List[Callable]] = None,
-        max_concurrency: Optional[int] = None,
+        data: ExperimentData,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction] = [],
+        run_evaluators: List[RunEvaluatorFunction] = [],
+        max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
@@ -2524,27 +2524,20 @@ class Langfuse:
         *,
         name: str,
         description: Optional[str],
-        data: Union[
-            List[Union[ExperimentItem, dict, DatasetItem]], List[DatasetItemClient]
-        ],
-        task: Callable,
-        evaluators: List[Callable],
-        run_evaluators: List[Callable],
-        max_concurrency: Optional[int],
+        data: ExperimentData,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction],
+        run_evaluators: List[RunEvaluatorFunction],
+        max_concurrency: int,
         metadata: Dict[str, Any],
     ) -> ExperimentResult:
         langfuse_logger.debug(f"Starting experiment '{name}' with {len(data)} items")
 
         # Set up concurrency control
-        max_workers = (
-            max_concurrency if max_concurrency is not None else min(len(data), 10)
-        )
-        semaphore = asyncio.Semaphore(max_workers)
+        semaphore = asyncio.Semaphore(max_concurrency)
 
         # Process all items
-        async def process_item(
-            item: Union[ExperimentItem, dict, DatasetItem, DatasetItemClient],
-        ) -> dict:
+        async def process_item(item: ExperimentItem) -> dict:
             async with semaphore:
                 return await self._process_experiment_item(
                     item, task, evaluators, name, description, metadata
@@ -2620,7 +2613,7 @@ class Langfuse:
 
     async def _process_experiment_item(
         self,
-        item: Union[ExperimentItem, dict, DatasetItem, DatasetItemClient],
+        item: ExperimentItem,
         task: Callable,
         evaluators: List[Callable],
         experiment_name: str,
