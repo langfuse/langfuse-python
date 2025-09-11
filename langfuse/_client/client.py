@@ -46,11 +46,6 @@ from langfuse._client.constants import (
     get_observation_types_list,
 )
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
-from langfuse._client.experiments import (
-    ExperimentItem,
-    ExperimentItemResult,
-    ExperimentResult,
-)
 from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
@@ -60,6 +55,13 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TIMEOUT,
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
+)
+from langfuse._client.experiments import (
+    ExperimentItem,
+    ExperimentItemResult,
+    ExperimentResult,
+    _run_evaluator,
+    _run_task,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
@@ -742,7 +744,7 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> LangfuseGeneration:
-        """[DEPRECATED] Create a new generation span for model generations.
+        """Create a new generation span for model generations.
 
         DEPRECATED: This method is deprecated and will be removed in a future version.
         Use start_observation(as_type='generation') instead.
@@ -838,7 +840,7 @@ class Langfuse:
         prompt: Optional[PromptClient] = None,
         end_on_exit: Optional[bool] = None,
     ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """[DEPRECATED] Create a new generation span and set it as the current span in a context manager.
+        """Create a new generation span and set it as the current span in a context manager.
 
         DEPRECATED: This method is deprecated and will be removed in a future version.
         Use start_as_current_observation(as_type='generation') instead.
@@ -2531,9 +2533,6 @@ class Langfuse:
         max_concurrency: Optional[int],
         metadata: Dict[str, Any],
     ) -> ExperimentResult:
-        """Internal async implementation of run_experiment."""
-        from langfuse._client.experiments import _run_evaluator
-
         langfuse_logger.debug(f"Starting experiment '{name}' with {len(data)} items")
 
         # Set up concurrency control
@@ -2561,7 +2560,6 @@ class Langfuse:
             if isinstance(result, Exception):
                 langfuse_logger.error(f"Item {i} failed: {result}")
             elif isinstance(result, dict):
-                # Type-cast since we know the structure matches ExperimentItemResult
                 valid_results.append(result)  # type: ignore
 
         # Run experiment-level evaluators
@@ -2585,13 +2583,16 @@ class Langfuse:
                 # Check if the first item has dataset_id (for DatasetItem objects)
                 first_item = data[0]
                 dataset_id = None
+
                 if hasattr(first_item, "dataset_id"):
                     dataset_id = getattr(first_item, "dataset_id", None)
 
                 if dataset_id:
                     project_id = self._get_project_id()
+
                     if project_id:
                         dataset_run_url = f"{self._host}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
+
             except Exception:
                 pass  # URL generation is optional
 
@@ -2606,6 +2607,7 @@ class Langfuse:
                         comment=evaluation.get("comment"),
                         metadata=evaluation.get("metadata"),
                     )
+
             except Exception as e:
                 langfuse_logger.error(f"Failed to store run evaluation: {e}")
 
@@ -2625,31 +2627,38 @@ class Langfuse:
         experiment_description: Optional[str],
         experiment_metadata: Dict[str, Any],
     ) -> dict:
-        """Process a single experiment item with tracing and evaluation."""
-        from langfuse._client.experiments import _run_evaluator, _run_task
-
         # Execute task with tracing
         span_name = "experiment-item-run"
+
         with self.start_as_current_span(name=span_name) as span:
             try:
-                # Run the task
                 output = await _run_task(task, item)
 
-                # Update span with input/output
                 input_data = (
                     item.get("input")
                     if isinstance(item, dict)
                     else getattr(item, "input", None)
                 )
-                # Prepare metadata
+
                 item_metadata: Dict[str, Any] = {}
+
                 if isinstance(item, dict):
-                    item_metadata = item.get("metadata", {}) or {}
+                    item_metadata = item.get("metadata", None) or {}
 
                 final_metadata = {
                     "experiment_name": experiment_name,
                     **experiment_metadata,
                 }
+
+                if (
+                    not isinstance(item, dict)
+                    and hasattr(item, "dataset_id")
+                    and hasattr(item, "id")
+                ):
+                    final_metadata.update(
+                        {"dataset_id": item.dataset_id, "dataset_item_id": item.id}
+                    )
+
                 if isinstance(item_metadata, dict):
                     final_metadata.update(item_metadata)
 
@@ -2668,30 +2677,37 @@ class Langfuse:
                     try:
                         from langfuse.model import CreateDatasetRunItemRequest
 
-                        dataset_run_item = self.api.dataset_run_items.create(
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
+                        dataset_run_item = (
+                            await self.async_api.dataset_run_items.create(
+                                request=CreateDatasetRunItemRequest(
+                                    runName=experiment_name,
+                                    runDescription=experiment_description,
+                                    metadata=experiment_metadata,
+                                    datasetItemId=item.id,  # type: ignore
+                                    traceId=trace_id,
+                                )
                             )
                         )
+
                         dataset_run_id = dataset_run_item.dataset_run_id
+
                     except Exception as e:
                         langfuse_logger.error(f"Failed to create dataset run item: {e}")
 
                 # Run evaluators
                 evaluations = []
+
                 for evaluator in evaluators:
                     try:
                         expected_output = None
+
                         if isinstance(item, dict):
                             expected_output = item.get("expected_output")
                         elif hasattr(item, "expected_output"):
                             expected_output = item.expected_output
 
                         eval_metadata: Optional[Dict[str, Any]] = None
+
                         if isinstance(item, dict):
                             eval_metadata = item.get("metadata")
                         elif hasattr(item, "metadata"):
@@ -2710,11 +2726,12 @@ class Langfuse:
                         for evaluation in eval_results:
                             self.create_score(
                                 trace_id=trace_id,
-                                name=evaluation["name"],
-                                value=evaluation["value"],
+                                name=evaluation.get("name", "unknown"),
+                                value=evaluation.get("value", -1),
                                 comment=evaluation.get("comment"),
                                 metadata=evaluation.get("metadata"),
                             )
+
                     except Exception as e:
                         langfuse_logger.error(f"Evaluator failed: {e}")
 

@@ -112,6 +112,7 @@ def test_run_experiment_on_langfuse_dataset():
         description="Test on Langfuse dataset",
         task=mock_task,
         evaluators=[factuality_evaluator],
+        run_evaluators=[run_evaluator_average_length],
     )
 
     # Should have dataset run ID for Langfuse datasets
