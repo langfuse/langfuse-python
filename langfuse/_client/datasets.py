@@ -1,7 +1,7 @@
 import datetime as dt
 import logging
 from .span import LangfuseSpan
-from typing import TYPE_CHECKING, Any, Generator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
@@ -181,3 +181,72 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
+        self._langfuse: Optional["Langfuse"] = None
+
+    def _get_langfuse_client(self) -> Optional["Langfuse"]:
+        """Get the Langfuse client from the first item."""
+        if self._langfuse is None and self.items:
+            self._langfuse = self.items[0].langfuse
+        return self._langfuse
+
+    def run_experiment(
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        task: Any,
+        evaluators: Optional[List[Any]] = None,
+        run_evaluators: Optional[List[Any]] = None,
+        max_concurrency: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Run an experiment on this dataset.
+
+        This is a convenience method that calls the Langfuse client's run_experiment
+        method with this dataset's items as the data.
+
+        Args:
+            name: Human-readable name for the experiment
+            description: Optional description of the experiment's purpose
+            task: Function that processes each data item and returns output
+            evaluators: Optional list of functions to evaluate each item's output
+            run_evaluators: Optional list of functions to evaluate the entire experiment
+            max_concurrency: Maximum number of concurrent task executions
+            metadata: Optional metadata to attach to the experiment
+
+        Returns:
+            ExperimentResult containing item results, evaluations, and formatting functions
+
+        Example:
+            ```python
+            dataset = langfuse.get_dataset("my-dataset")
+
+            def task(item):
+                return f"Processed: {item.input}"
+
+            def evaluator(*, input, output, expected_output=None, **kwargs):
+                return {"name": "length", "value": len(output)}
+
+            result = dataset.run_experiment(
+                name="Dataset Test Experiment",
+                task=task,
+                evaluators=[evaluator]
+            )
+
+            print(result["item_results"])
+            ```
+        """
+        langfuse_client = self._get_langfuse_client()
+        if not langfuse_client:
+            raise ValueError("No Langfuse client available. Dataset items are empty.")
+
+        return langfuse_client.run_experiment(
+            name=name,
+            description=description,
+            data=self.items,
+            task=task,
+            evaluators=evaluators,
+            run_evaluators=run_evaluators,
+            max_concurrency=max_concurrency,
+            metadata=metadata,
+        )

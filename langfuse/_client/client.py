@@ -3,6 +3,7 @@
 This module implements Langfuse's core observability functionality on top of the OpenTelemetry (OTel) standard.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -13,6 +14,7 @@ from hashlib import sha256
 from time import time_ns
 from typing import (
     Any,
+    Callable,
     Dict,
     List,
     Literal,
@@ -44,6 +46,11 @@ from langfuse._client.constants import (
     get_observation_types_list,
 )
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse._client.experiments import (
+    ExperimentItem,
+    ExperimentItemResult,
+    ExperimentResult,
+)
 from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
@@ -2443,6 +2450,287 @@ class Langfuse:
         except Error as e:
             handle_fern_exception(e)
             raise e
+
+    def run_experiment(
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        data: Union[
+            List[Union[ExperimentItem, dict, DatasetItem]], List[DatasetItemClient]
+        ],
+        task: Callable[
+            [Union[ExperimentItem, dict, DatasetItem, DatasetItemClient]], Any
+        ],
+        evaluators: Optional[List[Callable]] = None,
+        run_evaluators: Optional[List[Callable]] = None,
+        max_concurrency: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> ExperimentResult:
+        """Run an experiment on a dataset with automatic tracing and evaluation.
+
+        This method executes a task function on each item in the provided dataset,
+        traces the execution with Langfuse, runs evaluators on the outputs,
+        and returns formatted results.
+
+        Args:
+            name: Human-readable name for the experiment
+            description: Optional description of the experiment's purpose
+            data: Array of data items to process (ExperimentItem or DatasetItem)
+            task: Function that processes each data item and returns output
+            evaluators: Optional list of functions to evaluate each item's output
+            run_evaluators: Optional list of functions to evaluate the entire experiment
+            max_concurrency: Maximum number of concurrent task executions
+            metadata: Optional metadata to attach to the experiment
+
+        Returns:
+            ExperimentResult containing item results, evaluations, and formatting functions
+
+        Example:
+            ```python
+            def task(item):
+                return f"Processed: {item['input']}"
+
+            def evaluator(*, input, output, expected_output=None, **kwargs):
+                return {"name": "length", "value": len(output)}
+
+            result = langfuse.run_experiment(
+                name="Test Experiment",
+                data=[{"input": "test", "expected_output": "expected"}],
+                task=task,
+                evaluators=[evaluator]
+            )
+
+            print(result["item_results"])
+            ```
+        """
+        return asyncio.run(
+            self._run_experiment_async(
+                name=name,
+                description=description,
+                data=data,
+                task=task,
+                evaluators=evaluators or [],
+                run_evaluators=run_evaluators or [],
+                max_concurrency=max_concurrency,
+                metadata=metadata or {},
+            )
+        )
+
+    async def _run_experiment_async(
+        self,
+        *,
+        name: str,
+        description: Optional[str],
+        data: Union[
+            List[Union[ExperimentItem, dict, DatasetItem]], List[DatasetItemClient]
+        ],
+        task: Callable,
+        evaluators: List[Callable],
+        run_evaluators: List[Callable],
+        max_concurrency: Optional[int],
+        metadata: Dict[str, Any],
+    ) -> ExperimentResult:
+        """Internal async implementation of run_experiment."""
+        from langfuse._client.experiments import _run_evaluator
+
+        langfuse_logger.debug(f"Starting experiment '{name}' with {len(data)} items")
+
+        # Set up concurrency control
+        max_workers = (
+            max_concurrency if max_concurrency is not None else min(len(data), 10)
+        )
+        semaphore = asyncio.Semaphore(max_workers)
+
+        # Process all items
+        async def process_item(
+            item: Union[ExperimentItem, dict, DatasetItem, DatasetItemClient],
+        ) -> dict:
+            async with semaphore:
+                return await self._process_experiment_item(
+                    item, task, evaluators, name, description, metadata
+                )
+
+        # Run all items concurrently
+        tasks = [process_item(item) for item in data]
+        item_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter out any exceptions and log errors
+        valid_results: List[ExperimentItemResult] = []
+        for i, result in enumerate(item_results):
+            if isinstance(result, Exception):
+                langfuse_logger.error(f"Item {i} failed: {result}")
+            elif isinstance(result, dict):
+                # Type-cast since we know the structure matches ExperimentItemResult
+                valid_results.append(result)  # type: ignore
+
+        # Run experiment-level evaluators
+        run_evaluations = []
+        for run_evaluator in run_evaluators:
+            try:
+                evaluations = await _run_evaluator(
+                    run_evaluator, item_results=valid_results
+                )
+                run_evaluations.extend(evaluations)
+            except Exception as e:
+                langfuse_logger.error(f"Run evaluator failed: {e}")
+
+        # Generate dataset run URL if applicable
+        dataset_run_id = (
+            valid_results[0].get("dataset_run_id") if valid_results else None
+        )
+        dataset_run_url = None
+        if dataset_run_id and data:
+            try:
+                # Check if the first item has dataset_id (for DatasetItem objects)
+                first_item = data[0]
+                dataset_id = None
+                if hasattr(first_item, "dataset_id"):
+                    dataset_id = getattr(first_item, "dataset_id", None)
+
+                if dataset_id:
+                    project_id = self._get_project_id()
+                    if project_id:
+                        dataset_run_url = f"{self._host}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
+            except Exception:
+                pass  # URL generation is optional
+
+        # Store run-level evaluations as scores
+        for evaluation in run_evaluations:
+            try:
+                if dataset_run_id:
+                    self.create_score(
+                        dataset_run_id=dataset_run_id,
+                        name=evaluation["name"],
+                        value=evaluation["value"],
+                        comment=evaluation.get("comment"),
+                        metadata=evaluation.get("metadata"),
+                    )
+            except Exception as e:
+                langfuse_logger.error(f"Failed to store run evaluation: {e}")
+
+        return {
+            "item_results": valid_results,
+            "run_evaluations": run_evaluations,
+            "dataset_run_id": dataset_run_id,
+            "dataset_run_url": dataset_run_url,
+        }
+
+    async def _process_experiment_item(
+        self,
+        item: Union[ExperimentItem, dict, DatasetItem, DatasetItemClient],
+        task: Callable,
+        evaluators: List[Callable],
+        experiment_name: str,
+        experiment_description: Optional[str],
+        experiment_metadata: Dict[str, Any],
+    ) -> dict:
+        """Process a single experiment item with tracing and evaluation."""
+        from langfuse._client.experiments import _run_evaluator, _run_task
+
+        # Execute task with tracing
+        span_name = "experiment-item-run"
+        with self.start_as_current_span(name=span_name) as span:
+            try:
+                # Run the task
+                output = await _run_task(task, item)
+
+                # Update span with input/output
+                input_data = (
+                    item.get("input")
+                    if isinstance(item, dict)
+                    else getattr(item, "input", None)
+                )
+                # Prepare metadata
+                item_metadata: Dict[str, Any] = {}
+                if isinstance(item, dict):
+                    item_metadata = item.get("metadata", {}) or {}
+
+                final_metadata = {
+                    "experiment_name": experiment_name,
+                    **experiment_metadata,
+                }
+                if isinstance(item_metadata, dict):
+                    final_metadata.update(item_metadata)
+
+                span.update(
+                    input=input_data,
+                    output=output,
+                    metadata=final_metadata,
+                )
+
+                # Get trace ID for linking
+                trace_id = span.trace_id
+                dataset_run_id = None
+
+                # Link to dataset run if this is a dataset item
+                if hasattr(item, "id") and hasattr(item, "dataset_id"):
+                    try:
+                        from langfuse.model import CreateDatasetRunItemRequest
+
+                        dataset_run_item = self.api.dataset_run_items.create(
+                            request=CreateDatasetRunItemRequest(
+                                runName=experiment_name,
+                                runDescription=experiment_description,
+                                metadata=experiment_metadata,
+                                datasetItemId=item.id,  # type: ignore
+                                traceId=trace_id,
+                            )
+                        )
+                        dataset_run_id = dataset_run_item.dataset_run_id
+                    except Exception as e:
+                        langfuse_logger.error(f"Failed to create dataset run item: {e}")
+
+                # Run evaluators
+                evaluations = []
+                for evaluator in evaluators:
+                    try:
+                        expected_output = None
+                        if isinstance(item, dict):
+                            expected_output = item.get("expected_output")
+                        elif hasattr(item, "expected_output"):
+                            expected_output = item.expected_output
+
+                        eval_metadata: Optional[Dict[str, Any]] = None
+                        if isinstance(item, dict):
+                            eval_metadata = item.get("metadata")
+                        elif hasattr(item, "metadata"):
+                            eval_metadata = item.metadata
+
+                        eval_results = await _run_evaluator(
+                            evaluator,
+                            input=input_data,
+                            output=output,
+                            expected_output=expected_output,
+                            metadata=eval_metadata,
+                        )
+                        evaluations.extend(eval_results)
+
+                        # Store evaluations as scores
+                        for evaluation in eval_results:
+                            self.create_score(
+                                trace_id=trace_id,
+                                name=evaluation["name"],
+                                value=evaluation["value"],
+                                comment=evaluation.get("comment"),
+                                metadata=evaluation.get("metadata"),
+                            )
+                    except Exception as e:
+                        langfuse_logger.error(f"Evaluator failed: {e}")
+
+                return {
+                    "item": item,
+                    "output": output,
+                    "evaluations": evaluations,
+                    "trace_id": trace_id,
+                    "dataset_run_id": dataset_run_id,
+                }
+
+            except Exception as e:
+                span.update(
+                    output=f"Error: {str(e)}", level="ERROR", status_message=str(e)
+                )
+                raise e
 
     def auth_check(self) -> bool:
         """Check if the provided credentials (public and secret key) are valid.
