@@ -257,7 +257,7 @@ class Langfuse:
             secret_key=secret_key,
             host=self._host,
             timeout=timeout,
-            environment=environment,
+            environment=self._environment,
             release=release,
             flush_at=flush_at,
             flush_interval=flush_interval,
