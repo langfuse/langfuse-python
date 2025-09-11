@@ -382,6 +382,8 @@ class DatasetClient:
             - Results can be easily compared across different experiment runs in the UI
             - The dataset_run_url provides direct access to detailed results and analysis
             - Failed items are handled gracefully and logged without stopping the experiment
+            - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
+            - Async execution is handled automatically with smart event loop detection
         """
         langfuse_client = self._get_langfuse_client()
         if not langfuse_client:

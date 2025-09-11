@@ -80,6 +80,7 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from langfuse._client.utils import run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -2617,18 +2618,23 @@ class Langfuse:
             - Individual item failures are logged but don't stop the experiment
             - All executions are automatically traced and visible in Langfuse UI
             - When using Langfuse datasets, results are automatically linked for easy comparison
+            - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
+            - Async execution is handled automatically with smart event loop detection
         """
-        return asyncio.run(
-            self._run_experiment_async(
-                name=name,
-                description=description,
-                data=data,
-                task=task,
-                evaluators=evaluators or [],
-                run_evaluators=run_evaluators or [],
-                max_concurrency=max_concurrency,
-                metadata=metadata or {},
-            )
+        return cast(
+            ExperimentResult,
+            run_async_safely(
+                self._run_experiment_async(
+                    name=name,
+                    description=description,
+                    data=data,
+                    task=task,
+                    evaluators=evaluators or [],
+                    run_evaluators=run_evaluators or [],
+                    max_concurrency=max_concurrency,
+                    metadata=metadata or {},
+                ),
+            ),
         )
 
     async def _run_experiment_async(
