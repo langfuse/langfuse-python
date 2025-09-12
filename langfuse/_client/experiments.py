@@ -189,6 +189,8 @@ class ExperimentResult(TypedDict):
         dataset_run_url: URL to view the dataset run in Langfuse UI
     """
 
+    name: str
+    description: Optional[str]
     item_results: List[ExperimentItemResult]
     run_evaluations: List[Evaluation]
     dataset_run_id: Optional[str]
@@ -578,27 +580,62 @@ class RunEvaluatorFunction(Protocol):
         ...
 
 
-def format_experiment_results(
-    item_results: List[ExperimentItemResult],
-    run_evaluations: List[Evaluation],
-    experiment_name: str,
-    experiment_description: Optional[str] = None,
-    dataset_run_url: Optional[str] = None,
+def format_experiment_result(
+    experiment_result: ExperimentResult,
+    *,
     include_item_results: bool = False,
 ) -> str:
-    """Format experiment results for display.
+    """Format an experiment result for human-readable display.
+
+    Takes an ExperimentResult object and converts it into a nicely formatted
+    string suitable for console output or logging. The output includes experiment
+    overview, aggregate statistics, and optionally individual item details.
 
     Args:
-        item_results: Results from processing each item
-        run_evaluations: Results from run-level evaluators
-        experiment_name: Name of the experiment
-        experiment_description: Optional description of the experiment
-        dataset_run_url: Optional URL to dataset run in Langfuse UI
-        include_item_results: Whether to include individual item details
+        experiment_result: Complete experiment result containing name, description,
+            item results, run evaluations, and dataset run information.
+        include_item_results: Whether to include detailed results for each individual
+            item in the output. When False (default), only shows aggregate statistics.
+            Set to True to see input/output/scores for every processed item.
 
     Returns:
-        Formatted string representation of the results
+        A formatted multi-line string containing:
+        - Experiment name and description
+        - Number of items processed
+        - List of evaluation metrics used
+        - Average scores across all items
+        - Run-level evaluation results
+        - Dataset run URL (if available)
+        - Individual item details (if include_item_results=True)
+
+    Examples:
+        Basic usage with aggregate results only:
+        ```python
+        result = langfuse.run_experiment(...)
+        print(format_experiment_result(result))
+        ```
+
+        Detailed output including individual items:
+        ```python
+        result = langfuse.run_experiment(...)
+        detailed_report = format_experiment_result(
+            result,
+            include_item_results=True
+        )
+        print(detailed_report)
+        ```
+
+        Save formatted results to file:
+        ```python
+        result = dataset.run_experiment(...)
+        with open("experiment_report.txt", "w") as f:
+            f.write(format_experiment_result(result, include_item_results=True))
+        ```
     """
+    item_results = experiment_result["item_results"]
+    run_evaluations = experiment_result["run_evaluations"]
+    dataset_run_url = experiment_result["dataset_run_url"]
+
     if not item_results:
         return "No experiment results to display."
 
@@ -651,9 +688,9 @@ def format_experiment_results(
 
     # Experiment Overview
     output += f"\n{'─' * 50}\n"
-    output += f"📊 {experiment_name}"
-    if experiment_description:
-        output += f" - {experiment_description}"
+    output += f"📊 {experiment_result['name']}"
+    if experiment_result["description"]:
+        output += f" - {experiment_result['description']}"
 
     output += f"\n{len(item_results)} items"
 

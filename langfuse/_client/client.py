@@ -2726,6 +2726,8 @@ class Langfuse:
         self.flush()
 
         return {
+            "name": name,
+            "description": description,
             "item_results": valid_results,
             "run_evaluations": run_evaluations,
             "dataset_run_id": dataset_run_id,

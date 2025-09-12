@@ -9,6 +9,7 @@ from ._client.experiments import (
     RunEvaluatorFunction,
     TaskFunction,
     create_evaluator_from_autoevals,
+    format_experiment_result,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "EvaluatorFunction",
     "RunEvaluatorFunction",
     "create_evaluator_from_autoevals",
+    "format_experiment_result",
 ]
