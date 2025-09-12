@@ -39,19 +39,6 @@ from pydantic import BaseModel
 from langfuse.api import MediaContentType, UsageDetails
 from langfuse.model import MapValue, ModelUsage, PromptClient
 
-# Experiment types
-from ._client.experiments import (
-    LocalExperimentItem,
-    ExperimentItem,
-    ExperimentData,
-    Evaluation,
-    ExperimentItemResult,
-    ExperimentResult,
-    TaskFunction,
-    EvaluatorFunction,
-    RunEvaluatorFunction,
-)
-
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
 ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
@@ -116,19 +103,7 @@ class TraceContext(TypedDict):
     parent_span_id: NotRequired[str]
 
 
-# Export experiment types for easy access
 __all__ = [
-    # Experiment types
-    "LocalExperimentItem",
-    "ExperimentItem",
-    "ExperimentData",
-    "Evaluation",
-    "ExperimentItemResult",
-    "ExperimentResult",
-    "TaskFunction",
-    "EvaluatorFunction",
-    "RunEvaluatorFunction",
-    # Core types (keeping existing functionality)
     "SpanLevel",
     "ScoreDataType",
     "TraceMetadata",

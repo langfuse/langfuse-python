@@ -747,3 +747,35 @@ async def _run_task(task: TaskFunction, item: ExperimentItem) -> Any:
         result = await result
 
     return result
+
+
+def create_evaluator_from_autoevals(
+    autoevals_evaluator: Any, **kwargs: Optional[Dict[str, Any]]
+) -> EvaluatorFunction:
+    """Create a Langfuse evaluator from an autoevals evaluator.
+
+    Args:
+        autoevals_evaluator: An autoevals evaluator instance
+        **kwargs: Additional arguments passed to the evaluator
+
+    Returns:
+        A Langfuse-compatible evaluator function
+    """
+
+    def langfuse_evaluator(
+        *,
+        input: Any,
+        output: Any,
+        expected_output: Any,
+        metadata: Optional[Dict[str, Any]],
+        **kwargs: Dict[str, Any],
+    ) -> Evaluation:
+        evaluation = autoevals_evaluator(
+            input=input, output=output, expected=expected_output, **kwargs
+        )
+
+        return Evaluation(
+            name=evaluation.name, value=evaluation.score, metadata=evaluation.metadata
+        )
+
+    return langfuse_evaluator
