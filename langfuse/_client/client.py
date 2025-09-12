@@ -2722,6 +2722,9 @@ class Langfuse:
             except Exception as e:
                 langfuse_logger.error(f"Failed to store run evaluation: {e}")
 
+        # Flush scores and traces
+        self.flush()
+
         return {
             "item_results": valid_results,
             "run_evaluations": run_evaluations,

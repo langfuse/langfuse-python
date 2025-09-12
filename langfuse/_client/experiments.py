@@ -289,8 +289,8 @@ class EvaluatorFunction(Protocol):
         *,
         input: Any,
         output: Any,
-        expected_output: Any = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        expected_output: Any,
+        metadata: Optional[Dict[str, Any]],
         **kwargs: Dict[str, Any],
     ) -> Union[
         Evaluation, List[Evaluation], Awaitable[Union[Evaluation, List[Evaluation]]]
