@@ -82,6 +82,7 @@ from langfuse.api.resources.prompts.types import (
     Prompt_Text,
 )
 from langfuse.experiment import (
+    Evaluation,
     EvaluatorFunction,
     ExperimentData,
     ExperimentItem,
@@ -2674,7 +2675,7 @@ class Langfuse:
                 valid_results.append(result)  # type: ignore
 
         # Run experiment-level evaluators
-        run_evaluations = []
+        run_evaluations: List[Evaluation] = []
         for run_evaluator in run_evaluators:
             try:
                 evaluations = await _run_evaluator(
@@ -2713,10 +2714,11 @@ class Langfuse:
                 if dataset_run_id:
                     self.create_score(
                         dataset_run_id=dataset_run_id,
-                        name=evaluation["name"],
-                        value=evaluation["value"],  # type: ignore
+                        name=evaluation.get("name") or "<unknown>",
+                        value=evaluation.get("value"),  # type: ignore
                         comment=evaluation.get("comment"),
                         metadata=evaluation.get("metadata"),
+                        data_type=evaluation.get("data_type"),  # type: ignore
                     )
 
             except Exception as e:
