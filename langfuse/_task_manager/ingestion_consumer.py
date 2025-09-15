@@ -122,7 +122,7 @@ class IngestionConsumer(threading.Thread):
                 self._media_manager.process_media_in_event(event)
 
                 # truncate item if it exceeds size limit
-                item_size = self._truncate_item_in_place(
+                item_size, dropped = self._truncate_item_in_place(
                     event=event,
                     max_size=MAX_EVENT_SIZE_BYTES,
                     log_message="<truncated due to size exceeding limit>",
@@ -137,7 +137,8 @@ class IngestionConsumer(threading.Thread):
 
                     continue
 
-                events.append(event)
+                if not dropped:
+                    events.append(event)
 
                 total_size += item_size
                 if total_size >= MAX_BATCH_SIZE_BYTES:
@@ -166,8 +167,11 @@ class IngestionConsumer(threading.Thread):
         event: Any,
         max_size: int,
         log_message: Optional[str] = None,
-    ) -> int:
-        """Truncate the item in place to fit within the size limit."""
+    ) -> tuple[int, bool]:
+        """Truncate the item in place to fit within the size limit.
+
+        Returns a tuple of the item size and a boolean indicating if the item was dropped.
+        """
         item_size = self._get_item_size(event)
         self._log.debug(f"item size {item_size}")
 
@@ -217,9 +221,9 @@ class IngestionConsumer(threading.Thread):
                     "Item does not have body or input/output fields, dropping item."
                 )
                 self._ingestion_queue.task_done()
-                return 0
+                return 0, True
 
-        return self._get_item_size(event)
+        return self._get_item_size(event), False
 
     def _get_item_size(self, item: Any) -> int:
         """Return the size of the item in bytes."""
