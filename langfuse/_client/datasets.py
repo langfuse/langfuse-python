@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
-from langfuse._client.experiments import (
+from langfuse.experiment import (
     EvaluatorFunction,
     RunEvaluatorFunction,
     TaskFunction,

@@ -56,17 +56,6 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
-from langfuse._client.experiments import (
-    EvaluatorFunction,
-    ExperimentData,
-    ExperimentItem,
-    ExperimentItemResult,
-    ExperimentResult,
-    RunEvaluatorFunction,
-    TaskFunction,
-    _run_evaluator,
-    _run_task,
-)
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
     LangfuseAgent,
@@ -91,6 +80,17 @@ from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Text,
     Prompt_Chat,
     Prompt_Text,
+)
+from langfuse.experiment import (
+    EvaluatorFunction,
+    ExperimentData,
+    ExperimentItem,
+    ExperimentItemResult,
+    ExperimentResult,
+    RunEvaluatorFunction,
+    TaskFunction,
+    _run_evaluator,
+    _run_task,
 )
 from langfuse.logger import langfuse_logger
 from langfuse.media import LangfuseMedia
