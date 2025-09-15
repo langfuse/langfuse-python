@@ -19,6 +19,8 @@ from typing import (
     Union,
 )
 
+from langfuse.api import ScoreDataType
+
 if TYPE_CHECKING:
     from langfuse._client.datasets import DatasetItemClient
 
@@ -113,6 +115,8 @@ class Evaluation(TypedDict, total=False):
         metadata: Optional structured metadata about the evaluation process.
             Can include confidence scores, intermediate calculations, model versions,
             or any other relevant technical details.
+        data_type: Optional score data type; one of NUMERIC,CATEGORICAL, or BOOLEAN; default: NUMERIC
+        config_id: Optional Langfuse score config id
 
     Examples:
         Quantitative accuracy evaluation:
@@ -159,6 +163,8 @@ class Evaluation(TypedDict, total=False):
     value: Union[int, float, str, bool, None]
     comment: Optional[str]
     metadata: Optional[Dict[str, Any]]
+    data_type: Optional[ScoreDataType]
+    config_id: Optional[str]
 
 
 class ExperimentItemResult(TypedDict):

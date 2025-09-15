@@ -37,4 +37,5 @@ __all__ = [
     "LangfuseRetriever",
     "LangfuseGuardrail",
     "experiment",
+    "api",
 ]
