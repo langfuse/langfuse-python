@@ -2463,6 +2463,7 @@ class Langfuse:
         self,
         *,
         name: str,
+        run_name: Optional[str] = None,
         description: Optional[str] = None,
         data: ExperimentData,
         task: TaskFunction,
@@ -2487,7 +2488,10 @@ class Langfuse:
 
         Args:
             name: Human-readable name for the experiment. Used for identification
-                in the Langfuse UI and for dataset run naming if using Langfuse datasets.
+                in the Langfuse UI.
+            run_name: Optional exact name for the experiment run. If provided, this will be
+                used as the exact dataset run name if the `data` contains Langfuse dataset items.
+                If not provided, this will default to the experiment name appended with an ISO timestamp.
             description: Optional description explaining the experiment's purpose,
                 methodology, or expected outcomes.
             data: Array of data items to process. Can be either:
@@ -2628,6 +2632,9 @@ class Langfuse:
             run_async_safely(
                 self._run_experiment_async(
                     name=name,
+                    run_name=self._create_experiment_run_name(
+                        name=name, run_name=run_name
+                    ),
                     description=description,
                     data=data,
                     task=task,
@@ -2643,6 +2650,7 @@ class Langfuse:
         self,
         *,
         name: str,
+        run_name: str,
         description: Optional[str],
         data: ExperimentData,
         task: TaskFunction,
@@ -2651,7 +2659,9 @@ class Langfuse:
         max_concurrency: int,
         metadata: Dict[str, Any],
     ) -> ExperimentResult:
-        langfuse_logger.debug(f"Starting experiment '{name}' with {len(data)} items")
+        langfuse_logger.debug(
+            f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
+        )
 
         # Set up concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
@@ -2660,7 +2670,7 @@ class Langfuse:
         async def process_item(item: ExperimentItem) -> ExperimentItemResult:
             async with semaphore:
                 return await self._process_experiment_item(
-                    item, task, evaluators, name, description, metadata
+                    item, task, evaluators, name, run_name, description, metadata
                 )
 
         # Run all items concurrently
@@ -2728,6 +2738,7 @@ class Langfuse:
 
         return ExperimentResult(
             name=name,
+            run_name=run_name,
             description=description,
             item_results=valid_results,
             run_evaluations=run_evaluations,
@@ -2741,6 +2752,7 @@ class Langfuse:
         task: Callable,
         evaluators: List[Callable],
         experiment_name: str,
+        experiment_run_name: str,
         experiment_description: Optional[str],
         experiment_metadata: Dict[str, Any],
     ) -> ExperimentItemResult:
@@ -2764,6 +2776,7 @@ class Langfuse:
 
                 final_metadata = {
                     "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
                     **experiment_metadata,
                 }
 
@@ -2796,7 +2809,7 @@ class Langfuse:
 
                         dataset_run_item = self.api.dataset_run_items.create(
                             request=CreateDatasetRunItemRequest(
-                                runName=experiment_name,
+                                runName=experiment_run_name,
                                 runDescription=experiment_description,
                                 metadata=experiment_metadata,
                                 datasetItemId=item.id,  # type: ignore
@@ -2863,6 +2876,16 @@ class Langfuse:
                     output=f"Error: {str(e)}", level="ERROR", status_message=str(e)
                 )
                 raise e
+
+    def _create_experiment_run_name(
+        self, *, name: Optional[str] = None, run_name: Optional[str] = None
+    ) -> str:
+        if run_name:
+            return run_name
+
+        iso_timestamp = _get_timestamp().isoformat().replace("+00:00", "Z")
+
+        return f"{name} - {iso_timestamp}"
 
     def auth_check(self) -> bool:
         """Check if the provided credentials (public and secret key) are valid.

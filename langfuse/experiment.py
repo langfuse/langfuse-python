@@ -114,8 +114,9 @@ class Evaluation:
         metadata: Optional structured metadata about the evaluation process.
             Can include confidence scores, intermediate calculations, model versions,
             or any other relevant technical details.
-        data_type: Optional score data type, required if value is not NUMERIC; one of NUMERIC, CATEGORICAL, or BOOLEAN; default: NUMERIC
-        config_id: Optional Langfuse score config id
+        data_type: Optional score data type. Required if value is not NUMERIC.
+            One of NUMERIC, CATEGORICAL, or BOOLEAN. Defaults to NUMERIC.
+        config_id: Optional Langfuse score config ID.
 
     Examples:
         Basic accuracy evaluation:
@@ -194,12 +195,12 @@ class Evaluation:
         """Initialize an Evaluation with the provided data.
 
         Args:
-            name: Unique identifier for the evaluation metric
-            value: The evaluation score or result
-            comment: Optional human-readable explanation of the result
-            metadata: Optional structured metadata about the evaluation process
-            data_type: Optional score data type (NUMERIC, CATEGORICAL, or BOOLEAN)
-            config_id: Optional Langfuse score config id
+            name: Unique identifier for the evaluation metric.
+            value: The evaluation score or result.
+            comment: Optional human-readable explanation of the result.
+            metadata: Optional structured metadata about the evaluation process.
+            data_type: Optional score data type (NUMERIC, CATEGORICAL, or BOOLEAN).
+            config_id: Optional Langfuse score config ID.
 
         Note:
             All arguments must be provided as keywords. Positional arguments will raise a TypeError.
@@ -276,11 +277,11 @@ class ExperimentItemResult:
         """Initialize an ExperimentItemResult with the provided data.
 
         Args:
-            item: The original experiment item that was processed
-            output: The actual output produced by the task function for this item
-            evaluations: List of evaluation results for this item
-            trace_id: Optional Langfuse trace ID for this item's execution
-            dataset_run_id: Optional dataset run ID if this item was part of a Langfuse dataset
+            item: The original experiment item that was processed.
+            output: The actual output produced by the task function for this item.
+            evaluations: List of evaluation results for this item.
+            trace_id: Optional Langfuse trace ID for this item's execution.
+            dataset_run_id: Optional dataset run ID if this item was part of a Langfuse dataset.
 
         Note:
             All arguments must be provided as keywords. Positional arguments will raise a TypeError.
@@ -300,14 +301,15 @@ class ExperimentResult:
     about the experiment execution.
 
     Attributes:
-        name: The name of the experiment as specified during execution
-        description: Optional description of the experiment's purpose or methodology
+        name: The name of the experiment as specified during execution.
+        run_name: The name of the current experiment run.
+        description: Optional description of the experiment's purpose or methodology.
         item_results: List of results from processing each individual dataset item,
-            containing the original item, task output, evaluations, and trace information
+            containing the original item, task output, evaluations, and trace information.
         run_evaluations: List of aggregate evaluation results computed across all items,
-            such as average scores, statistical summaries, or cross-item analyses
-        dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets)
-        dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI
+            such as average scores, statistical summaries, or cross-item analyses.
+        dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets).
+        dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI.
 
     Examples:
         Basic usage with local dataset:
@@ -360,6 +362,7 @@ class ExperimentResult:
         self,
         *,
         name: str,
+        run_name: str,
         description: Optional[str],
         item_results: List[ExperimentItemResult],
         run_evaluations: List[Evaluation],
@@ -369,14 +372,16 @@ class ExperimentResult:
         """Initialize an ExperimentResult with the provided data.
 
         Args:
-            name: The name of the experiment
-            description: Optional description of the experiment
-            item_results: List of results from processing individual dataset items
-            run_evaluations: List of aggregate evaluation results for the entire run
-            dataset_run_id: Optional ID of the dataset run (for Langfuse datasets)
-            dataset_run_url: Optional URL to view results in Langfuse UI
+            name: The name of the experiment.
+            run_name: The current experiment run name.
+            description: Optional description of the experiment.
+            item_results: List of results from processing individual dataset items.
+            run_evaluations: List of aggregate evaluation results for the entire run.
+            dataset_run_id: Optional ID of the dataset run (for Langfuse datasets).
+            dataset_run_url: Optional URL to view results in Langfuse UI.
         """
         self.name = name
+        self.run_name = run_name
         self.description = description
         self.item_results = item_results
         self.run_evaluations = run_evaluations
@@ -526,7 +531,8 @@ class ExperimentResult:
 
         # Experiment overview section
         output += f"\\n{'─' * 50}\\n"
-        output += f"📊 {self.name}"
+        output += f"🧪 Experiment: {self.name}"
+        output += f"\n📋 Run name: {self.run_name}"
         if self.description:
             output += f" - {self.description}"
 

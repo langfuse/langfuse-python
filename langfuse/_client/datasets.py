@@ -6,6 +6,7 @@ from opentelemetry.util._decorator import _agnosticcontextmanager
 
 from langfuse.experiment import (
     EvaluatorFunction,
+    ExperimentResult,
     RunEvaluatorFunction,
     TaskFunction,
 )
@@ -199,13 +200,14 @@ class DatasetClient:
         self,
         *,
         name: str,
+        run_name: Optional[str] = None,
         description: Optional[str] = None,
         task: TaskFunction,
         evaluators: List[EvaluatorFunction] = [],
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> Any:
+    ) -> ExperimentResult:
         """Run an experiment on this Langfuse dataset with automatic tracking.
 
         This is a convenience method that runs an experiment using all items in this
@@ -222,6 +224,9 @@ class DatasetClient:
         Args:
             name: Human-readable name for the experiment run. This will be used as
                 the dataset run name in Langfuse for tracking and identification.
+            run_name: Optional exact name for the dataset run. If provided, this will be
+                used as the exact dataset run name in Langfuse. If not provided, this will
+                default to the experiment name appended with an ISO timestamp.
             description: Optional description of the experiment's purpose, methodology,
                 or what you're testing. Appears in the Langfuse UI for context.
             task: Function that processes each dataset item and returns output.
@@ -238,12 +243,13 @@ class DatasetClient:
 
         Returns:
             ExperimentResult object containing:
-            - name: The experiment name
-            - description: Optional experiment description
-            - item_results: Results for each dataset item with outputs and evaluations
-            - run_evaluations: Aggregate evaluation results for the entire run
-            - dataset_run_id: ID of the created dataset run in Langfuse
-            - dataset_run_url: Direct URL to view the experiment results in Langfuse UI
+            - name: The experiment name.
+            - run_name: The experiment run name (equivalent to the dataset run name).
+            - description: Optional experiment description.
+            - item_results: Results for each dataset item with outputs and evaluations.
+            - run_evaluations: Aggregate evaluation results for the entire run.
+            - dataset_run_id: ID of the created dataset run in Langfuse.
+            - dataset_run_url: Direct URL to view the experiment results in Langfuse UI.
 
             The result object provides a format() method for human-readable output:
             ```python
@@ -253,7 +259,7 @@ class DatasetClient:
             ```
 
         Raises:
-            ValueError: If the dataset has no items or no Langfuse client is available
+            ValueError: If the dataset has no items or no Langfuse client is available.
 
         Examples:
             Basic dataset experiment:
@@ -400,6 +406,7 @@ class DatasetClient:
 
         return langfuse_client.run_experiment(
             name=name,
+            run_name=run_name,
             description=description,
             data=self.items,
             task=task,

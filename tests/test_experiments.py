@@ -179,8 +179,9 @@ def test_run_experiment_on_langfuse_dataset():
 
     # Verify dataset run exists via API
     api = get_api()
-    runs = api.datasets.get_runs(dataset_name)
-    assert len(runs.data) >= 1
+    dataset_run = api.datasets.get_run(
+        dataset_name=dataset_name, run_name=result.run_name
+    )
 
     # Validate traces are correctly persisted with input/output/metadata
     expected_data = {"Germany": "Capital of Germany", "France": "Capital of France"}
@@ -256,22 +257,15 @@ def test_run_experiment_on_langfuse_dataset():
             dataset_item.input == matching_input
         ), f"Trace {trace_id} should correspond to dataset item with input '{matching_input}'"
 
-    # Verify dataset run contains the correct trace IDs
-    dataset_run = None
-    for run in runs.data:
-        if run.id == dataset_run_id:
-            dataset_run = run
-            break
-
     assert dataset_run is not None, f"Dataset run {dataset_run_id} should exist"
-    assert dataset_run.name == experiment_name, "Dataset run should have correct name"
+    assert dataset_run.name == result.run_name, "Dataset run should have correct name"
     assert (
         dataset_run.description == "Test on Langfuse dataset"
     ), "Dataset run should have correct description"
 
     # Get dataset run items to verify trace linkage
     dataset_run_items = api.dataset_run_items.list(
-        dataset_id=dataset.id, run_name=experiment_name
+        dataset_id=dataset.id, run_name=result.run_name
     )
     assert len(dataset_run_items.data) == 2, "Dataset run should have 2 items"
 
@@ -570,6 +564,7 @@ def test_scores_are_persisted():
 
     result = dataset.run_experiment(
         name="Score persistence test",
+        run_name="Score persistence test",
         description="Test score persistence",
         task=mock_task,
         evaluators=[test_evaluator],
@@ -585,12 +580,11 @@ def test_scores_are_persisted():
 
     # Verify scores are persisted via API
     api = get_api()
-    runs = api.datasets.get_runs(dataset_name)
-    assert len(runs.data) >= 1
+    dataset_run = api.datasets.get_run(
+        dataset_name=dataset_name, run_name=result.run_name
+    )
 
-    # Verify the run exists with correct name
-    run_names = [run.name for run in runs.data]
-    assert "Score persistence test" in run_names
+    assert dataset_run.name == "Score persistence test"
 
 
 def test_multiple_experiments_on_same_dataset():
@@ -616,6 +610,7 @@ def test_multiple_experiments_on_same_dataset():
     # Run first experiment
     result1 = dataset.run_experiment(
         name="Experiment 1",
+        run_name="Experiment 1",
         description="First experiment",
         task=mock_task,
         evaluators=[factuality_evaluator],
@@ -627,6 +622,7 @@ def test_multiple_experiments_on_same_dataset():
     # Run second experiment
     result2 = dataset.run_experiment(
         name="Experiment 2",
+        run_name="Experiment 2",
         description="Second experiment",
         task=mock_task,
         evaluators=[simple_evaluator],
