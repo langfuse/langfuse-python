@@ -1,77 +1,79 @@
-"""Test environment setting on Langfuse get_client() function."""
+"""Test the LangfuseResourceManager and get_client() function."""
 
-import pytest
 from langfuse import Langfuse
 from langfuse._client.get_client import get_client
+from langfuse._client.resource_manager import LangfuseResourceManager
 
 
-def test_get_client_preserves_environment():
-    """Test that get_client() preserves the environment when returning existing clients."""
-    test_env = "production-test-env"
-    original_client = Langfuse(environment=test_env)
+def test_get_client_preserves_all_settings():
+    """Test that get_client() preserves environment and all client settings."""
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
 
-    # Verify the original client has the correct environment
-    assert original_client._environment == test_env, (
-        f"original client environment should be '{test_env}', got '{original_client._environment}'"
-    )
+    settings = {
+        "environment": "test-env",
+        "release": "v1.2.3",
+        "timeout": 30,
+        "flush_at": 100,
+        "sample_rate": 0.8,
+        "additional_headers": {"X-Custom": "value"},
+    }
 
-    # call get_client() should return a client with the same environment
+    original_client = Langfuse(**settings)
     retrieved_client = get_client()
 
-    assert retrieved_client._environment == test_env, (
-        f"get_client() should return client with environment '{test_env}', got '{retrieved_client._environment}'"
-    )
+    assert retrieved_client._environment == settings["environment"]
+
+    assert retrieved_client._resources is not None
+    rm = retrieved_client._resources
+    assert rm.environment == settings["environment"]
+    assert rm.timeout == settings["timeout"]
+    assert rm.sample_rate == settings["sample_rate"]
+    assert rm.additional_headers == settings["additional_headers"]
 
     original_client.shutdown()
 
 
-def test_get_client_with_multiple_environments():
-    """Test get_client() behavior with multiple clients having different environments."""
-    env_a = "environment-a"
-    env_b = "environment-b"
+def test_get_client_multiple_clients_preserve_different_settings():
+    """Test that get_client() preserves different settings for multiple clients."""
+    # Settings for client A
+    settings_a = {
+        "public_key": "pk-comprehensive-a",
+        "secret_key": "sk-comprehensive-a",
+        "environment": "env-a",
+        "release": "release-a",
+        "timeout": 10,
+        "sample_rate": 0.5,
+    }
 
-    client_a = Langfuse(public_key="pk-a", secret_key="sk-a", environment=env_a)
-    client_b = Langfuse(public_key="pk-b", secret_key="sk-b", environment=env_b)
+    # Settings for client B
+    settings_b = {
+        "public_key": "pk-comprehensive-b",
+        "secret_key": "sk-comprehensive-b",
+        "environment": "env-b",
+        "release": "release-b",
+        "timeout": 20,
+        "sample_rate": 0.9,
+    }
 
-    # original clients should have correct environments
-    assert client_a._environment == env_a
-    assert client_b._environment == env_b
+    client_a = Langfuse(**settings_a)
+    client_b = Langfuse(**settings_b)
 
-    # Get clients using get_client() with specific public keys
-    retrieved_a = get_client(public_key="pk-a")
-    retrieved_b = get_client(public_key="pk-b")
+    # Get clients via get_client()
+    retrieved_a = get_client(public_key="pk-comprehensive-a")
+    retrieved_b = get_client(public_key="pk-comprehensive-b")
 
-    # should have the same environments as the originals
-    assert retrieved_a._environment == env_a, (
-        f"Expected client A environment to be '{env_a}', got '{retrieved_a._environment}'"
-    )
-    assert retrieved_b._environment == env_b, (
-        f"Expected client B environment to be '{env_b}', got '{retrieved_b._environment}'"
-    )
+    # Verify each client preserves its own settings
+    assert retrieved_a._environment == settings_a["environment"]
+    assert retrieved_b._environment == settings_b["environment"]
+
+    if retrieved_a._resources and retrieved_b._resources:
+        assert retrieved_a._resources.timeout == settings_a["timeout"]
+        assert retrieved_b._resources.timeout == settings_b["timeout"]
+        assert retrieved_a._resources.sample_rate == settings_a["sample_rate"]
+        assert retrieved_b._resources.sample_rate == settings_b["sample_rate"]
+        assert retrieved_a._resources.release == settings_a["release"]
+        assert retrieved_b._resources.release == settings_b["release"]
 
     client_a.shutdown()
     client_b.shutdown()
-
-
-def test_get_client_single_client_environment():
-    """Test that get_client() preserves environment in single-client scenario."""
-    # Clean state - ensure no existing clients
-    from langfuse._client.resource_manager import LangfuseResourceManager
-
-    with LangfuseResourceManager._lock:
-        LangfuseResourceManager._instances.clear()
-
-    test_env = "single-client-env"
-
-    client = Langfuse(environment=test_env)
-    assert client._environment == test_env
-
-    # get_client() should return a client with the same environment
-    retrieved = get_client()
-
-    # This assertion demonstrates the bug
-    assert retrieved._environment == test_env, (
-        f"Expected single client scenario to preserve environment '{test_env}', got '{retrieved._environment}'"
-    )
-
-    client.shutdown()

@@ -33,6 +33,28 @@ def _set_current_public_key(public_key: Optional[str]) -> Iterator[None]:
         _current_public_key.reset(token)
 
 
+def _create_client_from_instance(
+    instance: "LangfuseResourceManager", public_key: Optional[str] = None
+) -> Langfuse:
+    """Create a Langfuse client from a resource manager instance with all settings preserved."""
+    return Langfuse(
+        public_key=public_key or instance.public_key,
+        secret_key=instance.secret_key,
+        host=instance.host,
+        tracing_enabled=instance.tracing_enabled,
+        environment=instance.environment,
+        timeout=instance.timeout,
+        flush_at=instance.flush_at,
+        flush_interval=instance.flush_interval,
+        release=instance.release,
+        media_upload_thread_count=instance.media_upload_thread_count,
+        sample_rate=instance.sample_rate,
+        mask=instance.mask,
+        blocked_instrumentation_scopes=instance.blocked_instrumentation_scopes,
+        additional_headers=instance.additional_headers,
+    )
+
+
 def get_client(*, public_key: Optional[str] = None) -> Langfuse:
     """Get or create a Langfuse client instance.
 
@@ -93,13 +115,7 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
                 # Initialize with the credentials bound to the instance
                 # This is important if the original instance was instantiated
                 # via constructor arguments
-                return Langfuse(
-                    public_key=instance.public_key,
-                    secret_key=instance.secret_key,
-                    host=instance.host,
-                    tracing_enabled=instance.tracing_enabled,
-                    environment=instance.environment,
-                )
+                return _create_client_from_instance(instance)
 
             else:
                 # Multiple clients exist but no key specified - disable tracing
@@ -127,10 +143,4 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
                 )
 
             # target_instance is guaranteed to be not None at this point
-            return Langfuse(
-                public_key=public_key,
-                secret_key=target_instance.secret_key,
-                host=target_instance.host,
-                tracing_enabled=target_instance.tracing_enabled,
-                environment=target_instance.environment,
-            )
+            return _create_client_from_instance(target_instance, public_key)

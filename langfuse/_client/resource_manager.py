@@ -164,6 +164,16 @@ class LangfuseResourceManager:
         self.mask = mask
         self.environment = environment
 
+        # Store additional client settings for get_client() to use
+        self.timeout = timeout
+        self.flush_at = flush_at
+        self.flush_interval = flush_interval
+        self.release = release
+        self.media_upload_thread_count = media_upload_thread_count
+        self.sample_rate = sample_rate
+        self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
+        self.additional_headers = additional_headers
+
         # OTEL Tracer
         if tracing_enabled:
             tracer_provider = tracer_provider or _init_tracer_provider(
