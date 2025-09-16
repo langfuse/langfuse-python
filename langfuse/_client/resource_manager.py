@@ -162,6 +162,7 @@ class LangfuseResourceManager:
         self.tracing_enabled = tracing_enabled
         self.host = host
         self.mask = mask
+        self.environment = environment
 
         # OTEL Tracer
         if tracing_enabled:
