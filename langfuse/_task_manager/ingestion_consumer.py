@@ -122,7 +122,7 @@ class IngestionConsumer(threading.Thread):
                 self._media_manager.process_media_in_event(event)
 
                 # truncate item if it exceeds size limit
-                item_size, dropped = self._truncate_item_in_place(
+                item_size = self._truncate_item_in_place(
                     event=event,
                     max_size=MAX_EVENT_SIZE_BYTES,
                     log_message="<truncated due to size exceeding limit>",
@@ -137,8 +137,7 @@ class IngestionConsumer(threading.Thread):
 
                     continue
 
-                if not dropped:
-                    events.append(event)
+                events.append(event)
 
                 total_size += item_size
                 if total_size >= MAX_BATCH_SIZE_BYTES:
@@ -167,11 +166,8 @@ class IngestionConsumer(threading.Thread):
         event: Any,
         max_size: int,
         log_message: Optional[str] = None,
-    ) -> tuple[int, bool]:
-        """Truncate the item in place to fit within the size limit.
-
-        Returns a tuple of the item size and a boolean indicating if the item was dropped.
-        """
+    ) -> int:
+        """Truncate the item in place to fit within the size limit."""
         item_size = self._get_item_size(event)
         self._log.debug(f"item size {item_size}")
 
@@ -215,15 +211,17 @@ class IngestionConsumer(threading.Thread):
 
             # if item does not have body or input/output fields, drop the event
             if "body" not in event or (
-                "input" not in event["body"] and "output" not in event["body"]
+                "input" not in event["body"]
+                and "output" not in event["body"]
+                and "metadata" not in event["body"]
             ):
                 self._log.warning(
-                    "Item does not have body or input/output fields, dropping item."
+                    "Item does not have body or input/output/metadata fields, dropping item."
                 )
                 self._ingestion_queue.task_done()
-                return 0, True
+                return 0
 
-        return self._get_item_size(event), False
+        return self._get_item_size(event)
 
     def _get_item_size(self, item: Any) -> int:
         """Return the size of the item in bytes."""
