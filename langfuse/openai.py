@@ -641,6 +641,10 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         curr[-1]["name"] = curr[-1]["name"] or getattr(
                             tool_call_chunk, "name", None
                         )
+
+                        if curr[-1]["arguments"] is None:
+                            curr[-1]["arguments"] = ""
+
                         curr[-1]["arguments"] += getattr(
                             tool_call_chunk, "arguments", None
                         )
