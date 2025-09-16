@@ -2507,6 +2507,7 @@ class Langfuse:
                 API rate limits and system resources.
             metadata: Optional metadata dictionary to attach to all experiment traces.
                 This metadata will be included in every trace created during the experiment.
+                If `data` are Langfuse dataset items, the metadata will be attached to the dataset run, too.
 
         Returns:
             ExperimentResult dictionary containing:
