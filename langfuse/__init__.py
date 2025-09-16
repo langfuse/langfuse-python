@@ -38,4 +38,5 @@ __all__ = [
     "LangfuseGuardrail",
     "experiment",
     "api",
+    "async_api",
 ]
