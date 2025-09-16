@@ -211,10 +211,12 @@ class IngestionConsumer(threading.Thread):
 
             # if item does not have body or input/output fields, drop the event
             if "body" not in event or (
-                "input" not in event["body"] and "output" not in event["body"]
+                "input" not in event["body"]
+                and "output" not in event["body"]
+                and "metadata" not in event["body"]
             ):
                 self._log.warning(
-                    "Item does not have body or input/output fields, dropping item."
+                    "Item does not have body or input/output/metadata fields, dropping item."
                 )
                 self._ingestion_queue.task_done()
                 return 0
