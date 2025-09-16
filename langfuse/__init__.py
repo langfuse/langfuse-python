@@ -1,5 +1,7 @@
 """.. include:: ../README.md"""
 
+from langfuse.experiment import Evaluation
+
 from ._client import client as _client_module
 from ._client.attributes import LangfuseOtelSpanAttributes
 from ._client.constants import ObservationTypeLiteral
@@ -36,6 +38,7 @@ __all__ = [
     "LangfuseEvaluator",
     "LangfuseRetriever",
     "LangfuseGuardrail",
+    "Evaluation",
     "experiment",
     "api",
 ]

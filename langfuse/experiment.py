@@ -7,7 +7,6 @@ and result formatting.
 
 import asyncio
 import logging
-from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -94,13 +93,11 @@ Represents the collection of items to process in an experiment. Can be either:
 """
 
 
-@dataclass(frozen=True)
 class Evaluation:
-    """Represents an evaluation result for an experiment item.
+    """Represents an evaluation result for an experiment item or an entire experiment run.
 
     This class provides a strongly-typed way to create evaluation results in evaluator functions.
-    Users should import this class and return instances instead of dictionaries for better
-    type safety and IDE support.
+    Users must use keyword arguments when instantiating this class.
 
     Attributes:
         name: Unique identifier for the evaluation metric. Should be descriptive
@@ -117,7 +114,7 @@ class Evaluation:
         metadata: Optional structured metadata about the evaluation process.
             Can include confidence scores, intermediate calculations, model versions,
             or any other relevant technical details.
-        data_type: Optional score data type; one of NUMERIC, CATEGORICAL, or BOOLEAN; default: NUMERIC
+        data_type: Optional score data type, required if value is not NUMERIC; one of NUMERIC, CATEGORICAL, or BOOLEAN; default: NUMERIC
         config_id: Optional Langfuse score config id
 
     Examples:
@@ -180,25 +177,47 @@ class Evaluation:
         ```
 
     Note:
-        This class is immutable (frozen=True) to ensure evaluation results cannot be
-        accidentally modified after creation. All fields except name and value are optional.
+        All arguments must be passed as keywords. Positional arguments are not allowed
+        to ensure code clarity and prevent errors from argument reordering.
     """
 
-    name: str
-    value: Union[int, float, str, bool, None]
-    comment: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    data_type: Optional[ScoreDataType] = None
-    config_id: Optional[str] = None
+    def __init__(
+        self,
+        *,
+        name: str,
+        value: Union[int, float, str, bool, None],
+        comment: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        data_type: Optional[ScoreDataType] = None,
+        config_id: Optional[str] = None,
+    ):
+        """Initialize an Evaluation with the provided data.
+
+        Args:
+            name: Unique identifier for the evaluation metric
+            value: The evaluation score or result
+            comment: Optional human-readable explanation of the result
+            metadata: Optional structured metadata about the evaluation process
+            data_type: Optional score data type (NUMERIC, CATEGORICAL, or BOOLEAN)
+            config_id: Optional Langfuse score config id
+
+        Note:
+            All arguments must be provided as keywords. Positional arguments will raise a TypeError.
+        """
+        self.name = name
+        self.value = value
+        self.comment = comment
+        self.metadata = metadata
+        self.data_type = data_type
+        self.config_id = config_id
 
 
-@dataclass(frozen=True)
 class ExperimentItemResult:
     """Result structure for individual experiment items.
 
-    This dataclass represents the complete result of processing a single item
+    This class represents the complete result of processing a single item
     during an experiment run, including the original input, task output,
-    evaluations, and tracing information.
+    evaluations, and tracing information. Users must use keyword arguments when instantiating this class.
 
     Attributes:
         item: The original experiment item that was processed. Can be either
@@ -239,13 +258,38 @@ class ExperimentItemResult:
             input_data = item_result.item.input
             expected = item_result.item.expected_output
         ```
+
+    Note:
+        All arguments must be passed as keywords. Positional arguments are not allowed
+        to ensure code clarity and prevent errors from argument reordering.
     """
 
-    item: ExperimentItem
-    output: Any
-    evaluations: List[Evaluation]
-    trace_id: Optional[str]
-    dataset_run_id: Optional[str]
+    def __init__(
+        self,
+        *,
+        item: ExperimentItem,
+        output: Any,
+        evaluations: List[Evaluation],
+        trace_id: Optional[str],
+        dataset_run_id: Optional[str],
+    ):
+        """Initialize an ExperimentItemResult with the provided data.
+
+        Args:
+            item: The original experiment item that was processed
+            output: The actual output produced by the task function for this item
+            evaluations: List of evaluation results for this item
+            trace_id: Optional Langfuse trace ID for this item's execution
+            dataset_run_id: Optional dataset run ID if this item was part of a Langfuse dataset
+
+        Note:
+            All arguments must be provided as keywords. Positional arguments will raise a TypeError.
+        """
+        self.item = item
+        self.output = output
+        self.evaluations = evaluations
+        self.trace_id = trace_id
+        self.dataset_run_id = dataset_run_id
 
 
 class ExperimentResult:
@@ -314,6 +358,7 @@ class ExperimentResult:
 
     def __init__(
         self,
+        *,
         name: str,
         description: Optional[str],
         item_results: List[ExperimentItemResult],
@@ -938,7 +983,7 @@ async def _run_evaluator(
 
         # Normalize to list
         if isinstance(result, (dict, Evaluation)):
-            return [result]
+            return [result]  # type: ignore
 
         elif isinstance(result, list):
             return result

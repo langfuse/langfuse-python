@@ -2840,10 +2840,8 @@ class Langfuse:
                         for evaluation in eval_results:
                             self.create_score(
                                 trace_id=trace_id,
-                                name=evaluation.name or "unknown",
-                                value=evaluation.value
-                                if evaluation.value is not None
-                                else -1,  # type: ignore
+                                name=evaluation.name,
+                                value=evaluation.value or -1,
                                 comment=evaluation.comment,
                                 metadata=evaluation.metadata,
                             )
