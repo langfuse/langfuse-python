@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 import pytest
 
 from langfuse import get_client
-from langfuse._client.experiments import (
+from langfuse.experiment import (
     Evaluation,
     ExperimentData,
     ExperimentItem,
@@ -37,29 +37,25 @@ def mock_task(*, item: ExperimentItem, **kwargs: Dict[str, Any]):
 
 def simple_evaluator(*, input, output, expected_output=None, **kwargs):
     """Return output length."""
-    return Evaluation(**{"name": "length_check", "value": len(output)})
+    return Evaluation(name="length_check", value=len(output))
 
 
 def factuality_evaluator(*, input, output, expected_output=None, **kwargs):
     """Mock factuality evaluator."""
     # Simple mock: check if expected output is in the output
     if expected_output and expected_output.lower() in output.lower():
-        return Evaluation(
-            **{"name": "factuality", "value": 1.0, "comment": "Correct answer found"}
-        )
-    return Evaluation(
-        **{"name": "factuality", "value": 0.0, "comment": "Incorrect answer"}
-    )
+        return Evaluation(name="factuality", value=1.0, comment="Correct answer found")
+    return Evaluation(name="factuality", value=0.0, comment="Incorrect answer")
 
 
 def run_evaluator_average_length(*, item_results: List[ExperimentItemResult], **kwargs):
     """Run evaluator that calculates average output length."""
     if not item_results:
-        return Evaluation(**{"name": "average_length", "value": 0})
+        return Evaluation(name="average_length", value=0)
 
-    avg_length = sum(len(r["output"]) for r in item_results) / len(item_results)
+    avg_length = sum(len(r.output) for r in item_results) / len(item_results)
 
-    return Evaluation(**{"name": "average_length", "value": avg_length})
+    return Evaluation(name="average_length", value=avg_length)
 
 
 # Basic Functionality Tests
@@ -77,20 +73,20 @@ def test_run_experiment_on_local_dataset(sample_dataset):
     )
 
     # Validate basic result structure
-    assert len(result["item_results"]) == 3
-    assert len(result["run_evaluations"]) == 1
-    assert result["run_evaluations"][0]["name"] == "average_length"
-    assert result["dataset_run_id"] is None  # No dataset_run_id for local datasets
+    assert len(result.item_results) == 3
+    assert len(result.run_evaluations) == 1
+    assert result.run_evaluations[0].name == "average_length"
+    assert result.dataset_run_id is None  # No dataset_run_id for local datasets
 
     # Validate item results structure
-    for item_result in result["item_results"]:
-        assert "output" in item_result
-        assert "evaluations" in item_result
-        assert "trace_id" in item_result
+    for item_result in result.item_results:
+        assert hasattr(item_result, "output")
+        assert hasattr(item_result, "evaluations")
+        assert hasattr(item_result, "trace_id")
         assert (
-            item_result["dataset_run_id"] is None
+            item_result.dataset_run_id is None
         )  # No dataset_run_id for local datasets
-        assert len(item_result["evaluations"]) == 2  # Both evaluators should run
+        assert len(item_result.evaluations) == 2  # Both evaluators should run
 
     # Flush and wait for server processing
     langfuse_client.flush()
@@ -101,8 +97,8 @@ def test_run_experiment_on_local_dataset(sample_dataset):
     expected_inputs = ["Germany", "France", "Spain"]
     expected_outputs = ["Capital of Germany", "Capital of France", "Capital of Spain"]
 
-    for i, item_result in enumerate(result["item_results"]):
-        trace_id = item_result["trace_id"]
+    for i, item_result in enumerate(result.item_results):
+        trace_id = item_result.trace_id
         assert trace_id is not None, f"Item {i} should have a trace_id"
 
         # Fetch trace from API
@@ -173,9 +169,9 @@ def test_run_experiment_on_langfuse_dataset():
     )
 
     # Should have dataset run ID for Langfuse datasets
-    assert result["dataset_run_id"] is not None
-    assert len(result["item_results"]) == 2
-    assert all(item["dataset_run_id"] is not None for item in result["item_results"])
+    assert result.dataset_run_id is not None
+    assert len(result.item_results) == 2
+    assert all(item.dataset_run_id is not None for item in result.item_results)
 
     # Flush and wait for server processing
     langfuse_client.flush()
@@ -188,13 +184,13 @@ def test_run_experiment_on_langfuse_dataset():
 
     # Validate traces are correctly persisted with input/output/metadata
     expected_data = {"Germany": "Capital of Germany", "France": "Capital of France"}
-    dataset_run_id = result["dataset_run_id"]
+    dataset_run_id = result.dataset_run_id
 
     # Create a mapping from dataset item ID to dataset item for validation
     dataset_item_map = {item.id: item for item in dataset.items}
 
-    for i, item_result in enumerate(result["item_results"]):
-        trace_id = item_result["trace_id"]
+    for i, item_result in enumerate(result.item_results):
+        trace_id = item_result.trace_id
         assert trace_id is not None, f"Item {i} should have a trace_id"
 
         # Fetch trace from API
@@ -283,7 +279,7 @@ def test_run_experiment_on_langfuse_dataset():
     run_item_trace_ids = {
         item.trace_id for item in dataset_run_items.data if item.trace_id
     }
-    result_trace_ids = {item["trace_id"] for item in result["item_results"]}
+    result_trace_ids = {item.trace_id for item in result.item_results}
 
     assert run_item_trace_ids == result_trace_ids, (
         f"Dataset run items should link to the same traces as experiment results. "
@@ -300,7 +296,7 @@ def test_evaluator_failures_handled_gracefully():
         raise Exception("Evaluator failed")
 
     def working_evaluator(**kwargs):
-        return Evaluation(**{"name": "working_eval", "value": 1.0})
+        return Evaluation(name="working_eval", value=1.0)
 
     result = langfuse_client.run_experiment(
         name="Error test",
@@ -310,14 +306,14 @@ def test_evaluator_failures_handled_gracefully():
     )
 
     # Should complete with only working evaluator
-    assert len(result["item_results"]) == 1
+    assert len(result.item_results) == 1
     # Only the working evaluator should have produced results
     assert (
         len(
             [
                 eval
-                for eval in result["item_results"][0]["evaluations"]
-                if eval["name"] == "working_eval"
+                for eval in result.item_results[0].evaluations
+                if eval.name == "working_eval"
             ]
         )
         == 1
@@ -345,7 +341,7 @@ def test_task_failures_handled_gracefully():
     )
 
     # Should complete but with no valid results since all tasks failed
-    assert len(result["item_results"]) == 0
+    assert len(result.item_results) == 0
 
     langfuse_client.flush()
     time.sleep(1)
@@ -366,8 +362,8 @@ def test_run_evaluator_failures_handled():
     )
 
     # Should complete but run evaluations should be empty
-    assert len(result["item_results"]) == 1
-    assert len(result["run_evaluations"]) == 0
+    assert len(result.item_results) == 1
+    assert len(result.run_evaluations) == 0
 
     langfuse_client.flush()
     time.sleep(1)
@@ -385,8 +381,8 @@ def test_empty_dataset_handling():
         run_evaluators=[run_evaluator_average_length],
     )
 
-    assert len(result["item_results"]) == 0
-    assert len(result["run_evaluations"]) == 1  # Run evaluators still execute
+    assert len(result.item_results) == 0
+    assert len(result.run_evaluations) == 1  # Run evaluators still execute
 
     langfuse_client.flush()
     time.sleep(1)
@@ -409,10 +405,10 @@ def test_dataset_with_missing_fields():
     )
 
     # Should handle missing fields gracefully
-    assert len(result["item_results"]) == 3
-    for item_result in result["item_results"]:
-        assert "trace_id" in item_result
-        assert "output" in item_result
+    assert len(result.item_results) == 3
+    for item_result in result.item_results:
+        assert hasattr(item_result, "trace_id")
+        assert hasattr(item_result, "output")
 
     langfuse_client.flush()
     time.sleep(1)
@@ -430,14 +426,14 @@ def test_large_dataset_with_concurrency():
         name="Large dataset test",
         data=large_dataset,
         task=lambda **kwargs: f"Processed {kwargs['item']}",
-        evaluators=[lambda **kwargs: {"name": "simple_eval", "value": 1.0}],
+        evaluators=[lambda **kwargs: Evaluation(name="simple_eval", value=1.0)],
         max_concurrency=5,
     )
 
-    assert len(result["item_results"]) == 20
-    for item_result in result["item_results"]:
-        assert len(item_result["evaluations"]) == 1
-        assert "trace_id" in item_result
+    assert len(result.item_results) == 20
+    for item_result in result.item_results:
+        assert len(item_result.evaluations) == 1
+        assert hasattr(item_result, "trace_id")
 
     langfuse_client.flush()
     time.sleep(3)
@@ -449,9 +445,7 @@ def test_single_evaluation_return():
     langfuse_client = get_client()
 
     def single_evaluator(**kwargs):
-        return Evaluation(
-            **{"name": "single_eval", "value": 1, "comment": "Single evaluation"}
-        )
+        return Evaluation(name="single_eval", value=1, comment="Single evaluation")
 
     result = langfuse_client.run_experiment(
         name="Single evaluation test",
@@ -460,9 +454,9 @@ def test_single_evaluation_return():
         evaluators=[single_evaluator],
     )
 
-    assert len(result["item_results"]) == 1
-    assert len(result["item_results"][0]["evaluations"]) == 1
-    assert result["item_results"][0]["evaluations"][0]["name"] == "single_eval"
+    assert len(result.item_results) == 1
+    assert len(result.item_results[0].evaluations) == 1
+    assert result.item_results[0].evaluations[0].name == "single_eval"
 
     langfuse_client.flush()
     time.sleep(1)
@@ -478,9 +472,9 @@ def test_no_evaluators():
         task=lambda **kwargs: "result",
     )
 
-    assert len(result["item_results"]) == 1
-    assert len(result["item_results"][0]["evaluations"]) == 0
-    assert len(result["run_evaluations"]) == 0
+    assert len(result.item_results) == 1
+    assert len(result.item_results[0].evaluations) == 0
+    assert len(result.run_evaluations) == 0
 
     langfuse_client.flush()
     time.sleep(1)
@@ -492,11 +486,7 @@ def test_only_run_evaluators():
 
     def run_only_evaluator(**kwargs):
         return Evaluation(
-            **{
-                "name": "run_only_eval",
-                "value": 10,
-                "comment": "Run-level evaluation",
-            }
+            name="run_only_eval", value=10, comment="Run-level evaluation"
         )
 
     result = langfuse_client.run_experiment(
@@ -506,10 +496,10 @@ def test_only_run_evaluators():
         run_evaluators=[run_only_evaluator],
     )
 
-    assert len(result["item_results"]) == 1
-    assert len(result["item_results"][0]["evaluations"]) == 0  # No item evaluations
-    assert len(result["run_evaluations"]) == 1
-    assert result["run_evaluations"][0]["name"] == "run_only_eval"
+    assert len(result.item_results) == 1
+    assert len(result.item_results[0].evaluations) == 0  # No item evaluations
+    assert len(result.run_evaluations) == 1
+    assert result.run_evaluations[0].name == "run_only_eval"
 
     langfuse_client.flush()
     time.sleep(1)
@@ -520,13 +510,13 @@ def test_different_data_types():
     langfuse_client = get_client()
 
     def number_evaluator(**kwargs):
-        return Evaluation(**{"name": "number_eval", "value": 42})
+        return Evaluation(name="number_eval", value=42)
 
     def string_evaluator(**kwargs):
-        return Evaluation(**{"name": "string_eval", "value": "excellent"})
+        return Evaluation(name="string_eval", value="excellent")
 
     def boolean_evaluator(**kwargs):
-        return Evaluation(**{"name": "boolean_eval", "value": True})
+        return Evaluation(name="boolean_eval", value=True)
 
     result = langfuse_client.run_experiment(
         name="Different data types test",
@@ -535,10 +525,10 @@ def test_different_data_types():
         evaluators=[number_evaluator, string_evaluator, boolean_evaluator],
     )
 
-    evaluations = result["item_results"][0]["evaluations"]
+    evaluations = result.item_results[0].evaluations
     assert len(evaluations) == 3
 
-    eval_by_name = {e["name"]: e["value"] for e in evaluations}
+    eval_by_name = {e.name: e.value for e in evaluations}
     assert eval_by_name["number_eval"] == 42
     assert eval_by_name["string_eval"] == "excellent"
     assert eval_by_name["boolean_eval"] is True
@@ -566,20 +556,16 @@ def test_scores_are_persisted():
 
     def test_evaluator(**kwargs):
         return Evaluation(
-            **{
-                "name": "persistence_test",
-                "value": 0.85,
-                "comment": "Test evaluation for persistence",
-            }
+            name="persistence_test",
+            value=0.85,
+            comment="Test evaluation for persistence",
         )
 
     def test_run_evaluator(**kwargs):
         return Evaluation(
-            **{
-                "name": "persistence_run_test",
-                "value": 0.9,
-                "comment": "Test run evaluation for persistence",
-            }
+            name="persistence_run_test",
+            value=0.9,
+            comment="Test run evaluation for persistence",
         )
 
     result = dataset.run_experiment(
@@ -590,9 +576,9 @@ def test_scores_are_persisted():
         run_evaluators=[test_run_evaluator],
     )
 
-    assert result["dataset_run_id"] is not None
-    assert len(result["item_results"]) == 1
-    assert len(result["run_evaluations"]) == 1
+    assert result.dataset_run_id is not None
+    assert len(result.item_results) == 1
+    assert len(result.run_evaluations) == 1
 
     langfuse_client.flush()
     time.sleep(3)
@@ -650,9 +636,9 @@ def test_multiple_experiments_on_same_dataset():
     time.sleep(2)
 
     # Both experiments should have different run IDs
-    assert result1["dataset_run_id"] is not None
-    assert result2["dataset_run_id"] is not None
-    assert result1["dataset_run_id"] != result2["dataset_run_id"]
+    assert result1.dataset_run_id is not None
+    assert result2.dataset_run_id is not None
+    assert result1.dataset_run_id != result2.dataset_run_id
 
     # Verify both runs exist in database
     api = get_api()
@@ -679,10 +665,10 @@ def test_format_experiment_results_basic():
     )
 
     # Basic validation that result structure is correct for formatting
-    assert len(result["item_results"]) == 1
-    assert len(result["run_evaluations"]) == 1
-    assert "trace_id" in result["item_results"][0]
-    assert "evaluations" in result["item_results"][0]
+    assert len(result.item_results) == 1
+    assert len(result.run_evaluations) == 1
+    assert hasattr(result.item_results[0], "trace_id")
+    assert hasattr(result.item_results[0], "evaluations")
 
     langfuse_client.flush()
     time.sleep(1)

@@ -237,11 +237,20 @@ class DatasetClient:
                 Will be combined with individual item metadata.
 
         Returns:
-            ExperimentResult dictionary containing:
+            ExperimentResult object containing:
+            - name: The experiment name
+            - description: Optional experiment description
             - item_results: Results for each dataset item with outputs and evaluations
             - run_evaluations: Aggregate evaluation results for the entire run
             - dataset_run_id: ID of the created dataset run in Langfuse
             - dataset_run_url: Direct URL to view the experiment results in Langfuse UI
+
+            The result object provides a format() method for human-readable output:
+            ```python
+            result = dataset.run_experiment(...)
+            print(result.format())  # Summary view
+            print(result.format(include_item_results=True))  # Detailed view
+            ```
 
         Raises:
             ValueError: If the dataset has no items or no Langfuse client is available
@@ -372,8 +381,8 @@ class DatasetClient:
 
             # Both experiments are now visible in Langfuse for easy comparison
             print("Compare results in Langfuse:")
-            print(f"GPT-4: {result_gpt4['dataset_run_url']}")
-            print(f"Custom: {result_custom['dataset_run_url']}")
+            print(f"GPT-4: {result_gpt4.dataset_run_url}")
+            print(f"Custom: {result_custom.dataset_run_url}")
             ```
 
         Note:

@@ -7,6 +7,7 @@ and result formatting.
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -93,12 +94,13 @@ Represents the collection of items to process in an experiment. Can be either:
 """
 
 
-class Evaluation(TypedDict, total=False):
-    """Structure for evaluation results returned by evaluator functions.
+@dataclass(frozen=True)
+class Evaluation:
+    """Represents an evaluation result for an experiment item.
 
-    This TypedDict defines the standardized format that all evaluator functions
-    must return. It provides a consistent structure for storing evaluation metrics
-    and their metadata across different types of evaluators.
+    This class provides a strongly-typed way to create evaluation results in evaluator functions.
+    Users should import this class and return instances instead of dictionaries for better
+    type safety and IDE support.
 
     Attributes:
         name: Unique identifier for the evaluation metric. Should be descriptive
@@ -115,67 +117,128 @@ class Evaluation(TypedDict, total=False):
         metadata: Optional structured metadata about the evaluation process.
             Can include confidence scores, intermediate calculations, model versions,
             or any other relevant technical details.
-        data_type: Optional score data type; one of NUMERIC,CATEGORICAL, or BOOLEAN; default: NUMERIC
+        data_type: Optional score data type; one of NUMERIC, CATEGORICAL, or BOOLEAN; default: NUMERIC
         config_id: Optional Langfuse score config id
 
     Examples:
-        Quantitative accuracy evaluation:
+        Basic accuracy evaluation:
         ```python
-        accuracy_result: Evaluation = {
-            "name": "accuracy",
-            "value": 0.85,
-            "comment": "85% of responses were correct",
-            "metadata": {"total_items": 100, "correct_items": 85}
-        }
+        from langfuse import Evaluation
+
+        def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
+            if not expected_output:
+                return Evaluation(name="accuracy", value=None, comment="No expected output")
+
+            is_correct = output.strip().lower() == expected_output.strip().lower()
+            return Evaluation(
+                name="accuracy",
+                value=1.0 if is_correct else 0.0,
+                comment="Correct answer" if is_correct else "Incorrect answer"
+            )
         ```
 
-        Qualitative assessment:
+        Multi-metric evaluator:
         ```python
-        sentiment_result: Evaluation = {
-            "name": "sentiment",
-            "value": "positive",
-            "comment": "Response expresses optimistic viewpoint",
-            "metadata": {"confidence": 0.92, "model": "sentiment-analyzer-v2"}
-        }
+        def comprehensive_evaluator(*, input, output, expected_output=None, **kwargs):
+            return [
+                Evaluation(name="length", value=len(output), comment=f"Output length: {len(output)} chars"),
+                Evaluation(name="has_greeting", value="hello" in output.lower(), comment="Contains greeting"),
+                Evaluation(
+                    name="quality",
+                    value=0.85,
+                    comment="High quality response",
+                    metadata={"confidence": 0.92, "model": "gpt-4"}
+                )
+            ]
         ```
 
-        Binary check:
+        Categorical evaluation:
         ```python
-        safety_result: Evaluation = {
-            "name": "safety_check",
-            "value": True,
-            "comment": "Content passes all safety filters"
-        }
+        def sentiment_evaluator(*, input, output, **kwargs):
+            sentiment = analyze_sentiment(output)  # Returns "positive", "negative", or "neutral"
+            return Evaluation(
+                name="sentiment",
+                value=sentiment,
+                comment=f"Response expresses {sentiment} sentiment",
+                data_type="CATEGORICAL"
+            )
         ```
 
-        Failed evaluation:
+        Failed evaluation with error handling:
         ```python
-        failed_result: Evaluation = {
-            "name": "external_api_score",
-            "value": None,
-            "comment": "External API unavailable",
-            "metadata": {"error": "timeout", "retry_count": 3}
-        }
+        def external_api_evaluator(*, input, output, **kwargs):
+            try:
+                score = external_api.evaluate(output)
+                return Evaluation(name="external_score", value=score)
+            except Exception as e:
+                return Evaluation(
+                    name="external_score",
+                    value=None,
+                    comment=f"API unavailable: {e}",
+                    metadata={"error": str(e), "retry_count": 3}
+                )
         ```
+
+    Note:
+        This class is immutable (frozen=True) to ensure evaluation results cannot be
+        accidentally modified after creation. All fields except name and value are optional.
     """
 
     name: str
     value: Union[int, float, str, bool, None]
-    comment: Optional[str]
-    metadata: Optional[Dict[str, Any]]
-    data_type: Optional[ScoreDataType]
-    config_id: Optional[str]
+    comment: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    data_type: Optional[ScoreDataType] = None
+    config_id: Optional[str] = None
 
 
-class ExperimentItemResult(TypedDict):
+@dataclass(frozen=True)
+class ExperimentItemResult:
     """Result structure for individual experiment items.
 
-    Args:
-        item: The original experiment item that was processed
-        output: The actual output produced by the task
-        evaluations: List of evaluation results for this item
-        trace_id: Langfuse trace ID for this item's execution
-        dataset_run_id: Dataset run ID if this item was part of a Langfuse dataset
+    This dataclass represents the complete result of processing a single item
+    during an experiment run, including the original input, task output,
+    evaluations, and tracing information.
+
+    Attributes:
+        item: The original experiment item that was processed. Can be either
+            a dictionary with 'input', 'expected_output', and 'metadata' keys,
+            or a DatasetItemClient from Langfuse datasets.
+        output: The actual output produced by the task function for this item.
+            Can be any type depending on what your task function returns.
+        evaluations: List of evaluation results for this item. Each evaluation
+            contains a name, value, optional comment, and optional metadata.
+        trace_id: Optional Langfuse trace ID for this item's execution. Used
+            to link the experiment result with the detailed trace in Langfuse UI.
+        dataset_run_id: Optional dataset run ID if this item was part of a
+            Langfuse dataset. None for local experiments.
+
+    Examples:
+        Accessing item result data:
+        ```python
+        result = langfuse.run_experiment(...)
+        for item_result in result.item_results:
+            print(f"Input: {item_result.item}")
+            print(f"Output: {item_result.output}")
+            print(f"Trace: {item_result.trace_id}")
+
+            # Access evaluations
+            for evaluation in item_result.evaluations:
+                print(f"{evaluation.name}: {evaluation.value}")
+        ```
+
+        Working with different item types:
+        ```python
+        # Local experiment item (dict)
+        if isinstance(item_result.item, dict):
+            input_data = item_result.item["input"]
+            expected = item_result.item.get("expected_output")
+
+        # Langfuse dataset item (object with attributes)
+        else:
+            input_data = item_result.item.input
+            expected = item_result.item.expected_output
+        ```
     """
 
     item: ExperimentItem
@@ -185,22 +248,291 @@ class ExperimentItemResult(TypedDict):
     dataset_run_id: Optional[str]
 
 
-class ExperimentResult(TypedDict):
+class ExperimentResult:
     """Complete result structure for experiment execution.
 
-    Args:
-        item_results: Results from processing each individual data item
-        run_evaluations: Results from run-level evaluators
-        dataset_run_id: ID of the dataset run (if using Langfuse datasets)
-        dataset_run_url: URL to view the dataset run in Langfuse UI
+    This class encapsulates the complete results of running an experiment on a dataset,
+    including individual item results, aggregate run-level evaluations, and metadata
+    about the experiment execution.
+
+    Attributes:
+        name: The name of the experiment as specified during execution
+        description: Optional description of the experiment's purpose or methodology
+        item_results: List of results from processing each individual dataset item,
+            containing the original item, task output, evaluations, and trace information
+        run_evaluations: List of aggregate evaluation results computed across all items,
+            such as average scores, statistical summaries, or cross-item analyses
+        dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets)
+        dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI
+
+    Examples:
+        Basic usage with local dataset:
+        ```python
+        result = langfuse.run_experiment(
+            name="Capital Cities Test",
+            data=local_data,
+            task=generate_capital,
+            evaluators=[accuracy_check]
+        )
+
+        print(f"Processed {len(result.item_results)} items")
+        print(result.format())  # Human-readable summary
+
+        # Access individual results
+        for item_result in result.item_results:
+            print(f"Input: {item_result.item}")
+            print(f"Output: {item_result.output}")
+            print(f"Scores: {item_result.evaluations}")
+        ```
+
+        Usage with Langfuse datasets:
+        ```python
+        dataset = langfuse.get_dataset("qa-eval-set")
+        result = dataset.run_experiment(
+            name="GPT-4 QA Evaluation",
+            task=answer_question,
+            evaluators=[relevance_check, accuracy_check]
+        )
+
+        # View in Langfuse UI
+        if result.dataset_run_url:
+            print(f"View detailed results: {result.dataset_run_url}")
+        ```
+
+        Formatted output:
+        ```python
+        # Get summary view
+        summary = result.format()
+        print(summary)
+
+        # Get detailed view with individual items
+        detailed = result.format(include_item_results=True)
+        with open("experiment_report.txt", "w") as f:
+            f.write(detailed)
+        ```
     """
 
-    name: str
-    description: Optional[str]
-    item_results: List[ExperimentItemResult]
-    run_evaluations: List[Evaluation]
-    dataset_run_id: Optional[str]
-    dataset_run_url: Optional[str]
+    def __init__(
+        self,
+        name: str,
+        description: Optional[str],
+        item_results: List[ExperimentItemResult],
+        run_evaluations: List[Evaluation],
+        dataset_run_id: Optional[str] = None,
+        dataset_run_url: Optional[str] = None,
+    ):
+        """Initialize an ExperimentResult with the provided data.
+
+        Args:
+            name: The name of the experiment
+            description: Optional description of the experiment
+            item_results: List of results from processing individual dataset items
+            run_evaluations: List of aggregate evaluation results for the entire run
+            dataset_run_id: Optional ID of the dataset run (for Langfuse datasets)
+            dataset_run_url: Optional URL to view results in Langfuse UI
+        """
+        self.name = name
+        self.description = description
+        self.item_results = item_results
+        self.run_evaluations = run_evaluations
+        self.dataset_run_id = dataset_run_id
+        self.dataset_run_url = dataset_run_url
+
+    def format(self, *, include_item_results: bool = False) -> str:
+        r"""Format the experiment result for human-readable display.
+
+        Converts the experiment result into a nicely formatted string suitable for
+        console output, logging, or reporting. The output includes experiment overview,
+        aggregate statistics, and optionally individual item details.
+
+        This method provides a comprehensive view of experiment performance including:
+        - Experiment metadata (name, description, item count)
+        - List of evaluation metrics used across items
+        - Average scores computed across all processed items
+        - Run-level evaluation results (aggregate metrics)
+        - Links to view detailed results in Langfuse UI (when available)
+        - Individual item details (when requested)
+
+        Args:
+            include_item_results: Whether to include detailed results for each individual
+                item in the formatted output. When False (default), only shows aggregate
+                statistics and summary information. When True, includes input/output/scores
+                for every processed item, making the output significantly longer but more
+                detailed for debugging and analysis purposes.
+
+        Returns:
+            A formatted multi-line string containing:
+            - Experiment name and description (if provided)
+            - Total number of items successfully processed
+            - List of all evaluation metrics that were applied
+            - Average scores across all items for each numeric metric
+            - Run-level evaluation results with comments
+            - Dataset run URL for viewing in Langfuse UI (if applicable)
+            - Individual item details including inputs, outputs, and scores (if requested)
+
+        Examples:
+            Basic usage showing aggregate results only:
+            ```python
+            result = langfuse.run_experiment(
+                name="Capital Cities",
+                data=dataset,
+                task=generate_capital,
+                evaluators=[accuracy_evaluator]
+            )
+
+            print(result.format())
+            # Output:
+            # ──────────────────────────────────────────────────
+            # 📊 Capital Cities
+            # 100 items
+            # Evaluations:
+            #   • accuracy
+            # Average Scores:
+            #   • accuracy: 0.850
+            ```
+
+            Detailed output including all individual item results:
+            ```python
+            detailed_report = result.format(include_item_results=True)
+            print(detailed_report)
+            # Output includes each item:
+            # 1. Item 1:
+            #    Input:    What is the capital of France?
+            #    Expected: Paris
+            #    Actual:   The capital of France is Paris.
+            #    Scores:
+            #      • accuracy: 1.000
+            #        💭 Correct answer found
+            # [... continues for all items ...]
+            ```
+
+            Saving formatted results to file for reporting:
+            ```python
+            with open("experiment_report.txt", "w") as f:
+                f.write(result.format(include_item_results=True))
+
+            # Or create summary report
+            summary = result.format()  # Aggregate view only
+            print(f"Experiment Summary:\\n{summary}")
+            ```
+
+            Integration with logging systems:
+            ```python
+            import logging
+            logger = logging.getLogger("experiments")
+
+            # Log summary after experiment
+            logger.info(f"Experiment completed:\\n{result.format()}")
+
+            # Log detailed results for failed experiments
+            if any(eval['value'] < threshold for eval in result.run_evaluations):
+                logger.warning(f"Poor performance detected:\\n{result.format(include_item_results=True)}")
+            ```
+        """
+        if not self.item_results:
+            return "No experiment results to display."
+
+        output = ""
+
+        # Individual results section
+        if include_item_results:
+            for i, result in enumerate(self.item_results):
+                output += f"\\n{i + 1}. Item {i + 1}:\\n"
+
+                # Extract and display input
+                item_input = None
+                if isinstance(result.item, dict):
+                    item_input = result.item.get("input")
+                elif hasattr(result.item, "input"):
+                    item_input = result.item.input
+
+                if item_input is not None:
+                    output += f"   Input:    {_format_value(item_input)}\\n"
+
+                # Extract and display expected output
+                expected_output = None
+                if isinstance(result.item, dict):
+                    expected_output = result.item.get("expected_output")
+                elif hasattr(result.item, "expected_output"):
+                    expected_output = result.item.expected_output
+
+                if expected_output is not None:
+                    output += f"   Expected: {_format_value(expected_output)}\\n"
+                output += f"   Actual:   {_format_value(result.output)}\\n"
+
+                # Display evaluation scores
+                if result.evaluations:
+                    output += "   Scores:\\n"
+                    for evaluation in result.evaluations:
+                        score = evaluation.value
+                        if isinstance(score, (int, float)):
+                            score = f"{score:.3f}"
+                        output += f"     • {evaluation.name}: {score}"
+                        if evaluation.comment:
+                            output += f"\\n       💭 {evaluation.comment}"
+                        output += "\\n"
+
+                # Display trace link if available
+                if result.trace_id:
+                    output += f"\\n   Trace ID: {result.trace_id}\\n"
+        else:
+            output += f"Individual Results: Hidden ({len(self.item_results)} items)\\n"
+            output += "💡 Set include_item_results=True to view them\\n"
+
+        # Experiment overview section
+        output += f"\\n{'─' * 50}\\n"
+        output += f"📊 {self.name}"
+        if self.description:
+            output += f" - {self.description}"
+
+        output += f"\\n{len(self.item_results)} items"
+
+        # Collect unique evaluation names across all items
+        evaluation_names = set()
+        for result in self.item_results:
+            for evaluation in result.evaluations:
+                evaluation_names.add(evaluation.name)
+
+        if evaluation_names:
+            output += "\\nEvaluations:"
+            for eval_name in evaluation_names:
+                output += f"\\n  • {eval_name}"
+            output += "\\n"
+
+        # Calculate and display average scores
+        if evaluation_names:
+            output += "\\nAverage Scores:"
+            for eval_name in evaluation_names:
+                scores = []
+                for result in self.item_results:
+                    for evaluation in result.evaluations:
+                        if evaluation.name == eval_name and isinstance(
+                            evaluation.value, (int, float)
+                        ):
+                            scores.append(evaluation.value)
+
+                if scores:
+                    avg = sum(scores) / len(scores)
+                    output += f"\\n  • {eval_name}: {avg:.3f}"
+            output += "\\n"
+
+        # Display run-level evaluations
+        if self.run_evaluations:
+            output += "\\nRun Evaluations:"
+            for run_eval in self.run_evaluations:
+                score = run_eval.value
+                if isinstance(score, (int, float)):
+                    score = f"{score:.3f}"
+                output += f"\\n  • {run_eval.name}: {score}"
+                if run_eval.comment:
+                    output += f"\\n    💭 {run_eval.comment}"
+            output += "\\n"
+
+        # Add dataset run URL if available
+        if self.dataset_run_url:
+            output += f"\\n🔗 Dataset Run:\\n   {self.dataset_run_url}"
+
+        return output
 
 
 class TaskFunction(Protocol):
@@ -303,7 +635,7 @@ class EvaluatorFunction(Protocol):
     ) -> Union[
         Evaluation, List[Evaluation], Awaitable[Union[Evaluation, List[Evaluation]]]
     ]:
-        """Evaluate a task output for quality, correctness, or other metrics.
+        r"""Evaluate a task output for quality, correctness, or other metrics.
 
         This method should implement specific evaluation logic such as accuracy checking,
         similarity measurement, toxicity detection, fluency assessment, etc.
@@ -440,7 +772,7 @@ class RunEvaluatorFunction(Protocol):
     ) -> Union[
         Evaluation, List[Evaluation], Awaitable[Union[Evaluation, List[Evaluation]]]
     ]:
-        """Evaluate the entire experiment run with aggregate metrics.
+        r"""Evaluate the entire experiment run with aggregate metrics.
 
         This method should implement aggregate evaluation logic such as computing
         averages, calculating distributions, finding correlations, detecting patterns
@@ -480,9 +812,9 @@ class RunEvaluatorFunction(Protocol):
 
                 accuracy_values = []
                 for result in item_results:
-                    for evaluation in result["evaluations"]:
-                        if evaluation["name"] == "accuracy":
-                            accuracy_values.append(evaluation["value"])
+                    for evaluation in result.evaluations:
+                        if evaluation.name == "accuracy":
+                            accuracy_values.append(evaluation.value)
 
                 if not accuracy_values:
                     return {"name": "avg_accuracy", "value": None, "comment": "No accuracy evaluations found"}
@@ -504,7 +836,7 @@ class RunEvaluatorFunction(Protocol):
                 results = []
 
                 # Calculate output length statistics
-                lengths = [len(str(result["output"])) for result in item_results]
+                lengths = [len(str(result.output)) for result in item_results]
                 results.extend([
                     {"name": "avg_output_length", "value": sum(lengths) / len(lengths)},
                     {"name": "min_output_length", "value": min(lengths)},
@@ -526,7 +858,7 @@ class RunEvaluatorFunction(Protocol):
             ```python
             async def llm_batch_analysis(*, item_results, **kwargs):
                 # Prepare batch analysis prompt
-                outputs = [result["output"] for result in item_results]
+                outputs = [result.output for result in item_results]
                 prompt = f"Analyze these {len(outputs)} outputs for common themes:\n"
                 prompt += "\n".join(f"{i+1}. {output}" for i, output in enumerate(outputs))
 
@@ -550,9 +882,9 @@ class RunEvaluatorFunction(Protocol):
                 score_by_metric = {}
 
                 for result in item_results:
-                    for evaluation in result["evaluations"]:
-                        metric_name = evaluation["name"]
-                        value = evaluation["value"]
+                    for evaluation in result.evaluations:
+                        metric_name = evaluation.name
+                        value = evaluation.value
 
                         if isinstance(value, (int, float)):
                             all_scores.append(value)
@@ -586,167 +918,6 @@ class RunEvaluatorFunction(Protocol):
         ...
 
 
-def format_experiment_result(
-    experiment_result: ExperimentResult,
-    *,
-    include_item_results: bool = False,
-) -> str:
-    """Format an experiment result for human-readable display.
-
-    Takes an ExperimentResult object and converts it into a nicely formatted
-    string suitable for console output or logging. The output includes experiment
-    overview, aggregate statistics, and optionally individual item details.
-
-    Args:
-        experiment_result: Complete experiment result containing name, description,
-            item results, run evaluations, and dataset run information.
-        include_item_results: Whether to include detailed results for each individual
-            item in the output. When False (default), only shows aggregate statistics.
-            Set to True to see input/output/scores for every processed item.
-
-    Returns:
-        A formatted multi-line string containing:
-        - Experiment name and description
-        - Number of items processed
-        - List of evaluation metrics used
-        - Average scores across all items
-        - Run-level evaluation results
-        - Dataset run URL (if available)
-        - Individual item details (if include_item_results=True)
-
-    Examples:
-        Basic usage with aggregate results only:
-        ```python
-        result = langfuse.run_experiment(...)
-        print(format_experiment_result(result))
-        ```
-
-        Detailed output including individual items:
-        ```python
-        result = langfuse.run_experiment(...)
-        detailed_report = format_experiment_result(
-            result,
-            include_item_results=True
-        )
-        print(detailed_report)
-        ```
-
-        Save formatted results to file:
-        ```python
-        result = dataset.run_experiment(...)
-        with open("experiment_report.txt", "w") as f:
-            f.write(format_experiment_result(result, include_item_results=True))
-        ```
-    """
-    item_results = experiment_result["item_results"]
-    run_evaluations = experiment_result["run_evaluations"]
-    dataset_run_url = experiment_result["dataset_run_url"]
-
-    if not item_results:
-        return "No experiment results to display."
-
-    output = ""
-
-    # Individual results
-    if include_item_results:
-        for i, result in enumerate(item_results):
-            output += f"\n{i + 1}. Item {i + 1}:\n"
-
-            # Input, expected, and actual
-            item_input = None
-            if isinstance(result["item"], dict):
-                item_input = result["item"].get("input")
-            elif hasattr(result["item"], "input"):
-                item_input = result["item"].input
-
-            if item_input is not None:
-                output += f"   Input:    {_format_value(item_input)}\n"
-
-            expected_output = None
-            if isinstance(result["item"], dict):
-                expected_output = result["item"].get("expected_output")
-            elif hasattr(result["item"], "expected_output"):
-                expected_output = result["item"].expected_output
-
-            if expected_output is not None:
-                output += f"   Expected: {_format_value(expected_output)}\n"
-            output += f"   Actual:   {_format_value(result['output'])}\n"
-
-            # Scores
-            if result["evaluations"]:
-                output += "   Scores:\n"
-                for evaluation in result["evaluations"]:
-                    score = evaluation["value"]
-                    if isinstance(score, (int, float)):
-                        score = f"{score:.3f}"
-                    output += f"     • {evaluation['name']}: {score}"
-                    if evaluation.get("comment"):
-                        output += f"\n       💭 {evaluation['comment']}"
-                    output += "\n"
-
-            # Trace link
-            if result.get("trace_id"):
-                # Note: We'd need the langfuse client to generate the actual URL
-                output += f"\n   Trace ID: {result['trace_id']}\n"
-    else:
-        output += f"Individual Results: Hidden ({len(item_results)} items)\n"
-        output += "💡 Set include_item_results=True to view them\n"
-
-    # Experiment Overview
-    output += f"\n{'─' * 50}\n"
-    output += f"📊 {experiment_result['name']}"
-    if experiment_result["description"]:
-        output += f" - {experiment_result['description']}"
-
-    output += f"\n{len(item_results)} items"
-
-    # Get unique evaluation names
-    evaluation_names = set()
-    for result in item_results:
-        for evaluation in result["evaluations"]:
-            evaluation_names.add(evaluation["name"])
-
-    if evaluation_names:
-        output += "\nEvaluations:"
-        for eval_name in evaluation_names:
-            output += f"\n  • {eval_name}"
-        output += "\n"
-
-    # Average scores
-    if evaluation_names:
-        output += "\nAverage Scores:"
-        for eval_name in evaluation_names:
-            scores = []
-            for result in item_results:
-                for evaluation in result["evaluations"]:
-                    if evaluation["name"] == eval_name and isinstance(
-                        evaluation["value"], (int, float)
-                    ):
-                        scores.append(evaluation["value"])
-
-            if scores:
-                avg = sum(scores) / len(scores)
-                output += f"\n  • {eval_name}: {avg:.3f}"
-        output += "\n"
-
-    # Run evaluations
-    if run_evaluations:
-        output += "\nRun Evaluations:"
-        for run_eval in run_evaluations:
-            score = run_eval["value"]
-            if isinstance(score, (int, float)):
-                score = f"{score:.3f}"
-            output += f"\n  • {run_eval['name']}: {score}"
-            if run_eval.get("comment"):
-                output += f"\n    💭 {run_eval['comment']}"
-        output += "\n"
-
-    if dataset_run_url:
-        output += f"\n🔗 Dataset Run:\n   {dataset_run_url}"
-
-    return output
-
-
 def _format_value(value: Any) -> str:
     """Format a value for display."""
     if isinstance(value, str):
@@ -766,7 +937,7 @@ async def _run_evaluator(
             result = await result
 
         # Normalize to list
-        if isinstance(result, dict):
+        if isinstance(result, (dict, Evaluation)):
             return [result]
 
         elif isinstance(result, list):
@@ -811,7 +982,7 @@ def create_evaluator_from_autoevals(
         output: Any,
         expected_output: Any,
         metadata: Optional[Dict[str, Any]],
-        **kwargs: Dict[str, Any],
+        **langfuse_kwargs: Dict[str, Any],
     ) -> Evaluation:
         evaluation = autoevals_evaluator(
             input=input, output=output, expected=expected_output, **kwargs

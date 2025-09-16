@@ -2543,11 +2543,11 @@ class Langfuse:
                 evaluators=[length_evaluator]
             )
 
-            print(f"Processed {len(result['item_results'])} items")
-            for item_result in result["item_results"]:
-                print(f"Input: {item_result['item']['input']}")
-                print(f"Output: {item_result['output']}")
-                print(f"Evaluations: {item_result['evaluations']}")
+            print(f"Processed {len(result.item_results)} items")
+            for item_result in result.item_results:
+                print(f"Input: {item_result.item['input']}")
+                print(f"Output: {item_result.output}")
+                print(f"Evaluations: {item_result.evaluations}")
             ```
 
             Advanced experiment with async task and multiple evaluators:
@@ -2576,9 +2576,9 @@ class Langfuse:
 
             def average_accuracy(*, item_results, **kwargs):
                 accuracies = [
-                    eval["value"] for result in item_results
-                    for eval in result["evaluations"]
-                    if eval["name"] == "accuracy"
+                    eval.value for result in item_results
+                    for eval in result.evaluations
+                    if eval.name == "accuracy"
                 ]
                 return {
                     "name": "average_accuracy",
@@ -2656,7 +2656,7 @@ class Langfuse:
         semaphore = asyncio.Semaphore(max_concurrency)
 
         # Process all items
-        async def process_item(item: ExperimentItem) -> dict:
+        async def process_item(item: ExperimentItem) -> ExperimentItemResult:
             async with semaphore:
                 return await self._process_experiment_item(
                     item, task, evaluators, name, description, metadata
@@ -2671,7 +2671,7 @@ class Langfuse:
         for i, result in enumerate(item_results):
             if isinstance(result, Exception):
                 langfuse_logger.error(f"Item {i} failed: {result}")
-            elif isinstance(result, dict):
+            elif isinstance(result, ExperimentItemResult):
                 valid_results.append(result)  # type: ignore
 
         # Run experiment-level evaluators
@@ -2686,9 +2686,7 @@ class Langfuse:
                 langfuse_logger.error(f"Run evaluator failed: {e}")
 
         # Generate dataset run URL if applicable
-        dataset_run_id = (
-            valid_results[0].get("dataset_run_id") if valid_results else None
-        )
+        dataset_run_id = valid_results[0].dataset_run_id if valid_results else None
         dataset_run_url = None
         if dataset_run_id and data:
             try:
@@ -2714,11 +2712,11 @@ class Langfuse:
                 if dataset_run_id:
                     self.create_score(
                         dataset_run_id=dataset_run_id,
-                        name=evaluation.get("name") or "<unknown>",
-                        value=evaluation.get("value"),  # type: ignore
-                        comment=evaluation.get("comment"),
-                        metadata=evaluation.get("metadata"),
-                        data_type=evaluation.get("data_type"),  # type: ignore
+                        name=evaluation.name or "<unknown>",
+                        value=evaluation.value,  # type: ignore
+                        comment=evaluation.comment,
+                        metadata=evaluation.metadata,
+                        data_type=evaluation.data_type,  # type: ignore
                     )
 
             except Exception as e:
@@ -2727,14 +2725,14 @@ class Langfuse:
         # Flush scores and traces
         self.flush()
 
-        return {
-            "name": name,
-            "description": description,
-            "item_results": valid_results,
-            "run_evaluations": run_evaluations,
-            "dataset_run_id": dataset_run_id,
-            "dataset_run_url": dataset_run_url,
-        }
+        return ExperimentResult(
+            name=name,
+            description=description,
+            item_results=valid_results,
+            run_evaluations=run_evaluations,
+            dataset_run_id=dataset_run_id,
+            dataset_run_url=dataset_run_url,
+        )
 
     async def _process_experiment_item(
         self,
@@ -2744,7 +2742,7 @@ class Langfuse:
         experiment_name: str,
         experiment_description: Optional[str],
         experiment_metadata: Dict[str, Any],
-    ) -> dict:
+    ) -> ExperimentItemResult:
         # Execute task with tracing
         span_name = "experiment-item-run"
 
@@ -2842,22 +2840,24 @@ class Langfuse:
                         for evaluation in eval_results:
                             self.create_score(
                                 trace_id=trace_id,
-                                name=evaluation.get("name", "unknown"),
-                                value=evaluation.get("value", -1),  # type: ignore
-                                comment=evaluation.get("comment"),
-                                metadata=evaluation.get("metadata"),
+                                name=evaluation.name or "unknown",
+                                value=evaluation.value
+                                if evaluation.value is not None
+                                else -1,  # type: ignore
+                                comment=evaluation.comment,
+                                metadata=evaluation.metadata,
                             )
 
                     except Exception as e:
                         langfuse_logger.error(f"Evaluator failed: {e}")
 
-                return {
-                    "item": item,
-                    "output": output,
-                    "evaluations": evaluations,
-                    "trace_id": trace_id,
-                    "dataset_run_id": dataset_run_id,
-                }
+                return ExperimentItemResult(
+                    item=item,
+                    output=output,
+                    evaluations=evaluations,
+                    trace_id=trace_id,
+                    dataset_run_id=dataset_run_id,
+                )
 
             except Exception as e:
                 span.update(
