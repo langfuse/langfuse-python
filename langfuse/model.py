@@ -380,9 +380,11 @@ class ChatPromptClient(BasePromptClient):
                                 compiled_msg = dict(msg)  # type: ignore
                                 # Ensure role and content are always present
                                 compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
-                                compiled_msg["content"] = TemplateParser.compile_template(
-                                    msg.get("content", ""),  # type: ignore
-                                    kwargs,
+                                compiled_msg["content"] = (
+                                    TemplateParser.compile_template(
+                                        msg.get("content", ""),  # type: ignore
+                                        kwargs,
+                                    )
                                 )
                                 compiled_messages.append(compiled_msg)
                             else:
