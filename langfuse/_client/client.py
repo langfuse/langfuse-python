@@ -2514,7 +2514,8 @@ class Langfuse:
                 If `data` are Langfuse dataset items, the metadata will be attached to the dataset run, too.
 
         Returns:
-            ExperimentResult dictionary containing:
+            ExperimentResult containing:
+            - run_name: The experiment run name. This is equal to the dataset run name if experiment was on Langfuse dataset.
             - item_results: List of results for each processed item with outputs and evaluations
             - run_evaluations: List of aggregate evaluation results for the entire run
             - dataset_run_id: ID of the dataset run (if using Langfuse datasets)
