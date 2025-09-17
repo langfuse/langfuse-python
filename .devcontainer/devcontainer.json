@@ -1,0 +1,4 @@
+{
+  "name": "langfuse-development",
+  "postCreateCommand": "poetry self add poetry-dotenv-plugin && poetry self add poetry-bumpversion && poetry install --all-extras && poetry run pre-commit install"
+}
