@@ -13,6 +13,8 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
+from .types.delete_membership_request import DeleteMembershipRequest
+from .types.membership_deletion_response import MembershipDeletionResponse
 from .types.membership_request import MembershipRequest
 from .types.membership_response import MembershipResponse
 from .types.memberships_response import MembershipsResponse
@@ -159,6 +161,80 @@ class OrganizationsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def delete_organization_membership(
+        self,
+        *,
+        request: DeleteMembershipRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MembershipDeletionResponse:
+        """
+        Delete a membership from the organization associated with the API key (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        request : DeleteMembershipRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MembershipDeletionResponse
+
+        Examples
+        --------
+        from langfuse import DeleteMembershipRequest
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.organizations.delete_organization_membership(
+            request=DeleteMembershipRequest(
+                user_id="userId",
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/public/organizations/memberships",
+            method="DELETE",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    MembershipDeletionResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     def get_project_memberships(
         self,
         project_id: str,
@@ -280,6 +356,84 @@ class OrganizationsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(MembershipResponse, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_project_membership(
+        self,
+        project_id: str,
+        *,
+        request: DeleteMembershipRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MembershipDeletionResponse:
+        """
+        Delete a membership from a specific project (requires organization-scoped API key). The user must be a member of the organization.
+
+        Parameters
+        ----------
+        project_id : str
+
+        request : DeleteMembershipRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MembershipDeletionResponse
+
+        Examples
+        --------
+        from langfuse import DeleteMembershipRequest
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.organizations.delete_project_membership(
+            project_id="projectId",
+            request=DeleteMembershipRequest(
+                user_id="userId",
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/memberships",
+            method="DELETE",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    MembershipDeletionResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -519,6 +673,88 @@ class AsyncOrganizationsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    async def delete_organization_membership(
+        self,
+        *,
+        request: DeleteMembershipRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MembershipDeletionResponse:
+        """
+        Delete a membership from the organization associated with the API key (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        request : DeleteMembershipRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MembershipDeletionResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import DeleteMembershipRequest
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.organizations.delete_organization_membership(
+                request=DeleteMembershipRequest(
+                    user_id="userId",
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/public/organizations/memberships",
+            method="DELETE",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    MembershipDeletionResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     async def get_project_memberships(
         self,
         project_id: str,
@@ -656,6 +892,92 @@ class AsyncOrganizationsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(MembershipResponse, _response.json())  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_project_membership(
+        self,
+        project_id: str,
+        *,
+        request: DeleteMembershipRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MembershipDeletionResponse:
+        """
+        Delete a membership from a specific project (requires organization-scoped API key). The user must be a member of the organization.
+
+        Parameters
+        ----------
+        project_id : str
+
+        request : DeleteMembershipRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MembershipDeletionResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import DeleteMembershipRequest
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.organizations.delete_project_membership(
+                project_id="projectId",
+                request=DeleteMembershipRequest(
+                    user_id="userId",
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/projects/{jsonable_encoder(project_id)}/memberships",
+            method="DELETE",
+            json=request,
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    MembershipDeletionResponse, _response.json()
+                )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
