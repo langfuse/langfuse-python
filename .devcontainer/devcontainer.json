@@ -1,0 +1,7 @@
+{
+  "name": "Langfuse Python SDK",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
+}
