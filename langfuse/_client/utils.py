@@ -1,10 +1,13 @@
 """Utility functions for Langfuse OpenTelemetry integration.
 
 This module provides utility functions for working with OpenTelemetry spans,
-including formatting and serialization of span data.
+including formatting and serialization of span data, and async execution helpers.
 """
 
+import asyncio
 import json
+import threading
+from typing import Any, Coroutine
 
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk import util
@@ -58,3 +61,67 @@ def span_formatter(span: ReadableSpan) -> str:
         )
         + "\n"
     )
+
+
+class _RunAsyncThread(threading.Thread):
+    """Helper thread class for running async coroutines in a separate thread."""
+
+    def __init__(self, coro: Coroutine[Any, Any, Any]) -> None:
+        self.coro = coro
+        self.result: Any = None
+        self.exception: Exception | None = None
+        super().__init__()
+
+    def run(self) -> None:
+        try:
+            self.result = asyncio.run(self.coro)
+        except Exception as e:
+            self.exception = e
+
+
+def run_async_safely(coro: Coroutine[Any, Any, Any]) -> Any:
+    """Safely run an async coroutine, handling existing event loops.
+
+    This function detects if there's already a running event loop and uses
+    a separate thread if needed to avoid the "asyncio.run() cannot be called
+    from a running event loop" error. This is particularly useful in environments
+    like Jupyter notebooks, FastAPI applications, or other async frameworks.
+
+    Args:
+        coro: The coroutine to run
+
+    Returns:
+        The result of the coroutine
+
+    Raises:
+        Any exception raised by the coroutine
+
+    Example:
+        ```python
+        # Works in both sync and async contexts
+        async def my_async_function():
+            await asyncio.sleep(1)
+            return "done"
+
+        result = run_async_safely(my_async_function())
+        ```
+    """
+    try:
+        # Check if there's already a running event loop
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop, safe to use asyncio.run()
+        return asyncio.run(coro)
+
+    if loop and loop.is_running():
+        # There's a running loop, use a separate thread
+        thread = _RunAsyncThread(coro)
+        thread.start()
+        thread.join()
+
+        if thread.exception:
+            raise thread.exception
+        return thread.result
+    else:
+        # Loop exists but not running, safe to use asyncio.run()
+        return asyncio.run(coro)

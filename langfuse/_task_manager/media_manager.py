@@ -49,7 +49,6 @@ class MediaManager:
 
             self._queue.task_done()
         except Empty:
-            self._log.debug("Queue: Media upload queue is empty, waiting for new jobs")
             pass
         except Exception as e:
             self._log.error(
@@ -248,7 +247,7 @@ class MediaManager:
 
         headers = {"Content-Type": data["content_type"]}
 
-        # In self-hosted setups with GCP, do not add unsupported headers that fail the upload 
+        # In self-hosted setups with GCP, do not add unsupported headers that fail the upload
         is_self_hosted_gcs_bucket = "storage.googleapis.com" in upload_url
 
         if not is_self_hosted_gcs_bucket:

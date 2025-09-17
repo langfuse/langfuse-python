@@ -1468,19 +1468,19 @@ class LangfuseSpan(LangfuseObservationWrapper):
         return self.start_as_current_observation(
             name=name,
             as_type="generation",
-                input=input,
-                output=output,
-                metadata=metadata,
-                version=version,
-                level=level,
-                status_message=status_message,
-                completion_start_time=completion_start_time,
-                model=model,
-                model_parameters=model_parameters,
-                usage_details=usage_details,
-                cost_details=cost_details,
-                prompt=prompt,
-            )
+            input=input,
+            output=output,
+            metadata=metadata,
+            version=version,
+            level=level,
+            status_message=status_message,
+            completion_start_time=completion_start_time,
+            model=model,
+            model_parameters=model_parameters,
+            usage_details=usage_details,
+            cost_details=cost_details,
+            prompt=prompt,
+        )
 
     def create_event(
         self,

@@ -1934,8 +1934,8 @@ def test_start_as_current_observation_types():
 def test_that_generation_like_properties_are_actually_created():
     """Test that generation-like observation types properly support generation properties."""
     from langfuse._client.constants import (
-        get_observation_types_list,
         ObservationTypeGenerationLike,
+        get_observation_types_list,
     )
 
     langfuse = Langfuse()

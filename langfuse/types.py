@@ -1,4 +1,21 @@
-"""@private"""
+"""Public API for all Langfuse types.
+
+This module provides a centralized location for importing commonly used types
+from the Langfuse SDK, making them easily accessible without requiring nested imports.
+
+Example:
+    ```python
+    from langfuse.types import Evaluation, LocalExperimentItem, TaskFunction
+
+    # Define your task function
+    def my_task(*, item: LocalExperimentItem, **kwargs) -> str:
+        return f"Processed: {item['input']}"
+
+    # Define your evaluator
+    def my_evaluator(*, output: str, **kwargs) -> Evaluation:
+        return {"name": "length", "value": len(output)}
+    ```
+"""
 
 from datetime import datetime
 from typing import (
@@ -84,3 +101,14 @@ class ParsedMediaReference(TypedDict):
 class TraceContext(TypedDict):
     trace_id: str
     parent_span_id: NotRequired[str]
+
+
+__all__ = [
+    "SpanLevel",
+    "ScoreDataType",
+    "TraceMetadata",
+    "ObservationParams",
+    "MaskFunction",
+    "ParsedMediaReference",
+    "TraceContext",
+]
