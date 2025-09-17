@@ -32,6 +32,7 @@ from typing import (
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.util._decorator import _AgnosticContextManager
 
+from langfuse._client.attribute_propagation import propagate_attributes
 from langfuse.model import PromptClient
 
 if TYPE_CHECKING:
@@ -256,6 +257,11 @@ class LangfuseObservationWrapper:
             metadata=media_processed_metadata,
             tags=tags,
             public=public,
+        )
+
+        propagate_attributes(
+            current_ctx=None,
+            dict_to_propagate=attributes,
         )
 
         self._otel_span.set_attributes(attributes)

@@ -713,9 +713,7 @@ class Langfuse:
                 level=level,
                 status_message=status_message,
             )
-            # span._observation_type = as_type
-            # span._otel_span.set_attribute("langfuse.observation.type", as_type)
-            # return span
+
 
     def start_generation(
         self,
