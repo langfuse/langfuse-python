@@ -6,6 +6,8 @@ echo "🚀 Setting up Langfuse Python SDK development environment..."
 
 # Install project dependencies including all extras
 echo "📚 Installing project dependencies..."
+poetry self add poetry-dotenv-plugin || true
+poetry self add poetry-bumpversion || true
 poetry install --all-extras
 
 # Setup pre-commit hooks

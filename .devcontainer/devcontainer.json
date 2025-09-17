@@ -3,5 +3,8 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "containerEnv": {
+    "PATH": "/root/.local/bin:$PATH"
+  },
   "postCreateCommand": "bash .devcontainer/post-create.sh"
 }
