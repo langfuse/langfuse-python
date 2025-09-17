@@ -101,6 +101,7 @@ from langfuse.model import (
     ChatPromptClient,
     CreateDatasetItemRequest,
     CreateDatasetRequest,
+    CreateDatasetRunItemRequest,
     Dataset,
     DatasetItem,
     DatasetStatus,
@@ -2806,8 +2807,6 @@ class Langfuse:
                 # Link to dataset run if this is a dataset item
                 if hasattr(item, "id") and hasattr(item, "dataset_id"):
                     try:
-                        from langfuse.model import CreateDatasetRunItemRequest
-
                         dataset_run_item = self.api.dataset_run_items.create(
                             request=CreateDatasetRunItemRequest(
                                 runName=experiment_run_name,
@@ -2815,6 +2814,7 @@ class Langfuse:
                                 metadata=experiment_metadata,
                                 datasetItemId=item.id,  # type: ignore
                                 traceId=trace_id,
+                                observationId=span.id,
                             )
                         )
 
