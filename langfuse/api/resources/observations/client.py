@@ -2,27 +2,29 @@
 
 import datetime as dt
 import typing
-from json.decoder import JSONDecodeError
 
-from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.datetime_utils import serialize_datetime
-from ...core.jsonable_encoder import jsonable_encoder
-from ...core.pydantic_utilities import pydantic_v1
 from ...core.request_options import RequestOptions
-from ..commons.errors.access_denied_error import AccessDeniedError
-from ..commons.errors.error import Error
-from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ..commons.errors.not_found_error import NotFoundError
-from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.observation_level import ObservationLevel
 from ..commons.types.observations_view import ObservationsView
+from .raw_client import AsyncRawObservationsClient, RawObservationsClient
 from .types.observations_views import ObservationsViews
 
 
 class ObservationsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = RawObservationsClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> RawObservationsClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        RawObservationsClient
+        """
+        return self._raw_client
 
     def get(
         self,
@@ -47,7 +49,7 @@ class ObservationsClient:
 
         Examples
         --------
-        from langfuse.client import FernLangfuse
+        from langfuse import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -61,36 +63,10 @@ class ObservationsClient:
             observation_id="observationId",
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/observations/{jsonable_encoder(observation_id)}",
-            method="GET",
-            request_options=request_options,
+        _response = self._raw_client.get(
+            observation_id, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(ObservationsView, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     def get_many(
         self,
@@ -154,7 +130,7 @@ class ObservationsClient:
 
         Examples
         --------
-        from langfuse.client import FernLangfuse
+        from langfuse import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -166,59 +142,38 @@ class ObservationsClient:
         )
         client.observations.get_many()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/public/observations",
-            method="GET",
-            params={
-                "page": page,
-                "limit": limit,
-                "name": name,
-                "userId": user_id,
-                "type": type,
-                "traceId": trace_id,
-                "level": level,
-                "parentObservationId": parent_observation_id,
-                "environment": environment,
-                "fromStartTime": serialize_datetime(from_start_time)
-                if from_start_time is not None
-                else None,
-                "toStartTime": serialize_datetime(to_start_time)
-                if to_start_time is not None
-                else None,
-                "version": version,
-            },
+        _response = self._raw_client.get_many(
+            page=page,
+            limit=limit,
+            name=name,
+            user_id=user_id,
+            type=type,
+            trace_id=trace_id,
+            level=level,
+            parent_observation_id=parent_observation_id,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(ObservationsViews, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
 
 class AsyncObservationsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = AsyncRawObservationsClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> AsyncRawObservationsClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawObservationsClient
+        """
+        return self._raw_client
 
     async def get(
         self,
@@ -245,7 +200,7 @@ class AsyncObservationsClient:
         --------
         import asyncio
 
-        from langfuse.client import AsyncFernLangfuse
+        from langfuse import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -265,36 +220,10 @@ class AsyncObservationsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/observations/{jsonable_encoder(observation_id)}",
-            method="GET",
-            request_options=request_options,
+        _response = await self._raw_client.get(
+            observation_id, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(ObservationsView, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     async def get_many(
         self,
@@ -360,7 +289,7 @@ class AsyncObservationsClient:
         --------
         import asyncio
 
-        from langfuse.client import AsyncFernLangfuse
+        from langfuse import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -378,51 +307,19 @@ class AsyncObservationsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/public/observations",
-            method="GET",
-            params={
-                "page": page,
-                "limit": limit,
-                "name": name,
-                "userId": user_id,
-                "type": type,
-                "traceId": trace_id,
-                "level": level,
-                "parentObservationId": parent_observation_id,
-                "environment": environment,
-                "fromStartTime": serialize_datetime(from_start_time)
-                if from_start_time is not None
-                else None,
-                "toStartTime": serialize_datetime(to_start_time)
-                if to_start_time is not None
-                else None,
-                "version": version,
-            },
+        _response = await self._raw_client.get_many(
+            page=page,
+            limit=limit,
+            name=name,
+            user_id=user_id,
+            type=type,
+            trace_id=trace_id,
+            level=level,
+            parent_observation_id=parent_observation_id,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(ObservationsViews, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data

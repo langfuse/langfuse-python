@@ -3,59 +3,41 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
-class TraceBody(pydantic_v1.BaseModel):
+class TraceBody(UniversalBaseModel):
     id: typing.Optional[str] = None
     timestamp: typing.Optional[dt.datetime] = None
     name: typing.Optional[str] = None
-    user_id: typing.Optional[str] = pydantic_v1.Field(alias="userId", default=None)
-    input: typing.Optional[typing.Any] = None
-    output: typing.Optional[typing.Any] = None
-    session_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="sessionId", default=None
-    )
+    user_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="userId")
+    ] = None
+    input: typing.Optional[typing.Optional[typing.Any]] = None
+    output: typing.Optional[typing.Optional[typing.Any]] = None
+    session_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="sessionId")
+    ] = None
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Optional[typing.Optional[typing.Any]] = None
     tags: typing.Optional[typing.List[str]] = None
     environment: typing.Optional[str] = None
-    public: typing.Optional[bool] = pydantic_v1.Field(default=None)
+    public: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Make trace publicly accessible via url
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
