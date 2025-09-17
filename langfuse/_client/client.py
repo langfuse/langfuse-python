@@ -3,6 +3,7 @@
 This module implements Langfuse's core observability functionality on top of the OpenTelemetry (OTel) standard.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -13,6 +14,7 @@ from hashlib import sha256
 from time import time_ns
 from typing import (
     Any,
+    Callable,
     Dict,
     List,
     Literal,
@@ -68,6 +70,7 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from langfuse._client.utils import run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -79,6 +82,18 @@ from langfuse.api.resources.prompts.types import (
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.experiment import (
+    Evaluation,
+    EvaluatorFunction,
+    ExperimentData,
+    ExperimentItem,
+    ExperimentItemResult,
+    ExperimentResult,
+    RunEvaluatorFunction,
+    TaskFunction,
+    _run_evaluator,
+    _run_task,
+)
 from langfuse.logger import langfuse_logger
 from langfuse.media import LangfuseMedia
 from langfuse.model import (
@@ -87,6 +102,7 @@ from langfuse.model import (
     ChatPromptClient,
     CreateDatasetItemRequest,
     CreateDatasetRequest,
+    CreateDatasetRunItemRequest,
     Dataset,
     DatasetItem,
     DatasetStatus,
@@ -114,7 +130,7 @@ class Langfuse:
     Attributes:
         api: Synchronous API client for Langfuse backend communication
         async_api: Asynchronous API client for Langfuse backend communication
-        langfuse_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
+        _otel_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
 
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
@@ -736,7 +752,7 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> LangfuseGeneration:
-        """[DEPRECATED] Create a new generation span for model generations.
+        """Create a new generation span for model generations.
 
         DEPRECATED: This method is deprecated and will be removed in a future version.
         Use start_observation(as_type='generation') instead.
@@ -832,7 +848,7 @@ class Langfuse:
         prompt: Optional[PromptClient] = None,
         end_on_exit: Optional[bool] = None,
     ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """[DEPRECATED] Create a new generation span and set it as the current span in a context manager.
+        """Create a new generation span and set it as the current span in a context manager.
 
         DEPRECATED: This method is deprecated and will be removed in a future version.
         Use start_as_current_observation(as_type='generation') instead.
@@ -1664,7 +1680,7 @@ class Langfuse:
             existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
                 LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
             )
-            # We need to preserve the class to keep the corret observation type
+            # We need to preserve the class to keep the correct observation type
             span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
@@ -2445,6 +2461,434 @@ class Langfuse:
             handle_fern_exception(e)
             raise e
 
+    def run_experiment(
+        self,
+        *,
+        name: str,
+        run_name: Optional[str] = None,
+        description: Optional[str] = None,
+        data: ExperimentData,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction] = [],
+        run_evaluators: List[RunEvaluatorFunction] = [],
+        max_concurrency: int = 50,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> ExperimentResult:
+        """Run an experiment on a dataset with automatic tracing and evaluation.
+
+        This method executes a task function on each item in the provided dataset,
+        automatically traces all executions with Langfuse for observability, runs
+        item-level and run-level evaluators on the outputs, and returns comprehensive
+        results with evaluation metrics.
+
+        The experiment system provides:
+        - Automatic tracing of all task executions
+        - Concurrent processing with configurable limits
+        - Comprehensive error handling that isolates failures
+        - Integration with Langfuse datasets for experiment tracking
+        - Flexible evaluation framework supporting both sync and async evaluators
+
+        Args:
+            name: Human-readable name for the experiment. Used for identification
+                in the Langfuse UI.
+            run_name: Optional exact name for the experiment run. If provided, this will be
+                used as the exact dataset run name if the `data` contains Langfuse dataset items.
+                If not provided, this will default to the experiment name appended with an ISO timestamp.
+            description: Optional description explaining the experiment's purpose,
+                methodology, or expected outcomes.
+            data: Array of data items to process. Can be either:
+                - List of dict-like items with 'input', 'expected_output', 'metadata' keys
+                - List of Langfuse DatasetItem objects from dataset.items
+            task: Function that processes each data item and returns output.
+                Must accept 'item' as keyword argument and can return sync or async results.
+                The task function signature should be: task(*, item, **kwargs) -> Any
+            evaluators: List of functions to evaluate each item's output individually.
+                Each evaluator receives input, output, expected_output, and metadata.
+                Can return single Evaluation dict or list of Evaluation dicts.
+            run_evaluators: List of functions to evaluate the entire experiment run.
+                Each run evaluator receives all item_results and can compute aggregate metrics.
+                Useful for calculating averages, distributions, or cross-item comparisons.
+            max_concurrency: Maximum number of concurrent task executions (default: 50).
+                Controls the number of items processed simultaneously. Adjust based on
+                API rate limits and system resources.
+            metadata: Optional metadata dictionary to attach to all experiment traces.
+                This metadata will be included in every trace created during the experiment.
+                If `data` are Langfuse dataset items, the metadata will be attached to the dataset run, too.
+
+        Returns:
+            ExperimentResult containing:
+            - run_name: The experiment run name. This is equal to the dataset run name if experiment was on Langfuse dataset.
+            - item_results: List of results for each processed item with outputs and evaluations
+            - run_evaluations: List of aggregate evaluation results for the entire run
+            - dataset_run_id: ID of the dataset run (if using Langfuse datasets)
+            - dataset_run_url: Direct URL to view results in Langfuse UI (if applicable)
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+            Exception: If experiment setup fails (individual item failures are handled gracefully)
+
+        Examples:
+            Basic experiment with local data:
+            ```python
+            def summarize_text(*, item, **kwargs):
+                return f"Summary: {item['input'][:50]}..."
+
+            def length_evaluator(*, input, output, expected_output=None, **kwargs):
+                return {
+                    "name": "output_length",
+                    "value": len(output),
+                    "comment": f"Output contains {len(output)} characters"
+                }
+
+            result = langfuse.run_experiment(
+                name="Text Summarization Test",
+                description="Evaluate summarization quality and length",
+                data=[
+                    {"input": "Long article text...", "expected_output": "Expected summary"},
+                    {"input": "Another article...", "expected_output": "Another summary"}
+                ],
+                task=summarize_text,
+                evaluators=[length_evaluator]
+            )
+
+            print(f"Processed {len(result.item_results)} items")
+            for item_result in result.item_results:
+                print(f"Input: {item_result.item['input']}")
+                print(f"Output: {item_result.output}")
+                print(f"Evaluations: {item_result.evaluations}")
+            ```
+
+            Advanced experiment with async task and multiple evaluators:
+            ```python
+            async def llm_task(*, item, **kwargs):
+                # Simulate async LLM call
+                response = await openai_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": item["input"]}]
+                )
+                return response.choices[0].message.content
+
+            def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
+                if expected_output and expected_output.lower() in output.lower():
+                    return {"name": "accuracy", "value": 1.0, "comment": "Correct answer"}
+                return {"name": "accuracy", "value": 0.0, "comment": "Incorrect answer"}
+
+            def toxicity_evaluator(*, input, output, expected_output=None, **kwargs):
+                # Simulate toxicity check
+                toxicity_score = check_toxicity(output)  # Your toxicity checker
+                return {
+                    "name": "toxicity",
+                    "value": toxicity_score,
+                    "comment": f"Toxicity level: {'high' if toxicity_score > 0.7 else 'low'}"
+                }
+
+            def average_accuracy(*, item_results, **kwargs):
+                accuracies = [
+                    eval.value for result in item_results
+                    for eval in result.evaluations
+                    if eval.name == "accuracy"
+                ]
+                return {
+                    "name": "average_accuracy",
+                    "value": sum(accuracies) / len(accuracies) if accuracies else 0,
+                    "comment": f"Average accuracy across {len(accuracies)} items"
+                }
+
+            result = langfuse.run_experiment(
+                name="LLM Safety and Accuracy Test",
+                description="Evaluate model accuracy and safety across diverse prompts",
+                data=test_dataset,  # Your dataset items
+                task=llm_task,
+                evaluators=[accuracy_evaluator, toxicity_evaluator],
+                run_evaluators=[average_accuracy],
+                max_concurrency=5,  # Limit concurrent API calls
+                metadata={"model": "gpt-4", "temperature": 0.7}
+            )
+            ```
+
+            Using with Langfuse datasets:
+            ```python
+            # Get dataset from Langfuse
+            dataset = langfuse.get_dataset("my-eval-dataset")
+
+            result = dataset.run_experiment(
+                name="Production Model Evaluation",
+                description="Monthly evaluation of production model performance",
+                task=my_production_task,
+                evaluators=[accuracy_evaluator, latency_evaluator]
+            )
+
+            # Results automatically linked to dataset in Langfuse UI
+            print(f"View results: {result['dataset_run_url']}")
+            ```
+
+        Note:
+            - Task and evaluator functions can be either synchronous or asynchronous
+            - Individual item failures are logged but don't stop the experiment
+            - All executions are automatically traced and visible in Langfuse UI
+            - When using Langfuse datasets, results are automatically linked for easy comparison
+            - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
+            - Async execution is handled automatically with smart event loop detection
+        """
+        return cast(
+            ExperimentResult,
+            run_async_safely(
+                self._run_experiment_async(
+                    name=name,
+                    run_name=self._create_experiment_run_name(
+                        name=name, run_name=run_name
+                    ),
+                    description=description,
+                    data=data,
+                    task=task,
+                    evaluators=evaluators or [],
+                    run_evaluators=run_evaluators or [],
+                    max_concurrency=max_concurrency,
+                    metadata=metadata or {},
+                ),
+            ),
+        )
+
+    async def _run_experiment_async(
+        self,
+        *,
+        name: str,
+        run_name: str,
+        description: Optional[str],
+        data: ExperimentData,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction],
+        run_evaluators: List[RunEvaluatorFunction],
+        max_concurrency: int,
+        metadata: Dict[str, Any],
+    ) -> ExperimentResult:
+        langfuse_logger.debug(
+            f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
+        )
+
+        # Set up concurrency control
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        # Process all items
+        async def process_item(item: ExperimentItem) -> ExperimentItemResult:
+            async with semaphore:
+                return await self._process_experiment_item(
+                    item, task, evaluators, name, run_name, description, metadata
+                )
+
+        # Run all items concurrently
+        tasks = [process_item(item) for item in data]
+        item_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter out any exceptions and log errors
+        valid_results: List[ExperimentItemResult] = []
+        for i, result in enumerate(item_results):
+            if isinstance(result, Exception):
+                langfuse_logger.error(f"Item {i} failed: {result}")
+            elif isinstance(result, ExperimentItemResult):
+                valid_results.append(result)  # type: ignore
+
+        # Run experiment-level evaluators
+        run_evaluations: List[Evaluation] = []
+        for run_evaluator in run_evaluators:
+            try:
+                evaluations = await _run_evaluator(
+                    run_evaluator, item_results=valid_results
+                )
+                run_evaluations.extend(evaluations)
+            except Exception as e:
+                langfuse_logger.error(f"Run evaluator failed: {e}")
+
+        # Generate dataset run URL if applicable
+        dataset_run_id = valid_results[0].dataset_run_id if valid_results else None
+        dataset_run_url = None
+        if dataset_run_id and data:
+            try:
+                # Check if the first item has dataset_id (for DatasetItem objects)
+                first_item = data[0]
+                dataset_id = None
+
+                if hasattr(first_item, "dataset_id"):
+                    dataset_id = getattr(first_item, "dataset_id", None)
+
+                if dataset_id:
+                    project_id = self._get_project_id()
+
+                    if project_id:
+                        dataset_run_url = f"{self._host}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
+
+            except Exception:
+                pass  # URL generation is optional
+
+        # Store run-level evaluations as scores
+        for evaluation in run_evaluations:
+            try:
+                if dataset_run_id:
+                    self.create_score(
+                        dataset_run_id=dataset_run_id,
+                        name=evaluation.name or "<unknown>",
+                        value=evaluation.value,  # type: ignore
+                        comment=evaluation.comment,
+                        metadata=evaluation.metadata,
+                        data_type=evaluation.data_type,  # type: ignore
+                    )
+
+            except Exception as e:
+                langfuse_logger.error(f"Failed to store run evaluation: {e}")
+
+        # Flush scores and traces
+        self.flush()
+
+        return ExperimentResult(
+            name=name,
+            run_name=run_name,
+            description=description,
+            item_results=valid_results,
+            run_evaluations=run_evaluations,
+            dataset_run_id=dataset_run_id,
+            dataset_run_url=dataset_run_url,
+        )
+
+    async def _process_experiment_item(
+        self,
+        item: ExperimentItem,
+        task: Callable,
+        evaluators: List[Callable],
+        experiment_name: str,
+        experiment_run_name: str,
+        experiment_description: Optional[str],
+        experiment_metadata: Dict[str, Any],
+    ) -> ExperimentItemResult:
+        # Execute task with tracing
+        span_name = "experiment-item-run"
+
+        with self.start_as_current_span(name=span_name) as span:
+            try:
+                output = await _run_task(task, item)
+
+                input_data = (
+                    item.get("input")
+                    if isinstance(item, dict)
+                    else getattr(item, "input", None)
+                )
+
+                item_metadata: Dict[str, Any] = {}
+
+                if isinstance(item, dict):
+                    item_metadata = item.get("metadata", None) or {}
+
+                final_metadata = {
+                    "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
+                    **experiment_metadata,
+                }
+
+                if (
+                    not isinstance(item, dict)
+                    and hasattr(item, "dataset_id")
+                    and hasattr(item, "id")
+                ):
+                    final_metadata.update(
+                        {"dataset_id": item.dataset_id, "dataset_item_id": item.id}
+                    )
+
+                if isinstance(item_metadata, dict):
+                    final_metadata.update(item_metadata)
+
+                span.update(
+                    input=input_data,
+                    output=output,
+                    metadata=final_metadata,
+                )
+
+                # Get trace ID for linking
+                trace_id = span.trace_id
+                dataset_run_id = None
+
+                # Link to dataset run if this is a dataset item
+                if hasattr(item, "id") and hasattr(item, "dataset_id"):
+                    try:
+                        dataset_run_item = self.api.dataset_run_items.create(
+                            request=CreateDatasetRunItemRequest(
+                                runName=experiment_run_name,
+                                runDescription=experiment_description,
+                                metadata=experiment_metadata,
+                                datasetItemId=item.id,  # type: ignore
+                                traceId=trace_id,
+                                observationId=span.id,
+                            )
+                        )
+
+                        dataset_run_id = dataset_run_item.dataset_run_id
+
+                    except Exception as e:
+                        langfuse_logger.error(f"Failed to create dataset run item: {e}")
+
+                # Run evaluators
+                evaluations = []
+
+                for evaluator in evaluators:
+                    try:
+                        expected_output = None
+
+                        if isinstance(item, dict):
+                            expected_output = item.get("expected_output")
+                        elif hasattr(item, "expected_output"):
+                            expected_output = item.expected_output
+
+                        eval_metadata: Optional[Dict[str, Any]] = None
+
+                        if isinstance(item, dict):
+                            eval_metadata = item.get("metadata")
+                        elif hasattr(item, "metadata"):
+                            eval_metadata = item.metadata
+
+                        eval_results = await _run_evaluator(
+                            evaluator,
+                            input=input_data,
+                            output=output,
+                            expected_output=expected_output,
+                            metadata=eval_metadata,
+                        )
+                        evaluations.extend(eval_results)
+
+                        # Store evaluations as scores
+                        for evaluation in eval_results:
+                            self.create_score(
+                                trace_id=trace_id,
+                                name=evaluation.name,
+                                value=evaluation.value or -1,
+                                comment=evaluation.comment,
+                                metadata=evaluation.metadata,
+                            )
+
+                    except Exception as e:
+                        langfuse_logger.error(f"Evaluator failed: {e}")
+
+                return ExperimentItemResult(
+                    item=item,
+                    output=output,
+                    evaluations=evaluations,
+                    trace_id=trace_id,
+                    dataset_run_id=dataset_run_id,
+                )
+
+            except Exception as e:
+                span.update(
+                    output=f"Error: {str(e)}", level="ERROR", status_message=str(e)
+                )
+                raise e
+
+    def _create_experiment_run_name(
+        self, *, name: Optional[str] = None, run_name: Optional[str] = None
+    ) -> str:
+        if run_name:
+            return run_name
+
+        iso_timestamp = _get_timestamp().isoformat().replace("+00:00", "Z")
+
+        return f"{name} - {iso_timestamp}"
+
     def auth_check(self) -> bool:
         """Check if the provided credentials (public and secret key) are valid.
 
@@ -2691,7 +3135,7 @@ class Langfuse:
         """
         if self._resources is None:
             raise Error(
-                "SDK is not correctly initalized. Check the init logs for more details."
+                "SDK is not correctly initialized. Check the init logs for more details."
             )
         if version is not None and label is not None:
             raise ValueError("Cannot specify both version and label at the same time.")
