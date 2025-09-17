@@ -44,6 +44,15 @@ Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable.
 **Default value:** ``"https://cloud.langfuse.com"``
 """
 
+LANGFUSE_TRACES_EXPORT_PATH = "LANGFUSE_TRACES_EXPORT_PATH"
+"""
+.. envvar:: LANGFUSE_TRACES_EXPORT_PATH
+
+Path to export traces to. Can be set via `LANGFUSE_TRACES_EXPORT_PATH` environment variable.
+
+**Default value:** ``None``
+"""
+
 LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
 """
 .. envvar:: LANGFUSE_DEBUG
