@@ -129,7 +129,7 @@ class Langfuse:
     Attributes:
         api: Synchronous API client for Langfuse backend communication
         async_api: Asynchronous API client for Langfuse backend communication
-        langfuse_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
+        _otel_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
 
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
@@ -1679,7 +1679,7 @@ class Langfuse:
             existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
                 LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
             )
-            # We need to preserve the class to keep the corret observation type
+            # We need to preserve the class to keep the correct observation type
             span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
@@ -3134,7 +3134,7 @@ class Langfuse:
         """
         if self._resources is None:
             raise Error(
-                "SDK is not correctly initalized. Check the init logs for more details."
+                "SDK is not correctly initialized. Check the init logs for more details."
             )
         if version is not None and label is not None:
             raise ValueError("Cannot specify both version and label at the same time.")
