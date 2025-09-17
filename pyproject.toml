@@ -20,6 +20,7 @@ requests = "^2"
 opentelemetry-api = "^1.33.1"
 opentelemetry-sdk = "^1.33.1"
 opentelemetry-exporter-otlp-proto-http = "^1.33.1"
+opentelemetry-processor-baggage = "^0.58b0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4,<9.0"

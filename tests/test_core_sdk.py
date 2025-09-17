@@ -606,24 +606,24 @@ def test_score_trace_nested_observation():
 
     # Create a parent span and set trace name
     with langfuse.start_as_current_span(name="parent-span") as parent_span:
-        parent_span.update_trace(name=trace_name)
+        # Set trace name and trace metadata as attributes on parent-span _and_ span using context manager.
+        with parent_span.update_trace(name=trace_name, metadata={"foo": "bar"}):
+            # Create a child span
+            child_span = langfuse.start_span(name="span")
 
-        # Create a child span
-        child_span = langfuse.start_span(name="span")
+            # Score the child span
+            child_span.score(
+                name="valuation",
+                value=0.5,
+                comment="This is a comment",
+            )
 
-        # Score the child span
-        child_span.score(
-            name="valuation",
-            value=0.5,
-            comment="This is a comment",
-        )
+            # Get IDs for verification
+            child_span_id = child_span.id
+            trace_id = parent_span.trace_id
 
-        # Get IDs for verification
-        child_span_id = child_span.id
-        trace_id = parent_span.trace_id
-
-        # End the child span
-        child_span.end()
+            # End the child span
+            child_span.end()
 
     # Ensure data is sent
     langfuse.flush()
@@ -634,6 +634,12 @@ def test_score_trace_nested_observation():
 
     assert trace.name == trace_name
     assert len(trace.scores) == 1
+
+    observations = trace.observations
+    assert len(observations) == 2  # Parent span and child span
+    # Do not verify the attributes, since we actually strip them on the server for Langfuse SDK spans.
+    # for obs in observations:
+    #     assert obs.metadata["attributes"]["langfuse.trace.metadata.foo"] == "bar"
 
     score = trace.scores[0]
 

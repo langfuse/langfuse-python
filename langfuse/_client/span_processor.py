@@ -15,9 +15,11 @@ import base64
 import os
 from typing import Dict, List, Optional
 
+from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.processor.baggage import BaggageSpanProcessor, ALLOW_ALL_BAGGAGE_KEYS
 
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
@@ -65,6 +67,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             else []
         )
 
+        # Initialize a BaggageSpanProcessor so baggage keys are attached to spans.
+        # Allow all baggage keys by default (same behaviour as before).
+        self._baggage_processor = BaggageSpanProcessor(ALLOW_ALL_BAGGAGE_KEYS)
+
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
         flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
 
@@ -104,6 +110,16 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             if flush_interval is not None
             else None,
         )
+
+    def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
+        # Forward to baggage processor first so baggage can be attached early.
+        self._baggage_processor.on_start(span, parent_context)
+
+        # Call parent on_start if it exists (no-op for BatchSpanProcessor but safe).
+        try:
+            super().on_start(span, parent_context)
+        except TypeError:
+            super().on_start(span)
 
     def on_end(self, span: ReadableSpan) -> None:
         # Only export spans that belong to the scoped project
