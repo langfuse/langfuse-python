@@ -1514,3 +1514,90 @@ def test_response_api_reasoning(openai):
     assert generationData.usage.total is not None
     assert generationData.output is not None
     assert generationData.metadata is not None
+
+
+def test_openai_embeddings(openai):
+    embedding_name = create_uuid()
+    openai.OpenAI().embeddings.create(
+        name=embedding_name,
+        model="text-embedding-ada-002",
+        input="The quick brown fox jumps over the lazy dog",
+        metadata={"test_key": "test_value"},
+    )
+
+    langfuse.flush()
+    sleep(1)
+
+    embedding = get_api().observations.get_many(name=embedding_name, type="EMBEDDING")
+
+    assert len(embedding.data) != 0
+    embedding_data = embedding.data[0]
+    assert embedding_data.name == embedding_name
+    assert embedding_data.metadata["test_key"] == "test_value"
+    assert embedding_data.input == "The quick brown fox jumps over the lazy dog"
+    assert embedding_data.type == "EMBEDDING"
+    assert embedding_data.model == "text-embedding-ada-002"
+    assert embedding_data.start_time is not None
+    assert embedding_data.end_time is not None
+    assert embedding_data.start_time < embedding_data.end_time
+    assert embedding_data.usage.input is not None
+    assert embedding_data.usage.total is not None
+    assert embedding_data.output is not None
+    assert "dimensions" in embedding_data.output
+    assert "count" in embedding_data.output
+    assert embedding_data.output["count"] == 1
+
+
+def test_openai_embeddings_multiple_inputs(openai):
+    embedding_name = create_uuid()
+    inputs = ["The quick brown fox", "jumps over the lazy dog", "Hello world"]
+
+    openai.OpenAI().embeddings.create(
+        name=embedding_name,
+        model="text-embedding-ada-002",
+        input=inputs,
+        metadata={"batch_size": len(inputs)},
+    )
+
+    langfuse.flush()
+    sleep(1)
+
+    embedding = get_api().observations.get_many(name=embedding_name, type="EMBEDDING")
+
+    assert len(embedding.data) != 0
+    embedding_data = embedding.data[0]
+    assert embedding_data.name == embedding_name
+    assert embedding_data.input == inputs
+    assert embedding_data.type == "EMBEDDING"
+    assert embedding_data.model == "text-embedding-ada-002"
+    assert embedding_data.usage.input is not None
+    assert embedding_data.usage.total is not None
+    assert embedding_data.output["count"] == len(inputs)
+
+
+@pytest.mark.asyncio
+async def test_async_openai_embeddings(openai):
+    client = openai.AsyncOpenAI()
+    embedding_name = create_uuid()
+
+    await client.embeddings.create(
+        name=embedding_name,
+        model="text-embedding-ada-002",
+        input="Async embedding test",
+        metadata={"async": True},
+    )
+
+    langfuse.flush()
+    sleep(1)
+
+    embedding = get_api().observations.get_many(name=embedding_name, type="EMBEDDING")
+
+    assert len(embedding.data) != 0
+    embedding_data = embedding.data[0]
+    assert embedding_data.name == embedding_name
+    assert embedding_data.input == "Async embedding test"
+    assert embedding_data.type == "EMBEDDING"
+    assert embedding_data.model == "text-embedding-ada-002"
+    assert embedding_data.metadata["async"] is True
+    assert embedding_data.usage.input is not None
+    assert embedding_data.usage.total is not None
