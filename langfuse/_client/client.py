@@ -49,7 +49,6 @@ from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
-    LANGFUSE_OTEL_TRACES_EXPORT_PATH,
     LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SAMPLE_RATE,
     LANGFUSE_SECRET_KEY,
