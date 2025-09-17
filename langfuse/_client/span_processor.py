@@ -23,7 +23,7 @@ from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
-    LANGFUSE_TRACES_EXPORT_PATH,
+    LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
@@ -91,7 +91,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # Merge additional headers if provided
         headers = {**default_headers, **(additional_headers or {})}
 
-        traces_export_path = os.environ.get(LANGFUSE_TRACES_EXPORT_PATH, None)
+        traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
 
         endpoint = (
             f"{host}/{traces_export_path}"
