@@ -180,6 +180,7 @@ class Langfuse:
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
         host: Optional[str] = None,
+        traces_export_path: Optional[str] = None,
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         debug: bool = False,
@@ -197,6 +198,9 @@ class Langfuse:
     ):
         self._host = host or cast(
             str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        )
+        self._traces_export_path = traces_export_path or cast(
+            str, os.environ.get(LANGFUSE_TRACES_EXPORT_PATH)
         )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
@@ -256,6 +260,7 @@ class Langfuse:
             public_key=public_key,
             secret_key=secret_key,
             host=self._host,
+            traces_export_path=self._traces_export_path,
             timeout=timeout,
             environment=self._environment,
             release=release,

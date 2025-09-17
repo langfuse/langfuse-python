@@ -84,6 +84,7 @@ class LangfuseResourceManager:
         public_key: str,
         secret_key: str,
         host: str,
+        traces_export_path: Optional[str] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -116,6 +117,7 @@ class LangfuseResourceManager:
                     public_key=public_key,
                     secret_key=secret_key,
                     host=host,
+                    traces_export_path=traces_export_path,
                     timeout=timeout,
                     environment=environment,
                     release=release,
@@ -143,6 +145,7 @@ class LangfuseResourceManager:
         public_key: str,
         secret_key: str,
         host: str,
+        traces_export_path: Optional[str] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -161,6 +164,7 @@ class LangfuseResourceManager:
         self.secret_key = secret_key
         self.tracing_enabled = tracing_enabled
         self.host = host
+        self.traces_export_path = traces_export_path
         self.mask = mask
         self.environment = environment
 
@@ -184,6 +188,7 @@ class LangfuseResourceManager:
                 public_key=self.public_key,
                 secret_key=secret_key,
                 host=host,
+                traces_export_path=traces_export_path,
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,

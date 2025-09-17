@@ -52,6 +52,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         public_key: str,
         secret_key: str,
         host: str,
+        traces_export_path: Optional[str] = None,
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
@@ -90,8 +91,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # Merge additional headers if provided
         headers = {**default_headers, **(additional_headers or {})}
 
+        endpoint = (
+            f"{host}/{traces_export_path}"
+            if traces_export_path
+            else f"{host}/api/public/otel/v1/traces"
+        )
+
         langfuse_span_exporter = OTLPSpanExporter(
-            endpoint=f"{host}/api/public/otel/v1/traces",
+            endpoint=endpoint,
             headers=headers,
             timeout=timeout,
         )
