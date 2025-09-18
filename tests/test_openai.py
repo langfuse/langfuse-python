@@ -1579,13 +1579,16 @@ def test_openai_embeddings_multiple_inputs(openai):
 async def test_async_openai_embeddings(openai):
     client = openai.AsyncOpenAI()
     embedding_name = create_uuid()
+    print(embedding_name)
 
-    await client.embeddings.create(
+    result = await client.embeddings.create(
         name=embedding_name,
         model="text-embedding-ada-002",
         input="Async embedding test",
         metadata={"async": True},
     )
+
+    print("result:", result.usage)
 
     langfuse.flush()
     sleep(1)

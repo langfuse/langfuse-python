@@ -558,6 +558,14 @@ def _parse_usage(usage: Optional[Any] = None) -> Any:
                 k: v for k, v in tokens_details_dict.items() if v is not None
             }
 
+    if (
+        len(usage_dict) == 2
+        and "prompt_tokens" in usage_dict
+        and "total_tokens" in usage_dict
+    ):
+        # handle embedding usage
+        return {"input": usage_dict["prompt_tokens"]}
+
     return usage_dict
 
 
@@ -683,7 +691,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                             curr[-1]["arguments"] = ""
 
                         curr[-1]["arguments"] += getattr(
-                            tool_call_chunk, "arguments", None
+                            tool_call_chunk, "arguments", ""
                         )
 
             if resource.type == "completion":
@@ -813,7 +821,7 @@ def _wrap(
     )
 
     generation = langfuse_client.start_observation(
-        as_type=observation_type,
+        as_type=observation_type,  # type: ignore
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
@@ -884,7 +892,7 @@ async def _wrap_async(
     )
 
     generation = langfuse_client.start_observation(
-        as_type=observation_type,
+        as_type=observation_type,  # type: ignore
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
