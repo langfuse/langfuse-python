@@ -40,6 +40,7 @@ class ScoreV2Client:
         value: typing.Optional[float] = None,
         score_ids: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -85,6 +86,9 @@ class ScoreV2Client:
 
         config_id : typing.Optional[str]
             Retrieve only scores with a specific configId.
+
+        session_id : typing.Optional[str]
+            Retrieve only scores with a specific sessionId.
 
         queue_id : typing.Optional[str]
             Retrieve only scores with a specific annotation queueId.
@@ -136,6 +140,7 @@ class ScoreV2Client:
                 "value": value,
                 "scoreIds": score_ids,
                 "configId": config_id,
+                "sessionId": session_id,
                 "queueId": queue_id,
                 "dataType": data_type,
                 "traceTags": trace_tags,
@@ -253,6 +258,7 @@ class AsyncScoreV2Client:
         value: typing.Optional[float] = None,
         score_ids: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -298,6 +304,9 @@ class AsyncScoreV2Client:
 
         config_id : typing.Optional[str]
             Retrieve only scores with a specific configId.
+
+        session_id : typing.Optional[str]
+            Retrieve only scores with a specific sessionId.
 
         queue_id : typing.Optional[str]
             Retrieve only scores with a specific annotation queueId.
@@ -357,6 +366,7 @@ class AsyncScoreV2Client:
                 "value": value,
                 "scoreIds": score_ids,
                 "configId": config_id,
+                "sessionId": session_id,
                 "queueId": queue_id,
                 "dataType": data_type,
                 "traceTags": trace_tags,
