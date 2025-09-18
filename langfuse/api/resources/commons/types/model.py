@@ -3,110 +3,97 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from .model_price import ModelPrice
 from .model_usage_unit import ModelUsageUnit
 
 
-class Model(pydantic_v1.BaseModel):
+class Model(UniversalBaseModel):
     """
     Model definition used for transforming usage into USD cost and/or tokenization.
     """
 
     id: str
-    model_name: str = pydantic_v1.Field(alias="modelName")
+    model_name: typing_extensions.Annotated[str, FieldMetadata(alias="modelName")] = (
+        pydantic.Field()
+    )
     """
     Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
     """
 
-    match_pattern: str = pydantic_v1.Field(alias="matchPattern")
+    match_pattern: typing_extensions.Annotated[
+        str, FieldMetadata(alias="matchPattern")
+    ] = pydantic.Field()
     """
     Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
     """
 
-    start_date: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="startDate", default=None
-    )
+    start_date: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="startDate")
+    ] = pydantic.Field(default=None)
     """
     Apply only to generations which are newer than this ISO date.
     """
 
-    unit: typing.Optional[ModelUsageUnit] = pydantic_v1.Field(default=None)
+    unit: typing.Optional[ModelUsageUnit] = pydantic.Field(default=None)
     """
     Unit used by this model.
     """
 
-    input_price: typing.Optional[float] = pydantic_v1.Field(
-        alias="inputPrice", default=None
-    )
+    input_price: typing_extensions.Annotated[
+        typing.Optional[float], FieldMetadata(alias="inputPrice")
+    ] = pydantic.Field(default=None)
     """
     Deprecated. See 'prices' instead. Price (USD) per input unit
     """
 
-    output_price: typing.Optional[float] = pydantic_v1.Field(
-        alias="outputPrice", default=None
-    )
+    output_price: typing_extensions.Annotated[
+        typing.Optional[float], FieldMetadata(alias="outputPrice")
+    ] = pydantic.Field(default=None)
     """
     Deprecated. See 'prices' instead. Price (USD) per output unit
     """
 
-    total_price: typing.Optional[float] = pydantic_v1.Field(
-        alias="totalPrice", default=None
-    )
+    total_price: typing_extensions.Annotated[
+        typing.Optional[float], FieldMetadata(alias="totalPrice")
+    ] = pydantic.Field(default=None)
     """
     Deprecated. See 'prices' instead. Price (USD) per total unit. Cannot be set if input or output price is set.
     """
 
-    tokenizer_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="tokenizerId", default=None
-    )
+    tokenizer_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="tokenizerId")
+    ] = pydantic.Field(default=None)
     """
     Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
     """
 
-    tokenizer_config: typing.Optional[typing.Any] = pydantic_v1.Field(
-        alias="tokenizerConfig", default=None
-    )
+    tokenizer_config: typing_extensions.Annotated[
+        typing.Optional[typing.Optional[typing.Any]],
+        FieldMetadata(alias="tokenizerConfig"),
+    ] = pydantic.Field(default=None)
     """
     Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
     """
 
-    is_langfuse_managed: bool = pydantic_v1.Field(alias="isLangfuseManaged")
-    prices: typing.Dict[str, ModelPrice] = pydantic_v1.Field()
+    is_langfuse_managed: typing_extensions.Annotated[
+        bool, FieldMetadata(alias="isLangfuseManaged")
+    ]
+    prices: typing.Dict[str, ModelPrice] = pydantic.Field()
     """
     Price (USD) by usage type
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

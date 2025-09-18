@@ -6,5 +6,9 @@ from ....core.api_error import ApiError
 
 
 class AccessDeniedError(ApiError):
-    def __init__(self, body: typing.Any):
-        super().__init__(status_code=403, body=body)
+    def __init__(
+        self,
+        body: typing.Optional[typing.Any],
+        headers: typing.Optional[typing.Dict[str, str]] = None,
+    ):
+        super().__init__(status_code=403, headers=headers, body=body)

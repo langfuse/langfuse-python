@@ -154,7 +154,7 @@ class BasePromptClient(ABC):
     def __init__(self, prompt: Prompt, is_fallback: bool = False):
         self.name = prompt.name
         self.version = prompt.version
-        self.config = prompt.config
+        self.config = prompt.config  # type: ignore
         self.labels = prompt.labels
         self.tags = prompt.tags
         self.commit_message = prompt.commit_message

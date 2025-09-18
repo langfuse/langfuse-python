@@ -2,110 +2,69 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
 
-class Prompt_Chat(pydantic_v1.BaseModel):
+class Prompt_Chat(UniversalBaseModel):
+    type: typing.Literal["chat"] = "chat"
     prompt: typing.List[ChatMessageWithPlaceholders]
     name: str
     version: int
-    config: typing.Any
+    config: typing.Optional[typing.Any] = None
     labels: typing.List[str]
     tags: typing.List[str]
-    commit_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="commitMessage", default=None
-    )
-    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
-        alias="resolutionGraph", default=None
-    )
-    type: typing.Literal["chat"] = "chat"
+    commit_message: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="commitMessage")
+    ] = None
+    resolution_graph: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]],
+        FieldMetadata(alias="resolutionGraph"),
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
 
 
-class Prompt_Text(pydantic_v1.BaseModel):
+class Prompt_Text(UniversalBaseModel):
+    type: typing.Literal["text"] = "text"
     prompt: str
     name: str
     version: int
-    config: typing.Any
+    config: typing.Optional[typing.Any] = None
     labels: typing.List[str]
     tags: typing.List[str]
-    commit_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="commitMessage", default=None
-    )
-    resolution_graph: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
-        alias="resolutionGraph", default=None
-    )
-    type: typing.Literal["text"] = "text"
+    commit_message: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="commitMessage")
+    ] = None
+    resolution_graph: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]],
+        FieldMetadata(alias="resolutionGraph"),
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
 
 
 Prompt = typing.Union[Prompt_Chat, Prompt_Text]

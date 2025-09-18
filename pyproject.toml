@@ -100,9 +100,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "langfuse.api.resources.*",
-    "langfuse.api.core.*",
-    "langfuse.api.client"
+    "langfuse.api.*",
 ]
 ignore_errors = true
 

@@ -2,19 +2,10 @@
 
 import datetime as dt
 import typing
-from json.decoder import JSONDecodeError
 
-from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.datetime_utils import serialize_datetime
-from ...core.jsonable_encoder import jsonable_encoder
-from ...core.pydantic_utilities import pydantic_v1
 from ...core.request_options import RequestOptions
-from ..commons.errors.access_denied_error import AccessDeniedError
-from ..commons.errors.error import Error
-from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ..commons.errors.not_found_error import NotFoundError
-from ..commons.errors.unauthorized_error import UnauthorizedError
+from .raw_client import AsyncRawPromptsClient, RawPromptsClient
 from .types.create_prompt_request import CreatePromptRequest
 from .types.prompt import Prompt
 from .types.prompt_meta_list_response import PromptMetaListResponse
@@ -25,7 +16,18 @@ OMIT = typing.cast(typing.Any, ...)
 
 class PromptsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = RawPromptsClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> RawPromptsClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        RawPromptsClient
+        """
+        return self._raw_client
 
     def get(
         self,
@@ -58,7 +60,7 @@ class PromptsClient:
 
         Examples
         --------
-        from langfuse.client import FernLangfuse
+        from langfuse import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -72,37 +74,10 @@ class PromptsClient:
             prompt_name="promptName",
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}",
-            method="GET",
-            params={"version": version, "label": label},
-            request_options=request_options,
+        _response = self._raw_client.get(
+            prompt_name, version=version, label=label, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     def list(
         self,
@@ -148,7 +123,7 @@ class PromptsClient:
 
         Examples
         --------
-        from langfuse.client import FernLangfuse
+        from langfuse import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -160,51 +135,17 @@ class PromptsClient:
         )
         client.prompts.list()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/public/v2/prompts",
-            method="GET",
-            params={
-                "name": name,
-                "label": label,
-                "tag": tag,
-                "page": page,
-                "limit": limit,
-                "fromUpdatedAt": serialize_datetime(from_updated_at)
-                if from_updated_at is not None
-                else None,
-                "toUpdatedAt": serialize_datetime(to_updated_at)
-                if to_updated_at is not None
-                else None,
-            },
+        _response = self._raw_client.list(
+            name=name,
+            label=label,
+            tag=tag,
+            page=page,
+            limit=limit,
+            from_updated_at=from_updated_at,
+            to_updated_at=to_updated_at,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(
-                    PromptMetaListResponse, _response.json()
-                )  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     def create(
         self,
@@ -228,11 +169,11 @@ class PromptsClient:
 
         Examples
         --------
-        from langfuse import (
+        from langfuse import FernLangfuse
+        from langfuse.resources.prompts import (
             ChatMessageWithPlaceholders_Chatmessage,
             CreatePromptRequest_Chat,
         )
-        from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -258,43 +199,26 @@ class PromptsClient:
             ),
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/public/v2/prompts",
-            method="POST",
-            json=request,
-            request_options=request_options,
-            omit=OMIT,
+        _response = self._raw_client.create(
+            request=request, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
 
 class AsyncPromptsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = AsyncRawPromptsClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> AsyncRawPromptsClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawPromptsClient
+        """
+        return self._raw_client
 
     async def get(
         self,
@@ -329,7 +253,7 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from langfuse.client import AsyncFernLangfuse
+        from langfuse import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -349,37 +273,10 @@ class AsyncPromptsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/v2/prompts/{jsonable_encoder(prompt_name)}",
-            method="GET",
-            params={"version": version, "label": label},
-            request_options=request_options,
+        _response = await self._raw_client.get(
+            prompt_name, version=version, label=label, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     async def list(
         self,
@@ -427,7 +324,7 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from langfuse.client import AsyncFernLangfuse
+        from langfuse import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -445,51 +342,17 @@ class AsyncPromptsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/public/v2/prompts",
-            method="GET",
-            params={
-                "name": name,
-                "label": label,
-                "tag": tag,
-                "page": page,
-                "limit": limit,
-                "fromUpdatedAt": serialize_datetime(from_updated_at)
-                if from_updated_at is not None
-                else None,
-                "toUpdatedAt": serialize_datetime(to_updated_at)
-                if to_updated_at is not None
-                else None,
-            },
+        _response = await self._raw_client.list(
+            name=name,
+            label=label,
+            tag=tag,
+            page=page,
+            limit=limit,
+            from_updated_at=from_updated_at,
+            to_updated_at=to_updated_at,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(
-                    PromptMetaListResponse, _response.json()
-                )  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     async def create(
         self,
@@ -515,11 +378,11 @@ class AsyncPromptsClient:
         --------
         import asyncio
 
-        from langfuse import (
+        from langfuse import AsyncFernLangfuse
+        from langfuse.resources.prompts import (
             ChatMessageWithPlaceholders_Chatmessage,
             CreatePromptRequest_Chat,
         )
-        from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -551,35 +414,7 @@ class AsyncPromptsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/public/v2/prompts",
-            method="POST",
-            json=request,
-            request_options=request_options,
-            omit=OMIT,
+        _response = await self._raw_client.create(
+            request=request, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(Prompt, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
