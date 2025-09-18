@@ -2,6 +2,7 @@
 
 from . import (
     annotation_queues,
+    blob_storage_integrations,
     comments,
     commons,
     dataset_items,
@@ -40,6 +41,16 @@ from .annotation_queues import (
     PaginatedAnnotationQueueItems,
     PaginatedAnnotationQueues,
     UpdateAnnotationQueueItemRequest,
+)
+from .blob_storage_integrations import (
+    BlobStorageExportFrequency,
+    BlobStorageExportMode,
+    BlobStorageIntegrationDeletionResponse,
+    BlobStorageIntegrationFileType,
+    BlobStorageIntegrationResponse,
+    BlobStorageIntegrationType,
+    BlobStorageIntegrationsResponse,
+    CreateBlobStorageIntegrationRequest,
 )
 from .comments import CreateCommentRequest, CreateCommentResponse, GetCommentsResponse
 from .commons import (
@@ -165,6 +176,8 @@ from .metrics import MetricsResponse
 from .models import CreateModelRequest, PaginatedModels
 from .observations import Observations, ObservationsViews
 from .organizations import (
+    DeleteMembershipRequest,
+    MembershipDeletionResponse,
     MembershipRequest,
     MembershipResponse,
     MembershipRole,
@@ -252,6 +265,13 @@ __all__ = [
     "BasePrompt",
     "BaseScore",
     "BaseScoreV1",
+    "BlobStorageExportFrequency",
+    "BlobStorageExportMode",
+    "BlobStorageIntegrationDeletionResponse",
+    "BlobStorageIntegrationFileType",
+    "BlobStorageIntegrationResponse",
+    "BlobStorageIntegrationType",
+    "BlobStorageIntegrationsResponse",
     "BooleanScore",
     "BooleanScoreV1",
     "BulkConfig",
@@ -268,6 +288,7 @@ __all__ = [
     "CreateAnnotationQueueAssignmentResponse",
     "CreateAnnotationQueueItemRequest",
     "CreateAnnotationQueueRequest",
+    "CreateBlobStorageIntegrationRequest",
     "CreateChatPromptRequest",
     "CreateCommentRequest",
     "CreateCommentResponse",
@@ -300,6 +321,7 @@ __all__ = [
     "DeleteAnnotationQueueItemResponse",
     "DeleteDatasetItemResponse",
     "DeleteDatasetRunResponse",
+    "DeleteMembershipRequest",
     "DeleteTraceResponse",
     "EmptyResponse",
     "Error",
@@ -337,6 +359,7 @@ __all__ = [
     "LlmConnection",
     "MapValue",
     "MediaContentType",
+    "MembershipDeletionResponse",
     "MembershipRequest",
     "MembershipResponse",
     "MembershipRole",
@@ -433,6 +456,7 @@ __all__ = [
     "UsageDetails",
     "UserMeta",
     "annotation_queues",
+    "blob_storage_integrations",
     "comments",
     "commons",
     "dataset_items",
