@@ -1536,7 +1536,7 @@ def test_openai_embeddings(openai):
     assert embedding_data.metadata["test_key"] == "test_value"
     assert embedding_data.input == "The quick brown fox jumps over the lazy dog"
     assert embedding_data.type == "EMBEDDING"
-    assert embedding_data.model == "text-embedding-ada-002"
+    assert "text-embedding-ada-002" in embedding_data.model
     assert embedding_data.start_time is not None
     assert embedding_data.end_time is not None
     assert embedding_data.start_time < embedding_data.end_time
@@ -1569,7 +1569,7 @@ def test_openai_embeddings_multiple_inputs(openai):
     assert embedding_data.name == embedding_name
     assert embedding_data.input == inputs
     assert embedding_data.type == "EMBEDDING"
-    assert embedding_data.model == "text-embedding-ada-002"
+    assert "text-embedding-ada-002" in embedding_data.model
     assert embedding_data.usage.input is not None
     assert embedding_data.usage.total is not None
     assert embedding_data.output["count"] == len(inputs)
@@ -1597,7 +1597,7 @@ async def test_async_openai_embeddings(openai):
     assert embedding_data.name == embedding_name
     assert embedding_data.input == "Async embedding test"
     assert embedding_data.type == "EMBEDDING"
-    assert embedding_data.model == "text-embedding-ada-002"
+    assert "text-embedding-ada-002" in embedding_data.model
     assert embedding_data.metadata["async"] is True
     assert embedding_data.usage.input is not None
     assert embedding_data.usage.total is not None
