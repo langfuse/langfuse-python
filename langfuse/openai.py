@@ -177,6 +177,20 @@ OPENAI_METHODS_V1 = [
         sync=False,
         min_version="1.66.0",
     ),
+    OpenAiDefinition(
+        module="openai.resources.embeddings",
+        object="Embeddings",
+        method="create",
+        type="embedding",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.embeddings",
+        object="AsyncEmbeddings",
+        method="create",
+        type="embedding",
+        sync=False,
+    ),
 ]
 
 
@@ -340,10 +354,13 @@ def _extract_chat_response(kwargs: Any) -> Any:
 
 
 def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> Any:
-    name = kwargs.get("name", "OpenAI-generation")
+    default_name = (
+        "OpenAI-embedding" if resource.type == "embedding" else "OpenAI-generation"
+    )
+    name = kwargs.get("name", default_name)
 
     if name is None:
-        name = "OpenAI-generation"
+        name = default_name
 
     if name is not None and not isinstance(name, str):
         raise TypeError("name must be a string")
@@ -395,6 +412,8 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         prompt = kwargs.get("input", None)
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
+    elif resource.type == "embedding":
+        prompt = kwargs.get("input", None)
 
     parsed_temperature = (
         kwargs.get("temperature", 1)
@@ -440,23 +459,41 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     parsed_n = kwargs.get("n", 1) if not isinstance(kwargs.get("n", 1), NotGiven) else 1
 
-    modelParameters = {
-        "temperature": parsed_temperature,
-        "max_tokens": parsed_max_tokens,  # casing?
-        "top_p": parsed_top_p,
-        "frequency_penalty": parsed_frequency_penalty,
-        "presence_penalty": parsed_presence_penalty,
-    }
+    if resource.type == "embedding":
+        parsed_dimensions = (
+            kwargs.get("dimensions", None)
+            if not isinstance(kwargs.get("dimensions", None), NotGiven)
+            else None
+        )
+        parsed_encoding_format = (
+            kwargs.get("encoding_format", "float")
+            if not isinstance(kwargs.get("encoding_format", "float"), NotGiven)
+            else "float"
+        )
 
-    if parsed_max_completion_tokens is not None:
-        modelParameters.pop("max_tokens", None)
-        modelParameters["max_completion_tokens"] = parsed_max_completion_tokens
+        modelParameters = {}
+        if parsed_dimensions is not None:
+            modelParameters["dimensions"] = parsed_dimensions
+        if parsed_encoding_format != "float":
+            modelParameters["encoding_format"] = parsed_encoding_format
+    else:
+        modelParameters = {
+            "temperature": parsed_temperature,
+            "max_tokens": parsed_max_tokens,
+            "top_p": parsed_top_p,
+            "frequency_penalty": parsed_frequency_penalty,
+            "presence_penalty": parsed_presence_penalty,
+        }
 
-    if parsed_n is not None and parsed_n > 1:
-        modelParameters["n"] = parsed_n
+        if parsed_max_completion_tokens is not None:
+            modelParameters.pop("max_tokens", None)
+            modelParameters["max_completion_tokens"] = parsed_max_completion_tokens
 
-    if parsed_seed is not None:
-        modelParameters["seed"] = parsed_seed
+        if parsed_n is not None and parsed_n > 1:
+            modelParameters["n"] = parsed_n
+
+        if parsed_seed is not None:
+            modelParameters["seed"] = parsed_seed
 
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
 
@@ -520,6 +557,14 @@ def _parse_usage(usage: Optional[Any] = None) -> Any:
             usage_dict[tokens_details] = {
                 k: v for k, v in tokens_details_dict.items() if v is not None
             }
+
+    if (
+        len(usage_dict) == 2
+        and "prompt_tokens" in usage_dict
+        and "total_tokens" in usage_dict
+    ):
+        # handle embedding usage
+        return {"input": usage_dict["prompt_tokens"]}
 
     return usage_dict
 
@@ -646,7 +691,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                             curr[-1]["arguments"] = ""
 
                         curr[-1]["arguments"] += getattr(
-                            tool_call_chunk, "arguments", None
+                            tool_call_chunk, "arguments", ""
                         )
 
             if resource.type == "completion":
@@ -729,6 +774,20 @@ def _get_langfuse_data_from_default_response(
                     else choice.get("message", None)
                 )
 
+    elif resource.type == "embedding":
+        data = response.get("data", [])
+        if len(data) > 0:
+            first_embedding = data[0]
+            embedding_vector = (
+                first_embedding.embedding
+                if hasattr(first_embedding, "embedding")
+                else first_embedding.get("embedding", [])
+            )
+            completion = {
+                "dimensions": len(embedding_vector) if embedding_vector else 0,
+                "count": len(data),
+            }
+
     usage = _parse_usage(response.get("usage", None))
 
     return (model, completion, usage)
@@ -757,8 +816,12 @@ def _wrap(
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
     langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
 
+    observation_type = (
+        "embedding" if open_ai_resource.type == "embedding" else "generation"
+    )
+
     generation = langfuse_client.start_observation(
-        as_type="generation",
+        as_type=observation_type,  # type: ignore
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
@@ -824,8 +887,12 @@ async def _wrap_async(
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
     langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
 
+    observation_type = (
+        "embedding" if open_ai_resource.type == "embedding" else "generation"
+    )
+
     generation = langfuse_client.start_observation(
-        as_type="generation",
+        as_type=observation_type,  # type: ignore
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
         metadata=langfuse_data.get("metadata", None),
