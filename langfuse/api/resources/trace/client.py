@@ -214,7 +214,7 @@ class TraceClient:
             Optional filter for traces where the environment is one of the provided values.
 
         fields : typing.Optional[str]
-            Comma-separated list of fields to include in the response. Available field groups are 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not provided, all fields are included. Example: 'core,scores,metrics'
+            Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -565,7 +565,7 @@ class AsyncTraceClient:
             Optional filter for traces where the environment is one of the provided values.
 
         fields : typing.Optional[str]
-            Comma-separated list of fields to include in the response. Available field groups are 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not provided, all fields are included. Example: 'core,scores,metrics'
+            Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
