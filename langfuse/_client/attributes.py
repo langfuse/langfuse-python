@@ -23,6 +23,9 @@ from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
 from langfuse.types import MapValue, SpanLevel
 
+from opentelemetry import baggage
+import opentelemetry.context as otel_context
+
 
 class LangfuseOtelSpanAttributes:
     # Langfuse-Trace attributes
@@ -59,6 +62,16 @@ class LangfuseOtelSpanAttributes:
 
     # Internal
     AS_ROOT = "langfuse.internal.as_root"
+
+
+def propagate_attributes(
+    *,
+    current_ctx: otel_context.Context,
+    dict_to_propagate: Dict[str, Any],
+) -> otel_context.Context:
+    for key, value in dict_to_propagate.items():
+        current_ctx = baggage.set_baggage(key, str(value), context=current_ctx)
+    return current_ctx
 
 
 def create_trace_attributes(

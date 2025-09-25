@@ -20,6 +20,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -29,7 +30,9 @@ from typing import (
     overload,
 )
 
+from contextlib import contextmanager
 from opentelemetry import trace as otel_trace_api
+from opentelemetry import context
 from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse.model import PromptClient
@@ -42,6 +45,7 @@ from langfuse._client.attributes import (
     create_generation_attributes,
     create_span_attributes,
     create_trace_attributes,
+    propagate_attributes,
 )
 from langfuse._client.constants import (
     ObservationTypeLiteral,
@@ -203,6 +207,7 @@ class LangfuseObservationWrapper:
 
         return self
 
+    @contextmanager
     def update_trace(
         self,
         *,
@@ -215,7 +220,7 @@ class LangfuseObservationWrapper:
         metadata: Optional[Any] = None,
         tags: Optional[List[str]] = None,
         public: Optional[bool] = None,
-    ) -> "LangfuseObservationWrapper":
+    ) -> Iterator[None]:
         """Update the trace that this span belongs to.
 
         This method updates trace-level attributes of the trace that this span
@@ -234,7 +239,7 @@ class LangfuseObservationWrapper:
             public: Whether the trace should be publicly accessible
         """
         if not self._otel_span.is_recording():
-            return self
+            yield
 
         media_processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=self._otel_span
@@ -258,9 +263,19 @@ class LangfuseObservationWrapper:
             public=public,
         )
 
+        ctx = otel_trace_api.set_span_in_context(self._otel_span)
+        ctx = propagate_attributes(
+            current_ctx=ctx,
+            dict_to_propagate=attributes,
+        )
+
+        token = context.attach(ctx)
         self._otel_span.set_attributes(attributes)
 
-        return self
+        try:
+            yield
+        finally:
+            context.detach(token)
 
     @overload
     def score(
