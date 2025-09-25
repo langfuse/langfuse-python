@@ -78,6 +78,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             update_trace: Whether to update the Langfuse trace with the chains input / output / metadata / name. Defaults to False.
         """
         self.client = get_client(public_key=public_key)
+        self.run_inline = True
 
         self.runs: Dict[
             UUID,
