@@ -9,6 +9,10 @@ from .resources.annotation_queues.client import (
     AnnotationQueuesClient,
     AsyncAnnotationQueuesClient,
 )
+from .resources.blob_storage_integrations.client import (
+    AsyncBlobStorageIntegrationsClient,
+    BlobStorageIntegrationsClient,
+)
 from .resources.comments.client import AsyncCommentsClient, CommentsClient
 from .resources.dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
 from .resources.dataset_run_items.client import (
@@ -116,6 +120,9 @@ class FernLangfuse:
         self.annotation_queues = AnnotationQueuesClient(
             client_wrapper=self._client_wrapper
         )
+        self.blob_storage_integrations = BlobStorageIntegrationsClient(
+            client_wrapper=self._client_wrapper
+        )
         self.comments = CommentsClient(client_wrapper=self._client_wrapper)
         self.dataset_items = DatasetItemsClient(client_wrapper=self._client_wrapper)
         self.dataset_run_items = DatasetRunItemsClient(
@@ -211,6 +218,9 @@ class AsyncFernLangfuse:
             timeout=_defaulted_timeout,
         )
         self.annotation_queues = AsyncAnnotationQueuesClient(
+            client_wrapper=self._client_wrapper
+        )
+        self.blob_storage_integrations = AsyncBlobStorageIntegrationsClient(
             client_wrapper=self._client_wrapper
         )
         self.comments = AsyncCommentsClient(client_wrapper=self._client_wrapper)

@@ -850,3 +850,85 @@ Configuration:
 
         # Third message should be the user message
         assert langchain_messages[2] == ("user", "Help me with coding")
+
+
+def test_tool_calls_preservation_in_message_placeholder():
+    """Test that tool calls are preserved when compiling message placeholders."""
+    from langfuse.api.resources.prompts import Prompt_Chat
+
+    chat_messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"type": "placeholder", "name": "message_history"},
+        {"role": "user", "content": "Help me with {{task}}"},
+    ]
+
+    prompt_client = ChatPromptClient(
+        Prompt_Chat(
+            type="chat",
+            name="tool_calls_test",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=chat_messages,
+        )
+    )
+
+    # Message history with tool calls - exactly like the bug report describes
+    message_history_with_tool_calls = [
+        {"role": "user", "content": "What's the weather like?"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_123",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"location": "San Francisco"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "It's sunny, 72°F",
+            "tool_call_id": "call_123",
+            "name": "get_weather",
+        },
+    ]
+
+    # Compile with message history and variables
+    compiled_messages = prompt_client.compile(
+        task="weather inquiry", message_history=message_history_with_tool_calls
+    )
+
+    # Should have 5 messages: system + 3 from history + user
+    assert len(compiled_messages) == 5
+
+    # System message
+    assert compiled_messages[0]["role"] == "system"
+    assert compiled_messages[0]["content"] == "You are a helpful assistant."
+
+    # User message from history
+    assert compiled_messages[1]["role"] == "user"
+    assert compiled_messages[1]["content"] == "What's the weather like?"
+
+    # Assistant message with TOOL CALLS
+    assert compiled_messages[2]["role"] == "assistant"
+    assert compiled_messages[2]["content"] == ""
+    assert "tool_calls" in compiled_messages[2]
+    assert len(compiled_messages[2]["tool_calls"]) == 1
+    assert compiled_messages[2]["tool_calls"][0]["id"] == "call_123"
+    assert compiled_messages[2]["tool_calls"][0]["function"]["name"] == "get_weather"
+
+    # TOOL CALL results message
+    assert compiled_messages[3]["role"] == "tool"
+    assert compiled_messages[3]["content"] == "It's sunny, 72°F"
+    assert compiled_messages[3]["tool_call_id"] == "call_123"
+    assert compiled_messages[3]["name"] == "get_weather"
+
+    # Final user message with compiled variable
+    assert compiled_messages[4]["role"] == "user"
+    assert compiled_messages[4]["content"] == "Help me with weather inquiry"

@@ -315,16 +315,56 @@ def test_create_update_trace():
     langfuse.flush()
     sleep(2)
 
-    # Ensure trace_id is a string before passing to the API
-    if trace_id is not None:
-        # Retrieve and verify trace
-        trace = get_api().trace.get(trace_id)
+    assert isinstance(trace_id, str)
+    # Retrieve and verify trace
+    trace = get_api().trace.get(trace_id)
 
-        assert trace.name == trace_name
-        assert trace.user_id == "test"
-        assert trace.metadata["key"] == "value"
-        assert trace.metadata["key2"] == "value2"
-        assert trace.public is False
+    assert trace.name == trace_name
+    assert trace.user_id == "test"
+    assert trace.metadata["key"] == "value"
+    assert trace.metadata["key2"] == "value2"
+    assert trace.public is False
+
+
+def test_create_update_current_trace():
+    langfuse = Langfuse()
+
+    trace_name = create_uuid()
+
+    # Create initial span with trace properties using update_current_trace
+    with langfuse.start_as_current_span(name="test-span-current") as span:
+        langfuse.update_current_trace(
+            name=trace_name,
+            user_id="test",
+            metadata={"key": "value"},
+            public=True,
+            input="test_input"
+        )
+        # Get trace ID for later reference
+        trace_id = span.trace_id
+
+        # Allow a small delay before updating
+        sleep(1)
+
+        # Update trace properties using update_current_trace
+        langfuse.update_current_trace(metadata={"key2": "value2"}, public=False, version="1.0")
+
+    # Ensure data is sent to the API
+    langfuse.flush()
+    sleep(2)
+
+    assert isinstance(trace_id, str)
+    # Retrieve and verify trace
+    trace = get_api().trace.get(trace_id)
+
+    # The 2nd update to the trace must not erase previously set attributes
+    assert trace.name == trace_name
+    assert trace.user_id == "test"
+    assert trace.metadata["key"] == "value"
+    assert trace.metadata["key2"] == "value2"
+    assert trace.public is False
+    assert trace.version == "1.0"
+    assert trace.input == "test_input"
 
 
 def test_create_generation():
@@ -1917,9 +1957,9 @@ def test_start_as_current_observation_types():
     expected_types = {obs_type.upper() for obs_type in observation_types} | {
         "SPAN"
     }  # includes parent span
-    assert expected_types.issubset(
-        found_types
-    ), f"Missing types: {expected_types - found_types}"
+    assert expected_types.issubset(found_types), (
+        f"Missing types: {expected_types - found_types}"
+    )
 
     # Verify each specific observation exists
     for obs_type in observation_types:
@@ -1934,8 +1974,8 @@ def test_start_as_current_observation_types():
 def test_that_generation_like_properties_are_actually_created():
     """Test that generation-like observation types properly support generation properties."""
     from langfuse._client.constants import (
-        get_observation_types_list,
         ObservationTypeGenerationLike,
+        get_observation_types_list,
     )
 
     langfuse = Langfuse()
@@ -1963,25 +2003,25 @@ def test_that_generation_like_properties_are_actually_created():
             ) as obs:
                 # Verify the properties are accessible on the observation object
                 if hasattr(obs, "model"):
-                    assert (
-                        obs.model == test_model
-                    ), f"{obs_type} should have model property"
+                    assert obs.model == test_model, (
+                        f"{obs_type} should have model property"
+                    )
                 if hasattr(obs, "completion_start_time"):
-                    assert (
-                        obs.completion_start_time == test_completion_start_time
-                    ), f"{obs_type} should have completion_start_time property"
+                    assert obs.completion_start_time == test_completion_start_time, (
+                        f"{obs_type} should have completion_start_time property"
+                    )
                 if hasattr(obs, "model_parameters"):
-                    assert (
-                        obs.model_parameters == test_model_parameters
-                    ), f"{obs_type} should have model_parameters property"
+                    assert obs.model_parameters == test_model_parameters, (
+                        f"{obs_type} should have model_parameters property"
+                    )
                 if hasattr(obs, "usage_details"):
-                    assert (
-                        obs.usage_details == test_usage_details
-                    ), f"{obs_type} should have usage_details property"
+                    assert obs.usage_details == test_usage_details, (
+                        f"{obs_type} should have usage_details property"
+                    )
                 if hasattr(obs, "cost_details"):
-                    assert (
-                        obs.cost_details == test_cost_details
-                    ), f"{obs_type} should have cost_details property"
+                    assert obs.cost_details == test_cost_details, (
+                        f"{obs_type} should have cost_details property"
+                    )
 
     langfuse.flush()
 
@@ -1995,28 +2035,28 @@ def test_that_generation_like_properties_are_actually_created():
             for obs in trace.observations
             if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
         ]
-        assert (
-            len(observations) == 1
-        ), f"Expected one {obs_type.upper()} observation, but found {len(observations)}"
+        assert len(observations) == 1, (
+            f"Expected one {obs_type.upper()} observation, but found {len(observations)}"
+        )
 
         obs = observations[0]
 
         assert obs.model == test_model, f"{obs_type} should have model property"
-        assert (
-            obs.model_parameters == test_model_parameters
-        ), f"{obs_type} should have model_parameters property"
+        assert obs.model_parameters == test_model_parameters, (
+            f"{obs_type} should have model_parameters property"
+        )
 
         # usage_details
         assert hasattr(obs, "usage_details"), f"{obs_type} should have usage_details"
-        assert obs.usage_details == dict(
-            test_usage_details, total=30
-        ), f"{obs_type} should persist usage_details"  # API adds total
+        assert obs.usage_details == dict(test_usage_details, total=30), (
+            f"{obs_type} should persist usage_details"
+        )  # API adds total
 
-        assert (
-            obs.cost_details == test_cost_details
-        ), f"{obs_type} should persist cost_details"
+        assert obs.cost_details == test_cost_details, (
+            f"{obs_type} should persist cost_details"
+        )
 
         # completion_start_time, because of time skew not asserting time
-        assert (
-            obs.completion_start_time is not None
-        ), f"{obs_type} should persist completion_start_time property"
+        assert obs.completion_start_time is not None, (
+            f"{obs_type} should persist completion_start_time property"
+        )

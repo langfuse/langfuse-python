@@ -165,7 +165,13 @@ class BasePromptClient(ABC):
         self, **kwargs: Union[str, Any]
     ) -> Union[
         str,
-        Sequence[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]],
+        Sequence[
+            Union[
+                Dict[str, Any],
+                ChatMessageDict,
+                ChatMessageWithPlaceholdersDict_Placeholder,
+            ]
+        ],
     ]:
         pass
 
@@ -327,7 +333,11 @@ class ChatPromptClient(BasePromptClient):
     def compile(
         self,
         **kwargs: Union[str, Any],
-    ) -> Sequence[Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]]:
+    ) -> Sequence[
+        Union[
+            Dict[str, Any], ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder
+        ]
+    ]:
         """Compile the prompt with placeholders and variables.
 
         Args:
@@ -338,7 +348,11 @@ class ChatPromptClient(BasePromptClient):
             List of compiled chat messages as plain dictionaries, with unresolved placeholders kept as-is.
         """
         compiled_messages: List[
-            Union[ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder]
+            Union[
+                Dict[str, Any],
+                ChatMessageDict,
+                ChatMessageWithPlaceholdersDict_Placeholder,
+            ]
         ] = []
         unresolved_placeholders: List[ChatMessageWithPlaceholdersDict_Placeholder] = []
 
@@ -361,20 +375,18 @@ class ChatPromptClient(BasePromptClient):
                     placeholder_value = kwargs[placeholder_name]
                     if isinstance(placeholder_value, list):
                         for msg in placeholder_value:
-                            if (
-                                isinstance(msg, dict)
-                                and "role" in msg
-                                and "content" in msg
-                            ):
-                                compiled_messages.append(
-                                    ChatMessageDict(
-                                        role=msg["role"],  # type: ignore
-                                        content=TemplateParser.compile_template(
-                                            msg["content"],  # type: ignore
-                                            kwargs,
-                                        ),
-                                    ),
+                            if isinstance(msg, dict):
+                                # Preserve all fields from the original message, such as tool calls
+                                compiled_msg = dict(msg)  # type: ignore
+                                # Ensure role and content are always present
+                                compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
+                                compiled_msg["content"] = (
+                                    TemplateParser.compile_template(
+                                        msg.get("content", ""),  # type: ignore
+                                        kwargs,
+                                    )
                                 )
+                                compiled_messages.append(compiled_msg)
                             else:
                                 compiled_messages.append(
                                     ChatMessageDict(

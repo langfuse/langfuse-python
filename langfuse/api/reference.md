@@ -858,6 +858,239 @@ client.annotation_queues.delete_queue_assignment(
 </dl>
 </details>
 
+## BlobStorageIntegrations
+<details><summary><code>client.blob_storage_integrations.<a href="src/langfuse/resources/blob_storage_integrations/client.py">get_blob_storage_integrations</a>()</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get all blob storage integrations for the organization (requires organization-scoped API key)
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.blob_storage_integrations.get_blob_storage_integrations()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.blob_storage_integrations.<a href="src/langfuse/resources/blob_storage_integrations/client.py">upsert_blob_storage_integration</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create or update a blob storage integration for a specific project (requires organization-scoped API key). The configuration is validated by performing a test upload to the bucket.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import (
+    BlobStorageExportFrequency,
+    BlobStorageExportMode,
+    BlobStorageIntegrationFileType,
+    BlobStorageIntegrationType,
+    CreateBlobStorageIntegrationRequest,
+)
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.blob_storage_integrations.upsert_blob_storage_integration(
+    request=CreateBlobStorageIntegrationRequest(
+        project_id="projectId",
+        type=BlobStorageIntegrationType.S_3,
+        bucket_name="bucketName",
+        region="region",
+        export_frequency=BlobStorageExportFrequency.HOURLY,
+        enabled=True,
+        force_path_style=True,
+        file_type=BlobStorageIntegrationFileType.JSON,
+        export_mode=BlobStorageExportMode.FULL_HISTORY,
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `CreateBlobStorageIntegrationRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.blob_storage_integrations.<a href="src/langfuse/resources/blob_storage_integrations/client.py">delete_blob_storage_integration</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a blob storage integration by ID (requires organization-scoped API key)
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.blob_storage_integrations.delete_blob_storage_integration(
+    id="id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Comments
 <details><summary><code>client.comments.<a href="src/langfuse/resources/comments/client.py">create</a>(...)</code></summary>
 <dl>
@@ -2207,8 +2440,9 @@ client.health.health()
 <dl>
 <dd>
 
-Batched ingestion for Langfuse Tracing.
-If you want to use tracing via the API, such as to build your own Langfuse client implementation, this is the only API route you need to implement.
+**Legacy endpoint for batch ingestion for Langfuse Observability.**
+
+-> Please use the OpenTelemetry endpoint (`/api/public/otel`). Learn more: https://langfuse.com/integrations/native/opentelemetry
 
 Within each batch, there can be multiple events.
 Each event has a type, an id, a timestamp, metadata and a body.
@@ -2218,7 +2452,7 @@ The event.body.id is the ID of the actual trace and will be used for updates and
 I.e. if you want to update a trace, you'd use the same body id, but separate event IDs.
 
 Notes:
-- Introduction to data model: https://langfuse.com/docs/tracing-data-model
+- Introduction to data model: https://langfuse.com/docs/observability/data-model
 - Batch sizes are limited to 3.5 MB in total. You need to adjust the number of events per batch accordingly.
 - The API does not return a 4xx status code for input errors. Instead, it responds with a 207 status code, which includes a list of the encountered errors.
 </dd>
@@ -3527,6 +3761,84 @@ client.organizations.update_organization_membership(
 </dl>
 </details>
 
+<details><summary><code>client.organizations.<a href="src/langfuse/resources/organizations/client.py">delete_organization_membership</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a membership from the organization associated with the API key (requires organization-scoped API key)
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import DeleteMembershipRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.organizations.delete_organization_membership(
+    request=DeleteMembershipRequest(
+        user_id="userId",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `DeleteMembershipRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.organizations.<a href="src/langfuse/resources/organizations/client.py">get_project_memberships</a>(...)</code></summary>
 <dl>
 <dd>
@@ -3671,6 +3983,93 @@ client.organizations.update_project_membership(
 <dd>
 
 **request:** `MembershipRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.organizations.<a href="src/langfuse/resources/organizations/client.py">delete_project_membership</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a membership from a specific project (requires organization-scoped API key). The user must be a member of the organization.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import DeleteMembershipRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.organizations.delete_project_membership(
+    project_id="projectId",
+    request=DeleteMembershipRequest(
+        user_id="userId",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**project_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `DeleteMembershipRequest` 
     
 </dd>
 </dl>
@@ -5659,6 +6058,14 @@ client.score_v_2.get()
 <dl>
 <dd>
 
+**session_id:** `typing.Optional[str]` — Retrieve only scores with a specific sessionId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **queue_id:** `typing.Optional[str]` — Retrieve only scores with a specific annotation queueId.
     
 </dd>
@@ -6406,7 +6813,7 @@ client.trace.list()
 <dl>
 <dd>
 
-**fields:** `typing.Optional[str]` — Comma-separated list of fields to include in the response. Available field groups are 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not provided, all fields are included. Example: 'core,scores,metrics'
+**fields:** `typing.Optional[str]` — Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
     
 </dd>
 </dl>
