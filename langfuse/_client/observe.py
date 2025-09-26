@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import inspect
 import logging
 import os
@@ -21,25 +22,24 @@ from typing import (
 from opentelemetry.util._decorator import _AgnosticContextManager
 from typing_extensions import ParamSpec
 
-from langfuse._client.environment_variables import (
-    LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
-)
-
 from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
     get_observation_types_list,
 )
+from langfuse._client.environment_variables import (
+    LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
+)
 from langfuse._client.get_client import _set_current_public_key, get_client
 from langfuse._client.span import (
-    LangfuseGeneration,
-    LangfuseSpan,
     LangfuseAgent,
-    LangfuseTool,
     LangfuseChain,
-    LangfuseRetriever,
-    LangfuseEvaluator,
     LangfuseEmbedding,
+    LangfuseEvaluator,
+    LangfuseGeneration,
     LangfuseGuardrail,
+    LangfuseRetriever,
+    LangfuseSpan,
+    LangfuseTool,
 )
 from langfuse.types import TraceContext
 
@@ -468,27 +468,69 @@ class LangfuseDecorator:
         generator: Generator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
-        items = []
+        # Capture the current context while the span is still active
+        preserved_context = contextvars.copy_context()
+        items: list[Any] = []
 
-        try:
-            for item in generator:
-                items.append(item)
+        class ContextPreservedSyncGeneratorWrapper:
+            """Sync generator wrapper that ensures each iteration runs in preserved context."""
 
-                yield item
+            def __init__(
+                self,
+                generator: Generator,
+                context: contextvars.Context,
+                items: list[Any],
+                span: Union[
+                    LangfuseSpan,
+                    LangfuseGeneration,
+                    LangfuseAgent,
+                    LangfuseTool,
+                    LangfuseChain,
+                    LangfuseRetriever,
+                    LangfuseEvaluator,
+                    LangfuseEmbedding,
+                    LangfuseGuardrail,
+                ],
+                transform_fn: Optional[Callable[[Iterable], str]],
+            ) -> None:
+                self.generator = generator
+                self.context = context
+                self.items = items
+                self.span = span
+                self.transform_fn = transform_fn
 
-        finally:
-            output: Any = items
+            def __iter__(self) -> "ContextPreservedSyncGeneratorWrapper":
+                return self
 
-            if transform_to_string is not None:
-                output = transform_to_string(items)
+            def __next__(self) -> Any:
+                try:
+                    # Run the generator's __next__ in the preserved context
+                    item = self.context.run(next, self.generator)
+                    self.items.append(item)
+                    return item
 
-            elif all(isinstance(item, str) for item in items):
-                output = "".join(items)
+                except StopIteration:
+                    # Handle output and span cleanup when generator is exhausted
+                    output: Any = self.items
 
-            langfuse_span_or_generation.update(output=output)
-            langfuse_span_or_generation.end()
+                    if self.transform_fn is not None:
+                        output = self.transform_fn(self.items)
+                    elif all(isinstance(item, str) for item in self.items):
+                        output = "".join(self.items)
 
-    async def _wrap_async_generator_result(
+                    self.span.update(output=output)
+                    self.span.end()
+                    raise  # Re-raise StopIteration
+
+        return ContextPreservedSyncGeneratorWrapper(
+            generator,
+            preserved_context,
+            items,
+            langfuse_span_or_generation,
+            transform_to_string,
+        )
+
+    def _wrap_async_generator_result(
         self,
         langfuse_span_or_generation: Union[
             LangfuseSpan,
@@ -503,26 +545,79 @@ class LangfuseDecorator:
         ],
         generator: AsyncGenerator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
-    ) -> AsyncGenerator:
-        items = []
+    ) -> Any:
+        import asyncio
 
-        try:
-            async for item in generator:
-                items.append(item)
+        # Capture the current context while the span is still active
+        preserved_context = contextvars.copy_context()
+        items: list[Any] = []
 
-                yield item
+        class ContextPreservedAsyncGeneratorWrapper:
+            """Async generator wrapper that ensures each iteration runs in preserved context."""
 
-        finally:
-            output: Any = items
+            def __init__(
+                self,
+                generator: AsyncGenerator,
+                context: contextvars.Context,
+                items: list[Any],
+                span: Union[
+                    LangfuseSpan,
+                    LangfuseGeneration,
+                    LangfuseAgent,
+                    LangfuseTool,
+                    LangfuseChain,
+                    LangfuseRetriever,
+                    LangfuseEvaluator,
+                    LangfuseEmbedding,
+                    LangfuseGuardrail,
+                ],
+                transform_fn: Optional[Callable[[Iterable], str]],
+            ) -> None:
+                self.generator = generator
+                self.context = context
+                self.items = items
+                self.span = span
+                self.transform_fn = transform_fn
 
-            if transform_to_string is not None:
-                output = transform_to_string(items)
+            def __aiter__(self) -> "ContextPreservedAsyncGeneratorWrapper":
+                return self
 
-            elif all(isinstance(item, str) for item in items):
-                output = "".join(items)
+            async def __anext__(self) -> Any:
+                try:
+                    # Run the generator's __anext__ in the preserved context
+                    try:
+                        # Python 3.10+ approach with context parameter
+                        item = await asyncio.create_task(
+                            self.generator.__anext__(),  # type: ignore
+                            context=self.context,
+                        )  # type: ignore
+                    except TypeError:
+                        # Python < 3.10 fallback - context parameter not supported
+                        item = await self.generator.__anext__()
 
-            langfuse_span_or_generation.update(output=output)
-            langfuse_span_or_generation.end()
+                    self.items.append(item)
+                    return item
+
+                except StopAsyncIteration:
+                    # Handle output and span cleanup when generator is exhausted
+                    output: Any = self.items
+
+                    if self.transform_fn is not None:
+                        output = self.transform_fn(self.items)
+                    elif all(isinstance(item, str) for item in self.items):
+                        output = "".join(self.items)
+
+                    self.span.update(output=output)
+                    self.span.end()
+                    raise  # Re-raise StopAsyncIteration
+
+        return ContextPreservedAsyncGeneratorWrapper(
+            generator,
+            preserved_context,
+            items,
+            langfuse_span_or_generation,
+            transform_to_string,
+        )
 
 
 _decorator = LangfuseDecorator()
