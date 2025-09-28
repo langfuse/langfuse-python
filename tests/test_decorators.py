@@ -1752,6 +1752,7 @@ def test_sync_generator_context_preservation():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation():
     """Test that async generators preserve context when consumed later (e.g., by streaming responses)"""
     langfuse = get_client()
