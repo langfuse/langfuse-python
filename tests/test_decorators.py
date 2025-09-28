@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
@@ -1816,6 +1817,7 @@ async def test_async_generator_context_preservation():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation_with_trace_hierarchy():
     """Test that async generators maintain proper parent-child span relationships"""
     langfuse = get_client()
@@ -1878,13 +1880,14 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
 
 
 @pytest.mark.asyncio
-async def test_sync_generator_exception_handling_with_context():
-    """Test that exceptions in sync generators are properly handled while preserving context"""
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
+async def test_async_generator_exception_handling_with_context():
+    """Test that exceptions in async generators are properly handled while preserving context"""
     langfuse = get_client()
     mock_trace_id = langfuse.create_trace_id()
 
     @observe(name="failing_generator")
-    def failing_generator():
+    async def failing_generator():
         current_span = trace.get_current_span()
         # Verify we have valid context even when exception occurs
         assert (
@@ -1893,6 +1896,7 @@ async def test_sync_generator_exception_handling_with_context():
         )
 
         yield "first_item"
+        await asyncio.sleep(0.001)
         raise ValueError("Generator failure test")
         yield "never_reached"  # This should never execute
 
@@ -1905,7 +1909,7 @@ async def test_sync_generator_exception_handling_with_context():
 
     items = []
     with pytest.raises(ValueError, match="Generator failure test"):
-        for item in generator:
+        async for item in generator:
             items.append(item)
 
     langfuse.flush()
