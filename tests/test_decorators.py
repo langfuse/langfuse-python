@@ -1686,3 +1686,295 @@ async def test_multiproject_async_context_exception_handling():
 
     # Reset instances to not leak to other test suites
     removeMockResourceManagerInstances()
+
+
+def test_sync_generator_context_preservation():
+    """Test that sync generators preserve context when consumed later (e.g., by streaming responses)"""
+    langfuse = get_client()
+    mock_trace_id = langfuse.create_trace_id()
+
+    # Global variable to capture span information
+    span_info = {}
+
+    @observe(name="sync_generator")
+    def create_generator():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        span_info["generator_span_id"] = trace.format_span_id(
+            current_span.get_span_context().span_id
+        )
+
+        for i in range(3):
+            yield f"item_{i}"
+
+    @observe(name="root")
+    def root_function():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        span_info["root_span_id"] = trace.format_span_id(
+            current_span.get_span_context().span_id
+        )
+
+        # Return generator without consuming it (like FastAPI StreamingResponse would)
+        return create_generator()
+
+    # Simulate the scenario where generator is consumed after root function exits
+    generator = root_function(langfuse_trace_id=mock_trace_id)
+
+    # Consume generator later (like FastAPI would)
+    items = list(generator)
+
+    langfuse.flush()
+
+    # Verify results
+    assert items == ["item_0", "item_1", "item_2"]
+    assert (
+        span_info["generator_span_id"] != "0000000000000000"
+    ), "Generator context should be preserved"
+    assert (
+        span_info["root_span_id"] != span_info["generator_span_id"]
+    ), "Should have different span IDs"
+
+    # Verify trace structure
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+
+    # Verify both observations are present
+    observation_names = [obs.name for obs in trace_data.observations]
+    assert "root" in observation_names
+    assert "sync_generator" in observation_names
+
+    # Verify generator observation has output
+    generator_obs = next(
+        obs for obs in trace_data.observations if obs.name == "sync_generator"
+    )
+    assert generator_obs.output == "item_0item_1item_2"
+
+
+@pytest.mark.asyncio
+async def test_async_generator_context_preservation():
+    """Test that async generators preserve context when consumed later (e.g., by streaming responses)"""
+    langfuse = get_client()
+    mock_trace_id = langfuse.create_trace_id()
+
+    # Global variable to capture span information
+    span_info = {}
+
+    @observe(name="async_generator")
+    async def create_async_generator():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        span_info["generator_span_id"] = trace.format_span_id(
+            current_span.get_span_context().span_id
+        )
+
+        for i in range(3):
+            await asyncio.sleep(0.001)  # Simulate async work
+            yield f"async_item_{i}"
+
+    @observe(name="root")
+    async def root_function():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        span_info["root_span_id"] = trace.format_span_id(
+            current_span.get_span_context().span_id
+        )
+
+        # Return generator without consuming it (like FastAPI StreamingResponse would)
+        return create_async_generator()
+
+    # Simulate the scenario where generator is consumed after root function exits
+    generator = await root_function(langfuse_trace_id=mock_trace_id)
+
+    # Consume generator later (like FastAPI would)
+    items = []
+    async for item in generator:
+        items.append(item)
+
+    langfuse.flush()
+
+    # Verify results
+    assert items == ["async_item_0", "async_item_1", "async_item_2"]
+    assert (
+        span_info["generator_span_id"] != "0000000000000000"
+    ), "Generator context should be preserved"
+    assert (
+        span_info["root_span_id"] != span_info["generator_span_id"]
+    ), "Should have different span IDs"
+
+    # Verify trace structure
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+
+    # Verify both observations are present
+    observation_names = [obs.name for obs in trace_data.observations if obs.name]
+    assert "root" in observation_names
+    assert "async_generator" in observation_names
+
+    # Verify generator observation has output
+    generator_obs = next(
+        obs for obs in trace_data.observations if obs.name == "async_generator"
+    )
+    assert generator_obs.output == "async_item_0async_item_1async_item_2"
+
+
+@pytest.mark.asyncio
+async def test_async_generator_context_preservation_with_trace_hierarchy():
+    """Test that async generators maintain proper parent-child span relationships"""
+    langfuse = get_client()
+    mock_trace_id = langfuse.create_trace_id()
+
+    # Global variables to capture span information
+    span_info = {}
+
+    @observe(name="child_stream")
+    async def child_generator():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        span_context = current_span.get_span_context()
+        span_info["child_span_id"] = trace.format_span_id(span_context.span_id)
+        span_info["child_trace_id"] = trace.format_trace_id(span_context.trace_id)
+
+        for i in range(2):
+            await asyncio.sleep(0.001)
+            yield f"child_{i}"
+
+    @observe(name="parent_root")
+    async def parent_function():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        span_context = current_span.get_span_context()
+        span_info["parent_span_id"] = trace.format_span_id(span_context.span_id)
+        span_info["parent_trace_id"] = trace.format_trace_id(span_context.trace_id)
+
+        # Create and return child generator
+        return child_generator()
+
+    # Execute parent function
+    generator = await parent_function(langfuse_trace_id=mock_trace_id)
+
+    # Consume generator (simulating delayed consumption)
+    items = [item async for item in generator]
+
+    langfuse.flush()
+
+    # Verify results
+    assert items == ["child_0", "child_1"]
+
+    # Verify span hierarchy
+    assert (
+        span_info["parent_span_id"] != span_info["child_span_id"]
+    ), "Parent and child should have different span IDs"
+    assert (
+        span_info["parent_trace_id"] == span_info["child_trace_id"]
+    ), "Parent and child should share same trace ID"
+    assert (
+        span_info["child_span_id"] != "0000000000000000"
+    ), "Child context should be preserved"
+
+    # Verify trace structure
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+
+    # Check both observations exist
+    observation_names = [obs.name for obs in trace_data.observations if obs.name]
+    assert "parent_root" in observation_names
+    assert "child_stream" in observation_names
+
+
+@pytest.mark.asyncio
+async def test_async_generator_exception_handling_with_context():
+    """Test that exceptions in async generators are properly handled while preserving context"""
+    langfuse = get_client()
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(name="failing_generator")
+    async def failing_generator():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        # Verify we have valid context even when exception occurs
+        assert (
+            trace.format_span_id(current_span.get_span_context().span_id)
+            != "0000000000000000"
+        )
+
+        yield "first_item"
+        await asyncio.sleep(0.001)
+        raise ValueError("Generator failure test")
+        yield "never_reached"  # This should never execute
+
+    @observe(name="root")
+    async def root_function():
+        return failing_generator()
+
+    # Execute and consume generator
+    generator = await root_function(langfuse_trace_id=mock_trace_id)
+
+    items = []
+    with pytest.raises(ValueError, match="Generator failure test"):
+        async for item in generator:
+            items.append(item)
+
+    langfuse.flush()
+
+    # Verify partial results
+    assert items == ["first_item"]
+
+    # Verify trace structure - should have both observations despite exception
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+
+    # Check that the failing generator observation has ERROR level
+    failing_obs = next(
+        obs for obs in trace_data.observations if obs.name == "failing_generator"
+    )
+    assert failing_obs.level == "ERROR"
+    assert "Generator failure test" in failing_obs.status_message
+
+
+def test_sync_generator_empty_context_preservation():
+    """Test that empty sync generators work correctly with context preservation"""
+    langfuse = get_client()
+    mock_trace_id = langfuse.create_trace_id()
+
+    @observe(name="empty_generator")
+    def empty_generator():
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        # Should have valid context even for empty generator
+        assert (
+            trace.format_span_id(current_span.get_span_context().span_id)
+            != "0000000000000000"
+        )
+        return
+        yield  # Unreachable
+
+    @observe(name="root")
+    def root_function():
+        return empty_generator()
+
+    generator = root_function(langfuse_trace_id=mock_trace_id)
+    items = list(generator)
+
+    langfuse.flush()
+
+    # Verify results
+    assert items == []
+
+    # Verify trace structure
+    trace_data = get_api().trace.get(mock_trace_id)
+    assert len(trace_data.observations) == 2
+
+    # Verify empty generator observation
+    empty_obs = next(
+        obs for obs in trace_data.observations if obs.name == "empty_generator"
+    )
+    assert empty_obs.output == ""
