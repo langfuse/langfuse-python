@@ -563,7 +563,7 @@ class _ContextPreservedSyncGeneratorWrapper:
         except Exception as e:
             self.span.update(level="ERROR", status_message=str(e)).end()
 
-            raise e
+            raise
 
 
 class _ContextPreservedAsyncGeneratorWrapper:
