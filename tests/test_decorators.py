@@ -8,6 +8,7 @@ from typing import Optional
 import pytest
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from opentelemetry import trace
 
 from langfuse import Langfuse, get_client, observe
 from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
@@ -1698,8 +1699,6 @@ def test_sync_generator_context_preservation():
 
     @observe(name="sync_generator")
     def create_generator():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         span_info["generator_span_id"] = trace.format_span_id(
             current_span.get_span_context().span_id
@@ -1710,8 +1709,6 @@ def test_sync_generator_context_preservation():
 
     @observe(name="root")
     def root_function():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         span_info["root_span_id"] = trace.format_span_id(
             current_span.get_span_context().span_id
@@ -1764,8 +1761,6 @@ async def test_async_generator_context_preservation():
 
     @observe(name="async_generator")
     async def create_async_generator():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         span_info["generator_span_id"] = trace.format_span_id(
             current_span.get_span_context().span_id
@@ -1777,8 +1772,6 @@ async def test_async_generator_context_preservation():
 
     @observe(name="root")
     async def root_function():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         span_info["root_span_id"] = trace.format_span_id(
             current_span.get_span_context().span_id
@@ -1833,8 +1826,6 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
 
     @observe(name="child_stream")
     async def child_generator():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         span_context = current_span.get_span_context()
         span_info["child_span_id"] = trace.format_span_id(span_context.span_id)
@@ -1846,8 +1837,6 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
 
     @observe(name="parent_root")
     async def parent_function():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         span_context = current_span.get_span_context()
         span_info["parent_span_id"] = trace.format_span_id(span_context.span_id)
@@ -1896,8 +1885,6 @@ async def test_async_generator_exception_handling_with_context():
 
     @observe(name="failing_generator")
     async def failing_generator():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         # Verify we have valid context even when exception occurs
         assert (
@@ -1946,8 +1933,6 @@ def test_sync_generator_empty_context_preservation():
 
     @observe(name="empty_generator")
     def empty_generator():
-        from opentelemetry import trace
-
         current_span = trace.get_current_span()
         # Should have valid context even for empty generator
         assert (
@@ -1977,4 +1962,4 @@ def test_sync_generator_empty_context_preservation():
     empty_obs = next(
         obs for obs in trace_data.observations if obs.name == "empty_generator"
     )
-    assert empty_obs.output == ""
+    assert empty_obs.output is None
