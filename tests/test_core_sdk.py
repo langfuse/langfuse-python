@@ -338,7 +338,7 @@ def test_create_update_current_trace():
             user_id="test",
             metadata={"key": "value"},
             public=True,
-            input="test_input"
+            input="test_input",
         )
         # Get trace ID for later reference
         trace_id = span.trace_id
@@ -347,7 +347,9 @@ def test_create_update_current_trace():
         sleep(1)
 
         # Update trace properties using update_current_trace
-        langfuse.update_current_trace(metadata={"key2": "value2"}, public=False, version="1.0")
+        langfuse.update_current_trace(
+            metadata={"key2": "value2"}, public=False, version="1.0"
+        )
 
     # Ensure data is sent to the API
     langfuse.flush()
@@ -1957,9 +1959,9 @@ def test_start_as_current_observation_types():
     expected_types = {obs_type.upper() for obs_type in observation_types} | {
         "SPAN"
     }  # includes parent span
-    assert expected_types.issubset(found_types), (
-        f"Missing types: {expected_types - found_types}"
-    )
+    assert expected_types.issubset(
+        found_types
+    ), f"Missing types: {expected_types - found_types}"
 
     # Verify each specific observation exists
     for obs_type in observation_types:
@@ -2003,25 +2005,25 @@ def test_that_generation_like_properties_are_actually_created():
             ) as obs:
                 # Verify the properties are accessible on the observation object
                 if hasattr(obs, "model"):
-                    assert obs.model == test_model, (
-                        f"{obs_type} should have model property"
-                    )
+                    assert (
+                        obs.model == test_model
+                    ), f"{obs_type} should have model property"
                 if hasattr(obs, "completion_start_time"):
-                    assert obs.completion_start_time == test_completion_start_time, (
-                        f"{obs_type} should have completion_start_time property"
-                    )
+                    assert (
+                        obs.completion_start_time == test_completion_start_time
+                    ), f"{obs_type} should have completion_start_time property"
                 if hasattr(obs, "model_parameters"):
-                    assert obs.model_parameters == test_model_parameters, (
-                        f"{obs_type} should have model_parameters property"
-                    )
+                    assert (
+                        obs.model_parameters == test_model_parameters
+                    ), f"{obs_type} should have model_parameters property"
                 if hasattr(obs, "usage_details"):
-                    assert obs.usage_details == test_usage_details, (
-                        f"{obs_type} should have usage_details property"
-                    )
+                    assert (
+                        obs.usage_details == test_usage_details
+                    ), f"{obs_type} should have usage_details property"
                 if hasattr(obs, "cost_details"):
-                    assert obs.cost_details == test_cost_details, (
-                        f"{obs_type} should have cost_details property"
-                    )
+                    assert (
+                        obs.cost_details == test_cost_details
+                    ), f"{obs_type} should have cost_details property"
 
     langfuse.flush()
 
@@ -2035,28 +2037,231 @@ def test_that_generation_like_properties_are_actually_created():
             for obs in trace.observations
             if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
         ]
-        assert len(observations) == 1, (
-            f"Expected one {obs_type.upper()} observation, but found {len(observations)}"
-        )
+        assert (
+            len(observations) == 1
+        ), f"Expected one {obs_type.upper()} observation, but found {len(observations)}"
 
         obs = observations[0]
 
         assert obs.model == test_model, f"{obs_type} should have model property"
-        assert obs.model_parameters == test_model_parameters, (
-            f"{obs_type} should have model_parameters property"
-        )
+        assert (
+            obs.model_parameters == test_model_parameters
+        ), f"{obs_type} should have model_parameters property"
 
         # usage_details
         assert hasattr(obs, "usage_details"), f"{obs_type} should have usage_details"
-        assert obs.usage_details == dict(test_usage_details, total=30), (
-            f"{obs_type} should persist usage_details"
-        )  # API adds total
+        assert obs.usage_details == dict(
+            test_usage_details, total=30
+        ), f"{obs_type} should persist usage_details"  # API adds total
 
-        assert obs.cost_details == test_cost_details, (
-            f"{obs_type} should persist cost_details"
-        )
+        assert (
+            obs.cost_details == test_cost_details
+        ), f"{obs_type} should persist cost_details"
 
         # completion_start_time, because of time skew not asserting time
-        assert obs.completion_start_time is not None, (
-            f"{obs_type} should persist completion_start_time property"
-        )
+        assert (
+            obs.completion_start_time is not None
+        ), f"{obs_type} should persist completion_start_time property"
+
+
+def test_context_manager_user_propagation():
+    """Test that user context manager propagates user_id to child spans."""
+    langfuse = Langfuse()
+
+    user_id = "test_user_123"
+
+    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+        with langfuse.user(id=user_id):
+            trace_id = parent_span.trace_id
+
+            # Create child spans that should inherit user_id
+            child_span = langfuse.start_span(name="child-span")
+            child_span.end()
+
+            # Create generation that should inherit user_id
+            generation = parent_span.start_generation(name="child-generation")
+            generation.end()
+
+    langfuse.flush()
+    sleep(2)
+
+    # Verify trace has user_id (child spans inherit via context propagation)
+    trace = get_api().trace.get(trace_id)
+    assert trace.user_id == user_id
+
+    # Verify child observations were created
+    child_observations = [
+        obs
+        for obs in trace.observations
+        if obs.name in ["child-span", "child-generation"]
+    ]
+    assert len(child_observations) == 2
+
+
+def test_context_manager_session_propagation():
+    """Test that session context manager propagates session_id to child spans."""
+    langfuse = Langfuse()
+
+    session_id = "test_session_456"
+
+    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+        with langfuse.session(id=session_id):
+            trace_id = parent_span.trace_id
+
+            # Create child spans that should inherit session_id
+            child_span = langfuse.start_span(name="child-span")
+            child_span.end()
+
+            # Create nested context to test multiple levels
+            with langfuse.start_as_current_span(name="nested-span") as nested_span:
+                grandchild_span = langfuse.start_span(name="grandchild-span")
+                grandchild_span.end()
+
+    langfuse.flush()
+    sleep(2)
+
+    # Verify trace has session_id
+    trace = get_api().trace.get(trace_id)
+    assert trace.session_id == session_id
+
+    # Verify nested spans were created
+    nested_observations = [obs for obs in trace.observations if "span" in obs.name]
+    assert len(nested_observations) >= 2
+
+
+def test_context_manager_metadata_propagation():
+    """Test that metadata context manager propagates metadata to child spans."""
+    langfuse = Langfuse()
+
+    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+        with langfuse.metadata(
+            experiment="A/B", version="1.2.3", feature_flag="enabled"
+        ):
+            trace_id = parent_span.trace_id
+
+            # Create child spans that should inherit metadata
+            child_span = langfuse.start_span(name="child-span")
+            child_span.end()
+
+            # Create generation that should inherit metadata
+            generation = parent_span.start_generation(name="child-generation")
+            generation.end()
+
+    langfuse.flush()
+    sleep(2)
+
+    # Verify trace has metadata
+    trace = get_api().trace.get(trace_id)
+    assert trace.metadata["experiment"] == "A/B"
+    assert trace.metadata["version"] == "1.2.3"
+    assert trace.metadata["feature_flag"] == "enabled"
+
+
+def test_context_manager_nested_contexts():
+    """Test nested context managers with overrides and merging."""
+    langfuse = Langfuse()
+
+    with langfuse.start_as_current_span(name="outer-span") as outer_span:
+        with langfuse.user(id="user_1"):
+            with langfuse.session(id="session_1"):
+                with langfuse.metadata(env="prod", region="us-east"):
+                    outer_trace_id = outer_span.trace_id
+
+                    # Create span in outer context
+                    outer_child = langfuse.start_span(name="outer-child")
+                    outer_child.end()
+
+                    # Override user in nested context
+                    with langfuse.user(id="user_2"):
+                        with langfuse.metadata(
+                            env="staging"
+                        ):  # Override env, keep region
+                            nested_span = langfuse.start_span(name="nested-span")
+                            nested_span.end()
+
+    langfuse.flush()
+    sleep(2)
+
+    # Verify trace was created with nested spans
+    trace = get_api().trace.get(outer_trace_id)
+
+    # Verify trace-level properties from the outer context
+    assert trace.user_id == "user_2"  # Last set user_id should win
+    assert trace.session_id == "session_1"  # Session should be preserved
+    assert trace.metadata["env"] == "staging"  # Last set env should win
+    assert (
+        trace.metadata["region"] == "us-east"
+    )  # Region should be preserved from outer context
+
+    # Verify child observations were created
+    child_observations = [
+        obs for obs in trace.observations if "child" in obs.name or "nested" in obs.name
+    ]
+    assert len(child_observations) >= 2
+
+    # Verify specific child spans exist
+    outer_child_obs = [obs for obs in trace.observations if obs.name == "outer-child"]
+    nested_span_obs = [obs for obs in trace.observations if obs.name == "nested-span"]
+
+    assert len(outer_child_obs) == 1, "outer-child span should exist"
+    assert len(nested_span_obs) == 1, "nested-span should exist"
+
+
+def test_context_manager_baggage_propagation():
+    """Test context managers with as_baggage=True for cross-service propagation."""
+    langfuse = Langfuse()
+
+    # Test with baggage enabled (careful with sensitive data)
+    with langfuse.start_as_current_span(name="service-span") as span:
+        with langfuse.session(id="public_session_789", as_baggage=True):
+            with langfuse.metadata(as_baggage=True, service="api", version="1.0"):
+                trace_id = span.trace_id
+
+                # Create child spans that inherit baggage context
+                child_span = langfuse.start_span(name="external-call-span")
+                child_span.end()
+
+    langfuse.flush()
+    sleep(2)
+
+    # Verify trace properties were set
+    trace = get_api().trace.get(trace_id)
+    assert trace.session_id == "public_session_789"
+    assert trace.metadata["service"] == "api"
+    assert trace.metadata["version"] == "1.0"
+
+
+def test_span_context_managers():
+    """Test context managers called on span instances."""
+    langfuse = Langfuse()
+
+    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+        trace_id = parent_span.trace_id
+
+        # Use context managers on the span instance
+        with parent_span.user(id="span_user_123"):
+            child1 = parent_span.start_span(name="user-context-child")
+            child1.end()
+
+        with parent_span.session(id="span_session_456"):
+            child2 = parent_span.start_span(name="session-context-child")
+            child2.end()
+
+        with parent_span.metadata(component="auth", action="validate"):
+            child3 = parent_span.start_span(name="metadata-context-child")
+            child3.end()
+
+    langfuse.flush()
+    sleep(2)
+
+    # Verify trace was created with child observations
+    trace = get_api().trace.get(trace_id)
+    child_names = [
+        obs.name for obs in trace.observations if obs.name.endswith("-child")
+    ]
+    expected_children = [
+        "user-context-child",
+        "session-context-child",
+        "metadata-context-child",
+    ]
+    assert all(child in child_names for child in expected_children)

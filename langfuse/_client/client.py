@@ -4,6 +4,7 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -27,8 +28,11 @@ from typing import (
 
 import backoff
 import httpx
-from opentelemetry import trace
-from opentelemetry import trace as otel_trace_api
+from opentelemetry import (
+    trace as otel_trace_api,
+    baggage as otel_baggage_api,
+    context as otel_context_api,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
@@ -110,6 +114,11 @@ from langfuse.model import (
     TextPromptClient,
 )
 from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
+
+# Context key constants for Langfuse context propagation
+LANGFUSE_CTX_USER_ID = "langfuse.ctx.user.id"
+LANGFUSE_CTX_SESSION_ID = "langfuse.ctx.session.id"
+LANGFUSE_CTX_METADATA = "langfuse.ctx.metadata"
 
 
 class Langfuse:
@@ -1667,6 +1676,11 @@ class Langfuse:
                 span.update(output=response)
             ```
         """
+        warnings.warn(
+            "update_current_trace is deprecated and will be removed in a future version. ",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self._tracing_enabled:
             langfuse_logger.debug(
                 "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
@@ -1811,7 +1825,7 @@ class Langfuse:
             is_remote=False,
         )
 
-        return trace.NonRecordingSpan(span_context)
+        return otel_trace_api.NonRecordingSpan(span_context)
 
     def _is_valid_trace_id(self, trace_id: str) -> bool:
         pattern = r"^[0-9a-f]{32}$"
@@ -3450,3 +3464,186 @@ class Langfuse:
         """
         if self._resources is not None:
             self._resources.prompt_cache.clear()
+
+    @_agnosticcontextmanager
+    def session(self, id: str, *, as_baggage: bool = False) -> _AgnosticContextManager:
+        """Create a session context manager that propagates session_id to all child spans.
+
+        Args:
+            id (str): The session identifier to propagate to child spans.
+            as_baggage (bool, optional): If True, stores the session_id in OpenTelemetry baggage
+                for cross-service propagation. If False, stores only in local context for
+                current-service propagation. Defaults to False.
+
+        Returns:
+            Context manager that sets session_id on all spans created within its scope.
+
+        Warning:
+            When as_baggage=True, the session_id will be included in HTTP headers of any
+            outbound requests made within this context. Only use this for non-sensitive
+            identifiers that are safe to transmit across service boundaries.
+
+        Example:
+            ```python
+            # Local context only (default)
+            with langfuse.session(id="session_123"):
+                with langfuse.start_as_current_span(name="process-request") as span:
+                    # This span and all its children will have session_id="session_123"
+                    child_span = langfuse.start_span(name="child-operation")
+
+            # Cross-service propagation (use with caution)
+            with langfuse.session(id="session_123", as_baggage=True):
+                # session_id will be propagated to external service calls
+                response = requests.get("https://api.example.com/data")
+            ```
+        """
+        # Set context variable
+        new_context = otel_context_api.set_value(LANGFUSE_CTX_SESSION_ID, id)
+        token = otel_context_api.attach(new_context)
+
+        # Set baggage if requested
+        baggage_token = None
+        if as_baggage:
+            new_baggage = otel_baggage_api.set_baggage("session.id", id)
+            baggage_token = otel_context_api.attach(new_baggage)
+
+        try:
+            yield
+        finally:
+            # Always detach context token
+            otel_context_api.detach(token)
+
+            # Detach baggage token if it was set
+            if baggage_token is not None:
+                otel_context_api.detach(baggage_token)
+
+    @_agnosticcontextmanager
+    def user(self, id: str, *, as_baggage: bool = False) -> _AgnosticContextManager:
+        """Create a user context manager that propagates user_id to all child spans.
+
+        Args:
+            id (str): The user identifier to propagate to child spans.
+            as_baggage (bool, optional): If True, stores the user_id in OpenTelemetry baggage
+                for cross-service propagation. If False, stores only in local context for
+                current-service propagation. Defaults to False.
+
+        Returns:
+            Context manager that sets user_id on all spans created within its scope.
+
+        Warning:
+            When as_baggage=True, the user_id will be included in HTTP headers of any
+            outbound requests made within this context. This may leak sensitive user
+            information to external services. Use with extreme caution.
+
+        Example:
+            ```python
+            # Local context only (default, recommended for user IDs)
+            with langfuse.user(id="user_456"):
+                with langfuse.start_as_current_span(name="user-action") as span:
+                    # This span and all its children will have user_id="user_456"
+                    pass
+
+            # Cross-service propagation (NOT recommended for sensitive user IDs)
+            with langfuse.user(id="public_user_456", as_baggage=True):
+                # user_id will be propagated to external service calls
+                response = requests.get("https://api.example.com/data")
+            ```
+        """
+        # Set context variable
+        new_context = otel_context_api.set_value(LANGFUSE_CTX_USER_ID, id)
+        token = otel_context_api.attach(new_context)
+
+        # Set baggage if requested
+        baggage_token = None
+        if as_baggage:
+            new_baggage = otel_baggage_api.set_baggage("user.id", id)
+            baggage_token = otel_context_api.attach(new_baggage)
+
+        try:
+            yield
+        finally:
+            # Always detach context token
+            otel_context_api.detach(token)
+
+            # Detach baggage token if it was set
+            if baggage_token is not None:
+                otel_context_api.detach(baggage_token)
+
+    @_agnosticcontextmanager
+    def metadata(
+        self, *, as_baggage: bool = False, **kwargs
+    ) -> _AgnosticContextManager:
+        """Create a metadata context manager that propagates metadata to all child spans.
+
+        Args:
+            as_baggage (bool, optional): If True, stores the metadata in OpenTelemetry baggage
+                for cross-service propagation. If False, stores only in local context for
+                current-service propagation. Defaults to False.
+            **kwargs: Metadata key-value pairs. Values should not exceed 200 characters.
+
+        Returns:
+            Context manager that sets metadata on all spans created within its scope.
+
+        Warning:
+            When as_baggage=True, all metadata key-value pairs will be included in HTTP
+            headers of any outbound requests made within this context. Ensure no sensitive
+            information is included in the metadata when using cross-service propagation.
+
+        Example:
+            ```python
+            # Local context only (default)
+            with langfuse.metadata(experiment="A/B", version="1.2.3"):
+                with langfuse.start_as_current_span(name="experiment-run") as span:
+                    # This span and all its children will have the metadata
+                    pass
+
+            # Cross-service propagation (use with caution)
+            with langfuse.metadata(as_baggage=True, experiment="A/B", service="api"):
+                # metadata will be propagated to external service calls
+                response = requests.get("https://api.example.com/data")
+            ```
+        """
+        if not kwargs:
+            # No metadata to set, just yield
+            yield
+            return
+
+        # Convert metadata dict to JSON string for context storage
+        metadata_json = json.dumps(kwargs)
+
+        # Set context variable
+        new_context = otel_context_api.set_value(LANGFUSE_CTX_METADATA, metadata_json)
+        token = otel_context_api.attach(new_context)
+
+        # Set baggage if requested
+        baggage_tokens = []
+        if as_baggage:
+            current_baggage = otel_baggage_api.get_all()
+            new_baggage = current_baggage
+
+            # Add each metadata key-value pair to baggage
+            for key, value in kwargs.items():
+                # Convert value to string and truncate if needed for baggage
+                str_value = str(value)
+                if len(str_value) > 200:
+                    str_value = str_value[:200]
+
+                baggage_key = f"metadata.{key}"
+                new_baggage = otel_baggage_api.set_baggage(
+                    baggage_key, str_value, new_baggage
+                )
+
+            # Attach the new baggage context
+            if new_baggage != current_baggage:
+                baggage_token = otel_context_api.attach(new_baggage)
+                baggage_tokens.append(baggage_token)
+
+        try:
+            yield
+        finally:
+            # Always detach context token
+            otel_context_api.detach(token)
+
+            # Detach all baggage tokens if they were set
+            for baggage_token in baggage_tokens:
+                otel_context_api.detach(baggage_token)
