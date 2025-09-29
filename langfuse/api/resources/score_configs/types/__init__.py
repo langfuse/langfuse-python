@@ -2,5 +2,6 @@
 
 from .create_score_config_request import CreateScoreConfigRequest
 from .score_configs import ScoreConfigs
+from .update_score_config_request import UpdateScoreConfigRequest
 
-__all__ = ["CreateScoreConfigRequest", "ScoreConfigs"]
+__all__ = ["CreateScoreConfigRequest", "ScoreConfigs", "UpdateScoreConfigRequest"]
