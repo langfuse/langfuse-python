@@ -234,7 +234,11 @@ from .scim import (
     UserMeta,
 )
 from .score import CreateScoreRequest, CreateScoreResponse
-from .score_configs import CreateScoreConfigRequest, ScoreConfigs
+from .score_configs import (
+    CreateScoreConfigRequest,
+    ScoreConfigs,
+    UpdateScoreConfigRequest,
+)
 from .score_v_2 import (
     GetScoresResponse,
     GetScoresResponseData,
@@ -449,6 +453,7 @@ __all__ = [
     "UpdateGenerationBody",
     "UpdateGenerationEvent",
     "UpdateObservationEvent",
+    "UpdateScoreConfigRequest",
     "UpdateSpanBody",
     "UpdateSpanEvent",
     "UpsertLlmConnectionRequest",
