@@ -21,6 +21,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
+    Generator,
     List,
     Literal,
     Optional,
@@ -1134,7 +1135,7 @@ class LangfuseObservationWrapper:
     @_agnosticcontextmanager
     def session(
         self, id: str, *, as_baggage: bool = False
-    ) -> "_AgnosticContextManager":
+    ) -> Generator[None, None, None]:
         """Create a session context manager that propagates session_id to all child spans.
 
         Args:
@@ -1185,7 +1186,7 @@ class LangfuseObservationWrapper:
                 otel_context_api.detach(baggage_token)
 
     @_agnosticcontextmanager
-    def user(self, id: str, *, as_baggage: bool = False) -> "_AgnosticContextManager":
+    def user(self, id: str, *, as_baggage: bool = False) -> Generator[None, None, None]:
         """Create a user context manager that propagates user_id to all child spans.
 
         Args:
@@ -1237,8 +1238,8 @@ class LangfuseObservationWrapper:
 
     @_agnosticcontextmanager
     def metadata(
-        self, *, as_baggage: bool = False, **kwargs
-    ) -> "_AgnosticContextManager":
+        self, *, as_baggage: bool = False, **kwargs: Any
+    ) -> Generator[None, None, None]:
         """Create a metadata context manager that propagates metadata to all child spans.
 
         Args:
@@ -1283,8 +1284,8 @@ class LangfuseObservationWrapper:
         # Set baggage if requested
         baggage_tokens = []
         if as_baggage:
-            current_baggage = otel_baggage_api.get_all()
-            new_baggage = current_baggage
+            # Start with None context and chain baggage settings
+            new_baggage = None
 
             # Add each metadata key-value pair to baggage
             for key, value in kwargs.items():
@@ -1299,7 +1300,7 @@ class LangfuseObservationWrapper:
                 )
 
             # Attach the new baggage context
-            if new_baggage != current_baggage:
+            if new_baggage is not None:
                 baggage_token = otel_context_api.attach(new_baggage)
                 baggage_tokens.append(baggage_token)
 

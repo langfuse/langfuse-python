@@ -17,6 +17,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Generator,
     List,
     Literal,
     Optional,
@@ -198,6 +199,7 @@ class Langfuse:
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
     _otel_tracer: otel_trace_api.Tracer
+    _host: str
 
     def __init__(
         self,
@@ -220,8 +222,10 @@ class Langfuse:
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = host or cast(
-            str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        self._host = (
+            host
+            if host is not None
+            else os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
@@ -3466,7 +3470,9 @@ class Langfuse:
             self._resources.prompt_cache.clear()
 
     @_agnosticcontextmanager
-    def session(self, id: str, *, as_baggage: bool = False) -> _AgnosticContextManager:
+    def session(
+        self, id: str, *, as_baggage: bool = False
+    ) -> Generator[None, None, None]:
         """Create a session context manager that propagates session_id to all child spans.
 
         Args:
@@ -3518,7 +3524,7 @@ class Langfuse:
                 otel_context_api.detach(baggage_token)
 
     @_agnosticcontextmanager
-    def user(self, id: str, *, as_baggage: bool = False) -> _AgnosticContextManager:
+    def user(self, id: str, *, as_baggage: bool = False) -> Generator[None, None, None]:
         """Create a user context manager that propagates user_id to all child spans.
 
         Args:
@@ -3571,8 +3577,8 @@ class Langfuse:
 
     @_agnosticcontextmanager
     def metadata(
-        self, *, as_baggage: bool = False, **kwargs
-    ) -> _AgnosticContextManager:
+        self, *, as_baggage: bool = False, **kwargs: Any
+    ) -> Generator[None, None, None]:
         """Create a metadata context manager that propagates metadata to all child spans.
 
         Args:
@@ -3618,8 +3624,8 @@ class Langfuse:
         # Set baggage if requested
         baggage_tokens = []
         if as_baggage:
-            current_baggage = otel_baggage_api.get_all()
-            new_baggage = current_baggage
+            # Start with None context and chain baggage settings
+            new_baggage = None
 
             # Add each metadata key-value pair to baggage
             for key, value in kwargs.items():
@@ -3634,7 +3640,7 @@ class Langfuse:
                 )
 
             # Attach the new baggage context
-            if new_baggage != current_baggage:
+            if new_baggage is not None:
                 baggage_token = otel_context_api.attach(new_baggage)
                 baggage_tokens.append(baggage_token)
 

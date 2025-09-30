@@ -151,7 +151,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         baggage_entries = baggage.get_all(context=current_context)
         for key, value in baggage_entries.items():
             # Check if this baggage entry is already present as a span attribute
-            if not hasattr(span.attributes, key) or span.attributes.get(key) != value:
+            if not hasattr(span.attributes, key) or (
+                span.attributes is not None and span.attributes.get(key) != value
+            ):
                 propagated_attributes[key] = value
                 langfuse_logger.debug(
                     f"Propagated baggage key '{key}' = '{value}' to span '{span.name}'"
@@ -167,9 +169,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                     attr_key = ctx_key.replace("langfuse.ctx.", "")
 
                     # Only propagate if not already set on span
-                    if (
-                        not hasattr(span.attributes, attr_key)
-                        or span.attributes.get(attr_key) != value
+                    if not hasattr(span.attributes, attr_key) or (
+                        span.attributes is not None
+                        and span.attributes.get(attr_key) != value
                     ):
                         propagated_attributes[attr_key] = value
                         langfuse_logger.debug(
@@ -203,7 +205,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 # Only propagate if not already set or different
                 existing_metadata = (
                     span.attributes.get("metadata")
-                    if hasattr(span, "attributes")
+                    if hasattr(span, "attributes") and span.attributes is not None
                     else None
                 )
                 if existing_metadata != metadata_json:
@@ -222,7 +224,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
         # Set all propagated attributes on the span
         for key, value in propagated_attributes.items():
-            span.set_attribute(key, value)
+            span.set_attribute(key, value)  # type: ignore[arg-type]
 
         return super().on_start(span, parent_context)
 
