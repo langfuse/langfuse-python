@@ -128,7 +128,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         This method is called when a span starts and applies context propagation:
         1. Propagates all baggage keys as span attributes
         2. Propagates langfuse.ctx.* context variables as span attributes
-        3. Merges langfuse.ctx.metadata.* keys into a single metadata JSON attribute
+        3. Distributes langfuse.ctx.metadata keys as individual langfuse.metadata.* attributes
 
         Args:
             span: The span that is starting
@@ -180,39 +180,35 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             except Exception as e:
                 langfuse_logger.debug(f"Could not read context key '{ctx_key}': {e}")
 
-        # 3. Handle langfuse.ctx.metadata.* keys - merge into single metadata JSON
+        # 3. Handle langfuse.ctx.metadata - distribute keys as individual attributes
         try:
-            # Get metadata as a single JSON object from context
-            metadata_value = context_api.get_value(
+            # Get metadata dict from context
+            metadata_dict = context_api.get_value(
                 LANGFUSE_CTX_METADATA, context=current_context
             )
-            if metadata_value is not None:
-                if isinstance(metadata_value, str):
-                    # If it's already a JSON string, validate it
-                    try:
-                        json.loads(metadata_value)  # Validate JSON
-                        metadata_json = metadata_value
-                    except json.JSONDecodeError:
-                        # If invalid JSON, wrap in quotes
-                        metadata_json = json.dumps({"value": metadata_value})
-                elif isinstance(metadata_value, dict):
-                    # Convert dict to JSON string
-                    metadata_json = json.dumps(metadata_value)
-                else:
-                    # Convert other types to a wrapped JSON object
-                    metadata_json = json.dumps({"value": str(metadata_value)})
+            if metadata_dict is not None and isinstance(metadata_dict, dict):
+                # Set each metadata key as a separate span attribute with langfuse.metadata. prefix
+                for key, value in metadata_dict.items():
+                    attr_key = f"langfuse.metadata.{key}"
 
-                # Only propagate if not already set or different
-                existing_metadata = (
-                    span.attributes.get("metadata")
-                    if hasattr(span, "attributes") and span.attributes is not None
-                    else None
-                )
-                if existing_metadata != metadata_json:
-                    propagated_attributes["metadata"] = metadata_json
-                    langfuse_logger.debug(
-                        f"Propagated metadata to span '{span.name}': {metadata_json}"
+                    # Convert value to appropriate type for span attribute
+                    if isinstance(value, (str, int, float, bool)):
+                        attr_value = value
+                    else:
+                        # For complex types, convert to JSON string
+                        attr_value = json.dumps(value)
+
+                    # Only propagate if not already set or different
+                    existing_value = (
+                        span.attributes.get(attr_key)
+                        if hasattr(span, "attributes") and span.attributes is not None
+                        else None
                     )
+                    if existing_value != attr_value:
+                        propagated_attributes[attr_key] = attr_value
+                        langfuse_logger.debug(
+                            f"Propagated metadata key '{key}' = '{attr_value}' to span '{span.name}'"
+                        )
         except Exception as e:
             langfuse_logger.debug(f"Could not read metadata from context: {e}")
 

@@ -4,7 +4,6 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
-import json
 import logging
 import os
 import re
@@ -3614,11 +3613,9 @@ class Langfuse:
             yield
             return
 
-        # Convert metadata dict to JSON string for context storage
-        metadata_json = json.dumps(kwargs)
-
-        # Set context variable
-        new_context = otel_context_api.set_value(LANGFUSE_CTX_METADATA, metadata_json)
+        # Store metadata as a dict in context (not JSON string)
+        # This allows span_processor to distribute keys as individual attributes
+        new_context = otel_context_api.set_value(LANGFUSE_CTX_METADATA, kwargs)
         token = otel_context_api.attach(new_context)
 
         # Set baggage if requested
