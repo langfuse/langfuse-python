@@ -1168,6 +1168,11 @@ class LangfuseObservationWrapper:
         new_context = otel_context_api.set_value(LANGFUSE_CTX_SESSION_ID, id)
         token = otel_context_api.attach(new_context)
 
+        # Set attribute on currently active span if exists
+        current_span = otel_trace_api.get_current_span()
+        if current_span is not None and current_span.is_recording():
+            current_span.set_attribute("session.id", id)
+
         # Set baggage if requested
         baggage_token = None
         if as_baggage:
@@ -1218,6 +1223,11 @@ class LangfuseObservationWrapper:
         # Set context variable
         new_context = otel_context_api.set_value(LANGFUSE_CTX_USER_ID, id)
         token = otel_context_api.attach(new_context)
+
+        # Set attribute on currently active span if exists
+        current_span = otel_trace_api.get_current_span()
+        if current_span is not None and current_span.is_recording():
+            current_span.set_attribute("user.id", id)
 
         # Set baggage if requested
         baggage_token = None
@@ -1277,6 +1287,21 @@ class LangfuseObservationWrapper:
         # This allows span_processor to distribute keys as individual attributes
         new_context = otel_context_api.set_value(LANGFUSE_CTX_METADATA, kwargs)
         token = otel_context_api.attach(new_context)
+
+        # Set attributes on currently active span if exists
+        current_span = otel_trace_api.get_current_span()
+        if current_span is not None and current_span.is_recording():
+            import json as json_module
+
+            for key, value in kwargs.items():
+                attr_key = f"langfuse.metadata.{key}"
+                # Convert value to appropriate type for span attribute
+                if isinstance(value, (str, int, float, bool)):
+                    attr_value = value
+                else:
+                    # For complex types, convert to JSON string
+                    attr_value = json_module.dumps(value)
+                current_span.set_attribute(attr_key, attr_value)
 
         # Set baggage if requested
         baggage_tokens = []
