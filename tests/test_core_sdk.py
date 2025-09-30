@@ -2113,7 +2113,7 @@ def test_context_manager_session_propagation():
             child_span.end()
 
             # Create nested context to test multiple levels
-            with langfuse.start_as_current_span(name="nested-span") as nested_span:
+            with langfuse.start_as_current_span(name="nested-span"):
                 grandchild_span = langfuse.start_span(name="grandchild-span")
                 grandchild_span.end()
 
