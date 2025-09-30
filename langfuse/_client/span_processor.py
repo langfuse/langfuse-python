@@ -31,11 +31,11 @@ from langfuse._client.environment_variables import (
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
-
-# Context key constants for Langfuse context propagation
-LANGFUSE_CTX_USER_ID = "langfuse.ctx.user.id"
-LANGFUSE_CTX_SESSION_ID = "langfuse.ctx.session.id"
-LANGFUSE_CTX_METADATA = "langfuse.ctx.metadata"
+from langfuse._client.context_propagation import (
+    LANGFUSE_CTX_USER_ID,
+    LANGFUSE_CTX_SESSION_ID,
+    LANGFUSE_CTX_METADATA,
+)
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
