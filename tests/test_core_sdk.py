@@ -2089,11 +2089,12 @@ def test_context_manager_user_propagation():
     trace = get_api().trace.get(trace_id)
     assert trace.user_id == user_id
 
-    # Verify child observations were created
+    # Verify child observations were created and have user_id
     child_observations = [
         obs
         for obs in trace.observations
         if obs.name in ["child-span", "child-generation"]
+        and obs.metadata["attributes"]["user.id"] == user_id
     ]
     assert len(child_observations) == 2
 
@@ -2125,7 +2126,11 @@ def test_context_manager_session_propagation():
     assert trace.session_id == session_id
 
     # Verify nested spans were created
-    nested_observations = [obs for obs in trace.observations if "span" in obs.name]
+    nested_observations = [
+        obs
+        for obs in trace.observations
+        if "span" in obs.name and obs.metadata["attributes"]["session.id"] == session_id
+    ]
     assert len(nested_observations) >= 2
 
 
@@ -2155,6 +2160,21 @@ def test_context_manager_metadata_propagation():
     assert trace.metadata["experiment"] == "A/B"
     assert trace.metadata["version"] == "1.2.3"
     assert trace.metadata["feature_flag"] == "enabled"
+
+    # Verify all observations have the metadata distributed as individual keys
+    for obs in trace.observations:
+        if obs.name in ["child-span", "child-generation", "parent-span"]:
+            # Check that metadata was set on the observation
+            assert hasattr(obs, "metadata"), f"Observation {obs.name} missing metadata"
+            assert (
+                obs.metadata["experiment"] == "A/B"
+            ), f"Observation {obs.name} missing experiment metadata"
+            assert (
+                obs.metadata["version"] == "1.2.3"
+            ), f"Observation {obs.name} missing version metadata"
+            assert (
+                obs.metadata["feature_flag"] == "enabled"
+            ), f"Observation {obs.name} missing feature_flag metadata"
 
 
 def test_context_manager_nested_contexts():
@@ -2199,7 +2219,7 @@ def test_context_manager_nested_contexts():
     ]
     assert len(child_observations) >= 2
 
-    # Verify specific child spans exist
+    # Verify specific child spans exist and have correct metadata
     outer_child_obs = [obs for obs in trace.observations if obs.name == "outer-child"]
     nested_span_obs = [obs for obs in trace.observations if obs.name == "nested-span"]
 
@@ -2229,6 +2249,18 @@ def test_context_manager_baggage_propagation():
     assert trace.session_id == "public_session_789"
     assert trace.metadata["service"] == "api"
     assert trace.metadata["version"] == "v1.0"
+
+    # Verify all observations have the metadata and session_id
+    for obs in trace.observations:
+        if obs.name in ["external-call-span", "service-span"]:
+            # Check that metadata was set on the observation
+            assert hasattr(obs, "metadata"), f"Observation {obs.name} missing metadata"
+            assert (
+                obs.metadata["service"] == "api"
+            ), f"Observation {obs.name} missing service metadata"
+            assert (
+                obs.metadata["version"] == "v1.0"
+            ), f"Observation {obs.name} missing version metadata"
 
 
 def test_span_context_managers():
