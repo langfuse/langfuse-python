@@ -6,6 +6,7 @@ This module implements Langfuse's core observability functionality on top of the
 import asyncio
 import logging
 import os
+import json
 import re
 import urllib.parse
 import warnings
@@ -3631,8 +3632,6 @@ class Langfuse:
         # Set attributes on currently active span if exists
         current_span = otel_trace_api.get_current_span()
         if current_span is not None and current_span.is_recording():
-            import json as json_module
-
             for key, value in kwargs.items():
                 attr_key = f"langfuse.metadata.{key}"
                 # Convert value to appropriate type for span attribute
@@ -3640,7 +3639,7 @@ class Langfuse:
                     attr_value = value
                 else:
                     # For complex types, convert to JSON string
-                    attr_value = json_module.dumps(value)
+                    attr_value = json.dumps(value)
                 current_span.set_attribute(attr_key, attr_value)
 
         # Set baggage if requested
@@ -3653,10 +3652,7 @@ class Langfuse:
             for key, value in kwargs.items():
                 # Convert value to string and truncate if needed for baggage
                 str_value = str(value)
-                if len(str_value) > 200:
-                    str_value = str_value[:200]
-
-                baggage_key = f"metadata.{key}"
+                baggage_key = f"langfuse.metadata.{key}"
                 new_baggage = otel_baggage_api.set_baggage(
                     baggage_key, str_value, new_baggage
                 )
