@@ -2214,7 +2214,7 @@ def test_context_manager_baggage_propagation():
     # Test with baggage enabled (careful with sensitive data)
     with langfuse.start_as_current_span(name="service-span") as span:
         with langfuse.session(id="public_session_789", as_baggage=True):
-            with langfuse.metadata(as_baggage=True, service="api", version="1.0"):
+            with langfuse.metadata(as_baggage=True, service="api", version="v1.0"):
                 trace_id = span.trace_id
 
                 # Create child spans that inherit baggage context
@@ -2228,7 +2228,7 @@ def test_context_manager_baggage_propagation():
     trace = get_api().trace.get(trace_id)
     assert trace.session_id == "public_session_789"
     assert trace.metadata["service"] == "api"
-    assert trace.metadata["version"] == "1.0"
+    assert trace.metadata["version"] == "v1.0"
 
 
 def test_span_context_managers():
