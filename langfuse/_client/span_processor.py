@@ -134,13 +134,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             span: The span that is starting
             parent_context: The context when the span was created (optional)
         """
-        if self._is_langfuse_span(span) and not self._is_langfuse_project_span(span):
-            langfuse_logger.debug(
-                f"Security: Span rejected - belongs to project '{span.instrumentation_scope.attributes.get('public_key') if span.instrumentation_scope and span.instrumentation_scope.attributes else None}' but processor is for '{self.public_key}'. "
-                f"This prevents cross-project data leakage in multi-project environments."
-            )
-            return super().on_start(span, parent_context)
-
         # Get the current context (use parent_context if available, otherwise current)
         current_context = parent_context or context_api.get_current()
 
