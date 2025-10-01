@@ -559,8 +559,7 @@ class LangfuseObservationWrapper:
         if level == "ERROR" and self._otel_span.is_recording():
             try:
                 self._otel_span.set_status(
-                    status=Status(StatusCode.ERROR),
-                    description=status_message
+                    Status(StatusCode.ERROR, description=status_message)
                 )
             except Exception:
                 # Silently ignore any errors when setting OTEL status to avoid existing flow disruptions
