@@ -20,6 +20,7 @@ from typing import (
     overload,
 )
 
+from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util._decorator import _AgnosticContextManager
 from typing_extensions import ParamSpec
 
