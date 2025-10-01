@@ -164,7 +164,7 @@ def _serialize(obj: Any) -> Optional[str]:
     if obj is None or isinstance(obj, str):
         return obj
 
-    return json.dumps(obj, cls=EventSerializer)
+    return json.dumps(obj, cls=EventSerializer, ensure_ascii=False)
 
 
 def _flatten_and_serialize_metadata(
