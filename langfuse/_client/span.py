@@ -31,6 +31,7 @@ from typing import (
 
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.util._decorator import _AgnosticContextManager
+from opentelemetry.trace.status import Status, StatusCode
 
 from langfuse.model import PromptClient
 
@@ -557,7 +558,6 @@ class LangfuseObservationWrapper:
         """
         if level == "ERROR" and self._otel_span.is_recording():
             try:
-                from opentelemetry.trace.status import Status, StatusCode
                 self._otel_span.set_status(
                     status=Status(StatusCode.ERROR),
                     description=status_message
