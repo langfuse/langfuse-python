@@ -31,6 +31,7 @@ from typing import (
 
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.util._decorator import _AgnosticContextManager
+from opentelemetry.trace.status import Status, StatusCode
 
 from langfuse.model import PromptClient
 
@@ -188,6 +189,8 @@ class LangfuseObservationWrapper:
             self._otel_span.set_attributes(
                 {k: v for k, v in attributes.items() if v is not None}
             )
+            # Set OTEL span status if level is ERROR
+            self._set_otel_span_status_if_error(level=level, status_message=status_message)
 
     def end(self, *, end_time: Optional[int] = None) -> "LangfuseObservationWrapper":
         """End the span, marking it as completed.
@@ -540,6 +543,29 @@ class LangfuseObservationWrapper:
 
         return data
 
+    def _set_otel_span_status_if_error(
+            self, *, level: Optional[SpanLevel] = None, status_message: Optional[str] = None
+    ) -> None:
+        """Set OpenTelemetry span status to ERROR if level is ERROR.
+
+        This method sets the underlying OpenTelemetry span status to ERROR when the
+        Langfuse observation level is set to ERROR, ensuring consistency between
+        Langfuse and OpenTelemetry error states.
+
+        Args:
+            level: The span level to check
+            status_message: Optional status message to include as description
+        """
+        if level == "ERROR" and self._otel_span.is_recording():
+            try:
+                self._otel_span.set_status(
+                    status=Status(StatusCode.ERROR),
+                    description=status_message
+                )
+            except Exception:
+                # Silently ignore any errors when setting OTEL status to avoid existing flow disruptions
+                pass
+
     def update(
         self,
         *,
@@ -636,6 +662,8 @@ class LangfuseObservationWrapper:
             )
 
         self._otel_span.set_attributes(attributes=attributes)
+        # Set OTEL span status if level is ERROR
+        self._set_otel_span_status_if_error(level=level, status_message=status_message)
 
         return self
 
