@@ -236,6 +236,11 @@ class LangfuseObservationWrapper:
             tags: List of tags to categorize the trace
             public: Whether the trace should be publicly accessible
         """
+        warnings.warn(
+            "update_trace is deprecated and will be removed in a future version. Use `with langfuse.with_attributes(...)` instead. ",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self._otel_span.is_recording():
             return self
 

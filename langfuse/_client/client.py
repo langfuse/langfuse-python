@@ -23,12 +23,16 @@ from typing import (
     Union,
     cast,
     overload,
+    Generator,
 )
 
 import backoff
 import httpx
-from opentelemetry import trace
-from opentelemetry import trace as otel_trace_api
+from opentelemetry import (
+    baggage as otel_baggage_api,
+    trace as otel_trace_api,
+    context as otel_context_api,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
@@ -44,6 +48,9 @@ from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
     get_observation_types_list,
+    LANGFUSE_CTX_USER_ID,
+    LANGFUSE_CTX_SESSION_ID,
+    LANGFUSE_CTX_METADATA,
 )
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
@@ -189,6 +196,7 @@ class Langfuse:
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
     _otel_tracer: otel_trace_api.Tracer
+    _host: str
 
     def __init__(
         self,
@@ -211,8 +219,10 @@ class Langfuse:
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = host or cast(
-            str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        self._host = (
+            host
+            if host is not None
+            else os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
@@ -349,6 +359,108 @@ class Langfuse:
             level=level,
             status_message=status_message,
         )
+
+    @_agnosticcontextmanager
+    def with_attributes(
+        self,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+        as_baggage: bool = False,
+    ) -> Generator[None, None, None]:
+        """Creates a context manager that propagates the given attributes to all spans created within the context.
+
+        Args:
+            session_id (str): Session identifier.
+            user_id (str): User identifier.
+            metadata (dict): Additional metadata to associate with all spans in the context. Values must be strings and are truncated to 200 characters.
+            as_baggage (bool, optional): If True, stores the values in OpenTelemetry baggage
+                for cross-service propagation. If False, stores only in local context for
+                current-service propagation. Defaults to False.
+
+        Returns:
+            Context manager that sets values on all spans created within its scope.
+
+        Warning:
+            When as_baggage=True, the values will be included in HTTP headers of any
+            outbound requests made within this context. Only use this for non-sensitive
+            identifiers that are safe to transmit across service boundaries.
+
+        Example:
+           ```python
+            # Local context only (default)
+            with langfuse.with_attributes(session_id="session_123"):
+                with langfuse.start_as_current_span(name="process-request") as span:
+                    # This span and all its children will have session_id="session_123"
+                    child_span = langfuse.start_span(name="child-operation")
+
+            # Cross-service propagation (use with caution)
+            with langfuse.with_attributes(session_id="session_123", as_baggage=True):
+                # session_id will be propagated to external service calls
+                response = requests.get("https://api.example.com/data")
+            ```
+        """
+        current_context = otel_context_api.get_current()
+        current_span = otel_trace_api.get_current_span()
+
+        # Process session_id
+        if session_id is not None:
+            current_context = otel_context_api.set_value(
+                LANGFUSE_CTX_SESSION_ID, session_id, current_context
+            )
+            if current_span is not None and current_span.is_recording():
+                current_span.set_attribute("session.id", session_id)
+            if as_baggage:
+                current_context = otel_baggage_api.set_baggage(
+                    "session.id", session_id, current_context
+                )
+
+        # Process user_id
+        if user_id is not None:
+            current_context = otel_context_api.set_value(
+                LANGFUSE_CTX_USER_ID, user_id, current_context
+            )
+            if current_span is not None and current_span.is_recording():
+                current_span.set_attribute("user.id", user_id)
+            if as_baggage:
+                current_context = otel_baggage_api.set_baggage(
+                    "user.id", user_id, current_context
+                )
+
+        # Process metadata
+        if metadata is not None:
+            # Truncate values with size > 200 to 200 characters and emit warning including the ky
+            for k, v in metadata.items():
+                if not isinstance(v, str):
+                    # Ignore unreachable mypy warning as this runtime guard should make sense either way
+                    warnings.warn(  # type: ignore[unreachable]
+                        f"Metadata values must be strings, got {type(v)} for key '{k}'"
+                    )
+                    del metadata[k]
+                if len(v) > 200:
+                    warnings.warn(
+                        f"Metadata value for key '{k}' exceeds 200 characters and will be truncated."
+                    )
+                    metadata[k] = v[:200]
+
+            current_context = otel_context_api.set_value(
+                LANGFUSE_CTX_METADATA, metadata, current_context
+            )
+            if current_span is not None and current_span.is_recording():
+                for k, v in metadata.items():
+                    current_span.set_attribute(f"langfuse.metadata.{k}", v)
+            if as_baggage:
+                for k, v in metadata.items():
+                    current_context = otel_baggage_api.set_baggage(
+                        f"langfuse.metadata.{k}", str(v), current_context
+                    )
+
+        # Activate context, execute, and detach context
+        token = otel_context_api.attach(current_context)
+        try:
+            yield
+        finally:
+            otel_context_api.detach(token)
 
     def start_as_current_span(
         self,
@@ -1667,6 +1779,11 @@ class Langfuse:
                 span.update(output=response)
             ```
         """
+        warnings.warn(
+            "update_current_trace is deprecated and will be removed in a future version.  Use `with langfuse.with_attributes(...)` instead. ",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self._tracing_enabled:
             langfuse_logger.debug(
                 "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
@@ -1811,7 +1928,7 @@ class Langfuse:
             is_remote=False,
         )
 
-        return trace.NonRecordingSpan(span_context)
+        return otel_trace_api.NonRecordingSpan(span_context)
 
     def _is_valid_trace_id(self, trace_id: str) -> bool:
         pattern = r"^[0-9a-f]{32}$"
