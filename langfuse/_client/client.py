@@ -2730,6 +2730,7 @@ class Langfuse:
                         comment=evaluation.comment,
                         metadata=evaluation.metadata,
                         data_type=evaluation.data_type,  # type: ignore
+                        config_id=evaluation.config_id,
                     )
 
             except Exception as e:
@@ -2856,9 +2857,11 @@ class Langfuse:
                             self.create_score(
                                 trace_id=trace_id,
                                 name=evaluation.name,
-                                value=evaluation.value or -1,
+                                value=evaluation.value,  # type: ignore
                                 comment=evaluation.comment,
                                 metadata=evaluation.metadata,
+                                config_id=evaluation.config_id,
+                                data_type=evaluation.data_type,  # type: ignore
                             )
 
                     except Exception as e:
