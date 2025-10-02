@@ -2071,7 +2071,7 @@ def test_context_manager_user_propagation():
     user_id = "test_user_123"
 
     with langfuse.start_as_current_span(name="parent-span") as parent_span:
-        with langfuse.user(id=user_id):
+        with langfuse.with_attributes(user_id=user_id):
             trace_id = parent_span.trace_id
 
             # Create child spans that should inherit user_id
@@ -2107,7 +2107,7 @@ def test_context_manager_session_propagation():
     session_id = "test_session_456"
 
     with langfuse.start_as_current_span(name="parent-span") as parent_span:
-        with langfuse.session(id=session_id):
+        with langfuse.with_attributes(session_id=session_id):
             trace_id = parent_span.trace_id
 
             # Create child spans that should inherit session_id
@@ -2142,8 +2142,12 @@ def test_context_manager_metadata_propagation():
     langfuse = Langfuse()
 
     with langfuse.start_as_current_span(name="parent-span") as parent_span:
-        with langfuse.metadata(
-            experiment="A/B", version="1.2.3", feature_flag="enabled"
+        with langfuse.with_attributes(
+            metadata={
+                "experiment": "A/B",
+                "version": "1.2.3",
+                "feature_flag": "enabled",
+            }
         ):
             trace_id = parent_span.trace_id
 
@@ -2185,17 +2189,18 @@ def test_context_manager_nested_contexts():
     langfuse = Langfuse()
 
     with langfuse.start_as_current_span(name="outer-span") as outer_span:
-        with langfuse.user(id="user_1"):
-            with langfuse.session(id="session_1"):
-                with langfuse.metadata(env="prod", region="us-east"):
-                    outer_trace_id = outer_span.trace_id
+        with langfuse.with_attributes(user_id="user_1", session_id="session_1"):
+            with langfuse.with_attributes(
+                metadata={"env": "prod", "region": "us-east"}
+            ):
+                outer_trace_id = outer_span.trace_id
 
-                    # Create span in outer context
-                    outer_child = langfuse.start_span(name="outer-child")
-                    outer_child.end()
+                # Create span in outer context
+                outer_child = langfuse.start_span(name="outer-child")
+                outer_child.end()
 
-                    nested_span = langfuse.start_span(name="nested-span")
-                    nested_span.end()
+                nested_span = langfuse.start_span(name="nested-span")
+                nested_span.end()
 
     langfuse.flush()
     sleep(2)
@@ -2229,8 +2234,10 @@ def test_context_manager_baggage_propagation():
 
     # Test with baggage enabled (careful with sensitive data)
     with langfuse.start_as_current_span(name="service-span") as span:
-        with langfuse.session(id="public_session_789", as_baggage=True):
-            with langfuse.metadata(as_baggage=True, service="api", version="v1.0"):
+        with langfuse.with_attributes(session_id="public_session_789", as_baggage=True):
+            with langfuse.with_attributes(
+                as_baggage=True, metadata={"service": "api", "version": "v1.0"}
+            ):
                 trace_id = span.trace_id
 
                 # Create child spans that inherit baggage context

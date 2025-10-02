@@ -48,6 +48,9 @@ from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
     get_observation_types_list,
+    LANGFUSE_CTX_USER_ID,
+    LANGFUSE_CTX_SESSION_ID,
+    LANGFUSE_CTX_METADATA,
 )
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
@@ -114,12 +117,6 @@ from langfuse.model import (
     TextPromptClient,
 )
 from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
-
-
-# Context key constants for Langfuse context propagation
-LANGFUSE_CTX_USER_ID = "langfuse.ctx.user.id"
-LANGFUSE_CTX_SESSION_ID = "langfuse.ctx.session.id"
-LANGFUSE_CTX_METADATA = "langfuse.ctx.metadata"
 
 
 class Langfuse:

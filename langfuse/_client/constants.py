@@ -8,6 +8,11 @@ from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
 
+# Context key constants for Langfuse context propagation
+LANGFUSE_CTX_USER_ID = "langfuse.ctx.user.id"
+LANGFUSE_CTX_SESSION_ID = "langfuse.ctx.session.id"
+LANGFUSE_CTX_METADATA = "langfuse.ctx.metadata"
+
 
 """Note: this type is used with .__args__ / get_args in some cases and therefore must remain flat"""
 ObservationTypeGenerationLike: TypeAlias = Literal[

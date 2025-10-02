@@ -22,7 +22,12 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from langfuse._client.constants import LANGFUSE_TRACER_NAME
+from langfuse._client.constants import (
+    LANGFUSE_TRACER_NAME,
+    LANGFUSE_CTX_USER_ID,
+    LANGFUSE_CTX_SESSION_ID,
+    LANGFUSE_CTX_METADATA,
+)
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
@@ -31,11 +36,6 @@ from langfuse._client.environment_variables import (
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
-from langfuse._client.client import (
-    LANGFUSE_CTX_USER_ID,
-    LANGFUSE_CTX_SESSION_ID,
-    LANGFUSE_CTX_METADATA,
-)
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -143,10 +143,11 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # 1. Propagate all baggage keys as span attributes
         baggage_entries = baggage.get_all(context=current_context)
         for key, value in baggage_entries.items():
-            # Check if this baggage entry is already present as a span attribute
-            if not hasattr(span.attributes, key) or (
-                span.attributes is not None and span.attributes.get(key) != value
-            ):
+            # Only propagate user.id, session.id and langfuse.metadata.* as those are set by us on the baggage
+            if key.startswith("langfuse.metadata.") or key in [
+                "user.id",
+                "session.id",
+            ]:
                 propagated_attributes[key] = value
                 langfuse_logger.debug(
                     f"Propagated baggage key '{key}' = '{value}' to span '{span.name}'"
@@ -160,16 +161,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 if value is not None:
                     # Convert context key to span attribute name (remove langfuse.ctx. prefix)
                     attr_key = ctx_key.replace("langfuse.ctx.", "")
-
-                    # Only propagate if not already set on span
-                    if not hasattr(span.attributes, attr_key) or (
-                        span.attributes is not None
-                        and span.attributes.get(attr_key) != value
-                    ):
-                        propagated_attributes[attr_key] = value
-                        langfuse_logger.debug(
-                            f"Propagated context key '{ctx_key}' = '{value}' to span '{span.name}'"
-                        )
+                    propagated_attributes[attr_key] = value
+                    langfuse_logger.debug(
+                        f"Propagated context key '{ctx_key}' = '{value}' to span '{span.name}'"
+                    )
             except Exception as e:
                 langfuse_logger.debug(f"Could not read context key '{ctx_key}': {e}")
 
@@ -184,24 +179,17 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 for key, value in metadata_dict.items():
                     attr_key = f"langfuse.metadata.{key}"
 
-                    # Convert value to appropriate type for span attribute
-                    if isinstance(value, (str, int, float, bool)):
-                        attr_value = value
-                    else:
-                        # For complex types, convert to JSON string
-                        attr_value = json.dumps(value)
-
-                    # Only propagate if not already set or different
-                    existing_value = (
-                        span.attributes.get(attr_key)
-                        if hasattr(span, "attributes") and span.attributes is not None
-                        else None
+                    # Convert value to appropriate type for span attribute (naive or json stringify)
+                    attr_value = (
+                        value
+                        if isinstance(value, (str, int, float, bool))
+                        else json.dumps(value)
                     )
-                    if existing_value != attr_value:
-                        propagated_attributes[attr_key] = attr_value
-                        langfuse_logger.debug(
-                            f"Propagated metadata key '{key}' = '{attr_value}' to span '{span.name}'"
-                        )
+
+                    propagated_attributes[attr_key] = attr_value
+                    langfuse_logger.debug(
+                        f"Propagated metadata key '{key}' = '{attr_value}' to span '{span.name}'"
+                    )
         except Exception as e:
             langfuse_logger.debug(f"Could not read metadata from context: {e}")
 
