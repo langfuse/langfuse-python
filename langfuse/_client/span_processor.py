@@ -31,7 +31,7 @@ from langfuse._client.environment_variables import (
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
-from langfuse._client.context_propagation import (
+from langfuse._client.client import (
     LANGFUSE_CTX_USER_ID,
     LANGFUSE_CTX_SESSION_ID,
     LANGFUSE_CTX_METADATA,

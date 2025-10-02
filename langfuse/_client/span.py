@@ -56,7 +56,6 @@ from langfuse._client.constants import (
 )
 from langfuse.logger import langfuse_logger
 from langfuse.types import MapValue, ScoreDataType, SpanLevel
-from langfuse._client.context_propagation import LangfuseContextPropagationMixin
 
 # Factory mapping for observation classes
 # Note: "event" is handled separately due to special instantiation logic
@@ -64,7 +63,7 @@ from langfuse._client.context_propagation import LangfuseContextPropagationMixin
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
 
 
-class LangfuseObservationWrapper(LangfuseContextPropagationMixin):
+class LangfuseObservationWrapper:
     """Abstract base class for all Langfuse span types.
 
     This class provides common functionality for all Langfuse span types, including
@@ -239,7 +238,7 @@ class LangfuseObservationWrapper(LangfuseContextPropagationMixin):
             public: Whether the trace should be publicly accessible
         """
         warnings.warn(
-            "update_trace is deprecated and will be removed in a future version. ",
+            "update_trace is deprecated and will be removed in a future version. Use `with langfuse.with_attributes(...)` instead. ",
             DeprecationWarning,
             stacklevel=2,
         )

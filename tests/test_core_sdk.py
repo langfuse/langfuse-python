@@ -2257,39 +2257,3 @@ def test_context_manager_baggage_propagation():
             assert (
                 obs.metadata["version"] == "v1.0"
             ), f"Observation {obs.name} missing version metadata"
-
-
-def test_span_context_managers():
-    """Test context managers called on span instances."""
-    langfuse = Langfuse()
-
-    with langfuse.start_as_current_span(name="parent-span") as parent_span:
-        trace_id = parent_span.trace_id
-
-        # Use context managers on the span instance
-        with parent_span.user(id="span_user_123"):
-            child1 = parent_span.start_span(name="user-context-child")
-            child1.end()
-
-        with parent_span.session(id="span_session_456"):
-            child2 = parent_span.start_span(name="session-context-child")
-            child2.end()
-
-        with parent_span.metadata(component="auth", action="validate"):
-            child3 = parent_span.start_span(name="metadata-context-child")
-            child3.end()
-
-    langfuse.flush()
-    sleep(2)
-
-    # Verify trace was created with child observations
-    trace = get_api().trace.get(trace_id)
-    child_names = [
-        obs.name for obs in trace.observations if obs.name.endswith("-child")
-    ]
-    expected_children = [
-        "user-context-child",
-        "session-context-child",
-        "metadata-context-child",
-    ]
-    assert all(child in child_names for child in expected_children)
