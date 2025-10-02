@@ -29,12 +29,8 @@ from typing import (
     overload,
 )
 
-from opentelemetry import (
-    trace as otel_trace_api,
-)
-from opentelemetry.util._decorator import (
-    _AgnosticContextManager,
-)
+from opentelemetry import trace as otel_trace_api
+from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse.model import PromptClient
 
