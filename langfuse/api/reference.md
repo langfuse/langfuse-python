@@ -5908,6 +5908,91 @@ client.score_configs.get_by_id(
 </dl>
 </details>
 
+<details><summary><code>client.score_configs.<a href="src/langfuse/resources/score_configs/client.py">update</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update a score config
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import UpdateScoreConfigRequest
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.score_configs.update(
+    config_id="configId",
+    request=UpdateScoreConfigRequest(),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**config_id:** `str` — The unique langfuse identifier of a score config
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `UpdateScoreConfigRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## ScoreV2
 <details><summary><code>client.score_v_2.<a href="src/langfuse/resources/score_v_2/client.py">get</a>(...)</code></summary>
 <dl>
