@@ -13,11 +13,12 @@ Key features:
 
 import base64
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Mapping, Callable, Any
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from requests import Session, PreparedRequest, Response
 
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
@@ -76,20 +77,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             else None
         )
 
-        basic_auth_header = "Basic " + base64.b64encode(
-            f"{public_key}:{secret_key}".encode("utf-8")
-        ).decode("ascii")
-
-        # Prepare default headers
-        default_headers = {
-            "Authorization": basic_auth_header,
-            "x_langfuse_sdk_name": "python",
-            "x_langfuse_sdk_version": langfuse_version,
-            "x_langfuse_public_key": public_key,
-        }
-
-        # Merge additional headers if provided
-        headers = {**default_headers, **(additional_headers or {})}
+        # Instead of creating a static headers dict, we create a session that will
+        # dynamically generate them for each request made by the exporter.
+        instrumented_session = _LangfuseInstrumentedSession(
+            public_key=public_key,
+            secret_key=secret_key,
+            additional_headers=additional_headers,
+        )
 
         traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
 
@@ -101,7 +95,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
         langfuse_span_exporter = OTLPSpanExporter(
             endpoint=endpoint,
-            headers=headers,
+            session=instrumented_session,
             timeout=timeout,
         )
 
@@ -161,3 +155,61 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             return public_key_on_span == self.public_key
 
         return False
+
+
+class _LangfuseInstrumentedSession(Session):
+    """
+    A custom requests.Session that adds dynamic headers before sending a request.
+    This is used to inject fresh headers into the OTEL exporter's
+    HTTP requests, bypassing the exporter's internal header caching.
+    """
+
+    def __init__(
+        self,
+        public_key: str,
+        secret_key: str,
+        additional_headers: Optional[
+            Union[Mapping[str, Any], Callable[[], Mapping[str, Any]]]
+        ],
+    ) -> None:
+        """Initializes the session with authentication and header details."""
+        super().__init__()
+        self._public_key = public_key
+        self._secret_key = secret_key
+        self._additional_headers = additional_headers
+
+    def send(self, request: PreparedRequest, **kwargs: Any) -> Response:
+        """
+        Overrides the default send method to inject dynamic headers.
+        This method is called just before any HTTP request is sent by the session.
+        """
+        # Prepare default headers with basic authentication
+        basic_auth_header = "Basic " + base64.b64encode(
+            f"{self._public_key}:{self._secret_key}".encode("utf-8")
+        ).decode("ascii")
+
+        default_headers: Dict[str, Any] = {
+            "Authorization": basic_auth_header,
+            "x_langfuse_sdk_name": "python",
+            "x_langfuse_sdk_version": langfuse_version,
+            "x_langfuse_public_key": self._public_key,
+        }
+
+        # Evaluate dynamic headers if they are provided
+        dynamic_headers: Dict[str, Any] = {}
+        if self._additional_headers is not None:
+            if callable(self._additional_headers):
+                # If it's a function, call it to get the headers
+                dynamic_headers = dict(self._additional_headers())
+            elif isinstance(self._additional_headers, Mapping):
+                # If it's a mapping, convert it to a dict
+                dynamic_headers = dict(self._additional_headers)
+
+        # Merge default and dynamic headers. Dynamic headers will overwrite defaults on conflict.
+        final_headers = {**default_headers, **dynamic_headers}
+
+        # Update the request with the final, merged headers
+        request.headers.update(final_headers)
+
+        # Call the original send method with the modified request
+        return super().send(request, **kwargs)

@@ -18,7 +18,7 @@ import atexit
 import os
 import threading
 from queue import Full, Queue
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast, Union, Mapping, Callable, Generator
 
 import httpx
 from opentelemetry import trace as otel_trace_api
@@ -207,9 +207,10 @@ class LangfuseResourceManager:
         if httpx_client is not None:
             self.httpx_client = httpx_client
         else:
-            # Create a new httpx client with additional_headers if provided
-            client_headers = additional_headers if additional_headers else {}
-            self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
+            # Instead of passing static headers, we use a custom class
+            # that dynamically generates them for each request.
+            instrumented_http = _LangfuseInstrumentedHttpx(additional_headers)
+            self.httpx_client = httpx.Client(timeout=timeout, auth=instrumented_http)
 
         self.api = FernLangfuse(
             base_url=host,
@@ -457,3 +458,32 @@ def _init_tracer_provider(
         provider = default_provider
 
     return provider
+
+
+class _LangfuseInstrumentedHttpx(httpx.Auth):
+    def __init__(
+        self,
+        headers_provider: Optional[
+            Union[Mapping[str, Any], Callable[[], Mapping[str, Any]]]
+        ],
+    ):
+        self._headers_provider = headers_provider
+
+    def header_flow(
+        self, request: httpx.Request
+    ) -> Generator[httpx.Request, None, None]:
+        dynamic_headers: Dict[str, Any] = {}
+        if self._headers_provider is not None:
+            # Check if the provider is a function/callable
+            if callable(self._headers_provider):
+                dynamic_headers = dict(self._headers_provider())
+            # Check if it's a dictionary-like object (a mapping)
+            elif isinstance(self._headers_provider, Mapping):
+                dynamic_headers = dict(self._headers_provider)
+
+        # Merge dynamic headers with any existing request headers,
+        # allowing the dynamic headers to overwrite existing ones if keys conflict.
+        if dynamic_headers:
+            request.headers.update(dynamic_headers)
+
+        yield request
