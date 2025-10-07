@@ -668,3 +668,132 @@ def test_format_experiment_results_basic():
 
     langfuse_client.flush()
     time.sleep(1)
+
+
+def test_boolean_score_types():
+    """Test that BOOLEAN score types are properly ingested and persisted."""
+    from langfuse.api import ScoreDataType
+
+    langfuse_client = get_client()
+
+    def boolean_evaluator(*, input, output, expected_output=None, **kwargs):
+        """Boolean evaluator that checks if output contains the expected answer."""
+        if not expected_output:
+            return Evaluation(
+                name="has_expected_content",
+                value=False,
+                data_type=ScoreDataType.BOOLEAN,
+                comment="No expected output to check",
+            )
+
+        contains_expected = expected_output.lower() in str(output).lower()
+        return Evaluation(
+            name="has_expected_content",
+            value=contains_expected,
+            data_type=ScoreDataType.BOOLEAN,
+            comment=f"Output {'contains' if contains_expected else 'does not contain'} expected content",
+        )
+
+    def boolean_run_evaluator(*, item_results: List[ExperimentItemResult], **kwargs):
+        """Run evaluator that returns boolean based on all items passing."""
+        if not item_results:
+            return Evaluation(
+                name="all_items_pass",
+                value=False,
+                data_type=ScoreDataType.BOOLEAN,
+                comment="No items to evaluate",
+            )
+
+        # Check if all boolean evaluations are True
+        all_pass = True
+        for item_result in item_results:
+            for evaluation in item_result.evaluations:
+                if (
+                    evaluation.name == "has_expected_content"
+                    and evaluation.value is False
+                ):
+                    all_pass = False
+                    break
+            if not all_pass:
+                break
+
+        return Evaluation(
+            name="all_items_pass",
+            value=all_pass,
+            data_type=ScoreDataType.BOOLEAN,
+            comment=f"{'All' if all_pass else 'Not all'} items passed the boolean evaluation",
+        )
+
+    # Test data where some items should pass and some should fail
+    test_data = [
+        {"input": "What is the capital of Germany?", "expected_output": "Berlin"},
+        {"input": "What is the capital of France?", "expected_output": "Paris"},
+        {"input": "What is the capital of Spain?", "expected_output": "Madrid"},
+    ]
+
+    # Task that returns correct answers for Germany and France, but wrong for Spain
+    def mock_task_with_boolean_results(*, item: ExperimentItem, **kwargs):
+        input_val = (
+            item.get("input")
+            if isinstance(item, dict)
+            else getattr(item, "input", "unknown")
+        )
+        input_str = str(input_val) if input_val is not None else ""
+
+        if "Germany" in input_str:
+            return "The capital is Berlin"
+        elif "France" in input_str:
+            return "The capital is Paris"
+        else:
+            return "I don't know the capital"
+
+    result = langfuse_client.run_experiment(
+        name="Boolean score type test",
+        description="Test BOOLEAN data type in scores",
+        data=test_data,
+        task=mock_task_with_boolean_results,
+        evaluators=[boolean_evaluator],
+        run_evaluators=[boolean_run_evaluator],
+    )
+
+    # Validate basic result structure
+    assert len(result.item_results) == 3
+    assert len(result.run_evaluations) == 1
+
+    # Validate individual item evaluations have boolean values
+    expected_results = [
+        True,
+        True,
+        False,
+    ]  # Germany and France should pass, Spain should fail
+    for i, item_result in enumerate(result.item_results):
+        assert len(item_result.evaluations) == 1
+        eval_result = item_result.evaluations[0]
+        assert eval_result.name == "has_expected_content"
+        assert isinstance(eval_result.value, bool)
+        assert eval_result.value == expected_results[i]
+        assert eval_result.data_type == ScoreDataType.BOOLEAN
+
+    # Validate run evaluation is boolean and should be False (not all items passed)
+    run_eval = result.run_evaluations[0]
+    assert run_eval.name == "all_items_pass"
+    assert isinstance(run_eval.value, bool)
+    assert run_eval.value is False  # Spain should fail, so not all pass
+    assert run_eval.data_type == ScoreDataType.BOOLEAN
+
+    # Flush and wait for server processing
+    langfuse_client.flush()
+    time.sleep(3)
+
+    # Verify scores are persisted via API with correct data types
+    api = get_api()
+    for i, item_result in enumerate(result.item_results):
+        trace_id = item_result.trace_id
+        assert trace_id is not None, f"Item {i} should have a trace_id"
+
+        # Fetch trace from API to verify score persistence
+        trace = api.trace.get(trace_id)
+        assert trace is not None, f"Trace {trace_id} should exist"
+
+        for score in trace.scores:
+            assert score.data_type == "BOOLEAN"
