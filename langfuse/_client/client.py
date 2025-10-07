@@ -47,9 +47,7 @@ from packaging.version import Version
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import (
-    LANGFUSE_CTX_METADATA,
-    LANGFUSE_CTX_SESSION_ID,
-    LANGFUSE_CTX_USER_ID,
+    LANGFUSE_CORRELATION_CONTEXT_KEY,
     ObservationTypeGenerationLike,
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
@@ -80,7 +78,10 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
-from langfuse._client.utils import run_async_safely
+from langfuse._client.utils import (
+    get_attribute_key_from_correlation_context,
+    run_async_safely,
+)
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -363,19 +364,18 @@ class Langfuse:
         )
 
     @_agnosticcontextmanager
-    def with_attributes(
+    def correlation_context(
         self,
-        session_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        correlation_context: Dict[str, str],
+        *,
         as_baggage: bool = False,
     ) -> Generator[None, None, None]:
-        """Creates a context manager that propagates the given attributes to all spans created within the context.
+        """Create a context manager that propagates the given correlation_context to all spans within the context manager's scope.
 
         Args:
-            session_id (str): Session identifier.
-            user_id (str): User identifier.
-            metadata (dict): Additional metadata to associate with all spans in the context. Values must be strings and are truncated to 200 characters.
+            correlation_context (Dict[str, str]): Dictionary containing key-value pairs to be propagated
+                to all spans within the context manager's scope. Common keys include user_id, session_id,
+                and custom metadata. All values must be strings below 200 characters.
             as_baggage (bool, optional): If True, stores the values in OpenTelemetry baggage
                 for cross-service propagation. If False, stores only in local context for
                 current-service propagation. Defaults to False.
@@ -388,16 +388,21 @@ class Langfuse:
             outbound requests made within this context. Only use this for non-sensitive
             identifiers that are safe to transmit across service boundaries.
 
-        Example:
+        Examples:
            ```python
-            # Local context only (default)
-            with langfuse.with_attributes(session_id="session_123"):
+            # Local context only (default) - pass context as dictionary
+            with langfuse.correlation_context({"session_id": "session_123"}):
                 with langfuse.start_as_current_span(name="process-request") as span:
                     # This span and all its children will have session_id="session_123"
                     child_span = langfuse.start_span(name="child-operation")
 
+            # Multiple values in context dictionary
+            with langfuse.correlation_context({"user_id": "user_456", "experiment": "A"}):
+                # All spans will have both user_id and experiment attributes
+                span = langfuse.start_span(name="experiment-operation")
+
             # Cross-service propagation (use with caution)
-            with langfuse.with_attributes(session_id="session_123", as_baggage=True):
+            with langfuse.correlation_context({"session_id": "session_123"}, as_baggage=True):
                 # session_id will be propagated to external service calls
                 response = requests.get("https://api.example.com/data")
             ```
@@ -405,62 +410,33 @@ class Langfuse:
         current_context = otel_context_api.get_current()
         current_span = otel_trace_api.get_current_span()
 
-        # Process session_id
-        if session_id is not None:
-            current_context = otel_context_api.set_value(
-                LANGFUSE_CTX_SESSION_ID, session_id, current_context
-            )
+        current_context = otel_context_api.set_value(
+            LANGFUSE_CORRELATION_CONTEXT_KEY, correlation_context, current_context
+        )
+
+        for key, value in correlation_context.items():
+            if len(value) > 200:
+                langfuse_logger.warning(
+                    f"Correlation context key '{key}' is over 200 characters ({len(value)} chars). Dropping value."
+                )
+                continue
+
+            attribute_key = get_attribute_key_from_correlation_context(key)
+
             if current_span is not None and current_span.is_recording():
-                current_span.set_attribute("session.id", session_id)
+                current_span.set_attribute(attribute_key, value)
+
             if as_baggage:
                 current_context = otel_baggage_api.set_baggage(
-                    "session.id", session_id, current_context
+                    key, value, current_context
                 )
-
-        # Process user_id
-        if user_id is not None:
-            current_context = otel_context_api.set_value(
-                LANGFUSE_CTX_USER_ID, user_id, current_context
-            )
-            if current_span is not None and current_span.is_recording():
-                current_span.set_attribute("user.id", user_id)
-            if as_baggage:
-                current_context = otel_baggage_api.set_baggage(
-                    "user.id", user_id, current_context
-                )
-
-        # Process metadata
-        if metadata is not None:
-            # Truncate values with size > 200 to 200 characters and emit warning including the ky
-            for k, v in metadata.items():
-                if not isinstance(v, str):
-                    # Ignore unreachable mypy warning as this runtime guard should make sense either way
-                    warnings.warn(  # type: ignore[unreachable]
-                        f"Metadata values must be strings, got {type(v)} for key '{k}'"
-                    )
-                    del metadata[k]
-                if len(v) > 200:
-                    warnings.warn(
-                        f"Metadata value for key '{k}' exceeds 200 characters and will be truncated."
-                    )
-                    metadata[k] = v[:200]
-
-            current_context = otel_context_api.set_value(
-                LANGFUSE_CTX_METADATA, metadata, current_context
-            )
-            if current_span is not None and current_span.is_recording():
-                for k, v in metadata.items():
-                    current_span.set_attribute(f"langfuse.metadata.{k}", v)
-            if as_baggage:
-                for k, v in metadata.items():
-                    current_context = otel_baggage_api.set_baggage(
-                        f"langfuse.metadata.{k}", str(v), current_context
-                    )
 
         # Activate context, execute, and detach context
         token = otel_context_api.attach(current_context)
+
         try:
             yield
+
         finally:
             otel_context_api.detach(token)
 
@@ -1782,7 +1758,7 @@ class Langfuse:
             ```
         """
         warnings.warn(
-            "update_current_trace is deprecated and will be removed in a future version.  Use `with langfuse.with_attributes(...)` instead. ",
+            "update_current_trace is deprecated and will be removed in a future version.  Use `with langfuse.correlation_context(...)` instead. ",
             DeprecationWarning,
             stacklevel=2,
         )

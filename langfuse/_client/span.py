@@ -234,7 +234,7 @@ class LangfuseObservationWrapper:
             public: Whether the trace should be publicly accessible
         """
         warnings.warn(
-            "update_trace is deprecated and will be removed in a future version. Use `with langfuse.with_attributes(...)` instead. ",
+            "update_trace is deprecated and will be removed in a future version. Use `with langfuse.correlation_context(...)` instead. ",
             DeprecationWarning,
             stacklevel=2,
         )

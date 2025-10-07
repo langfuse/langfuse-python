@@ -12,28 +12,32 @@ Key features:
 """
 
 import base64
-import json
 import os
 from typing import Dict, List, Optional
 
-from opentelemetry import baggage, context as context_api
+from opentelemetry import baggage
+from opentelemetry import context as context_api
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import format_span_id
 
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import (
+    LANGFUSE_CORRELATION_CONTEXT_KEY,
     LANGFUSE_TRACER_NAME,
-    LANGFUSE_CTX_USER_ID,
-    LANGFUSE_CTX_SESSION_ID,
-    LANGFUSE_CTX_METADATA,
 )
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
-from langfuse._client.utils import span_formatter
+from langfuse._client.utils import (
+    correlation_context_to_attribute_map,
+    get_attribute_key_from_correlation_context,
+    span_formatter,
+)
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
 
@@ -123,85 +127,45 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         )
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
-        """Handle span start event and propagate context and baggage to span attributes.
-
-        This method is called when a span starts and applies context propagation:
-        1. Propagates all baggage keys as span attributes
-        2. Propagates langfuse.ctx.* context variables as span attributes
-        3. Distributes langfuse.ctx.metadata keys as individual langfuse.metadata.* attributes
-
-        Args:
-            span: The span that is starting
-            parent_context: The context when the span was created (optional)
-        """
-        # Get the current context (use parent_context if available, otherwise current)
+        # Propagate correlation context to span
         current_context = parent_context or context_api.get_current()
-
-        # Dictionary to collect span attributes that were propagated
         propagated_attributes = {}
 
-        # 1. Propagate all baggage keys as span attributes
+        # Propagate correlation context in baggage
         baggage_entries = baggage.get_all(context=current_context)
+
         for key, value in baggage_entries.items():
-            # Only propagate user.id, session.id and langfuse.metadata.* as those are set by us on the baggage
-            if key.startswith("langfuse.metadata.") or key in [
-                "user.id",
-                "session.id",
-            ]:
+            if (
+                key.startswith(LangfuseOtelSpanAttributes.TRACE_METADATA)
+                or key in correlation_context_to_attribute_map.values()
+            ):
                 propagated_attributes[key] = value
-                langfuse_logger.debug(
-                    f"Propagated baggage key '{key}' = '{value}' to span '{span.name}'"
-                )
 
-        # 2. Propagate langfuse.ctx.* context variables
-        langfuse_ctx_keys = [LANGFUSE_CTX_USER_ID, LANGFUSE_CTX_SESSION_ID]
-        for ctx_key in langfuse_ctx_keys:
-            try:
-                value = context_api.get_value(ctx_key, context=current_context)
-                if value is not None:
-                    # Convert context key to span attribute name (remove langfuse.ctx. prefix)
-                    attr_key = ctx_key.replace("langfuse.ctx.", "")
-                    propagated_attributes[attr_key] = value
-                    langfuse_logger.debug(
-                        f"Propagated context key '{ctx_key}' = '{value}' to span '{span.name}'"
-                    )
-            except Exception as e:
-                langfuse_logger.debug(f"Could not read context key '{ctx_key}': {e}")
+        # Propagate correlation context in OTEL context
+        correlation_context = (
+            context_api.get_value(LANGFUSE_CORRELATION_CONTEXT_KEY, current_context)
+            or {}
+        )
 
-        # 3. Handle langfuse.ctx.metadata - distribute keys as individual attributes
-        try:
-            # Get metadata dict from context
-            metadata_dict = context_api.get_value(
-                LANGFUSE_CTX_METADATA, context=current_context
+        if not isinstance(correlation_context, dict):
+            langfuse_logger.error(
+                f"Correlation context is not of type dict. Got type '{type(correlation_context)}'."
             )
-            if metadata_dict is not None and isinstance(metadata_dict, dict):
-                # Set each metadata key as a separate span attribute with langfuse.metadata. prefix
-                for key, value in metadata_dict.items():
-                    attr_key = f"langfuse.metadata.{key}"
 
-                    # Convert value to appropriate type for span attribute (naive or json stringify)
-                    attr_value = (
-                        value
-                        if isinstance(value, (str, int, float, bool))
-                        else json.dumps(value)
-                    )
+            return super().on_start(span, parent_context)
 
-                    propagated_attributes[attr_key] = attr_value
-                    langfuse_logger.debug(
-                        f"Propagated metadata key '{key}' = '{attr_value}' to span '{span.name}'"
-                    )
-        except Exception as e:
-            langfuse_logger.debug(f"Could not read metadata from context: {e}")
+        for key, value in correlation_context.items():
+            attribute_key = get_attribute_key_from_correlation_context(key)
+            propagated_attributes[attribute_key] = value
 
-        # Log summary of propagated attributes
+        # Write attributes on span
         if propagated_attributes:
-            langfuse_logger.debug(
-                f"Propagated {len(propagated_attributes)} attributes to span '{span.name}': {list(propagated_attributes.keys())}"
-            )
+            for key, value in propagated_attributes.items():
+                span.set_attribute(key, str(value))
 
-        # Set all propagated attributes on the span
-        for key, value in propagated_attributes.items():
-            span.set_attribute(key, value)  # type: ignore[arg-type]
+            langfuse_logger.debug(
+                f"Propagated {len(propagated_attributes)} attributes to span '{format_span_id(span.context.span_id)}': {propagated_attributes}"
+            )
 
         return super().on_start(span, parent_context)
 
