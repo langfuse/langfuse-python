@@ -16,6 +16,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Generator,
     List,
     Literal,
     Optional,
@@ -23,15 +24,18 @@ from typing import (
     Union,
     cast,
     overload,
-    Generator,
 )
 
 import backoff
 import httpx
 from opentelemetry import (
     baggage as otel_baggage_api,
-    trace as otel_trace_api,
+)
+from opentelemetry import (
     context as otel_context_api,
+)
+from opentelemetry import (
+    trace as otel_trace_api,
 )
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
@@ -43,14 +47,14 @@ from packaging.version import Version
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import (
+    LANGFUSE_CTX_METADATA,
+    LANGFUSE_CTX_SESSION_ID,
+    LANGFUSE_CTX_USER_ID,
     ObservationTypeGenerationLike,
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
     get_observation_types_list,
-    LANGFUSE_CTX_USER_ID,
-    LANGFUSE_CTX_SESSION_ID,
-    LANGFUSE_CTX_METADATA,
 )
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
@@ -219,10 +223,8 @@ class Langfuse:
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = (
-            host
-            if host is not None
-            else os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        self._host = host or cast(
+            str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)

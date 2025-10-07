@@ -13,9 +13,9 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
+import warnings
 from datetime import datetime
 from time import time_ns
-import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -44,10 +44,10 @@ from langfuse._client.attributes import (
     create_trace_attributes,
 )
 from langfuse._client.constants import (
-    ObservationTypeLiteral,
     ObservationTypeGenerationLike,
-    ObservationTypeSpanLike,
+    ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
+    ObservationTypeSpanLike,
     get_observation_types_list,
 )
 from langfuse.logger import langfuse_logger
