@@ -13,8 +13,8 @@ from langchain.chains import (
 )
 from langchain.chains.openai_functions import create_openai_fn_chain
 from langchain.memory import ConversationBufferMemory
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 from langchain_core.output_parsers import StrOutputParser
@@ -1162,9 +1162,9 @@ def test_langfuse_overhead():
     overhead = duration_with_langfuse - duration_without_langfuse
     print(f"Langfuse overhead: {overhead}ms")
 
-    assert (
-        overhead < 100
-    ), f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
+    assert overhead < 100, (
+        f"Langfuse tracing overhead of {overhead}ms exceeds threshold"
+    )
 
     langfuse.flush()
 
@@ -1429,6 +1429,6 @@ def test_langchain_automatic_observation_types():
         obs_count = len([obs for obs in trace.observations if obs.type == obs_type])
         assert obs_count > 0, f"Expected {obs_type} observations, found {obs_count}"
 
-    assert expected_types.issubset(
-        types_found
-    ), f"Missing types: {expected_types - types_found}"
+    assert expected_types.issubset(types_found), (
+        f"Missing types: {expected_types - types_found}"
+    )

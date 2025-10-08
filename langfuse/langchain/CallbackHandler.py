@@ -19,11 +19,11 @@ from langfuse._client.span import (
 from langfuse.logger import langfuse_logger
 
 try:
-    import langchain  # noqa
+    import langchain_core  # noqa
 
 except ImportError as e:
     langfuse_logger.error(
-        f"Could not import langchain. The langchain integration will not work. {e}"
+        f"Could not import langchain_core. The langchain integration will not work. {e}"
     )
 
 from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Type, Union, cast
@@ -33,11 +33,11 @@ from langfuse._utils import _get_timestamp
 from langfuse.langchain.utils import _extract_model_name
 
 try:
-    from langchain.callbacks.base import (
+    from langchain_core.callbacks.base import (
         BaseCallbackHandler as LangchainBaseCallbackHandler,
     )
-    from langchain.schema.agent import AgentAction, AgentFinish
-    from langchain.schema.document import Document
+    from langchain_core.agents import AgentAction, AgentFinish
+    from langchain_core.documents import Document
     from langchain_core.messages import (
         AIMessage,
         BaseMessage,
