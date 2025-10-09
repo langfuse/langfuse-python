@@ -398,11 +398,9 @@ class LangfuseResourceManager:
 
     def flush(self) -> None:
         tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
-            return
-
-        tracer_provider.force_flush()
-        langfuse_logger.debug("Successfully flushed OTEL tracer provider")
+        if not isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
+            tracer_provider.force_flush()
+            langfuse_logger.debug("Successfully flushed OTEL tracer provider")
 
         self._score_ingestion_queue.join()
         langfuse_logger.debug("Successfully flushed score ingestion queue")
@@ -415,10 +413,8 @@ class LangfuseResourceManager:
         atexit.unregister(self.shutdown)
 
         tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
-            return
-
-        tracer_provider.force_flush()
+        if not isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
+            tracer_provider.force_flush()
 
         self._stop_and_join_consumer_threads()
 
