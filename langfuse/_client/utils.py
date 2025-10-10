@@ -13,6 +13,8 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk import util
 from opentelemetry.sdk.trace import ReadableSpan
 
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
+
 
 def span_formatter(span: ReadableSpan) -> str:
     parent_id = (
@@ -125,3 +127,16 @@ def run_async_safely(coro: Coroutine[Any, Any, Any]) -> Any:
     else:
         # Loop exists but not running, safe to use asyncio.run()
         return asyncio.run(coro)
+
+
+correlation_context_to_attribute_map = {
+    "session_id": LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
+    "user_id": LangfuseOtelSpanAttributes.TRACE_USER_ID,
+}
+
+
+def get_attribute_key_from_correlation_context(correlation_context_key: str) -> str:
+    return (
+        correlation_context_to_attribute_map.get(correlation_context_key)
+        or f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{correlation_context_key}"
+    )

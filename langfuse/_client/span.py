@@ -13,9 +13,9 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
+import warnings
 from datetime import datetime
 from time import time_ns
-import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -45,10 +45,10 @@ from langfuse._client.attributes import (
     create_trace_attributes,
 )
 from langfuse._client.constants import (
-    ObservationTypeLiteral,
     ObservationTypeGenerationLike,
-    ObservationTypeSpanLike,
+    ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
+    ObservationTypeSpanLike,
     get_observation_types_list,
 )
 from langfuse.logger import langfuse_logger
@@ -236,6 +236,11 @@ class LangfuseObservationWrapper:
             tags: List of tags to categorize the trace
             public: Whether the trace should be publicly accessible
         """
+        warnings.warn(
+            "update_trace is deprecated and will be removed in a future version. Use `with langfuse.correlation_context(...)` instead. ",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self._otel_span.is_recording():
             return self
 
