@@ -46,6 +46,11 @@ class CreateScoreRequest(pydantic_v1.BaseModel):
     The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """
 
+    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
+    """
+    The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
+    """
+
     data_type: typing.Optional[ScoreDataType] = pydantic_v1.Field(
         alias="dataType", default=None
     )
