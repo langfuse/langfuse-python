@@ -31,7 +31,7 @@ class BaseScoreV1(pydantic_v1.BaseModel):
 
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     """
-    Reference an annotation queue on a score. Populated if the score was initially created in an annotation queue.
+    The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
     """
 
     environment: typing.Optional[str] = pydantic_v1.Field(default=None)
