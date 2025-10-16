@@ -180,4 +180,4 @@ class TestAdditionalHeadersSimple:
         # Verify default headers are present
         assert "Authorization" in exporter._headers
         assert "x-langfuse-sdk-name" in exporter._headers
-        assert "x_langfuse_public_key" in exporter._headers
+        assert "x-langfuse-public-key" in exporter._headers
