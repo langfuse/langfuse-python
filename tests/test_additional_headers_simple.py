@@ -157,7 +157,7 @@ class TestAdditionalHeadersSimple:
         # Verify default headers are still present
         assert "Authorization" in exporter._headers
         assert "x-langfuse-sdk-name" in exporter._headers
-        assert "x_langfuse_public_key" in exporter._headers
+        assert "x-langfuse-public-key" in exporter._headers
 
         # Check that our override worked
         assert exporter._headers["X-Override-Default"] == "override-value"
