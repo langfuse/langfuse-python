@@ -5,10 +5,16 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .prompt_type import PromptType
 
 
 class PromptMeta(pydantic_v1.BaseModel):
     name: str
+    type: PromptType = pydantic_v1.Field()
+    """
+    Indicates whether the prompt is a text or chat prompt.
+    """
+
     versions: typing.List[int]
     labels: typing.List[str]
     tags: typing.List[str]
