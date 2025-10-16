@@ -85,7 +85,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             "Authorization": basic_auth_header,
             "x-langfuse-sdk-name": "python",
             "x-langfuse-sdk-version": langfuse_version,
-            "x_langfuse_public_key": public_key,
+            "x-langfuse-public-key": public_key,
         }
 
         # Merge additional headers if provided
