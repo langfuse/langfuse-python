@@ -107,6 +107,7 @@ class ObservationsClient:
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
         version: typing.Optional[str] = None,
+        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
         """
@@ -144,6 +145,31 @@ class ObservationsClient:
 
         version : typing.Optional[str]
             Optional filter to only include observations with a certain version.
+
+        filter : typing.Optional[str]
+            JSON string containing an array of filter conditions. When provided, this takes precedence over legacy filter parameters (userId, name, sessionId, tags, version, release, environment, fromTimestamp, toTimestamp).
+            Each filter condition has the following structure:
+            ```json
+            [
+              {
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "column": string,         // Required. Column to filter on
+                "operator": string,       // Required. Operator based on type:
+                                          // - datetime: ">", "<", ">=", "<="
+                                          // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - stringOptions: "any of", "none of"
+                                          // - categoryOptions: "any of", "none of"
+                                          // - arrayOptions: "any of", "none of", "all of"
+                                          // - number: "=", ">", "<", ">=", "<="
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - boolean: "=", "<>"
+                                          // - null: "is null", "is not null"
+                "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+              }
+            ]
+            ```
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -186,6 +212,7 @@ class ObservationsClient:
                 if to_start_time is not None
                 else None,
                 "version": version,
+                "filter": filter,
             },
             request_options=request_options,
         )
@@ -311,6 +338,7 @@ class AsyncObservationsClient:
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
         version: typing.Optional[str] = None,
+        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
         """
@@ -348,6 +376,31 @@ class AsyncObservationsClient:
 
         version : typing.Optional[str]
             Optional filter to only include observations with a certain version.
+
+        filter : typing.Optional[str]
+            JSON string containing an array of filter conditions. When provided, this takes precedence over legacy filter parameters (userId, name, sessionId, tags, version, release, environment, fromTimestamp, toTimestamp).
+            Each filter condition has the following structure:
+            ```json
+            [
+              {
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "column": string,         // Required. Column to filter on
+                "operator": string,       // Required. Operator based on type:
+                                          // - datetime: ">", "<", ">=", "<="
+                                          // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - stringOptions: "any of", "none of"
+                                          // - categoryOptions: "any of", "none of"
+                                          // - arrayOptions: "any of", "none of", "all of"
+                                          // - number: "=", ">", "<", ">=", "<="
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - boolean: "=", "<>"
+                                          // - null: "is null", "is not null"
+                "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+              }
+            ]
+            ```
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -398,6 +451,7 @@ class AsyncObservationsClient:
                 if to_start_time is not None
                 else None,
                 "version": version,
+                "filter": filter,
             },
             request_options=request_options,
         )

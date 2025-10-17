@@ -15,6 +15,7 @@ from . import (
     metrics,
     models,
     observations,
+    opentelemetry,
     organizations,
     projects,
     prompt_version,
@@ -175,6 +176,16 @@ from .media import (
 from .metrics import MetricsResponse
 from .models import CreateModelRequest, PaginatedModels
 from .observations import Observations, ObservationsViews
+from .opentelemetry import (
+    OtelAttribute,
+    OtelAttributeValue,
+    OtelResource,
+    OtelResourceSpan,
+    OtelScope,
+    OtelScopeSpan,
+    OtelSpan,
+    OtelTraceResponse,
+)
 from .organizations import (
     DeleteMembershipRequest,
     MembershipDeletionResponse,
@@ -210,6 +221,7 @@ from .prompts import (
     Prompt,
     PromptMeta,
     PromptMetaListResponse,
+    PromptType,
     Prompt_Chat,
     Prompt_Text,
     TextPrompt,
@@ -389,6 +401,14 @@ __all__ = [
     "OptionalObservationBody",
     "OrganizationProject",
     "OrganizationProjectsResponse",
+    "OtelAttribute",
+    "OtelAttributeValue",
+    "OtelResource",
+    "OtelResourceSpan",
+    "OtelScope",
+    "OtelScopeSpan",
+    "OtelSpan",
+    "OtelTraceResponse",
     "PaginatedAnnotationQueueItems",
     "PaginatedAnnotationQueues",
     "PaginatedDatasetItems",
@@ -406,6 +426,7 @@ __all__ = [
     "Prompt",
     "PromptMeta",
     "PromptMetaListResponse",
+    "PromptType",
     "Prompt_Chat",
     "Prompt_Text",
     "ResourceMeta",
@@ -474,6 +495,7 @@ __all__ = [
     "metrics",
     "models",
     "observations",
+    "opentelemetry",
     "organizations",
     "projects",
     "prompt_version",
