@@ -845,7 +845,7 @@ def _wrap(
         if _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorSync(
                 resource=open_ai_resource,
-                response=openai_response,
+                stream=openai_response,
                 generation=generation,
             )
 
@@ -916,7 +916,7 @@ async def _wrap_async(
         if _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorAsync(
                 resource=open_ai_resource,
-                response=openai_response,
+                stream=openai_response,
                 generation=generation,
             )
 
@@ -980,19 +980,20 @@ class LangfuseResponseGeneratorSync:
         self,
         *,
         resource: Any,
-        response: Any,
+        stream: Any,
         generation: Any,
     ) -> None:
         self.items: list[Any] = []
 
         self.resource = resource
-        self.response = response
+        self.stream = stream
+        self.response = stream.response
         self.generation = generation
         self.completion_start_time: Optional[datetime] = None
 
     def __iter__(self) -> Any:
         try:
-            for i in self.response:
+            for i in self.stream:
                 self.items.append(i)
 
                 if self.completion_start_time is None:
@@ -1004,7 +1005,7 @@ class LangfuseResponseGeneratorSync:
 
     def __next__(self) -> Any:
         try:
-            item = self.response.__next__()
+            item = self.stream.__next__()
             self.items.append(item)
 
             if self.completion_start_time is None:
@@ -1051,19 +1052,20 @@ class LangfuseResponseGeneratorAsync:
         self,
         *,
         resource: Any,
-        response: Any,
+        stream: Any,
         generation: Any,
     ) -> None:
         self.items: list[Any] = []
 
         self.resource = resource
-        self.response = response
+        self.stream = stream
+        self.response = stream.response
         self.generation = generation
         self.completion_start_time: Optional[datetime] = None
 
     async def __aiter__(self) -> Any:
         try:
-            async for i in self.response:
+            async for i in self.stream:
                 self.items.append(i)
 
                 if self.completion_start_time is None:
@@ -1075,7 +1077,7 @@ class LangfuseResponseGeneratorAsync:
 
     async def __anext__(self) -> Any:
         try:
-            item = await self.response.__anext__()
+            item = await self.stream.__anext__()
             self.items.append(item)
 
             if self.completion_start_time is None:
