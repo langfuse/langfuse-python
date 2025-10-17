@@ -5,23 +5,11 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .prompt_type import PromptType
 
 
-class PromptMeta(pydantic_v1.BaseModel):
-    name: str
-    type: PromptType = pydantic_v1.Field()
+class OtelTraceResponse(pydantic_v1.BaseModel):
     """
-    Indicates whether the prompt is a text or chat prompt.
-    """
-
-    versions: typing.List[int]
-    labels: typing.List[str]
-    tags: typing.List[str]
-    last_updated_at: dt.datetime = pydantic_v1.Field(alias="lastUpdatedAt")
-    last_config: typing.Any = pydantic_v1.Field(alias="lastConfig")
-    """
-    Config object of the most recent prompt version that matches the filters (if any are provided)
+    Response from trace export request. Empty object indicates success.
     """
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -52,7 +40,5 @@ class PromptMeta(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

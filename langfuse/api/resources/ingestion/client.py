@@ -33,7 +33,7 @@ class IngestionClient:
         """
         **Legacy endpoint for batch ingestion for Langfuse Observability.**
 
-        -> Please use the OpenTelemetry endpoint (`/api/public/otel`). Learn more: https://langfuse.com/integrations/native/opentelemetry
+        -> Please use the OpenTelemetry endpoint (`/api/public/otel/v1/traces`). Learn more: https://langfuse.com/integrations/native/opentelemetry
 
         Within each batch, there can be multiple events.
         Each event has a type, an id, a timestamp, metadata and a body.
@@ -151,7 +151,7 @@ class AsyncIngestionClient:
         """
         **Legacy endpoint for batch ingestion for Langfuse Observability.**
 
-        -> Please use the OpenTelemetry endpoint (`/api/public/otel`). Learn more: https://langfuse.com/integrations/native/opentelemetry
+        -> Please use the OpenTelemetry endpoint (`/api/public/otel/v1/traces`). Learn more: https://langfuse.com/integrations/native/opentelemetry
 
         Within each batch, there can be multiple events.
         Each event has a type, an id, a timestamp, metadata and a body.

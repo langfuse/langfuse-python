@@ -2442,7 +2442,7 @@ client.health.health()
 
 **Legacy endpoint for batch ingestion for Langfuse Observability.**
 
--> Please use the OpenTelemetry endpoint (`/api/public/otel`). Learn more: https://langfuse.com/integrations/native/opentelemetry
+-> Please use the OpenTelemetry endpoint (`/api/public/otel/v1/traces`). Learn more: https://langfuse.com/integrations/native/opentelemetry
 
 Within each batch, there can be multiple events.
 Each event has a type, an id, a timestamp, metadata and a body.
@@ -3597,6 +3597,184 @@ client.observations.get_many()
 <dd>
 
 **version:** `typing.Optional[str]` — Optional filter to only include observations with a certain version.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**filter:** `typing.Optional[str]` 
+
+JSON string containing an array of filter conditions. When provided, this takes precedence over legacy filter parameters (userId, name, sessionId, tags, version, release, environment, fromTimestamp, toTimestamp).
+Each filter condition has the following structure:
+```json
+[
+  {
+    "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+    "column": string,         // Required. Column to filter on
+    "operator": string,       // Required. Operator based on type:
+                              // - datetime: ">", "<", ">=", "<="
+                              // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - stringOptions: "any of", "none of"
+                              // - categoryOptions: "any of", "none of"
+                              // - arrayOptions: "any of", "none of", "all of"
+                              // - number: "=", ">", "<", ">=", "<="
+                              // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - numberObject: "=", ">", "<", ">=", "<="
+                              // - boolean: "=", "<>"
+                              // - null: "is null", "is not null"
+    "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+    "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+  }
+]
+```
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Opentelemetry
+<details><summary><code>client.opentelemetry.<a href="src/langfuse/resources/opentelemetry/client.py">export_traces</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**OpenTelemetry Traces Ingestion Endpoint**
+
+This endpoint implements the OTLP/HTTP specification for trace ingestion, providing native OpenTelemetry integration for Langfuse Observability.
+
+**Supported Formats:**
+- Binary Protobuf: `Content-Type: application/x-protobuf`
+- JSON Protobuf: `Content-Type: application/json`
+- Supports gzip compression via `Content-Encoding: gzip` header
+
+**Specification Compliance:**
+- Conforms to [OTLP/HTTP Trace Export](https://opentelemetry.io/docs/specs/otlp/#otlphttp)
+- Implements `ExportTraceServiceRequest` message format
+
+**Documentation:**
+- Integration guide: https://langfuse.com/integrations/native/opentelemetry
+- Data model: https://langfuse.com/docs/observability/data-model
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import (
+    OtelAttribute,
+    OtelAttributeValue,
+    OtelResource,
+    OtelResourceSpan,
+    OtelScope,
+    OtelScopeSpan,
+    OtelSpan,
+)
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.opentelemetry.export_traces(
+    resource_spans=[
+        OtelResourceSpan(
+            resource=OtelResource(
+                attributes=[
+                    OtelAttribute(
+                        key="service.name",
+                        value=OtelAttributeValue(
+                            string_value="my-service",
+                        ),
+                    ),
+                    OtelAttribute(
+                        key="service.version",
+                        value=OtelAttributeValue(
+                            string_value="1.0.0",
+                        ),
+                    ),
+                ],
+            ),
+            scope_spans=[
+                OtelScopeSpan(
+                    scope=OtelScope(
+                        name="langfuse-sdk",
+                        version="2.60.3",
+                    ),
+                    spans=[
+                        OtelSpan(
+                            trace_id="0123456789abcdef0123456789abcdef",
+                            span_id="0123456789abcdef",
+                            name="my-operation",
+                            kind=1,
+                            start_time_unix_nano="1747872000000000000",
+                            end_time_unix_nano="1747872001000000000",
+                            attributes=[
+                                OtelAttribute(
+                                    key="langfuse.observation.type",
+                                    value=OtelAttributeValue(
+                                        string_value="generation",
+                                    ),
+                                )
+                            ],
+                            status={},
+                        )
+                    ],
+                )
+            ],
+        )
+    ],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**resource_spans:** `typing.Sequence[OtelResourceSpan]` — Array of resource spans containing trace data as defined in the OTLP specification
     
 </dd>
 </dl>
