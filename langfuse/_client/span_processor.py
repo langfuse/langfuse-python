@@ -83,9 +83,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         # Prepare default headers
         default_headers = {
             "Authorization": basic_auth_header,
-            "x_langfuse_sdk_name": "python",
-            "x_langfuse_sdk_version": langfuse_version,
-            "x_langfuse_public_key": public_key,
+            "x-langfuse-sdk-name": "python",
+            "x-langfuse-sdk-version": langfuse_version,
+            "x-langfuse-public-key": public_key,
         }
 
         # Merge additional headers if provided
