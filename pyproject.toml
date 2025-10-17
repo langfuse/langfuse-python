@@ -14,7 +14,7 @@ pydantic = ">=1.10.7, <3.0"
 backoff = ">=1.10.0"
 openai = { version = ">=0.27.8", optional = true }
 wrapt = "^1.14"
-langchain = { version = ">=0.0.309", optional = true }
+langchain-core = { version = ">=0.1.0", optional = true }
 packaging = ">=23.2,<26.0"
 requests = "^2"
 opentelemetry-api = "^1.33.1"
@@ -30,6 +30,7 @@ pytest-asyncio = ">=0.21.1,<1.2.0"
 pytest-httpserver = "^1.0.8"
 ruff = ">=0.1.8,<0.13.0"
 mypy = "^1.0.0"
+langchain = ">=0.0.309"
 langchain-openai = ">=0.0.5,<0.4"
 langgraph = ">=0.2.62,<0.7.0"
 autoevals = "^0.0.130"
@@ -39,7 +40,7 @@ pdoc = "^15.0.4"
 
 [tool.poetry.extras]
 openai = ["openai"]
-langchain = ["langchain"]
+langchain = ["langchain-core"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -94,7 +95,7 @@ module = [
     "wrapt.*",
     "packaging.*",
     "requests.*",
-    "opentelemetry.*"
+    "opentelemetry.*",
 ]
 ignore_missing_imports = true
 
@@ -102,7 +103,7 @@ ignore_missing_imports = true
 module = [
     "langfuse.api.resources.*",
     "langfuse.api.core.*",
-    "langfuse.api.client"
+    "langfuse.api.client",
 ]
 ignore_errors = true
 
