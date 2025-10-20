@@ -211,9 +211,7 @@ class Langfuse:
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = host or cast(
-            str, os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        )
+        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         )
