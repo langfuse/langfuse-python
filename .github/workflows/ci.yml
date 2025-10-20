@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
       - name: Setup a local virtual environment
@@ -69,9 +69,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
+          - "3.12"
+          - "3.13"
 
     name: Test on Python version ${{ matrix.python-version }}
     steps:
