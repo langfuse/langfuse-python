@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from langchain.schema.messages import HumanMessage
+from langchain.messages import HumanMessage
 from pydantic import BaseModel
 
 import langfuse
