@@ -950,13 +950,14 @@ class TestBasicSpans(TestOTelBase):
         span = langfuse_client.start_span(
             name="create-error-span",
             level="ERROR",
-            status_message="Initial error state"
+            status_message="Initial error state",
         )
         span.end()
 
         # Get the raw OTEL spans to check the status
         raw_spans = [
-            s for s in memory_exporter.get_finished_spans()
+            s
+            for s in memory_exporter.get_finished_spans()
             if s.name == "create-error-span"
         ]
         assert len(raw_spans) == 1, "Expected one span"
@@ -964,6 +965,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify OTEL span status was set to ERROR
         from opentelemetry.trace.status import StatusCode
+
         assert raw_span.status.status_code == StatusCode.ERROR
         assert raw_span.status.description == "Initial error state"
 
@@ -972,7 +974,10 @@ class TestBasicSpans(TestOTelBase):
         span_data = spans[0]
         attributes = span_data["attributes"]
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
-        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE] == "Initial error state"
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == "Initial error state"
+        )
 
     def test_error_level_in_span_update(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when updating spans to level='ERROR'."""
@@ -985,7 +990,8 @@ class TestBasicSpans(TestOTelBase):
 
         # Get the raw OTEL spans to check the status
         raw_spans = [
-            s for s in memory_exporter.get_finished_spans()
+            s
+            for s in memory_exporter.get_finished_spans()
             if s.name == "update-error-span"
         ]
         assert len(raw_spans) == 1, "Expected one span"
@@ -993,6 +999,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify OTEL span status was set to ERROR
         from opentelemetry.trace.status import StatusCode
+
         assert raw_span.status.status_code == StatusCode.ERROR
         assert raw_span.status.description == "Updated to error state"
 
@@ -1001,7 +1008,10 @@ class TestBasicSpans(TestOTelBase):
         span_data = spans[0]
         attributes = span_data["attributes"]
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
-        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE] == "Updated to error state"
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == "Updated to error state"
+        )
 
     def test_generation_error_level_in_creation(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when creating generations with level='ERROR'."""
@@ -1010,13 +1020,14 @@ class TestBasicSpans(TestOTelBase):
             name="create-error-generation",
             model="gpt-4",
             level="ERROR",
-            status_message="Generation failed during creation"
+            status_message="Generation failed during creation",
         )
         generation.end()
 
         # Get the raw OTEL spans to check the status
         raw_spans = [
-            s for s in memory_exporter.get_finished_spans()
+            s
+            for s in memory_exporter.get_finished_spans()
             if s.name == "create-error-generation"
         ]
         assert len(raw_spans) == 1, "Expected one span"
@@ -1024,6 +1035,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify OTEL span status was set to ERROR
         from opentelemetry.trace.status import StatusCode
+
         assert raw_span.status.status_code == StatusCode.ERROR
         assert raw_span.status.description == "Generation failed during creation"
 
@@ -1032,24 +1044,28 @@ class TestBasicSpans(TestOTelBase):
         span_data = spans[0]
         attributes = span_data["attributes"]
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
-        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE] == "Generation failed during creation"
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == "Generation failed during creation"
+        )
 
     def test_generation_error_level_in_update(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when updating generations to level='ERROR'."""
         # Create a normal generation
         generation = langfuse_client.start_generation(
-            name="update-error-generation",
-            model="gpt-4",
-            level="INFO"
+            name="update-error-generation", model="gpt-4", level="INFO"
         )
 
         # Update it to ERROR level
-        generation.update(level="ERROR", status_message="Generation failed during execution")
+        generation.update(
+            level="ERROR", status_message="Generation failed during execution"
+        )
         generation.end()
 
         # Get the raw OTEL spans to check the status
         raw_spans = [
-            s for s in memory_exporter.get_finished_spans()
+            s
+            for s in memory_exporter.get_finished_spans()
             if s.name == "update-error-generation"
         ]
         assert len(raw_spans) == 1, "Expected one span"
@@ -1057,6 +1073,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify OTEL span status was set to ERROR
         from opentelemetry.trace.status import StatusCode
+
         assert raw_span.status.status_code == StatusCode.ERROR
         assert raw_span.status.description == "Generation failed during execution"
 
@@ -1065,9 +1082,14 @@ class TestBasicSpans(TestOTelBase):
         span_data = spans[0]
         attributes = span_data["attributes"]
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
-        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE] == "Generation failed during execution"
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == "Generation failed during execution"
+        )
 
-    def test_non_error_levels_dont_set_otel_status(self, langfuse_client, memory_exporter):
+    def test_non_error_levels_dont_set_otel_status(
+        self, langfuse_client, memory_exporter
+    ):
         """Test that non-ERROR levels don't set OTEL span status to ERROR."""
         # Test different non-error levels
         test_levels = ["INFO", "WARNING", "DEBUG", None]
@@ -1084,16 +1106,18 @@ class TestBasicSpans(TestOTelBase):
 
             # Get the raw OTEL spans to check the status
             raw_spans = [
-                s for s in memory_exporter.get_finished_spans()
-                if s.name == span_name
+                s for s in memory_exporter.get_finished_spans() if s.name == span_name
             ]
             assert len(raw_spans) == 1, f"Expected one span for {span_name}"
             raw_span = raw_spans[0]
 
             # Verify OTEL span status was NOT set to ERROR
             from opentelemetry.trace.status import StatusCode
+
             # Default status should be UNSET, not ERROR
-            assert raw_span.status.status_code != StatusCode.ERROR, f"Level {level} should not set ERROR status"
+            assert (
+                raw_span.status.status_code != StatusCode.ERROR
+            ), f"Level {level} should not set ERROR status"
 
     def test_multiple_error_updates(self, langfuse_client, memory_exporter):
         """Test that multiple ERROR level updates work correctly."""
@@ -1110,7 +1134,8 @@ class TestBasicSpans(TestOTelBase):
 
         # Get the raw OTEL spans to check the status
         raw_spans = [
-            s for s in memory_exporter.get_finished_spans()
+            s
+            for s in memory_exporter.get_finished_spans()
             if s.name == "multi-error-span"
         ]
         assert len(raw_spans) == 1, "Expected one span"
@@ -1118,6 +1143,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify OTEL span status shows the last error message
         from opentelemetry.trace.status import StatusCode
+
         assert raw_span.status.status_code == StatusCode.ERROR
         assert raw_span.status.description == "Second error"
 
@@ -1129,7 +1155,8 @@ class TestBasicSpans(TestOTelBase):
 
         # Get the raw OTEL spans to check the status
         raw_spans = [
-            s for s in memory_exporter.get_finished_spans()
+            s
+            for s in memory_exporter.get_finished_spans()
             if s.name == "error-no-message-span"
         ]
         assert len(raw_spans) == 1, "Expected one span"
@@ -1137,14 +1164,25 @@ class TestBasicSpans(TestOTelBase):
 
         # Verify OTEL span status was set to ERROR even without description
         from opentelemetry.trace.status import StatusCode
+
         assert raw_span.status.status_code == StatusCode.ERROR
         # Description should be None when no status_message provided
         assert raw_span.status.description is None
 
-    def test_different_observation_types_error_handling(self, langfuse_client, memory_exporter):
+    def test_different_observation_types_error_handling(
+        self, langfuse_client, memory_exporter
+    ):
         """Test that ERROR level setting works for different observation types."""
         # Test different observation types
-        observation_types = ["agent", "tool", "chain", "retriever", "evaluator", "embedding", "guardrail"]
+        observation_types = [
+            "agent",
+            "tool",
+            "chain",
+            "retriever",
+            "evaluator",
+            "embedding",
+            "guardrail",
+        ]
 
         # Create a parent span for child observations
         with langfuse_client.start_as_current_span(name="error-test-parent") as parent:
@@ -1154,7 +1192,7 @@ class TestBasicSpans(TestOTelBase):
                     name=f"error-{obs_type}",
                     as_type=obs_type,
                     level="ERROR",
-                    status_message=f"{obs_type} failed"
+                    status_message=f"{obs_type} failed",
                 )
                 obs.end()
 
@@ -1167,8 +1205,13 @@ class TestBasicSpans(TestOTelBase):
 
             raw_span = obs_spans[0]
             from opentelemetry.trace.status import StatusCode
-            assert raw_span.status.status_code == StatusCode.ERROR, f"{obs_type} should have ERROR status"
-            assert raw_span.status.description == f"{obs_type} failed", f"{obs_type} should have correct description"
+
+            assert (
+                raw_span.status.status_code == StatusCode.ERROR
+            ), f"{obs_type} should have ERROR status"
+            assert (
+                raw_span.status.description == f"{obs_type} failed"
+            ), f"{obs_type} should have correct description"
 
 
 class TestAdvancedSpans(TestOTelBase):
