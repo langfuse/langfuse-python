@@ -323,13 +323,22 @@ def _get_span_key_from_baggage_key(key: str) -> Optional[str]:
     if not key.startswith(LANGFUSE_BAGGAGE_PREFIX):
         return None
 
-    if "user_id" in key:
+    # Remove prefix to get the actual key name
+    suffix = key[len(LANGFUSE_BAGGAGE_PREFIX) :]
+
+    # Exact match for user_id and session_id
+    if suffix == "user_id":
         return LangfuseOtelSpanAttributes.TRACE_USER_ID
 
-    if "session_id" in key:
+    if suffix == "session_id":
         return LangfuseOtelSpanAttributes.TRACE_SESSION_ID
 
-    return f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"
+    # Metadata keys have format: langfuse_metadata_{key_name}
+    if suffix.startswith("metadata_"):
+        metadata_key = suffix[len("metadata_") :]
+        return f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{metadata_key}"
+
+    return None
 
 
 def _get_propagated_span_key(key: PropagatedKeys) -> str:
