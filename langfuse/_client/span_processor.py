@@ -15,7 +15,6 @@ import base64
 import os
 from typing import Dict, List, Optional
 
-from opentelemetry import baggage
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -23,21 +22,14 @@ from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import format_span_id
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
-from langfuse._client.constants import (
-    LANGFUSE_CORRELATION_CONTEXT_KEY,
-    LANGFUSE_TRACER_NAME,
-)
+from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
-from langfuse._client.utils import (
-    correlation_context_to_attribute_map,
-    get_attribute_key_from_correlation_context,
-    span_formatter,
-)
+from langfuse._client.propagation import _get_propagated_attributes_from_context
+from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
 
@@ -127,41 +119,11 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         )
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
-        # Propagate correlation context to span
-        current_context = parent_context or context_api.get_current()
-        propagated_attributes = {}
+        context = parent_context or context_api.get_current()
+        propagated_attributes = _get_propagated_attributes_from_context(context)
 
-        # Propagate correlation context in baggage
-        baggage_entries = baggage.get_all(context=current_context)
-
-        for key, value in baggage_entries.items():
-            if (
-                key.startswith(LangfuseOtelSpanAttributes.TRACE_METADATA)
-                or key in correlation_context_to_attribute_map.values()
-            ):
-                propagated_attributes[key] = value
-
-        # Propagate correlation context in OTEL context
-        correlation_context = (
-            context_api.get_value(LANGFUSE_CORRELATION_CONTEXT_KEY, current_context)
-            or {}
-        )
-
-        if not isinstance(correlation_context, dict):
-            langfuse_logger.error(
-                f"Correlation context is not of type dict. Got type '{type(correlation_context)}'."
-            )
-
-            return super().on_start(span, parent_context)
-
-        for key, value in correlation_context.items():
-            attribute_key = get_attribute_key_from_correlation_context(key)
-            propagated_attributes[attribute_key] = value
-
-        # Write attributes on span
         if propagated_attributes:
-            for key, value in propagated_attributes.items():
-                span.set_attribute(key, str(value))
+            span.set_attributes(propagated_attributes)
 
             langfuse_logger.debug(
                 f"Propagated {len(propagated_attributes)} attributes to span '{format_span_id(span.context.span_id)}': {propagated_attributes}"

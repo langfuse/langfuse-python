@@ -9,8 +9,6 @@ from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
 
-LANGFUSE_CORRELATION_CONTEXT_KEY = "langfuse.ctx.correlation"
-
 
 """Note: this type is used with .__args__ / get_args in some cases and therefore must remain flat"""
 ObservationTypeGenerationLike: TypeAlias = Literal[
