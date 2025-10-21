@@ -945,3 +945,208 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span_after, LangfuseOtelSpanAttributes.TRACE_USER_ID, "main_user"
         )
+
+
+class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
+    """Tests for propagate_attributes with different OpenTelemetry tracers."""
+
+    def test_different_tracer_spans_get_attributes(
+        self, langfuse_client, memory_exporter, tracer_provider
+    ):
+        """Verify spans from different tracers get propagated attributes."""
+        # Get a different tracer (not the Langfuse tracer)
+        other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
+
+        with langfuse_client.start_as_current_span(name="langfuse-parent"):
+            with propagate_attributes(user_id="user_123", session_id="session_abc"):
+                # Create span with Langfuse tracer
+                langfuse_span = langfuse_client.start_span(name="langfuse-child")
+                langfuse_span.end()
+
+                # Create span with different tracer
+                with other_tracer.start_as_current_span(name="other-library-span"):
+                    pass
+
+        # Verify both spans have the propagated attributes
+        langfuse_span_data = self.get_span_by_name(memory_exporter, "langfuse-child")
+        self.verify_span_attribute(
+            langfuse_span_data,
+            LangfuseOtelSpanAttributes.TRACE_USER_ID,
+            "user_123",
+        )
+        self.verify_span_attribute(
+            langfuse_span_data,
+            LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
+            "session_abc",
+        )
+
+        other_span_data = self.get_span_by_name(memory_exporter, "other-library-span")
+        self.verify_span_attribute(
+            other_span_data,
+            LangfuseOtelSpanAttributes.TRACE_USER_ID,
+            "user_123",
+        )
+        self.verify_span_attribute(
+            other_span_data,
+            LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
+            "session_abc",
+        )
+
+    def test_nested_spans_from_multiple_tracers(
+        self, langfuse_client, memory_exporter, tracer_provider
+    ):
+        """Verify nested spans from multiple tracers all get propagated attributes."""
+        tracer_a = tracer_provider.get_tracer("library-a", "1.0.0")
+        tracer_b = tracer_provider.get_tracer("library-b", "2.0.0")
+
+        with langfuse_client.start_as_current_span(name="root"):
+            with propagate_attributes(
+                user_id="user_123", metadata={"experiment": "cross_tracer"}
+            ):
+                # Create nested spans from different tracers
+                with tracer_a.start_as_current_span(name="library-a-span"):
+                    with tracer_b.start_as_current_span(name="library-b-span"):
+                        langfuse_leaf = langfuse_client.start_span(name="langfuse-leaf")
+                        langfuse_leaf.end()
+
+        # Verify all spans have the attributes
+        for span_name in ["library-a-span", "library-b-span", "langfuse-leaf"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.TRACE_USER_ID,
+                "user_123",
+            )
+            self.verify_span_attribute(
+                span_data,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
+                "cross_tracer",
+            )
+
+    def test_other_tracer_span_before_propagate_context(
+        self, langfuse_client, memory_exporter, tracer_provider
+    ):
+        """Verify spans created before propagate_attributes don't get attributes."""
+        other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
+
+        with langfuse_client.start_as_current_span(name="root"):
+            # Create span BEFORE propagate_attributes
+            with other_tracer.start_as_current_span(name="span-before"):
+                pass
+
+            # NOW set attributes
+            with propagate_attributes(user_id="user_123"):
+                # Create span AFTER propagate_attributes
+                with other_tracer.start_as_current_span(name="span-after"):
+                    pass
+
+        # Verify: span-before does NOT have user_id, span-after DOES
+        span_before = self.get_span_by_name(memory_exporter, "span-before")
+        self.verify_missing_attribute(
+            span_before, LangfuseOtelSpanAttributes.TRACE_USER_ID
+        )
+
+        span_after = self.get_span_by_name(memory_exporter, "span-after")
+        self.verify_span_attribute(
+            span_after, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+
+    def test_mixed_tracers_with_metadata(
+        self, langfuse_client, memory_exporter, tracer_provider
+    ):
+        """Verify metadata propagates correctly to spans from different tracers."""
+        other_tracer = tracer_provider.get_tracer("instrumented-library", "1.0.0")
+
+        with langfuse_client.start_as_current_span(name="main"):
+            with propagate_attributes(
+                metadata={
+                    "env": "production",
+                    "version": "2.0",
+                    "feature_flag": "enabled",
+                }
+            ):
+                # Create spans from both tracers
+                langfuse_span = langfuse_client.start_span(name="langfuse-operation")
+                langfuse_span.end()
+
+                with other_tracer.start_as_current_span(name="library-operation"):
+                    pass
+
+        # Verify both spans have all metadata
+        for span_name in ["langfuse-operation", "library-operation"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+            self.verify_span_attribute(
+                span_data,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+                "production",
+            )
+            self.verify_span_attribute(
+                span_data,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
+                "2.0",
+            )
+            self.verify_span_attribute(
+                span_data,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.feature_flag",
+                "enabled",
+            )
+
+    def test_propagate_without_langfuse_parent(
+        self, langfuse_client, memory_exporter, tracer_provider
+    ):
+        """Verify propagate_attributes works even when parent span is from different tracer."""
+        other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
+
+        # Parent span is from different tracer
+        with other_tracer.start_as_current_span(name="other-parent"):
+            with propagate_attributes(user_id="user_123", session_id="session_xyz"):
+                # Create children from both tracers
+                with other_tracer.start_as_current_span(name="other-child"):
+                    pass
+
+                langfuse_child = langfuse_client.start_span(name="langfuse-child")
+                langfuse_child.end()
+
+        # Verify all spans have attributes (including non-Langfuse parent)
+        for span_name in ["other-parent", "other-child", "langfuse-child"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.TRACE_USER_ID,
+                "user_123",
+            )
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
+                "session_xyz",
+            )
+
+    def test_attributes_persist_across_tracer_changes(
+        self, langfuse_client, memory_exporter, tracer_provider
+    ):
+        """Verify attributes persist as execution moves between different tracers."""
+        tracer_1 = tracer_provider.get_tracer("library-1", "1.0.0")
+        tracer_2 = tracer_provider.get_tracer("library-2", "1.0.0")
+        tracer_3 = tracer_provider.get_tracer("library-3", "1.0.0")
+
+        with langfuse_client.start_as_current_span(name="root"):
+            with propagate_attributes(user_id="persistent_user"):
+                # Bounce between different tracers
+                with tracer_1.start_as_current_span(name="step-1"):
+                    pass
+
+                with tracer_2.start_as_current_span(name="step-2"):
+                    with tracer_3.start_as_current_span(name="step-3"):
+                        pass
+
+                langfuse_span = langfuse_client.start_span(name="step-4")
+                langfuse_span.end()
+
+        # Verify all steps have the user_id
+        for step_name in ["step-1", "step-2", "step-3", "step-4"]:
+            span_data = self.get_span_by_name(memory_exporter, step_name)
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.TRACE_USER_ID,
+                "persistent_user",
+            )
