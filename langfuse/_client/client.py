@@ -16,6 +16,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Generator,
     List,
     Literal,
     Optional,
@@ -27,8 +28,15 @@ from typing import (
 
 import backoff
 import httpx
-from opentelemetry import trace
-from opentelemetry import trace as otel_trace_api
+from opentelemetry import (
+    baggage as otel_baggage_api,
+)
+from opentelemetry import (
+    context as otel_context_api,
+)
+from opentelemetry import (
+    trace as otel_trace_api,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
@@ -39,6 +47,7 @@ from packaging.version import Version
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import (
+    LANGFUSE_CORRELATION_CONTEXT_KEY,
     ObservationTypeGenerationLike,
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
@@ -69,7 +78,10 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
-from langfuse._client.utils import run_async_safely
+from langfuse._client.utils import (
+    get_attribute_key_from_correlation_context,
+    run_async_safely,
+)
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -189,6 +201,7 @@ class Langfuse:
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
     _otel_tracer: otel_trace_api.Tracer
+    _host: str
 
     def __init__(
         self,
@@ -347,6 +360,83 @@ class Langfuse:
             level=level,
             status_message=status_message,
         )
+
+    @_agnosticcontextmanager
+    def correlation_context(
+        self,
+        correlation_context: Dict[str, str],
+        *,
+        as_baggage: bool = False,
+    ) -> Generator[None, None, None]:
+        """Create a context manager that propagates the given correlation_context to all spans within the context manager's scope.
+
+        Args:
+            correlation_context (Dict[str, str]): Dictionary containing key-value pairs to be propagated
+                to all spans within the context manager's scope. Common keys include user_id, session_id,
+                and custom metadata. All values must be strings below 200 characters.
+            as_baggage (bool, optional): If True, stores the values in OpenTelemetry baggage
+                for cross-service propagation. If False, stores only in local context for
+                current-service propagation. Defaults to False.
+
+        Returns:
+            Context manager that sets values on all spans created within its scope.
+
+        Warning:
+            When as_baggage=True, the values will be included in HTTP headers of any
+            outbound requests made within this context. Only use this for non-sensitive
+            identifiers that are safe to transmit across service boundaries.
+
+        Examples:
+           ```python
+            # Local context only (default) - pass context as dictionary
+            with langfuse.correlation_context({"session_id": "session_123"}):
+                with langfuse.start_as_current_span(name="process-request") as span:
+                    # This span and all its children will have session_id="session_123"
+                    child_span = langfuse.start_span(name="child-operation")
+
+            # Multiple values in context dictionary
+            with langfuse.correlation_context({"user_id": "user_456", "experiment": "A"}):
+                # All spans will have both user_id and experiment attributes
+                span = langfuse.start_span(name="experiment-operation")
+
+            # Cross-service propagation (use with caution)
+            with langfuse.correlation_context({"session_id": "session_123"}, as_baggage=True):
+                # session_id will be propagated to external service calls
+                response = requests.get("https://api.example.com/data")
+            ```
+        """
+        current_context = otel_context_api.get_current()
+        current_span = otel_trace_api.get_current_span()
+
+        current_context = otel_context_api.set_value(
+            LANGFUSE_CORRELATION_CONTEXT_KEY, correlation_context, current_context
+        )
+
+        for key, value in correlation_context.items():
+            if len(value) > 200:
+                langfuse_logger.warning(
+                    f"Correlation context key '{key}' is over 200 characters ({len(value)} chars). Dropping value."
+                )
+                continue
+
+            attribute_key = get_attribute_key_from_correlation_context(key)
+
+            if current_span is not None and current_span.is_recording():
+                current_span.set_attribute(attribute_key, value)
+
+            if as_baggage:
+                current_context = otel_baggage_api.set_baggage(
+                    key, value, current_context
+                )
+
+        # Activate context, execute, and detach context
+        token = otel_context_api.attach(current_context)
+
+        try:
+            yield
+
+        finally:
+            otel_context_api.detach(token)
 
     def start_as_current_span(
         self,
@@ -1665,6 +1755,11 @@ class Langfuse:
                 span.update(output=response)
             ```
         """
+        warnings.warn(
+            "update_current_trace is deprecated and will be removed in a future version.  Use `with langfuse.correlation_context(...)` instead. ",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self._tracing_enabled:
             langfuse_logger.debug(
                 "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
@@ -1809,7 +1904,7 @@ class Langfuse:
             is_remote=False,
         )
 
-        return trace.NonRecordingSpan(span_context)
+        return otel_trace_api.NonRecordingSpan(span_context)
 
     def _is_valid_trace_id(self, trace_id: str) -> bool:
         pattern = r"^[0-9a-f]{32}$"

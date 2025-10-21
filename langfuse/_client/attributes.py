@@ -18,7 +18,6 @@ from langfuse._client.constants import (
     ObservationTypeGenerationLike,
     ObservationTypeSpanLike,
 )
-
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
 from langfuse.types import MapValue, SpanLevel
