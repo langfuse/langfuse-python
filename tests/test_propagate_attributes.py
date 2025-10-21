@@ -1150,3 +1150,246 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
                 LangfuseOtelSpanAttributes.TRACE_USER_ID,
                 "persistent_user",
             )
+
+
+class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
+    """Tests for as_baggage=True parameter and OpenTelemetry baggage propagation."""
+
+    def test_baggage_is_set_when_as_baggage_true(self, langfuse_client):
+        """Verify baggage entries are created with correct keys when as_baggage=True."""
+        from opentelemetry import baggage
+        from opentelemetry import context as otel_context
+
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(
+                user_id="user_123",
+                session_id="session_abc",
+                metadata={"env": "test", "version": "2.0"},
+                as_baggage=True,
+            ):
+                # Get current context and inspect baggage
+                current_context = otel_context.get_current()
+                baggage_entries = baggage.get_all(context=current_context)
+
+                # Verify baggage entries exist with correct keys
+                assert "langfuse_user_id" in baggage_entries
+                assert baggage_entries["langfuse_user_id"] == "user_123"
+
+                assert "langfuse_session_id" in baggage_entries
+                assert baggage_entries["langfuse_session_id"] == "session_abc"
+
+                assert "langfuse_metadata_env" in baggage_entries
+                assert baggage_entries["langfuse_metadata_env"] == "test"
+
+                assert "langfuse_metadata_version" in baggage_entries
+                assert baggage_entries["langfuse_metadata_version"] == "2.0"
+
+    def test_spans_receive_attributes_from_baggage(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify child spans get attributes when parent uses as_baggage=True."""
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(
+                user_id="baggage_user",
+                session_id="baggage_session",
+                metadata={"source": "baggage"},
+                as_baggage=True,
+            ):
+                # Create child span
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child span has all attributes
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "baggage_user"
+        )
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
+            "baggage_session",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.source",
+            "baggage",
+        )
+
+    def test_baggage_disabled_by_default(self, langfuse_client):
+        """Verify as_baggage=False (default) doesn't create baggage entries."""
+        from opentelemetry import baggage
+        from opentelemetry import context as otel_context
+
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(
+                user_id="user_123",
+                session_id="session_abc",
+            ):
+                # Get current context and inspect baggage
+                current_context = otel_context.get_current()
+                baggage_entries = baggage.get_all(context=current_context)
+                assert len(baggage_entries) == 0
+
+    def test_metadata_key_with_user_id_substring_doesnt_collide(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify metadata key containing 'user_id' substring doesn't map to TRACE_USER_ID."""
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(
+                metadata={"user_info": "some_data", "user_id_copy": "another"},
+                as_baggage=True,
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        # Should NOT have TRACE_USER_ID attribute
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID
+        )
+
+        # Should have metadata attributes with correct keys
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.user_info",
+            "some_data",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.user_id_copy",
+            "another",
+        )
+
+    def test_metadata_key_with_session_substring_doesnt_collide(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify metadata key containing 'session_id' substring doesn't map to TRACE_SESSION_ID."""
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(
+                metadata={"session_data": "value1", "session_id_backup": "value2"},
+                as_baggage=True,
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        # Should NOT have TRACE_SESSION_ID attribute
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID
+        )
+
+        # Should have metadata attributes with correct keys
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.session_data",
+            "value1",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.session_id_backup",
+            "value2",
+        )
+
+    def test_metadata_keys_extract_correctly_from_baggage(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify metadata keys are correctly formatted in baggage and extracted back."""
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(
+                metadata={
+                    "env": "production",
+                    "region": "us-west",
+                    "experiment_id": "exp_123",
+                },
+                as_baggage=True,
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        # All metadata should be under TRACE_METADATA prefix
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "production",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-west",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment_id",
+            "exp_123",
+        )
+
+    def test_baggage_and_context_both_propagate(self, langfuse_client, memory_exporter):
+        """Verify attributes propagate when both baggage and context mechanisms are active."""
+        with langfuse_client.start_as_current_span(name="parent"):
+            # Enable baggage
+            with propagate_attributes(
+                user_id="user_both",
+                session_id="session_both",
+                metadata={"source": "both"},
+                as_baggage=True,
+            ):
+                # Create multiple levels of nesting
+                with langfuse_client.start_as_current_span(name="middle"):
+                    child = langfuse_client.start_span(name="leaf")
+                    child.end()
+
+        # Verify all spans have attributes
+        for span_name in ["parent", "middle", "leaf"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+            self.verify_span_attribute(
+                span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_both"
+            )
+            self.verify_span_attribute(
+                span_data, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session_both"
+            )
+            self.verify_span_attribute(
+                span_data,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.source",
+                "both",
+            )
+
+    def test_baggage_survives_context_isolation(self, langfuse_client, memory_exporter):
+        """Simulate cross-process scenario: baggage persists when context is detached/reattached."""
+        from opentelemetry import context as otel_context
+
+        # Step 1: Create context with baggage
+        with langfuse_client.start_as_current_span(name="original-process"):
+            with propagate_attributes(
+                user_id="cross_process_user",
+                session_id="cross_process_session",
+                as_baggage=True,
+            ):
+                # Capture the context with baggage
+                context_with_baggage = otel_context.get_current()
+
+        # Step 2: Simulate "remote" process by creating span in saved context
+        # This mimics what happens when receiving an HTTP request with baggage headers
+        token = otel_context.attach(context_with_baggage)
+        try:
+            with langfuse_client.start_as_current_span(name="remote-process"):
+                child = langfuse_client.start_span(name="remote-child")
+                child.end()
+        finally:
+            otel_context.detach(token)
+
+        # Verify remote spans have the propagated attributes from baggage
+        remote_child = self.get_span_by_name(memory_exporter, "remote-child")
+        self.verify_span_attribute(
+            remote_child,
+            LangfuseOtelSpanAttributes.TRACE_USER_ID,
+            "cross_process_user",
+        )
+        self.verify_span_attribute(
+            remote_child,
+            LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
+            "cross_process_session",
+        )
