@@ -1629,9 +1629,44 @@ class Langfuse:
     ) -> None:
         """Update the current trace with additional information.
 
-        This method updates the Langfuse trace that the current span belongs to. It's useful for
-        adding trace-level metadata like user ID, session ID, or tags that apply to
-        the entire Langfuse trace rather than just a single observation.
+        .. deprecated:: 3.9.0
+            This method is deprecated and will be removed in a future version.
+            Use :func:`langfuse.propagate_attributes` instead.
+
+        **Current behavior**: This method still works as expected - the Langfuse backend
+        handles setting trace-level attributes server-side. However, it will be removed
+        in a future version, so please migrate to ``propagate_attributes()``.
+
+        **Why deprecated**: This method only sets attributes on a single span, which means
+        child spans created later won't have these attributes. This causes gaps when
+        using Langfuse aggregation queries (e.g., filtering by user_id or calculating
+        costs per session_id) because only the span with the attribute is included.
+
+        **Migration**: Replace with ``propagate_attributes()`` to set attributes on ALL
+        child spans created within the context. Call it as early as possible in your trace:
+
+        .. code-block:: python
+
+            # OLD (deprecated)
+            with langfuse.start_as_current_span(name="handle-request") as span:
+                user = authenticate_user(request)
+                langfuse.update_current_trace(
+                    user_id=user.id,
+                    session_id=request.session_id
+                )
+                # Child spans created here won't have user_id/session_id
+                response = process_request(request)
+
+            # NEW (recommended)
+            with langfuse.start_as_current_span(name="handle-request"):
+                user = authenticate_user(request)
+                with langfuse.propagate_attributes(
+                    user_id=user.id,
+                    session_id=request.session_id,
+                    metadata={"environment": "production"}
+                ):
+                    # All child spans will have these attributes
+                    response = process_request(request)
 
         Args:
             name: Updated name for the Langfuse trace
@@ -1644,28 +1679,17 @@ class Langfuse:
             tags: List of tags to categorize the Langfuse trace
             public: Whether the Langfuse trace should be publicly accessible
 
-        Example:
-            ```python
-            with langfuse.start_as_current_span(name="handle-request") as span:
-                # Get user information
-                user = authenticate_user(request)
-
-                # Update trace with user context
-                langfuse.update_current_trace(
-                    user_id=user.id,
-                    session_id=request.session_id,
-                    tags=["production", "web-app"]
-                )
-
-                # Continue processing
-                response = process_request(request)
-
-                # Update span with results
-                span.update(output=response)
-            ```
+        See Also:
+            :func:`langfuse.propagate_attributes`: Recommended replacement
         """
         warnings.warn(
-            "update_current_trace is deprecated and will be removed in a future version.  Use `with langfuse.propagate_attributes(...)` instead. ",
+            "update_current_trace() is deprecated and will be removed in a future version. "
+            "While it still works (handled server-side), it only sets attributes on a single span, "
+            "causing gaps in aggregation queries. "
+            "Migrate to `with langfuse.propagate_attributes(user_id=..., session_id=..., metadata={...})` "
+            "to propagate attributes to ALL child spans. Call propagate_attributes() as early "
+            "as possible in your trace for complete coverage. "
+            "See: https://langfuse.com/docs/sdk/python/decorators#trace-level-attributes",
             DeprecationWarning,
             stacklevel=2,
         )
