@@ -27,9 +27,7 @@ from typing import (
 
 import backoff
 import httpx
-from opentelemetry import (
-    trace as otel_trace_api,
-)
+from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
@@ -190,7 +188,6 @@ class Langfuse:
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
     _otel_tracer: otel_trace_api.Tracer
-    _host: str
 
     def __init__(
         self,
