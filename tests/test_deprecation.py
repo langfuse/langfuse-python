@@ -1,8 +1,9 @@
 """Tests for deprecation warnings on deprecated functions."""
 
 import warnings
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from langfuse import Langfuse
 
@@ -54,7 +55,7 @@ class TestDeprecationWarnings:
             {
                 "LANGFUSE_PUBLIC_KEY": "test_key",
                 "LANGFUSE_SECRET_KEY": "test_secret",
-                "LANGFUSE_HOST": "http://localhost:3000",
+                "LANGFUSE_BASE_URL": "http://localhost:3000",
             },
         ):
             return Langfuse()
