@@ -2963,7 +2963,9 @@ client.media.get_upload_url(
 <dl>
 <dd>
 
-Get metrics from the Langfuse project using a query object
+Get metrics from the Langfuse project using a query object.
+
+For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 </dd>
 </dl>
 </dd>
@@ -4805,6 +4807,22 @@ client.projects.create_api_key(
 <dd>
 
 **note:** `typing.Optional[str]` — Optional note for the API key
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**public_key:** `typing.Optional[str]` — Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**secret_key:** `typing.Optional[str]` — Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
     
 </dd>
 </dl>
