@@ -9,38 +9,49 @@ import os
 import pytest
 
 from langfuse import Langfuse
+from langfuse._client.resource_manager import LangfuseResourceManager
 
 
 class TestClientInitialization:
     """Tests for Langfuse client initialization with different URL configurations."""
 
-    @pytest.fixture
+    @pytest.fixture(autouse=True)
     def cleanup_env_vars(self):
-        """Fixture to clean up environment variables before and after each test."""
+        """Fixture to clean up environment variables and singleton cache before and after each test."""
         # Store original values
-        original_base_url = os.environ.get("LANGFUSE_BASE_URL")
-        original_host = os.environ.get("LANGFUSE_HOST")
-        original_public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
-        original_secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+        original_values = {
+            "LANGFUSE_BASE_URL": os.environ.get("LANGFUSE_BASE_URL"),
+            "LANGFUSE_HOST": os.environ.get("LANGFUSE_HOST"),
+            "LANGFUSE_PUBLIC_KEY": os.environ.get("LANGFUSE_PUBLIC_KEY"),
+            "LANGFUSE_SECRET_KEY": os.environ.get("LANGFUSE_SECRET_KEY"),
+        }
 
-        # Remove them for the test
+        # Remove LANGFUSE_BASE_URL and LANGFUSE_HOST for the test
+        # but keep PUBLIC_KEY and SECRET_KEY if they exist
         for key in ["LANGFUSE_BASE_URL", "LANGFUSE_HOST"]:
             if key in os.environ:
                 del os.environ[key]
 
         yield
 
-        # Restore original values
-        for key, value in [
-            ("LANGFUSE_BASE_URL", original_base_url),
-            ("LANGFUSE_HOST", original_host),
-            ("LANGFUSE_PUBLIC_KEY", original_public_key),
-            ("LANGFUSE_SECRET_KEY", original_secret_key),
+        # Clear the singleton cache to prevent test pollution
+        with LangfuseResourceManager._lock:
+            LangfuseResourceManager._instances.clear()
+
+        # Restore original values - always remove any test values first
+        for key in [
+            "LANGFUSE_BASE_URL",
+            "LANGFUSE_HOST",
+            "LANGFUSE_PUBLIC_KEY",
+            "LANGFUSE_SECRET_KEY",
         ]:
+            if key in os.environ:
+                del os.environ[key]
+
+        # Then restore original values
+        for key, value in original_values.items():
             if value is not None:
                 os.environ[key] = value
-            elif key in os.environ:
-                del os.environ[key]
 
     def test_base_url_parameter_takes_precedence(self, cleanup_env_vars):
         """Test that base_url parameter takes highest precedence."""
