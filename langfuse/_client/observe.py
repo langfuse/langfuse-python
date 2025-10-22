@@ -327,7 +327,7 @@ class LangfuseDecorator:
                         return result
                     except Exception as e:
                         langfuse_span_or_generation.update(
-                            level="ERROR", status_message=str(e)
+                            level="ERROR", status_message=str(e) or type(e).__name__
                         )
 
                         raise e
