@@ -2356,7 +2356,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             processor = LangfuseSpanProcessor(
                 public_key=self.public_key,
                 secret_key=self.secret_key,
-                base_url=self.host,
+                base_url=self.base_url,
                 blocked_instrumentation_scopes=kwargs.get(
                     "blocked_instrumentation_scopes"
                 ),
