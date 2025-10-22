@@ -313,13 +313,17 @@ class LangfuseDecorator:
                                 )
 
                             # handle starlette.StreamingResponse
-                            if type(result).__name__ == "StreamingResponse" and hasattr(result, "body_iterator"):
+                            if type(result).__name__ == "StreamingResponse" and hasattr(
+                                result, "body_iterator"
+                            ):
                                 is_return_type_generator = True
 
-                                result.body_iterator = self._wrap_async_generator_result(
-                                    langfuse_span_or_generation,
-                                    result.body_iterator,
-                                    transform_to_string,
+                                result.body_iterator = (
+                                    self._wrap_async_generator_result(
+                                        langfuse_span_or_generation,
+                                        result.body_iterator,
+                                        transform_to_string,
+                                    )
                                 )
 
                             langfuse_span_or_generation.update(output=result)
@@ -427,13 +431,17 @@ class LangfuseDecorator:
                                 )
 
                             # handle starlette.StreamingResponse
-                            if type(result).__name__ == "StreamingResponse" and hasattr(result, "body_iterator"):
+                            if type(result).__name__ == "StreamingResponse" and hasattr(
+                                result, "body_iterator"
+                            ):
                                 is_return_type_generator = True
 
-                                result.body_iterator = self._wrap_async_generator_result(
-                                    langfuse_span_or_generation,
-                                    result.body_iterator,
-                                    transform_to_string,
+                                result.body_iterator = (
+                                    self._wrap_async_generator_result(
+                                        langfuse_span_or_generation,
+                                        result.body_iterator,
+                                        transform_to_string,
+                                    )
                                 )
 
                             langfuse_span_or_generation.update(output=result)

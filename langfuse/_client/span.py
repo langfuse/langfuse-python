@@ -190,7 +190,9 @@ class LangfuseObservationWrapper:
                 {k: v for k, v in attributes.items() if v is not None}
             )
             # Set OTEL span status if level is ERROR
-            self._set_otel_span_status_if_error(level=level, status_message=status_message)
+            self._set_otel_span_status_if_error(
+                level=level, status_message=status_message
+            )
 
     def end(self, *, end_time: Optional[int] = None) -> "LangfuseObservationWrapper":
         """End the span, marking it as completed.
@@ -544,7 +546,7 @@ class LangfuseObservationWrapper:
         return data
 
     def _set_otel_span_status_if_error(
-            self, *, level: Optional[SpanLevel] = None, status_message: Optional[str] = None
+        self, *, level: Optional[SpanLevel] = None, status_message: Optional[str] = None
     ) -> None:
         """Set OpenTelemetry span status to ERROR if level is ERROR.
 
