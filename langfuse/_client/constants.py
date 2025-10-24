@@ -3,7 +3,8 @@
 This module defines constants used throughout the Langfuse OpenTelemetry integration.
 """
 
-from typing import Literal, List, get_args, Union, Any
+from typing import Any, List, Literal, Union, get_args
+
 from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
