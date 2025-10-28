@@ -331,7 +331,7 @@ class LangfuseDecorator:
                         return result
                     except Exception as e:
                         langfuse_span_or_generation.update(
-                            level="ERROR", status_message=str(e)
+                            level="ERROR", status_message=str(e) or type(e).__name__
                         )
 
                         raise e
@@ -449,7 +449,7 @@ class LangfuseDecorator:
                         return result
                     except Exception as e:
                         langfuse_span_or_generation.update(
-                            level="ERROR", status_message=str(e)
+                            level="ERROR", status_message=str(e) or type(e).__name__
                         )
 
                         raise e
@@ -589,7 +589,7 @@ class _ContextPreservedSyncGeneratorWrapper:
             raise  # Re-raise StopIteration
 
         except Exception as e:
-            self.span.update(level="ERROR", status_message=str(e)).end()
+            self.span.update(level="ERROR", status_message=str(e) or type(e).__name__).end()
 
             raise
 
@@ -654,6 +654,6 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
             raise  # Re-raise StopAsyncIteration
         except Exception as e:
-            self.span.update(level="ERROR", status_message=str(e)).end()
+            self.span.update(level="ERROR", status_message=str(e) or type(e).__name__).end()
 
             raise
