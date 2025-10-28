@@ -5,7 +5,7 @@ attributes (user_id, session_id, metadata) that automatically propagate to all c
 within the context.
 """
 
-from typing import Any, Dict, Generator, List, Literal, Optional, Union
+from typing import Any, Dict, Generator, List, Literal, Optional, Union, cast
 
 from opentelemetry import baggage
 from opentelemetry import (
@@ -258,6 +258,13 @@ def _set_propagated_attribute(
     context_key = _get_propagated_context_key(key)
     span_key = _get_propagated_span_key(key)
     baggage_key = _get_propagated_baggage_key(key)
+
+    # Merge metadata with previously set metadata keys
+    if isinstance(value, dict):
+        existing_metadata_in_context = cast(
+            dict, otel_context_api.get_value(context_key) or {}
+        )
+        value = existing_metadata_in_context | value
 
     # Set in context
     context = otel_context_api.set_value(

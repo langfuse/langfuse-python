@@ -563,6 +563,215 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
             span_data, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session1"
         )
 
+    def test_nested_metadata_merges_additively(self, langfuse_client, memory_exporter):
+        """Verify nested contexts merge metadata keys additively."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(metadata={"env": "prod", "region": "us-east"}):
+                # Outer span should have outer metadata
+                outer_span = langfuse_client.start_span(name="outer-span")
+                outer_span.end()
+
+                # Inner context adds more metadata
+                with propagate_attributes(
+                    metadata={"experiment": "A", "version": "2.0"}
+                ):
+                    inner_span = langfuse_client.start_span(name="inner-span")
+                    inner_span.end()
+
+                # Back to outer context
+                after_span = langfuse_client.start_span(name="after-span")
+                after_span.end()
+
+        # Verify: outer span has only outer metadata
+        outer_span_data = self.get_span_by_name(memory_exporter, "outer-span")
+        self.verify_span_attribute(
+            outer_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "prod",
+        )
+        self.verify_span_attribute(
+            outer_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-east",
+        )
+        self.verify_missing_attribute(
+            outer_span_data, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment"
+        )
+
+        # Verify: inner span has ALL metadata (merged)
+        inner_span_data = self.get_span_by_name(memory_exporter, "inner-span")
+        self.verify_span_attribute(
+            inner_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "prod",
+        )
+        self.verify_span_attribute(
+            inner_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-east",
+        )
+        self.verify_span_attribute(
+            inner_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
+            "A",
+        )
+        self.verify_span_attribute(
+            inner_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
+            "2.0",
+        )
+
+        # Verify: after span has only outer metadata (inner context exited)
+        after_span_data = self.get_span_by_name(memory_exporter, "after-span")
+        self.verify_span_attribute(
+            after_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "prod",
+        )
+        self.verify_span_attribute(
+            after_span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-east",
+        )
+        self.verify_missing_attribute(
+            after_span_data, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment"
+        )
+
+    def test_nested_metadata_inner_overwrites_conflicting_keys(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify nested contexts: inner metadata overwrites outer for same keys."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                metadata={"env": "staging", "version": "1.0", "region": "us-west"}
+            ):
+                # Inner context overwrites some keys
+                with propagate_attributes(
+                    metadata={"env": "production", "experiment": "B"}
+                ):
+                    span = langfuse_client.start_span(name="span-1")
+                    span.end()
+
+        # Verify: inner values overwrite outer for conflicting keys
+        span_data = self.get_span_by_name(memory_exporter, "span-1")
+
+        # Overwritten key
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "production",  # Inner value wins
+        )
+
+        # Preserved keys from outer
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
+            "1.0",  # From outer
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-west",  # From outer
+        )
+
+        # New key from inner
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
+            "B",  # From inner
+        )
+
+    def test_triple_nested_metadata_accumulates(self, langfuse_client, memory_exporter):
+        """Verify metadata accumulates across three levels of nesting."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(metadata={"level": "1", "a": "outer"}):
+                with propagate_attributes(metadata={"level": "2", "b": "middle"}):
+                    with propagate_attributes(metadata={"level": "3", "c": "inner"}):
+                        span = langfuse_client.start_span(name="deep-span")
+                        span.end()
+
+        # Verify: deepest span has all metadata with innermost level winning
+        span_data = self.get_span_by_name(memory_exporter, "deep-span")
+
+        # Conflicting key: innermost wins
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.level",
+            "3",
+        )
+
+        # Unique keys from each level
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.a",
+            "outer",
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.b",
+            "middle",
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.c",
+            "inner",
+        )
+
+    def test_metadata_merge_with_empty_inner(self, langfuse_client, memory_exporter):
+        """Verify empty inner metadata dict doesn't clear outer metadata."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(metadata={"key1": "value1", "key2": "value2"}):
+                # Inner context with empty metadata
+                with propagate_attributes(metadata={}):
+                    span = langfuse_client.start_span(name="span-1")
+                    span.end()
+
+        # Verify: outer metadata is preserved
+        span_data = self.get_span_by_name(memory_exporter, "span-1")
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.key1",
+            "value1",
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.key2",
+            "value2",
+        )
+
+    def test_metadata_merge_preserves_user_session(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify metadata merging doesn't affect user_id/session_id."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                user_id="user1",
+                session_id="session1",
+                metadata={"outer": "value"},
+            ):
+                with propagate_attributes(metadata={"inner": "value"}):
+                    span = langfuse_client.start_span(name="span-1")
+                    span.end()
+
+        # Verify: user_id and session_id are preserved, metadata merged
+        span_data = self.get_span_by_name(memory_exporter, "span-1")
+        self.verify_span_attribute(
+            span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user1"
+        )
+        self.verify_span_attribute(
+            span_data, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session1"
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.outer",
+            "value",
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.inner",
+            "value",
+        )
+
 
 class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
     """Tests for edge cases and unusual scenarios."""
