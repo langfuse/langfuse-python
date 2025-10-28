@@ -299,16 +299,30 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 serialized, "chain", **kwargs
             )
 
-            span = self._get_parent_observation(parent_run_id).start_observation(
-                name=span_name,
-                as_type=observation_type,
-                metadata=span_metadata,
-                input=inputs,
-                level=cast(
-                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                    span_level,
-                ),
-            )
+            if metadata and (trace_id := metadata.get("langfuse_trace_id")) and parent_run_id is None: 
+                span = self.client.start_observation(
+                    trace_context={"trace_id": trace_id},
+                    name=span_name,
+                    as_type=observation_type,
+                    metadata=span_metadata,
+                    input=inputs,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
+                )
+            
+            else:
+                span = self._get_parent_observation(parent_run_id).start_observation(
+                    name=span_name,
+                    as_type=observation_type,
+                    metadata=span_metadata,
+                    input=inputs,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
+                )
             self._attach_observation(run_id, span)
 
             if parent_run_id is None:
