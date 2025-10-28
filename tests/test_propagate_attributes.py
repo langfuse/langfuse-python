@@ -1152,6 +1152,203 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
             )
 
 
+class TestPropagateAttributesAsync(TestPropagateAttributesBase):
+    """Tests for propagate_attributes with async/await."""
+
+    @pytest.mark.asyncio
+    async def test_async_propagation_basic(self, langfuse_client, memory_exporter):
+        """Verify attributes propagate in async context."""
+
+        async def async_operation():
+            """Async function that creates a span."""
+            span = langfuse_client.start_span(name="async-span")
+            span.end()
+
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(user_id="async_user", session_id="async_session"):
+                await async_operation()
+
+        # Verify async span has attributes
+        async_span = self.get_span_by_name(memory_exporter, "async-span")
+        self.verify_span_attribute(
+            async_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "async_user"
+        )
+        self.verify_span_attribute(
+            async_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "async_session"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_nested_operations(self, langfuse_client, memory_exporter):
+        """Verify attributes propagate through nested async operations."""
+
+        async def level_3():
+            span = langfuse_client.start_span(name="level-3-span")
+            span.end()
+
+        async def level_2():
+            span = langfuse_client.start_span(name="level-2-span")
+            span.end()
+            await level_3()
+
+        async def level_1():
+            span = langfuse_client.start_span(name="level-1-span")
+            span.end()
+            await level_2()
+
+        with langfuse_client.start_as_current_span(name="root"):
+            with propagate_attributes(
+                user_id="nested_user", metadata={"level": "nested"}
+            ):
+                await level_1()
+
+        # Verify all levels have attributes
+        for span_name in ["level-1-span", "level-2-span", "level-3-span"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+            self.verify_span_attribute(
+                span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, "nested_user"
+            )
+            self.verify_span_attribute(
+                span_data,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.level",
+                "nested",
+            )
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager(self, langfuse_client, memory_exporter):
+        """Verify propagate_attributes works as context manager in async function."""
+        with langfuse_client.start_as_current_span(name="parent"):
+            # propagate_attributes supports both sync and async contexts via regular 'with'
+            with propagate_attributes(user_id="async_ctx_user"):
+                span = langfuse_client.start_span(name="inside-async-ctx")
+                span.end()
+
+        span_data = self.get_span_by_name(memory_exporter, "inside-async-ctx")
+        self.verify_span_attribute(
+            span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, "async_ctx_user"
+        )
+
+    @pytest.mark.asyncio
+    async def test_multiple_async_tasks_concurrent(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify context isolation between concurrent async tasks."""
+        import asyncio
+
+        async def create_trace_with_user(user_id: str):
+            """Create a trace with specific user_id."""
+            with langfuse_client.start_as_current_span(name=f"trace-{user_id}"):
+                with propagate_attributes(user_id=user_id):
+                    await asyncio.sleep(0.01)  # Simulate async work
+                    span = langfuse_client.start_span(name=f"span-{user_id}")
+                    span.end()
+
+        # Run multiple traces concurrently
+        await asyncio.gather(
+            create_trace_with_user("user1"),
+            create_trace_with_user("user2"),
+            create_trace_with_user("user3"),
+        )
+
+        # Verify each trace has correct user_id (no mixing)
+        for user_id in ["user1", "user2", "user3"]:
+            span_data = self.get_span_by_name(memory_exporter, f"span-{user_id}")
+            self.verify_span_attribute(
+                span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, user_id
+            )
+
+    @pytest.mark.asyncio
+    async def test_async_with_sync_nested(self, langfuse_client, memory_exporter):
+        """Verify attributes propagate from async to sync code."""
+
+        def sync_operation():
+            """Sync function called from async context."""
+            span = langfuse_client.start_span(name="sync-in-async")
+            span.end()
+
+        async def async_operation():
+            """Async function that calls sync code."""
+            span1 = langfuse_client.start_span(name="async-span")
+            span1.end()
+            sync_operation()
+
+        with langfuse_client.start_as_current_span(name="root"):
+            with propagate_attributes(user_id="mixed_user"):
+                await async_operation()
+
+        # Verify both spans have attributes
+        async_span = self.get_span_by_name(memory_exporter, "async-span")
+        self.verify_span_attribute(
+            async_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "mixed_user"
+        )
+
+        sync_span = self.get_span_by_name(memory_exporter, "sync-in-async")
+        self.verify_span_attribute(
+            sync_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "mixed_user"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_exception_preserves_context(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify context is preserved even when async operation raises exception."""
+
+        async def failing_operation():
+            """Async operation that raises exception."""
+            span = langfuse_client.start_span(name="span-before-error")
+            span.end()
+            raise ValueError("Test error")
+
+        with langfuse_client.start_as_current_span(name="root"):
+            with propagate_attributes(user_id="error_user"):
+                span1 = langfuse_client.start_span(name="span-before-async")
+                span1.end()
+
+                try:
+                    await failing_operation()
+                except ValueError:
+                    pass  # Expected
+
+                span2 = langfuse_client.start_span(name="span-after-error")
+                span2.end()
+
+        # Verify all spans have attributes
+        for span_name in ["span-before-async", "span-before-error", "span-after-error"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+            self.verify_span_attribute(
+                span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, "error_user"
+            )
+
+    @pytest.mark.asyncio
+    async def test_async_with_metadata(self, langfuse_client, memory_exporter):
+        """Verify metadata propagates correctly in async context."""
+
+        async def async_with_metadata():
+            span = langfuse_client.start_span(name="async-metadata-span")
+            span.end()
+
+        with langfuse_client.start_as_current_span(name="root"):
+            with propagate_attributes(
+                user_id="metadata_user",
+                metadata={"async": "true", "operation": "test"},
+            ):
+                await async_with_metadata()
+
+        span_data = self.get_span_by_name(memory_exporter, "async-metadata-span")
+        self.verify_span_attribute(
+            span_data, LangfuseOtelSpanAttributes.TRACE_USER_ID, "metadata_user"
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.async",
+            "true",
+        )
+        self.verify_span_attribute(
+            span_data,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.operation",
+            "test",
+        )
+
+
 class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
     """Tests for as_baggage=True parameter and OpenTelemetry baggage propagation."""
 
@@ -1393,3 +1590,251 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
             LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
             "cross_process_session",
         )
+
+
+class TestPropagateAttributesVersion(TestPropagateAttributesBase):
+    """Tests for version parameter propagation."""
+
+    def test_version_propagates_to_child_spans(self, langfuse_client, memory_exporter):
+        """Verify version propagates to all child spans within context."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version="v1.2.3"):
+                child1 = langfuse_client.start_span(name="child-span-1")
+                child1.end()
+
+                child2 = langfuse_client.start_span(name="child-span-2")
+                child2.end()
+
+        # Verify both children have version
+        child1_span = self.get_span_by_name(memory_exporter, "child-span-1")
+        self.verify_span_attribute(
+            child1_span,
+            LangfuseOtelSpanAttributes.VERSION,
+            "v1.2.3",
+        )
+
+        child2_span = self.get_span_by_name(memory_exporter, "child-span-2")
+        self.verify_span_attribute(
+            child2_span,
+            LangfuseOtelSpanAttributes.VERSION,
+            "v1.2.3",
+        )
+
+    def test_version_with_user_and_session(self, langfuse_client, memory_exporter):
+        """Verify version works together with user_id and session_id."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                user_id="user_123",
+                session_id="session_abc",
+                version="2.0.0",
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child has all attributes
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session_abc"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.VERSION, "2.0.0"
+        )
+
+    def test_version_with_metadata(self, langfuse_client, memory_exporter):
+        """Verify version works together with metadata."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                version="1.0.0",
+                metadata={"env": "production", "region": "us-east"},
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.VERSION, "1.0.0"
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "production",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-east",
+        )
+
+    def test_version_validation_over_200_chars(self, langfuse_client, memory_exporter):
+        """Verify version over 200 characters is dropped with warning."""
+        long_version = "v" + "1.0.0" * 50  # Create a very long version string
+
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version=long_version):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child does NOT have version
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.VERSION)
+
+    def test_version_exactly_200_chars(self, langfuse_client, memory_exporter):
+        """Verify exactly 200 character version is accepted."""
+        version_200 = "v" * 200
+
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version=version_200):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child HAS version
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.VERSION, version_200
+        )
+
+    def test_version_nested_contexts_inner_overwrites(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify inner context overwrites outer version."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version="1.0.0"):
+                # Create span in outer context
+                span1 = langfuse_client.start_span(name="span-1")
+                span1.end()
+
+                # Inner context with different version
+                with propagate_attributes(version="2.0.0"):
+                    span2 = langfuse_client.start_span(name="span-2")
+                    span2.end()
+
+                # Back to outer context
+                span3 = langfuse_client.start_span(name="span-3")
+                span3.end()
+
+        # Verify: span1 and span3 have version 1.0.0, span2 has 2.0.0
+        span1_data = self.get_span_by_name(memory_exporter, "span-1")
+        self.verify_span_attribute(
+            span1_data, LangfuseOtelSpanAttributes.VERSION, "1.0.0"
+        )
+
+        span2_data = self.get_span_by_name(memory_exporter, "span-2")
+        self.verify_span_attribute(
+            span2_data, LangfuseOtelSpanAttributes.VERSION, "2.0.0"
+        )
+
+        span3_data = self.get_span_by_name(memory_exporter, "span-3")
+        self.verify_span_attribute(
+            span3_data, LangfuseOtelSpanAttributes.VERSION, "1.0.0"
+        )
+
+    def test_version_with_baggage(self, langfuse_client, memory_exporter):
+        """Verify version propagates through baggage."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                version="baggage_version",
+                user_id="user_123",
+                as_baggage=True,
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child has version
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.VERSION, "baggage_version"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+
+    def test_version_semantic_versioning_formats(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify various semantic versioning formats work correctly."""
+        test_versions = [
+            "1.0.0",
+            "v2.3.4",
+            "1.0.0-alpha",
+            "2.0.0-beta.1",
+            "3.1.4-rc.2+build.123",
+            "0.1.0",
+        ]
+
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            for idx, version in enumerate(test_versions):
+                with propagate_attributes(version=version):
+                    span = langfuse_client.start_span(name=f"span-{idx}")
+                    span.end()
+
+        # Verify all versions are correctly set
+        for idx, expected_version in enumerate(test_versions):
+            span_data = self.get_span_by_name(memory_exporter, f"span-{idx}")
+            self.verify_span_attribute(
+                span_data, LangfuseOtelSpanAttributes.VERSION, expected_version
+            )
+
+    def test_version_non_string_dropped(self, langfuse_client, memory_exporter):
+        """Verify non-string version is dropped with warning."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version=123):  # type: ignore
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child does NOT have version
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.VERSION)
+
+    def test_version_propagates_to_grandchildren(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify version propagates through multiple levels of nesting."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version="nested_v1"):
+                with langfuse_client.start_as_current_span(name="child-span"):
+                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                    grandchild.end()
+
+        # Verify all three levels have version
+        parent_span = self.get_span_by_name(memory_exporter, "parent-span")
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        grandchild_span = self.get_span_by_name(memory_exporter, "grandchild-span")
+
+        for span in [parent_span, child_span, grandchild_span]:
+            self.verify_span_attribute(
+                span, LangfuseOtelSpanAttributes.VERSION, "nested_v1"
+            )
+
+    @pytest.mark.asyncio
+    async def test_version_with_async(self, langfuse_client, memory_exporter):
+        """Verify version propagates in async context."""
+
+        async def async_operation():
+            span = langfuse_client.start_span(name="async-span")
+            span.end()
+
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(version="async_v1.0"):
+                await async_operation()
+
+        async_span = self.get_span_by_name(memory_exporter, "async-span")
+        self.verify_span_attribute(
+            async_span, LangfuseOtelSpanAttributes.VERSION, "async_v1.0"
+        )
+
+    def test_version_attribute_key_format(self, langfuse_client, memory_exporter):
+        """Verify version uses correct attribute key format."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(version="key_test_v1"):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        attributes = child_span["attributes"]
+
+        # Verify exact attribute key
+        assert LangfuseOtelSpanAttributes.VERSION in attributes
+        assert attributes[LangfuseOtelSpanAttributes.VERSION] == "key_test_v1"

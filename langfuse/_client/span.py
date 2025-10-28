@@ -30,8 +30,8 @@ from typing import (
 )
 
 from opentelemetry import trace as otel_trace_api
-from opentelemetry.util._decorator import _AgnosticContextManager
 from opentelemetry.trace.status import Status, StatusCode
+from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse.model import PromptClient
 
