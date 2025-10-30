@@ -2047,3 +2047,232 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         # Verify exact attribute key
         assert LangfuseOtelSpanAttributes.VERSION in attributes
         assert attributes[LangfuseOtelSpanAttributes.VERSION] == "key_test_v1"
+
+
+class TestPropagateAttributesTags(TestPropagateAttributesBase):
+    """Tests for tags parameter propagation."""
+
+    def test_tags_propagate_to_child_spans(self, langfuse_client, memory_exporter):
+        """Verify tags propagate to all child spans within context."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=["production", "api-v2", "critical"]):
+                child1 = langfuse_client.start_span(name="child-span-1")
+                child1.end()
+
+                child2 = langfuse_client.start_span(name="child-span-2")
+                child2.end()
+
+        # Verify both children have tags
+        child1_span = self.get_span_by_name(memory_exporter, "child-span-1")
+        self.verify_span_attribute(
+            child1_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(["production", "api-v2", "critical"]),
+        )
+
+        child2_span = self.get_span_by_name(memory_exporter, "child-span-2")
+        self.verify_span_attribute(
+            child2_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(["production", "api-v2", "critical"]),
+        )
+
+    def test_tags_with_single_tag(self, langfuse_client, memory_exporter):
+        """Verify single tag works correctly."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=["experiment"]):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(["experiment"]),
+        )
+
+    def test_empty_tags_list(self, langfuse_client, memory_exporter):
+        """Verify empty tags list is handled correctly."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=[]):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # With empty list, tags should not be set
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple([]),
+        )
+
+    def test_tags_with_user_and_session(self, langfuse_client, memory_exporter):
+        """Verify tags work together with user_id and session_id."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                user_id="user_123",
+                session_id="session_abc",
+                tags=["test", "debug"],
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child has all attributes
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session_abc"
+        )
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(["test", "debug"]),
+        )
+
+    def test_tags_with_metadata(self, langfuse_client, memory_exporter):
+        """Verify tags work together with metadata."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                tags=["experiment-a", "variant-1"],
+                metadata={"env": "staging"},
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(["experiment-a", "variant-1"]),
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "staging",
+        )
+
+    def test_tags_validation_with_invalid_tag(self, langfuse_client, memory_exporter):
+        """Verify tags with one invalid entry drops all tags."""
+        long_tag = "x" * 201  # Over 200 chars
+
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=["valid_tag", long_tag]):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # All tags should be dropped if any tag is invalid
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.TRACE_TAGS)
+
+    def test_tags_nested_contexts_inner_appends(self, langfuse_client, memory_exporter):
+        """Verify inner context appends to outer tags."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=["outer", "tag1"]):
+                # Create span in outer context
+                span1 = langfuse_client.start_span(name="span-1")
+                span1.end()
+
+                # Inner context with more tags
+                with propagate_attributes(tags=["inner", "tag2"]):
+                    span2 = langfuse_client.start_span(name="span-2")
+                    span2.end()
+
+                # Back to outer context
+                span3 = langfuse_client.start_span(name="span-3")
+                span3.end()
+
+        # Verify: span1 and span3 have outer tags, span2 has inner tags
+        span1_data = self.get_span_by_name(memory_exporter, "span-1")
+        self.verify_span_attribute(
+            span1_data, LangfuseOtelSpanAttributes.TRACE_TAGS, tuple(["outer", "tag1"])
+        )
+
+        span2_data = self.get_span_by_name(memory_exporter, "span-2")
+        self.verify_span_attribute(
+            span2_data,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(
+                [
+                    "outer",
+                    "tag1",
+                    "inner",
+                    "tag2",
+                ]
+            ),
+        )
+
+        span3_data = self.get_span_by_name(memory_exporter, "span-3")
+        self.verify_span_attribute(
+            span3_data, LangfuseOtelSpanAttributes.TRACE_TAGS, tuple(["outer", "tag1"])
+        )
+
+    def test_tags_with_baggage(self, langfuse_client, memory_exporter):
+        """Verify tags propagate through baggage."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                tags=["baggage_tag1", "baggage_tag2"],
+                as_baggage=True,
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child has tags
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(["baggage_tag1", "baggage_tag2"]),
+        )
+
+    def test_tags_propagate_to_grandchildren(self, langfuse_client, memory_exporter):
+        """Verify tags propagate through multiple levels of nesting."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=["level1", "level2", "level3"]):
+                with langfuse_client.start_as_current_span(name="child-span"):
+                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                    grandchild.end()
+
+        # Verify all three levels have tags
+        parent_span = self.get_span_by_name(memory_exporter, "parent-span")
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        grandchild_span = self.get_span_by_name(memory_exporter, "grandchild-span")
+
+        for span in [parent_span, child_span, grandchild_span]:
+            self.verify_span_attribute(
+                span,
+                LangfuseOtelSpanAttributes.TRACE_TAGS,
+                tuple(["level1", "level2", "level3"]),
+            )
+
+    @pytest.mark.asyncio
+    async def test_tags_with_async(self, langfuse_client, memory_exporter):
+        """Verify tags propagate in async context."""
+
+        async def async_operation():
+            span = langfuse_client.start_span(name="async-span")
+            span.end()
+
+        with langfuse_client.start_as_current_span(name="parent"):
+            with propagate_attributes(tags=["async", "test"]):
+                await async_operation()
+
+        async_span = self.get_span_by_name(memory_exporter, "async-span")
+        self.verify_span_attribute(
+            async_span, LangfuseOtelSpanAttributes.TRACE_TAGS, tuple(["async", "test"])
+        )
+
+    def test_tags_attribute_key_format(self, langfuse_client, memory_exporter):
+        """Verify tags use correct attribute key format."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(tags=["key_test"]):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        attributes = child_span["attributes"]
+
+        # Verify exact attribute key
+        assert LangfuseOtelSpanAttributes.TRACE_TAGS in attributes
+        assert attributes[LangfuseOtelSpanAttributes.TRACE_TAGS] == tuple(["key_test"])
