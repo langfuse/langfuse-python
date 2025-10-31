@@ -18,7 +18,6 @@ from langfuse._client.constants import (
     ObservationTypeGenerationLike,
     ObservationTypeSpanLike,
 )
-
 from langfuse._utils.serializer import EventSerializer
 from langfuse.model import PromptClient
 from langfuse.types import MapValue, SpanLevel
@@ -59,6 +58,17 @@ class LangfuseOtelSpanAttributes:
 
     # Internal
     AS_ROOT = "langfuse.internal.as_root"
+
+    # Experiments
+    EXPERIMENT_ID = "langfuse.experiment.id"
+    EXPERIMENT_NAME = "langfuse.experiment.name"
+    EXPERIMENT_DESCRIPTION = "langfuse.experiment.description"
+    EXPERIMENT_METADATA = "langfuse.experiment.metadata"
+    EXPERIMENT_DATASET_ID = "langfuse.experiment.dataset.id"
+    EXPERIMENT_ITEM_ID = "langfuse.experiment.item.id"
+    EXPERIMENT_ITEM_EXPECTED_OUTPUT = "langfuse.experiment.item.expected_output"
+    EXPERIMENT_ITEM_METADATA = "langfuse.experiment.item.metadata"
+    EXPERIMENT_ITEM_ROOT_OBSERVATION_ID = "langfuse.experiment.item.root_observation_id"
 
 
 def create_trace_attributes(

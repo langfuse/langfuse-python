@@ -7,6 +7,7 @@ including formatting and serialization of span data, and async execution helpers
 import asyncio
 import json
 import threading
+from hashlib import sha256
 from typing import Any, Coroutine
 
 from opentelemetry import trace as otel_trace_api
@@ -125,3 +126,7 @@ def run_async_safely(coro: Coroutine[Any, Any, Any]) -> Any:
     else:
         # Loop exists but not running, safe to use asyncio.run()
         return asyncio.run(coro)
+
+
+def get_sha256_hash_hex(value: Any) -> str:
+    return sha256(value.encode("utf-8")).digest().hex()

@@ -7,6 +7,7 @@ from ._client.attributes import LangfuseOtelSpanAttributes
 from ._client.constants import ObservationTypeLiteral
 from ._client.get_client import get_client
 from ._client.observe import observe
+from ._client.propagation import propagate_attributes
 from ._client.span import (
     LangfuseAgent,
     LangfuseChain,
@@ -26,6 +27,7 @@ __all__ = [
     "Langfuse",
     "get_client",
     "observe",
+    "propagate_attributes",
     "ObservationTypeLiteral",
     "LangfuseSpan",
     "LangfuseGeneration",
