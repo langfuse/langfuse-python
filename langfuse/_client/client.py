@@ -2799,6 +2799,9 @@ class Langfuse:
                     else getattr(item, "input", None)
                 )
 
+                if input_data is None:
+                    raise ValueError("Experiment Item is missing input. Skipping item.")
+
                 expected_output = (
                     item.get("expected_output")
                     if isinstance(item, dict)
@@ -2825,17 +2828,18 @@ class Langfuse:
                 # Link to dataset run if this is a dataset item
                 if hasattr(item, "id") and hasattr(item, "dataset_id"):
                     try:
-                        dataset_run_item = (
-                            await self.async_api.dataset_run_items.create(
-                                request=CreateDatasetRunItemRequest(
-                                    runName=experiment_run_name,
-                                    runDescription=experiment_description,
-                                    metadata=experiment_metadata,
-                                    datasetItemId=item.id,  # type: ignore
-                                    traceId=trace_id,
-                                    observationId=span.id,
-                                )
-                            )
+                        # Use sync API to avoid event loop issues when run_async_safely
+                        # creates multiple event loops across different threads
+                        dataset_run_item = await asyncio.to_thread(
+                            self.api.dataset_run_items.create,
+                            request=CreateDatasetRunItemRequest(
+                                runName=experiment_run_name,
+                                runDescription=experiment_description,
+                                metadata=experiment_metadata,
+                                datasetItemId=item.id,  # type: ignore
+                                traceId=trace_id,
+                                observationId=span.id,
+                            ),
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id
@@ -2862,7 +2866,6 @@ class Langfuse:
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
                 )
-
                 span._otel_span.set_attributes(
                     {
                         k: v
