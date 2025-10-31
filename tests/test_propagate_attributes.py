@@ -2101,11 +2101,7 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
         # With empty list, tags should not be set
         child_span = self.get_span_by_name(memory_exporter, "child-span")
-        self.verify_span_attribute(
-            child_span,
-            LangfuseOtelSpanAttributes.TRACE_TAGS,
-            tuple([]),
-        )
+        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.TRACE_TAGS)
 
     def test_tags_with_user_and_session(self, langfuse_client, memory_exporter):
         """Verify tags work together with user_id and session_id."""
@@ -2163,9 +2159,10 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
                 child = langfuse_client.start_span(name="child-span")
                 child.end()
 
-        # All tags should be dropped if any tag is invalid
         child_span = self.get_span_by_name(memory_exporter, "child-span")
-        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.TRACE_TAGS)
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_TAGS, tuple(["valid_tag"])
+        )
 
     def test_tags_nested_contexts_inner_appends(self, langfuse_client, memory_exporter):
         """Verify inner context appends to outer tags."""
