@@ -6,12 +6,13 @@ to all child spans within the context.
 """
 
 import concurrent.futures
+import time
 
 import pytest
 from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 
 from langfuse import propagate_attributes
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from tests.test_otel import TestOTelBase
 
 
@@ -2276,3 +2277,440 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
         # Verify exact attribute key
         assert LangfuseOtelSpanAttributes.TRACE_TAGS in attributes
         assert attributes[LangfuseOtelSpanAttributes.TRACE_TAGS] == tuple(["key_test"])
+
+
+class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
+    """Tests for experiment attribute propagation."""
+
+    def test_experiment_attributes_propagate_without_dataset(
+        self, langfuse_client, memory_exporter
+    ):
+        """Test experiment attribute propagation with local data (no Langfuse dataset)."""
+        # Create local dataset with metadata
+        local_data = [
+            {
+                "input": "test input 1",
+                "expected_output": "expected result 1",
+                "metadata": {"item_type": "test", "priority": "high"},
+            },
+        ]
+
+        # Task function that creates child spans
+        def task_with_child_spans(*, item, **kwargs):
+            # Create child spans to verify propagation
+            child1 = langfuse_client.start_span(name="child-span-1")
+            child1.end()
+
+            child2 = langfuse_client.start_span(name="child-span-2")
+            child2.end()
+
+            return f"processed: {item.get('input') if isinstance(item, dict) else item.input}"
+
+        # Run experiment with local data
+        experiment_metadata = {"version": "1.0", "model": "test-model"}
+        result = langfuse_client.run_experiment(
+            name="Test Experiment",
+            description="Test experiment description",
+            data=local_data,
+            task=task_with_child_spans,
+            metadata=experiment_metadata,
+        )
+
+        # Flush to ensure spans are exported
+        langfuse_client.flush()
+        time.sleep(0.1)
+
+        # Get the root span
+        root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
+        assert len(root_spans) >= 1, "Should have at least 1 root span"
+        first_root = root_spans[0]
+
+        # Root-only attributes should be on root
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+            "Test experiment description",
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
+            _serialize("expected result 1"),
+        )
+
+        # Propagated attributes should also be on root
+        experiment_id = first_root["attributes"][
+            LangfuseOtelSpanAttributes.EXPERIMENT_ID
+        ]
+        experiment_item_id = first_root["attributes"][
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID
+        ]
+        root_observation_id = first_root["attributes"][
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
+        ]
+
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
+            result.run_name,
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+            _serialize(experiment_metadata),
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
+            _serialize({"item_type": "test", "priority": "high"}),
+        )
+
+        # Dataset ID should not be set for local data
+        self.verify_missing_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
+        )
+
+        # Verify child spans have propagated attributes but NOT root-only attributes
+        child_spans = self.get_spans_by_name(
+            memory_exporter, "child-span-1"
+        ) + self.get_spans_by_name(memory_exporter, "child-span-2")
+
+        assert len(child_spans) >= 2, "Should have at least 2 child spans"
+
+        for child_span in child_spans[:2]:  # Check first item's children
+            # Propagated attributes should be present
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ID,
+                experiment_id,
+            )
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
+                result.run_name,
+            )
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+                _serialize(experiment_metadata),
+            )
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
+                experiment_item_id,
+            )
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
+                root_observation_id,
+            )
+
+            # Root-only attributes should NOT be present on children
+            self.verify_missing_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+            )
+            self.verify_missing_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
+            )
+
+            # Dataset ID should not be set for local data
+            self.verify_missing_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
+            )
+
+    def test_experiment_attributes_propagate_with_dataset(
+        self, langfuse_client, memory_exporter, monkeypatch
+    ):
+        """Test experiment attribute propagation with Langfuse dataset."""
+        import time
+        from datetime import datetime
+
+        from langfuse._client.attributes import _serialize
+        from langfuse._client.datasets import DatasetClient, DatasetItemClient
+        from langfuse.model import Dataset, DatasetItem, DatasetStatus
+
+        # Mock the async API to create dataset run items
+        async def mock_create_dataset_run_item(*args, **kwargs):
+            from langfuse.api.resources.dataset_run_items.types import DatasetRunItem
+
+            request = kwargs.get("request")
+            return DatasetRunItem(
+                id="mock-run-item-id",
+                dataset_run_id="mock-dataset-run-id-123",
+                dataset_item_id=request.datasetItemId if request else "mock-item-id",
+                trace_id="mock-trace-id",
+            )
+
+        monkeypatch.setattr(
+            langfuse_client.async_api.dataset_run_items,
+            "create",
+            mock_create_dataset_run_item,
+        )
+
+        # Create a mock dataset with items
+        dataset_id = "test-dataset-id-456"
+        dataset_item_id = "test-dataset-item-id-789"
+
+        mock_dataset = Dataset(
+            id=dataset_id,
+            name="Test Dataset",
+            description="Test dataset description",
+            project_id="test-project-id",
+            metadata={"test": "metadata"},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+
+        mock_dataset_item = DatasetItem(
+            id=dataset_item_id,
+            status=DatasetStatus.ACTIVE,
+            input="Germany",
+            expected_output="Berlin",
+            metadata={"source": "dataset", "index": 0},
+            source_trace_id=None,
+            source_observation_id=None,
+            dataset_id=dataset_id,
+            dataset_name="Test Dataset",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+
+        # Create dataset client with items
+        dataset_item_client = DatasetItemClient(mock_dataset_item, langfuse_client)
+        dataset = DatasetClient(mock_dataset, [dataset_item_client])
+
+        # Task with child spans
+        def task_with_children(*, item, **kwargs):
+            child1 = langfuse_client.start_span(name="dataset-child-1")
+            child1.end()
+
+            child2 = langfuse_client.start_span(name="dataset-child-2")
+            child2.end()
+
+            return f"Capital: {item.expected_output}"
+
+        # Run experiment
+        experiment_metadata = {"dataset_version": "v2", "test_run": "true"}
+        dataset.run_experiment(
+            name="Dataset Test",
+            description="Dataset experiment description",
+            task=task_with_children,
+            metadata=experiment_metadata,
+        )
+
+        langfuse_client.flush()
+        time.sleep(0.1)
+
+        # Verify root has dataset-specific attributes
+        root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
+        assert len(root_spans) >= 1, "Should have at least 1 root span"
+        first_root = root_spans[0]
+
+        # Root-only attributes should be on root
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+            "Dataset experiment description",
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
+            _serialize("Berlin"),
+        )
+
+        # Should have dataset ID (this is the key difference from local data)
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
+            dataset_id,
+        )
+
+        # Should have the dataset item ID
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
+            dataset_item_id,
+        )
+
+        # Should have experiment metadata
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+            _serialize(experiment_metadata),
+        )
+
+        # Verify child spans have dataset-specific propagated attributes
+        child_spans = self.get_spans_by_name(
+            memory_exporter, "dataset-child-1"
+        ) + self.get_spans_by_name(memory_exporter, "dataset-child-2")
+
+        assert len(child_spans) >= 2, "Should have at least 2 child spans"
+
+        for child_span in child_spans[:2]:
+            # Dataset ID should be propagated to children
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
+                dataset_id,
+            )
+
+            # Dataset item ID should be propagated
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
+                dataset_item_id,
+            )
+
+            # Experiment metadata should be propagated
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+                _serialize(experiment_metadata),
+            )
+
+            # Item metadata should be propagated
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
+                _serialize({"source": "dataset", "index": 0}),
+            )
+
+            # Root-only attributes should NOT be present on children
+            self.verify_missing_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+            )
+            self.verify_missing_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
+            )
+
+    def test_experiment_attributes_propagate_to_nested_children(
+        self, langfuse_client, memory_exporter
+    ):
+        """Test experiment attributes propagate to deeply nested child spans."""
+        local_data = [{"input": "test", "expected_output": "result"}]
+
+        # Task with deeply nested spans
+        def task_with_nested_spans(*, item, **kwargs):
+            with langfuse_client.start_as_current_span(name="child-span"):
+                with langfuse_client.start_as_current_span(name="grandchild-span"):
+                    great_grandchild = langfuse_client.start_span(
+                        name="great-grandchild-span"
+                    )
+                    great_grandchild.end()
+
+            return "processed"
+
+        result = langfuse_client.run_experiment(
+            name="Nested Test",
+            description="Nested test",
+            data=local_data,
+            task=task_with_nested_spans,
+            metadata={"depth": "test"},
+        )
+
+        langfuse_client.flush()
+        time.sleep(0.1)
+
+        root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
+        first_root = root_spans[0]
+        experiment_id = first_root["attributes"][
+            LangfuseOtelSpanAttributes.EXPERIMENT_ID
+        ]
+        root_observation_id = first_root["attributes"][
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
+        ]
+
+        # Verify all nested children have propagated attributes
+        for span_name in ["child-span", "grandchild-span", "great-grandchild-span"]:
+            span_data = self.get_span_by_name(memory_exporter, span_name)
+
+            # Propagated attributes should be present
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ID,
+                experiment_id,
+            )
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
+                result.run_name,
+            )
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
+                root_observation_id,
+            )
+
+            # Root-only attributes should NOT be present
+            self.verify_missing_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+            )
+            self.verify_missing_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
+            )
+
+    def test_experiment_metadata_merging(self, langfuse_client, memory_exporter):
+        """Test that experiment metadata and item metadata are both propagated correctly."""
+        import time
+
+        from langfuse._client.attributes import _serialize
+
+        # Rich metadata
+        experiment_metadata = {
+            "experiment_type": "A/B test",
+            "model_version": "2.0",
+            "temperature": 0.7,
+        }
+        item_metadata = {
+            "item_category": "finance",
+            "difficulty": "hard",
+            "language": "en",
+        }
+
+        local_data = [
+            {
+                "input": "test",
+                "expected_output": {"status": "success"},
+                "metadata": item_metadata,
+            }
+        ]
+
+        def task_with_child(*, item, **kwargs):
+            child = langfuse_client.start_span(name="metadata-child")
+            child.end()
+            return "result"
+
+        langfuse_client.run_experiment(
+            name="Metadata Test",
+            description="Metadata test",
+            data=local_data,
+            task=task_with_child,
+            metadata=experiment_metadata,
+        )
+
+        langfuse_client.flush()
+        time.sleep(0.1)
+
+        # Verify child span has both experiment and item metadata propagated
+        child_span = self.get_span_by_name(memory_exporter, "metadata-child")
+
+        # Verify experiment metadata is serialized and propagated
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+            _serialize(experiment_metadata),
+        )
+
+        # Verify item metadata is serialized and propagated
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
+            _serialize(item_metadata),
+        )

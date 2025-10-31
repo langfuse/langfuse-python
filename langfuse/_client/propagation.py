@@ -5,7 +5,7 @@ attributes (user_id, session_id, metadata) that automatically propagate to all c
 within the context.
 """
 
-from typing import Any, Dict, Generator, List, Literal, Optional, Union, cast
+from typing import Any, Dict, Generator, List, Literal, Optional, TypedDict, Union, cast
 
 from opentelemetry import baggage
 from opentelemetry import (
@@ -17,7 +17,10 @@ from opentelemetry import (
 from opentelemetry import (
     trace as otel_trace_api,
 )
-from opentelemetry.util._decorator import _agnosticcontextmanager
+from opentelemetry.util._decorator import (
+    _AgnosticContextManager,
+    _agnosticcontextmanager,
+)
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.logger import langfuse_logger
@@ -29,16 +32,43 @@ PropagatedKeys = Literal[
     "version",
     "tags",
 ]
-propagated_keys: List[PropagatedKeys] = [
+
+InternalPropagatedKeys = Literal[
+    "experiment_id",
+    "experiment_name",
+    "experiment_metadata",
+    "experiment_dataset_id",
+    "experiment_item_id",
+    "experiment_item_metadata",
+    "experiment_item_root_observation_id",
+]
+
+propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
     "user_id",
     "session_id",
     "metadata",
     "version",
     "tags",
+    "experiment_id",
+    "experiment_name",
+    "experiment_metadata",
+    "experiment_dataset_id",
+    "experiment_item_id",
+    "experiment_item_metadata",
+    "experiment_item_root_observation_id",
 ]
 
 
-@_agnosticcontextmanager
+class PropagatedExperimentAttributes(TypedDict):
+    experiment_id: str
+    experiment_name: str
+    experiment_metadata: Optional[str]
+    experiment_dataset_id: Optional[str]
+    experiment_item_id: str
+    experiment_item_metadata: Optional[str]
+    experiment_item_root_observation_id: str
+
+
 def propagate_attributes(
     *,
     user_id: Optional[str] = None,
@@ -47,7 +77,7 @@ def propagate_attributes(
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     as_baggage: bool = False,
-) -> Generator[Any, Any, Any]:
+) -> _AgnosticContextManager[Any]:
     """Propagate trace-level attributes to all spans created within this context.
 
     This context manager sets attributes on the currently active span AND automatically
@@ -158,52 +188,63 @@ def propagate_attributes(
     Raises:
         No exceptions are raised. Invalid values are logged as warnings and dropped.
     """
+    return _propagate_attributes(
+        user_id=user_id,
+        session_id=session_id,
+        metadata=metadata,
+        version=version,
+        tags=tags,
+        as_baggage=as_baggage,
+    )
+
+
+@_agnosticcontextmanager
+def _propagate_attributes(
+    *,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    metadata: Optional[Dict[str, str]] = None,
+    version: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    as_baggage: bool = False,
+    experiment: Optional[PropagatedExperimentAttributes] = None,
+) -> Generator[Any, Any, Any]:
     context = otel_context_api.get_current()
     current_span = otel_trace_api.get_current_span()
 
-    if user_id is not None and _validate_propagated_string(user_id, "user_id"):
-        context = _set_propagated_attribute(
-            key="user_id",
-            value=user_id,
-            context=context,
-            span=current_span,
-            as_baggage=as_baggage,
-        )
+    propagated_string_attributes: Dict[str, Optional[Union[str, List[str]]]] = {
+        "user_id": user_id,
+        "session_id": session_id,
+        "version": version,
+        "tags": tags,
+    }
 
-    if session_id is not None and _validate_propagated_string(session_id, "session_id"):
-        context = _set_propagated_attribute(
-            key="session_id",
-            value=session_id,
-            context=context,
-            span=current_span,
-            as_baggage=as_baggage,
-        )
+    propagated_string_attributes = propagated_string_attributes | (
+        cast(Dict[str, Union[str, List[str], None]], experiment) or {}
+    )
 
-    if version is not None and _validate_propagated_string(version, "version"):
-        context = _set_propagated_attribute(
-            key="version",
-            value=version,
-            context=context,
-            span=current_span,
-            as_baggage=as_baggage,
-        )
+    # Filter out None values
+    propagated_string_attributes = {
+        k: v for k, v in propagated_string_attributes.items() if v is not None
+    }
 
-    if tags is not None and all(
-        _validate_propagated_string(tag, "tag") for tag in tags
-    ):
-        context = _set_propagated_attribute(
-            key="tags",
-            value=tags,
-            context=context,
-            span=current_span,
-            as_baggage=as_baggage,
-        )
+    for key, value in propagated_string_attributes.items():
+        validated_value = _validate_propagated_value(value=value, key=key)
+
+        if validated_value is not None:
+            context = _set_propagated_attribute(
+                key=key,
+                value=validated_value,
+                context=context,
+                span=current_span,
+                as_baggage=as_baggage,
+            )
 
     if metadata is not None:
-        # Filter metadata to only include valid string values
         validated_metadata: Dict[str, str] = {}
+
         for key, value in metadata.items():
-            if _validate_propagated_string(value, f"metadata.{key}"):
+            if _validate_string_value(value=value, key=f"metadata.{key}"):
                 validated_metadata[key] = value
 
         if validated_metadata:
@@ -269,7 +310,7 @@ def _get_propagated_attributes_from_context(
 
 def _set_propagated_attribute(
     *,
-    key: PropagatedKeys,
+    key: str,
     value: Union[str, List[str], Dict[str, str]],
     context: otel_context_api.Context,
     span: otel_trace_api.Span,
@@ -333,39 +374,55 @@ def _set_propagated_attribute(
     return context
 
 
-def _validate_propagated_string(value: str, attribute_name: str) -> bool:
-    """Validate a propagated attribute string value.
+def _validate_propagated_value(
+    *, value: Any, key: str
+) -> Optional[Union[str, List[str]]]:
+    if isinstance(value, list):
+        validated_values = [
+            v for v in value if _validate_string_value(key=key, value=v)
+        ]
 
-    Args:
-        value: The string value to validate
-        attribute_name: Name of the attribute for error messages
+        return validated_values if len(validated_values) > 0 else None
 
-    Returns:
-        True if valid, False otherwise (with warning logged)
-    """
     if not isinstance(value, str):
         langfuse_logger.warning(  # type: ignore
-            f"Propagated attribute '{attribute_name}' value is not a string. Dropping value."
+            f"Propagated attribute '{key}' value is not a string. Dropping value."
+        )
+        return None
+
+    if len(value) > 200:
+        langfuse_logger.warning(
+            f"Propagated attribute '{key}' value is over 200 characters ({len(value)} chars). Dropping value."
+        )
+        return None
+
+    return value
+
+
+def _validate_string_value(*, value: str, key: str) -> bool:
+    if not isinstance(value, str):
+        langfuse_logger.warning(  # type: ignore
+            f"Propagated attribute '{key}' value is not a string. Dropping value."
         )
         return False
 
     if len(value) > 200:
         langfuse_logger.warning(
-            f"Propagated attribute '{attribute_name}' value is over 200 characters ({len(value)} chars). Dropping value."
+            f"Propagated attribute '{key}' value is over 200 characters ({len(value)} chars). Dropping value."
         )
         return False
 
     return True
 
 
-def _get_propagated_context_key(key: PropagatedKeys) -> str:
+def _get_propagated_context_key(key: str) -> str:
     return f"langfuse.propagated.{key}"
 
 
 LANGFUSE_BAGGAGE_PREFIX = "langfuse_"
 
 
-def _get_propagated_baggage_key(key: PropagatedKeys) -> str:
+def _get_propagated_baggage_key(key: str) -> str:
     return f"{LANGFUSE_BAGGAGE_PREFIX}{key}"
 
 
@@ -376,32 +433,25 @@ def _get_span_key_from_baggage_key(key: str) -> Optional[str]:
     # Remove prefix to get the actual key name
     suffix = key[len(LANGFUSE_BAGGAGE_PREFIX) :]
 
-    # Exact match for user_id and session_id
-    if suffix == "user_id":
-        return LangfuseOtelSpanAttributes.TRACE_USER_ID
-
-    if suffix == "session_id":
-        return LangfuseOtelSpanAttributes.TRACE_SESSION_ID
-
-    if suffix == "version":
-        return LangfuseOtelSpanAttributes.VERSION
-
-    if suffix == "tags":
-        return LangfuseOtelSpanAttributes.TRACE_TAGS
-
-    # Metadata keys have format: langfuse_metadata_{key_name}
     if suffix.startswith("metadata_"):
         metadata_key = suffix[len("metadata_") :]
 
-        return f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{metadata_key}"
+        return _get_propagated_span_key(metadata_key)
 
-    return None
+    return _get_propagated_span_key(suffix)
 
 
-def _get_propagated_span_key(key: PropagatedKeys) -> str:
+def _get_propagated_span_key(key: str) -> str:
     return {
         "session_id": LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
         "user_id": LangfuseOtelSpanAttributes.TRACE_USER_ID,
         "version": LangfuseOtelSpanAttributes.VERSION,
         "tags": LangfuseOtelSpanAttributes.TRACE_TAGS,
+        "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
+        "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
+        "experiment_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+        "experiment_dataset_id": LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
+        "experiment_item_id": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
+        "experiment_item_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
+        "experiment_item_root_observation_id": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
     }.get(key) or f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"

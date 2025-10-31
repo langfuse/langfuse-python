@@ -36,7 +36,7 @@ from opentelemetry.util._decorator import (
 )
 from packaging.version import Version
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import (
     ObservationTypeGenerationLike,
     ObservationTypeLiteral,
@@ -55,6 +55,10 @@ from langfuse._client.environment_variables import (
     LANGFUSE_TRACING_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
+from langfuse._client.propagation import (
+    PropagatedExperimentAttributes,
+    _propagate_attributes,
+)
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
     LangfuseAgent,
@@ -68,7 +72,7 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
-from langfuse._client.utils import run_async_safely
+from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -2497,7 +2501,7 @@ class Langfuse:
         evaluators: List[EvaluatorFunction] = [],
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, str]] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
 
@@ -2669,7 +2673,7 @@ class Langfuse:
                     evaluators=evaluators or [],
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
-                    metadata=metadata or {},
+                    metadata=metadata,
                 ),
             ),
         )
@@ -2685,7 +2689,7 @@ class Langfuse:
         evaluators: List[EvaluatorFunction],
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
-        metadata: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ExperimentResult:
         langfuse_logger.debug(
             f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
@@ -2783,65 +2787,54 @@ class Langfuse:
         experiment_name: str,
         experiment_run_name: str,
         experiment_description: Optional[str],
-        experiment_metadata: Dict[str, Any],
+        experiment_metadata: Optional[Dict[str, Any]] = None,
     ) -> ExperimentItemResult:
-        # Execute task with tracing
         span_name = "experiment-item-run"
 
         with self.start_as_current_span(name=span_name) as span:
             try:
-                output = await _run_task(task, item)
-
                 input_data = (
                     item.get("input")
                     if isinstance(item, dict)
                     else getattr(item, "input", None)
                 )
 
-                item_metadata: Dict[str, Any] = {}
-
-                if isinstance(item, dict):
-                    item_metadata = item.get("metadata", None) or {}
-
-                final_metadata = {
-                    "experiment_name": experiment_name,
-                    "experiment_run_name": experiment_run_name,
-                    **experiment_metadata,
-                }
-
-                if (
-                    not isinstance(item, dict)
-                    and hasattr(item, "dataset_id")
-                    and hasattr(item, "id")
-                ):
-                    final_metadata.update(
-                        {"dataset_id": item.dataset_id, "dataset_item_id": item.id}
-                    )
-
-                if isinstance(item_metadata, dict):
-                    final_metadata.update(item_metadata)
-
-                span.update(
-                    input=input_data,
-                    output=output,
-                    metadata=final_metadata,
+                expected_output = (
+                    item.get("expected_output")
+                    if isinstance(item, dict)
+                    else getattr(item, "expected_output", None)
                 )
 
-                # Get trace ID for linking
+                item_metadata = (
+                    item.get("metadata")
+                    if isinstance(item, dict)
+                    else getattr(item, "metadata", None)
+                )
+
+                final_observation_metadata = {
+                    "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
+                    **(experiment_metadata or {}),
+                }
+
                 trace_id = span.trace_id
+                dataset_id = None
+                dataset_item_id = None
                 dataset_run_id = None
 
                 # Link to dataset run if this is a dataset item
                 if hasattr(item, "id") and hasattr(item, "dataset_id"):
                     try:
-                        dataset_run_item = self.api.dataset_run_items.create(
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_run_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
-                                observationId=span.id,
+                        dataset_run_item = (
+                            await self.async_api.dataset_run_items.create(
+                                request=CreateDatasetRunItemRequest(
+                                    runName=experiment_run_name,
+                                    runDescription=experiment_description,
+                                    metadata=experiment_metadata,
+                                    datasetItemId=item.id,  # type: ignore
+                                    traceId=trace_id,
+                                    observationId=span.id,
+                                )
                             )
                         )
 
@@ -2850,18 +2843,63 @@ class Langfuse:
                     except Exception as e:
                         langfuse_logger.error(f"Failed to create dataset run item: {e}")
 
+                if (
+                    not isinstance(item, dict)
+                    and hasattr(item, "dataset_id")
+                    and hasattr(item, "id")
+                ):
+                    dataset_id = item.dataset_id
+                    dataset_item_id = item.id
+
+                    final_observation_metadata.update(
+                        {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
+                    )
+
+                if isinstance(item_metadata, dict):
+                    final_observation_metadata.update(item_metadata)
+
+                experiment_id = dataset_run_id or self._create_observation_id()
+                experiment_item_id = (
+                    dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
+                )
+
+                span._otel_span.set_attributes(
+                    {
+                        k: v
+                        for k, v in {
+                            LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION: experiment_description,
+                            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
+                                expected_output
+                            ),
+                        }.items()
+                        if v is not None
+                    }
+                )
+
+                with _propagate_attributes(
+                    experiment=PropagatedExperimentAttributes(
+                        experiment_id=experiment_id,
+                        experiment_name=experiment_run_name,
+                        experiment_metadata=_serialize(experiment_metadata),
+                        experiment_dataset_id=dataset_id,
+                        experiment_item_id=experiment_item_id,
+                        experiment_item_metadata=_serialize(item_metadata),
+                        experiment_item_root_observation_id=span.id,
+                    )
+                ):
+                    output = await _run_task(task, item)
+
+                span.update(
+                    input=input_data,
+                    output=output,
+                    metadata=final_observation_metadata,
+                )
+
                 # Run evaluators
                 evaluations = []
 
                 for evaluator in evaluators:
                     try:
-                        expected_output = None
-
-                        if isinstance(item, dict):
-                            expected_output = item.get("expected_output")
-                        elif hasattr(item, "expected_output"):
-                            expected_output = item.expected_output
-
                         eval_metadata: Optional[Dict[str, Any]] = None
 
                         if isinstance(item, dict):
@@ -2882,6 +2920,7 @@ class Langfuse:
                         for evaluation in eval_results:
                             self.create_score(
                                 trace_id=trace_id,
+                                observation_id=span.id,
                                 name=evaluation.name,
                                 value=evaluation.value,  # type: ignore
                                 comment=evaluation.comment,
