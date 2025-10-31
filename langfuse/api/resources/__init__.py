@@ -193,6 +193,8 @@ from .organizations import (
     MembershipResponse,
     MembershipRole,
     MembershipsResponse,
+    OrganizationApiKey,
+    OrganizationApiKeysResponse,
     OrganizationProject,
     OrganizationProjectsResponse,
 )
@@ -399,6 +401,8 @@ __all__ = [
     "OpenAiResponseUsageSchema",
     "OpenAiUsage",
     "OptionalObservationBody",
+    "OrganizationApiKey",
+    "OrganizationApiKeysResponse",
     "OrganizationProject",
     "OrganizationProjectsResponse",
     "OtelAttribute",

@@ -7,6 +7,8 @@ from .types import (
     MembershipResponse,
     MembershipRole,
     MembershipsResponse,
+    OrganizationApiKey,
+    OrganizationApiKeysResponse,
     OrganizationProject,
     OrganizationProjectsResponse,
 )
@@ -18,6 +20,8 @@ __all__ = [
     "MembershipResponse",
     "MembershipRole",
     "MembershipsResponse",
+    "OrganizationApiKey",
+    "OrganizationApiKeysResponse",
     "OrganizationProject",
     "OrganizationProjectsResponse",
 ]

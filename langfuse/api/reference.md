@@ -4334,6 +4334,71 @@ client.organizations.get_organization_projects()
 </dl>
 </details>
 
+<details><summary><code>client.organizations.<a href="src/langfuse/resources/organizations/client.py">get_organization_api_keys</a>()</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get all API keys for the organization associated with the API key (requires organization-scoped API key)
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.organizations.get_organization_api_keys()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Projects
 <details><summary><code>client.projects.<a href="src/langfuse/resources/projects/client.py">get</a>()</code></summary>
 <dl>
