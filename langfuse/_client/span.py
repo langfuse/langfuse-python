@@ -223,39 +223,6 @@ class LangfuseObservationWrapper:
     ) -> "LangfuseObservationWrapper":
         """Update the trace that this span belongs to.
 
-        .. deprecated:: 3.9.0
-            This method is deprecated and will be removed in a future version.
-            Use :func:`langfuse.propagate_attributes` instead.
-
-        **Current behavior**: This method still works as expected - the Langfuse backend
-        handles setting trace-level attributes server-side. However, it will be removed
-        in a future version, so please migrate to ``propagate_attributes()``.
-
-        **Why deprecated**: This method only sets attributes on a single span, which means
-        child spans created later won't have these attributes. This causes gaps when
-        using Langfuse aggregation queries (e.g., filtering by user_id or calculating
-        costs per session_id) because only the span with the attribute is included.
-
-        **Migration**: Replace with ``propagate_attributes()`` to set attributes on ALL
-        child spans created within the context. Call it as early as possible in your trace:
-
-        .. code-block:: python
-
-            # OLD (deprecated)
-            with langfuse.start_as_current_span(name="workflow") as span:
-                span.update_trace(user_id="user_123", session_id="session_abc")
-                # Child spans won't have user_id/session_id
-
-            # NEW (recommended)
-            with langfuse.start_as_current_span(name="workflow"):
-                with langfuse.propagate_attributes(
-                    user_id="user_123",
-                    session_id="session_abc",
-                    metadata={"experiment": "variant_a"}
-                ):
-                    # All child spans will have these attributes
-                    pass
-
         Args:
             name: Updated name for the trace
             user_id: ID of the user who initiated the trace
@@ -270,17 +237,6 @@ class LangfuseObservationWrapper:
         See Also:
             :func:`langfuse.propagate_attributes`: Recommended replacement
         """
-        warnings.warn(
-            "update_trace() is deprecated and will be removed in a future version. "
-            "While it still works (handled server-side), it only sets attributes on a single span, "
-            "causing gaps in aggregation queries. "
-            "Migrate to `with langfuse.propagate_attributes(user_id=..., session_id=..., metadata={...})` "
-            "to propagate attributes to ALL child spans. Call propagate_attributes() as early "
-            "as possible in your trace for complete coverage. "
-            "See: https://langfuse.com/docs/sdk/python/decorators#trace-level-attributes",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         if not self._otel_span.is_recording():
             return self
 
