@@ -23,6 +23,7 @@ from opentelemetry.util._decorator import (
 )
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse.logger import langfuse_logger
 
 PropagatedKeys = Literal[
@@ -304,6 +305,14 @@ def _get_propagated_attributes_from_context(
             propagated_attributes[span_key] = (
                 value if isinstance(value, (str, list)) else str(value)
             )
+
+    if (
+        LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
+        in propagated_attributes
+    ):
+        propagated_attributes[LangfuseOtelSpanAttributes.ENVIRONMENT] = (
+            LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+        )
 
     return propagated_attributes
 

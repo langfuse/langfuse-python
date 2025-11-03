@@ -13,6 +13,7 @@ from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
+from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from tests.test_otel import TestOTelBase
 
 
@@ -2361,6 +2362,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             _serialize({"item_type": "test", "priority": "high"}),
         )
 
+        # Environment should be set to sdk-experiment
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.ENVIRONMENT,
+            LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+        )
+
         # Dataset ID should not be set for local data
         self.verify_missing_attribute(
             first_root,
@@ -2400,6 +2408,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
                 root_observation_id,
+            )
+
+            # Environment should be propagated to children
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.ENVIRONMENT,
+                LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
             )
 
             # Root-only attributes should NOT be present on children
@@ -2539,6 +2554,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             _serialize(experiment_metadata),
         )
 
+        # Environment should be set to sdk-experiment
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.ENVIRONMENT,
+            LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+        )
+
         # Verify child spans have dataset-specific propagated attributes
         child_spans = self.get_spans_by_name(
             memory_exporter, "dataset-child-1"
@@ -2573,6 +2595,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
                 _serialize({"source": "dataset", "index": 0}),
+            )
+
+            # Environment should be propagated to children
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.ENVIRONMENT,
+                LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
             )
 
             # Root-only attributes should NOT be present on children
@@ -2622,6 +2651,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
         ]
 
+        # Verify root has environment set
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.ENVIRONMENT,
+            LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+        )
+
         # Verify all nested children have propagated attributes
         for span_name in ["child-span", "grandchild-span", "great-grandchild-span"]:
             span_data = self.get_span_by_name(memory_exporter, span_name)
@@ -2641,6 +2677,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 span_data,
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
                 root_observation_id,
+            )
+
+            # Environment should be propagated to all nested children
+            self.verify_span_attribute(
+                span_data,
+                LangfuseOtelSpanAttributes.ENVIRONMENT,
+                LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
             )
 
             # Root-only attributes should NOT be present
@@ -2695,6 +2738,14 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         langfuse_client.flush()
         time.sleep(0.1)
 
+        # Verify root span has environment set
+        root_span = self.get_span_by_name(memory_exporter, "experiment-item-run")
+        self.verify_span_attribute(
+            root_span,
+            LangfuseOtelSpanAttributes.ENVIRONMENT,
+            LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+        )
+
         # Verify child span has both experiment and item metadata propagated
         child_span = self.get_span_by_name(memory_exporter, "metadata-child")
 
@@ -2710,4 +2761,11 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             child_span,
             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
             _serialize(item_metadata),
+        )
+
+        # Verify environment is propagated to child
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.ENVIRONMENT,
+            LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
         )

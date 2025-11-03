@@ -38,6 +38,7 @@ from packaging.version import Version
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import (
+    LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     ObservationTypeGenerationLike,
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
@@ -2820,6 +2821,7 @@ class Langfuse:
                     {
                         k: v
                         for k, v in {
+                            LangfuseOtelSpanAttributes.ENVIRONMENT: LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
                             LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION: experiment_description,
                             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
                                 expected_output
