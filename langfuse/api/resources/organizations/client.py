@@ -18,6 +18,7 @@ from .types.membership_deletion_response import MembershipDeletionResponse
 from .types.membership_request import MembershipRequest
 from .types.membership_response import MembershipResponse
 from .types.memberships_response import MembershipsResponse
+from .types.organization_api_keys_response import OrganizationApiKeysResponse
 from .types.organization_projects_response import OrganizationProjectsResponse
 
 # this is used as the default value for optional parameters
@@ -495,6 +496,68 @@ class OrganizationsClient:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(
                     OrganizationProjectsResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_organization_api_keys(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> OrganizationApiKeysResponse:
+        """
+        Get all API keys for the organization associated with the API key (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        OrganizationApiKeysResponse
+
+        Examples
+        --------
+        from langfuse.client import FernLangfuse
+
+        client = FernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.organizations.get_organization_api_keys()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/public/organizations/apiKeys",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    OrganizationApiKeysResponse, _response.json()
                 )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
@@ -1047,6 +1110,76 @@ class AsyncOrganizationsClient:
             if 200 <= _response.status_code < 300:
                 return pydantic_v1.parse_obj_as(
                     OrganizationProjectsResponse, _response.json()
+                )  # type: ignore
+            if _response.status_code == 400:
+                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
+                )  # type: ignore
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_organization_api_keys(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> OrganizationApiKeysResponse:
+        """
+        Get all API keys for the organization associated with the API key (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        OrganizationApiKeysResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse.client import AsyncFernLangfuse
+
+        client = AsyncFernLangfuse(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.organizations.get_organization_api_keys()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/public/organizations/apiKeys",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return pydantic_v1.parse_obj_as(
+                    OrganizationApiKeysResponse, _response.json()
                 )  # type: ignore
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
