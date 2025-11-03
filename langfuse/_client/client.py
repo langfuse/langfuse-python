@@ -47,6 +47,7 @@ from langfuse._client.constants import (
 )
 from langfuse._client.datasets import DatasetClient, DatasetItemClient
 from langfuse._client.environment_variables import (
+    LANGFUSE_BASE_URL,
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
     LANGFUSE_PUBLIC_KEY,
@@ -138,7 +139,8 @@ class Langfuse:
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
-        host (Optional[str]): The Langfuse API host URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_HOST environment variable.
+        base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
+        host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
         httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
         debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
@@ -199,6 +201,7 @@ class Langfuse:
         *,
         public_key: Optional[str] = None,
         secret_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         host: Optional[str] = None,
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
@@ -215,7 +218,12 @@ class Langfuse:
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
-        self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        self._base_url = (
+            base_url
+            or os.environ.get(LANGFUSE_BASE_URL)
+            or host
+            or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
+        )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         )
@@ -273,7 +281,7 @@ class Langfuse:
         self._resources = LangfuseResourceManager(
             public_key=public_key,
             secret_key=secret_key,
-            host=self._host,
+            base_url=self._base_url,
             timeout=timeout,
             environment=self._environment,
             release=release,
@@ -2396,7 +2404,7 @@ class Langfuse:
         final_trace_id = trace_id or self.get_current_trace_id()
 
         return (
-            f"{self._host}/project/{project_id}/traces/{final_trace_id}"
+            f"{self._base_url}/project/{project_id}/traces/{final_trace_id}"
             if project_id and final_trace_id
             else None
         )
@@ -2695,7 +2703,7 @@ class Langfuse:
                     project_id = self._get_project_id()
 
                     if project_id:
-                        dataset_run_url = f"{self._host}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
+                        dataset_run_url = f"{self._base_url}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
 
             except Exception:
                 pass  # URL generation is optional

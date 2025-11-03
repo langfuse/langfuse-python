@@ -56,7 +56,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         *,
         public_key: str,
         secret_key: str,
-        host: str,
+        base_url: str,
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
@@ -98,9 +98,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
 
         endpoint = (
-            f"{host}/{traces_export_path}"
+            f"{base_url}/{traces_export_path}"
             if traces_export_path
-            else f"{host}/api/public/otel/v1/traces"
+            else f"{base_url}/api/public/otel/v1/traces"
         )
 
         langfuse_span_exporter = OTLPSpanExporter(

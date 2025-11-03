@@ -110,7 +110,7 @@ class TestOTelBase:
         client = Langfuse(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="http://test-host",
+            base_url="http://test-host",
             tracing_enabled=True,
         )
 
@@ -134,7 +134,7 @@ class TestOTelBase:
             client = Langfuse(
                 public_key="test-public-key",
                 secret_key="test-secret-key",
-                host="http://test-host",
+                base_url="http://test-host",
                 tracing_enabled=True,
                 **kwargs,
             )
@@ -1376,7 +1376,7 @@ class TestAdvancedSpans(TestOTelBase):
         client = Langfuse(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="http://test-host",
+            base_url="http://test-host",
             tracing_enabled=True,
             sample_rate=0,  # No sampling
         )
@@ -1426,7 +1426,7 @@ class TestAdvancedSpans(TestOTelBase):
         client = Langfuse(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="http://test-host",
+            base_url="http://test-host",
             tracing_enabled=False,
         )
 
@@ -1998,11 +1998,11 @@ class TestMultiProjectSetup(TestOTelBase):
 
         # Initialize the two clients
         langfuse_project1 = Langfuse(
-            public_key=project1_key, secret_key="secret1", host="http://test-host"
+            public_key=project1_key, secret_key="secret1", base_url="http://test-host"
         )
 
         langfuse_project2 = Langfuse(
-            public_key=project2_key, secret_key="secret2", host="http://test-host"
+            public_key=project2_key, secret_key="secret2", base_url="http://test-host"
         )
 
         # Return the setup
@@ -2356,7 +2356,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             processor = LangfuseSpanProcessor(
                 public_key=self.public_key,
                 secret_key=self.secret_key,
-                host=self.host,
+                base_url=self.base_url,
                 blocked_instrumentation_scopes=kwargs.get(
                     "blocked_instrumentation_scopes"
                 ),
@@ -2401,7 +2401,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
-            host="http://localhost:3000",
+            base_url="http://localhost:3000",
             blocked_instrumentation_scopes=["openai", "anthropic"],
         )
 
@@ -2466,7 +2466,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
-            host="http://localhost:3000",
+            base_url="http://localhost:3000",
             blocked_instrumentation_scopes=[],
         )
 
@@ -2511,7 +2511,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
-            host="http://localhost:3000",
+            base_url="http://localhost:3000",
             blocked_instrumentation_scopes=None,
         )
 
@@ -2549,7 +2549,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
-            host="http://localhost:3000",
+            base_url="http://localhost:3000",
             blocked_instrumentation_scopes=["langfuse-sdk"],
         )
 
@@ -3190,7 +3190,7 @@ class TestOtelIdGeneration(TestOTelBase):
         client = Langfuse(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="http://test-host",
+            base_url="http://test-host",
         )
 
         return client

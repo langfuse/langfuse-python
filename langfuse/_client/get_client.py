@@ -40,7 +40,7 @@ def _create_client_from_instance(
     return Langfuse(
         public_key=public_key or instance.public_key,
         secret_key=instance.secret_key,
-        host=instance.host,
+        base_url=instance.base_url,
         tracing_enabled=instance.tracing_enabled,
         environment=instance.environment,
         timeout=instance.timeout,

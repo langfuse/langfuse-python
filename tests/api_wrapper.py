@@ -9,7 +9,7 @@ class LangfuseAPI:
         username = username if username else os.environ["LANGFUSE_PUBLIC_KEY"]
         password = password if password else os.environ["LANGFUSE_SECRET_KEY"]
         self.auth = (username, password)
-        self.BASE_URL = base_url if base_url else os.environ["LANGFUSE_HOST"]
+        self.BASE_URL = base_url if base_url else os.environ["LANGFUSE_BASE_URL"]
 
     def get_observation(self, observation_id):
         sleep(1)
