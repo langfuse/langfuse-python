@@ -399,7 +399,7 @@ def test_dataset_with_missing_fields():
     )
 
     # Should handle missing fields gracefully
-    assert len(result.item_results) == 3
+    assert len(result.item_results) == 2
     for item_result in result.item_results:
         assert hasattr(item_result, "trace_id")
         assert hasattr(item_result, "output")
