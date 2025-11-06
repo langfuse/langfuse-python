@@ -15,9 +15,12 @@ import base64
 import os
 from typing import Dict, List, Optional
 
+from opentelemetry import context as context_api
+from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import format_span_id
 
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
@@ -25,6 +28,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_INTERVAL,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
+from langfuse._client.propagation import _get_propagated_attributes_from_context
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
@@ -113,6 +117,19 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             if flush_interval is not None
             else None,
         )
+
+    def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
+        context = parent_context or context_api.get_current()
+        propagated_attributes = _get_propagated_attributes_from_context(context)
+
+        if propagated_attributes:
+            span.set_attributes(propagated_attributes)
+
+            langfuse_logger.debug(
+                f"Propagated {len(propagated_attributes)} attributes to span '{format_span_id(span.context.span_id)}': {propagated_attributes}"
+            )
+
+        return super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
         # Only export spans that belong to the scoped project

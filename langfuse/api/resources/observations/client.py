@@ -147,13 +147,15 @@ class ObservationsClient:
             Optional filter to only include observations with a certain version.
 
         filter : typing.Optional[str]
-            JSON string containing an array of filter conditions. When provided, this takes precedence over legacy filter parameters (userId, name, sessionId, tags, version, release, environment, fromTimestamp, toTimestamp).
+            JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+
+            ## Filter Structure
             Each filter condition has the following structure:
             ```json
             [
               {
                 "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
-                "column": string,         // Required. Column to filter on
+                "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
                                           // - string: "=", "contains", "does not contain", "starts with", "ends with"
@@ -167,6 +169,78 @@ class ObservationsClient:
                                           // - null: "is null", "is not null"
                 "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
                 "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+              }
+            ]
+            ```
+
+            ## Available Columns
+
+            ### Core Observation Fields
+            - `id` (string) - Observation ID
+            - `type` (string) - Observation type (SPAN, GENERATION, EVENT)
+            - `name` (string) - Observation name
+            - `traceId` (string) - Associated trace ID
+            - `startTime` (datetime) - Observation start time
+            - `endTime` (datetime) - Observation end time
+            - `environment` (string) - Environment tag
+            - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
+            - `statusMessage` (string) - Status message
+            - `version` (string) - Version tag
+
+            ### Performance Metrics
+            - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
+            - `timeToFirstToken` (number) - Time to first token in seconds
+            - `tokensPerSecond` (number) - Output tokens per second
+
+            ### Token Usage
+            - `inputTokens` (number) - Number of input tokens
+            - `outputTokens` (number) - Number of output tokens
+            - `totalTokens` (number) - Total tokens (alias: `tokens`)
+
+            ### Cost Metrics
+            - `inputCost` (number) - Input cost in USD
+            - `outputCost` (number) - Output cost in USD
+            - `totalCost` (number) - Total cost in USD
+
+            ### Model Information
+            - `model` (string) - Provided model name
+            - `promptName` (string) - Associated prompt name
+            - `promptVersion` (number) - Associated prompt version
+
+            ### Structured Data
+            - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            ### Scores (requires join with scores table)
+            - `scores_avg` (number) - Average of numeric scores (alias: `scores`)
+            - `score_categories` (categoryOptions) - Categorical score values
+
+            ### Associated Trace Fields (requires join with traces table)
+            - `userId` (string) - User ID from associated trace
+            - `traceName` (string) - Name from associated trace
+            - `traceEnvironment` (string) - Environment from associated trace
+            - `traceTags` (arrayOptions) - Tags from associated trace
+
+            ## Filter Examples
+            ```json
+            [
+              {
+                "type": "string",
+                "column": "type",
+                "operator": "=",
+                "value": "GENERATION"
+              },
+              {
+                "type": "number",
+                "column": "latency",
+                "operator": ">=",
+                "value": 2.5
+              },
+              {
+                "type": "stringObject",
+                "column": "metadata",
+                "key": "environment",
+                "operator": "=",
+                "value": "production"
               }
             ]
             ```
@@ -378,13 +452,15 @@ class AsyncObservationsClient:
             Optional filter to only include observations with a certain version.
 
         filter : typing.Optional[str]
-            JSON string containing an array of filter conditions. When provided, this takes precedence over legacy filter parameters (userId, name, sessionId, tags, version, release, environment, fromTimestamp, toTimestamp).
+            JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+
+            ## Filter Structure
             Each filter condition has the following structure:
             ```json
             [
               {
                 "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
-                "column": string,         // Required. Column to filter on
+                "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
                                           // - string: "=", "contains", "does not contain", "starts with", "ends with"
@@ -398,6 +474,78 @@ class AsyncObservationsClient:
                                           // - null: "is null", "is not null"
                 "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
                 "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+              }
+            ]
+            ```
+
+            ## Available Columns
+
+            ### Core Observation Fields
+            - `id` (string) - Observation ID
+            - `type` (string) - Observation type (SPAN, GENERATION, EVENT)
+            - `name` (string) - Observation name
+            - `traceId` (string) - Associated trace ID
+            - `startTime` (datetime) - Observation start time
+            - `endTime` (datetime) - Observation end time
+            - `environment` (string) - Environment tag
+            - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
+            - `statusMessage` (string) - Status message
+            - `version` (string) - Version tag
+
+            ### Performance Metrics
+            - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
+            - `timeToFirstToken` (number) - Time to first token in seconds
+            - `tokensPerSecond` (number) - Output tokens per second
+
+            ### Token Usage
+            - `inputTokens` (number) - Number of input tokens
+            - `outputTokens` (number) - Number of output tokens
+            - `totalTokens` (number) - Total tokens (alias: `tokens`)
+
+            ### Cost Metrics
+            - `inputCost` (number) - Input cost in USD
+            - `outputCost` (number) - Output cost in USD
+            - `totalCost` (number) - Total cost in USD
+
+            ### Model Information
+            - `model` (string) - Provided model name
+            - `promptName` (string) - Associated prompt name
+            - `promptVersion` (number) - Associated prompt version
+
+            ### Structured Data
+            - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            ### Scores (requires join with scores table)
+            - `scores_avg` (number) - Average of numeric scores (alias: `scores`)
+            - `score_categories` (categoryOptions) - Categorical score values
+
+            ### Associated Trace Fields (requires join with traces table)
+            - `userId` (string) - User ID from associated trace
+            - `traceName` (string) - Name from associated trace
+            - `traceEnvironment` (string) - Environment from associated trace
+            - `traceTags` (arrayOptions) - Tags from associated trace
+
+            ## Filter Examples
+            ```json
+            [
+              {
+                "type": "string",
+                "column": "type",
+                "operator": "=",
+                "value": "GENERATION"
+              },
+              {
+                "type": "number",
+                "column": "latency",
+                "operator": ">=",
+                "value": 2.5
+              },
+              {
+                "type": "stringObject",
+                "column": "metadata",
+                "key": "environment",
+                "operator": "=",
+                "value": "production"
               }
             ]
             ```
