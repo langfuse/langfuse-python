@@ -156,3 +156,15 @@ This setting determines how long prompt responses are cached before they expire.
 
 **Default value**: ``60``
 """
+
+LANGFUSE_SPAN_PROCESSOR_ENABLED = "LANGFUSE_SPAN_PROCESSOR_ENABLED"
+"""
+.. envvar: LANGFUSE_SPAN_PROCESSOR_ENABLED
+
+Controls whether the Langfuse span processor is registered with the tracer provider.
+When disabled, spans will not be exported to the Langfuse API even if tracing is enabled.
+This is useful when you want to use your own custom span processor to avoid duplicate
+span processing and export.
+
+**Default value**: ``True``
+"""

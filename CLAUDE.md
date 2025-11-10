@@ -98,6 +98,7 @@ Environment variables (defined in `_client/environment_variables.py`):
 - `LANGFUSE_HOST`: API endpoint (defaults to https://cloud.langfuse.com)
 - `LANGFUSE_DEBUG`: Enable debug logging
 - `LANGFUSE_TRACING_ENABLED`: Enable/disable tracing
+- `LANGFUSE_SPAN_PROCESSOR_ENABLED`: Enable/disable span processor registration (defaults to True)
 - `LANGFUSE_SAMPLE_RATE`: Sampling rate for traces
 
 ## Testing Notes

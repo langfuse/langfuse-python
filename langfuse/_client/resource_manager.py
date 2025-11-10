@@ -33,6 +33,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_MEDIA_UPLOAD_ENABLED,
     LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT,
     LANGFUSE_RELEASE,
+    LANGFUSE_SPAN_PROCESSOR_ENABLED,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
 from langfuse._client.span_processor import LangfuseSpanProcessor
@@ -180,17 +181,23 @@ class LangfuseResourceManager:
                 environment=environment, release=release, sample_rate=sample_rate
             )
 
-            langfuse_processor = LangfuseSpanProcessor(
-                public_key=self.public_key,
-                secret_key=secret_key,
-                base_url=base_url,
-                timeout=timeout,
-                flush_at=flush_at,
-                flush_interval=flush_interval,
-                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
-                additional_headers=additional_headers,
-            )
-            tracer_provider.add_span_processor(langfuse_processor)
+            # Check if span processor should be enabled
+            span_processor_enabled = os.environ.get(
+                LANGFUSE_SPAN_PROCESSOR_ENABLED, "True"
+            ).lower() not in ("false", "0")
+
+            if span_processor_enabled:
+                langfuse_processor = LangfuseSpanProcessor(
+                    public_key=self.public_key,
+                    secret_key=secret_key,
+                    base_url=base_url,
+                    timeout=timeout,
+                    flush_at=flush_at,
+                    flush_interval=flush_interval,
+                    blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                    additional_headers=additional_headers,
+                )
+                tracer_provider.add_span_processor(langfuse_processor)
 
             self._otel_tracer = tracer_provider.get_tracer(
                 LANGFUSE_TRACER_NAME,

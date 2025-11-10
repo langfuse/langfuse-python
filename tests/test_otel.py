@@ -1449,6 +1449,48 @@ class TestAdvancedSpans(TestOTelBase):
             len(spans) == 0
         ), f"Expected no spans when tracing is disabled, got {len(spans)}"
 
+    def test_disabled_span_processor(self, monkeypatch):
+        """Test behavior when span processor is disabled via environment variable."""
+
+        from langfuse._client.resource_manager import LangfuseResourceManager
+        from langfuse._client.span_processor import LangfuseSpanProcessor
+
+        # Set environment variable to disable span processor
+        monkeypatch.setenv("LANGFUSE_SPAN_PROCESSOR_ENABLED", "false")
+
+        # Reset resource manager to ensure new instance
+        LangfuseResourceManager.reset()
+
+        # Track whether LangfuseSpanProcessor.__init__ was called
+        original_init = LangfuseSpanProcessor.__init__
+        processor_created = []
+
+        def mock_processor_init(self, **kwargs):
+            processor_created.append(True)
+            return original_init(self, **kwargs)
+
+        monkeypatch.setattr(LangfuseSpanProcessor, "__init__", mock_processor_init)
+
+        # Create a client with tracing enabled
+        client = Langfuse(
+            public_key="test-public-key-disabled-processor",
+            secret_key="test-secret-key",
+            base_url="http://test-host",
+            tracing_enabled=True,
+        )
+
+        # Verify that LangfuseSpanProcessor was NOT created
+        assert (
+            len(processor_created) == 0
+        ), "LangfuseSpanProcessor should not be created when LANGFUSE_SPAN_PROCESSOR_ENABLED is false"
+
+        # Verify tracer is still available (tracing_enabled=True)
+        assert client._resources.tracer is not None
+
+        # Clean up
+        client.shutdown()
+        LangfuseResourceManager.reset()
+
     def test_trace_id_generation(self, langfuse_client):
         """Test trace ID generation follows expected format."""
         # Generate trace IDs
