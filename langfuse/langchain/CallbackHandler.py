@@ -792,16 +792,15 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if registered_prompt:
                 self._deregister_langfuse_prompt(parent_run_id)
 
+            # keep trace attributes if llm is run isolated and outside chain or forced in metadata
+            keep_trace_attributes = bool(metadata.get('keep_trace_attributes') or parent_run_id is None)
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
                 "metadata": self.__join_tags_and_metadata(
                     tags,
                     metadata,
-                    # If llm is run isolated and outside chain, keep trace attributes
-                    keep_langfuse_trace_attributes=True
-                    if parent_run_id is None
-                    else False,
+                    keep_langfuse_trace_attributes=keep_trace_attributes,
                 ),
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
