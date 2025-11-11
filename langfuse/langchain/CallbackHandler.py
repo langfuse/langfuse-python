@@ -793,7 +793,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 self._deregister_langfuse_prompt(parent_run_id)
 
             # keep trace attributes if llm is run isolated and outside chain or forced in metadata
-            keep_trace_attributes = bool(metadata.get('keep_trace_attributes') or parent_run_id is None)
+            keep_trace_attributes = bool((metadata or {}).get('keep_trace_attributes') or parent_run_id is None)
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
