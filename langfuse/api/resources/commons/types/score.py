@@ -75,7 +75,7 @@ class Score_Numeric(pydantic_v1.BaseModel):
 
 
 class Score_Categorical(pydantic_v1.BaseModel):
-    value: typing.Optional[float] = None
+    value: float
     string_value: str = pydantic_v1.Field(alias="stringValue")
     id: str
     trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
