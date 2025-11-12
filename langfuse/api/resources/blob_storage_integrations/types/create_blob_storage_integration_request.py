@@ -3,106 +3,96 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
 from .blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .blob_storage_integration_type import BlobStorageIntegrationType
 
 
-class CreateBlobStorageIntegrationRequest(pydantic_v1.BaseModel):
-    project_id: str = pydantic_v1.Field(alias="projectId")
+class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
+    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")] = (
+        pydantic.Field()
+    )
     """
     ID of the project in which to configure the blob storage integration
     """
 
     type: BlobStorageIntegrationType
-    bucket_name: str = pydantic_v1.Field(alias="bucketName")
+    bucket_name: typing_extensions.Annotated[str, FieldMetadata(alias="bucketName")] = (
+        pydantic.Field()
+    )
     """
     Name of the storage bucket
     """
 
-    endpoint: typing.Optional[str] = pydantic_v1.Field(default=None)
+    endpoint: typing.Optional[str] = pydantic.Field(default=None)
     """
     Custom endpoint URL (required for S3_COMPATIBLE type)
     """
 
-    region: str = pydantic_v1.Field()
+    region: str = pydantic.Field()
     """
     Storage region
     """
 
-    access_key_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="accessKeyId", default=None
-    )
+    access_key_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="accessKeyId")
+    ] = pydantic.Field(default=None)
     """
     Access key ID for authentication
     """
 
-    secret_access_key: typing.Optional[str] = pydantic_v1.Field(
-        alias="secretAccessKey", default=None
-    )
+    secret_access_key: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="secretAccessKey")
+    ] = pydantic.Field(default=None)
     """
     Secret access key for authentication (will be encrypted when stored)
     """
 
-    prefix: typing.Optional[str] = pydantic_v1.Field(default=None)
+    prefix: typing.Optional[str] = pydantic.Field(default=None)
     """
     Path prefix for exported files (must end with forward slash if provided)
     """
 
-    export_frequency: BlobStorageExportFrequency = pydantic_v1.Field(
-        alias="exportFrequency"
-    )
-    enabled: bool = pydantic_v1.Field()
+    export_frequency: typing_extensions.Annotated[
+        BlobStorageExportFrequency, FieldMetadata(alias="exportFrequency")
+    ]
+    enabled: bool = pydantic.Field()
     """
     Whether the integration is active
     """
 
-    force_path_style: bool = pydantic_v1.Field(alias="forcePathStyle")
+    force_path_style: typing_extensions.Annotated[
+        bool, FieldMetadata(alias="forcePathStyle")
+    ] = pydantic.Field()
     """
     Use path-style URLs for S3 requests
     """
 
-    file_type: BlobStorageIntegrationFileType = pydantic_v1.Field(alias="fileType")
-    export_mode: BlobStorageExportMode = pydantic_v1.Field(alias="exportMode")
-    export_start_date: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="exportStartDate", default=None
-    )
+    file_type: typing_extensions.Annotated[
+        BlobStorageIntegrationFileType, FieldMetadata(alias="fileType")
+    ]
+    export_mode: typing_extensions.Annotated[
+        BlobStorageExportMode, FieldMetadata(alias="exportMode")
+    ]
+    export_start_date: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
+    ] = pydantic.Field(default=None)
     """
     Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

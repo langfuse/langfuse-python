@@ -1,0 +1,14 @@
+{
+  "cliVersion": "0.116.0",
+  "generatorName": "fernapi/fern-python-sdk",
+  "generatorVersion": "4.36.0",
+  "generatorConfig": {
+    "client_class_name": "FernLangfuse",
+    "improved_imports": false,
+    "inline_request_params": false,
+    "pydantic_config": {
+      "require_optional_fields": false,
+      "use_str_enums": false
+    }
+  }
+}

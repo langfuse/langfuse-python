@@ -131,11 +131,11 @@ class DatasetItemClient:
 
             self.langfuse.api.dataset_run_items.create(
                 request=CreateDatasetRunItemRequest(
-                    runName=run_name,
-                    datasetItemId=self.id,
-                    traceId=span.trace_id,
+                    run_name=run_name,
+                    dataset_item_id=self.id,
+                    trace_id=span.trace_id,
                     metadata=run_metadata,
-                    runDescription=run_description,
+                    run_description=run_description,
                 )
             )
 

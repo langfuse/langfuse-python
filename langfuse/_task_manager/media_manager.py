@@ -220,12 +220,12 @@ class MediaManager:
         upload_url_response = self._request_with_backoff(
             self._api_client.media.get_upload_url,
             request=GetMediaUploadUrlRequest(
-                contentLength=data["content_length"],
-                contentType=cast(MediaContentType, data["content_type"]),
-                sha256Hash=data["content_sha256_hash"],
+                content_length=data["content_length"],
+                content_type=cast(MediaContentType, data["content_type"]),
+                sha_256_hash=data["content_sha256_hash"],
                 field=data["field"],
-                traceId=data["trace_id"],
-                observationId=data["observation_id"],
+                trace_id=data["trace_id"],
+                observation_id=data["observation_id"],
             ),
         )
 
@@ -267,10 +267,10 @@ class MediaManager:
             self._api_client.media.patch,
             media_id=data["media_id"],
             request=PatchMediaBody(
-                uploadedAt=_get_timestamp(),
-                uploadHttpStatus=upload_response.status_code,
-                uploadHttpError=upload_response.text,
-                uploadTimeMs=upload_time_ms,
+                uploaded_at=_get_timestamp(),
+                upload_http_status=upload_response.status_code,
+                upload_http_error=upload_response.text,
+                upload_time_ms=upload_time_ms,
             ),
         )
 

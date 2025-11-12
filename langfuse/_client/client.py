@@ -2972,7 +2972,7 @@ class Langfuse:
             )
             langfuse_logger.debug(f"Creating datasets {body}")
 
-            return self.api.datasets.create(request=body)
+            return cast(Dataset, self.api.datasets.create(request=body))
 
         except Error as e:
             handle_fern_exception(e)
@@ -3024,17 +3024,17 @@ class Langfuse:
         """
         try:
             body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
+                dataset_name=dataset_name,
                 input=input,
-                expectedOutput=expected_output,
+                expected_output=expected_output,
                 metadata=metadata,
-                sourceTraceId=source_trace_id,
-                sourceObservationId=source_observation_id,
+                source_trace_id=source_trace_id,
+                source_observation_id=source_observation_id,
                 status=status,
                 id=id,
             )
             langfuse_logger.debug(f"Creating dataset item {body}")
-            return self.api.dataset_items.create(request=body)
+            return cast(DatasetItem, self.api.dataset_items.create(request=body))
         except Error as e:
             handle_fern_exception(e)
             raise e
@@ -3395,7 +3395,7 @@ class Langfuse:
                         labels=labels,
                         tags=tags,
                         config=config or {},
-                        commitMessage=commit_message,
+                        commit_message=commit_message,
                         type="chat",
                     )
                 )
@@ -3415,7 +3415,7 @@ class Langfuse:
                 labels=labels,
                 tags=tags,
                 config=config or {},
-                commitMessage=commit_message,
+                commit_message=commit_message,
                 type="text",
             )
 

@@ -3,8 +3,10 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2
+from ....core.serialization import FieldMetadata
 from ...commons.types.map_value import MapValue
 from .create_span_body import CreateSpanBody
 from .ingestion_usage import IngestionUsage
@@ -12,56 +14,35 @@ from .usage_details import UsageDetails
 
 
 class CreateGenerationBody(CreateSpanBody):
-    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="completionStartTime", default=None
-    )
+    completion_start_time: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="completionStartTime")
+    ] = None
     model: typing.Optional[str] = None
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic_v1.Field(
-        alias="modelParameters", default=None
-    )
+    model_parameters: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, MapValue]],
+        FieldMetadata(alias="modelParameters"),
+    ] = None
     usage: typing.Optional[IngestionUsage] = None
-    usage_details: typing.Optional[UsageDetails] = pydantic_v1.Field(
-        alias="usageDetails", default=None
-    )
-    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(
-        alias="costDetails", default=None
-    )
-    prompt_name: typing.Optional[str] = pydantic_v1.Field(
-        alias="promptName", default=None
-    )
-    prompt_version: typing.Optional[int] = pydantic_v1.Field(
-        alias="promptVersion", default=None
-    )
+    usage_details: typing_extensions.Annotated[
+        typing.Optional[UsageDetails], FieldMetadata(alias="usageDetails")
+    ] = None
+    cost_details: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, float]], FieldMetadata(alias="costDetails")
+    ] = None
+    prompt_name: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="promptName")
+    ] = None
+    prompt_version: typing_extensions.Annotated[
+        typing.Optional[int], FieldMetadata(alias="promptVersion")
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

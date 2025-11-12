@@ -3,77 +3,67 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from .score_source import ScoreSource
 
 
-class BaseScore(pydantic_v1.BaseModel):
+class BaseScore(UniversalBaseModel):
     id: str
-    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
-    session_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="sessionId", default=None
-    )
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="datasetRunId", default=None
-    )
+    trace_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="traceId")
+    ] = None
+    session_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="sessionId")
+    ] = None
+    observation_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="observationId")
+    ] = None
+    dataset_run_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="datasetRunId")
+    ] = None
     name: str
     source: ScoreSource
     timestamp: dt.datetime
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
-    author_user_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="authorUserId", default=None
-    )
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
+    ]
+    updated_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="updatedAt")
+    ]
+    author_user_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="authorUserId")
+    ] = None
     comment: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
-    config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
+    config_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="configId")
+    ] = pydantic.Field(default=None)
     """
     Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
     """
 
-    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
+    queue_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="queueId")
+    ] = pydantic.Field(default=None)
     """
     The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
     """
 
-    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    environment: typing.Optional[str] = pydantic.Field(default=None)
     """
     The environment from which this score originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
