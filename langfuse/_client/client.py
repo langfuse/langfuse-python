@@ -89,6 +89,7 @@ from langfuse.api.resources.prompts.types import (
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
+    BatchEvaluationRunner,
     CompositeEvaluatorFunction,
     MapperFunction,
 )
@@ -3132,9 +3133,8 @@ class Langfuse:
             - All scores are automatically flushed to Langfuse at the end
             - The resume mechanism uses timestamp-based filtering to avoid duplicates
         """
-        from langfuse.batch_evaluation import BatchEvaluationRunner
-
         runner = BatchEvaluationRunner(self)
+
         return cast(
             BatchEvaluationResult,
             run_async_safely(
