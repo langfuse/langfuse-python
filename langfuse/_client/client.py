@@ -2931,16 +2931,16 @@ class Langfuse:
         *,
         scope: Literal["traces", "observations", "sessions"],
         mapper: MapperFunction,
-        evaluators: List[EvaluatorFunction],
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
         max_items: Optional[int] = None,
-        max_concurrency: int = 50,
-        composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
-        metadata: Optional[Dict[str, Any]] = None,
         max_retries: int = 3,
-        verbose: bool = False,
+        evaluators: List[EvaluatorFunction],
+        composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
+        max_concurrency: int = 50,
+        metadata: Optional[Dict[str, Any]] = None,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
+        verbose: bool = False,
     ) -> BatchEvaluationResult:
         """Fetch traces, observations, or sessions and run evaluations on each item.
 
