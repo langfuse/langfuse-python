@@ -1,7 +1,7 @@
 """Batch evaluation functionality for Langfuse.
 
 This module provides comprehensive batch evaluation capabilities for running evaluations
-on traces, observations, and sessions fetched from Langfuse. It includes type definitions,
+on traces and observations fetched from Langfuse. It includes type definitions,
 protocols, result classes, and the implementation for large-scale evaluation workflows
 with error handling, retry logic, and resume capability.
 """
@@ -24,7 +24,6 @@ from typing import (
 
 from langfuse.api.resources.commons.types import (
     ObservationsView,
-    SessionWithTraces,
     TraceWithFullDetails,
 )
 from langfuse.experiment import Evaluation, EvaluatorFunction
@@ -39,7 +38,7 @@ class EvaluatorInputs:
     """Input data structure for evaluators, returned by mapper functions.
 
     This class provides a strongly-typed container for transforming API response
-    objects (traces, observations, sessions) into the standardized format expected
+    objects (traces, observations) into the standardized format expected
     by evaluator functions. It ensures consistent access to input, output, expected
     output, and metadata regardless of the source entity type.
 
@@ -89,24 +88,6 @@ class EvaluatorInputs:
                 }
             )
         ```
-
-        Mapper for sessions aggregating trace data:
-        ```python
-        def session_mapper(session):
-            # Aggregate data from all traces in the session
-            all_outputs = [trace.output for trace in session.traces if trace.output]
-            combined_output = " ".join(all_outputs)
-
-            return EvaluatorInputs(
-                input=session.traces[0].input if session.traces else None,
-                output=combined_output,
-                expected_output=None,
-                metadata={
-                    "session_id": session.id,
-                    "trace_count": len(session.traces),
-                    "user_id": session.user_id
-                }
-            )
         ```
 
     Note:
@@ -141,13 +122,13 @@ class EvaluatorInputs:
 class MapperFunction(Protocol):
     """Protocol defining the interface for mapper functions in batch evaluation.
 
-    Mapper functions transform API response objects (traces, observations, or sessions)
+    Mapper functions transform API response objects (traces or observations)
     into the standardized EvaluatorInputs format that evaluators expect. This abstraction
     allows you to define how to extract and structure evaluation data from different
     entity types.
 
     Mapper functions must:
-    - Accept a single item parameter (trace, observation, or session object)
+    - Accept a single item parameter (trace, observation)
     - Return an EvaluatorInputs instance with input, output, expected_output, metadata
     - Can be either synchronous or asynchronous
     - Should handle missing or malformed data gracefully
@@ -156,7 +137,7 @@ class MapperFunction(Protocol):
     def __call__(
         self,
         *,
-        item: Union["TraceWithFullDetails", "ObservationsView", "SessionWithTraces"],
+        item: Union["TraceWithFullDetails", "ObservationsView"],
         **kwargs: Dict[str, Any],
     ) -> Union[EvaluatorInputs, Awaitable[EvaluatorInputs]]:
         """Transform an API response object into evaluator inputs.
@@ -169,7 +150,6 @@ class MapperFunction(Protocol):
             item: The API response object to transform. The type depends on the scope:
                 - TraceWithFullDetails: When evaluating traces
                 - ObservationsView: When evaluating observations
-                - SessionWithTraces: When evaluating sessions
 
         Returns:
             EvaluatorInputs: A structured container with:
@@ -226,24 +206,6 @@ class MapperFunction(Protocol):
                     metadata={"trace_id": trace.id}
                 )
             ```
-
-            Session mapper aggregating multiple traces:
-            ```python
-            def map_session(session):
-                # Combine data from all traces in session
-                inputs = [t.input for t in session.traces if t.input]
-                outputs = [t.output for t in session.traces if t.output]
-
-                return EvaluatorInputs(
-                    input=inputs,
-                    output=outputs,
-                    expected_output=None,
-                    metadata={
-                        "session_id": session.id,
-                        "trace_count": len(session.traces)
-                    }
-                )
-            ```
         """
         ...
 
@@ -265,7 +227,7 @@ class CompositeEvaluatorFunction(Protocol):
     def __call__(
         self,
         *,
-        item: Union["TraceWithFullDetails", "ObservationsView", "SessionWithTraces"],
+        item: Union["TraceWithFullDetails", "ObservationsView"],
         evaluations: List[Evaluation],
         **kwargs: Dict[str, Any],
     ) -> Union[
@@ -491,7 +453,7 @@ class BatchEvaluationResumeToken:
     dataset changed between runs.
 
     Attributes:
-        scope: The type of items being evaluated ("traces", "observations", "sessions").
+        scope: The type of items being evaluated ("traces", "observations").
         filter: The original JSON filter string used to query items.
         last_processed_timestamp: ISO 8601 timestamp of the last successfully processed item.
             Used to construct a filter that only fetches items after this timestamp.
@@ -588,7 +550,7 @@ class BatchEvaluationResumeToken:
         """Initialize BatchEvaluationResumeToken with the provided state.
 
         Args:
-            scope: The scope type ("traces", "observations", "sessions").
+            scope: The scope type ("traces", "observations").
             filter: The original JSON filter string.
             last_processed_timestamp: ISO 8601 timestamp of last processed item.
             last_processed_id: ID of last processed item.
@@ -888,7 +850,7 @@ class BatchEvaluationRunner:
         and tracking statistics.
 
         Args:
-            scope: The type of items to evaluate ("traces", "observations", "sessions").
+            scope: The type of items to evaluate ("traces", "observations").
             mapper: Function to transform API response items to evaluator inputs.
             evaluators: List of evaluation functions to run on each item.
             filter: JSON filter string for querying items.
@@ -1017,7 +979,7 @@ class BatchEvaluationRunner:
 
             # Process items concurrently
             async def process_item(
-                item: Union[TraceWithFullDetails, ObservationsView, SessionWithTraces],
+                item: Union[TraceWithFullDetails, ObservationsView],
             ) -> Tuple[str, Union[Tuple[int, int, int], Exception]]:
                 """Process a single item and return (item_id, result)."""
                 async with semaphore:
@@ -1133,11 +1095,11 @@ class BatchEvaluationRunner:
         page: int,
         limit: int,
         max_retries: int,
-    ) -> List[Union[TraceWithFullDetails, ObservationsView, SessionWithTraces]]:
+    ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
         """Fetch a batch of items with retry logic.
 
         Args:
-            scope: The type of items ("traces", "observations", "sessions").
+            scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
             page: Page number (1-indexed).
             limit: Number of items per page.
@@ -1166,20 +1128,13 @@ class BatchEvaluationRunner:
                 request_options={"max_retries": max_retries},
             )  # type: ignore
             return list(response.data)  # type: ignore
-        elif scope == "sessions":
-            response = self.client.api.sessions.list(
-                page=page,
-                limit=limit,
-                request_options={"max_retries": max_retries},
-            )  # type: ignore
-            return list(response.data)  # type: ignore
         else:
             error_message = f"Invalid scope: {scope}"
             raise ValueError(error_message)
 
     async def _process_batch_evaluation_item(
         self,
-        item: Union[TraceWithFullDetails, ObservationsView, SessionWithTraces],
+        item: Union[TraceWithFullDetails, ObservationsView],
         scope: str,
         mapper: MapperFunction,
         evaluators: List[EvaluatorFunction],
@@ -1191,7 +1146,7 @@ class BatchEvaluationRunner:
 
         Args:
             item: The API response object to evaluate.
-            scope: The type of item ("traces", "observations", "sessions").
+            scope: The type of item ("traces", "observations").
             mapper: Function to transform item to evaluator inputs.
             evaluators: List of evaluator functions.
             composite_evaluator: Optional composite evaluator function.
@@ -1312,7 +1267,7 @@ class BatchEvaluationRunner:
     async def _run_mapper(
         self,
         mapper: MapperFunction,
-        item: Union[TraceWithFullDetails, ObservationsView, SessionWithTraces],
+        item: Union[TraceWithFullDetails, ObservationsView],
     ) -> EvaluatorInputs:
         """Run mapper function (handles both sync and async mappers).
 
@@ -1334,7 +1289,7 @@ class BatchEvaluationRunner:
     async def _run_composite_evaluator(
         self,
         composite_evaluator: CompositeEvaluatorFunction,
-        item: Union[TraceWithFullDetails, ObservationsView, SessionWithTraces],
+        item: Union[TraceWithFullDetails, ObservationsView],
         evaluations: List[Evaluation],
     ) -> List[Evaluation]:
         """Run composite evaluator function (handles both sync and async).
@@ -1372,7 +1327,7 @@ class BatchEvaluationRunner:
         """Create a score linked to the appropriate entity based on scope.
 
         Args:
-            scope: The type of entity ("traces", "observations", "sessions").
+            scope: The type of entity ("traces", "observations").
             item_id: The ID of the entity.
             evaluation: The evaluation result to create a score from.
             additional_metadata: Additional metadata to merge with evaluation metadata.
@@ -1396,16 +1351,6 @@ class BatchEvaluationRunner:
         elif scope == "observations":
             self.client.create_score(
                 observation_id=item_id,
-                name=evaluation.name,
-                value=evaluation.value,  # type: ignore
-                comment=evaluation.comment,
-                metadata=score_metadata,
-                data_type=evaluation.data_type,  # type: ignore[arg-type]
-                config_id=evaluation.config_id,
-            )
-        elif scope == "sessions":
-            self.client.create_score(
-                session_id=item_id,
                 name=evaluation.name,
                 value=evaluation.value,  # type: ignore
                 comment=evaluation.comment,
@@ -1459,7 +1404,7 @@ class BatchEvaluationRunner:
 
     @staticmethod
     def _get_item_id(
-        item: Union[TraceWithFullDetails, ObservationsView, SessionWithTraces],
+        item: Union[TraceWithFullDetails, ObservationsView],
         scope: str,
     ) -> str:
         """Extract ID from item based on scope.
@@ -1475,7 +1420,7 @@ class BatchEvaluationRunner:
 
     @staticmethod
     def _get_item_timestamp(
-        item: Union[TraceWithFullDetails, ObservationsView, SessionWithTraces],
+        item: Union[TraceWithFullDetails, ObservationsView],
         scope: str,
     ) -> str:
         """Extract timestamp from item based on scope.
@@ -1495,10 +1440,6 @@ class BatchEvaluationRunner:
             # Type narrowing for observations
             if hasattr(item, "start_time"):
                 return item.start_time.isoformat()  # type: ignore[attr-defined]
-        elif scope == "sessions":
-            # Sessions don't have a single timestamp, use created_at
-            if hasattr(item, "created_at"):
-                return item.created_at.isoformat()  # type: ignore[attr-defined]
         return ""
 
     @staticmethod
@@ -1515,8 +1456,6 @@ class BatchEvaluationRunner:
             return "timestamp"
         elif scope == "observations":
             return "start_time"
-        elif scope == "sessions":
-            return "created_at"
         return "timestamp"  # Default
 
     def _build_result(

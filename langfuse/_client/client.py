@@ -2929,7 +2929,7 @@ class Langfuse:
     def run_batched_evaluation(
         self,
         *,
-        scope: Literal["traces", "observations", "sessions"],
+        scope: Literal["traces", "observations"],
         mapper: MapperFunction,
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
@@ -2942,7 +2942,7 @@ class Langfuse:
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces, observations, or sessions and run evaluations on each item.
+        """Fetch traces or observations and run evaluations on each item.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
         It fetches items based on filters, transforms them using a mapper function, runs
@@ -2962,9 +2962,8 @@ class Langfuse:
             scope: The type of items to evaluate. Must be one of:
                 - "traces": Evaluate complete traces with all their observations
                 - "observations": Evaluate individual observations (spans, generations, events)
-                - "sessions": Evaluate entire sessions with multiple traces
             mapper: Function that transforms API response objects into evaluator inputs.
-                Receives a trace/observation/session object and returns an EvaluatorInputs
+                Receives a trace/observation object and returns an EvaluatorInputs
                 instance with input, output, expected_output, and metadata fields.
                 Can be sync or async.
             evaluators: List of evaluation functions to run on each item. Each evaluator
