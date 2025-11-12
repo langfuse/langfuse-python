@@ -756,6 +756,89 @@ class BatchEvaluationResult:
         self.error_summary = error_summary
         self.has_more_items = has_more_items
 
+    def __str__(self) -> str:
+        """Return a formatted string representation of the batch evaluation results.
+
+        Returns:
+            A multi-line string with a summary of the evaluation results.
+        """
+        lines = []
+        lines.append("=" * 60)
+        lines.append("Batch Evaluation Results")
+        lines.append("=" * 60)
+
+        # Summary statistics
+        lines.append(f"\nStatus: {'Completed' if self.completed else 'Incomplete'}")
+        lines.append(f"Duration: {self.duration_seconds:.2f}s")
+        lines.append(f"\nItems fetched: {self.total_items_fetched}")
+        lines.append(f"Items processed: {self.total_items_processed}")
+
+        if self.total_items_failed > 0:
+            lines.append(f"Items failed: {self.total_items_failed}")
+
+        # Success rate
+        if self.total_items_fetched > 0:
+            success_rate = self.total_items_processed / self.total_items_fetched * 100
+            lines.append(f"Success rate: {success_rate:.1f}%")
+
+        # Scores created
+        lines.append(f"\nScores created: {self.total_scores_created}")
+        if self.total_composite_scores_created > 0:
+            lines.append(f"Composite scores: {self.total_composite_scores_created}")
+
+        total_scores = self.total_scores_created + self.total_composite_scores_created
+        lines.append(f"Total scores: {total_scores}")
+
+        # Evaluator statistics
+        if self.evaluator_stats:
+            lines.append("\nEvaluator Performance:")
+            for stats in self.evaluator_stats:
+                lines.append(f"  {stats.name}:")
+                if stats.total_runs > 0:
+                    success_rate = (
+                        stats.successful_runs / stats.total_runs * 100
+                        if stats.total_runs > 0
+                        else 0
+                    )
+                    lines.append(
+                        f"    Runs: {stats.successful_runs}/{stats.total_runs} "
+                        f"({success_rate:.1f}% success)"
+                    )
+                    lines.append(f"    Scores created: {stats.total_scores_created}")
+                    if stats.failed_runs > 0:
+                        lines.append(f"    Failed runs: {stats.failed_runs}")
+
+        # Performance metrics
+        if self.total_items_processed > 0 and self.duration_seconds > 0:
+            items_per_sec = self.total_items_processed / self.duration_seconds
+            lines.append("\nPerformance:")
+            lines.append(f"  Throughput: {items_per_sec:.2f} items/second")
+            if self.total_scores_created > 0:
+                avg_scores = self.total_scores_created / self.total_items_processed
+                lines.append(f"  Avg scores per item: {avg_scores:.2f}")
+
+        # Errors and warnings
+        if self.error_summary:
+            lines.append("\nErrors encountered:")
+            for error_type, count in self.error_summary.items():
+                lines.append(f"  {error_type}: {count}")
+
+        # Incomplete run information
+        if not self.completed:
+            lines.append("\nWarning: Evaluation incomplete")
+            if self.resume_token:
+                lines.append(
+                    f"  Last processed: {self.resume_token.last_processed_timestamp}"
+                )
+                lines.append(f"  Items processed: {self.resume_token.items_processed}")
+                lines.append("  Use resume_from parameter to continue")
+
+        if self.has_more_items:
+            lines.append("\nNote: More items available beyond max_items limit")
+
+        lines.append("=" * 60)
+        return "\n".join(lines)
+
 
 class BatchEvaluationRunner:
     """Handles batch evaluation execution for a Langfuse client.
