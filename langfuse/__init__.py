@@ -1,5 +1,13 @@
 """.. include:: ../README.md"""
 
+from langfuse.batch_evaluation import (
+    BatchEvaluationResult,
+    BatchEvaluationResumeToken,
+    CompositeEvaluatorFunction,
+    EvaluatorInputs,
+    EvaluatorStats,
+    MapperFunction,
+)
 from langfuse.experiment import Evaluation
 
 from ._client import client as _client_module
@@ -41,6 +49,12 @@ __all__ = [
     "LangfuseRetriever",
     "LangfuseGuardrail",
     "Evaluation",
+    "EvaluatorInputs",
+    "MapperFunction",
+    "CompositeEvaluatorFunction",
+    "EvaluatorStats",
+    "BatchEvaluationResumeToken",
+    "BatchEvaluationResult",
     "experiment",
     "api",
 ]
