@@ -594,6 +594,7 @@ class BatchEvaluationResult:
         failed_item_ids: List of IDs for items that failed evaluation.
         error_summary: Dictionary mapping error types to occurrence counts.
         has_more_items: True if max_items limit was reached but more items exist.
+        item_evaluations: Dictionary mapping item IDs to their evaluation results (both regular and composite).
 
     Examples:
         Basic result inspection:
@@ -690,6 +691,7 @@ class BatchEvaluationResult:
         failed_item_ids: List[str],
         error_summary: Dict[str, int],
         has_more_items: bool,
+        item_evaluations: Dict[str, List["Evaluation"]],
     ):
         """Initialize BatchEvaluationResult with comprehensive statistics.
 
@@ -707,6 +709,7 @@ class BatchEvaluationResult:
             failed_item_ids: IDs of failed items.
             error_summary: Error types and counts.
             has_more_items: Whether more items exist beyond max_items.
+            item_evaluations: Dictionary mapping item IDs to their evaluation results.
 
         Note:
             All arguments must be provided as keywords.
@@ -724,6 +727,7 @@ class BatchEvaluationResult:
         self.failed_item_ids = failed_item_ids
         self.error_summary = error_summary
         self.has_more_items = has_more_items
+        self.item_evaluations = item_evaluations
 
     def __str__(self) -> str:
         """Return a formatted string representation of the batch evaluation results.
@@ -884,6 +888,7 @@ class BatchEvaluationRunner:
         total_evaluations_failed = 0
         failed_item_ids: List[str] = []
         error_summary: Dict[str, int] = {}
+        item_evaluations: Dict[str, List[Evaluation]] = {}
 
         # Initialize evaluator stats
         evaluator_stats_dict = {
@@ -958,6 +963,7 @@ class BatchEvaluationRunner:
                     failed_item_ids=failed_item_ids,
                     error_summary=error_summary,
                     has_more_items=has_more,
+                    item_evaluations=item_evaluations,
                 )
 
             # Check if we got any items
@@ -987,7 +993,7 @@ class BatchEvaluationRunner:
             # Process items concurrently
             async def process_item(
                 item: Union[TraceWithFullDetails, ObservationsView],
-            ) -> Tuple[str, Union[Tuple[int, int, int], Exception]]:
+            ) -> Tuple[str, Union[Tuple[int, int, int, List[Evaluation]], Exception]]:
                 """Process a single item and return (item_id, result)."""
                 async with semaphore:
                     item_id = self._get_item_id(item, scope)
@@ -1021,10 +1027,15 @@ class BatchEvaluationRunner:
                 else:
                     # Item processed successfully
                     total_items_processed += 1
-                    scores_created, composite_created, evals_failed = result
+                    scores_created, composite_created, evals_failed, evaluations = (
+                        result
+                    )
                     total_scores_created += scores_created
                     total_composite_scores_created += composite_created
                     total_evaluations_failed += evals_failed
+
+                    # Store evaluations for this item
+                    item_evaluations[item_id] = evaluations
 
                     # Update last processed tracking
                     last_item_timestamp = self._get_item_timestamp(item, scope)
@@ -1092,6 +1103,7 @@ class BatchEvaluationRunner:
             has_more_items=(
                 has_more and max_items is not None and total_items_fetched >= max_items
             ),
+            item_evaluations=item_evaluations,
         )
 
     async def _fetch_batch_with_retry(
@@ -1148,7 +1160,7 @@ class BatchEvaluationRunner:
         composite_evaluator: Optional[CompositeEvaluatorFunction],
         metadata: Optional[Dict[str, Any]],
         evaluator_stats_dict: Dict[str, EvaluatorStats],
-    ) -> Tuple[int, int, int]:
+    ) -> Tuple[int, int, int, List[Evaluation]]:
         """Process a single item: map, evaluate, create scores.
 
         Args:
@@ -1161,7 +1173,7 @@ class BatchEvaluationRunner:
             evaluator_stats_dict: Dictionary tracking evaluator statistics.
 
         Returns:
-            Tuple of (scores_created, composite_scores_created, evaluations_failed).
+            Tuple of (scores_created, composite_scores_created, evaluations_failed, all_evaluations).
 
         Raises:
             Exception: If mapping fails or item processing encounters fatal error.
@@ -1235,10 +1247,18 @@ class BatchEvaluationRunner:
                     )
                     composite_scores_created += 1
 
+                # Add composite evaluations to the list
+                evaluations.extend(composite_evals)
+
             except Exception as e:
                 self._log.warning(f"Composite evaluator failed on item {item_id}: {e}")
 
-        return (scores_created, composite_scores_created, evaluations_failed)
+        return (
+            scores_created,
+            composite_scores_created,
+            evaluations_failed,
+            evaluations,
+        )
 
     async def _run_evaluator_internal(
         self,
@@ -1495,6 +1515,7 @@ class BatchEvaluationRunner:
         failed_item_ids: List[str],
         error_summary: Dict[str, int],
         has_more_items: bool,
+        item_evaluations: Dict[str, List[Evaluation]],
     ) -> BatchEvaluationResult:
         """Build the final BatchEvaluationResult.
 
@@ -1512,6 +1533,7 @@ class BatchEvaluationRunner:
             failed_item_ids: IDs of failed items.
             error_summary: Error type counts.
             has_more_items: Whether more items exist.
+            item_evaluations: Dictionary mapping item IDs to their evaluation results.
 
         Returns:
             BatchEvaluationResult instance.
@@ -1532,4 +1554,5 @@ class BatchEvaluationRunner:
             failed_item_ids=failed_item_ids,
             error_summary=error_summary,
             has_more_items=has_more_items,
+            item_evaluations=item_evaluations,
         )

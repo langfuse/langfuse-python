@@ -207,6 +207,7 @@ def test_result_structure_fields(sample_traces, langfuse_client):
     assert hasattr(result, "failed_item_ids")
     assert hasattr(result, "error_summary")
     assert hasattr(result, "has_more_items")
+    assert hasattr(result, "item_evaluations")
 
     # Check types
     assert isinstance(result.evaluator_stats, list)
@@ -214,6 +215,7 @@ def test_result_structure_fields(sample_traces, langfuse_client):
     assert isinstance(result.error_summary, dict)
     assert isinstance(result.completed, bool)
     assert isinstance(result.has_more_items, bool)
+    assert isinstance(result.item_evaluations, dict)
 
 
 # ============================================================================
@@ -988,3 +990,113 @@ def test_verbose_logging(sample_traces, langfuse_client):
     )
 
     assert result.completed is True
+
+
+# ============================================================================
+# ITEM EVALUATIONS TESTS
+# ============================================================================
+
+
+def test_item_evaluations_basic(sample_traces, langfuse_client):
+    """Test that item_evaluations dict contains correct structure."""
+
+    def test_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="test_metric", value=0.5)
+
+    result = langfuse_client.run_batched_evaluation(
+        scope="traces",
+        mapper=simple_trace_mapper,
+        evaluators=[test_evaluator],
+        max_items=3,
+    )
+
+    # Check that item_evaluations is a dict
+    assert isinstance(result.item_evaluations, dict)
+
+    # Should have evaluations for each processed item
+    assert len(result.item_evaluations) == result.total_items_processed
+
+    # Each entry should be a list of Evaluation objects
+    for item_id, evaluations in result.item_evaluations.items():
+        assert isinstance(item_id, str)
+        assert isinstance(evaluations, list)
+        assert all(isinstance(e, Evaluation) for e in evaluations)
+        # Should have one evaluation per evaluator
+        assert len(evaluations) == 1
+        assert evaluations[0].name == "test_metric"
+
+
+def test_item_evaluations_multiple_evaluators(sample_traces, langfuse_client):
+    """Test item_evaluations with multiple evaluators."""
+
+    def accuracy_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="accuracy", value=0.8)
+
+    def relevance_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="relevance", value=0.9)
+
+    result = langfuse_client.run_batched_evaluation(
+        scope="traces",
+        mapper=simple_trace_mapper,
+        evaluators=[accuracy_evaluator, relevance_evaluator],
+        max_items=2,
+    )
+
+    # Check structure
+    assert len(result.item_evaluations) == result.total_items_processed
+
+    # Each item should have evaluations from both evaluators
+    for item_id, evaluations in result.item_evaluations.items():
+        assert len(evaluations) == 2
+        eval_names = {e.name for e in evaluations}
+        assert eval_names == {"accuracy", "relevance"}
+
+
+def test_item_evaluations_with_composite(sample_traces, langfuse_client):
+    """Test that item_evaluations includes composite evaluations."""
+
+    def base_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="base_score", value=0.7)
+
+    def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
+        return Evaluation(
+            name="composite_score",
+            value=sum(
+                e.value for e in evaluations if isinstance(e.value, (int, float))
+            ),
+        )
+
+    result = langfuse_client.run_batched_evaluation(
+        scope="traces",
+        mapper=simple_trace_mapper,
+        evaluators=[base_evaluator],
+        composite_evaluator=composite_evaluator,
+        max_items=2,
+    )
+
+    # Each item should have both base and composite evaluations
+    for item_id, evaluations in result.item_evaluations.items():
+        assert len(evaluations) == 2
+        eval_names = {e.name for e in evaluations}
+        assert eval_names == {"base_score", "composite_score"}
+
+    # Verify composite scores were created
+    assert result.total_composite_scores_created > 0
+
+
+def test_item_evaluations_empty_on_failure(sample_traces, langfuse_client):
+    """Test that failed items don't appear in item_evaluations."""
+
+    def failing_mapper(*, item):
+        raise Exception("Mapper failed")
+
+    result = langfuse_client.run_batched_evaluation(
+        scope="traces",
+        mapper=failing_mapper,
+        evaluators=[simple_evaluator],
+        max_items=3,
+    )
+
+    # All items failed, so item_evaluations should be empty
+    assert len(result.item_evaluations) == 0
+    assert result.total_items_failed > 0
