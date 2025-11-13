@@ -8,11 +8,7 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .base_prompt import BasePrompt
     from .chat_message import ChatMessage
-    from .chat_message_with_placeholders import (
-        ChatMessageWithPlaceholders,
-        ChatMessageWithPlaceholders_Chatmessage,
-        ChatMessageWithPlaceholders_Placeholder,
-    )
+    from .chat_message_with_placeholders import ChatMessageWithPlaceholders
     from .chat_prompt import ChatPrompt
     from .create_chat_prompt_request import CreateChatPromptRequest
     from .create_prompt_request import (
@@ -31,8 +27,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BasePrompt": ".base_prompt",
     "ChatMessage": ".chat_message",
     "ChatMessageWithPlaceholders": ".chat_message_with_placeholders",
-    "ChatMessageWithPlaceholders_Chatmessage": ".chat_message_with_placeholders",
-    "ChatMessageWithPlaceholders_Placeholder": ".chat_message_with_placeholders",
     "ChatPrompt": ".chat_prompt",
     "CreateChatPromptRequest": ".create_chat_prompt_request",
     "CreatePromptRequest": ".create_prompt_request",
@@ -81,8 +75,6 @@ __all__ = [
     "BasePrompt",
     "ChatMessage",
     "ChatMessageWithPlaceholders",
-    "ChatMessageWithPlaceholders_Chatmessage",
-    "ChatMessageWithPlaceholders_Placeholder",
     "ChatPrompt",
     "CreateChatPromptRequest",
     "CreatePromptRequest",

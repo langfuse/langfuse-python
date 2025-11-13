@@ -170,10 +170,7 @@ class PromptsClient:
         Examples
         --------
         from langfuse import FernLangfuse
-        from langfuse.resources.prompts import (
-            ChatMessageWithPlaceholders_Chatmessage,
-            CreatePromptRequest_Chat,
-        )
+        from langfuse.resources.prompts import ChatMessage, CreatePromptRequest_Chat
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -187,11 +184,11 @@ class PromptsClient:
             request=CreatePromptRequest_Chat(
                 name="name",
                 prompt=[
-                    ChatMessageWithPlaceholders_Chatmessage(
+                    ChatMessage(
                         role="role",
                         content="content",
                     ),
-                    ChatMessageWithPlaceholders_Chatmessage(
+                    ChatMessage(
                         role="role",
                         content="content",
                     ),
@@ -379,10 +376,7 @@ class AsyncPromptsClient:
         import asyncio
 
         from langfuse import AsyncFernLangfuse
-        from langfuse.resources.prompts import (
-            ChatMessageWithPlaceholders_Chatmessage,
-            CreatePromptRequest_Chat,
-        )
+        from langfuse.resources.prompts import ChatMessage, CreatePromptRequest_Chat
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -399,11 +393,11 @@ class AsyncPromptsClient:
                 request=CreatePromptRequest_Chat(
                     name="name",
                     prompt=[
-                        ChatMessageWithPlaceholders_Chatmessage(
+                        ChatMessage(
                             role="role",
                             content="content",
                         ),
-                        ChatMessageWithPlaceholders_Chatmessage(
+                        ChatMessage(
                             role="role",
                             content="content",
                         ),

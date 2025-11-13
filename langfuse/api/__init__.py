@@ -36,8 +36,6 @@ if typing.TYPE_CHECKING:
         CategoricalScoreV1,
         ChatMessage,
         ChatMessageWithPlaceholders,
-        ChatMessageWithPlaceholders_Chatmessage,
-        ChatMessageWithPlaceholders_Placeholder,
         ChatPrompt,
         Comment,
         CommentObjectType,
@@ -191,9 +189,6 @@ if typing.TYPE_CHECKING:
         ScoreEvent,
         ScoreSource,
         ScoreV1,
-        ScoreV1_Boolean,
-        ScoreV1_Categorical,
-        ScoreV1_Numeric,
         Score_Boolean,
         Score_Categorical,
         Score_Numeric,
@@ -283,8 +278,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CategoricalScoreV1": ".resources",
     "ChatMessage": ".resources",
     "ChatMessageWithPlaceholders": ".resources",
-    "ChatMessageWithPlaceholders_Chatmessage": ".resources",
-    "ChatMessageWithPlaceholders_Placeholder": ".resources",
     "ChatPrompt": ".resources",
     "Comment": ".resources",
     "CommentObjectType": ".resources",
@@ -439,9 +432,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScoreEvent": ".resources",
     "ScoreSource": ".resources",
     "ScoreV1": ".resources",
-    "ScoreV1_Boolean": ".resources",
-    "ScoreV1_Categorical": ".resources",
-    "ScoreV1_Numeric": ".resources",
     "Score_Boolean": ".resources",
     "Score_Categorical": ".resources",
     "Score_Numeric": ".resources",
@@ -523,7 +513,7 @@ def __getattr__(attr_name: str) -> typing.Any:
         ) from e
 
 
-def __dir__() -> list[str]:
+def __dir__():
     lazy_attrs = list(_dynamic_imports.keys())
     return sorted(lazy_attrs)
 
@@ -559,8 +549,6 @@ __all__ = [
     "CategoricalScoreV1",
     "ChatMessage",
     "ChatMessageWithPlaceholders",
-    "ChatMessageWithPlaceholders_Chatmessage",
-    "ChatMessageWithPlaceholders_Placeholder",
     "ChatPrompt",
     "Comment",
     "CommentObjectType",
@@ -715,9 +703,6 @@ __all__ = [
     "ScoreEvent",
     "ScoreSource",
     "ScoreV1",
-    "ScoreV1_Boolean",
-    "ScoreV1_Categorical",
-    "ScoreV1_Numeric",
     "Score_Boolean",
     "Score_Categorical",
     "Score_Numeric",

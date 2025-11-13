@@ -35,12 +35,7 @@ if typing.TYPE_CHECKING:
     from .score_config import ScoreConfig
     from .score_data_type import ScoreDataType
     from .score_source import ScoreSource
-    from .score_v_1 import (
-        ScoreV1,
-        ScoreV1_Boolean,
-        ScoreV1_Categorical,
-        ScoreV1_Numeric,
-    )
+    from .score_v_1 import ScoreV1
     from .session import Session
     from .session_with_traces import SessionWithTraces
     from .trace import Trace
@@ -78,9 +73,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScoreDataType": ".score_data_type",
     "ScoreSource": ".score_source",
     "ScoreV1": ".score_v_1",
-    "ScoreV1_Boolean": ".score_v_1",
-    "ScoreV1_Categorical": ".score_v_1",
-    "ScoreV1_Numeric": ".score_v_1",
     "Score_Boolean": ".score",
     "Score_Categorical": ".score",
     "Score_Numeric": ".score",
@@ -151,9 +143,6 @@ __all__ = [
     "ScoreDataType",
     "ScoreSource",
     "ScoreV1",
-    "ScoreV1_Boolean",
-    "ScoreV1_Categorical",
-    "ScoreV1_Numeric",
     "Score_Boolean",
     "Score_Categorical",
     "Score_Numeric",
