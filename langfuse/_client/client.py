@@ -2886,95 +2886,96 @@ class Langfuse:
                 )
                 raise e
 
-            # Run evaluators
-            evaluations = []
+        # Run evaluators
+        evaluations = []
 
-            for evaluator in evaluators:
-                try:
-                    eval_metadata: Optional[Dict[str, Any]] = None
+        for evaluator in evaluators:
+            try:
+                eval_metadata: Optional[Dict[str, Any]] = None
 
-                    if isinstance(item, dict):
-                        eval_metadata = item.get("metadata")
-                    elif hasattr(item, "metadata"):
-                        eval_metadata = item.metadata
+                if isinstance(item, dict):
+                    eval_metadata = item.get("metadata")
+                elif hasattr(item, "metadata"):
+                    eval_metadata = item.metadata
 
-                    eval_results = await _run_evaluator(
-                        evaluator,
-                        input=input_data,
-                        output=output,
-                        expected_output=expected_output,
-                        metadata=eval_metadata,
-                    )
-                    evaluations.extend(eval_results)
+                eval_results = await _run_evaluator(
+                    evaluator,
+                    input=input_data,
+                    output=output,
+                    expected_output=expected_output,
+                    metadata=eval_metadata,
+                )
+                evaluations.extend(eval_results)
 
-                    # Store evaluations as scores
-                    for evaluation in eval_results:
-                        self.create_score(
-                            trace_id=trace_id,
-                            observation_id=span.id,
-                            name=evaluation.name,
-                            value=evaluation.value,  # type: ignore
-                            comment=evaluation.comment,
-                            metadata=evaluation.metadata,
-                            config_id=evaluation.config_id,
-                            data_type=evaluation.data_type,  # type: ignore
-                        )
-
-                except Exception as e:
-                    langfuse_logger.error(f"Evaluator failed: {e}")
-
-            # Run composite evaluator if provided and we have evaluations
-            if composite_evaluator and evaluations:
-                try:
-                    composite_eval_metadata: Optional[Dict[str, Any]] = None
-                    if isinstance(item, dict):
-                        composite_eval_metadata = item.get("metadata")
-                    elif hasattr(item, "metadata"):
-                        composite_eval_metadata = item.metadata
-
-                    result = composite_evaluator(
-                        input=input_data,
-                        output=output,
-                        expected_output=expected_output,
-                        metadata=composite_eval_metadata,
-                        evaluations=evaluations,
+                # Store evaluations as scores
+                for evaluation in eval_results:
+                    self.create_score(
+                        trace_id=trace_id,
+                        observation_id=span.id,
+                        name=evaluation.name,
+                        value=evaluation.value,  # type: ignore
+                        comment=evaluation.comment,
+                        metadata=evaluation.metadata,
+                        config_id=evaluation.config_id,
+                        data_type=evaluation.data_type,  # type: ignore
                     )
 
-                    # Handle async composite evaluators
-                    if asyncio.iscoroutine(result):
-                        result = await result
+            except Exception as e:
+                langfuse_logger.error(f"Evaluator failed: {e}")
 
-                    # Normalize to list
-                    composite_evals: List[Evaluation] = []
-                    if isinstance(result, (dict, Evaluation)):
-                        composite_evals = [result]  # type: ignore
-                    elif isinstance(result, list):
-                        composite_evals = result  # type: ignore
 
-                    # Store composite evaluations as scores and add to evaluations list
-                    for composite_evaluation in composite_evals:
-                        self.create_score(
-                            trace_id=trace_id,
-                            observation_id=span.id,
-                            name=composite_evaluation.name,
-                            value=composite_evaluation.value,  # type: ignore
-                            comment=composite_evaluation.comment,
-                            metadata=composite_evaluation.metadata,
-                            config_id=composite_evaluation.config_id,
-                            data_type=composite_evaluation.data_type,  # type: ignore
-                        )
-                        evaluations.append(composite_evaluation)
+        # Run composite evaluator if provided and we have evaluations
+        if composite_evaluator and evaluations:
+            try:
+                composite_eval_metadata: Optional[Dict[str, Any]] = None
+                if isinstance(item, dict):
+                    composite_eval_metadata = item.get("metadata")
+                elif hasattr(item, "metadata"):
+                    composite_eval_metadata = item.metadata
 
-                except Exception as e:
-                    langfuse_logger.error(f"Composite evaluator failed: {e}")
+                result = composite_evaluator(
+                    input=input_data,
+                    output=output,
+                    expected_output=expected_output,
+                    metadata=composite_eval_metadata,
+                    evaluations=evaluations,
+                )
 
-            return ExperimentItemResult(
-                item=item,
-                output=output,
-                evaluations=evaluations,
-                trace_id=trace_id,
-                dataset_run_id=dataset_run_id,
-            )
+                # Handle async composite evaluators
+                if asyncio.iscoroutine(result):
+                    result = await result
+
+                # Normalize to list
+                composite_evals: List[Evaluation] = []
+                if isinstance(result, (dict, Evaluation)):
+                    composite_evals = [result]  # type: ignore
+                elif isinstance(result, list):
+                    composite_evals = result  # type: ignore
+
+                # Store composite evaluations as scores and add to evaluations list
+                for composite_evaluation in composite_evals:
+                    self.create_score(
+                        trace_id=trace_id,
+                        observation_id=span.id,
+                        name=composite_evaluation.name,
+                        value=composite_evaluation.value,  # type: ignore
+                        comment=composite_evaluation.comment,
+                        metadata=composite_evaluation.metadata,
+                        config_id=composite_evaluation.config_id,
+                        data_type=composite_evaluation.data_type,  # type: ignore
+                    )
+                    evaluations.append(composite_evaluation)
+
+            except Exception as e:
+                langfuse_logger.error(f"Composite evaluator failed: {e}")
+
+        return ExperimentItemResult(
+            item=item,
+            output=output,
+            evaluations=evaluations,
+            trace_id=trace_id,
+            dataset_run_id=dataset_run_id,
+        )
 
     def _create_experiment_run_name(
         self, *, name: Optional[str] = None, run_name: Optional[str] = None
