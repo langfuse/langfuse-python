@@ -2923,7 +2923,6 @@ class Langfuse:
             except Exception as e:
                 langfuse_logger.error(f"Evaluator failed: {e}")
 
-
         # Run composite evaluator if provided and we have evaluations
         if composite_evaluator and evaluations:
             try:
