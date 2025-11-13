@@ -7,17 +7,13 @@ from queue import Empty, Queue
 from typing import Any, List, Optional
 
 import backoff
-
-from ..version import __version__ as langfuse_version
-
-try:
-    import pydantic.v1 as pydantic
-except ImportError:
-    import pydantic  # type: ignore
+import pydantic
 
 from langfuse._utils.parse_error import handle_exception
 from langfuse._utils.request import APIError, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
+
+from ..version import __version__ as langfuse_version
 
 MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000_000))
 MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))
@@ -79,7 +75,7 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 # convert pydantic models to dicts
                 if "body" in event and isinstance(event["body"], pydantic.BaseModel):
-                    event["body"] = event["body"].dict(exclude_none=True)
+                    event["body"] = event["body"].model_dump(exclude_none=True)
 
                 item_size = self._get_item_size(event)
 
@@ -156,7 +152,7 @@ class ScoreIngestionConsumer(threading.Thread):
             sdk_name="python",
             sdk_version=langfuse_version,
             public_key=self._public_key,
-        ).dict()
+        ).model_dump()
 
         @backoff.on_exception(
             backoff.expo, Exception, max_tries=self._max_retries, logger=None
