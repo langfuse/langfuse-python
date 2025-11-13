@@ -148,5 +148,5 @@ class ScoreV1_Boolean(UniversalBaseModel):
 
 ScoreV1 = typing_extensions.Annotated[
     typing.Union[ScoreV1_Numeric, ScoreV1_Categorical, ScoreV1_Boolean],
-    pydantic.Field(discriminator="dataType"),
+    pydantic.Field(discriminator="data_type"),
 ]
