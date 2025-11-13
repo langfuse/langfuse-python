@@ -106,33 +106,33 @@ def test_run_experiment_on_local_dataset(sample_dataset):
         assert trace is not None, f"Trace {trace_id} should exist"
 
         # Validate trace name
-        assert (
-            trace.name == "experiment-item-run"
-        ), f"Trace {trace_id} should have correct name"
+        assert trace.name == "experiment-item-run", (
+            f"Trace {trace_id} should have correct name"
+        )
 
         # Validate trace input - should contain the experiment item
         assert trace.input is not None, f"Trace {trace_id} should have input"
         expected_input = expected_inputs[i]
         # The input should contain the item data in some form
-        assert expected_input in str(
-            trace.input
-        ), f"Trace {trace_id} input should contain '{expected_input}'"
+        assert expected_input in str(trace.input), (
+            f"Trace {trace_id} input should contain '{expected_input}'"
+        )
 
         # Validate trace output - should be the task result
         assert trace.output is not None, f"Trace {trace_id} should have output"
         expected_output = expected_outputs[i]
-        assert (
-            trace.output == expected_output
-        ), f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
+        assert trace.output == expected_output, (
+            f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
+        )
 
         # Validate trace metadata contains experiment name
         assert trace.metadata is not None, f"Trace {trace_id} should have metadata"
-        assert (
-            "experiment_name" in trace.metadata
-        ), f"Trace {trace_id} metadata should contain experiment_name"
-        assert (
-            trace.metadata["experiment_name"] == "Euro capitals"
-        ), f"Trace {trace_id} metadata should have correct experiment_name"
+        assert "experiment_name" in trace.metadata, (
+            f"Trace {trace_id} metadata should contain experiment_name"
+        )
+        assert trace.metadata["experiment_name"] == "Euro capitals", (
+            f"Trace {trace_id} metadata should have correct experiment_name"
+        )
 
 
 def test_run_experiment_on_langfuse_dataset():
@@ -199,9 +199,9 @@ def test_run_experiment_on_langfuse_dataset():
         assert trace is not None, f"Trace {trace_id} should exist"
 
         # Validate trace name
-        assert (
-            trace.name == "experiment-item-run"
-        ), f"Trace {trace_id} should have correct name"
+        assert trace.name == "experiment-item-run", (
+            f"Trace {trace_id} should have correct name"
+        )
 
         # Validate trace input and output match expected pairs
         assert trace.input is not None, f"Trace {trace_id} should have input"
@@ -214,54 +214,54 @@ def test_run_experiment_on_langfuse_dataset():
                 matching_input = expected_input
                 break
 
-        assert (
-            matching_input is not None
-        ), f"Trace {trace_id} input '{trace_input_str}' should contain one of {list(expected_data.keys())}"
+        assert matching_input is not None, (
+            f"Trace {trace_id} input '{trace_input_str}' should contain one of {list(expected_data.keys())}"
+        )
 
         # Validate trace output matches the expected output for this input
         assert trace.output is not None, f"Trace {trace_id} should have output"
         expected_output = expected_data[matching_input]
-        assert (
-            trace.output == expected_output
-        ), f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
+        assert trace.output == expected_output, (
+            f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
+        )
 
         # Validate trace metadata contains experiment and dataset info
         assert trace.metadata is not None, f"Trace {trace_id} should have metadata"
-        assert (
-            "experiment_name" in trace.metadata
-        ), f"Trace {trace_id} metadata should contain experiment_name"
-        assert (
-            trace.metadata["experiment_name"] == experiment_name
-        ), f"Trace {trace_id} metadata should have correct experiment_name"
+        assert "experiment_name" in trace.metadata, (
+            f"Trace {trace_id} metadata should contain experiment_name"
+        )
+        assert trace.metadata["experiment_name"] == experiment_name, (
+            f"Trace {trace_id} metadata should have correct experiment_name"
+        )
 
         # Validate dataset-specific metadata fields
-        assert (
-            "dataset_id" in trace.metadata
-        ), f"Trace {trace_id} metadata should contain dataset_id"
-        assert (
-            trace.metadata["dataset_id"] == dataset.id
-        ), f"Trace {trace_id} metadata should have correct dataset_id"
+        assert "dataset_id" in trace.metadata, (
+            f"Trace {trace_id} metadata should contain dataset_id"
+        )
+        assert trace.metadata["dataset_id"] == dataset.id, (
+            f"Trace {trace_id} metadata should have correct dataset_id"
+        )
 
-        assert (
-            "dataset_item_id" in trace.metadata
-        ), f"Trace {trace_id} metadata should contain dataset_item_id"
+        assert "dataset_item_id" in trace.metadata, (
+            f"Trace {trace_id} metadata should contain dataset_item_id"
+        )
         # Get the dataset item ID from metadata and validate it exists
         dataset_item_id = trace.metadata["dataset_item_id"]
-        assert (
-            dataset_item_id in dataset_item_map
-        ), f"Trace {trace_id} metadata dataset_item_id should correspond to a valid dataset item"
+        assert dataset_item_id in dataset_item_map, (
+            f"Trace {trace_id} metadata dataset_item_id should correspond to a valid dataset item"
+        )
 
         # Validate the dataset item input matches the trace input
         dataset_item = dataset_item_map[dataset_item_id]
-        assert (
-            dataset_item.input == matching_input
-        ), f"Trace {trace_id} should correspond to dataset item with input '{matching_input}'"
+        assert dataset_item.input == matching_input, (
+            f"Trace {trace_id} should correspond to dataset item with input '{matching_input}'"
+        )
 
     assert dataset_run is not None, f"Dataset run {dataset_run_id} should exist"
     assert dataset_run.name == result.run_name, "Dataset run should have correct name"
-    assert (
-        dataset_run.description == "Test on Langfuse dataset"
-    ), "Dataset run should have correct description"
+    assert dataset_run.description == "Test on Langfuse dataset", (
+        "Dataset run should have correct description"
+    )
 
     # Get dataset run items to verify trace linkage
     dataset_run_items = api.dataset_run_items.list(
@@ -797,3 +797,203 @@ def test_boolean_score_types():
 
         for score in trace.scores:
             assert score.data_type == "BOOLEAN"
+
+
+def test_experiment_composite_evaluator_weighted_average():
+    """Test composite evaluator in experiments that computes weighted average."""
+    langfuse_client = get_client()
+
+    def accuracy_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="accuracy", value=0.8)
+
+    def relevance_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="relevance", value=0.9)
+
+    def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
+        weights = {"accuracy": 0.6, "relevance": 0.4}
+        total = sum(
+            e.value * weights.get(e.name, 0)
+            for e in evaluations
+            if isinstance(e.value, (int, float))
+        )
+
+        return Evaluation(
+            name="composite_score",
+            value=total,
+            comment=f"Weighted average of {len(evaluations)} metrics",
+        )
+
+    data = [
+        {"input": "Test 1", "expected_output": "Output 1"},
+        {"input": "Test 2", "expected_output": "Output 2"},
+    ]
+
+    result = langfuse_client.run_experiment(
+        name=f"Composite Test {create_uuid()}",
+        data=data,
+        task=mock_task,
+        evaluators=[accuracy_evaluator, relevance_evaluator],
+        composite_evaluator=composite_evaluator,
+    )
+
+    # Verify results
+    assert len(result.item_results) == 2
+
+    for item_result in result.item_results:
+        # Should have 3 evaluations: accuracy, relevance, and composite_score
+        assert len(item_result.evaluations) == 3
+        eval_names = [e.name for e in item_result.evaluations]
+        assert "accuracy" in eval_names
+        assert "relevance" in eval_names
+        assert "composite_score" in eval_names
+
+        # Check composite score value
+        composite_eval = next(
+            e for e in item_result.evaluations if e.name == "composite_score"
+        )
+        expected_value = 0.8 * 0.6 + 0.9 * 0.4  # 0.84
+        assert abs(composite_eval.value - expected_value) < 0.001
+
+
+def test_experiment_composite_evaluator_pass_fail():
+    """Test composite evaluator in experiments that implements pass/fail logic."""
+
+    langfuse_client = get_client()
+
+    def metric1_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="metric1", value=0.9)
+
+    def metric2_evaluator(*, input, output, **kwargs):
+        return Evaluation(name="metric2", value=0.7)
+
+    def pass_fail_composite(*, input, output, expected_output, metadata, evaluations):
+        thresholds = {"metric1": 0.8, "metric2": 0.6}
+
+        passes = all(
+            e.value >= thresholds.get(e.name, 0)
+            for e in evaluations
+            if isinstance(e.value, (int, float))
+        )
+
+        return Evaluation(
+            name="passes_all_checks",
+            value=1.0 if passes else 0.0,
+            comment="All checks passed" if passes else "Some checks failed",
+        )
+
+    data = [{"input": "Test 1"}]
+
+    result = langfuse_client.run_experiment(
+        name=f"Pass/Fail Composite Test {create_uuid()}",
+        data=data,
+        task=mock_task,
+        evaluators=[metric1_evaluator, metric2_evaluator],
+        composite_evaluator=pass_fail_composite,
+    )
+
+    # Verify composite evaluation
+    assert len(result.item_results) == 1
+    item_result = result.item_results[0]
+    assert len(item_result.evaluations) == 3
+
+    composite_eval = next(
+        e for e in item_result.evaluations if e.name == "passes_all_checks"
+    )
+    assert composite_eval.value == 1.0
+    assert composite_eval.comment == "All checks passed"
+
+
+@pytest.mark.asyncio
+async def test_experiment_async_composite_evaluator():
+    """Test async composite evaluator in experiments."""
+    import asyncio
+
+    langfuse_client = get_client()
+
+    def evaluator1(*, input, output, **kwargs):
+        return Evaluation(name="eval1", value=0.8)
+
+    async def async_composite(*, input, output, expected_output, metadata, evaluations):
+        await asyncio.sleep(0.01)  # Simulate async processing
+        avg = sum(
+            e.value for e in evaluations if isinstance(e.value, (int, float))
+        ) / len(evaluations)
+        return Evaluation(name="async_composite", value=avg)
+
+    data = [{"input": "Test 1"}]
+
+    result = langfuse_client.run_experiment(
+        name=f"Async Composite Test {create_uuid()}",
+        data=data,
+        task=mock_task,
+        evaluators=[evaluator1],
+        composite_evaluator=async_composite,
+    )
+
+    # Verify async composite evaluation
+    assert len(result.item_results) == 1
+    item_result = result.item_results[0]
+    assert len(item_result.evaluations) == 2
+
+    composite_eval = next(
+        e for e in item_result.evaluations if e.name == "async_composite"
+    )
+    assert composite_eval.value == 0.8
+
+
+def test_experiment_composite_evaluator_with_no_evaluations():
+    """Test composite evaluator in experiments when no evaluations are present."""
+
+    langfuse_client = get_client()
+
+    def always_failing_evaluator(*, input, output, **kwargs):
+        raise Exception("Always fails")
+
+    def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
+        # Should not be called if no evaluations succeed
+        return Evaluation(name="composite", value=0.0)
+
+    data = [{"input": "Test 1"}]
+
+    result = langfuse_client.run_experiment(
+        name=f"No Evals Composite Test {create_uuid()}",
+        data=data,
+        task=mock_task,
+        evaluators=[always_failing_evaluator],
+        composite_evaluator=composite_evaluator,
+    )
+
+    # Composite evaluator should not run if no evaluations
+    assert len(result.item_results) == 1
+    item_result = result.item_results[0]
+    # Should have no evaluations since the evaluator failed
+    assert len(item_result.evaluations) == 0
+
+
+def test_experiment_composite_evaluator_failure_handling():
+    """Test that composite evaluator failures are handled gracefully in experiments."""
+
+    langfuse_client = get_client()
+
+    def evaluator1(*, input, output, **kwargs):
+        return Evaluation(name="eval1", value=0.8)
+
+    def failing_composite(*, input, output, expected_output, metadata, evaluations):
+        raise ValueError("Composite evaluator failed")
+
+    data = [{"input": "Test 1"}]
+
+    result = langfuse_client.run_experiment(
+        name=f"Failing Composite Test {create_uuid()}",
+        data=data,
+        task=mock_task,
+        evaluators=[evaluator1],
+        composite_evaluator=failing_composite,
+    )
+
+    # Regular evaluations should still be present
+    assert len(result.item_results) == 1
+    item_result = result.item_results[0]
+    # Should only have the regular evaluation, not the composite one
+    assert len(item_result.evaluations) == 1
+    assert item_result.evaluations[0].name == "eval1"

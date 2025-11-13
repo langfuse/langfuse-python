@@ -2465,6 +2465,7 @@ class Langfuse:
         data: ExperimentData,
         task: TaskFunction,
         evaluators: List[EvaluatorFunction] = [],
+        composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
@@ -2500,6 +2501,10 @@ class Langfuse:
             evaluators: List of functions to evaluate each item's output individually.
                 Each evaluator receives input, output, expected_output, and metadata.
                 Can return single Evaluation dict or list of Evaluation dicts.
+            composite_evaluator: Optional function that creates composite scores from item-level evaluations.
+                Receives the same inputs as item-level evaluators (input, output, expected_output, metadata)
+                plus the list of evaluations from item-level evaluators. Useful for weighted averages,
+                pass/fail decisions based on multiple criteria, or custom scoring logic combining multiple metrics.
             run_evaluators: List of functions to evaluate the entire experiment run.
                 Each run evaluator receives all item_results and can compute aggregate metrics.
                 Useful for calculating averages, distributions, or cross-item comparisons.
@@ -2637,6 +2642,7 @@ class Langfuse:
                     data=data,
                     task=task,
                     evaluators=evaluators or [],
+                    composite_evaluator=composite_evaluator,
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
                     metadata=metadata,
@@ -2653,6 +2659,7 @@ class Langfuse:
         data: ExperimentData,
         task: TaskFunction,
         evaluators: List[EvaluatorFunction],
+        composite_evaluator: Optional[CompositeEvaluatorFunction],
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
         metadata: Optional[Dict[str, Any]] = None,
@@ -2668,7 +2675,14 @@ class Langfuse:
         async def process_item(item: ExperimentItem) -> ExperimentItemResult:
             async with semaphore:
                 return await self._process_experiment_item(
-                    item, task, evaluators, name, run_name, description, metadata
+                    item,
+                    task,
+                    evaluators,
+                    composite_evaluator,
+                    name,
+                    run_name,
+                    description,
+                    metadata,
                 )
 
         # Run all items concurrently
@@ -2750,6 +2764,7 @@ class Langfuse:
         item: ExperimentItem,
         task: Callable,
         evaluators: List[Callable],
+        composite_evaluator: Optional[CompositeEvaluatorFunction],
         experiment_name: str,
         experiment_run_name: str,
         experiment_description: Optional[str],
@@ -2907,6 +2922,51 @@ class Langfuse:
 
                 except Exception as e:
                     langfuse_logger.error(f"Evaluator failed: {e}")
+
+            # Run composite evaluator if provided and we have evaluations
+            if composite_evaluator and evaluations:
+                try:
+                    composite_eval_metadata: Optional[Dict[str, Any]] = None
+                    if isinstance(item, dict):
+                        composite_eval_metadata = item.get("metadata")
+                    elif hasattr(item, "metadata"):
+                        composite_eval_metadata = item.metadata
+
+                    result = composite_evaluator(
+                        input=input_data,
+                        output=output,
+                        expected_output=expected_output,
+                        metadata=composite_eval_metadata,
+                        evaluations=evaluations,
+                    )
+
+                    # Handle async composite evaluators
+                    if asyncio.iscoroutine(result):
+                        result = await result
+
+                    # Normalize to list
+                    composite_evals: List[Evaluation] = []
+                    if isinstance(result, (dict, Evaluation)):
+                        composite_evals = [result]  # type: ignore
+                    elif isinstance(result, list):
+                        composite_evals = result  # type: ignore
+
+                    # Store composite evaluations as scores and add to evaluations list
+                    for composite_evaluation in composite_evals:
+                        self.create_score(
+                            trace_id=trace_id,
+                            observation_id=span.id,
+                            name=composite_evaluation.name,
+                            value=composite_evaluation.value,  # type: ignore
+                            comment=composite_evaluation.comment,
+                            metadata=composite_evaluation.metadata,
+                            config_id=composite_evaluation.config_id,
+                            data_type=composite_evaluation.data_type,  # type: ignore
+                        )
+                        evaluations.append(composite_evaluation)
+
+                except Exception as e:
+                    langfuse_logger.error(f"Composite evaluator failed: {e}")
 
             return ExperimentItemResult(
                 item=item,

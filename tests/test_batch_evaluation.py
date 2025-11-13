@@ -466,7 +466,7 @@ def test_composite_evaluator_weighted_average(sample_traces, langfuse_client):
     def relevance_evaluator(*, input, output, **kwargs):
         return Evaluation(name="relevance", value=0.9)
 
-    def composite_evaluator(*, item, evaluations):
+    def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
         weights = {"accuracy": 0.6, "relevance": 0.4}
         total = sum(
             e.value * weights.get(e.name, 0)
@@ -503,7 +503,7 @@ def test_composite_evaluator_pass_fail(sample_traces, langfuse_client):
     def metric2_evaluator(*, input, output, **kwargs):
         return Evaluation(name="metric2", value=0.7)
 
-    def pass_fail_composite(*, item, evaluations):
+    def pass_fail_composite(*, input, output, expected_output, metadata, evaluations):
         thresholds = {"metric1": 0.8, "metric2": 0.6}
 
         passes = all(
@@ -536,7 +536,7 @@ async def test_async_composite_evaluator(sample_traces, langfuse_client):
     def evaluator1(*, input, output, **kwargs):
         return Evaluation(name="eval1", value=0.8)
 
-    async def async_composite(*, item, evaluations):
+    async def async_composite(*, input, output, expected_output, metadata, evaluations):
         await asyncio.sleep(0.01)  # Simulate async processing
         avg = sum(
             e.value for e in evaluations if isinstance(e.value, (int, float))
@@ -560,7 +560,7 @@ def test_composite_evaluator_with_no_evaluations(sample_traces, langfuse_client)
     def always_failing_evaluator(*, input, output, **kwargs):
         raise Exception("Always fails")
 
-    def composite_evaluator(*, item, evaluations):
+    def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
         # Should not be called if no evaluations succeed
         return Evaluation(name="composite", value=0.0)
 
@@ -582,7 +582,7 @@ def test_composite_evaluator_failure_handling(sample_traces, langfuse_client):
     def evaluator1(*, input, output, **kwargs):
         return Evaluation(name="eval1", value=0.8)
 
-    def failing_composite(*, item, evaluations):
+    def failing_composite(*, input, output, expected_output, metadata, evaluations):
         raise ValueError("Composite evaluator failed")
 
     result = langfuse_client.run_batched_evaluation(

@@ -109,12 +109,12 @@ class TestDeprecationWarnings:
             deprecation_warnings = [
                 w for w in warning_list if issubclass(w.category, DeprecationWarning)
             ]
-            assert (
-                len(deprecation_warnings) > 0
-            ), f"No DeprecationWarning emitted for {target}.{method_name}"
+            assert len(deprecation_warnings) > 0, (
+                f"No DeprecationWarning emitted for {target}.{method_name}"
+            )
 
             # Check that the warning message matches expected
             warning_messages = [str(w.message) for w in deprecation_warnings]
-            assert (
-                expected_message in warning_messages
-            ), f"Expected warning message not found for {target}.{method_name}. Got: {warning_messages}"
+            assert expected_message in warning_messages, (
+                f"Expected warning message not found for {target}.{method_name}. Got: {warning_messages}"
+            )
