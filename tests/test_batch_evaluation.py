@@ -32,34 +32,6 @@ def langfuse_client():
 
 
 @pytest.fixture
-def sample_traces(langfuse_client):
-    """Create sample traces in Langfuse for testing.
-
-    Returns:
-        List of trace IDs created
-    """
-    trace_ids = []
-    test_session_id = f"test-session-{create_uuid()}"
-
-    for i in range(5):
-        trace_name = f"batch-eval-test-{create_uuid()}"
-        with langfuse_client.start_as_current_span(name=trace_name) as span:
-            span.update_trace(
-                input=f"Test input {i}",
-                output=f"Test output {i}",
-                metadata={"test_index": i, "test_type": "batch_eval"},
-                session_id=test_session_id,
-                tags=["test", "batch_evaluation"],
-            )
-            trace_ids.append(langfuse_client.get_current_trace_id())
-
-    langfuse_client.flush()
-    time.sleep(3)  # Wait for API processing
-
-    return trace_ids
-
-
-@pytest.fixture
 def sample_trace_name():
     """Generate a unique trace name for filtering."""
     return f"batch-eval-test-{create_uuid()}"
@@ -92,7 +64,7 @@ def simple_evaluator(*, input, output, expected_output=None, metadata=None, **kw
 # ============================================================================
 
 
-def test_run_batched_evaluation_on_traces_basic(sample_traces, langfuse_client):
+def test_run_batched_evaluation_on_traces_basic(langfuse_client):
     """Test basic batch evaluation on traces."""
     result = langfuse_client.run_batched_evaluation(
         scope="traces",
@@ -118,7 +90,7 @@ def test_run_batched_evaluation_on_traces_basic(sample_traces, langfuse_client):
     assert stats.name == "simple_evaluator"
 
 
-def test_batch_evaluation_with_filter(sample_traces, langfuse_client):
+def test_batch_evaluation_with_filter(langfuse_client):
     """Test batch evaluation with JSON filter."""
     # Create a trace with specific tag
     unique_tag = f"test-filter-{create_uuid()}"
@@ -150,7 +122,7 @@ def test_batch_evaluation_with_filter(sample_traces, langfuse_client):
     assert result.completed is True
 
 
-def test_batch_evaluation_with_metadata(sample_traces, langfuse_client):
+def test_batch_evaluation_with_metadata(langfuse_client):
     """Test that additional metadata is added to all scores."""
 
     def metadata_checking_evaluator(*, input, output, metadata=None, **kwargs):
@@ -184,7 +156,7 @@ def test_batch_evaluation_with_metadata(sample_traces, langfuse_client):
     assert result.completed is True
 
 
-def test_result_structure_fields(sample_traces, langfuse_client):
+def test_result_structure_fields(langfuse_client):
     """Test that BatchEvaluationResult has all expected fields."""
     result = langfuse_client.run_batched_evaluation(
         scope="traces",
@@ -223,7 +195,7 @@ def test_result_structure_fields(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_simple_mapper(sample_traces, langfuse_client):
+def test_simple_mapper(langfuse_client):
     """Test basic mapper functionality."""
 
     def custom_mapper(*, item):
@@ -245,7 +217,7 @@ def test_simple_mapper(sample_traces, langfuse_client):
 
 
 @pytest.mark.asyncio
-async def test_async_mapper(sample_traces, langfuse_client):
+async def test_async_mapper(langfuse_client):
     """Test that async mappers work correctly."""
 
     async def async_mapper(*, item):
@@ -268,7 +240,7 @@ async def test_async_mapper(sample_traces, langfuse_client):
     assert result.total_items_processed > 0
 
 
-def test_mapper_failure_handling(sample_traces, langfuse_client):
+def test_mapper_failure_handling(langfuse_client):
     """Test that mapper failures cause items to be skipped."""
 
     def failing_mapper(*, item):
@@ -287,7 +259,7 @@ def test_mapper_failure_handling(sample_traces, langfuse_client):
     assert "ValueError" in result.error_summary or "Exception" in result.error_summary
 
 
-def test_mapper_with_missing_fields(sample_traces, langfuse_client):
+def test_mapper_with_missing_fields(langfuse_client):
     """Test mapper handles traces with missing fields gracefully."""
 
     def robust_mapper(*, item):
@@ -317,7 +289,7 @@ def test_mapper_with_missing_fields(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_single_evaluator(sample_traces, langfuse_client):
+def test_single_evaluator(langfuse_client):
     """Test with a single evaluator."""
 
     def quality_evaluator(*, input, output, **kwargs):
@@ -335,7 +307,7 @@ def test_single_evaluator(sample_traces, langfuse_client):
     assert result.evaluator_stats[0].name == "quality_evaluator"
 
 
-def test_multiple_evaluators(sample_traces, langfuse_client):
+def test_multiple_evaluators(langfuse_client):
     """Test with multiple evaluators running in parallel."""
 
     def accuracy_evaluator(*, input, output, **kwargs):
@@ -360,7 +332,7 @@ def test_multiple_evaluators(sample_traces, langfuse_client):
 
 
 @pytest.mark.asyncio
-async def test_async_evaluator(sample_traces, langfuse_client):
+async def test_async_evaluator(langfuse_client):
     """Test that async evaluators work correctly."""
 
     async def async_evaluator(*, input, output, **kwargs):
@@ -377,7 +349,7 @@ async def test_async_evaluator(sample_traces, langfuse_client):
     assert result.total_scores_created > 0
 
 
-def test_evaluator_returning_list(sample_traces, langfuse_client):
+def test_evaluator_returning_list(langfuse_client):
     """Test evaluator that returns multiple Evaluations."""
 
     def multi_score_evaluator(*, input, output, **kwargs):
@@ -398,7 +370,7 @@ def test_evaluator_returning_list(sample_traces, langfuse_client):
     assert result.total_scores_created >= result.total_items_processed * 3
 
 
-def test_evaluator_failure_statistics(sample_traces, langfuse_client):
+def test_evaluator_failure_statistics(langfuse_client):
     """Test that evaluator failures are tracked in statistics."""
 
     def working_evaluator(*, input, output, **kwargs):
@@ -433,7 +405,7 @@ def test_evaluator_failure_statistics(sample_traces, langfuse_client):
     assert result.total_evaluations_failed > 0
 
 
-def test_mixed_sync_async_evaluators(sample_traces, langfuse_client):
+def test_mixed_sync_async_evaluators(langfuse_client):
     """Test mixing synchronous and asynchronous evaluators."""
 
     def sync_evaluator(*, input, output, **kwargs):
@@ -459,7 +431,7 @@ def test_mixed_sync_async_evaluators(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_composite_evaluator_weighted_average(sample_traces, langfuse_client):
+def test_composite_evaluator_weighted_average(langfuse_client):
     """Test composite evaluator that computes weighted average."""
 
     def accuracy_evaluator(*, input, output, **kwargs):
@@ -496,7 +468,7 @@ def test_composite_evaluator_weighted_average(sample_traces, langfuse_client):
     assert result.total_scores_created > result.total_composite_scores_created
 
 
-def test_composite_evaluator_pass_fail(sample_traces, langfuse_client):
+def test_composite_evaluator_pass_fail(langfuse_client):
     """Test composite evaluator that implements pass/fail logic."""
 
     def metric1_evaluator(*, input, output, **kwargs):
@@ -532,7 +504,7 @@ def test_composite_evaluator_pass_fail(sample_traces, langfuse_client):
 
 
 @pytest.mark.asyncio
-async def test_async_composite_evaluator(sample_traces, langfuse_client):
+async def test_async_composite_evaluator(langfuse_client):
     """Test async composite evaluator."""
 
     def evaluator1(*, input, output, **kwargs):
@@ -556,7 +528,7 @@ async def test_async_composite_evaluator(sample_traces, langfuse_client):
     assert result.total_composite_scores_created > 0
 
 
-def test_composite_evaluator_with_no_evaluations(sample_traces, langfuse_client):
+def test_composite_evaluator_with_no_evaluations(langfuse_client):
     """Test composite evaluator when no evaluations are present."""
 
     def always_failing_evaluator(*, input, output, **kwargs):
@@ -578,7 +550,7 @@ def test_composite_evaluator_with_no_evaluations(sample_traces, langfuse_client)
     assert result.total_composite_scores_created == 0
 
 
-def test_composite_evaluator_failure_handling(sample_traces, langfuse_client):
+def test_composite_evaluator_failure_handling(langfuse_client):
     """Test that composite evaluator failures are handled gracefully."""
 
     def evaluator1(*, input, output, **kwargs):
@@ -606,7 +578,7 @@ def test_composite_evaluator_failure_handling(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_mapper_failure_skips_item(sample_traces, langfuse_client):
+def test_mapper_failure_skips_item(langfuse_client):
     """Test that mapper failure causes item to be skipped."""
 
     call_count = {"count": 0}
@@ -629,7 +601,7 @@ def test_mapper_failure_skips_item(sample_traces, langfuse_client):
     assert result.total_items_processed > 0
 
 
-def test_evaluator_failure_continues(sample_traces, langfuse_client):
+def test_evaluator_failure_continues(langfuse_client):
     """Test that one evaluator failing doesn't stop others."""
 
     def working_evaluator1(*, input, output, **kwargs):
@@ -658,7 +630,7 @@ def test_evaluator_failure_continues(sample_traces, langfuse_client):
     assert failing_stats.failed_runs > 0
 
 
-def test_all_evaluators_fail(sample_traces, langfuse_client):
+def test_all_evaluators_fail(langfuse_client):
     """Test when all evaluators fail but item is still processed."""
 
     def failing_evaluator1(*, input, output, **kwargs):
@@ -706,7 +678,7 @@ def test_empty_results_handling(langfuse_client):
     assert result.has_more_items is False
 
 
-def test_max_items_zero(sample_traces, langfuse_client):
+def test_max_items_zero(langfuse_client):
     """Test with max_items=0 (should process no items)."""
     result = langfuse_client.run_batched_evaluation(
         scope="traces",
@@ -719,7 +691,7 @@ def test_max_items_zero(sample_traces, langfuse_client):
     assert result.total_items_processed == 0
 
 
-def test_evaluation_value_type_conversions(sample_traces, langfuse_client):
+def test_evaluation_value_type_conversions(langfuse_client):
     """Test that different evaluation value types are handled correctly."""
 
     def multi_type_evaluator(*, input, output, **kwargs):
@@ -746,7 +718,7 @@ def test_evaluation_value_type_conversions(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_pagination_with_max_items(sample_traces, langfuse_client):
+def test_pagination_with_max_items(langfuse_client):
     """Test that max_items limit is respected."""
     # Create more traces to ensure we have enough data
     for i in range(10):
@@ -777,7 +749,7 @@ def test_pagination_with_max_items(sample_traces, langfuse_client):
     assert result.total_items_processed <= 5
 
 
-def test_has_more_items_flag(sample_traces, langfuse_client):
+def test_has_more_items_flag(langfuse_client):
     """Test that has_more_items flag is set correctly when max_items is reached."""
     # Create enough traces to exceed max_items
     batch_tag = f"batch-test-{create_uuid()}"
@@ -808,7 +780,7 @@ def test_has_more_items_flag(sample_traces, langfuse_client):
         assert result.has_more_items is True
 
 
-def test_fetch_batch_size_parameter(sample_traces, langfuse_client):
+def test_fetch_batch_size_parameter(langfuse_client):
     """Test that different fetch_batch_size values work correctly."""
     for batch_size in [1, 5, 10]:
         result = langfuse_client.run_batched_evaluation(
@@ -850,7 +822,7 @@ def test_resume_token_structure(langfuse_client):
 # ============================================================================
 
 
-def test_max_concurrency_parameter(sample_traces, langfuse_client):
+def test_max_concurrency_parameter(langfuse_client):
     """Test that max_concurrency parameter works correctly."""
     for concurrency in [1, 5, 10]:
         result = langfuse_client.run_batched_evaluation(
@@ -870,7 +842,7 @@ def test_max_concurrency_parameter(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_evaluator_stats_structure(sample_traces, langfuse_client):
+def test_evaluator_stats_structure(langfuse_client):
     """Test that EvaluatorStats has correct structure."""
 
     def test_evaluator(*, input, output, **kwargs):
@@ -900,7 +872,7 @@ def test_evaluator_stats_structure(sample_traces, langfuse_client):
     assert stats.failed_runs == 0
 
 
-def test_evaluator_stats_tracking(sample_traces, langfuse_client):
+def test_evaluator_stats_tracking(langfuse_client):
     """Test that evaluator statistics are tracked correctly."""
 
     call_count = {"count": 0}
@@ -925,7 +897,7 @@ def test_evaluator_stats_tracking(sample_traces, langfuse_client):
     assert stats.successful_runs + stats.failed_runs == stats.total_runs
 
 
-def test_error_summary_aggregation(sample_traces, langfuse_client):
+def test_error_summary_aggregation(langfuse_client):
     """Test that error types are aggregated correctly in error_summary."""
 
     def failing_mapper(*, item):
@@ -943,7 +915,7 @@ def test_error_summary_aggregation(sample_traces, langfuse_client):
     assert any("Error" in key for key in result.error_summary.keys())
 
 
-def test_failed_item_ids_collected(sample_traces, langfuse_client):
+def test_failed_item_ids_collected(langfuse_client):
     """Test that failed item IDs are collected."""
 
     def failing_mapper(*, item):
@@ -966,7 +938,7 @@ def test_failed_item_ids_collected(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_duration_tracking(sample_traces, langfuse_client):
+def test_duration_tracking(langfuse_client):
     """Test that duration is tracked correctly."""
     result = langfuse_client.run_batched_evaluation(
         scope="traces",
@@ -979,7 +951,7 @@ def test_duration_tracking(sample_traces, langfuse_client):
     assert result.duration_seconds < 60  # Should complete quickly for small batch
 
 
-def test_verbose_logging(sample_traces, langfuse_client):
+def test_verbose_logging(langfuse_client):
     """Test that verbose=True doesn't cause errors."""
     result = langfuse_client.run_batched_evaluation(
         scope="traces",
@@ -997,7 +969,7 @@ def test_verbose_logging(sample_traces, langfuse_client):
 # ============================================================================
 
 
-def test_item_evaluations_basic(sample_traces, langfuse_client):
+def test_item_evaluations_basic(langfuse_client):
     """Test that item_evaluations dict contains correct structure."""
 
     def test_evaluator(*, input, output, **kwargs):
@@ -1026,7 +998,7 @@ def test_item_evaluations_basic(sample_traces, langfuse_client):
         assert evaluations[0].name == "test_metric"
 
 
-def test_item_evaluations_multiple_evaluators(sample_traces, langfuse_client):
+def test_item_evaluations_multiple_evaluators(langfuse_client):
     """Test item_evaluations with multiple evaluators."""
 
     def accuracy_evaluator(*, input, output, **kwargs):
@@ -1052,7 +1024,7 @@ def test_item_evaluations_multiple_evaluators(sample_traces, langfuse_client):
         assert eval_names == {"accuracy", "relevance"}
 
 
-def test_item_evaluations_with_composite(sample_traces, langfuse_client):
+def test_item_evaluations_with_composite(langfuse_client):
     """Test that item_evaluations includes composite evaluations."""
 
     def base_evaluator(*, input, output, **kwargs):
@@ -1084,7 +1056,7 @@ def test_item_evaluations_with_composite(sample_traces, langfuse_client):
     assert result.total_composite_scores_created > 0
 
 
-def test_item_evaluations_empty_on_failure(sample_traces, langfuse_client):
+def test_item_evaluations_empty_on_failure(langfuse_client):
     """Test that failed items don't appear in item_evaluations."""
 
     def failing_mapper(*, item):

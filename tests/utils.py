@@ -17,7 +17,7 @@ def create_uuid():
 
 
 def get_api():
-    sleep(3)
+    sleep(2)
 
     return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
