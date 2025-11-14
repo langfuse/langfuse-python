@@ -25,7 +25,7 @@ from tests.utils import create_uuid
 # ============================================================================
 
 
-pytestmark = pytest.mark.skip(reason="Reason for skipping this file")
+pytestmark = pytest.mark.skip(reason="Github CI runner overwhelmed by score volume")
 
 
 @pytest.fixture
