@@ -3,83 +3,77 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
-class LlmConnection(pydantic_v1.BaseModel):
+class LlmConnection(UniversalBaseModel):
     """
     LLM API connection configuration (secrets excluded)
     """
 
     id: str
-    provider: str = pydantic_v1.Field()
+    provider: str = pydantic.Field()
     """
     Provider name (e.g., 'openai', 'my-gateway'). Must be unique in project, used for upserting.
     """
 
-    adapter: str = pydantic_v1.Field()
+    adapter: str = pydantic.Field()
     """
     The adapter used to interface with the LLM
     """
 
-    display_secret_key: str = pydantic_v1.Field(alias="displaySecretKey")
+    display_secret_key: typing_extensions.Annotated[
+        str, FieldMetadata(alias="displaySecretKey")
+    ] = pydantic.Field()
     """
     Masked version of the secret key for display purposes
     """
 
-    base_url: typing.Optional[str] = pydantic_v1.Field(alias="baseURL", default=None)
+    base_url: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="baseURL")
+    ] = pydantic.Field(default=None)
     """
     Custom base URL for the LLM API
     """
 
-    custom_models: typing.List[str] = pydantic_v1.Field(alias="customModels")
+    custom_models: typing_extensions.Annotated[
+        typing.List[str], FieldMetadata(alias="customModels")
+    ] = pydantic.Field()
     """
     List of custom model names available for this connection
     """
 
-    with_default_models: bool = pydantic_v1.Field(alias="withDefaultModels")
+    with_default_models: typing_extensions.Annotated[
+        bool, FieldMetadata(alias="withDefaultModels")
+    ] = pydantic.Field()
     """
     Whether to include default models for this adapter
     """
 
-    extra_header_keys: typing.List[str] = pydantic_v1.Field(alias="extraHeaderKeys")
+    extra_header_keys: typing_extensions.Annotated[
+        typing.List[str], FieldMetadata(alias="extraHeaderKeys")
+    ] = pydantic.Field()
     """
     Keys of extra headers sent with requests (values excluded for security)
     """
 
-    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
-    updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
+    ]
+    updated_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="updatedAt")
+    ]
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

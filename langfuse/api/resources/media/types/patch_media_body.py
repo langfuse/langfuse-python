@@ -3,64 +3,48 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
-class PatchMediaBody(pydantic_v1.BaseModel):
-    uploaded_at: dt.datetime = pydantic_v1.Field(alias="uploadedAt")
+class PatchMediaBody(UniversalBaseModel):
+    uploaded_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="uploadedAt")
+    ] = pydantic.Field()
     """
     The date and time when the media record was uploaded
     """
 
-    upload_http_status: int = pydantic_v1.Field(alias="uploadHttpStatus")
+    upload_http_status: typing_extensions.Annotated[
+        int, FieldMetadata(alias="uploadHttpStatus")
+    ] = pydantic.Field()
     """
     The HTTP status code of the upload
     """
 
-    upload_http_error: typing.Optional[str] = pydantic_v1.Field(
-        alias="uploadHttpError", default=None
-    )
+    upload_http_error: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="uploadHttpError")
+    ] = pydantic.Field(default=None)
     """
     The HTTP error message of the upload
     """
 
-    upload_time_ms: typing.Optional[int] = pydantic_v1.Field(
-        alias="uploadTimeMs", default=None
-    )
+    upload_time_ms: typing_extensions.Annotated[
+        typing.Optional[int], FieldMetadata(alias="uploadTimeMs")
+    ] = pydantic.Field(default=None)
     """
     The time in milliseconds it took to upload the media record
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

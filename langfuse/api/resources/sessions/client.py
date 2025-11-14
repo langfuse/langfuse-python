@@ -2,26 +2,28 @@
 
 import datetime as dt
 import typing
-from json.decoder import JSONDecodeError
 
-from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.datetime_utils import serialize_datetime
-from ...core.jsonable_encoder import jsonable_encoder
-from ...core.pydantic_utilities import pydantic_v1
 from ...core.request_options import RequestOptions
-from ..commons.errors.access_denied_error import AccessDeniedError
-from ..commons.errors.error import Error
-from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ..commons.errors.not_found_error import NotFoundError
-from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..commons.types.session_with_traces import SessionWithTraces
+from .raw_client import AsyncRawSessionsClient, RawSessionsClient
 from .types.paginated_sessions import PaginatedSessions
 
 
 class SessionsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = RawSessionsClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> RawSessionsClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        RawSessionsClient
+        """
+        return self._raw_client
 
     def list(
         self,
@@ -62,7 +64,7 @@ class SessionsClient:
 
         Examples
         --------
-        from langfuse.client import FernLangfuse
+        from langfuse import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -74,47 +76,15 @@ class SessionsClient:
         )
         client.sessions.list()
         """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/public/sessions",
-            method="GET",
-            params={
-                "page": page,
-                "limit": limit,
-                "fromTimestamp": serialize_datetime(from_timestamp)
-                if from_timestamp is not None
-                else None,
-                "toTimestamp": serialize_datetime(to_timestamp)
-                if to_timestamp is not None
-                else None,
-                "environment": environment,
-            },
+        _response = self._raw_client.list(
+            page=page,
+            limit=limit,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            environment=environment,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(PaginatedSessions, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     def get(
         self,
@@ -139,7 +109,7 @@ class SessionsClient:
 
         Examples
         --------
-        from langfuse.client import FernLangfuse
+        from langfuse import FernLangfuse
 
         client = FernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -153,41 +123,24 @@ class SessionsClient:
             session_id="sessionId",
         )
         """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/sessions/{jsonable_encoder(session_id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(SessionWithTraces, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        _response = self._raw_client.get(session_id, request_options=request_options)
+        return _response.data
 
 
 class AsyncSessionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
+        self._raw_client = AsyncRawSessionsClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> AsyncRawSessionsClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawSessionsClient
+        """
+        return self._raw_client
 
     async def list(
         self,
@@ -230,7 +183,7 @@ class AsyncSessionsClient:
         --------
         import asyncio
 
-        from langfuse.client import AsyncFernLangfuse
+        from langfuse import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -248,47 +201,15 @@ class AsyncSessionsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/public/sessions",
-            method="GET",
-            params={
-                "page": page,
-                "limit": limit,
-                "fromTimestamp": serialize_datetime(from_timestamp)
-                if from_timestamp is not None
-                else None,
-                "toTimestamp": serialize_datetime(to_timestamp)
-                if to_timestamp is not None
-                else None,
-                "environment": environment,
-            },
+        _response = await self._raw_client.list(
+            page=page,
+            limit=limit,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            environment=environment,
             request_options=request_options,
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(PaginatedSessions, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data
 
     async def get(
         self,
@@ -315,7 +236,7 @@ class AsyncSessionsClient:
         --------
         import asyncio
 
-        from langfuse.client import AsyncFernLangfuse
+        from langfuse import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -335,33 +256,7 @@ class AsyncSessionsClient:
 
         asyncio.run(main())
         """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/sessions/{jsonable_encoder(session_id)}",
-            method="GET",
-            request_options=request_options,
+        _response = await self._raw_client.get(
+            session_id, request_options=request_options
         )
-        try:
-            if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(SessionWithTraces, _response.json())  # type: ignore
-            if _response.status_code == 400:
-                raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    pydantic_v1.parse_obj_as(typing.Any, _response.json())
-                )  # type: ignore
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
+        return _response.data

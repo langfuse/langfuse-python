@@ -3,162 +3,149 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from .map_value import MapValue
 from .observation_level import ObservationLevel
 from .usage import Usage
 
 
-class Observation(pydantic_v1.BaseModel):
-    id: str = pydantic_v1.Field()
+class Observation(UniversalBaseModel):
+    id: str = pydantic.Field()
     """
     The unique identifier of the observation
     """
 
-    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
+    trace_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="traceId")
+    ] = pydantic.Field(default=None)
     """
     The trace ID associated with the observation
     """
 
-    type: str = pydantic_v1.Field()
+    type: str = pydantic.Field()
     """
     The type of the observation
     """
 
-    name: typing.Optional[str] = pydantic_v1.Field(default=None)
+    name: typing.Optional[str] = pydantic.Field(default=None)
     """
     The name of the observation
     """
 
-    start_time: dt.datetime = pydantic_v1.Field(alias="startTime")
+    start_time: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="startTime")
+    ] = pydantic.Field()
     """
     The start time of the observation
     """
 
-    end_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="endTime", default=None
-    )
+    end_time: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="endTime")
+    ] = pydantic.Field(default=None)
     """
     The end time of the observation.
     """
 
-    completion_start_time: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="completionStartTime", default=None
-    )
+    completion_start_time: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="completionStartTime")
+    ] = pydantic.Field(default=None)
     """
     The completion start time of the observation
     """
 
-    model: typing.Optional[str] = pydantic_v1.Field(default=None)
+    model: typing.Optional[str] = pydantic.Field(default=None)
     """
     The model used for the observation
     """
 
-    model_parameters: typing.Optional[typing.Dict[str, MapValue]] = pydantic_v1.Field(
-        alias="modelParameters", default=None
-    )
+    model_parameters: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, MapValue]],
+        FieldMetadata(alias="modelParameters"),
+    ] = pydantic.Field(default=None)
     """
     The parameters of the model used for the observation
     """
 
-    input: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
+    input: typing.Optional[typing.Any] = pydantic.Field(default=None)
     """
     The input data of the observation
     """
 
-    version: typing.Optional[str] = pydantic_v1.Field(default=None)
+    version: typing.Optional[str] = pydantic.Field(default=None)
     """
     The version of the observation
     """
 
-    metadata: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
+    metadata: typing.Optional[typing.Any] = pydantic.Field(default=None)
     """
     Additional metadata of the observation
     """
 
-    output: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
+    output: typing.Optional[typing.Any] = pydantic.Field(default=None)
     """
     The output data of the observation
     """
 
-    usage: typing.Optional[Usage] = pydantic_v1.Field(default=None)
+    usage: typing.Optional[Usage] = pydantic.Field(default=None)
     """
     (Deprecated. Use usageDetails and costDetails instead.) The usage data of the observation
     """
 
-    level: ObservationLevel = pydantic_v1.Field()
+    level: ObservationLevel = pydantic.Field()
     """
     The level of the observation
     """
 
-    status_message: typing.Optional[str] = pydantic_v1.Field(
-        alias="statusMessage", default=None
-    )
+    status_message: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="statusMessage")
+    ] = pydantic.Field(default=None)
     """
     The status message of the observation
     """
 
-    parent_observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="parentObservationId", default=None
-    )
+    parent_observation_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="parentObservationId")
+    ] = pydantic.Field(default=None)
     """
     The parent observation ID
     """
 
-    prompt_id: typing.Optional[str] = pydantic_v1.Field(alias="promptId", default=None)
+    prompt_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="promptId")
+    ] = pydantic.Field(default=None)
     """
     The prompt ID associated with the observation
     """
 
-    usage_details: typing.Optional[typing.Dict[str, int]] = pydantic_v1.Field(
-        alias="usageDetails", default=None
-    )
+    usage_details: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, int]], FieldMetadata(alias="usageDetails")
+    ] = pydantic.Field(default=None)
     """
     The usage details of the observation. Key is the name of the usage metric, value is the number of units consumed. The total key is the sum of all (non-total) usage metrics or the total value ingested.
     """
 
-    cost_details: typing.Optional[typing.Dict[str, float]] = pydantic_v1.Field(
-        alias="costDetails", default=None
-    )
+    cost_details: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, float]], FieldMetadata(alias="costDetails")
+    ] = pydantic.Field(default=None)
     """
     The cost details of the observation. Key is the name of the cost metric, value is the cost in USD. The total key is the sum of all (non-total) cost metrics or the total value ingested.
     """
 
-    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    environment: typing.Optional[str] = pydantic.Field(default=None)
     """
     The environment from which this observation originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

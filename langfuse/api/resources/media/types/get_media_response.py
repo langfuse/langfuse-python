@@ -3,70 +3,60 @@
 import datetime as dt
 import typing
 
-from ....core.datetime_utils import serialize_datetime
-from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+import pydantic
+import typing_extensions
+from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
-class GetMediaResponse(pydantic_v1.BaseModel):
-    media_id: str = pydantic_v1.Field(alias="mediaId")
+class GetMediaResponse(UniversalBaseModel):
+    media_id: typing_extensions.Annotated[str, FieldMetadata(alias="mediaId")] = (
+        pydantic.Field()
+    )
     """
     The unique langfuse identifier of a media record
     """
 
-    content_type: str = pydantic_v1.Field(alias="contentType")
+    content_type: typing_extensions.Annotated[
+        str, FieldMetadata(alias="contentType")
+    ] = pydantic.Field()
     """
     The MIME type of the media record
     """
 
-    content_length: int = pydantic_v1.Field(alias="contentLength")
+    content_length: typing_extensions.Annotated[
+        int, FieldMetadata(alias="contentLength")
+    ] = pydantic.Field()
     """
     The size of the media record in bytes
     """
 
-    uploaded_at: dt.datetime = pydantic_v1.Field(alias="uploadedAt")
+    uploaded_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="uploadedAt")
+    ] = pydantic.Field()
     """
     The date and time when the media record was uploaded
     """
 
-    url: str = pydantic_v1.Field()
+    url: str = pydantic.Field()
     """
     The download URL of the media record
     """
 
-    url_expiry: str = pydantic_v1.Field(alias="urlExpiry")
+    url_expiry: typing_extensions.Annotated[str, FieldMetadata(alias="urlExpiry")] = (
+        pydantic.Field()
+    )
     """
     The expiry date and time of the media record download URL
     """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow", frozen=True
+        )  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults_exclude_unset: typing.Any = {
-            "by_alias": True,
-            "exclude_unset": True,
-            **kwargs,
-        }
-        kwargs_with_defaults_exclude_none: typing.Any = {
-            "by_alias": True,
-            "exclude_none": True,
-            **kwargs,
-        }
-
-        return deep_union_pydantic_dicts(
-            super().dict(**kwargs_with_defaults_exclude_unset),
-            super().dict(**kwargs_with_defaults_exclude_none),
-        )
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
-        extra = pydantic_v1.Extra.allow
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
