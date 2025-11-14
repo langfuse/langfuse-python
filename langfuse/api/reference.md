@@ -6486,6 +6486,22 @@ client.score_v_2.get()
 <dl>
 <dd>
 
+**dataset_run_id:** `typing.Optional[str]` — Retrieve only scores with a specific datasetRunId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**trace_id:** `typing.Optional[str]` — Retrieve only scores with a specific traceId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **queue_id:** `typing.Optional[str]` — Retrieve only scores with a specific annotation queueId.
     
 </dd>
