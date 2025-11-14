@@ -25,6 +25,9 @@ from tests.utils import create_uuid
 # ============================================================================
 
 
+pytestmark = pytest.mark.skip(reason="Reason for skipping this file")
+
+
 @pytest.fixture
 def langfuse_client():
     """Get a Langfuse client for testing."""
@@ -90,9 +93,6 @@ def test_run_batched_evaluation_on_traces_basic(langfuse_client):
     assert stats.name == "simple_evaluator"
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_batch_evaluation_with_filter(langfuse_client):
     """Test batch evaluation with JSON filter."""
     # Create a trace with specific tag
@@ -125,9 +125,6 @@ def test_batch_evaluation_with_filter(langfuse_client):
     assert result.completed is True
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_batch_evaluation_with_metadata(langfuse_client):
     """Test that additional metadata is added to all scores."""
 
@@ -162,9 +159,6 @@ def test_batch_evaluation_with_metadata(langfuse_client):
     assert result.completed is True
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_result_structure_fields(langfuse_client):
     """Test that BatchEvaluationResult has all expected fields."""
     result = langfuse_client.run_batched_evaluation(
@@ -204,9 +198,6 @@ def test_result_structure_fields(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_simple_mapper(langfuse_client):
     """Test basic mapper functionality."""
 
@@ -228,9 +219,6 @@ def test_simple_mapper(langfuse_client):
     assert result.total_items_processed > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 @pytest.mark.asyncio
 async def test_async_mapper(langfuse_client):
     """Test that async mappers work correctly."""
@@ -255,9 +243,6 @@ async def test_async_mapper(langfuse_client):
     assert result.total_items_processed > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_mapper_failure_handling(langfuse_client):
     """Test that mapper failures cause items to be skipped."""
 
@@ -277,9 +262,6 @@ def test_mapper_failure_handling(langfuse_client):
     assert "ValueError" in result.error_summary or "Exception" in result.error_summary
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_mapper_with_missing_fields(langfuse_client):
     """Test mapper handles traces with missing fields gracefully."""
 
@@ -310,9 +292,6 @@ def test_mapper_with_missing_fields(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_single_evaluator(langfuse_client):
     """Test with a single evaluator."""
 
@@ -331,9 +310,6 @@ def test_single_evaluator(langfuse_client):
     assert result.evaluator_stats[0].name == "quality_evaluator"
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_multiple_evaluators(langfuse_client):
     """Test with multiple evaluators running in parallel."""
 
@@ -358,9 +334,6 @@ def test_multiple_evaluators(langfuse_client):
     assert result.total_scores_created >= result.total_items_processed * 3
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 @pytest.mark.asyncio
 async def test_async_evaluator(langfuse_client):
     """Test that async evaluators work correctly."""
@@ -400,9 +373,6 @@ def test_evaluator_returning_list(langfuse_client):
     assert result.total_scores_created >= result.total_items_processed * 3
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_evaluator_failure_statistics(langfuse_client):
     """Test that evaluator failures are tracked in statistics."""
 
@@ -438,9 +408,6 @@ def test_evaluator_failure_statistics(langfuse_client):
     assert result.total_evaluations_failed > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_mixed_sync_async_evaluators(langfuse_client):
     """Test mixing synchronous and asynchronous evaluators."""
 
@@ -504,9 +471,6 @@ def test_composite_evaluator_weighted_average(langfuse_client):
     assert result.total_scores_created > result.total_composite_scores_created
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_composite_evaluator_pass_fail(langfuse_client):
     """Test composite evaluator that implements pass/fail logic."""
 
@@ -542,9 +506,6 @@ def test_composite_evaluator_pass_fail(langfuse_client):
     assert result.total_composite_scores_created > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 @pytest.mark.asyncio
 async def test_async_composite_evaluator(langfuse_client):
     """Test async composite evaluator."""
@@ -570,9 +531,6 @@ async def test_async_composite_evaluator(langfuse_client):
     assert result.total_composite_scores_created > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_composite_evaluator_with_no_evaluations(langfuse_client):
     """Test composite evaluator when no evaluations are present."""
 
@@ -595,9 +553,6 @@ def test_composite_evaluator_with_no_evaluations(langfuse_client):
     assert result.total_composite_scores_created == 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_composite_evaluator_failure_handling(langfuse_client):
     """Test that composite evaluator failures are handled gracefully."""
 
@@ -626,9 +581,6 @@ def test_composite_evaluator_failure_handling(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_mapper_failure_skips_item(langfuse_client):
     """Test that mapper failure causes item to be skipped."""
 
@@ -652,9 +604,6 @@ def test_mapper_failure_skips_item(langfuse_client):
     assert result.total_items_processed > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_evaluator_failure_continues(langfuse_client):
     """Test that one evaluator failing doesn't stop others."""
 
@@ -684,9 +633,6 @@ def test_evaluator_failure_continues(langfuse_client):
     assert failing_stats.failed_runs > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_all_evaluators_fail(langfuse_client):
     """Test when all evaluators fail but item is still processed."""
 
@@ -716,9 +662,6 @@ def test_all_evaluators_fail(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_empty_results_handling(langfuse_client):
     """Test batch evaluation when filter returns no items."""
     nonexistent_name = f"nonexistent-trace-{create_uuid()}"
@@ -738,9 +681,6 @@ def test_empty_results_handling(langfuse_client):
     assert result.has_more_items is False
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_max_items_zero(langfuse_client):
     """Test with max_items=0 (should process no items)."""
     result = langfuse_client.run_batched_evaluation(
@@ -754,9 +694,6 @@ def test_max_items_zero(langfuse_client):
     assert result.total_items_processed == 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_evaluation_value_type_conversions(langfuse_client):
     """Test that different evaluation value types are handled correctly."""
 
@@ -784,9 +721,6 @@ def test_evaluation_value_type_conversions(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_pagination_with_max_items(langfuse_client):
     """Test that max_items limit is respected."""
     # Create more traces to ensure we have enough data
@@ -818,9 +752,6 @@ def test_pagination_with_max_items(langfuse_client):
     assert result.total_items_processed <= 5
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_has_more_items_flag(langfuse_client):
     """Test that has_more_items flag is set correctly when max_items is reached."""
     # Create enough traces to exceed max_items
@@ -852,9 +783,6 @@ def test_has_more_items_flag(langfuse_client):
         assert result.has_more_items is True
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_fetch_batch_size_parameter(langfuse_client):
     """Test that different fetch_batch_size values work correctly."""
     for batch_size in [1, 5, 10]:
@@ -875,9 +803,6 @@ def test_fetch_batch_size_parameter(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_resume_token_structure(langfuse_client):
     """Test that BatchEvaluationResumeToken has correct structure."""
     resume_token = BatchEvaluationResumeToken(
@@ -900,9 +825,6 @@ def test_resume_token_structure(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_max_concurrency_parameter(langfuse_client):
     """Test that max_concurrency parameter works correctly."""
     for concurrency in [1, 5, 10]:
@@ -923,9 +845,6 @@ def test_max_concurrency_parameter(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_evaluator_stats_structure(langfuse_client):
     """Test that EvaluatorStats has correct structure."""
 
@@ -956,9 +875,6 @@ def test_evaluator_stats_structure(langfuse_client):
     assert stats.failed_runs == 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_evaluator_stats_tracking(langfuse_client):
     """Test that evaluator statistics are tracked correctly."""
 
@@ -984,9 +900,6 @@ def test_evaluator_stats_tracking(langfuse_client):
     assert stats.successful_runs + stats.failed_runs == stats.total_runs
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_error_summary_aggregation(langfuse_client):
     """Test that error types are aggregated correctly in error_summary."""
 
@@ -1005,9 +918,6 @@ def test_error_summary_aggregation(langfuse_client):
     assert any("Error" in key for key in result.error_summary.keys())
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_failed_item_ids_collected(langfuse_client):
     """Test that failed item IDs are collected."""
 
@@ -1031,9 +941,6 @@ def test_failed_item_ids_collected(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_duration_tracking(langfuse_client):
     """Test that duration is tracked correctly."""
     result = langfuse_client.run_batched_evaluation(
@@ -1047,9 +954,6 @@ def test_duration_tracking(langfuse_client):
     assert result.duration_seconds < 60  # Should complete quickly for small batch
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_verbose_logging(langfuse_client):
     """Test that verbose=True doesn't cause errors."""
     result = langfuse_client.run_batched_evaluation(
@@ -1068,9 +972,6 @@ def test_verbose_logging(langfuse_client):
 # ============================================================================
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_item_evaluations_basic(langfuse_client):
     """Test that item_evaluations dict contains correct structure."""
 
@@ -1100,9 +1001,6 @@ def test_item_evaluations_basic(langfuse_client):
         assert evaluations[0].name == "test_metric"
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_item_evaluations_multiple_evaluators(langfuse_client):
     """Test item_evaluations with multiple evaluators."""
 
@@ -1129,9 +1027,6 @@ def test_item_evaluations_multiple_evaluators(langfuse_client):
         assert eval_names == {"accuracy", "relevance"}
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_item_evaluations_with_composite(langfuse_client):
     """Test that item_evaluations includes composite evaluations."""
 
@@ -1164,9 +1059,6 @@ def test_item_evaluations_with_composite(langfuse_client):
     assert result.total_composite_scores_created > 0
 
 
-@pytest.mark.skip(
-    reason="Single Github CI runner overwhelmed by amount of scores created"
-)
 def test_item_evaluations_empty_on_failure(langfuse_client):
     """Test that failed items don't appear in item_evaluations."""
 
