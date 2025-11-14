@@ -1728,12 +1728,12 @@ def test_sync_generator_context_preservation():
 
     # Verify results
     assert items == ["item_0", "item_1", "item_2"]
-    assert (
-        span_info["generator_span_id"] != "0000000000000000"
-    ), "Generator context should be preserved"
-    assert (
-        span_info["root_span_id"] != span_info["generator_span_id"]
-    ), "Should have different span IDs"
+    assert span_info["generator_span_id"] != "0000000000000000", (
+        "Generator context should be preserved"
+    )
+    assert span_info["root_span_id"] != span_info["generator_span_id"], (
+        "Should have different span IDs"
+    )
 
     # Verify trace structure
     trace_data = get_api().trace.get(mock_trace_id)
@@ -1794,12 +1794,12 @@ async def test_async_generator_context_preservation():
 
     # Verify results
     assert items == ["async_item_0", "async_item_1", "async_item_2"]
-    assert (
-        span_info["generator_span_id"] != "0000000000000000"
-    ), "Generator context should be preserved"
-    assert (
-        span_info["root_span_id"] != span_info["generator_span_id"]
-    ), "Should have different span IDs"
+    assert span_info["generator_span_id"] != "0000000000000000", (
+        "Generator context should be preserved"
+    )
+    assert span_info["root_span_id"] != span_info["generator_span_id"], (
+        "Should have different span IDs"
+    )
 
     # Verify trace structure
     trace_data = get_api().trace.get(mock_trace_id)
@@ -1860,15 +1860,15 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
     assert items == ["child_0", "child_1"]
 
     # Verify span hierarchy
-    assert (
-        span_info["parent_span_id"] != span_info["child_span_id"]
-    ), "Parent and child should have different span IDs"
-    assert (
-        span_info["parent_trace_id"] == span_info["child_trace_id"]
-    ), "Parent and child should share same trace ID"
-    assert (
-        span_info["child_span_id"] != "0000000000000000"
-    ), "Child context should be preserved"
+    assert span_info["parent_span_id"] != span_info["child_span_id"], (
+        "Parent and child should have different span IDs"
+    )
+    assert span_info["parent_trace_id"] == span_info["child_trace_id"], (
+        "Parent and child should share same trace ID"
+    )
+    assert span_info["child_span_id"] != "0000000000000000", (
+        "Child context should be preserved"
+    )
 
     # Verify trace structure
     trace_data = get_api().trace.get(mock_trace_id)

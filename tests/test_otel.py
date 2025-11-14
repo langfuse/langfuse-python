@@ -207,14 +207,14 @@ class TestOTelBase:
     ):
         """Verify that a span has a specific attribute with an optional expected value."""
         attributes = span_data["attributes"]
-        assert (
-            attribute_key in attributes
-        ), f"Attribute {attribute_key} not found in span"
+        assert attribute_key in attributes, (
+            f"Attribute {attribute_key} not found in span"
+        )
 
         if expected_value is not None:
-            assert (
-                attributes[attribute_key] == expected_value
-            ), f"Expected {attribute_key} to be {expected_value}, got {attributes[attribute_key]}"
+            assert attributes[attribute_key] == expected_value, (
+                f"Expected {attribute_key} to be {expected_value}, got {attributes[attribute_key]}"
+            )
 
         return attributes[attribute_key]
 
@@ -226,20 +226,20 @@ class TestOTelBase:
         parsed_json = json.loads(json_string)
 
         if expected_dict is not None:
-            assert (
-                parsed_json == expected_dict
-            ), f"Expected JSON {attribute_key} to be {expected_dict}, got {parsed_json}"
+            assert parsed_json == expected_dict, (
+                f"Expected JSON {attribute_key} to be {expected_dict}, got {parsed_json}"
+            )
 
         return parsed_json
 
     def assert_parent_child_relationship(self, parent_span: dict, child_span: dict):
         """Verify parent-child relationship between two spans."""
-        assert (
-            child_span["parent_span_id"] == parent_span["span_id"]
-        ), f"Child span {child_span['name']} should have parent {parent_span['name']}"
-        assert (
-            child_span["trace_id"] == parent_span["trace_id"]
-        ), f"Child span {child_span['name']} should have same trace ID as parent {parent_span['name']}"
+        assert child_span["parent_span_id"] == parent_span["span_id"], (
+            f"Child span {child_span['name']} should have parent {parent_span['name']}"
+        )
+        assert child_span["trace_id"] == parent_span["trace_id"], (
+            f"Child span {child_span['name']} should have same trace ID as parent {parent_span['name']}"
+        )
 
 
 class TestBasicSpans(TestOTelBase):
@@ -255,9 +255,9 @@ class TestBasicSpans(TestOTelBase):
         spans = self.get_spans_by_name(memory_exporter, "test-span")
 
         # Verify we created exactly one span
-        assert (
-            len(spans) == 1
-        ), f"Expected 1 span named 'test-span', but found {len(spans)}"
+        assert len(spans) == 1, (
+            f"Expected 1 span named 'test-span', but found {len(spans)}"
+        )
         span_data = spans[0]
 
         # Verify the span attributes
@@ -617,9 +617,9 @@ class TestBasicSpans(TestOTelBase):
         for obs_type in observation_types:
             expected_name = f"test-{obs_type}"
             matching_spans = [span for span in spans if span["name"] == expected_name]
-            assert (
-                len(matching_spans) == 1
-            ), f"Expected one span with name {expected_name}"
+            assert len(matching_spans) == 1, (
+                f"Expected one span with name {expected_name}"
+            )
 
             span_data = matching_spans[0]
             expected_otel_type = obs_type  # OTEL attributes use lowercase
@@ -627,9 +627,9 @@ class TestBasicSpans(TestOTelBase):
                 LangfuseOtelSpanAttributes.OBSERVATION_TYPE
             )
 
-            assert (
-                actual_type == expected_otel_type
-            ), f"Expected observation type {expected_otel_type}, got {actual_type}"
+            assert actual_type == expected_otel_type, (
+                f"Expected observation type {expected_otel_type}, got {actual_type}"
+            )
 
     def test_start_observation(self, langfuse_client, memory_exporter):
         """Test creating different observation types using start_observation."""
@@ -690,81 +690,81 @@ class TestBasicSpans(TestOTelBase):
         for obs_type in observation_types:
             expected_name = f"factory-{obs_type}"
             matching_spans = [span for span in spans if span["name"] == expected_name]
-            assert (
-                len(matching_spans) == 1
-            ), f"Expected one span with name {expected_name}, found {len(matching_spans)}"
+            assert len(matching_spans) == 1, (
+                f"Expected one span with name {expected_name}, found {len(matching_spans)}"
+            )
 
             span_data = matching_spans[0]
             actual_type = span_data["attributes"].get(
                 LangfuseOtelSpanAttributes.OBSERVATION_TYPE
             )
 
-            assert (
-                actual_type == obs_type
-            ), f"Factory pattern failed: Expected observation type {obs_type}, got {actual_type}"
+            assert actual_type == obs_type, (
+                f"Factory pattern failed: Expected observation type {obs_type}, got {actual_type}"
+            )
 
         # Ensure returned objects are of correct types
         for obs_type, obs_instance in created_observations:
             if obs_type == "span":
                 from langfuse._client.span import LangfuseSpan
 
-                assert isinstance(
-                    obs_instance, LangfuseSpan
-                ), f"Expected LangfuseSpan, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseSpan), (
+                    f"Expected LangfuseSpan, got {type(obs_instance)}"
+                )
             elif obs_type == "generation":
                 from langfuse._client.span import LangfuseGeneration
 
-                assert isinstance(
-                    obs_instance, LangfuseGeneration
-                ), f"Expected LangfuseGeneration, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseGeneration), (
+                    f"Expected LangfuseGeneration, got {type(obs_instance)}"
+                )
             elif obs_type == "agent":
                 from langfuse._client.span import LangfuseAgent
 
-                assert isinstance(
-                    obs_instance, LangfuseAgent
-                ), f"Expected LangfuseAgent, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseAgent), (
+                    f"Expected LangfuseAgent, got {type(obs_instance)}"
+                )
             elif obs_type == "tool":
                 from langfuse._client.span import LangfuseTool
 
-                assert isinstance(
-                    obs_instance, LangfuseTool
-                ), f"Expected LangfuseTool, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseTool), (
+                    f"Expected LangfuseTool, got {type(obs_instance)}"
+                )
             elif obs_type == "chain":
                 from langfuse._client.span import LangfuseChain
 
-                assert isinstance(
-                    obs_instance, LangfuseChain
-                ), f"Expected LangfuseChain, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseChain), (
+                    f"Expected LangfuseChain, got {type(obs_instance)}"
+                )
             elif obs_type == "retriever":
                 from langfuse._client.span import LangfuseRetriever
 
-                assert isinstance(
-                    obs_instance, LangfuseRetriever
-                ), f"Expected LangfuseRetriever, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseRetriever), (
+                    f"Expected LangfuseRetriever, got {type(obs_instance)}"
+                )
             elif obs_type == "evaluator":
                 from langfuse._client.span import LangfuseEvaluator
 
-                assert isinstance(
-                    obs_instance, LangfuseEvaluator
-                ), f"Expected LangfuseEvaluator, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseEvaluator), (
+                    f"Expected LangfuseEvaluator, got {type(obs_instance)}"
+                )
             elif obs_type == "embedding":
                 from langfuse._client.span import LangfuseEmbedding
 
-                assert isinstance(
-                    obs_instance, LangfuseEmbedding
-                ), f"Expected LangfuseEmbedding, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseEmbedding), (
+                    f"Expected LangfuseEmbedding, got {type(obs_instance)}"
+                )
             elif obs_type == "guardrail":
                 from langfuse._client.span import LangfuseGuardrail
 
-                assert isinstance(
-                    obs_instance, LangfuseGuardrail
-                ), f"Expected LangfuseGuardrail, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseGuardrail), (
+                    f"Expected LangfuseGuardrail, got {type(obs_instance)}"
+                )
             elif obs_type == "event":
                 from langfuse._client.span import LangfuseEvent
 
-                assert isinstance(
-                    obs_instance, LangfuseEvent
-                ), f"Expected LangfuseEvent, got {type(obs_instance)}"
+                assert isinstance(obs_instance, LangfuseEvent), (
+                    f"Expected LangfuseEvent, got {type(obs_instance)}"
+                )
 
     def test_custom_trace_id(self, langfuse_client, memory_exporter):
         """Test setting a custom trace ID."""
@@ -785,9 +785,9 @@ class TestBasicSpans(TestOTelBase):
         assert len(spans) == 1, "Expected one span"
 
         span_data = spans[0]
-        assert (
-            span_data["trace_id"] == custom_trace_id
-        ), "Trace ID doesn't match custom ID"
+        assert span_data["trace_id"] == custom_trace_id, (
+            "Trace ID doesn't match custom ID"
+        )
         assert span_data["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
 
         # Test additional spans with the same trace context
@@ -799,9 +799,9 @@ class TestBasicSpans(TestOTelBase):
         # Verify child span uses the same trace ID
         child_spans = self.get_spans_by_name(memory_exporter, "child-span")
         assert len(child_spans) == 1, "Expected one child span"
-        assert (
-            child_spans[0]["trace_id"] == custom_trace_id
-        ), "Child span has wrong trace ID"
+        assert child_spans[0]["trace_id"] == custom_trace_id, (
+            "Child span has wrong trace ID"
+        )
 
     def test_custom_parent_span_id(self, langfuse_client, memory_exporter):
         """Test setting a custom parent span ID."""
@@ -1115,9 +1115,9 @@ class TestBasicSpans(TestOTelBase):
             from opentelemetry.trace.status import StatusCode
 
             # Default status should be UNSET, not ERROR
-            assert (
-                raw_span.status.status_code != StatusCode.ERROR
-            ), f"Level {level} should not set ERROR status"
+            assert raw_span.status.status_code != StatusCode.ERROR, (
+                f"Level {level} should not set ERROR status"
+            )
 
     def test_multiple_error_updates(self, langfuse_client, memory_exporter):
         """Test that multiple ERROR level updates work correctly."""
@@ -1206,12 +1206,12 @@ class TestBasicSpans(TestOTelBase):
             raw_span = obs_spans[0]
             from opentelemetry.trace.status import StatusCode
 
-            assert (
-                raw_span.status.status_code == StatusCode.ERROR
-            ), f"{obs_type} should have ERROR status"
-            assert (
-                raw_span.status.description == f"{obs_type} failed"
-            ), f"{obs_type} should have correct description"
+            assert raw_span.status.status_code == StatusCode.ERROR, (
+                f"{obs_type} should have ERROR status"
+            )
+            assert raw_span.status.description == f"{obs_type} failed", (
+                f"{obs_type} should have correct description"
+            )
 
 
 class TestAdvancedSpans(TestOTelBase):
@@ -1387,9 +1387,9 @@ class TestAdvancedSpans(TestOTelBase):
             span.end()
 
         # With a sample rate of 0, we should have no spans
-        assert (
-            len(sampled_exporter.get_finished_spans()) == 0
-        ), "Expected no spans with 0 sampling"
+        assert len(sampled_exporter.get_finished_spans()) == 0, (
+            "Expected no spans with 0 sampling"
+        )
 
         # Restore the original provider
         trace_api.set_tracer_provider(original_provider)
@@ -1445,9 +1445,9 @@ class TestAdvancedSpans(TestOTelBase):
 
         # Verify no spans were created
         spans = exporter.get_finished_spans()
-        assert (
-            len(spans) == 0
-        ), f"Expected no spans when tracing is disabled, got {len(spans)}"
+        assert len(spans) == 0, (
+            f"Expected no spans when tracing is disabled, got {len(spans)}"
+        )
 
     def test_trace_id_generation(self, langfuse_client):
         """Test trace ID generation follows expected format."""
@@ -1456,12 +1456,12 @@ class TestAdvancedSpans(TestOTelBase):
         trace_id2 = langfuse_client.create_trace_id()
 
         # Verify format: 32 hex characters
-        assert (
-            len(trace_id1) == 32
-        ), f"Trace ID length should be 32, got {len(trace_id1)}"
-        assert (
-            len(trace_id2) == 32
-        ), f"Trace ID length should be 32, got {len(trace_id2)}"
+        assert len(trace_id1) == 32, (
+            f"Trace ID length should be 32, got {len(trace_id1)}"
+        )
+        assert len(trace_id2) == 32, (
+            f"Trace ID length should be 32, got {len(trace_id2)}"
+        )
 
         # jerify it's a valid hex string
         int(trace_id1, 16), "Trace ID should be a valid hex string"
@@ -2752,14 +2752,14 @@ class TestConcurrencyAndAsync(TestOTelBase):
         assert thread3_span["trace_id"] == trace_id
 
         # Verify thread2 span is at the root level (no parent within our trace)
-        assert (
-            thread2_span["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
-        ), "Thread 2 span should not have a parent"
+        assert thread2_span["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True, (
+            "Thread 2 span should not have a parent"
+        )
 
         # Verify thread3 span is a child of the main span
-        assert (
-            thread3_span["parent_span_id"] == main_span_id
-        ), "Thread 3 span should be a child of main span"
+        assert thread3_span["parent_span_id"] == main_span_id, (
+            "Thread 3 span should be a child of main span"
+        )
 
     @pytest.mark.asyncio
     async def test_span_metadata_updates_in_async_context(
@@ -2918,12 +2918,12 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
         # The span timing should be within our manually recorded range
         # Note: This might fail on slow systems, so we use a relaxed comparison
-        assert (
-            span_start_seconds <= end_time
-        ), "Span start time should be before our recorded end time"
-        assert (
-            span_end_seconds >= start_time
-        ), "Span end time should be after our recorded start time"
+        assert span_start_seconds <= end_time, (
+            "Span start time should be before our recorded end time"
+        )
+        assert span_end_seconds >= start_time, (
+            "Span end time should be after our recorded start time"
+        )
 
         # Span duration should be positive and roughly match our sleep time
         span_duration_seconds = (
@@ -2933,9 +2933,9 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
         # Since we slept for 0.1 seconds, the span duration should be at least 0.05 seconds
         # but we'll be generous with the upper bound due to potential system delays
-        assert (
-            span_duration_seconds >= 0.05
-        ), f"Span duration ({span_duration_seconds}s) should be at least 0.05s"
+        assert span_duration_seconds >= 0.05, (
+            f"Span duration ({span_duration_seconds}s) should be at least 0.05s"
+        )
 
 
 # Add tests for media functionality in its own class
@@ -3129,9 +3129,9 @@ class TestMediaHandling(TestOTelBase):
         # Run all test cases
         for i, test_case in enumerate(test_cases):
             result = mask_sensitive_data(test_case["input"])
-            assert (
-                result == test_case["expected"]
-            ), f"Test case {i} failed: {result} != {test_case['expected']}"
+            assert result == test_case["expected"], (
+                f"Test case {i} failed: {result} != {test_case['expected']}"
+            )
 
         # Now test using the actual LangfuseSpan implementation
         from unittest.mock import MagicMock

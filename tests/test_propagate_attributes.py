@@ -68,9 +68,9 @@ class TestPropagateAttributesBase(TestOTelBase):
             AssertionError: If the attribute exists on the span
         """
         attributes = span_data["attributes"]
-        assert (
-            attr_key not in attributes
-        ), f"Attribute '{attr_key}' should NOT be on span '{span_data['name']}'"
+        assert attr_key not in attributes, (
+            f"Attribute '{attr_key}' should NOT be on span '{span_data['name']}'"
+        )
 
 
 class TestPropagateAttributesBasic(TestPropagateAttributesBase):

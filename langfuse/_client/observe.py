@@ -589,7 +589,9 @@ class _ContextPreservedSyncGeneratorWrapper:
             raise  # Re-raise StopIteration
 
         except Exception as e:
-            self.span.update(level="ERROR", status_message=str(e) or type(e).__name__).end()
+            self.span.update(
+                level="ERROR", status_message=str(e) or type(e).__name__
+            ).end()
 
             raise
 
@@ -654,6 +656,8 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
             raise  # Re-raise StopAsyncIteration
         except Exception as e:
-            self.span.update(level="ERROR", status_message=str(e) or type(e).__name__).end()
+            self.span.update(
+                level="ERROR", status_message=str(e) or type(e).__name__
+            ).end()
 
             raise
