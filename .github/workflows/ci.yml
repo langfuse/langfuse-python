@@ -55,7 +55,7 @@ jobs:
         run: poetry run mypy langfuse --no-error-summary
 
   ci:
-    runs-on: ubuntu-latest-4-cores
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       LANGFUSE_BASE_URL: "http://localhost:3000"
