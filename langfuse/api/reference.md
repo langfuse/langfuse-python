@@ -5123,7 +5123,10 @@ client.prompt_version.update(
 <dl>
 <dd>
 
-**name:** `str` — The name of the prompt
+**name:** `str` 
+
+The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"), 
+the folder path must be URL encoded.
     
 </dd>
 </dl>
@@ -5215,7 +5218,10 @@ client.prompts.get(
 <dl>
 <dd>
 
-**prompt_name:** `str` — The name of the prompt
+**prompt_name:** `str` 
+
+The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"), 
+the folder path must be URL encoded.
     
 </dd>
 </dl>
