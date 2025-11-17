@@ -3671,10 +3671,6 @@ Each filter condition has the following structure:
 ### Structured Data
 - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
 
-### Scores (requires join with scores table)
-- `scores_avg` (number) - Average of numeric scores (alias: `scores`)
-- `score_categories` (categoryOptions) - Categorical score values
-
 ### Associated Trace Fields (requires join with traces table)
 - `userId` (string) - User ID from associated trace
 - `traceName` (string) - Name from associated trace
