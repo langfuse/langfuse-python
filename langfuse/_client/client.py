@@ -2809,18 +2809,21 @@ class Langfuse:
                 # Link to dataset run if this is a dataset item
                 if hasattr(item, "id") and hasattr(item, "dataset_id"):
                     try:
-                        # Use sync API to avoid event loop issues when run_async_safely
-                        # creates multiple event loops across different threads
-                        dataset_run_item = await asyncio.to_thread(
-                            self.api.dataset_run_items.create,
-                            request=CreateDatasetRunItemRequest(
+                        # Use sync API instead of async API due to httpx.AsyncClient performance issues
+                        # at high concurrency (100+ concurrent requests). The async API exhibits cumulative
+                        # performance degradation where each subsequent request takes progressively longer
+                        # (~100ms more per request), causing items to complete in 800ms, 1000ms, 1200ms, etc.,
+                        # even though the server processes each request in ~300ms. Using the sync API blocks
+                        # during creation but avoids the httpx async bottleneck, ensuring correct timing.
+                        dataset_run_item = self.api.dataset_run_items.create(
+                            CreateDatasetRunItemRequest(
                                 runName=experiment_run_name,
                                 runDescription=experiment_description,
                                 metadata=experiment_metadata,
                                 datasetItemId=item.id,  # type: ignore
                                 traceId=trace_id,
                                 observationId=span.id,
-                            ),
+                            )
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id
