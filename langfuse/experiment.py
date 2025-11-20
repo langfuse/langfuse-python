@@ -107,7 +107,6 @@ class Evaluation:
             - Numeric (int/float): For quantitative metrics like accuracy (0.85), BLEU (0.42)
             - String: For categorical results like "positive", "negative", "neutral"
             - Boolean: For binary assessments like "passes_safety_check"
-            - None: When evaluation cannot be computed (missing data, API errors, etc.)
         comment: Optional human-readable explanation of the evaluation result.
             Useful for providing context, explaining scoring rationale, or noting
             special conditions. Displayed in Langfuse UI for interpretability.
@@ -186,7 +185,7 @@ class Evaluation:
         self,
         *,
         name: str,
-        value: Union[int, float, str, bool, None],
+        value: Union[int, float, str, bool],
         comment: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         data_type: Optional[ScoreDataType] = None,
