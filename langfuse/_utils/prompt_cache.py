@@ -158,6 +158,9 @@ class PromptCache:
 
         self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
+    def delete(self, key: str) -> None:
+        self._cache.pop(key, None)
+
     def invalidate(self, prompt_name: str) -> None:
         """Invalidate all cached prompts with the given prompt name."""
         for key in list(self._cache):
