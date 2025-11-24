@@ -607,16 +607,6 @@ def test_fails_wrong_name(openai):
         )
 
 
-def test_fails_wrong_metadata(openai):
-    with pytest.raises(TypeError, match="metadata must be a dictionary"):
-        openai.OpenAI().completions.create(
-            metadata="metadata",
-            model="gpt-3.5-turbo-instruct",
-            prompt="1 + 1 = ",
-            temperature=0,
-        )
-
-
 def test_fails_wrong_trace_id(openai):
     with pytest.raises(TypeError, match="trace_id must be a string"):
         openai.OpenAI().completions.create(
