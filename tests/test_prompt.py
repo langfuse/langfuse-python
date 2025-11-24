@@ -7,8 +7,10 @@ import pytest
 from langfuse._client.client import Langfuse
 from langfuse._utils.prompt_cache import (
     DEFAULT_PROMPT_CACHE_TTL_SECONDS,
+    PromptCache,
     PromptCacheItem,
 )
+from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
 from langfuse.model import ChatPromptClient, TextPromptClient
 from tests.utils import create_uuid, get_api
@@ -679,8 +681,14 @@ def test_prompt_end_to_end():
 
 @pytest.fixture
 def langfuse():
+    from langfuse._client.resource_manager import LangfuseResourceManager
+    
     langfuse_instance = Langfuse()
     langfuse_instance.api = Mock()
+
+    if langfuse_instance._resources is None:
+        langfuse_instance._resources = Mock(spec=LangfuseResourceManager)
+        langfuse_instance._resources.prompt_cache = PromptCache()
 
     return langfuse_instance
 
@@ -1155,6 +1163,71 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
 
     assert mock_server_call.call_count == 3
     assert result_call_2 == prompt_client
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_evict_prompt_cache_entry_when_refresh_returns_not_found(
+    mock_time, langfuse: Langfuse
+) -> None:
+    mock_time.return_value = 0
+
+    prompt_name = "test_evict_prompt_cache_entry_when_refresh_returns_not_found"
+    ttl_seconds = 5
+    fallback_prompt = "fallback text prompt"
+
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    initial_result = langfuse.get_prompt(
+        prompt_name,
+        cache_ttl_seconds=ttl_seconds,
+        max_retries=0,
+    )
+    assert initial_result == prompt_client
+    assert langfuse._resources.prompt_cache.get(cache_key) is not None
+
+    # Expire cache entry and trigger background refresh
+    mock_time.return_value = ttl_seconds + 1
+
+    def raise_not_found(*_args: object, **_kwargs: object) -> None:
+        raise NotFoundError({"message": "Prompt not found"})
+
+    mock_server_call.side_effect = raise_not_found
+
+    stale_result = langfuse.get_prompt(
+        prompt_name,
+        cache_ttl_seconds=ttl_seconds,
+        max_retries=0,
+    )
+    assert stale_result == prompt_client
+
+    while True:
+        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
+            break
+        sleep(0.1)
+
+    assert langfuse._resources.prompt_cache.get(cache_key) is None
+
+    fallback_result = langfuse.get_prompt(
+        prompt_name,
+        cache_ttl_seconds=ttl_seconds,
+        fallback=fallback_prompt,
+        max_retries=0,
+    )
+    assert fallback_result.is_fallback
+    assert fallback_result.prompt == fallback_prompt
 
 
 # Should fetch new prompt if version changes
