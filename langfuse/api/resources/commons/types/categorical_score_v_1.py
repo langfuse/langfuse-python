@@ -9,9 +9,9 @@ from .base_score_v_1 import BaseScoreV1
 
 
 class CategoricalScoreV1(BaseScoreV1):
-    value: typing.Optional[float] = pydantic_v1.Field(default=None)
+    value: float = pydantic_v1.Field()
     """
-    Only defined if a config is linked. Represents the numeric category mapping of the stringValue
+    Represents the numeric category mapping of the stringValue. If no config is linked, defaults to 0.
     """
 
     string_value: str = pydantic_v1.Field(alias="stringValue")

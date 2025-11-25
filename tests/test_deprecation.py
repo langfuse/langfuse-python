@@ -1,8 +1,9 @@
 """Tests for deprecation warnings on deprecated functions."""
 
 import warnings
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from langfuse import Langfuse
 
@@ -54,7 +55,7 @@ class TestDeprecationWarnings:
             {
                 "LANGFUSE_PUBLIC_KEY": "test_key",
                 "LANGFUSE_SECRET_KEY": "test_secret",
-                "LANGFUSE_HOST": "http://localhost:3000",
+                "LANGFUSE_BASE_URL": "http://localhost:3000",
             },
         ):
             return Langfuse()
@@ -108,12 +109,12 @@ class TestDeprecationWarnings:
             deprecation_warnings = [
                 w for w in warning_list if issubclass(w.category, DeprecationWarning)
             ]
-            assert (
-                len(deprecation_warnings) > 0
-            ), f"No DeprecationWarning emitted for {target}.{method_name}"
+            assert len(deprecation_warnings) > 0, (
+                f"No DeprecationWarning emitted for {target}.{method_name}"
+            )
 
             # Check that the warning message matches expected
             warning_messages = [str(w.message) for w in deprecation_warnings]
-            assert (
-                expected_message in warning_messages
-            ), f"Expected warning message not found for {target}.{method_name}. Got: {warning_messages}"
+            assert expected_message in warning_messages, (
+                f"Expected warning message not found for {target}.{method_name}. Got: {warning_messages}"
+            )

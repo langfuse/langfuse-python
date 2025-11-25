@@ -41,7 +41,8 @@ class PromptsClient:
         Parameters
         ----------
         prompt_name : str
-            The name of the prompt
+            The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"),
+            the folder path must be URL encoded.
 
         version : typing.Optional[int]
             Version of the prompt to be retrieved.
@@ -310,7 +311,8 @@ class AsyncPromptsClient:
         Parameters
         ----------
         prompt_name : str
-            The name of the prompt
+            The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"),
+            the folder path must be URL encoded.
 
         version : typing.Optional[int]
             Version of the prompt to be retrieved.

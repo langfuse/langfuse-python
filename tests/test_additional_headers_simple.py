@@ -143,7 +143,7 @@ class TestAdditionalHeadersSimple:
         processor = LangfuseSpanProcessor(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="https://mock-host.com",
+            base_url="https://mock-host.com",
             additional_headers=additional_headers,
         )
 
@@ -156,8 +156,8 @@ class TestAdditionalHeadersSimple:
 
         # Verify default headers are still present
         assert "Authorization" in exporter._headers
-        assert "x_langfuse_sdk_name" in exporter._headers
-        assert "x_langfuse_public_key" in exporter._headers
+        assert "x-langfuse-sdk-name" in exporter._headers
+        assert "x-langfuse-public-key" in exporter._headers
 
         # Check that our override worked
         assert exporter._headers["X-Override-Default"] == "override-value"
@@ -170,7 +170,7 @@ class TestAdditionalHeadersSimple:
         processor = LangfuseSpanProcessor(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="https://mock-host.com",
+            base_url="https://mock-host.com",
             additional_headers=None,
         )
 
@@ -179,5 +179,5 @@ class TestAdditionalHeadersSimple:
 
         # Verify default headers are present
         assert "Authorization" in exporter._headers
-        assert "x_langfuse_sdk_name" in exporter._headers
-        assert "x_langfuse_public_key" in exporter._headers
+        assert "x-langfuse-sdk-name" in exporter._headers
+        assert "x-langfuse-public-key" in exporter._headers

@@ -19,6 +19,7 @@ from .placeholder_message import PlaceholderMessage
 from .prompt import Prompt, Prompt_Chat, Prompt_Text
 from .prompt_meta import PromptMeta
 from .prompt_meta_list_response import PromptMetaListResponse
+from .prompt_type import PromptType
 from .text_prompt import TextPrompt
 
 __all__ = [
@@ -37,6 +38,7 @@ __all__ = [
     "Prompt",
     "PromptMeta",
     "PromptMetaListResponse",
+    "PromptType",
     "Prompt_Chat",
     "Prompt_Text",
     "TextPrompt",

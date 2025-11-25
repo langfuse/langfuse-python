@@ -5,6 +5,18 @@
 
 The Langfuse Python library provides convenient access to the Langfuse APIs from Python.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Async Client](#async-client)
+- [Exception Handling](#exception-handling)
+- [Advanced](#advanced)
+  - [Retries](#retries)
+  - [Timeouts](#timeouts)
+  - [Custom Client](#custom-client)
+- [Contributing](#contributing)
+
 ## Installation
 
 ```sh

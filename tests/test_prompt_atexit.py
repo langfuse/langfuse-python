@@ -50,9 +50,9 @@ for i in range(8):
     print(process.stderr)
 
     shutdown_count = logs.count("Shutdown of prompt refresh task manager completed.")
-    assert (
-        shutdown_count == 1
-    ), f"Expected 1 shutdown messages, but found {shutdown_count}"
+    assert shutdown_count == 1, (
+        f"Expected 1 shutdown messages, but found {shutdown_count}"
+    )
 
 
 @pytest.mark.timeout(10)
@@ -114,6 +114,6 @@ if __name__ == "__main__":
     print(process.stderr)
 
     shutdown_count = logs.count("Shutdown of prompt refresh task manager completed.")
-    assert (
-        shutdown_count == 3
-    ), f"Expected 3 shutdown messages, but found {shutdown_count}"
+    assert shutdown_count == 3, (
+        f"Expected 3 shutdown messages, but found {shutdown_count}"
+    )

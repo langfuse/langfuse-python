@@ -23,7 +23,9 @@ class MetricsClient:
         self, *, query: str, request_options: typing.Optional[RequestOptions] = None
     ) -> MetricsResponse:
         """
-        Get metrics from the Langfuse project using a query object
+        Get metrics from the Langfuse project using a query object.
+
+        For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 
         Parameters
         ----------
@@ -134,7 +136,9 @@ class AsyncMetricsClient:
         self, *, query: str, request_options: typing.Optional[RequestOptions] = None
     ) -> MetricsResponse:
         """
-        Get metrics from the Langfuse project using a query object
+        Get metrics from the Langfuse project using a query object.
+
+        For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 
         Parameters
         ----------

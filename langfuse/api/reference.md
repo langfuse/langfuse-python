@@ -2442,7 +2442,7 @@ client.health.health()
 
 **Legacy endpoint for batch ingestion for Langfuse Observability.**
 
--> Please use the OpenTelemetry endpoint (`/api/public/otel`). Learn more: https://langfuse.com/integrations/native/opentelemetry
+-> Please use the OpenTelemetry endpoint (`/api/public/otel/v1/traces`). Learn more: https://langfuse.com/integrations/native/opentelemetry
 
 Within each batch, there can be multiple events.
 Each event has a type, an id, a timestamp, metadata and a body.
@@ -2963,7 +2963,9 @@ client.media.get_upload_url(
 <dl>
 <dd>
 
-Get metrics from the Langfuse project using a query object
+Get metrics from the Langfuse project using a query object.
+
+For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 </dd>
 </dl>
 </dd>
@@ -3604,6 +3606,254 @@ client.observations.get_many()
 <dl>
 <dd>
 
+**filter:** `typing.Optional[str]` 
+
+JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+
+## Filter Structure
+Each filter condition has the following structure:
+```json
+[
+  {
+    "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+    "column": string,         // Required. Column to filter on (see available columns below)
+    "operator": string,       // Required. Operator based on type:
+                              // - datetime: ">", "<", ">=", "<="
+                              // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - stringOptions: "any of", "none of"
+                              // - categoryOptions: "any of", "none of"
+                              // - arrayOptions: "any of", "none of", "all of"
+                              // - number: "=", ">", "<", ">=", "<="
+                              // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - numberObject: "=", ">", "<", ">=", "<="
+                              // - boolean: "=", "<>"
+                              // - null: "is null", "is not null"
+    "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+    "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+  }
+]
+```
+
+## Available Columns
+
+### Core Observation Fields
+- `id` (string) - Observation ID
+- `type` (string) - Observation type (SPAN, GENERATION, EVENT)
+- `name` (string) - Observation name
+- `traceId` (string) - Associated trace ID
+- `startTime` (datetime) - Observation start time
+- `endTime` (datetime) - Observation end time
+- `environment` (string) - Environment tag
+- `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
+- `statusMessage` (string) - Status message
+- `version` (string) - Version tag
+
+### Performance Metrics
+- `latency` (number) - Latency in seconds (calculated: end_time - start_time)
+- `timeToFirstToken` (number) - Time to first token in seconds
+- `tokensPerSecond` (number) - Output tokens per second
+
+### Token Usage
+- `inputTokens` (number) - Number of input tokens
+- `outputTokens` (number) - Number of output tokens
+- `totalTokens` (number) - Total tokens (alias: `tokens`)
+
+### Cost Metrics
+- `inputCost` (number) - Input cost in USD
+- `outputCost` (number) - Output cost in USD
+- `totalCost` (number) - Total cost in USD
+
+### Model Information
+- `model` (string) - Provided model name
+- `promptName` (string) - Associated prompt name
+- `promptVersion` (number) - Associated prompt version
+
+### Structured Data
+- `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+### Associated Trace Fields (requires join with traces table)
+- `userId` (string) - User ID from associated trace
+- `traceName` (string) - Name from associated trace
+- `traceEnvironment` (string) - Environment from associated trace
+- `traceTags` (arrayOptions) - Tags from associated trace
+
+## Filter Examples
+```json
+[
+  {
+    "type": "string",
+    "column": "type",
+    "operator": "=",
+    "value": "GENERATION"
+  },
+  {
+    "type": "number",
+    "column": "latency",
+    "operator": ">=",
+    "value": 2.5
+  },
+  {
+    "type": "stringObject",
+    "column": "metadata",
+    "key": "environment",
+    "operator": "=",
+    "value": "production"
+  }
+]
+```
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Opentelemetry
+<details><summary><code>client.opentelemetry.<a href="src/langfuse/resources/opentelemetry/client.py">export_traces</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**OpenTelemetry Traces Ingestion Endpoint**
+
+This endpoint implements the OTLP/HTTP specification for trace ingestion, providing native OpenTelemetry integration for Langfuse Observability.
+
+**Supported Formats:**
+- Binary Protobuf: `Content-Type: application/x-protobuf`
+- JSON Protobuf: `Content-Type: application/json`
+- Supports gzip compression via `Content-Encoding: gzip` header
+
+**Specification Compliance:**
+- Conforms to [OTLP/HTTP Trace Export](https://opentelemetry.io/docs/specs/otlp/#otlphttp)
+- Implements `ExportTraceServiceRequest` message format
+
+**Documentation:**
+- Integration guide: https://langfuse.com/integrations/native/opentelemetry
+- Data model: https://langfuse.com/docs/observability/data-model
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse import (
+    OtelAttribute,
+    OtelAttributeValue,
+    OtelResource,
+    OtelResourceSpan,
+    OtelScope,
+    OtelScopeSpan,
+    OtelSpan,
+)
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.opentelemetry.export_traces(
+    resource_spans=[
+        OtelResourceSpan(
+            resource=OtelResource(
+                attributes=[
+                    OtelAttribute(
+                        key="service.name",
+                        value=OtelAttributeValue(
+                            string_value="my-service",
+                        ),
+                    ),
+                    OtelAttribute(
+                        key="service.version",
+                        value=OtelAttributeValue(
+                            string_value="1.0.0",
+                        ),
+                    ),
+                ],
+            ),
+            scope_spans=[
+                OtelScopeSpan(
+                    scope=OtelScope(
+                        name="langfuse-sdk",
+                        version="2.60.3",
+                    ),
+                    spans=[
+                        OtelSpan(
+                            trace_id="0123456789abcdef0123456789abcdef",
+                            span_id="0123456789abcdef",
+                            name="my-operation",
+                            kind=1,
+                            start_time_unix_nano="1747872000000000000",
+                            end_time_unix_nano="1747872001000000000",
+                            attributes=[
+                                OtelAttribute(
+                                    key="langfuse.observation.type",
+                                    value=OtelAttributeValue(
+                                        string_value="generation",
+                                    ),
+                                )
+                            ],
+                            status={},
+                        )
+                    ],
+                )
+            ],
+        )
+    ],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**resource_spans:** `typing.Sequence[OtelResourceSpan]` — Array of resource spans containing trace data as defined in the OTLP specification
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>
@@ -4154,6 +4404,71 @@ client.organizations.get_organization_projects()
 </dl>
 </details>
 
+<details><summary><code>client.organizations.<a href="src/langfuse/resources/organizations/client.py">get_organization_api_keys</a>()</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get all API keys for the organization associated with the API key (requires organization-scoped API key)
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.organizations.get_organization_api_keys()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Projects
 <details><summary><code>client.projects.<a href="src/langfuse/resources/projects/client.py">get</a>()</code></summary>
 <dl>
@@ -4634,6 +4949,22 @@ client.projects.create_api_key(
 <dl>
 <dd>
 
+**public_key:** `typing.Optional[str]` — Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**secret_key:** `typing.Optional[str]` — Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>
@@ -4788,7 +5119,10 @@ client.prompt_version.update(
 <dl>
 <dd>
 
-**name:** `str` — The name of the prompt
+**name:** `str` 
+
+The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"), 
+the folder path must be URL encoded.
     
 </dd>
 </dl>
@@ -4880,7 +5214,10 @@ client.prompts.get(
 <dl>
 <dd>
 
-**prompt_name:** `str` — The name of the prompt
+**prompt_name:** `str` 
+
+The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"), 
+the folder path must be URL encoded.
     
 </dd>
 </dl>
@@ -6151,6 +6488,22 @@ client.score_v_2.get()
 <dl>
 <dd>
 
+**dataset_run_id:** `typing.Optional[str]` — Retrieve only scores with a specific datasetRunId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**trace_id:** `typing.Optional[str]` — Retrieve only scores with a specific traceId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **queue_id:** `typing.Optional[str]` — Retrieve only scores with a specific annotation queueId.
     
 </dd>
@@ -6899,6 +7252,120 @@ client.trace.list()
 <dd>
 
 **fields:** `typing.Optional[str]` — Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**filter:** `typing.Optional[str]` 
+
+JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, sessionId, tags, version, release, environment, fromTimestamp, toTimestamp).
+
+## Filter Structure
+Each filter condition has the following structure:
+```json
+[
+  {
+    "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+    "column": string,         // Required. Column to filter on (see available columns below)
+    "operator": string,       // Required. Operator based on type:
+                              // - datetime: ">", "<", ">=", "<="
+                              // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - stringOptions: "any of", "none of"
+                              // - categoryOptions: "any of", "none of"
+                              // - arrayOptions: "any of", "none of", "all of"
+                              // - number: "=", ">", "<", ">=", "<="
+                              // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - numberObject: "=", ">", "<", ">=", "<="
+                              // - boolean: "=", "<>"
+                              // - null: "is null", "is not null"
+    "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+    "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+  }
+]
+```
+
+## Available Columns
+
+### Core Trace Fields
+- `id` (string) - Trace ID
+- `name` (string) - Trace name
+- `timestamp` (datetime) - Trace timestamp
+- `userId` (string) - User ID
+- `sessionId` (string) - Session ID
+- `environment` (string) - Environment tag
+- `version` (string) - Version tag
+- `release` (string) - Release tag
+- `tags` (arrayOptions) - Array of tags
+- `bookmarked` (boolean) - Bookmark status
+
+### Structured Data
+- `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+### Aggregated Metrics (from observations)
+These metrics are aggregated from all observations within the trace:
+- `latency` (number) - Latency in seconds (time from first observation start to last observation end)
+- `inputTokens` (number) - Total input tokens across all observations
+- `outputTokens` (number) - Total output tokens across all observations
+- `totalTokens` (number) - Total tokens (alias: `tokens`)
+- `inputCost` (number) - Total input cost in USD
+- `outputCost` (number) - Total output cost in USD
+- `totalCost` (number) - Total cost in USD
+
+### Observation Level Aggregations
+These fields aggregate observation levels within the trace:
+- `level` (string) - Highest severity level (ERROR > WARNING > DEFAULT > DEBUG)
+- `warningCount` (number) - Count of WARNING level observations
+- `errorCount` (number) - Count of ERROR level observations
+- `defaultCount` (number) - Count of DEFAULT level observations
+- `debugCount` (number) - Count of DEBUG level observations
+
+### Scores (requires join with scores table)
+- `scores_avg` (number) - Average of numeric scores (alias: `scores`)
+- `score_categories` (categoryOptions) - Categorical score values
+
+## Filter Examples
+```json
+[
+  {
+    "type": "datetime",
+    "column": "timestamp",
+    "operator": ">=",
+    "value": "2024-01-01T00:00:00Z"
+  },
+  {
+    "type": "string",
+    "column": "userId",
+    "operator": "=",
+    "value": "user-123"
+  },
+  {
+    "type": "number",
+    "column": "totalCost",
+    "operator": ">=",
+    "value": 0.01
+  },
+  {
+    "type": "arrayOptions",
+    "column": "tags",
+    "operator": "all of",
+    "value": ["production", "critical"]
+  },
+  {
+    "type": "stringObject",
+    "column": "metadata",
+    "key": "customer_tier",
+    "operator": "=",
+    "value": "enterprise"
+  }
+]
+```
+
+## Performance Notes
+- Filtering on `userId`, `sessionId`, or `metadata` may enable skip indexes for better query performance
+- Score filters require a join with the scores table and may impact query performance
     
 </dd>
 </dl>

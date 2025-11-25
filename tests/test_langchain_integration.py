@@ -1,8 +1,8 @@
 import types
 
 import pytest
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_openai import ChatOpenAI, OpenAI
 
 from langfuse import Langfuse

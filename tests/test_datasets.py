@@ -3,7 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
-from langchain import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_openai import OpenAI
 
 from langfuse import Langfuse, observe

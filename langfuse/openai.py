@@ -400,7 +400,10 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         and not isinstance(metadata, NotGiven)
         and not isinstance(metadata, dict)
     ):
-        raise TypeError("metadata must be a dictionary")
+        if isinstance(metadata, BaseModel):
+            metadata = metadata.model_dump()
+        else:
+            metadata = {}
 
     model = kwargs.get("model", None) or None
 

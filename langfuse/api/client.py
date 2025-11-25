@@ -30,6 +30,10 @@ from .resources.media.client import AsyncMediaClient, MediaClient
 from .resources.metrics.client import AsyncMetricsClient, MetricsClient
 from .resources.models.client import AsyncModelsClient, ModelsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
+from .resources.opentelemetry.client import (
+    AsyncOpentelemetryClient,
+    OpentelemetryClient,
+)
 from .resources.organizations.client import (
     AsyncOrganizationsClient,
     OrganizationsClient,
@@ -136,6 +140,7 @@ class FernLangfuse:
         self.metrics = MetricsClient(client_wrapper=self._client_wrapper)
         self.models = ModelsClient(client_wrapper=self._client_wrapper)
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
+        self.opentelemetry = OpentelemetryClient(client_wrapper=self._client_wrapper)
         self.organizations = OrganizationsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.prompt_version = PromptVersionClient(client_wrapper=self._client_wrapper)
@@ -240,6 +245,9 @@ class AsyncFernLangfuse:
         self.metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         self.models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
+        self.opentelemetry = AsyncOpentelemetryClient(
+            client_wrapper=self._client_wrapper
+        )
         self.organizations = AsyncOrganizationsClient(
             client_wrapper=self._client_wrapper
         )

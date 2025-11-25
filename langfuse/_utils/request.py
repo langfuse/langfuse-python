@@ -41,9 +41,9 @@ class LangfuseClient:
                 f"{self._public_key}:{self._secret_key}".encode("utf-8")
             ).decode("ascii"),
             "Content-Type": "application/json",
-            "x_langfuse_sdk_name": "python",
-            "x_langfuse_sdk_version": self._version,
-            "x_langfuse_public_key": self._public_key,
+            "x-langfuse-sdk-name": "python",
+            "x-langfuse-sdk-version": self._version,
+            "x-langfuse-public-key": self._public_key,
         }
 
     def batch_post(self, **kwargs: Any) -> httpx.Response:

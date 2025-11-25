@@ -19,7 +19,7 @@ from langfuse.media import LangfuseMedia
 
 # Attempt to import Serializable
 try:
-    from langchain.load.serializable import Serializable
+    from langchain_core.load.serializable import Serializable
 except ImportError:
     # If Serializable is not available, set it to a placeholder type
     class Serializable:  # type: ignore

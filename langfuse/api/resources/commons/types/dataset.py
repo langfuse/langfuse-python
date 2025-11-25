@@ -12,6 +12,20 @@ class Dataset(pydantic_v1.BaseModel):
     name: str
     description: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
+    input_schema: typing.Optional[typing.Any] = pydantic_v1.Field(
+        alias="inputSchema", default=None
+    )
+    """
+    JSON Schema for validating dataset item inputs
+    """
+
+    expected_output_schema: typing.Optional[typing.Any] = pydantic_v1.Field(
+        alias="expectedOutputSchema", default=None
+    )
+    """
+    JSON Schema for validating dataset item expected outputs
+    """
+
     project_id: str = pydantic_v1.Field(alias="projectId")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")

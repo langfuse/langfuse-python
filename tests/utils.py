@@ -22,7 +22,7 @@ def get_api():
     return FernLangfuse(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
-        base_url=os.environ.get("LANGFUSE_HOST"),
+        base_url=os.environ.get("LANGFUSE_BASE_URL"),
     )
 
 

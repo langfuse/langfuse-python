@@ -338,7 +338,7 @@ def test_create_update_current_trace():
             user_id="test",
             metadata={"key": "value"},
             public=True,
-            input="test_input"
+            input="test_input",
         )
         # Get trace ID for later reference
         trace_id = span.trace_id
@@ -347,7 +347,9 @@ def test_create_update_current_trace():
         sleep(1)
 
         # Update trace properties using update_current_trace
-        langfuse.update_current_trace(metadata={"key2": "value2"}, public=False, version="1.0")
+        langfuse.update_current_trace(
+            metadata={"key2": "value2"}, public=False, version="1.0"
+        )
 
     # Ensure data is sent to the API
     langfuse.flush()

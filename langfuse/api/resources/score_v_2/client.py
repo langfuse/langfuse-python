@@ -41,6 +41,8 @@ class ScoreV2Client:
         score_ids: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
         session_id: typing.Optional[str] = None,
+        dataset_run_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -89,6 +91,12 @@ class ScoreV2Client:
 
         session_id : typing.Optional[str]
             Retrieve only scores with a specific sessionId.
+
+        dataset_run_id : typing.Optional[str]
+            Retrieve only scores with a specific datasetRunId.
+
+        trace_id : typing.Optional[str]
+            Retrieve only scores with a specific traceId.
 
         queue_id : typing.Optional[str]
             Retrieve only scores with a specific annotation queueId.
@@ -141,6 +149,8 @@ class ScoreV2Client:
                 "scoreIds": score_ids,
                 "configId": config_id,
                 "sessionId": session_id,
+                "datasetRunId": dataset_run_id,
+                "traceId": trace_id,
                 "queueId": queue_id,
                 "dataType": data_type,
                 "traceTags": trace_tags,
@@ -259,6 +269,8 @@ class AsyncScoreV2Client:
         score_ids: typing.Optional[str] = None,
         config_id: typing.Optional[str] = None,
         session_id: typing.Optional[str] = None,
+        dataset_run_id: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -307,6 +319,12 @@ class AsyncScoreV2Client:
 
         session_id : typing.Optional[str]
             Retrieve only scores with a specific sessionId.
+
+        dataset_run_id : typing.Optional[str]
+            Retrieve only scores with a specific datasetRunId.
+
+        trace_id : typing.Optional[str]
+            Retrieve only scores with a specific traceId.
 
         queue_id : typing.Optional[str]
             Retrieve only scores with a specific annotation queueId.
@@ -367,6 +385,8 @@ class AsyncScoreV2Client:
                 "scoreIds": score_ids,
                 "configId": config_id,
                 "sessionId": session_id,
+                "datasetRunId": dataset_run_id,
+                "traceId": trace_id,
                 "queueId": queue_id,
                 "dataType": data_type,
                 "traceTags": trace_tags,

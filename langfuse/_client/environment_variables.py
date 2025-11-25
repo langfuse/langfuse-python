@@ -35,11 +35,20 @@ LANGFUSE_SECRET_KEY = "LANGFUSE_SECRET_KEY"
 Secret API key of Langfuse project
 """
 
+LANGFUSE_BASE_URL = "LANGFUSE_BASE_URL"
+"""
+.. envvar:: LANGFUSE_BASE_URL
+
+Base URL of Langfuse API. Can be set via `LANGFUSE_BASE_URL` environment variable.
+
+**Default value:** ``"https://cloud.langfuse.com"``
+"""
+
 LANGFUSE_HOST = "LANGFUSE_HOST"
 """
 .. envvar:: LANGFUSE_HOST
 
-Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable.
+Deprecated. Use LANGFUSE_BASE_URL instead. Host of Langfuse API. Can be set via `LANGFUSE_HOST` environment variable.
 
 **Default value:** ``"https://cloud.langfuse.com"``
 """

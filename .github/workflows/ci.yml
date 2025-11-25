@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
       - name: Setup a local virtual environment
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      LANGFUSE_HOST: "http://localhost:3000"
+      LANGFUSE_BASE_URL: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
       LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -69,9 +69,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
+          - "3.12"
+          - "3.13"
 
     name: Test on Python version ${{ matrix.python-version }}
     steps:
@@ -87,7 +88,7 @@ jobs:
       - name: Setup node (for langfuse server)
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Cache langfuse server dependencies
         uses: actions/cache@v3

@@ -1,5 +1,5 @@
 import pytest
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 from langfuse.api.resources.prompts import ChatMessage, Prompt_Chat
 from langfuse.model import (

@@ -387,6 +387,8 @@ class ProjectsClient:
         project_id: str,
         *,
         note: typing.Optional[str] = OMIT,
+        public_key: typing.Optional[str] = OMIT,
+        secret_key: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiKeyResponse:
         """
@@ -398,6 +400,12 @@ class ProjectsClient:
 
         note : typing.Optional[str]
             Optional note for the API key
+
+        public_key : typing.Optional[str]
+            Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
+
+        secret_key : typing.Optional[str]
+            Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -425,7 +433,7 @@ class ProjectsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
             method="POST",
-            json={"note": note},
+            json={"note": note, "publicKey": public_key, "secretKey": secret_key},
             request_options=request_options,
             omit=OMIT,
         )
@@ -932,6 +940,8 @@ class AsyncProjectsClient:
         project_id: str,
         *,
         note: typing.Optional[str] = OMIT,
+        public_key: typing.Optional[str] = OMIT,
+        secret_key: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiKeyResponse:
         """
@@ -943,6 +953,12 @@ class AsyncProjectsClient:
 
         note : typing.Optional[str]
             Optional note for the API key
+
+        public_key : typing.Optional[str]
+            Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
+
+        secret_key : typing.Optional[str]
+            Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -978,7 +994,7 @@ class AsyncProjectsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
             method="POST",
-            json={"note": note},
+            json={"note": note, "publicKey": public_key, "secretKey": secret_key},
             request_options=request_options,
             omit=OMIT,
         )

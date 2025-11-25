@@ -11,6 +11,19 @@ class CreateDatasetRequest(pydantic_v1.BaseModel):
     name: str
     description: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
+    input_schema: typing.Optional[typing.Any] = pydantic_v1.Field(
+        alias="inputSchema", default=None
+    )
+    """
+    JSON Schema for validating dataset item inputs. When set, all new and existing dataset items will be validated against this schema.
+    """
+
+    expected_output_schema: typing.Optional[typing.Any] = pydantic_v1.Field(
+        alias="expectedOutputSchema", default=None
+    )
+    """
+    JSON Schema for validating dataset item expected outputs. When set, all new and existing dataset items will be validated against this schema.
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -40,5 +53,7 @@ class CreateDatasetRequest(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
+        allow_population_by_field_name = True
+        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

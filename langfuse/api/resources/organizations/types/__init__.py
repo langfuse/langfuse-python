@@ -6,6 +6,8 @@ from .membership_request import MembershipRequest
 from .membership_response import MembershipResponse
 from .membership_role import MembershipRole
 from .memberships_response import MembershipsResponse
+from .organization_api_key import OrganizationApiKey
+from .organization_api_keys_response import OrganizationApiKeysResponse
 from .organization_project import OrganizationProject
 from .organization_projects_response import OrganizationProjectsResponse
 
@@ -16,6 +18,8 @@ __all__ = [
     "MembershipResponse",
     "MembershipRole",
     "MembershipsResponse",
+    "OrganizationApiKey",
+    "OrganizationApiKeysResponse",
     "OrganizationProject",
     "OrganizationProjectsResponse",
 ]
