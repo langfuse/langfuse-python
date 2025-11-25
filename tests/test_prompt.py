@@ -1,5 +1,6 @@
+import asyncio
 from time import sleep
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import openai
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from langfuse._client.client import Langfuse
 from langfuse._utils.prompt_cache import (
     DEFAULT_PROMPT_CACHE_TTL_SECONDS,
+    PromptCache,
     PromptCacheItem,
 )
 from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
@@ -681,6 +683,9 @@ def test_prompt_end_to_end():
 def langfuse():
     langfuse_instance = Langfuse()
     langfuse_instance.api = Mock()
+    langfuse_instance.async_api = Mock()
+    langfuse_instance._resources = Mock()
+    langfuse_instance._resources.prompt_cache = PromptCache()
 
     return langfuse_instance
 
@@ -710,6 +715,92 @@ def test_get_fresh_prompt(langfuse):
     )
 
     assert result == TextPromptClient(prompt)
+
+
+def test_async_get_fresh_prompt(langfuse):
+    langfuse._resources.prompt_cache.clear()
+    prompt_name = "test_async_get_fresh_prompt"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+
+    langfuse.async_api.prompts = Mock()
+    langfuse.async_api.prompts.get = AsyncMock(return_value=prompt)
+
+    result = asyncio.run(langfuse.aget_prompt(prompt_name, fallback="fallback"))
+
+    langfuse.async_api.prompts.get.assert_awaited_once_with(
+        prompt_name,
+        version=None,
+        label=None,
+        request_options=None,
+    )
+    assert result == TextPromptClient(prompt)
+
+    cache_key = langfuse._resources.prompt_cache.generate_cache_key(
+        prompt_name, version=None, label=None
+    )
+    cached_item = langfuse._resources.prompt_cache.get(cache_key)
+    assert cached_item is not None
+    assert cached_item.value == result
+
+
+def test_async_get_prompt_uses_cache_without_fetch(langfuse):
+    langfuse._resources.prompt_cache.clear()
+    prompt_name = "test_async_get_prompt_uses_cache_without_fetch"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Cached prompt",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    cache_key = langfuse._resources.prompt_cache.generate_cache_key(
+        prompt_name, version=None, label=None
+    )
+    langfuse._resources.prompt_cache.set(cache_key, prompt_client, ttl_seconds=60)
+
+    langfuse.async_api.prompts = Mock()
+    langfuse.async_api.prompts.get = AsyncMock()
+
+    result = asyncio.run(langfuse.aget_prompt(prompt_name))
+
+    assert result == prompt_client
+    langfuse.async_api.prompts.get.assert_not_called()
+
+
+def test_async_get_prompt_returns_fallback_on_failure(langfuse):
+    langfuse._resources.prompt_cache.clear()
+    prompt_name = "test_async_get_prompt_returns_fallback_on_failure"
+
+    langfuse.async_api.prompts = Mock()
+    langfuse.async_api.prompts.get = AsyncMock(side_effect=Exception("boom"))
+
+    result = asyncio.run(
+        langfuse.aget_prompt(
+            prompt_name, fallback="fallback text", max_retries=0
+        )
+    )
+
+    assert isinstance(result, TextPromptClient)
+    assert result.is_fallback is True
+    assert result.prompt == "fallback text"
+
+    cache_key = langfuse._resources.prompt_cache.generate_cache_key(
+        prompt_name, version=None, label=None
+    )
+    cached_item = langfuse._resources.prompt_cache.get(cache_key)
+    assert cached_item is None
 
 
 # Should throw an error if prompt name is unspecified
