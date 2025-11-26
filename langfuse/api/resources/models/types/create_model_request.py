@@ -6,6 +6,7 @@ import typing
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from ...commons.types.model_usage_unit import ModelUsageUnit
+from ...commons.types.pricing_tier_input import PricingTierInput
 
 
 class CreateModelRequest(pydantic_v1.BaseModel):
@@ -35,21 +36,45 @@ class CreateModelRequest(pydantic_v1.BaseModel):
         alias="inputPrice", default=None
     )
     """
-    Price (USD) per input unit
+    Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
     """
 
     output_price: typing.Optional[float] = pydantic_v1.Field(
         alias="outputPrice", default=None
     )
     """
-    Price (USD) per output unit
+    Deprecated. Use 'pricingTiers' instead. Price (USD) per output unit. Creates a default tier if pricingTiers not provided.
     """
 
     total_price: typing.Optional[float] = pydantic_v1.Field(
         alias="totalPrice", default=None
     )
     """
-    Price (USD) per total units. Cannot be set if input or output price is set.
+    Deprecated. Use 'pricingTiers' instead. Price (USD) per total units. Cannot be set if input or output price is set. Creates a default tier if pricingTiers not provided.
+    """
+
+    pricing_tiers: typing.Optional[typing.List[PricingTierInput]] = pydantic_v1.Field(
+        alias="pricingTiers", default=None
+    )
+    """
+    Optional. Array of pricing tiers for this model.
+    
+    Use pricing tiers for all models - both those with threshold-based pricing variations and those with simple flat pricing:
+    
+    - For models with standard flat pricing: Create a single default tier with your prices
+      (e.g., one tier with isDefault=true, priority=0, conditions=[], and your standard prices)
+    
+    - For models with threshold-based pricing: Create a default tier plus additional conditional tiers
+      (e.g., default tier for standard usage + high-volume tier for usage above certain thresholds)
+    
+    Requirements:
+    - Cannot be provided with flat prices (inputPrice/outputPrice/totalPrice) - use one approach or the other
+    - Must include exactly one default tier with isDefault=true, priority=0, and conditions=[]
+    - All tier names and priorities must be unique within the model
+    - Each tier must define at least one price
+    
+    If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
+    which will automatically create a single default tier named "Standard".
     """
 
     tokenizer_id: typing.Optional[str] = pydantic_v1.Field(
