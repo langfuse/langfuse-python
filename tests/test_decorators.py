@@ -1751,10 +1751,46 @@ def test_sync_generator_context_preservation():
     assert generator_obs.output == "item_0item_1item_2"
 
 
+@pytest.fixture(params=["generator", "iterator"])
+def async_iterable_factory(request):
+    """Factory that creates either an async generator or async iterator"""
+    iterable_type = request.param
+
+    if iterable_type == "generator":
+
+        async def create_async_generator():
+            for i in range(3):
+                await asyncio.sleep(0.001)
+                yield f"async_item_{i}"
+
+        return create_async_generator
+    else:  # iterator
+
+        class AIter:
+            def __init__(self):
+                self.index = -1
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self.index < 2:
+                    await asyncio.sleep(0.001)
+                    self.index += 1
+                    return f"async_item_{self.index}"
+                else:
+                    raise StopAsyncIteration
+
+        def create_async_iterator():
+            return AIter()
+
+        return create_async_iterator
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
-async def test_async_generator_context_preservation():
-    """Test that async generators preserve context when consumed later (e.g., by streaming responses)"""
+async def test_async_generator_context_preservation(async_iterable_factory):
+    """Test that async generators and iterators preserve context when consumed later (e.g., by streaming responses)"""
     langfuse = get_client()
     mock_trace_id = langfuse.create_trace_id()
 
@@ -1762,15 +1798,13 @@ async def test_async_generator_context_preservation():
     span_info = {}
 
     @observe(name="async_generator")
-    async def create_async_generator():
+    async def create_async_iterable():
         current_span = trace.get_current_span()
         span_info["generator_span_id"] = trace.format_span_id(
             current_span.get_span_context().span_id
         )
 
-        for i in range(3):
-            await asyncio.sleep(0.001)  # Simulate async work
-            yield f"async_item_{i}"
+        return async_iterable_factory()
 
     @observe(name="root")
     async def root_function():
@@ -1779,15 +1813,15 @@ async def test_async_generator_context_preservation():
             current_span.get_span_context().span_id
         )
 
-        # Return generator without consuming it (like FastAPI StreamingResponse would)
-        return create_async_generator()
+        # Return iterable without consuming it (like FastAPI StreamingResponse would)
+        return await create_async_iterable()
 
-    # Simulate the scenario where generator is consumed after root function exits
-    generator = await root_function(langfuse_trace_id=mock_trace_id)
+    # Simulate the scenario where iterable is consumed after root function exits
+    iterable = await root_function(langfuse_trace_id=mock_trace_id)
 
-    # Consume generator later (like FastAPI would)
+    # Consume iterable later (like FastAPI would)
     items = []
-    async for item in generator:
+    async for item in iterable:
         items.append(item)
 
     langfuse.flush()
@@ -1795,7 +1829,7 @@ async def test_async_generator_context_preservation():
     # Verify results
     assert items == ["async_item_0", "async_item_1", "async_item_2"]
     assert span_info["generator_span_id"] != "0000000000000000", (
-        "Generator context should be preserved"
+        "Context should be preserved"
     )
     assert span_info["root_span_id"] != span_info["generator_span_id"], (
         "Should have different span IDs"
@@ -1810,7 +1844,7 @@ async def test_async_generator_context_preservation():
     assert "root" in observation_names
     assert "async_generator" in observation_names
 
-    # Verify generator observation has output
+    # Verify observation has output
     generator_obs = next(
         obs for obs in trace_data.observations if obs.name == "async_generator"
     )
