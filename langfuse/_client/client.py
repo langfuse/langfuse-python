@@ -79,6 +79,7 @@ from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
+from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
@@ -3604,6 +3605,14 @@ class Langfuse:
                 self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
             return prompt
+
+        except NotFoundError as not_found_error:
+            langfuse_logger.warning(
+                f"Prompt '{cache_key}' not found during refresh, evicting from cache."
+            )
+            if self._resources is not None:
+                self._resources.prompt_cache.delete(cache_key)
+            raise not_found_error
 
         except Exception as e:
             langfuse_logger.error(
