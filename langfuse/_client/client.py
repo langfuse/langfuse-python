@@ -3411,7 +3411,10 @@ class Langfuse:
         label: Optional[str] = None,
         type: Literal["chat"],
         cache_ttl_seconds: Optional[int] = None,
-        fallback: Optional[List[ChatMessageDict]] = None,
+        fallback: Union[
+            Optional[List[ChatMessageDict]],
+            Optional[Callable[[], List[ChatMessageDict]]],
+        ] = None,
         max_retries: Optional[int] = None,
         fetch_timeout_seconds: Optional[int] = None,
     ) -> ChatPromptClient: ...
@@ -3425,7 +3428,7 @@ class Langfuse:
         label: Optional[str] = None,
         type: Literal["text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
-        fallback: Optional[str] = None,
+        fallback: Union[Optional[str], Optional[Callable[[], str]]] = None,
         max_retries: Optional[int] = None,
         fetch_timeout_seconds: Optional[int] = None,
     ) -> TextPromptClient: ...
@@ -3438,7 +3441,12 @@ class Langfuse:
         label: Optional[str] = None,
         type: Literal["chat", "text"] = "text",
         cache_ttl_seconds: Optional[int] = None,
-        fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
+        fallback: Union[
+            Optional[List[ChatMessageDict]],
+            Optional[str],
+            Optional[Callable[[], str]],
+            Optional[Callable[[], List[ChatMessageDict]]],
+        ] = None,
         max_retries: Optional[int] = None,
         fetch_timeout_seconds: Optional[int] = None,
     ) -> PromptClient:
@@ -3458,7 +3466,7 @@ class Langfuse:
             cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the prompt. Must be specified as a
             keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
-            fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
+            fallback: Union[Optional[List[ChatMessageDict]], Optional[str], Optional[Callable[[], str]], Optional[Callable[[], List[ChatMessageDict]]]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
             fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
 
@@ -3510,7 +3518,7 @@ class Langfuse:
 
                     fallback_client_args: Dict[str, Any] = {
                         "name": name,
-                        "prompt": fallback,
+                        "prompt": fallback() if callable(fallback) else fallback,
                         "type": type,
                         "version": version or 0,
                         "config": {},
