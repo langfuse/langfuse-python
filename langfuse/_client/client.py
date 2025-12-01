@@ -3251,6 +3251,8 @@ class Langfuse:
         name: str,
         description: Optional[str] = None,
         metadata: Optional[Any] = None,
+        input_schema: Optional[Any] = None,
+        expected_output_schema: Optional[Any] = None,
     ) -> Dataset:
         """Create a dataset with the given name on Langfuse.
 
@@ -3258,13 +3260,19 @@ class Langfuse:
             name: Name of the dataset to create.
             description: Description of the dataset. Defaults to None.
             metadata: Additional metadata. Defaults to None.
+            input_schema: JSON Schema for validating dataset item inputs. When set, all new items will be validated against this schema.
+            expected_output_schema: JSON Schema for validating dataset item expected outputs. When set, all new items will be validated against this schema.
 
         Returns:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
             body = CreateDatasetRequest(
-                name=name, description=description, metadata=metadata
+                name=name,
+                description=description,
+                metadata=metadata,
+                inputSchema=input_schema,
+                expectedOutputSchema=expected_output_schema,
             )
             langfuse_logger.debug(f"Creating datasets {body}")
 
