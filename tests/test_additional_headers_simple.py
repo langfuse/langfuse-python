@@ -143,7 +143,7 @@ class TestAdditionalHeadersSimple:
         processor = LangfuseSpanProcessor(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="https://mock-host.com",
+            base_url="https://mock-host.com",
             additional_headers=additional_headers,
         )
 
@@ -170,7 +170,7 @@ class TestAdditionalHeadersSimple:
         processor = LangfuseSpanProcessor(
             public_key="test-public-key",
             secret_key="test-secret-key",
-            host="https://mock-host.com",
+            base_url="https://mock-host.com",
             additional_headers=None,
         )
 

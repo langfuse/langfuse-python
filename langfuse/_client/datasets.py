@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
+from langfuse.batch_evaluation import CompositeEvaluatorFunction
 from langfuse.experiment import (
     EvaluatorFunction,
     ExperimentResult,
@@ -204,6 +205,7 @@ class DatasetClient:
         description: Optional[str] = None,
         task: TaskFunction,
         evaluators: List[EvaluatorFunction] = [],
+        composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
@@ -234,6 +236,10 @@ class DatasetClient:
                 .metadata attributes. Signature should be: task(*, item, **kwargs) -> Any
             evaluators: List of functions to evaluate each item's output individually.
                 These will have access to the item's expected_output for comparison.
+            composite_evaluator: Optional function that creates composite scores from item-level evaluations.
+                Receives the same inputs as item-level evaluators (input, output, expected_output, metadata)
+                plus the list of evaluations from item-level evaluators. Useful for weighted averages,
+                pass/fail decisions based on multiple criteria, or custom scoring logic combining multiple metrics.
             run_evaluators: List of functions to evaluate the entire experiment run.
                 Useful for computing aggregate statistics across all dataset items.
             max_concurrency: Maximum number of concurrent task executions (default: 50).
@@ -411,6 +417,7 @@ class DatasetClient:
             data=self.items,
             task=task,
             evaluators=evaluators,
+            composite_evaluator=composite_evaluator,
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
             metadata=metadata,
