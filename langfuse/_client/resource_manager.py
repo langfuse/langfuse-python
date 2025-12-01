@@ -179,6 +179,7 @@ class LangfuseResourceManager:
             tracer_provider = tracer_provider or _init_tracer_provider(
                 environment=environment, release=release, sample_rate=sample_rate
             )
+            self.tracer_provider = tracer_provider
 
             langfuse_processor = LangfuseSpanProcessor(
                 public_key=self.public_key,
