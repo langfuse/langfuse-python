@@ -1041,7 +1041,7 @@ def create_evaluator_from_autoevals(
         return Evaluation(
             name=evaluation.name,
             value=evaluation.score,
-            comment=evaluation.metadata.get("comment"),
+            comment=(evaluation.metadata or {}).get("comment"),
             metadata=evaluation.metadata,
         )
 
