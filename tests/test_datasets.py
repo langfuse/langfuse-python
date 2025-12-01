@@ -146,7 +146,7 @@ def test_dataset_run_with_metadata_and_description():
     dataset_name = create_uuid()
     langfuse.create_dataset(name=dataset_name)
 
-    input = json.dumps({"input": "Hello World"})
+    input = {"input": "Hello World"}
     langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
@@ -187,7 +187,7 @@ def test_get_dataset_runs():
     dataset_name = create_uuid()
     langfuse.create_dataset(name=dataset_name)
 
-    input = json.dumps({"input": "Hello World"})
+    input = {"input": "Hello World"}
     langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
