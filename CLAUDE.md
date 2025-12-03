@@ -12,7 +12,6 @@ This is the Langfuse Python SDK, a client library for accessing the Langfuse obs
 ```bash
 # Install Poetry plugins (one-time setup)
 poetry self add poetry-dotenv-plugin
-poetry self add poetry-bumpversion
 
 # Install all dependencies including optional extras
 poetry install --all-extras
@@ -50,15 +49,20 @@ poetry run pre-commit run --all-files
 
 ### Building and Releasing
 ```bash
-# Build the package
+# Build the package locally (for testing)
 poetry build
-
-# Run release script (handles versioning, building, tagging, and publishing)
-poetry run release
 
 # Generate documentation
 poetry run pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
 ```
+
+Releases are automated via GitHub Actions. To release:
+1. Go to Actions > "Release Python SDK" workflow
+2. Click "Run workflow"
+3. Select version bump type (patch/minor/major/prerelease)
+4. For prereleases, select the type (alpha/beta/rc)
+
+The workflow handles versioning, building, PyPI publishing (via OIDC), and GitHub release creation.
 
 ## Architecture
 
@@ -112,7 +116,7 @@ Environment variables (defined in `_client/environment_variables.py`):
 - `pyproject.toml`: Poetry configuration, dependencies, and tool settings
 - `ruff.toml`: Local development linting config (stricter)
 - `ci.ruff.toml`: CI linting config (more permissive)
-- `langfuse/version.py`: Version string (updated by release script)
+- `langfuse/version.py`: Version string (updated by CI release workflow)
 
 ## API Generation
 

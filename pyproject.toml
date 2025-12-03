@@ -45,8 +45,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 log_cli = true
 
-[tool.poetry_bumpversion.file."langfuse/version.py"]
-
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = true
@@ -103,5 +101,3 @@ module = [
 ]
 ignore_errors = true
 
-[tool.poetry.scripts]
-release = "scripts.release:main"
