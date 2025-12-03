@@ -173,6 +173,7 @@ class LangfuseResourceManager:
         self.sample_rate = sample_rate
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.additional_headers = additional_headers
+        self.tracer_provider = None
 
         # OTEL Tracer
         if tracing_enabled:
