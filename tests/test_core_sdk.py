@@ -1,7 +1,7 @@
 import os
 import time
 from asyncio import gather
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import sleep
 
 import pytest
@@ -255,6 +255,60 @@ def test_create_categorical_score():
     assert trace["scores"][0]["dataType"] == "CATEGORICAL"
     assert trace["scores"][0]["value"] == 0
     assert trace["scores"][0]["stringValue"] == "high score"
+
+
+def test_create_score_with_custom_timestamp():
+    langfuse = Langfuse()
+    api_wrapper = LangfuseAPI()
+
+    # Create a span and set trace properties
+    with langfuse.start_as_current_span(name="test-span") as span:
+        span.update_trace(
+            name="test-custom-timestamp",
+            user_id="test",
+            metadata="test",
+        )
+        # Get trace ID for later use
+        trace_id = span.trace_id
+
+    # Ensure data is sent
+    langfuse.flush()
+    sleep(2)
+
+    custom_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
+    score_id = create_uuid()
+    langfuse.create_score(
+        score_id=score_id,
+        trace_id=trace_id,
+        name="custom-timestamp-score",
+        value=0.85,
+        data_type="NUMERIC",
+        timestamp=custom_timestamp,
+    )
+
+    # Ensure data is sent
+    langfuse.flush()
+    sleep(2)
+
+    # Retrieve and verify
+    trace = api_wrapper.get_trace(trace_id)
+
+    assert trace["scores"][0]["id"] == score_id
+    assert trace["scores"][0]["dataType"] == "NUMERIC"
+    assert trace["scores"][0]["value"] == 0.85
+
+    # Verify timestamp is close to our custom timestamp
+    # Parse the timestamp from the API response
+    response_timestamp = datetime.fromisoformat(
+        trace["scores"][0]["timestamp"].replace("Z", "+00:00")
+    )
+
+    # Check that the timestamps are within 1 second of each other
+    # (allowing for some processing time and rounding)
+    time_diff = abs((response_timestamp - custom_timestamp).total_seconds())
+    assert time_diff < 1, (
+        f"Timestamp difference too large: {time_diff}s. Expected < 1s. Custom: {custom_timestamp}, Response: {response_timestamp}"
+    )
 
 
 def test_create_trace():
