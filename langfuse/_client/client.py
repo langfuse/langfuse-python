@@ -1972,6 +1972,7 @@ class Langfuse:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     @overload
@@ -1989,6 +1990,7 @@ class Langfuse:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     def create_score(
@@ -2005,6 +2007,7 @@ class Langfuse:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """Create a score for a specific trace or observation.
 
@@ -2023,6 +2026,7 @@ class Langfuse:
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
+            timestamp: Optional timestamp for the score (defaults to current UTC time)
 
         Example:
             ```python
@@ -2069,7 +2073,7 @@ class Langfuse:
             event = {
                 "id": self.create_trace_id(),
                 "type": "score-create",
-                "timestamp": _get_timestamp(),
+                "timestamp": timestamp or _get_timestamp(),
                 "body": new_body,
             }
 
