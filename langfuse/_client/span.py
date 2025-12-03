@@ -276,6 +276,7 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     @overload
@@ -288,6 +289,7 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     def score(
@@ -299,6 +301,7 @@ class LangfuseObservationWrapper:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """Create a score for this specific span.
 
@@ -312,6 +315,7 @@ class LangfuseObservationWrapper:
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            timestamp: Optional timestamp for the score (defaults to current UTC time)
 
         Example:
             ```python
@@ -337,6 +341,7 @@ class LangfuseObservationWrapper:
             data_type=cast(Literal["CATEGORICAL"], data_type),
             comment=comment,
             config_id=config_id,
+            timestamp=timestamp,
         )
 
     @overload
@@ -349,6 +354,7 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     @overload
@@ -361,6 +367,7 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     def score_trace(
@@ -372,6 +379,7 @@ class LangfuseObservationWrapper:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """Create a score for the entire trace that this span belongs to.
 
@@ -386,6 +394,7 @@ class LangfuseObservationWrapper:
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            timestamp: Optional timestamp for the score (defaults to current UTC time)
 
         Example:
             ```python
@@ -410,6 +419,7 @@ class LangfuseObservationWrapper:
             data_type=cast(Literal["CATEGORICAL"], data_type),
             comment=comment,
             config_id=config_id,
+            timestamp=timestamp,
         )
 
     def _set_processed_span_attributes(
