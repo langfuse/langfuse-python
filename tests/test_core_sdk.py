@@ -1,7 +1,7 @@
 import os
 import time
 from asyncio import gather
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from time import sleep
 
 import pytest
@@ -274,9 +274,6 @@ def test_create_score_with_custom_timestamp():
     # Ensure data is sent
     langfuse.flush()
     sleep(2)
-
-    # Create a score with a custom timestamp (1 hour ago)
-    from datetime import timedelta
 
     custom_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
     score_id = create_uuid()
