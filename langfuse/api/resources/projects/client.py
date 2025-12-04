@@ -32,7 +32,7 @@ class ProjectsClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Projects:
         """
-        Get Project associated with API key
+        Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 
         Parameters
         ----------
@@ -545,7 +545,7 @@ class AsyncProjectsClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Projects:
         """
-        Get Project associated with API key
+        Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 
         Parameters
         ----------
