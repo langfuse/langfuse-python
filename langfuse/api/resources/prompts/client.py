@@ -15,7 +15,6 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..scim.types.empty_response import EmptyResponse
 from .types.create_prompt_request import CreatePromptRequest
 from .types.prompt import Prompt
 from .types.prompt_meta_list_response import PromptMetaListResponse
@@ -300,9 +299,9 @@ class PromptsClient:
         label: typing.Optional[str] = None,
         version: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EmptyResponse:
+    ) -> None:
         """
-        Delete a prompt or specific versions
+        Delete prompt versions. If neither version nor label is specified, all versions of the prompt are deleted.
 
         Parameters
         ----------
@@ -310,17 +309,17 @@ class PromptsClient:
             The name of the prompt
 
         label : typing.Optional[str]
-            Optional label of the prompt to delete
+            Optional label to filter deletion. If specified, deletes all prompt versions that have this label.
 
         version : typing.Optional[int]
-            Optional version of the prompt to delete
+            Optional version to filter deletion. If specified, deletes only this specific version of the prompt.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        EmptyResponse
+        None
 
         Examples
         --------
@@ -346,7 +345,7 @@ class PromptsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(EmptyResponse, _response.json())  # type: ignore
+                return
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:
@@ -671,9 +670,9 @@ class AsyncPromptsClient:
         label: typing.Optional[str] = None,
         version: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EmptyResponse:
+    ) -> None:
         """
-        Delete a prompt or specific versions
+        Delete prompt versions. If neither version nor label is specified, all versions of the prompt are deleted.
 
         Parameters
         ----------
@@ -681,17 +680,17 @@ class AsyncPromptsClient:
             The name of the prompt
 
         label : typing.Optional[str]
-            Optional label of the prompt to delete
+            Optional label to filter deletion. If specified, deletes all prompt versions that have this label.
 
         version : typing.Optional[int]
-            Optional version of the prompt to delete
+            Optional version to filter deletion. If specified, deletes only this specific version of the prompt.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        EmptyResponse
+        None
 
         Examples
         --------
@@ -725,7 +724,7 @@ class AsyncPromptsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                return pydantic_v1.parse_obj_as(EmptyResponse, _response.json())  # type: ignore
+                return
             if _response.status_code == 400:
                 raise Error(pydantic_v1.parse_obj_as(typing.Any, _response.json()))  # type: ignore
             if _response.status_code == 401:

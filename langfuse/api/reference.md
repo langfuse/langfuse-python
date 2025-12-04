@@ -4482,7 +4482,7 @@ client.organizations.get_organization_api_keys()
 <dl>
 <dd>
 
-Get Project associated with API key
+Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 </dd>
 </dl>
 </dd>
@@ -5477,7 +5477,7 @@ client.prompts.create(
 <dl>
 <dd>
 
-Delete a prompt or specific versions
+Delete prompt versions. If neither version nor label is specified, all versions of the prompt are deleted.
 </dd>
 </dl>
 </dd>
@@ -5528,7 +5528,7 @@ client.prompts.delete(
 <dl>
 <dd>
 
-**label:** `typing.Optional[str]` — Optional label of the prompt to delete
+**label:** `typing.Optional[str]` — Optional label to filter deletion. If specified, deletes all prompt versions that have this label.
     
 </dd>
 </dl>
@@ -5536,7 +5536,7 @@ client.prompts.delete(
 <dl>
 <dd>
 
-**version:** `typing.Optional[int]` — Optional version of the prompt to delete
+**version:** `typing.Optional[int]` — Optional version to filter deletion. If specified, deletes only this specific version of the prompt.
     
 </dd>
 </dl>
