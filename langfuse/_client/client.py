@@ -78,7 +78,6 @@ from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api.core.api_error import ApiError
 from langfuse.api.resources.commons.errors.error import Error
 from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
@@ -3783,31 +3782,24 @@ class Langfuse:
         label: Optional[str] = None,
         version: Optional[int] = None,
     ) -> None:
-        """Delete a prompt or specific versions from Langfuse.
+        """Delete a prompt with all its versions or selected versions from Langfuse.
 
-        Also invalidates the Langfuse SDK prompt cache for the specified prompt.
+        The Langfuse SDK prompt cache is invalidated for all cached versions with the specified name.
 
         Args:
-            name: The name of the prompt to delete.
-            label: Optional label of the prompt to delete.
+            name: The name of the prompt to delete prompt versions for. If neither `label` nor `version` are specified, all prompt versions will be deleted.
+            label: Label of the prompt versions to delete. All prompt versions with the given label will be deleted.
             version: Optional version of the prompt to delete.
 
         Raises:
             NotFoundError: If the prompt does not exist.
             Error: If the API request fails.
         """
-        try:
-            self.api.prompts.delete(
-                prompt_name=self._url_encode(name),
-                label=label,
-                version=version,
-            )
-        except ApiError as e:
-            # 204 No Content is a successful deletion, but has empty body
-            if e.status_code == 204:
-                pass
-            else:
-                raise
+        self.api.prompts.delete(
+            prompt_name=self._url_encode(name),
+            label=label,
+            version=version,
+        )
 
         if self._resources is not None:
             self._resources.prompt_cache.invalidate(name)
