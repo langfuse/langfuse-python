@@ -173,7 +173,7 @@ class LangfuseResourceManager:
         self.sample_rate = sample_rate
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.additional_headers = additional_headers
-        self.tracer_provider = None
+        self.tracer_provider: Optional[TracerProvider] = None
 
         # OTEL Tracer
         if tracing_enabled:
@@ -399,9 +399,10 @@ class LangfuseResourceManager:
             )
 
     def flush(self) -> None:
-        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        if not isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
-            tracer_provider.force_flush()
+        if self.tracer_provider is not None and not isinstance(
+            self.tracer_provider, otel_trace_api.ProxyTracerProvider
+        ):
+            self.tracer_provider.force_flush()
             langfuse_logger.debug("Successfully flushed OTEL tracer provider")
 
         self._score_ingestion_queue.join()
@@ -414,9 +415,10 @@ class LangfuseResourceManager:
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
 
-        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        if not isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
-            tracer_provider.force_flush()
+        if self.tracer_provider is not None and not isinstance(
+            self.tracer_provider, otel_trace_api.ProxyTracerProvider
+        ):
+            self.tracer_provider.force_flush()
 
         self._stop_and_join_consumer_threads()
 
