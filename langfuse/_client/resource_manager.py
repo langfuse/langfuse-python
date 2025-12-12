@@ -17,6 +17,7 @@ Key features:
 import atexit
 import os
 import threading
+import time
 from queue import Full, Queue
 from typing import Any, Dict, List, Optional, cast
 
@@ -408,10 +409,15 @@ class LangfuseResourceManager:
         self._score_ingestion_queue.join()
         langfuse_logger.debug("Successfully flushed score ingestion queue")
 
+        # Configurable health check timeout for media consumer threads (seconds)
+        MEDIA_CONSUMER_HEALTH_TIMEOUT_SECONDS = 5.0
+        # Configurable maximum time to wait for the queue to drain (seconds)
+        MEDIA_FLUSH_DRAIN_TIMEOUT_SECONDS = 30.0
+
         # Check if threads are alive AND healthy (recently active)
         healthy_threads = [
             c for c in self._media_upload_consumers
-            if c.is_alive() and c.is_healthy(timeout_seconds=5.0)
+            if c.is_alive() and c.is_healthy(timeout_seconds=MEDIA_CONSUMER_HEALTH_TIMEOUT_SECONDS)
         ]
 
         if healthy_threads:
@@ -420,7 +426,7 @@ class LangfuseResourceManager:
                 f"{len(healthy_threads)} healthy consumer threads active, waiting for queue to drain"
             )
             start_time = time.time()
-            timeout = 30
+            timeout = MEDIA_FLUSH_DRAIN_TIMEOUT_SECONDS
 
             while not self._media_upload_queue.empty() and (time.time() - start_time) < timeout:
                 time.sleep(0.1)

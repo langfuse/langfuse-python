@@ -10,6 +10,8 @@ class MediaUploadConsumer(threading.Thread):
     _identifier: int
     _max_retries: int
     _media_manager: MediaManager
+    # Default health check threshold in seconds
+    DEFAULT_HEALTH_TIMEOUT_SECONDS: float = 5.0
 
     def __init__(
         self,
@@ -44,7 +46,7 @@ class MediaUploadConsumer(threading.Thread):
                 # Update after successful processing
                 self.last_activity = time.time()
             except Exception as e:
-                self._log.error(
+                self._log.exception(
                     f"Thread #{self._identifier}: Unexpected error in consumer loop: {e}"
                 )
                 # Continue running despite errors
@@ -57,7 +59,7 @@ class MediaUploadConsumer(threading.Thread):
         )
         self.running = False
 
-    def is_healthy(self, timeout_seconds: float = 5.0) -> bool:
+    def is_healthy(self, timeout_seconds: float = DEFAULT_HEALTH_TIMEOUT_SECONDS) -> bool:
         """
         Check if thread is healthy and recently active.
         Returns False if thread hasn't processed anything in timeout_seconds.
