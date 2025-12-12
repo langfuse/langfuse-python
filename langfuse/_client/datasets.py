@@ -225,7 +225,7 @@ class DatasetClient:
             # Worker function (runs in separate process/container)
             def process_item(item_json: str, run_name: str) -> dict:
                 client = get_client()
-                dataset_item = DatasetItem(**item_dict)
+                dataset_item = DatasetItem(**json.loads(item_json))
                 item_client = DatasetItemClient(dataset_item, client)
 
                 with item_client.run(run_name=run_name) as span:
