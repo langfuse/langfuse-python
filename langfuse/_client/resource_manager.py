@@ -436,11 +436,18 @@ class LangfuseResourceManager:
                 )
         else:
             alive_count = len([c for c in self._media_upload_consumers if c.is_alive()])
-            langfuse_logger.warning(
-                f"Consumer threads unhealthy or dead ({alive_count} alive but unhealthy). "
-                f"Processing {self._media_upload_queue.qsize()} queued items synchronously."
-            )
+            total_count = len(self._media_upload_consumers)
 
+            if alive_count == 0:
+                langfuse_logger.warning(
+                    f"All {total_count} queue consumer threads are dead."
+                    f"Processing {self._media_upload_queue.qsize()} queued items synchronously."
+                )
+            else:
+                langfuse_logger.warning(
+                    f"Queue consumer threads are alive but unhealthy ({alive_count}/{total_count} alive but stalled). "
+                    f"Processing {self._media_upload_queue.qsize()} queued items synchronously."
+                )
         # Synchronous fallback processing
         items_processed = 0
         while not self._media_upload_queue.empty():
