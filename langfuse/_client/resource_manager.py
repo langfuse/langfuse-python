@@ -408,7 +408,53 @@ class LangfuseResourceManager:
         self._score_ingestion_queue.join()
         langfuse_logger.debug("Successfully flushed score ingestion queue")
 
-        self._media_upload_queue.join()
+        # Check if threads are alive AND healthy (recently active)
+        healthy_threads = [
+            c for c in self._media_upload_consumers
+            if c.is_alive() and c.is_healthy(timeout_seconds=5.0)
+        ]
+
+        if healthy_threads:
+            # Wait for queue to be processed, but with a timeout
+            langfuse_logger.debug(
+                f"{len(healthy_threads)} healthy consumer threads active, waiting for queue to drain"
+            )
+            start_time = time.time()
+            timeout = 30
+
+            while not self._media_upload_queue.empty() and (time.time() - start_time) < timeout:
+                time.sleep(0.1)
+
+            if self._media_upload_queue.empty():
+                langfuse_logger.debug("Successfully flushed media upload queue via consumer threads")
+                return
+            else:
+                langfuse_logger.warning(
+                    f"Media upload queue not empty after {timeout}s, "
+                    f"{self._media_upload_queue.qsize()} items remaining. "
+                    f"Processing synchronously."
+                )
+        else:
+            alive_count = len([c for c in self._media_upload_consumers if c.is_alive()])
+            langfuse_logger.warning(
+                f"Consumer threads unhealthy or dead ({alive_count} alive but unhealthy). "
+                f"Processing {self._media_upload_queue.qsize()} queued items synchronously."
+            )
+
+        # Synchronous fallback processing
+        items_processed = 0
+        while not self._media_upload_queue.empty():
+            try:
+                self._media_manager.process_next_media_upload()
+                items_processed += 1
+            except Exception as e:
+                langfuse_logger.error(f"Error processing media upload synchronously: {e}")
+
+        if items_processed > 0:
+            langfuse_logger.info(
+                f"Processed {items_processed} media uploads synchronously in flush()"
+            )
+
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self) -> None:
