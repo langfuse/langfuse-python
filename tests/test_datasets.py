@@ -9,6 +9,8 @@ from langchain_openai import OpenAI
 from langfuse import Langfuse, observe
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.commons.types.observation import Observation
+from langfuse._client.datasets import DatasetItemClient
+from langfuse.model import DatasetItem
 from langfuse.langchain import CallbackHandler
 from tests.utils import create_uuid, get_api
 
@@ -481,8 +483,6 @@ def test_items_to_dict_multiple_items():
 
 def test_items_to_dict_reconstruct_item():
     """Test that items can be reconstructed from dict and used with DatasetItemClient."""
-    from langfuse._client.datasets import DatasetItemClient
-    from langfuse.model import DatasetItem
 
     langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
@@ -515,8 +515,6 @@ def test_items_to_dict_reconstruct_item():
 
 def test_items_to_dict_with_run():
     """Test that reconstructed items can be used with the run() context manager."""
-    from langfuse._client.datasets import DatasetItemClient
-    from langfuse.model import DatasetItem
 
     langfuse = Langfuse(debug=False)
     dataset_name = create_uuid()
