@@ -90,6 +90,7 @@ class DatasetItemClient:
         self.dataset_name = dataset_item.dataset_name
         self.created_at = dataset_item.created_at
         self.updated_at = dataset_item.updated_at
+        self.dataset_item = dataset_item
 
         self.langfuse = langfuse
 
@@ -179,7 +180,12 @@ class DatasetClient:
     updated_at: dt.datetime
     items: List[DatasetItemClient]
 
-    def __init__(self, dataset: Dataset, items: List[DatasetItemClient]):
+    def __init__(
+        self,
+        dataset: Dataset,
+        items: List[DatasetItemClient],
+        langfuse: Optional["Langfuse"] = None,
+    ):
         """Initialize the DatasetClient."""
         self.id = dataset.id
         self.name = dataset.name
@@ -189,13 +195,88 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
-        self._langfuse: Optional["Langfuse"] = None
+        self._langfuse = langfuse
 
     def _get_langfuse_client(self) -> Optional["Langfuse"]:
         """Get the Langfuse client from the first item."""
         if self._langfuse is None and self.items:
             self._langfuse = self.items[0].langfuse
         return self._langfuse
+
+    def items_to_dict(self) -> List[Dict[str, Any]]:
+        """Convert all dataset items to a list of dictionaries.
+
+        Returns:
+            List of dictionaries, where each dictionary contains the serialized
+            representation of a dataset item including its id, status, input,
+            expected_output, metadata, and other attributes.
+
+        Example:
+            Serialize dataset items and process them in separate worker functions.
+            This pattern is useful for distributed processing where each worker
+            runs independently (e.g., AWS Step functions, Azure Durable Functions, or separate processes):
+
+            ```python
+            import json
+            from langfuse import get_client
+            from langfuse.model import DatasetItem
+            from langfuse._client.datasets import DatasetItemClient
+
+            # Worker function (runs in separate process/container)
+            def process_item(item_json: str, run_name: str) -> dict:
+                client = get_client()
+                dataset_item = DatasetItem(**item_dict)
+                item_client = DatasetItemClient(dataset_item, client)
+
+                with item_client.run(run_name=run_name) as span:
+                    output = my_llm_app(item_client.input)
+                    span.score_trace(name="accuracy", value=evaluate(output))
+
+                client.flush()
+                return {"item_id": item_client.id, "output": output}
+
+            # Orchestrator: serialize items for distribution
+            dataset = get_client().get_dataset("my-dataset")
+            items_as_dicts = dataset.items_to_dict()
+
+            # Pass serialized items to workers (e.g., via queue, API, or file)
+            for item_dict in items_as_dicts:
+                item_json = json.dumps(item_dict, default=str)
+                # Send item_json to worker via your orchestration system
+            ```
+
+            Using Prefect for parallel task execution:
+
+            ```python
+            from prefect import flow, task
+            from prefect.futures import wait
+            from langfuse import get_client
+            from langfuse.model import DatasetItem
+            from langfuse._client.datasets import DatasetItemClient
+
+            @task
+            def process_item(item_dict: dict, run_name: str) -> dict:
+                client = get_client()
+                dataset_item = DatasetItem(**item_dict)
+                item_client = DatasetItemClient(dataset_item, client)
+
+                with item_client.run(run_name=run_name) as span:
+                    output = my_llm_app(item_client.input)
+                    span.score_trace(name="accuracy", value=evaluate(output))
+
+                client.flush()
+                return {"item_id": item_client.id, "output": output}
+
+            @flow
+            def run_evaluation():
+                dataset = get_client().get_dataset("my-dataset")
+                items_as_dicts = dataset.items_to_dict()
+
+                futures = process_item.map(items_as_dicts, run_name="prefect-run")
+                wait(futures)
+            ```
+        """
+        return [item.dataset_item.dict() for item in self.items]
 
     def run_experiment(
         self,
