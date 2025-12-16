@@ -104,6 +104,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         Args:
             public_key: Optional Langfuse public key. If not provided, will use the default client configuration.
             update_trace: Whether to update the Langfuse trace with the chains input / output / metadata / name. Defaults to False.
+            trace_context: Optional context for connecting to an existing trace (distributed tracing) or
+                setting a custom trace id for the root LangChain run. Pass a `TraceContext` dict, e.g.
+                `{"trace_id": "<trace_id>"}` (and optionally `{"parent_span_id": "<span_id>"}`) to link
+                the trace to an upstream system.
+
+        Example:
+            Use a custom trace id without context managers:
+
+            ```python
+            from langfuse.langchain import CallbackHandler
+
+            handler = CallbackHandler(trace_context={"trace_id": "my-trace-id"})
+            ```
         """
         self.client = get_client(public_key=public_key)
         self.run_inline = True
