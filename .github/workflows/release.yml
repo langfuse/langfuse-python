@@ -1,19 +1,436 @@
+name: Release Python SDK
+
 on:
   workflow_dispatch:
-  push:
-    # Pattern matched against refs/tags
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+" # Semantic version tags
+    inputs:
+      version:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_type:
+        description: 'Pre-release type (only used if version is "prerelease")'
+        type: choice
+        default: ""
+        options:
+          - ""
+          - alpha
+          - beta
+          - rc
+      prerelease_increment:
+        description: 'Pre-release number (e.g., 1 for alpha1). Leave empty to auto-increment or start at 1.'
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  id-token: write # Required for PyPI Trusted Publishing via OIDC
+
+concurrency:
+  group: python-sdk-release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  release-python-sdk:
     runs-on: ubuntu-latest
-    environment: "protected branches"
+    environment: protected branches
     steps:
-      - uses: actions/checkout@v4
+      - name: Verify branch
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "❌ Error: Releases can only be triggered from main branch"
+            echo "Current ref: ${{ github.ref }}"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          ref: main # Always checkout main even for tagged releases
           fetch-depth: 0
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-      - name: Push to production
-        run: git push origin +main:production
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: "1.8.4"
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Configure Git
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+        run: |
+          git config user.name "langfuse-bot"
+          git config user.email "langfuse-bot@langfuse.com"
+
+          echo "$GH_ACCESS_TOKEN" | gh auth login --with-token
+          gh auth setup-git
+
+      - name: Get current version
+        id: current-version
+        run: |
+          current_version=$(poetry version -s)
+          echo "version=$current_version" >> $GITHUB_OUTPUT
+          echo "Current version: $current_version"
+
+      - name: Calculate new version
+        id: new-version
+        run: |
+          current_version="${{ steps.current-version.outputs.version }}"
+          version_type="${{ inputs.version }}"
+          prerelease_type="${{ inputs.prerelease_type }}"
+          prerelease_increment="${{ inputs.prerelease_increment }}"
+
+          # Extract base version (strip any pre-release suffix like a1, b2, rc1)
+          base_version=$(echo "$current_version" | sed -E 's/(a|b|rc)[0-9]+$//')
+
+          # Parse version components
+          IFS='.' read -r major minor patch <<< "$base_version"
+
+          if [ "$version_type" = "prerelease" ]; then
+            if [ -z "$prerelease_type" ]; then
+              echo "❌ Error: prerelease_type must be specified when version is 'prerelease'"
+              exit 1
+            fi
+
+            # Map prerelease type to Python suffix
+            case "$prerelease_type" in
+              alpha) suffix="a" ;;
+              beta) suffix="b" ;;
+              rc) suffix="rc" ;;
+            esac
+
+            # Determine prerelease number
+            if [ -n "$prerelease_increment" ]; then
+              pre_num="$prerelease_increment"
+            else
+              # Check if current version is same type of prerelease, if so increment
+              if echo "$current_version" | grep -qE "${suffix}[0-9]+$"; then
+                current_pre_num=$(echo "$current_version" | sed -E "s/.*${suffix}([0-9]+)$/\1/")
+                pre_num=$((current_pre_num + 1))
+              else
+                pre_num=1
+              fi
+            fi
+
+            new_version="${base_version}${suffix}${pre_num}"
+            is_prerelease="true"
+          else
+            # Standard version bump
+            case "$version_type" in
+              patch)
+                patch=$((patch + 1))
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+            esac
+            new_version="${major}.${minor}.${patch}"
+            is_prerelease="false"
+          fi
+
+          echo "version=$new_version" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$is_prerelease" >> $GITHUB_OUTPUT
+          echo "New version: $new_version (prerelease: $is_prerelease)"
+
+      - name: Check if tag already exists
+        run: |
+          if git rev-parse "v${{ steps.new-version.outputs.version }}" >/dev/null 2>&1; then
+            echo "❌ Error: Tag v${{ steps.new-version.outputs.version }} already exists"
+            exit 1
+          fi
+          echo "✅ Tag v${{ steps.new-version.outputs.version }} does not exist"
+
+      - name: Update version in pyproject.toml
+        run: |
+          poetry version ${{ steps.new-version.outputs.version }}
+
+      - name: Update version in langfuse/version.py
+        run: |
+          new_version="${{ steps.new-version.outputs.version }}"
+          sed -i "s/__version__ = \".*\"/__version__ = \"$new_version\"/" langfuse/version.py
+          echo "Updated langfuse/version.py:"
+          cat langfuse/version.py
+
+      - name: Verify version consistency
+        run: |
+          pyproject_version=$(poetry version -s)
+          file_version=$(grep -oP '__version__ = "\K[^"]+' langfuse/version.py)
+
+          echo "pyproject.toml version: $pyproject_version"
+          echo "langfuse/version.py version: $file_version"
+
+          if [ "$pyproject_version" != "$file_version" ]; then
+            echo "❌ Error: Version mismatch between pyproject.toml and langfuse/version.py"
+            exit 1
+          fi
+
+          if [ "$pyproject_version" != "${{ steps.new-version.outputs.version }}" ]; then
+            echo "❌ Error: Version in files doesn't match expected version"
+            exit 1
+          fi
+
+          echo "✅ Versions are consistent: $pyproject_version"
+
+      - name: Build package
+        run: poetry build
+
+      - name: Verify build artifacts
+        run: |
+          echo "Verifying build artifacts..."
+
+          if [ ! -d "dist" ]; then
+            echo "❌ Error: dist directory not found"
+            exit 1
+          fi
+
+          wheel_count=$(ls dist/*.whl 2>/dev/null | wc -l)
+          sdist_count=$(ls dist/*.tar.gz 2>/dev/null | wc -l)
+
+          if [ "$wheel_count" -eq 0 ]; then
+            echo "❌ Error: No wheel file found in dist/"
+            exit 1
+          fi
+
+          if [ "$sdist_count" -eq 0 ]; then
+            echo "❌ Error: No source distribution found in dist/"
+            exit 1
+          fi
+
+          echo "✅ Build artifacts:"
+          ls -lh dist/
+
+          # Verify the version in the built artifacts matches
+          expected_version="${{ steps.new-version.outputs.version }}"
+          wheel_file=$(ls dist/*.whl | head -1)
+          if ! echo "$wheel_file" | grep -q "$expected_version"; then
+            echo "❌ Error: Wheel filename doesn't contain expected version $expected_version"
+            echo "Wheel file: $wheel_file"
+            exit 1
+          fi
+          echo "✅ Artifact version verified"
+
+      - name: Commit version changes
+        run: |
+          git add pyproject.toml langfuse/version.py
+          git commit -m "chore: release v${{ steps.new-version.outputs.version }}"
+
+      - name: Create and push tag
+        id: push-tag
+        run: |
+          git tag "v${{ steps.new-version.outputs.version }}"
+          git push origin main
+          git push origin "v${{ steps.new-version.outputs.version }}"
+
+      - name: Publish to PyPI
+        id: publish-pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+
+      - name: Create GitHub Release
+        id: create-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.new-version.outputs.version }}
+          name: v${{ steps.new-version.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ steps.new-version.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Notify Slack on success
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "✅ Langfuse Python SDK v${{ steps.new-version.outputs.version }} published to PyPI",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "✅ Langfuse Python SDK Released",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n`v${{ steps.new-version.outputs.version }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Type:*\n`${{ inputs.version }}${{ inputs.prerelease_type && format(' ({0})', inputs.prerelease_type) || '' }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Released by:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Package:*\n`langfuse`"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "📋 View Release Notes",
+                        "emoji": true
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.new-version.outputs.version }}",
+                      "style": "primary"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "📦 View on PyPI",
+                        "emoji": true
+                      },
+                      "url": "https://pypi.org/project/langfuse/${{ steps.new-version.outputs.version }}/"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "🔧 View Workflow",
+                        "emoji": true
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "🔒 Published with Trusted Publishing (OIDC) • 🤖 Automated release"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "❌ Langfuse Python SDK release workflow failed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "❌ Langfuse Python SDK Release Failed",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ The release workflow encountered an error and did not complete successfully."
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Requested Version:*\n`${{ inputs.version }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Pre-release Type:*\n${{ inputs.prerelease_type || 'N/A' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Triggered by:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Current Version:*\n`${{ steps.current-version.outputs.version }}`"
+                    }
+                  ]
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🔍 Troubleshooting:*\n• Check workflow logs for error details\n• Verify PyPI Trusted Publishing is configured correctly\n• Ensure the version doesn't already exist on PyPI\n• Check if the git tag already exists\n• If partially published, check PyPI and GitHub releases"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "🔧 View Workflow Logs",
+                        "emoji": true
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                      "style": "danger"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "📖 PyPI Trusted Publishing Docs",
+                        "emoji": true
+                      },
+                      "url": "https://docs.pypi.org/trusted-publishers/"
+                    }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "🚨 Action required • Check workflow logs for details"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

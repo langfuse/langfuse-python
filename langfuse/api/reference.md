@@ -3671,10 +3671,6 @@ Each filter condition has the following structure:
 ### Structured Data
 - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
 
-### Scores (requires join with scores table)
-- `scores_avg` (number) - Average of numeric scores (alias: `scores`)
-- `score_categories` (categoryOptions) - Categorical score values
-
 ### Associated Trace Fields (requires join with traces table)
 - `userId` (string) - User ID from associated trace
 - `traceName` (string) - Name from associated trace
@@ -4486,7 +4482,7 @@ client.organizations.get_organization_api_keys()
 <dl>
 <dd>
 
-Get Project associated with API key
+Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 </dd>
 </dl>
 </dd>
@@ -5123,7 +5119,10 @@ client.prompt_version.update(
 <dl>
 <dd>
 
-**name:** `str` — The name of the prompt
+**name:** `str` 
+
+The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"), 
+the folder path must be URL encoded.
     
 </dd>
 </dl>
@@ -5215,7 +5214,10 @@ client.prompts.get(
 <dl>
 <dd>
 
-**prompt_name:** `str` — The name of the prompt
+**prompt_name:** `str` 
+
+The name of the prompt. If the prompt is in a folder (e.g., "folder/subfolder/prompt-name"), 
+the folder path must be URL encoded.
     
 </dd>
 </dl>
@@ -5444,6 +5446,97 @@ client.prompts.create(
 <dd>
 
 **request:** `CreatePromptRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.prompts.<a href="src/langfuse/resources/prompts/client.py">delete</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete prompt versions. If neither version nor label is specified, all versions of the prompt are deleted.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.prompts.delete(
+    prompt_name="promptName",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**prompt_name:** `str` — The name of the prompt
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**label:** `typing.Optional[str]` — Optional label to filter deletion. If specified, deletes all prompt versions that have this label.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**version:** `typing.Optional[int]` — Optional version to filter deletion. If specified, deletes only this specific version of the prompt.
     
 </dd>
 </dl>
@@ -6479,6 +6572,22 @@ client.score_v_2.get()
 <dd>
 
 **session_id:** `typing.Optional[str]` — Retrieve only scores with a specific sessionId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**dataset_run_id:** `typing.Optional[str]` — Retrieve only scores with a specific datasetRunId.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**trace_id:** `typing.Optional[str]` — Retrieve only scores with a specific traceId.
     
 </dd>
 </dl>

@@ -400,7 +400,10 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         and not isinstance(metadata, NotGiven)
         and not isinstance(metadata, dict)
     ):
-        raise TypeError("metadata must be a dictionary")
+        if isinstance(metadata, BaseModel):
+            metadata = metadata.model_dump()
+        else:
+            metadata = {}
 
     model = kwargs.get("model", None) or None
 
@@ -489,7 +492,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
             modelParameters.pop("max_tokens", None)
             modelParameters["max_completion_tokens"] = parsed_max_completion_tokens
 
-        if parsed_n is not None and parsed_n > 1:
+        if parsed_n is not None and isinstance(parsed_n, int) and parsed_n > 1:
             modelParameters["n"] = parsed_n
 
         if parsed_seed is not None:

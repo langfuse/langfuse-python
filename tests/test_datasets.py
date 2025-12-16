@@ -50,6 +50,7 @@ def test_create_dataset_item():
         source_trace_id=generation.trace_id,
     )
     langfuse.create_dataset_item(
+        input="Hello",
         dataset_name=name,
     )
 
@@ -67,7 +68,7 @@ def test_create_dataset_item():
     assert dataset.items[1].source_trace_id == generation.trace_id
     assert dataset.items[1].dataset_name == name
 
-    assert dataset.items[0].input is None
+    assert dataset.items[0].input == "Hello"
     assert dataset.items[0].expected_output is None
     assert dataset.items[0].metadata is None
     assert dataset.items[0].source_observation_id is None
@@ -146,7 +147,7 @@ def test_dataset_run_with_metadata_and_description():
     dataset_name = create_uuid()
     langfuse.create_dataset(name=dataset_name)
 
-    input = json.dumps({"input": "Hello World"})
+    input = {"input": "Hello World"}
     langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
@@ -187,7 +188,7 @@ def test_get_dataset_runs():
     dataset_name = create_uuid()
     langfuse.create_dataset(name=dataset_name)
 
-    input = json.dumps({"input": "Hello World"})
+    input = {"input": "Hello World"}
     langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
 
     dataset = langfuse.get_dataset(dataset_name)
