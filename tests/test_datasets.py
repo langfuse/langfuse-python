@@ -50,6 +50,7 @@ def test_create_dataset_item():
         source_trace_id=generation.trace_id,
     )
     langfuse.create_dataset_item(
+        input="Hello",
         dataset_name=name,
     )
 
@@ -67,7 +68,7 @@ def test_create_dataset_item():
     assert dataset.items[1].source_trace_id == generation.trace_id
     assert dataset.items[1].dataset_name == name
 
-    assert dataset.items[0].input is None
+    assert dataset.items[0].input == "Hello"
     assert dataset.items[0].expected_output is None
     assert dataset.items[0].metadata is None
     assert dataset.items[0].source_observation_id is None

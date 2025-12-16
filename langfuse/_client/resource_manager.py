@@ -415,11 +415,7 @@ class LangfuseResourceManager:
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
 
-        if self.tracer_provider is not None and not isinstance(
-            self.tracer_provider, otel_trace_api.ProxyTracerProvider
-        ):
-            self.tracer_provider.force_flush()
-
+        self.flush()
         self._stop_and_join_consumer_threads()
 
 
