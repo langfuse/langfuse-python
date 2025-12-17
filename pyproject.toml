@@ -94,8 +94,5 @@ module = [
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = [
-    "langfuse.api.*",
-]
-ignore_errors = true
-
+module = "langfuse.api.*"
+disable_error_code = ["redundant-cast", "no-untyped-def"]
