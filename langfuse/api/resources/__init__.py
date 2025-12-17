@@ -13,8 +13,10 @@ from . import (
     llm_connections,
     media,
     metrics,
+    metrics_v_2,
     models,
     observations,
+    observations_v_2,
     opentelemetry,
     organizations,
     projects,
@@ -178,8 +180,10 @@ from .media import (
     PatchMediaBody,
 )
 from .metrics import MetricsResponse
+from .metrics_v_2 import MetricsV2Response
 from .models import CreateModelRequest, PaginatedModels
 from .observations import Observations, ObservationsViews
+from .observations_v_2 import ObservationsV2Meta, ObservationsV2Response
 from .opentelemetry import (
     OtelAttribute,
     OtelAttributeValue,
@@ -388,6 +392,7 @@ __all__ = [
     "MembershipsResponse",
     "MethodNotAllowedError",
     "MetricsResponse",
+    "MetricsV2Response",
     "Model",
     "ModelPrice",
     "ModelUsageUnit",
@@ -399,6 +404,8 @@ __all__ = [
     "ObservationLevel",
     "ObservationType",
     "Observations",
+    "ObservationsV2Meta",
+    "ObservationsV2Response",
     "ObservationsView",
     "ObservationsViews",
     "OpenAiCompletionUsageSchema",
@@ -505,8 +512,10 @@ __all__ = [
     "llm_connections",
     "media",
     "metrics",
+    "metrics_v_2",
     "models",
     "observations",
+    "observations_v_2",
     "opentelemetry",
     "organizations",
     "projects",
