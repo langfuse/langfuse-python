@@ -9,7 +9,7 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-from langfuse.api.client import FernLangfuse
+from langfuse.api.client import LangfuseAPI
 
 
 def create_uuid():
@@ -19,7 +19,7 @@ def create_uuid():
 def get_api():
     sleep(2)
 
-    return FernLangfuse(
+    return LangfuseAPI(
         username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
         base_url=os.environ.get("LANGFUSE_BASE_URL"),

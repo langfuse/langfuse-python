@@ -26,7 +26,6 @@ from typing import (
     Optional,
     Protocol,
     TypedDict,
-    Union,
 )
 
 try:
@@ -34,10 +33,9 @@ try:
 except ImportError:
     from typing_extensions import NotRequired
 
-from pydantic import BaseModel
 
 from langfuse.api import MediaContentType, UsageDetails
-from langfuse.model import MapValue, ModelUsage, PromptClient
+from langfuse.model import MapValue, PromptClient
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
@@ -65,7 +63,6 @@ class ObservationParams(TraceMetadata, TypedDict):
     completion_start_time: Optional[datetime]
     model: Optional[str]
     model_parameters: Optional[Dict[str, MapValue]]
-    usage: Optional[Union[BaseModel, ModelUsage]]
     usage_details: Optional[UsageDetails]
     cost_details: Optional[Dict[str, float]]
     prompt: Optional[PromptClient]

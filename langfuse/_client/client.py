@@ -78,15 +78,15 @@ from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api.resources.commons.errors.error import Error
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
-from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.prompts.types import (
+from langfuse.api.datasets import Dataset, DatasetItem, DatasetStatus
+from langfuse.api.ingestion import ScoreBody
+from langfuse.api.prompts import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.api.utils import Error, NotFoundError
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -112,12 +112,7 @@ from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
-    CreateDatasetItemRequest,
-    CreateDatasetRequest,
     CreateDatasetRunItemRequest,
-    Dataset,
-    DatasetItem,
-    DatasetStatus,
     MapValue,
     PromptClient,
     TextPromptClient,
@@ -3271,16 +3266,15 @@ class Langfuse:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
-            body = CreateDatasetRequest(
+            langfuse_logger.debug(f"Creating datasets {name}")
+
+            return self.api.datasets.create(
                 name=name,
                 description=description,
                 metadata=metadata,
-                inputSchema=input_schema,
-                expectedOutputSchema=expected_output_schema,
+                input_schema=input_schema,
+                expected_output_schema=expected_output_schema,
             )
-            langfuse_logger.debug(f"Creating datasets {body}")
-
-            return self.api.datasets.create(request=body)
 
         except Error as e:
             handle_fern_exception(e)
@@ -3331,18 +3325,18 @@ class Langfuse:
             ```
         """
         try:
-            body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
+            langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
+
+            return self.api.dataset_items.create(
+                dataset_name=dataset_name,
                 input=input,
-                expectedOutput=expected_output,
+                expected_output=expected_output,
                 metadata=metadata,
-                sourceTraceId=source_trace_id,
-                sourceObservationId=source_observation_id,
+                source_trace_id=source_trace_id,
+                source_observation_id=source_observation_id,
                 status=status,
                 id=id,
             )
-            langfuse_logger.debug(f"Creating dataset item {body}")
-            return self.api.dataset_items.create(request=body)
         except Error as e:
             handle_fern_exception(e)
             raise e
@@ -3711,7 +3705,7 @@ class Langfuse:
                         labels=labels,
                         tags=tags,
                         config=config or {},
-                        commitMessage=commit_message,
+                        commit_message=commit_message,
                         type="chat",
                     )
                 )
@@ -3731,7 +3725,7 @@ class Langfuse:
                 labels=labels,
                 tags=tags,
                 config=config or {},
-                commitMessage=commit_message,
+                commit_message=commit_message,
                 type="text",
             )
 

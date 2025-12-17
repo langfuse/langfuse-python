@@ -10,10 +10,9 @@ from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
-from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
-from langfuse.api.client import FernLangfuse
+from langfuse.api.client import LangfuseAPI
 from langfuse.api.core import ApiError
-from langfuse.api.resources.media.types.media_content_type import MediaContentType
+from langfuse.api.media import MediaContentType
 from langfuse.media import LangfuseMedia
 
 from .media_upload_queue import UploadMediaJob
@@ -28,7 +27,7 @@ class MediaManager:
     def __init__(
         self,
         *,
-        api_client: FernLangfuse,
+        api_client: LangfuseAPI,
         media_upload_queue: Queue,
         max_retries: Optional[int] = 3,
     ):
@@ -219,14 +218,12 @@ class MediaManager:
     ) -> None:
         upload_url_response = self._request_with_backoff(
             self._api_client.media.get_upload_url,
-            request=GetMediaUploadUrlRequest(
-                contentLength=data["content_length"],
-                contentType=cast(MediaContentType, data["content_type"]),
-                sha256Hash=data["content_sha256_hash"],
-                field=data["field"],
-                traceId=data["trace_id"],
-                observationId=data["observation_id"],
-            ),
+            content_length=data["content_length"],
+            content_type=cast(MediaContentType, data["content_type"]),
+            sha256hash=data["content_sha256_hash"],
+            field=data["field"],
+            trace_id=data["trace_id"],
+            observation_id=data["observation_id"],
         )
 
         upload_url = upload_url_response.upload_url
@@ -266,12 +263,10 @@ class MediaManager:
         self._request_with_backoff(
             self._api_client.media.patch,
             media_id=data["media_id"],
-            request=PatchMediaBody(
-                uploadedAt=_get_timestamp(),
-                uploadHttpStatus=upload_response.status_code,
-                uploadHttpError=upload_response.text,
-                uploadTimeMs=upload_time_ms,
-            ),
+            uploaded_at=_get_timestamp(),
+            upload_http_status=upload_response.status_code,
+            upload_http_error=upload_response.text,
+            upload_time_ms=upload_time_ms,
         )
 
         self._log.debug(

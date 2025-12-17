@@ -42,7 +42,7 @@ from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsum
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
-from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
+from langfuse.api.client import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction
 
@@ -213,7 +213,7 @@ class LangfuseResourceManager:
             client_headers = additional_headers if additional_headers else {}
             self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
 
-        self.api = FernLangfuse(
+        self.api = LangfuseAPI(
             base_url=base_url,
             username=self.public_key,
             password=secret_key,
@@ -223,7 +223,7 @@ class LangfuseResourceManager:
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
-        self.async_api = AsyncFernLangfuse(
+        self.async_api = AsyncLangfuseAPI(
             base_url=base_url,
             username=self.public_key,
             password=secret_key,

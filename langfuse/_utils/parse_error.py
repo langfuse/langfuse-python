@@ -4,16 +4,16 @@ from typing import Union
 # our own api errors
 from langfuse._utils.request import APIError, APIErrors
 from langfuse.api.core import ApiError
+from langfuse.api.health import ServiceUnavailableError
 
 # fern api errors
-from langfuse.api.resources.commons.errors import (
+from langfuse.api.utils import (
     AccessDeniedError,
     Error,
     MethodNotAllowedError,
     NotFoundError,
     UnauthorizedError,
 )
-from langfuse.api.resources.health.errors import ServiceUnavailableError
 
 SUPPORT_URL = "https://langfuse.com/support"
 API_DOCS_URL = "https://api.reference.langfuse.com"

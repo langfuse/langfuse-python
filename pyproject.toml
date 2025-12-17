@@ -10,7 +10,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 httpx = ">=0.15.4,<1.0"
-pydantic = ">=1.10.7, <3.0"
+pydantic = "^2"
 backoff = ">=1.10.0"
 openai = { version = ">=0.27.8", optional = true }
 wrapt = "^1.14"
@@ -95,9 +95,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "langfuse.api.resources.*",
-    "langfuse.api.core.*",
-    "langfuse.api.client"
+    "langfuse.api.*",
 ]
 ignore_errors = true
 

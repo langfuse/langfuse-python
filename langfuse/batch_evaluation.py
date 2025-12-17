@@ -22,7 +22,7 @@ from typing import (
     Union,
 )
 
-from langfuse.api.resources.commons.types import (
+from langfuse.api.commons import (
     ObservationsView,
     TraceWithFullDetails,
 )

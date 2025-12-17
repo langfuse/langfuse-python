@@ -1,0 +1,10 @@
+{
+  "cliVersion": "3.24.3",
+  "generatorName": "fernapi/fern-python-sdk",
+  "generatorVersion": "4.46.2",
+  "generatorConfig": {
+    "client": {
+      "class_name": "LangfuseAPI"
+    }
+  }
+}

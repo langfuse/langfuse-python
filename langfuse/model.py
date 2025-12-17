@@ -4,50 +4,33 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
 
-from langfuse.api.resources.commons.types.dataset import (
-    Dataset,  # noqa: F401
-)
-
-# these imports need to stay here, otherwise imports from our clients wont work
-from langfuse.api.resources.commons.types.dataset_item import DatasetItem  # noqa: F401
-
-# noqa: F401
-from langfuse.api.resources.commons.types.dataset_run import DatasetRun  # noqa: F401
-
-# noqa: F401
-from langfuse.api.resources.commons.types.dataset_status import (  # noqa: F401
-    DatasetStatus,
-)
-from langfuse.api.resources.commons.types.map_value import MapValue  # noqa: F401
-from langfuse.api.resources.commons.types.observation import Observation  # noqa: F401
-from langfuse.api.resources.commons.types.trace_with_full_details import (  # noqa: F401
+from langfuse.api.commons import (  # noqa: F401
+    MapValue,
+    Observation,
     TraceWithFullDetails,
 )
 
-# noqa: F401
-from langfuse.api.resources.dataset_items.types.create_dataset_item_request import (  # noqa: F401
+# these imports need to stay here, otherwise imports from our clients wont work
+from langfuse.api.dataset_items import (  # noqa: F401
     CreateDatasetItemRequest,
-)
-from langfuse.api.resources.dataset_run_items.types.create_dataset_run_item_request import (  # noqa: F401
-    CreateDatasetRunItemRequest,
+    DatasetItem,  # noqa: F401
 )
 
 # noqa: F401
-from langfuse.api.resources.datasets.types.create_dataset_request import (  # noqa: F401
-    CreateDatasetRequest,
+from langfuse.api.dataset_run_items import (  # noqa: F401
+    CreateDatasetRunItemRequest,
+    DatasetRun,  # noqa: F401
 )
-from langfuse.api.resources.prompts import Prompt, Prompt_Chat, Prompt_Text
+
+# noqa: F401
+# noqa: F401
+from langfuse.api.datasets import (  # noqa: F401  # noqa: F401
+    CreateDatasetRequest,
+    Dataset,  # noqa: F401
+    DatasetStatus,
+)
+from langfuse.api.prompts import Prompt, Prompt_Chat, Prompt_Text
 from langfuse.logger import langfuse_logger
-
-
-class ModelUsage(TypedDict):
-    unit: Optional[str]
-    input: Optional[int]
-    output: Optional[int]
-    total: Optional[int]
-    input_cost: Optional[float]
-    output_cost: Optional[float]
-    total_cost: Optional[float]
 
 
 class ChatMessageDict(TypedDict):

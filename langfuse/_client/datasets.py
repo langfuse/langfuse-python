@@ -4,18 +4,18 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
+from langfuse.api.datasets import (
+    CreateDatasetRunItemRequest,
+    Dataset,
+    DatasetItem,
+    DatasetStatus,
+)
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
 from langfuse.experiment import (
     EvaluatorFunction,
     ExperimentResult,
     RunEvaluatorFunction,
     TaskFunction,
-)
-from langfuse.model import (
-    CreateDatasetRunItemRequest,
-    Dataset,
-    DatasetItem,
-    DatasetStatus,
 )
 
 from .span import LangfuseSpan
