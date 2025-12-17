@@ -78,15 +78,19 @@ from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api.datasets import Dataset, DatasetItem, DatasetStatus
-from langfuse.api.ingestion import ScoreBody
-from langfuse.api.prompts import (
+from langfuse.api import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
+    Dataset,
+    DatasetItem,
+    DatasetStatus,
+    Error,
+    MapValue,
+    NotFoundError,
     Prompt_Chat,
     Prompt_Text,
+    ScoreBody,
 )
-from langfuse.api.utils import Error, NotFoundError
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -112,8 +116,6 @@ from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
-    CreateDatasetRunItemRequest,
-    MapValue,
     PromptClient,
     TextPromptClient,
 )
@@ -2052,15 +2054,15 @@ class Langfuse:
         try:
             new_body = ScoreBody(
                 id=score_id,
-                sessionId=session_id,
-                datasetRunId=dataset_run_id,
-                traceId=trace_id,
-                observationId=observation_id,
+                session_id=session_id,
+                dataset_run_id=dataset_run_id,
+                trace_id=trace_id,
+                observation_id=observation_id,
                 name=name,
                 value=value,
                 dataType=data_type,  # type: ignore
                 comment=comment,
-                configId=config_id,
+                config_id=config_id,
                 environment=self._environment,
                 metadata=metadata,
             )
@@ -2813,14 +2815,12 @@ class Langfuse:
                         # creates multiple event loops across different threads
                         dataset_run_item = await asyncio.to_thread(
                             self.api.dataset_run_items.create,
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_run_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
-                                observationId=span.id,
-                            ),
+                            run_name=experiment_run_name,
+                            run_description=experiment_description,
+                            metadata=experiment_metadata,
+                            dataset_item_id=item.id,  # type: ignore
+                            trace_id=trace_id,
+                            observation_id=span.id,
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id
@@ -3268,13 +3268,15 @@ class Langfuse:
         try:
             langfuse_logger.debug(f"Creating datasets {name}")
 
-            return self.api.datasets.create(
+            result = self.api.datasets.create(
                 name=name,
                 description=description,
                 metadata=metadata,
                 input_schema=input_schema,
                 expected_output_schema=expected_output_schema,
             )
+
+            return cast(Dataset, result)
 
         except Error as e:
             handle_fern_exception(e)
@@ -3327,7 +3329,7 @@ class Langfuse:
         try:
             langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
 
-            return self.api.dataset_items.create(
+            result = self.api.dataset_items.create(
                 dataset_name=dataset_name,
                 input=input,
                 expected_output=expected_output,
@@ -3337,6 +3339,8 @@ class Langfuse:
                 status=status,
                 id=id,
             )
+
+            return cast(DatasetItem, result)
         except Error as e:
             handle_fern_exception(e)
             raise e

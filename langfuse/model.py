@@ -4,32 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
 
-from langfuse.api.commons import (  # noqa: F401
-    MapValue,
-    Observation,
-    TraceWithFullDetails,
-)
-
-# these imports need to stay here, otherwise imports from our clients wont work
-from langfuse.api.dataset_items import (  # noqa: F401
-    CreateDatasetItemRequest,
-    DatasetItem,  # noqa: F401
-)
-
-# noqa: F401
-from langfuse.api.dataset_run_items import (  # noqa: F401
-    CreateDatasetRunItemRequest,
-    DatasetRun,  # noqa: F401
-)
-
-# noqa: F401
-# noqa: F401
-from langfuse.api.datasets import (  # noqa: F401  # noqa: F401
-    CreateDatasetRequest,
-    Dataset,  # noqa: F401
-    DatasetStatus,
-)
-from langfuse.api.prompts import Prompt, Prompt_Chat, Prompt_Text
+from langfuse.api import Prompt, Prompt_Chat, Prompt_Text
 from langfuse.logger import langfuse_logger
 
 

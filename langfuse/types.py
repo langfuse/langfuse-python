@@ -34,8 +34,8 @@ except ImportError:
     from typing_extensions import NotRequired
 
 
-from langfuse.api import MediaContentType, UsageDetails
-from langfuse.model import MapValue, PromptClient
+from langfuse.api import MapValue, MediaContentType, UsageDetails
+from langfuse.model import PromptClient
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
