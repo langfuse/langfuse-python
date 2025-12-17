@@ -2446,7 +2446,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Mock the async API to create dataset run items
         async def mock_create_dataset_run_item(*args, **kwargs):
-            from langfuse.api.resources.dataset_run_items.types import DatasetRunItem
+            from langfuse.api import DatasetRunItem
 
             request = kwargs.get("request")
             return DatasetRunItem(

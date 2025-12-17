@@ -10,9 +10,8 @@ from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
-from langfuse.api.client import LangfuseAPI
+from langfuse.api import LangfuseAPI, MediaContentType
 from langfuse.api.core import ApiError
-from langfuse.api.media import MediaContentType
 from langfuse.media import LangfuseMedia
 
 from .media_upload_queue import UploadMediaJob

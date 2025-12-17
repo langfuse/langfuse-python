@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
 from opentelemetry.util._decorator import _agnosticcontextmanager
 
-from langfuse.api.datasets import (
+from langfuse.api import (
     Dataset,
     DatasetItem,
     DatasetStatus,

@@ -10,8 +10,8 @@ from langfuse._utils.prompt_cache import (
     PromptCache,
     PromptCacheItem,
 )
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
-from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
+from langfuse.api import NotFoundError
+from langfuse.api import Prompt_Chat, Prompt_Text
 from langfuse.model import ChatPromptClient, TextPromptClient
 from tests.utils import create_uuid, get_api
 
@@ -312,7 +312,7 @@ def test_compile_with_placeholders(
     variables, placeholders, expected_len, expected_contents
 ) -> None:
     """Test compile_with_placeholders with different variable/placeholder combinations."""
-    from langfuse.api.resources.prompts import Prompt_Chat
+    from langfuse.api import Prompt_Chat
     from langfuse.model import ChatPromptClient
 
     mock_prompt = Prompt_Chat(
@@ -706,7 +706,7 @@ def test_get_fresh_prompt(langfuse):
         tags=[],
     )
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result = langfuse.get_prompt(prompt_name, fallback="fallback")
@@ -734,7 +734,7 @@ def test_throw_if_name_unspecified(langfuse):
 def test_throw_when_failing_fetch_and_no_cache(langfuse):
     prompt_name = "failing_fetch_and_no_cache"
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.side_effect = Exception("Prompt not found")
 
     with pytest.raises(Exception) as exc_info:
@@ -755,7 +755,7 @@ def test_using_custom_prompt_timeouts(langfuse):
         tags=[],
     )
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result = langfuse.get_prompt(
@@ -796,7 +796,7 @@ def test_get_valid_cached_prompt(langfuse):
     )
     prompt_client = TextPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name, fallback="fallback")
@@ -822,7 +822,7 @@ def test_get_valid_cached_chat_prompt_by_label(langfuse):
     )
     prompt_client = ChatPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name, label="test")
@@ -848,7 +848,7 @@ def test_get_valid_cached_chat_prompt_by_version(langfuse):
     )
     prompt_client = ChatPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name, version=1)
@@ -874,7 +874,7 @@ def test_get_valid_cached_production_chat_prompt(langfuse):
     )
     prompt_client = ChatPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name)
@@ -900,7 +900,7 @@ def test_get_valid_cached_chat_prompt(langfuse):
     )
     prompt_client = ChatPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name)
@@ -930,7 +930,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
     )
     prompt_client = TextPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=ttl_seconds)
@@ -995,7 +995,7 @@ def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
         tags=[],
     )
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.side_effect = [prompt1, prompt2, prompt3]
 
     # First call
@@ -1037,7 +1037,7 @@ def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     )
     prompt_client = TextPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name)
@@ -1099,7 +1099,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     )
     prompt_client = TextPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name)
@@ -1143,7 +1143,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
     )
     prompt_client = TextPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name)
@@ -1187,7 +1187,7 @@ def test_evict_prompt_cache_entry_when_refresh_returns_not_found(
     prompt_client = TextPromptClient(prompt)
     cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     initial_result = langfuse.get_prompt(
@@ -1244,7 +1244,7 @@ def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     )
     prompt_client = TextPromptClient(prompt)
 
-    mock_server_call = langfuse.api.prompts.get
+    mock_server_call = langfuse.api
     mock_server_call.return_value = prompt
 
     result_call_1 = langfuse.get_prompt(prompt_name, version=1)

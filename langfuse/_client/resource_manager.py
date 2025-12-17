@@ -42,7 +42,7 @@ from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsum
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
-from langfuse.api.client import AsyncLangfuseAPI, LangfuseAPI
+from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction
 
