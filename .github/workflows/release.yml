@@ -22,8 +22,12 @@ on:
           - beta
           - rc
       prerelease_increment:
-        description: 'Pre-release number (e.g., 1 for alpha1). Leave empty to auto-increment or start at 1.'
+        description: "Pre-release number (e.g., 1 for alpha1). Leave empty to auto-increment or start at 1."
         type: string
+        default: ""
+      confirm_major:
+        description: "Type RELEASE MAJOR to confirm a major release"
+        required: false
         default: ""
 
 permissions:
@@ -44,6 +48,14 @@ jobs:
           if [ "${{ github.ref }}" != "refs/heads/main" ]; then
             echo "❌ Error: Releases can only be triggered from main branch"
             echo "Current ref: ${{ github.ref }}"
+            exit 1
+          fi
+
+      - name: Confirm major release
+        if: ${{ inputs.version == 'major' && inputs.dry_run == false }}
+        run: |
+          if [ "${{ inputs.confirm_major }}" != "RELEASE MAJOR" ]; then
+            echo "❌ For major releases, set confirm_major to RELEASE MAJOR"
             exit 1
           fi
 
