@@ -2769,3 +2769,228 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             LangfuseOtelSpanAttributes.ENVIRONMENT,
             LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
         )
+
+
+class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
+    """Tests for trace_name parameter propagation."""
+
+    def test_trace_name_propagates_to_child_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify trace_name propagates to all child spans within context."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name="my-trace-name"):
+                child1 = langfuse_client.start_span(name="child-span-1")
+                child1.end()
+
+                child2 = langfuse_client.start_span(name="child-span-2")
+                child2.end()
+
+        # Verify both children have trace_name
+        child1_span = self.get_span_by_name(memory_exporter, "child-span-1")
+        self.verify_span_attribute(
+            child1_span,
+            LangfuseOtelSpanAttributes.TRACE_NAME,
+            "my-trace-name",
+        )
+
+        child2_span = self.get_span_by_name(memory_exporter, "child-span-2")
+        self.verify_span_attribute(
+            child2_span,
+            LangfuseOtelSpanAttributes.TRACE_NAME,
+            "my-trace-name",
+        )
+
+    def test_trace_name_propagates_to_grandchildren(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify trace_name propagates through multiple levels of nesting."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name="nested-trace"):
+                with langfuse_client.start_as_current_span(name="child-span"):
+                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                    grandchild.end()
+
+        # Verify all three levels have trace_name
+        parent_span = self.get_span_by_name(memory_exporter, "parent-span")
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        grandchild_span = self.get_span_by_name(memory_exporter, "grandchild-span")
+
+        for span in [parent_span, child_span, grandchild_span]:
+            self.verify_span_attribute(
+                span, LangfuseOtelSpanAttributes.TRACE_NAME, "nested-trace"
+            )
+
+    def test_trace_name_with_user_and_session(self, langfuse_client, memory_exporter):
+        """Verify trace_name works together with user_id and session_id."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                user_id="user_123",
+                session_id="session_abc",
+                trace_name="combined-trace",
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child has all attributes
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session_abc"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_NAME, "combined-trace"
+        )
+
+    def test_trace_name_with_version(self, langfuse_client, memory_exporter):
+        """Verify trace_name works together with version."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                trace_name="versioned-trace",
+                version="1.0.0",
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_NAME, "versioned-trace"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.VERSION, "1.0.0"
+        )
+
+    def test_trace_name_with_metadata(self, langfuse_client, memory_exporter):
+        """Verify trace_name works together with metadata."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                trace_name="metadata-trace",
+                metadata={"env": "production", "region": "us-east"},
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_NAME, "metadata-trace"
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
+            "production",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
+            "us-east",
+        )
+
+    def test_trace_name_validation_over_200_chars(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify trace_name over 200 characters is dropped with warning."""
+        long_name = "trace-" + "a" * 200  # Create a very long trace name
+
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name=long_name):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child does NOT have trace_name
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.TRACE_NAME)
+
+    def test_trace_name_exactly_200_chars(self, langfuse_client, memory_exporter):
+        """Verify exactly 200 character trace_name is accepted."""
+        trace_name_200 = "t" * 200
+
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name=trace_name_200):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child HAS trace_name
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_NAME, trace_name_200
+        )
+
+    def test_trace_name_nested_contexts_inner_overwrites(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify inner context overwrites outer trace_name."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name="outer-trace"):
+                # Create span in outer context
+                span1 = langfuse_client.start_span(name="span-1")
+                span1.end()
+
+                # Inner context with different trace_name
+                with propagate_attributes(trace_name="inner-trace"):
+                    span2 = langfuse_client.start_span(name="span-2")
+                    span2.end()
+
+                # Back to outer context
+                span3 = langfuse_client.start_span(name="span-3")
+                span3.end()
+
+        # Verify: span1 and span3 have outer-trace, span2 has inner-trace
+        span1_data = self.get_span_by_name(memory_exporter, "span-1")
+        self.verify_span_attribute(
+            span1_data, LangfuseOtelSpanAttributes.TRACE_NAME, "outer-trace"
+        )
+
+        span2_data = self.get_span_by_name(memory_exporter, "span-2")
+        self.verify_span_attribute(
+            span2_data, LangfuseOtelSpanAttributes.TRACE_NAME, "inner-trace"
+        )
+
+        span3_data = self.get_span_by_name(memory_exporter, "span-3")
+        self.verify_span_attribute(
+            span3_data, LangfuseOtelSpanAttributes.TRACE_NAME, "outer-trace"
+        )
+
+    def test_trace_name_sets_on_current_span(self, langfuse_client, memory_exporter):
+        """Verify trace_name is set on the current span when entering context."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name="current-trace"):
+                pass  # Just enter and exit context
+
+        # Verify parent span has trace_name set
+        parent_span = self.get_span_by_name(memory_exporter, "parent-span")
+        self.verify_span_attribute(
+            parent_span, LangfuseOtelSpanAttributes.TRACE_NAME, "current-trace"
+        )
+
+    def test_trace_name_non_string_dropped(self, langfuse_client, memory_exporter):
+        """Verify non-string trace_name is dropped with warning."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(trace_name=123):  # type: ignore
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child does NOT have trace_name
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(child_span, LangfuseOtelSpanAttributes.TRACE_NAME)
+
+    def test_trace_name_with_baggage(self, langfuse_client, memory_exporter):
+        """Verify trace_name propagates through baggage."""
+        with langfuse_client.start_as_current_span(name="parent-span"):
+            with propagate_attributes(
+                trace_name="baggage-trace",
+                user_id="user_123",
+                as_baggage=True,
+            ):
+                child = langfuse_client.start_span(name="child-span")
+                child.end()
+
+        # Verify child has trace_name
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_NAME, "baggage-trace"
+        )
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
