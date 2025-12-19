@@ -28,10 +28,10 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
-from langfuse.types import TraceContext
 from langfuse._utils import _get_timestamp
 from langfuse.langchain.utils import _extract_model_name
 from langfuse.logger import langfuse_logger
+from langfuse.types import TraceContext
 
 try:
     import langchain
@@ -132,6 +132,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 LangfuseRetriever,
             ],
         ] = {}
+        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
         self.context_tokens: Dict[UUID, Token] = {}
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
@@ -302,6 +303,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_chain_start", run_id, parent_run_id, inputs=inputs
@@ -480,6 +483,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run on agent action."""
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_agent_action", run_id, parent_run_id, action=action
@@ -560,6 +565,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         except Exception as e:
             langfuse_logger.exception(e)
 
+        finally:
+            if parent_run_id is None:
+                self._reset()
+
     def on_chain_error(
         self,
         error: BaseException,
@@ -603,6 +612,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_chat_model_start", run_id, parent_run_id, messages=messages
@@ -635,6 +646,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_llm_start", run_id, parent_run_id, prompts=prompts
@@ -662,6 +675,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
@@ -704,6 +719,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_retriever_start", run_id, parent_run_id, query=query
@@ -809,6 +826,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
@@ -817,14 +836,23 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
             )
-            registered_prompt = (
-                self.prompt_to_parent_run_map.get(parent_run_id)
-                if parent_run_id is not None
-                else None
-            )
 
-            if registered_prompt:
-                self._deregister_langfuse_prompt(parent_run_id)
+            registered_prompt = None
+            current_parent_run_id = parent_run_id
+
+            # Check all parents for registered prompt
+            while current_parent_run_id is not None:
+                registered_prompt = self.prompt_to_parent_run_map.get(
+                    current_parent_run_id
+                )
+
+                if registered_prompt:
+                    self._deregister_langfuse_prompt(current_parent_run_id)
+                    break
+                else:
+                    current_parent_run_id = self._child_to_parent_run_id_map.get(
+                        current_parent_run_id, None
+                    )
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
@@ -956,6 +984,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         finally:
             self.updated_completion_start_time_memo.discard(run_id)
 
+            if parent_run_id is None:
+                self._reset()
+
     def on_llm_error(
         self,
         error: BaseException,
@@ -979,6 +1010,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         except Exception as e:
             langfuse_logger.exception(e)
+
+    def _reset(self) -> None:
+        self._child_to_parent_run_id_map = {}
 
     def __join_tags_and_metadata(
         self,
@@ -1047,7 +1081,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         langfuse_logger.debug(
-            f"Event: {event_name}, run_id: {str(run_id)[:5]}, parent_run_id: {str(parent_run_id)[:5]}"
+            f"Event: {event_name}, run_id: {run_id}, parent_run_id: {parent_run_id}"
         )
 
 
@@ -1210,7 +1244,9 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                         usage_model["input"] = max(0, usage_model["input"] - value)
 
                     if f"input_modality_{item['modality']}" in usage_model:
-                        usage_model[f"input_modality_{item['modality']}"] = max(0, usage_model[f"input_modality_{item['modality']}"] - value)
+                        usage_model[f"input_modality_{item['modality']}"] = max(
+                            0, usage_model[f"input_modality_{item['modality']}"] - value
+                        )
 
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
