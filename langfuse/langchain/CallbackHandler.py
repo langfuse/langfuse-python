@@ -1,4 +1,3 @@
-from collections import defaultdict
 from contextvars import Token
 from typing import (
     Any,
@@ -133,7 +132,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 LangfuseRetriever,
             ],
         ] = {}
-        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = defaultdict(None)
+        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
         self.context_tokens: Dict[UUID, Token] = {}
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
@@ -852,7 +851,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     break
                 else:
                     current_parent_run_id = self._child_to_parent_run_id_map.get(
-                        current_parent_run_id
+                        current_parent_run_id, None
                     )
 
             content = {
@@ -1013,7 +1012,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
 
     def _reset(self) -> None:
-        self._child_to_parent_run_id_map = defaultdict(None)
+        self._child_to_parent_run_id_map = {}
 
     def __join_tags_and_metadata(
         self,
