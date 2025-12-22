@@ -14,7 +14,7 @@ from langchain_openai import ChatOpenAI, OpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
