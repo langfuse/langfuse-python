@@ -3,20 +3,13 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from .blob_storage_integration_response import BlobStorageIntegrationResponse
 
 
 class BlobStorageIntegrationsResponse(UniversalBaseModel):
     data: typing.List[BlobStorageIntegrationResponse]
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

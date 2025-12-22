@@ -3,7 +3,6 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from .session import Session
 from .trace import Trace
 
@@ -11,13 +10,6 @@ from .trace import Trace
 class SessionWithTraces(Session):
     traces: typing.List[Trace]
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

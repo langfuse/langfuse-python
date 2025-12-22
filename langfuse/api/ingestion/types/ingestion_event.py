@@ -6,7 +6,7 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from .create_event_body import CreateEventBody
 from .create_generation_body import CreateGenerationBody
 from .create_span_body import CreateSpanBody
@@ -25,16 +25,9 @@ class IngestionEvent_TraceCreate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_ScoreCreate(UniversalBaseModel):
@@ -44,16 +37,9 @@ class IngestionEvent_ScoreCreate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_SpanCreate(UniversalBaseModel):
@@ -63,16 +49,9 @@ class IngestionEvent_SpanCreate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_SpanUpdate(UniversalBaseModel):
@@ -82,16 +61,9 @@ class IngestionEvent_SpanUpdate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_GenerationCreate(UniversalBaseModel):
@@ -101,16 +73,9 @@ class IngestionEvent_GenerationCreate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_GenerationUpdate(UniversalBaseModel):
@@ -120,16 +85,9 @@ class IngestionEvent_GenerationUpdate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_EventCreate(UniversalBaseModel):
@@ -139,16 +97,9 @@ class IngestionEvent_EventCreate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_SdkLog(UniversalBaseModel):
@@ -158,16 +109,9 @@ class IngestionEvent_SdkLog(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_ObservationCreate(UniversalBaseModel):
@@ -177,16 +121,9 @@ class IngestionEvent_ObservationCreate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 class IngestionEvent_ObservationUpdate(UniversalBaseModel):
@@ -196,16 +133,9 @@ class IngestionEvent_ObservationUpdate(UniversalBaseModel):
     timestamp: str
     metadata: typing.Optional[typing.Any] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
 
 
 IngestionEvent = typing_extensions.Annotated[

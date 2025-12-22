@@ -3,7 +3,6 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from .base_prompt import BasePrompt
 from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 
@@ -11,13 +10,6 @@ from .chat_message_with_placeholders import ChatMessageWithPlaceholders
 class ChatPrompt(BasePrompt):
     prompt: typing.List[ChatMessageWithPlaceholders]
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

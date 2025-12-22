@@ -5,7 +5,7 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 from .model_price import ModelPrice
 from .model_usage_unit import ModelUsageUnit
@@ -120,13 +120,6 @@ class Model(UniversalBaseModel):
     If this array is empty, the model uses legacy flat pricing from the inputPrice/outputPrice/totalPrice fields.
     """
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

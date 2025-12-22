@@ -5,7 +5,7 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
@@ -86,13 +86,6 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
     """
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

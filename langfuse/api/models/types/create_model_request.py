@@ -7,7 +7,7 @@ import pydantic
 import typing_extensions
 from ...commons.types.model_usage_unit import ModelUsageUnit
 from ...commons.types.pricing_tier_input import PricingTierInput
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 
 
@@ -98,13 +98,6 @@ class CreateModelRequest(UniversalBaseModel):
     Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
     """
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

@@ -4,7 +4,7 @@ import typing
 
 import pydantic
 from ...commons.types.dataset import Dataset
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from ...utils.pagination.types.meta_response import MetaResponse
 
 
@@ -12,13 +12,6 @@ class PaginatedDatasets(UniversalBaseModel):
     data: typing.List[Dataset]
     meta: MetaResponse
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

@@ -6,7 +6,6 @@ import typing
 import pydantic
 import typing_extensions
 from ...commons.types.map_value import MapValue
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from ...core.serialization import FieldMetadata
 from .ingestion_usage import IngestionUsage
 from .update_span_body import UpdateSpanBody
@@ -36,13 +35,6 @@ class UpdateGenerationBody(UpdateSpanBody):
         typing.Optional[int], FieldMetadata(alias="promptVersion")
     ] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

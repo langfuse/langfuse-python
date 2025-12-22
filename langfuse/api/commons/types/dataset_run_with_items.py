@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from ...core.serialization import FieldMetadata
 from .dataset_run import DatasetRun
 from .dataset_run_item import DatasetRunItem
@@ -15,13 +14,6 @@ class DatasetRunWithItems(DatasetRun):
         typing.List[DatasetRunItem], FieldMetadata(alias="datasetRunItems")
     ]
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )

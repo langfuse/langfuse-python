@@ -4,20 +4,12 @@ import typing
 
 import pydantic
 from ...commons.types.numeric_score import NumericScore
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 
 class GetScoresResponseDataNumeric(NumericScore):
     trace: typing.Optional[GetScoresResponseTraceData] = None
 
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-            extra="allow", frozen=True
-        )  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
