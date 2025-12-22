@@ -51,8 +51,8 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
+from langfuse.api import MapValue, ScoreDataType, SpanLevel
 from langfuse.logger import langfuse_logger
-from langfuse.types import MapValue, ScoreDataType, SpanLevel
 
 # Factory mapping for observation classes
 # Note: "event" is handled separately due to special instantiation logic
@@ -273,7 +273,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: float,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
+        data_type: Optional[
+            Literal[ScoreDataType.NUMERIC, ScoreDataType.BOOLEAN]
+        ] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -286,7 +288,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal[ScoreDataType.CATEGORICAL]
+        ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -351,7 +355,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: float,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
+        data_type: Optional[
+            Literal[ScoreDataType.NUMERIC, ScoreDataType.BOOLEAN]
+        ] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -364,7 +370,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal[ScoreDataType.CATEGORICAL]
+        ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
