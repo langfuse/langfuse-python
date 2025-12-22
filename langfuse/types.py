@@ -17,16 +17,12 @@ Example:
     ```
 """
 
-from datetime import datetime
 from typing import (
     Any,
     Dict,
-    List,
     Literal,
-    Optional,
     Protocol,
     TypedDict,
-    Union,
 )
 
 try:
@@ -34,41 +30,12 @@ try:
 except ImportError:
     from typing_extensions import NotRequired
 
-from pydantic import BaseModel
 
-from langfuse.api import MediaContentType, UsageDetails
-from langfuse.model import MapValue, ModelUsage, PromptClient
+from langfuse.api import MediaContentType
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
 ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
-
-
-class TraceMetadata(TypedDict):
-    name: Optional[str]
-    user_id: Optional[str]
-    session_id: Optional[str]
-    version: Optional[str]
-    release: Optional[str]
-    metadata: Optional[Any]
-    tags: Optional[List[str]]
-    public: Optional[bool]
-
-
-class ObservationParams(TraceMetadata, TypedDict):
-    input: Optional[Any]
-    output: Optional[Any]
-    level: Optional[SpanLevel]
-    status_message: Optional[str]
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    completion_start_time: Optional[datetime]
-    model: Optional[str]
-    model_parameters: Optional[Dict[str, MapValue]]
-    usage: Optional[Union[BaseModel, ModelUsage]]
-    usage_details: Optional[UsageDetails]
-    cost_details: Optional[Dict[str, float]]
-    prompt: Optional[PromptClient]
 
 
 class MaskFunction(Protocol):
@@ -106,8 +73,6 @@ class TraceContext(TypedDict):
 __all__ = [
     "SpanLevel",
     "ScoreDataType",
-    "TraceMetadata",
-    "ObservationParams",
     "MaskFunction",
     "ParsedMediaReference",
     "TraceContext",

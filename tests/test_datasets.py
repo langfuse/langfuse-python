@@ -7,8 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_openai import OpenAI
 
 from langfuse import Langfuse, observe
-from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
-from langfuse.api.resources.commons.types.observation import Observation
+from langfuse.api import DatasetStatus, Observation
 from langfuse.langchain import CallbackHandler
 from tests.utils import create_uuid, get_api
 
@@ -220,7 +219,7 @@ def test_get_dataset_runs():
 
     langfuse.flush()
     time.sleep(1)  # Give API time to process
-    runs = langfuse.api.datasets.get_runs(dataset_name)
+    runs = langfuse.api.datasets.get_runs(dataset_name=dataset_name)
 
     assert len(runs.data) == 2
     assert runs.data[0].name == run_name_2

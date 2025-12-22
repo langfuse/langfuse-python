@@ -78,14 +78,19 @@ from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api.resources.commons.errors.error import Error
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
-from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.prompts.types import (
-    CreatePromptRequest_Chat,
-    CreatePromptRequest_Text,
+from langfuse.api import (
+    CreateChatPromptRequest,
+    CreateChatPromptType,
+    CreateTextPromptRequest,
+    Dataset,
+    DatasetItem,
+    DatasetStatus,
+    Error,
+    MapValue,
+    NotFoundError,
     Prompt_Chat,
     Prompt_Text,
+    ScoreBody,
 )
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
@@ -112,13 +117,6 @@ from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
-    CreateDatasetItemRequest,
-    CreateDatasetRequest,
-    CreateDatasetRunItemRequest,
-    Dataset,
-    DatasetItem,
-    DatasetStatus,
-    MapValue,
     PromptClient,
     TextPromptClient,
 )
@@ -2057,7 +2055,7 @@ class Langfuse:
         try:
             new_body = ScoreBody(
                 id=score_id,
-                sessionId=session_id,
+                session_id=session_id,
                 datasetRunId=dataset_run_id,
                 traceId=trace_id,
                 observationId=observation_id,
@@ -2818,14 +2816,12 @@ class Langfuse:
                         # creates multiple event loops across different threads
                         dataset_run_item = await asyncio.to_thread(
                             self.api.dataset_run_items.create,
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_run_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
-                                observationId=span.id,
-                            ),
+                            run_name=experiment_run_name,
+                            run_description=experiment_description,
+                            metadata=experiment_metadata,
+                            dataset_item_id=item.id,  # type: ignore
+                            trace_id=trace_id,
+                            observation_id=span.id,
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id
@@ -3271,16 +3267,17 @@ class Langfuse:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
-            body = CreateDatasetRequest(
+            langfuse_logger.debug(f"Creating datasets {name}")
+
+            result = self.api.datasets.create(
                 name=name,
                 description=description,
                 metadata=metadata,
-                inputSchema=input_schema,
-                expectedOutputSchema=expected_output_schema,
+                input_schema=input_schema,
+                expected_output_schema=expected_output_schema,
             )
-            langfuse_logger.debug(f"Creating datasets {body}")
 
-            return self.api.datasets.create(request=body)
+            return cast(Dataset, result)
 
         except Error as e:
             handle_fern_exception(e)
@@ -3331,18 +3328,20 @@ class Langfuse:
             ```
         """
         try:
-            body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
+            langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
+
+            result = self.api.dataset_items.create(
+                dataset_name=dataset_name,
                 input=input,
-                expectedOutput=expected_output,
+                expected_output=expected_output,
                 metadata=metadata,
-                sourceTraceId=source_trace_id,
-                sourceObservationId=source_observation_id,
+                source_trace_id=source_trace_id,
+                source_observation_id=source_observation_id,
                 status=status,
                 id=id,
             )
-            langfuse_logger.debug(f"Creating dataset item {body}")
-            return self.api.dataset_items.create(request=body)
+
+            return cast(DatasetItem, result)
         except Error as e:
             handle_fern_exception(e)
             raise e
@@ -3704,15 +3703,15 @@ class Langfuse:
                     raise ValueError(
                         "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
                     )
-                request: Union[CreatePromptRequest_Chat, CreatePromptRequest_Text] = (
-                    CreatePromptRequest_Chat(
+                request: Union[CreateChatPromptRequest, CreateTextPromptRequest] = (
+                    CreateChatPromptRequest(
                         name=name,
                         prompt=cast(Any, prompt),
                         labels=labels,
                         tags=tags,
                         config=config or {},
-                        commitMessage=commit_message,
-                        type="chat",
+                        commit_message=commit_message,
+                        type=CreateChatPromptType.CHAT,
                     )
                 )
                 server_prompt = self.api.prompts.create(request=request)
@@ -3725,14 +3724,13 @@ class Langfuse:
             if not isinstance(prompt, str):
                 raise ValueError("For 'text' type, 'prompt' must be a string.")
 
-            request = CreatePromptRequest_Text(
+            request = CreateTextPromptRequest(
                 name=name,
                 prompt=prompt,
                 labels=labels,
                 tags=tags,
                 config=config or {},
-                commitMessage=commit_message,
-                type="text",
+                commit_message=commit_message,
             )
 
             server_prompt = self.api.prompts.create(request=request)

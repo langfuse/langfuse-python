@@ -10,8 +10,7 @@ from langfuse._utils.prompt_cache import (
     PromptCache,
     PromptCacheItem,
 )
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
-from langfuse.api.resources.prompts import Prompt_Chat, Prompt_Text
+from langfuse.api import NotFoundError, Prompt_Chat, Prompt_Text
 from langfuse.model import ChatPromptClient, TextPromptClient
 from tests.utils import create_uuid, get_api
 
@@ -312,7 +311,7 @@ def test_compile_with_placeholders(
     variables, placeholders, expected_len, expected_contents
 ) -> None:
     """Test compile_with_placeholders with different variable/placeholder combinations."""
-    from langfuse.api.resources.prompts import Prompt_Chat
+    from langfuse.api import Prompt_Chat
     from langfuse.model import ChatPromptClient
 
     mock_prompt = Prompt_Chat(
@@ -682,7 +681,7 @@ def test_prompt_end_to_end():
 @pytest.fixture
 def langfuse():
     from langfuse._client.resource_manager import LangfuseResourceManager
-    
+
     langfuse_instance = Langfuse()
     langfuse_instance.api = Mock()
 
