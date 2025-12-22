@@ -79,8 +79,8 @@ from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
-    CreatePromptRequest_Chat,
-    CreatePromptRequest_Text,
+    CreateChatPromptRequest,
+    CreateTextPromptRequest,
     Dataset,
     DatasetItem,
     DatasetStatus,
@@ -3702,8 +3702,8 @@ class Langfuse:
                     raise ValueError(
                         "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
                     )
-                request: Union[CreatePromptRequest_Chat, CreatePromptRequest_Text] = (
-                    CreatePromptRequest_Chat(
+                request: Union[CreateChatPromptRequest, CreateTextPromptRequest] = (
+                    CreateChatPromptRequest(
                         name=name,
                         prompt=cast(Any, prompt),
                         labels=labels,
@@ -3723,14 +3723,13 @@ class Langfuse:
             if not isinstance(prompt, str):
                 raise ValueError("For 'text' type, 'prompt' must be a string.")
 
-            request = CreatePromptRequest_Text(
+            request = CreateTextPromptRequest(
                 name=name,
                 prompt=prompt,
                 labels=labels,
                 tags=tags,
                 config=config or {},
                 commit_message=commit_message,
-                type="text",
             )
 
             server_prompt = self.api.prompts.create(request=request)

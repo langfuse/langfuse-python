@@ -6,12 +6,14 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ...core.serialization import FieldMetadata
+from .create_text_prompt_type import CreateTextPromptType
 
 
 class CreateTextPromptRequest(UniversalBaseModel):
     name: str
     prompt: str
     config: typing.Optional[typing.Any] = None
+    type: typing.Optional[CreateTextPromptType] = None
     labels: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
     List of deployment labels of this prompt version.

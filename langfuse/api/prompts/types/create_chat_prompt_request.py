@@ -7,12 +7,14 @@ import typing_extensions
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ...core.serialization import FieldMetadata
 from .chat_message_with_placeholders import ChatMessageWithPlaceholders
+from .create_chat_prompt_type import CreateChatPromptType
 
 
 class CreateChatPromptRequest(UniversalBaseModel):
     name: str
     prompt: typing.List[ChatMessageWithPlaceholders]
     config: typing.Optional[typing.Any] = None
+    type: CreateChatPromptType
     labels: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
     List of deployment labels of this prompt version.

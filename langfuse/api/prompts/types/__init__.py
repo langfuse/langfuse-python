@@ -8,19 +8,13 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .base_prompt import BasePrompt
     from .chat_message import ChatMessage
-    from .chat_message_with_placeholders import (
-        ChatMessageWithPlaceholders,
-        ChatMessageWithPlaceholders_Chatmessage,
-        ChatMessageWithPlaceholders_Placeholder,
-    )
+    from .chat_message_with_placeholders import ChatMessageWithPlaceholders
     from .chat_prompt import ChatPrompt
     from .create_chat_prompt_request import CreateChatPromptRequest
-    from .create_prompt_request import (
-        CreatePromptRequest,
-        CreatePromptRequest_Chat,
-        CreatePromptRequest_Text,
-    )
+    from .create_chat_prompt_type import CreateChatPromptType
+    from .create_prompt_request import CreatePromptRequest
     from .create_text_prompt_request import CreateTextPromptRequest
+    from .create_text_prompt_type import CreateTextPromptType
     from .placeholder_message import PlaceholderMessage
     from .prompt import Prompt, Prompt_Chat, Prompt_Text
     from .prompt_meta import PromptMeta
@@ -31,14 +25,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BasePrompt": ".base_prompt",
     "ChatMessage": ".chat_message",
     "ChatMessageWithPlaceholders": ".chat_message_with_placeholders",
-    "ChatMessageWithPlaceholders_Chatmessage": ".chat_message_with_placeholders",
-    "ChatMessageWithPlaceholders_Placeholder": ".chat_message_with_placeholders",
     "ChatPrompt": ".chat_prompt",
     "CreateChatPromptRequest": ".create_chat_prompt_request",
+    "CreateChatPromptType": ".create_chat_prompt_type",
     "CreatePromptRequest": ".create_prompt_request",
-    "CreatePromptRequest_Chat": ".create_prompt_request",
-    "CreatePromptRequest_Text": ".create_prompt_request",
     "CreateTextPromptRequest": ".create_text_prompt_request",
+    "CreateTextPromptType": ".create_text_prompt_type",
     "PlaceholderMessage": ".placeholder_message",
     "Prompt": ".prompt",
     "PromptMeta": ".prompt_meta",
@@ -81,14 +73,12 @@ __all__ = [
     "BasePrompt",
     "ChatMessage",
     "ChatMessageWithPlaceholders",
-    "ChatMessageWithPlaceholders_Chatmessage",
-    "ChatMessageWithPlaceholders_Placeholder",
     "ChatPrompt",
     "CreateChatPromptRequest",
+    "CreateChatPromptType",
     "CreatePromptRequest",
-    "CreatePromptRequest_Chat",
-    "CreatePromptRequest_Text",
     "CreateTextPromptRequest",
+    "CreateTextPromptType",
     "PlaceholderMessage",
     "Prompt",
     "PromptMeta",

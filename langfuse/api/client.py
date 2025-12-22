@@ -28,8 +28,10 @@ if typing.TYPE_CHECKING:
     from .llm_connections.client import AsyncLlmConnectionsClient, LlmConnectionsClient
     from .media.client import AsyncMediaClient, MediaClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
+    from .metrics_v2.client import AsyncMetricsV2Client, MetricsV2Client
     from .models.client import AsyncModelsClient, ModelsClient
     from .observations.client import AsyncObservationsClient, ObservationsClient
+    from .observations_v2.client import AsyncObservationsV2Client, ObservationsV2Client
     from .opentelemetry.client import AsyncOpentelemetryClient, OpentelemetryClient
     from .organizations.client import AsyncOrganizationsClient, OrganizationsClient
     from .projects.client import AsyncProjectsClient, ProjectsClient
@@ -133,8 +135,10 @@ class LangfuseAPI:
         self._ingestion: typing.Optional[IngestionClient] = None
         self._llm_connections: typing.Optional[LlmConnectionsClient] = None
         self._media: typing.Optional[MediaClient] = None
+        self._metrics_v2: typing.Optional[MetricsV2Client] = None
         self._metrics: typing.Optional[MetricsClient] = None
         self._models: typing.Optional[ModelsClient] = None
+        self._observations_v2: typing.Optional[ObservationsV2Client] = None
         self._observations: typing.Optional[ObservationsClient] = None
         self._opentelemetry: typing.Optional[OpentelemetryClient] = None
         self._organizations: typing.Optional[OrganizationsClient] = None
@@ -239,6 +243,14 @@ class LangfuseAPI:
         return self._media
 
     @property
+    def metrics_v2(self):
+        if self._metrics_v2 is None:
+            from .metrics_v2.client import MetricsV2Client  # noqa: E402
+
+            self._metrics_v2 = MetricsV2Client(client_wrapper=self._client_wrapper)
+        return self._metrics_v2
+
+    @property
     def metrics(self):
         if self._metrics is None:
             from .metrics.client import MetricsClient  # noqa: E402
@@ -253,6 +265,16 @@ class LangfuseAPI:
 
             self._models = ModelsClient(client_wrapper=self._client_wrapper)
         return self._models
+
+    @property
+    def observations_v2(self):
+        if self._observations_v2 is None:
+            from .observations_v2.client import ObservationsV2Client  # noqa: E402
+
+            self._observations_v2 = ObservationsV2Client(
+                client_wrapper=self._client_wrapper
+            )
+        return self._observations_v2
 
     @property
     def observations(self):
@@ -449,8 +471,10 @@ class AsyncLangfuseAPI:
         self._ingestion: typing.Optional[AsyncIngestionClient] = None
         self._llm_connections: typing.Optional[AsyncLlmConnectionsClient] = None
         self._media: typing.Optional[AsyncMediaClient] = None
+        self._metrics_v2: typing.Optional[AsyncMetricsV2Client] = None
         self._metrics: typing.Optional[AsyncMetricsClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
+        self._observations_v2: typing.Optional[AsyncObservationsV2Client] = None
         self._observations: typing.Optional[AsyncObservationsClient] = None
         self._opentelemetry: typing.Optional[AsyncOpentelemetryClient] = None
         self._organizations: typing.Optional[AsyncOrganizationsClient] = None
@@ -557,6 +581,14 @@ class AsyncLangfuseAPI:
         return self._media
 
     @property
+    def metrics_v2(self):
+        if self._metrics_v2 is None:
+            from .metrics_v2.client import AsyncMetricsV2Client  # noqa: E402
+
+            self._metrics_v2 = AsyncMetricsV2Client(client_wrapper=self._client_wrapper)
+        return self._metrics_v2
+
+    @property
     def metrics(self):
         if self._metrics is None:
             from .metrics.client import AsyncMetricsClient  # noqa: E402
@@ -571,6 +603,16 @@ class AsyncLangfuseAPI:
 
             self._models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         return self._models
+
+    @property
+    def observations_v2(self):
+        if self._observations_v2 is None:
+            from .observations_v2.client import AsyncObservationsV2Client  # noqa: E402
+
+            self._observations_v2 = AsyncObservationsV2Client(
+                client_wrapper=self._client_wrapper
+            )
+        return self._observations_v2
 
     @property
     def observations(self):

@@ -171,10 +171,7 @@ class PromptsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
-        from langfuse.prompts import (
-            ChatMessageWithPlaceholders_Chatmessage,
-            CreatePromptRequest_Chat,
-        )
+        from langfuse.prompts import ChatMessage, CreateChatPromptRequest
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -185,18 +182,19 @@ class PromptsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.prompts.create(
-            request=CreatePromptRequest_Chat(
+            request=CreateChatPromptRequest(
                 name="name",
                 prompt=[
-                    ChatMessageWithPlaceholders_Chatmessage(
+                    ChatMessage(
                         role="role",
                         content="content",
                     ),
-                    ChatMessageWithPlaceholders_Chatmessage(
+                    ChatMessage(
                         role="role",
                         content="content",
                     ),
                 ],
+                type="chat",
             ),
         )
         """
@@ -431,10 +429,7 @@ class AsyncPromptsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
-        from langfuse.prompts import (
-            ChatMessageWithPlaceholders_Chatmessage,
-            CreatePromptRequest_Chat,
-        )
+        from langfuse.prompts import ChatMessage, CreateChatPromptRequest
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -448,18 +443,19 @@ class AsyncPromptsClient:
 
         async def main() -> None:
             await client.prompts.create(
-                request=CreatePromptRequest_Chat(
+                request=CreateChatPromptRequest(
                     name="name",
                     prompt=[
-                        ChatMessageWithPlaceholders_Chatmessage(
+                        ChatMessage(
                             role="role",
                             content="content",
                         ),
-                        ChatMessageWithPlaceholders_Chatmessage(
+                        ChatMessage(
                             role="role",
                             content="content",
                         ),
                     ],
+                    type="chat",
                 ),
             )
 
