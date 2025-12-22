@@ -5,14 +5,14 @@ from langfuse._utils.parse_error import (
     generate_error_message_fern,
 )
 from langfuse._utils.request import APIError, APIErrors
-from langfuse.api.core import ApiError
-from langfuse.api.resources.commons.errors import (
+from langfuse.api import (
     AccessDeniedError,
     MethodNotAllowedError,
     NotFoundError,
+    ServiceUnavailableError,
     UnauthorizedError,
 )
-from langfuse.api.resources.health.errors import ServiceUnavailableError
+from langfuse.api.core import ApiError
 
 
 def test_generate_error_message_api_error():

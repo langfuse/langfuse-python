@@ -1,5 +1,6 @@
 """@private"""
 
+import datetime as dt
 import enum
 import math
 from asyncio import Queue
@@ -14,7 +15,6 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from langfuse.api.core import pydantic_utilities, serialize_datetime
 from langfuse.media import LangfuseMedia
 
 # Attempt to import Serializable
@@ -98,17 +98,13 @@ class EventSerializer(JSONEncoder):
                 return obj.isoformat()
 
             if isinstance(obj, BaseModel):
-                obj.model_rebuild() if pydantic_utilities.IS_PYDANTIC_V2 else obj.update_forward_refs()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
+                obj.model_rebuild()
 
                 # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
                 if isinstance(raw := getattr(obj, "raw", None), BaseModel):
-                    raw.model_rebuild() if pydantic_utilities.IS_PYDANTIC_V2 else raw.update_forward_refs()
+                    raw.model_rebuild()
 
-                return (
-                    obj.model_dump()
-                    if pydantic_utilities.IS_PYDANTIC_V2
-                    else obj.dict()
-                )
+                return obj.model_dump()
 
             if isinstance(obj, Path):
                 return str(obj)
@@ -188,3 +184,22 @@ class EventSerializer(JSONEncoder):
         min_safe_int = -(2**53) + 1
 
         return min_safe_int <= value <= max_safe_int
+
+
+def serialize_datetime(v: dt.datetime) -> str:
+    def _serialize_zoned_datetime(v: dt.datetime) -> str:
+        if v.tzinfo is not None and v.tzinfo.tzname(None) == dt.timezone.utc.tzname(
+            None
+        ):
+            # UTC is a special case where we use "Z" at the end instead of "+00:00"
+            return v.isoformat().replace("+00:00", "Z")
+        else:
+            # Delegate to the typical +/- offset format
+            return v.isoformat()
+
+    if v.tzinfo is not None:
+        return _serialize_zoned_datetime(v)
+    else:
+        local_tz = dt.datetime.now().astimezone().tzinfo
+        localized_dt = v.replace(tzinfo=local_tz)
+        return _serialize_zoned_datetime(localized_dt)

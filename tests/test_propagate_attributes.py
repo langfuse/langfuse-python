@@ -7,6 +7,7 @@ to all child spans within the context.
 
 import concurrent.futures
 import time
+from datetime import datetime
 
 import pytest
 from opentelemetry.instrumentation.threading import ThreadingInstrumentor
@@ -14,6 +15,8 @@ from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse.api import Dataset, DatasetItem, DatasetStatus
 from tests.test_otel import TestOTelBase
 
 
@@ -2437,16 +2440,10 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter, monkeypatch
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
-        import time
-        from datetime import datetime
-
-        from langfuse._client.attributes import _serialize
-        from langfuse._client.datasets import DatasetClient, DatasetItemClient
-        from langfuse.model import Dataset, DatasetItem, DatasetStatus
 
         # Mock the async API to create dataset run items
         async def mock_create_dataset_run_item(*args, **kwargs):
-            from langfuse.api.resources.dataset_run_items.types import DatasetRunItem
+            from langfuse.api import DatasetRunItem
 
             request = kwargs.get("request")
             return DatasetRunItem(

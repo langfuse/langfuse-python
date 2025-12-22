@@ -23,7 +23,7 @@ from typing import (
     cast,
 )
 
-from langfuse.api.resources.commons.types import (
+from langfuse.api import (
     ObservationsView,
     TraceWithFullDetails,
 )

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 import langfuse
 from langfuse._utils.serializer import EventSerializer
-from langfuse.api.resources.commons.types.observation_level import ObservationLevel
+from langfuse.api import ObservationLevel
 
 
 class TestModel(BaseModel):
