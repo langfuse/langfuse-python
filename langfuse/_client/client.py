@@ -2055,14 +2055,14 @@ class Langfuse:
             new_body = ScoreBody(
                 id=score_id,
                 session_id=session_id,
-                dataset_run_id=dataset_run_id,
-                trace_id=trace_id,
+                datasetRunId=dataset_run_id,
+                traceId=trace_id,
                 observation_id=observation_id,
                 name=name,
                 value=value,
                 dataType=data_type,  # type: ignore
                 comment=comment,
-                config_id=config_id,
+                configId=config_id,
                 environment=self._environment,
                 metadata=metadata,
             )
