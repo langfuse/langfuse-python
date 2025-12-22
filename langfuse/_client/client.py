@@ -2057,7 +2057,7 @@ class Langfuse:
                 session_id=session_id,
                 datasetRunId=dataset_run_id,
                 traceId=trace_id,
-                observation_id=observation_id,
+                observationId=observation_id,
                 name=name,
                 value=value,
                 dataType=data_type,  # type: ignore
