@@ -51,8 +51,9 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
-from langfuse.api import MapValue, ScoreDataType, SpanLevel
+from langfuse.api import MapValue, ScoreDataType
 from langfuse.logger import langfuse_logger
+from langfuse.types import SpanLevel
 
 # Factory mapping for observation classes
 # Note: "event" is handled separately due to special instantiation logic

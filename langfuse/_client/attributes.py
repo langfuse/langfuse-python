@@ -19,8 +19,9 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
 )
 from langfuse._utils.serializer import EventSerializer
-from langfuse.api import MapValue, SpanLevel
+from langfuse.api import MapValue
 from langfuse.model import PromptClient
+from langfuse.types import SpanLevel
 
 
 class LangfuseOtelSpanAttributes:
