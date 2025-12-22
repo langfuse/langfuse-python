@@ -2,6 +2,29 @@
 
 import typing
 
-ObservationLevel = typing.Union[
-    typing.Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class ObservationLevel(enum.StrEnum):
+    DEBUG = "DEBUG"
+    DEFAULT = "DEFAULT"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+    def visit(
+        self,
+        debug: typing.Callable[[], T_Result],
+        default: typing.Callable[[], T_Result],
+        warning: typing.Callable[[], T_Result],
+        error: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is ObservationLevel.DEBUG:
+            return debug()
+        if self is ObservationLevel.DEFAULT:
+            return default()
+        if self is ObservationLevel.WARNING:
+            return warning()
+        if self is ObservationLevel.ERROR:
+            return error()

@@ -2,4 +2,21 @@
 
 import typing
 
-AnnotationQueueStatus = typing.Union[typing.Literal["PENDING", "COMPLETED"], typing.Any]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class AnnotationQueueStatus(enum.StrEnum):
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+
+    def visit(
+        self,
+        pending: typing.Callable[[], T_Result],
+        completed: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is AnnotationQueueStatus.PENDING:
+            return pending()
+        if self is AnnotationQueueStatus.COMPLETED:
+            return completed()

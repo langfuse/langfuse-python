@@ -2,6 +2,25 @@
 
 import typing
 
-ScoreDataType = typing.Union[
-    typing.Literal["NUMERIC", "BOOLEAN", "CATEGORICAL"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class ScoreDataType(enum.StrEnum):
+    NUMERIC = "NUMERIC"
+    BOOLEAN = "BOOLEAN"
+    CATEGORICAL = "CATEGORICAL"
+
+    def visit(
+        self,
+        numeric: typing.Callable[[], T_Result],
+        boolean: typing.Callable[[], T_Result],
+        categorical: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is ScoreDataType.NUMERIC:
+            return numeric()
+        if self is ScoreDataType.BOOLEAN:
+            return boolean()
+        if self is ScoreDataType.CATEGORICAL:
+            return categorical()

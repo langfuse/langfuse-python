@@ -146,6 +146,12 @@ class BlobStorageIntegrationsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.blob_storage_integrations import (
+            BlobStorageExportFrequency,
+            BlobStorageExportMode,
+            BlobStorageIntegrationFileType,
+            BlobStorageIntegrationType,
+        )
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -157,14 +163,14 @@ class BlobStorageIntegrationsClient:
         )
         client.blob_storage_integrations.upsert_blob_storage_integration(
             project_id="projectId",
-            type="S3",
+            type=BlobStorageIntegrationType.S3,
             bucket_name="bucketName",
             region="region",
-            export_frequency="hourly",
+            export_frequency=BlobStorageExportFrequency.HOURLY,
             enabled=True,
             force_path_style=True,
-            file_type="JSON",
-            export_mode="FULL_HISTORY",
+            file_type=BlobStorageIntegrationFileType.JSON,
+            export_mode=BlobStorageExportMode.FULL_HISTORY,
         )
         """
         _response = self._raw_client.upsert_blob_storage_integration(
@@ -358,6 +364,12 @@ class AsyncBlobStorageIntegrationsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.blob_storage_integrations import (
+            BlobStorageExportFrequency,
+            BlobStorageExportMode,
+            BlobStorageIntegrationFileType,
+            BlobStorageIntegrationType,
+        )
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -372,14 +384,14 @@ class AsyncBlobStorageIntegrationsClient:
         async def main() -> None:
             await client.blob_storage_integrations.upsert_blob_storage_integration(
                 project_id="projectId",
-                type="S3",
+                type=BlobStorageIntegrationType.S3,
                 bucket_name="bucketName",
                 region="region",
-                export_frequency="hourly",
+                export_frequency=BlobStorageExportFrequency.HOURLY,
                 enabled=True,
                 force_path_style=True,
-                file_type="JSON",
-                export_mode="FULL_HISTORY",
+                file_type=BlobStorageIntegrationFileType.JSON,
+                export_mode=BlobStorageExportMode.FULL_HISTORY,
             )
 
 

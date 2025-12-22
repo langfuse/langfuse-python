@@ -71,6 +71,7 @@ class ScoreConfigsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.commons import ScoreDataType
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -82,7 +83,7 @@ class ScoreConfigsClient:
         )
         client.score_configs.create(
             name="name",
-            data_type="NUMERIC",
+            data_type=ScoreDataType.NUMERIC,
         )
         """
         _response = self._raw_client.create(
@@ -312,6 +313,7 @@ class AsyncScoreConfigsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.commons import ScoreDataType
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -326,7 +328,7 @@ class AsyncScoreConfigsClient:
         async def main() -> None:
             await client.score_configs.create(
                 name="name",
-                data_type="NUMERIC",
+                data_type=ScoreDataType.NUMERIC,
             )
 
 

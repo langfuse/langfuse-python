@@ -2,6 +2,25 @@
 
 import typing
 
-BlobStorageExportFrequency = typing.Union[
-    typing.Literal["hourly", "daily", "weekly"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class BlobStorageExportFrequency(enum.StrEnum):
+    HOURLY = "hourly"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+
+    def visit(
+        self,
+        hourly: typing.Callable[[], T_Result],
+        daily: typing.Callable[[], T_Result],
+        weekly: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is BlobStorageExportFrequency.HOURLY:
+            return hourly()
+        if self is BlobStorageExportFrequency.DAILY:
+            return daily()
+        if self is BlobStorageExportFrequency.WEEKLY:
+            return weekly()

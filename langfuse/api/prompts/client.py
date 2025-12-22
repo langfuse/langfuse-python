@@ -171,7 +171,11 @@ class PromptsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
-        from langfuse.prompts import ChatMessage, CreateChatPromptRequest
+        from langfuse.prompts import (
+            ChatMessage,
+            CreateChatPromptRequest,
+            CreateChatPromptType,
+        )
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -194,7 +198,7 @@ class PromptsClient:
                         content="content",
                     ),
                 ],
-                type="chat",
+                type=CreateChatPromptType.CHAT,
             ),
         )
         """
@@ -429,7 +433,11 @@ class AsyncPromptsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
-        from langfuse.prompts import ChatMessage, CreateChatPromptRequest
+        from langfuse.prompts import (
+            ChatMessage,
+            CreateChatPromptRequest,
+            CreateChatPromptType,
+        )
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -455,7 +463,7 @@ class AsyncPromptsClient:
                             content="content",
                         ),
                     ],
-                    type="chat",
+                    type=CreateChatPromptType.CHAT,
                 ),
             )
 

@@ -2,6 +2,25 @@
 
 import typing
 
-AnnotationQueueObjectType = typing.Union[
-    typing.Literal["TRACE", "OBSERVATION", "SESSION"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class AnnotationQueueObjectType(enum.StrEnum):
+    TRACE = "TRACE"
+    OBSERVATION = "OBSERVATION"
+    SESSION = "SESSION"
+
+    def visit(
+        self,
+        trace: typing.Callable[[], T_Result],
+        observation: typing.Callable[[], T_Result],
+        session: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is AnnotationQueueObjectType.TRACE:
+            return trace()
+        if self is AnnotationQueueObjectType.OBSERVATION:
+            return observation()
+        if self is AnnotationQueueObjectType.SESSION:
+            return session()

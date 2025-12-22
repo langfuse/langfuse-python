@@ -2,6 +2,29 @@
 
 import typing
 
-CommentObjectType = typing.Union[
-    typing.Literal["TRACE", "OBSERVATION", "SESSION", "PROMPT"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class CommentObjectType(enum.StrEnum):
+    TRACE = "TRACE"
+    OBSERVATION = "OBSERVATION"
+    SESSION = "SESSION"
+    PROMPT = "PROMPT"
+
+    def visit(
+        self,
+        trace: typing.Callable[[], T_Result],
+        observation: typing.Callable[[], T_Result],
+        session: typing.Callable[[], T_Result],
+        prompt: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is CommentObjectType.TRACE:
+            return trace()
+        if self is CommentObjectType.OBSERVATION:
+            return observation()
+        if self is CommentObjectType.SESSION:
+            return session()
+        if self is CommentObjectType.PROMPT:
+            return prompt()

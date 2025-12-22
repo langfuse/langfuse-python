@@ -2,4 +2,21 @@
 
 import typing
 
-DatasetStatus = typing.Union[typing.Literal["ACTIVE", "ARCHIVED"], typing.Any]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class DatasetStatus(enum.StrEnum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+
+    def visit(
+        self,
+        active: typing.Callable[[], T_Result],
+        archived: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is DatasetStatus.ACTIVE:
+            return active()
+        if self is DatasetStatus.ARCHIVED:
+            return archived()

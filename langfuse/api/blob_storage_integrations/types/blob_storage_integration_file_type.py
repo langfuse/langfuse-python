@@ -2,6 +2,25 @@
 
 import typing
 
-BlobStorageIntegrationFileType = typing.Union[
-    typing.Literal["JSON", "CSV", "JSONL"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class BlobStorageIntegrationFileType(enum.StrEnum):
+    JSON = "JSON"
+    CSV = "CSV"
+    JSONL = "JSONL"
+
+    def visit(
+        self,
+        json: typing.Callable[[], T_Result],
+        csv: typing.Callable[[], T_Result],
+        jsonl: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is BlobStorageIntegrationFileType.JSON:
+            return json()
+        if self is BlobStorageIntegrationFileType.CSV:
+            return csv()
+        if self is BlobStorageIntegrationFileType.JSONL:
+            return jsonl()

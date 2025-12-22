@@ -2,4 +2,25 @@
 
 import typing
 
-ScoreSource = typing.Union[typing.Literal["ANNOTATION", "API", "EVAL"], typing.Any]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class ScoreSource(enum.StrEnum):
+    ANNOTATION = "ANNOTATION"
+    API = "API"
+    EVAL = "EVAL"
+
+    def visit(
+        self,
+        annotation: typing.Callable[[], T_Result],
+        api: typing.Callable[[], T_Result],
+        eval: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is ScoreSource.ANNOTATION:
+            return annotation()
+        if self is ScoreSource.API:
+            return api()
+        if self is ScoreSource.EVAL:
+            return eval()

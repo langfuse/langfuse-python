@@ -2,6 +2,25 @@
 
 import typing
 
-BlobStorageIntegrationType = typing.Union[
-    typing.Literal["S3", "S3_COMPATIBLE", "AZURE_BLOB_STORAGE"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class BlobStorageIntegrationType(enum.StrEnum):
+    S3 = "S3"
+    S3COMPATIBLE = "S3_COMPATIBLE"
+    AZURE_BLOB_STORAGE = "AZURE_BLOB_STORAGE"
+
+    def visit(
+        self,
+        s3: typing.Callable[[], T_Result],
+        s3compatible: typing.Callable[[], T_Result],
+        azure_blob_storage: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is BlobStorageIntegrationType.S3:
+            return s3()
+        if self is BlobStorageIntegrationType.S3COMPATIBLE:
+            return s3compatible()
+        if self is BlobStorageIntegrationType.AZURE_BLOB_STORAGE:
+            return azure_blob_storage()

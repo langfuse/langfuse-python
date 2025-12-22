@@ -91,6 +91,7 @@ class OrganizationsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.organizations import MembershipRole
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -102,7 +103,7 @@ class OrganizationsClient:
         )
         client.organizations.update_organization_membership(
             user_id="userId",
-            role="OWNER",
+            role=MembershipRole.OWNER,
         )
         """
         _response = self._raw_client.update_organization_membership(
@@ -218,6 +219,7 @@ class OrganizationsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.organizations import MembershipRole
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -230,7 +232,7 @@ class OrganizationsClient:
         client.organizations.update_project_membership(
             project_id="projectId",
             user_id="userId",
-            role="OWNER",
+            role=MembershipRole.OWNER,
         )
         """
         _response = self._raw_client.update_project_membership(
@@ -437,6 +439,7 @@ class AsyncOrganizationsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.organizations import MembershipRole
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -451,7 +454,7 @@ class AsyncOrganizationsClient:
         async def main() -> None:
             await client.organizations.update_organization_membership(
                 user_id="userId",
-                role="OWNER",
+                role=MembershipRole.OWNER,
             )
 
 
@@ -588,6 +591,7 @@ class AsyncOrganizationsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.organizations import MembershipRole
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -603,7 +607,7 @@ class AsyncOrganizationsClient:
             await client.organizations.update_project_membership(
                 project_id="projectId",
                 user_id="userId",
-                role="OWNER",
+                role=MembershipRole.OWNER,
             )
 
 

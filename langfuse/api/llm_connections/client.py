@@ -124,6 +124,7 @@ class LlmConnectionsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.llm_connections import LlmAdapter
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -135,7 +136,7 @@ class LlmConnectionsClient:
         )
         client.llm_connections.upsert(
             provider="provider",
-            adapter="anthropic",
+            adapter=LlmAdapter.ANTHROPIC,
             secret_key="secretKey",
         )
         """
@@ -274,6 +275,7 @@ class AsyncLlmConnectionsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.llm_connections import LlmAdapter
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -288,7 +290,7 @@ class AsyncLlmConnectionsClient:
         async def main() -> None:
             await client.llm_connections.upsert(
                 provider="provider",
-                adapter="anthropic",
+                adapter=LlmAdapter.ANTHROPIC,
                 secret_key="secretKey",
             )
 

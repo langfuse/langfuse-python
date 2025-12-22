@@ -2,6 +2,29 @@
 
 import typing
 
-MembershipRole = typing.Union[
-    typing.Literal["OWNER", "ADMIN", "MEMBER", "VIEWER"], typing.Any
-]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class MembershipRole(enum.StrEnum):
+    OWNER = "OWNER"
+    ADMIN = "ADMIN"
+    MEMBER = "MEMBER"
+    VIEWER = "VIEWER"
+
+    def visit(
+        self,
+        owner: typing.Callable[[], T_Result],
+        admin: typing.Callable[[], T_Result],
+        member: typing.Callable[[], T_Result],
+        viewer: typing.Callable[[], T_Result],
+    ) -> T_Result:
+        if self is MembershipRole.OWNER:
+            return owner()
+        if self is MembershipRole.ADMIN:
+            return admin()
+        if self is MembershipRole.MEMBER:
+            return member()
+        if self is MembershipRole.VIEWER:
+            return viewer()

@@ -80,6 +80,7 @@ from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
     CreateChatPromptRequest,
+    CreateChatPromptType,
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
@@ -3710,7 +3711,7 @@ class Langfuse:
                         tags=tags,
                         config=config or {},
                         commit_message=commit_message,
-                        type="chat",
+                        type=CreateChatPromptType.CHAT,
                     )
                 )
                 server_prompt = self.api.prompts.create(request=request)

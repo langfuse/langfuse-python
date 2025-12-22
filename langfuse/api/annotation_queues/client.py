@@ -313,6 +313,7 @@ class AnnotationQueuesClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.annotation_queues import AnnotationQueueObjectType
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -325,7 +326,7 @@ class AnnotationQueuesClient:
         client.annotation_queues.create_queue_item(
             queue_id="queueId",
             object_id="objectId",
-            object_type="TRACE",
+            object_type=AnnotationQueueObjectType.TRACE,
         )
         """
         _response = self._raw_client.create_queue_item(
@@ -857,6 +858,7 @@ class AsyncAnnotationQueuesClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.annotation_queues import AnnotationQueueObjectType
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -872,7 +874,7 @@ class AsyncAnnotationQueuesClient:
             await client.annotation_queues.create_queue_item(
                 queue_id="queueId",
                 object_id="objectId",
-                object_type="TRACE",
+                object_type=AnnotationQueueObjectType.TRACE,
             )
 
 

@@ -3,6 +3,9 @@
   "generatorName": "fernapi/fern-python-sdk",
   "generatorVersion": "4.46.2",
   "generatorConfig": {
+    "pydantic_config": {
+      "enum_type": "python_enums"
+    },
     "client": {
       "class_name": "LangfuseAPI"
     }

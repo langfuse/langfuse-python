@@ -178,6 +178,7 @@ class MediaClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.media import MediaContentType
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -189,7 +190,7 @@ class MediaClient:
         )
         client.media.get_upload_url(
             trace_id="traceId",
-            content_type="image/png",
+            content_type=MediaContentType.IMAGE_PNG,
             content_length=1,
             sha256hash="sha256Hash",
             field="field",
@@ -390,6 +391,7 @@ class AsyncMediaClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.media import MediaContentType
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -404,7 +406,7 @@ class AsyncMediaClient:
         async def main() -> None:
             await client.media.get_upload_url(
                 trace_id="traceId",
-                content_type="image/png",
+                content_type=MediaContentType.IMAGE_PNG,
                 content_length=1,
                 sha256hash="sha256Hash",
                 field="field",

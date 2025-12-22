@@ -2,4 +2,14 @@
 
 import typing
 
-CreateChatPromptType = typing.Union[typing.Literal["chat"], typing.Any]
+from ...core import enum
+
+T_Result = typing.TypeVar("T_Result")
+
+
+class CreateChatPromptType(enum.StrEnum):
+    CHAT = "chat"
+
+    def visit(self, chat: typing.Callable[[], T_Result]) -> T_Result:
+        if self is CreateChatPromptType.CHAT:
+            return chat()
