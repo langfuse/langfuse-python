@@ -8,7 +8,6 @@ and result formatting.
 import asyncio
 import logging
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Dict,
@@ -19,10 +18,7 @@ from typing import (
     Union,
 )
 
-from langfuse.api import ScoreDataType
-
-if TYPE_CHECKING:
-    from langfuse._client.datasets import DatasetItemClient
+from langfuse.api import DatasetItem, ScoreDataType
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -76,20 +72,20 @@ class LocalExperimentItem(TypedDict, total=False):
     metadata: Optional[Dict[str, Any]]
 
 
-ExperimentItem = Union[LocalExperimentItem, "DatasetItemClient"]
+ExperimentItem = Union[LocalExperimentItem, DatasetItem]
 """Type alias for items that can be processed in experiments.
 
 Can be either:
 - LocalExperimentItem: Dict-like items with 'input', 'expected_output', 'metadata' keys
-- DatasetItemClient: Items from Langfuse datasets with .input, .expected_output, .metadata attributes
+- DatasetItem: Items from Langfuse datasets with .input, .expected_output, .metadata attributes
 """
 
-ExperimentData = Union[List[LocalExperimentItem], List["DatasetItemClient"]]
+ExperimentData = Union[List[LocalExperimentItem], List[DatasetItem]]
 """Type alias for experiment datasets.
 
 Represents the collection of items to process in an experiment. Can be either:
 - List[LocalExperimentItem]: Local data items as dictionaries
-- List[DatasetItemClient]: Items from a Langfuse dataset (typically from dataset.items)
+- List[DatasetItem]: Items from a Langfuse dataset (typically from dataset.items)
 """
 
 
@@ -222,7 +218,7 @@ class ExperimentItemResult:
     Attributes:
         item: The original experiment item that was processed. Can be either
             a dictionary with 'input', 'expected_output', and 'metadata' keys,
-            or a DatasetItemClient from Langfuse datasets.
+            or a DatasetItem from Langfuse datasets.
         output: The actual output produced by the task function for this item.
             Can be any type depending on what your task function returns.
         evaluations: List of evaluation results for this item. Each evaluation
