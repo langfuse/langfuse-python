@@ -20,7 +20,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
-    List,
     Literal,
     Optional,
     Type,
@@ -42,7 +41,6 @@ from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     create_generation_attributes,
     create_span_attributes,
-    create_trace_attributes,
 )
 from langfuse._client.constants import (
     ObservationTypeGenerationLike,
@@ -206,64 +204,6 @@ class LangfuseObservationWrapper:
             end_time: Optional explicit end time in nanoseconds since epoch
         """
         self._otel_span.end(end_time=end_time)
-
-        return self
-
-    def update_trace(
-        self,
-        *,
-        name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        version: Optional[str] = None,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        tags: Optional[List[str]] = None,
-        public: Optional[bool] = None,
-    ) -> "LangfuseObservationWrapper":
-        """Update the trace that this span belongs to.
-
-        Args:
-            name: Updated name for the trace
-            user_id: ID of the user who initiated the trace
-            session_id: Session identifier for grouping related traces
-            version: Version identifier for the application or service
-            input: Input data for the overall trace
-            output: Output data from the overall trace
-            metadata: Additional metadata to associate with the trace
-            tags: List of tags to categorize the trace
-            public: Whether the trace should be publicly accessible
-
-        See Also:
-            :func:`langfuse.propagate_attributes`: Recommended replacement
-        """
-        if not self._otel_span.is_recording():
-            return self
-
-        media_processed_input = self._process_media_and_apply_mask(
-            data=input, field="input", span=self._otel_span
-        )
-        media_processed_output = self._process_media_and_apply_mask(
-            data=output, field="output", span=self._otel_span
-        )
-        media_processed_metadata = self._process_media_and_apply_mask(
-            data=metadata, field="metadata", span=self._otel_span
-        )
-
-        attributes = create_trace_attributes(
-            name=name,
-            user_id=user_id,
-            session_id=session_id,
-            version=version,
-            input=media_processed_input,
-            output=media_processed_output,
-            metadata=media_processed_metadata,
-            tags=tags,
-            public=public,
-        )
-
-        self._otel_span.set_attributes(attributes)
 
         return self
 
