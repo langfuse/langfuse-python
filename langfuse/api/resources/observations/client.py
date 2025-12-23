@@ -111,7 +111,9 @@ class ObservationsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
         """
-        Get a list of observations
+        Get a list of observations.
+
+        Consider using the [v2 observations endpoint](/api-reference/observations-v2/getMany) for cursor-based pagination and field selection.
 
         Parameters
         ----------
@@ -412,7 +414,9 @@ class AsyncObservationsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViews:
         """
-        Get a list of observations
+        Get a list of observations.
+
+        Consider using the [v2 observations endpoint](/api-reference/observations-v2/getMany) for cursor-based pagination and field selection.
 
         Parameters
         ----------

@@ -3191,6 +3191,8 @@ JSON string containing the query parameters with the following structure:
 
 Get metrics from the Langfuse project using a query object.
 
+Consider using the [v2 metrics endpoint](/api-reference/metrics-v2/metrics) for better performance.
+
 For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 </dd>
 </dl>
@@ -4007,7 +4009,9 @@ client.observations.get(
 <dl>
 <dd>
 
-Get a list of observations
+Get a list of observations.
+
+Consider using the [v2 observations endpoint](/api-reference/observations-v2/getMany) for cursor-based pagination and field selection.
 </dd>
 </dl>
 </dd>
@@ -6666,7 +6670,7 @@ Create a score configuration (config). Score configs are used to define the stru
 <dd>
 
 ```python
-from langfuse import CreateScoreConfigRequest, ScoreDataType
+from langfuse import CreateScoreConfigRequest, ScoreConfigDataType
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -6680,7 +6684,7 @@ client = FernLangfuse(
 client.score_configs.create(
     request=CreateScoreConfigRequest(
         name="name",
-        data_type=ScoreDataType.NUMERIC,
+        data_type=ScoreConfigDataType.NUMERIC,
     ),
 )
 
