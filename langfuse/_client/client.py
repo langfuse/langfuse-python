@@ -45,7 +45,7 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
-from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse._client.datasets import DatasetClient
 from langfuse._client.environment_variables import (
     LANGFUSE_BASE_URL,
     LANGFUSE_DEBUG,
@@ -1633,67 +1633,6 @@ class Langfuse:
                 status_message=status_message,
             )
 
-    def update_current_trace(
-        self,
-        *,
-        name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        version: Optional[str] = None,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        tags: Optional[List[str]] = None,
-        public: Optional[bool] = None,
-    ) -> None:
-        """Update the current trace with additional information.
-
-        Args:
-            name: Updated name for the Langfuse trace
-            user_id: ID of the user who initiated the Langfuse trace
-            session_id: Session identifier for grouping related Langfuse traces
-            version: Version identifier for the application or service
-            input: Input data for the overall Langfuse trace
-            output: Output data from the overall Langfuse trace
-            metadata: Additional metadata to associate with the Langfuse trace
-            tags: List of tags to categorize the Langfuse trace
-            public: Whether the Langfuse trace should be publicly accessible
-
-        See Also:
-            :func:`langfuse.propagate_attributes`: Recommended replacement
-        """
-        if not self._tracing_enabled:
-            langfuse_logger.debug(
-                "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
-            )
-            return
-
-        current_otel_span = self._get_current_otel_span()
-
-        if current_otel_span is not None and current_otel_span.is_recording():
-            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
-            )
-            # We need to preserve the class to keep the correct observation type
-            span_class = self._get_span_class(existing_observation_type)
-            span = span_class(
-                otel_span=current_otel_span,
-                langfuse_client=self,
-                environment=self._environment,
-            )
-
-            span.update_trace(
-                name=name,
-                user_id=user_id,
-                session_id=session_id,
-                version=version,
-                input=input,
-                output=output,
-                metadata=metadata,
-                tags=tags,
-                public=public,
-            )
-
     def create_event(
         self,
         *,
@@ -2474,9 +2413,12 @@ class Langfuse:
 
                 page += 1
 
-            items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
-
-            return DatasetClient(dataset, items=items, version=version)
+            return DatasetClient(
+                dataset=dataset,
+                items=dataset_items,
+                version=version,
+                langfuse_client=self,
+            )
 
         except Error as e:
             handle_fern_exception(e)

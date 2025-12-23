@@ -15,7 +15,7 @@ from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
-from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse._client.datasets import DatasetClient
 from langfuse.api import Dataset, DatasetItem, DatasetStatus
 from tests.test_otel import TestOTelBase
 
@@ -2488,8 +2488,11 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         # Create dataset client with items
-        dataset_item_client = DatasetItemClient(mock_dataset_item, langfuse_client)
-        dataset = DatasetClient(mock_dataset, [dataset_item_client])
+        dataset = DatasetClient(
+            dataset=mock_dataset,
+            items=[mock_dataset_item],
+            langfuse_client=langfuse_client,
+        )
 
         # Task with child spans
         def task_with_children(*, item, **kwargs):
