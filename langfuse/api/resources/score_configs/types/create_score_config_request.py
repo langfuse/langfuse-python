@@ -6,12 +6,12 @@ import typing
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from ...commons.types.config_category import ConfigCategory
-from ...commons.types.score_data_type import ScoreDataType
+from ...commons.types.score_config_data_type import ScoreConfigDataType
 
 
 class CreateScoreConfigRequest(pydantic_v1.BaseModel):
     name: str
-    data_type: ScoreDataType = pydantic_v1.Field(alias="dataType")
+    data_type: ScoreConfigDataType = pydantic_v1.Field(alias="dataType")
     categories: typing.Optional[typing.List[ConfigCategory]] = pydantic_v1.Field(
         default=None
     )
