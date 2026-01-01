@@ -5,27 +5,17 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .organization import Organization
 
 
-class Project(pydantic_v1.BaseModel):
-    id: str
-    name: str
-    organization: Organization = pydantic_v1.Field()
+class Organization(pydantic_v1.BaseModel):
+    id: str = pydantic_v1.Field()
     """
-    The organization this project belongs to
+    The unique identifier of the organization
     """
 
-    metadata: typing.Dict[str, typing.Any] = pydantic_v1.Field()
+    name: str = pydantic_v1.Field()
     """
-    Metadata for the project
-    """
-
-    retention_days: typing.Optional[int] = pydantic_v1.Field(
-        alias="retentionDays", default=None
-    )
-    """
-    Number of days to retain data. Null or 0 means no retention. Omitted if no retention is configured.
+    The name of the organization
     """
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -56,7 +46,5 @@ class Project(pydantic_v1.BaseModel):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

@@ -3191,6 +3191,8 @@ JSON string containing the query parameters with the following structure:
 
 Get metrics from the Langfuse project using a query object.
 
+Consider using the [v2 metrics endpoint](/api-reference#tag/metricsv2/GET/api/public/v2/metrics) for better performance.
+
 For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 </dd>
 </dl>
@@ -4007,7 +4009,9 @@ client.observations.get(
 <dl>
 <dd>
 
-Get a list of observations
+Get a list of observations.
+
+Consider using the [v2 observations endpoint](/api-reference#tag/observationsv2/GET/api/public/v2/observations) for cursor-based pagination and field selection.
 </dd>
 </dl>
 </dd>
@@ -6666,7 +6670,7 @@ Create a score configuration (config). Score configs are used to define the stru
 <dd>
 
 ```python
-from langfuse import CreateScoreConfigRequest, ScoreDataType
+from langfuse import CreateScoreConfigRequest, ScoreConfigDataType
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -6680,7 +6684,7 @@ client = FernLangfuse(
 client.score_configs.create(
     request=CreateScoreConfigRequest(
         name="name",
-        data_type=ScoreDataType.NUMERIC,
+        data_type=ScoreConfigDataType.NUMERIC,
     ),
 )
 
@@ -7150,6 +7154,14 @@ client.score_v_2.get()
 <dd>
 
 **trace_tags:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Only scores linked to traces that include all of these tags will be returned.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**fields:** `typing.Optional[str]` — Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
     
 </dd>
 </dl>
