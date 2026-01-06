@@ -19,6 +19,31 @@ class Comment(pydantic_v1.BaseModel):
     author_user_id: typing.Optional[str] = pydantic_v1.Field(
         alias="authorUserId", default=None
     )
+    data_field: typing.Optional[str] = pydantic_v1.Field(
+        alias="dataField", default=None
+    )
+    """
+    For inline comments, the IO field (input, output, metadata)
+    """
+
+    path: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
+    """
+    JSON Path expressions for comment location
+    """
+
+    range_start: typing.Optional[typing.List[int]] = pydantic_v1.Field(
+        alias="rangeStart", default=None
+    )
+    """
+    Start character offsets (inclusive, UTF-16)
+    """
+
+    range_end: typing.Optional[typing.List[int]] = pydantic_v1.Field(
+        alias="rangeEnd", default=None
+    )
+    """
+    End character offsets (exclusive, UTF-16)
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {

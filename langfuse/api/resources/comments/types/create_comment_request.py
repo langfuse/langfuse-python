@@ -35,6 +35,32 @@ class CreateCommentRequest(pydantic_v1.BaseModel):
     The id of the user who created the comment.
     """
 
+    data_field: typing.Optional[str] = pydantic_v1.Field(
+        alias="dataField", default=None
+    )
+    """
+    For inline comments on IO, specifies which field (input, output, or metadata). Must be set together with path, rangeStart, and rangeEnd.
+    """
+
+    path: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
+    """
+    JSON Path expressions specifying comment location within the dataField. Must have same length as rangeStart and rangeEnd.
+    """
+
+    range_start: typing.Optional[typing.List[int]] = pydantic_v1.Field(
+        alias="rangeStart", default=None
+    )
+    """
+    Start character offsets (inclusive, UTF-16 code units) for each path entry.
+    """
+
+    range_end: typing.Optional[typing.List[int]] = pydantic_v1.Field(
+        alias="rangeEnd", default=None
+    )
+    """
+    End character offsets (exclusive, UTF-16 code units) for each path entry.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,
