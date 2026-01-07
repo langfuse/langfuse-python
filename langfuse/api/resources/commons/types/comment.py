@@ -19,6 +19,9 @@ class Comment(pydantic_v1.BaseModel):
     author_user_id: typing.Optional[str] = pydantic_v1.Field(
         alias="authorUserId", default=None
     )
+    """
+    The user ID of the comment author
+    """
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
