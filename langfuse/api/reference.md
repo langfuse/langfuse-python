@@ -3635,7 +3635,7 @@ Use the `fields` parameter to control which observation fields are returned:
 - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
 - `time` - completionStartTime, createdAt, updatedAt
 - `io` - input, output
-- `metadata` - metadata
+- `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
 - `model` - providedModelName, internalModelId, modelParameters
 - `usage` - usageDetails, costDetails, totalCost
 - `prompt` - promptId, promptName, promptVersion
@@ -3692,6 +3692,19 @@ Comma-separated list of field groups to include in the response.
 Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
 If not specified, `core` and `basic` field groups are returned.
 Example: "basic,usage,model"
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**expand_metadata:** `typing.Optional[str]` 
+
+Comma-separated list of metadata keys to return non-truncated.
+By default, metadata values over 200 characters are truncated.
+Use this parameter to retrieve full values for specific keys.
+Example: "key1,key2"
     
 </dd>
 </dl>
