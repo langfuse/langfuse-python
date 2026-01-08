@@ -74,9 +74,7 @@ class Model(pydantic_v1.BaseModel):
     Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
     """
 
-    tokenizer_config: typing.Optional[typing.Any] = pydantic_v1.Field(
-        alias="tokenizerConfig", default=None
-    )
+    tokenizer_config: typing.Any = pydantic_v1.Field(alias="tokenizerConfig")
     """
     Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
     """

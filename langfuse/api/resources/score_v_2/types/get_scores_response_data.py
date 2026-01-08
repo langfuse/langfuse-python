@@ -34,10 +34,10 @@ class GetScoresResponseData_Numeric(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Any
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    environment: typing.Optional[str] = None
+    environment: str
     data_type: typing.Literal["NUMERIC"] = pydantic_v1.Field(
         alias="dataType", default="NUMERIC"
     )
@@ -100,10 +100,10 @@ class GetScoresResponseData_Categorical(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Any
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    environment: typing.Optional[str] = None
+    environment: str
     data_type: typing.Literal["CATEGORICAL"] = pydantic_v1.Field(
         alias="dataType", default="CATEGORICAL"
     )
@@ -166,10 +166,10 @@ class GetScoresResponseData_Boolean(pydantic_v1.BaseModel):
         alias="authorUserId", default=None
     )
     comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Any
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
-    environment: typing.Optional[str] = None
+    environment: str
     data_type: typing.Literal["BOOLEAN"] = pydantic_v1.Field(
         alias="dataType", default="BOOLEAN"
     )

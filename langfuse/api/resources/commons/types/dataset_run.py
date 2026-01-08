@@ -23,7 +23,7 @@ class DatasetRun(pydantic_v1.BaseModel):
     Description of the run
     """
 
-    metadata: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
+    metadata: typing.Any = pydantic_v1.Field()
     """
     Metadata of the dataset run
     """
