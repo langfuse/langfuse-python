@@ -5222,7 +5222,6 @@ client = FernLangfuse(
 client.projects.update(
     project_id="projectId",
     name="name",
-    retention=1,
 )
 
 ```
@@ -5255,7 +5254,7 @@ client.projects.update(
 <dl>
 <dd>
 
-**retention:** `int` — Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
+**metadata:** `typing.Optional[typing.Dict[str, typing.Any]]` — Optional metadata for the project
     
 </dd>
 </dl>
@@ -5263,7 +5262,12 @@ client.projects.update(
 <dl>
 <dd>
 
-**metadata:** `typing.Optional[typing.Dict[str, typing.Any]]` — Optional metadata for the project
+**retention:** `typing.Optional[int]` 
+
+Number of days to retain data.
+Must be 0 or at least 3 days.
+Requires data-retention entitlement for non-zero values.
+Optional. Will retain existing retention setting if omitted.
     
 </dd>
 </dl>
