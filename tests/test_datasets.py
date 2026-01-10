@@ -220,7 +220,7 @@ def test_get_dataset_runs():
 
     langfuse.flush()
     time.sleep(1)  # Give API time to process
-    runs = langfuse.api.datasets.get_runs(dataset_name)
+    runs = langfuse.get_dataset_runs(dataset_name)
 
     assert len(runs.data) == 2
     assert runs.data[0].name == run_name_2
