@@ -682,7 +682,7 @@ def test_prompt_end_to_end():
 @pytest.fixture
 def langfuse():
     from langfuse._client.resource_manager import LangfuseResourceManager
-    
+
     langfuse_instance = Langfuse()
     langfuse_instance.api = Mock()
 
@@ -1483,6 +1483,36 @@ def test_update_prompt():
     expected_labels = sorted(["latest", "doe", "production", "john"])
     assert sorted(fetched_prompt.labels) == expected_labels
     assert sorted(updated_prompt.labels) == expected_labels
+
+
+def test_delete_prompt():
+    """Test that deleting a prompt works and invalidates cache."""
+    langfuse = Langfuse()
+    prompt_name = f"folder/subfolder/{create_uuid()}"
+
+    langfuse.create_prompt(
+        name=prompt_name,
+        prompt="test prompt",
+        labels=["production"],
+    )
+
+    # Fetch to populate cache
+    cached_prompt = langfuse.get_prompt(prompt_name)
+    assert cached_prompt.prompt == "test prompt"
+
+    cache_key = PromptCache.generate_cache_key(
+        prompt_name, version=None, label="production"
+    )
+    assert langfuse._resources.prompt_cache.get(cache_key) is not None
+
+    langfuse.delete_prompt(prompt_name)
+
+    # Verify cache is invalidated
+    assert langfuse._resources.prompt_cache.get(cache_key) is None
+
+    # Verify prompt is deleted from server
+    with pytest.raises(NotFoundError):
+        langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
 
 
 def test_update_prompt_in_folder():
