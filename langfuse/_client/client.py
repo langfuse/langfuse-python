@@ -80,6 +80,15 @@ from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
 from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
+from langfuse.api.resources.commons.types.dataset_run_with_items import (
+    DatasetRunWithItems,
+)
+from langfuse.api.resources.datasets.types.delete_dataset_run_response import (
+    DeleteDatasetRunResponse,
+)
+from langfuse.api.resources.datasets.types.paginated_dataset_runs import (
+    PaginatedDatasetRuns,
+)
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
@@ -2457,6 +2466,128 @@ class Langfuse:
 
             return DatasetClient(dataset, items=items)
 
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def get_dataset_run(
+        self,
+        dataset_name: str,
+        run_name: str,
+    ) -> DatasetRunWithItems:
+        """Fetch a dataset run by dataset name and run name.
+
+        This method properly URL-encodes the dataset and run names, supporting
+        folder-format names that contain slashes (e.g., "folder/subfolder/dataset").
+
+        Args:
+            dataset_name: The name of the dataset (can include slashes for folder structure).
+            run_name: The name of the run to fetch (can include slashes).
+
+        Returns:
+            DatasetRunWithItems: The dataset run with its items.
+
+        Raises:
+            NotFoundError: If the dataset or run is not found.
+
+        Example:
+            ```python
+            # Fetch a run from a dataset in a folder
+            run = langfuse.get_dataset_run(
+                dataset_name="evaluation/qa-dataset",
+                run_name="experiment-1"
+            )
+            print(f"Run has {len(run.dataset_run_items)} items")
+            ```
+        """
+        try:
+            langfuse_logger.debug(f"Getting dataset run {dataset_name}/{run_name}")
+            return self.api.datasets.get_run(
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(run_name),
+            )
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def get_dataset_runs(
+        self,
+        dataset_name: str,
+        *,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> PaginatedDatasetRuns:
+        """Fetch all runs for a dataset.
+
+        This method properly URL-encodes the dataset name, supporting
+        folder-format names that contain slashes (e.g., "folder/subfolder/dataset").
+
+        Args:
+            dataset_name: The name of the dataset (can include slashes for folder structure).
+            page: Optional page number for pagination (starts at 1).
+            limit: Optional limit of items per page.
+
+        Returns:
+            PaginatedDatasetRuns: Paginated list of dataset runs.
+
+        Raises:
+            NotFoundError: If the dataset is not found.
+
+        Example:
+            ```python
+            # Get all runs for a dataset in a folder
+            runs = langfuse.get_dataset_runs("evaluation/qa-dataset")
+            for run in runs.data:
+                print(f"Run: {run.name}")
+            ```
+        """
+        try:
+            langfuse_logger.debug(f"Getting dataset runs for {dataset_name}")
+            return self.api.datasets.get_runs(
+                dataset_name=self._url_encode(dataset_name),
+                page=page,
+                limit=limit,
+            )
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def delete_dataset_run(
+        self,
+        dataset_name: str,
+        run_name: str,
+    ) -> DeleteDatasetRunResponse:
+        """Delete a dataset run and all its run items.
+
+        This action is irreversible. This method properly URL-encodes the dataset
+        and run names, supporting folder-format names that contain slashes.
+
+        Args:
+            dataset_name: The name of the dataset (can include slashes for folder structure).
+            run_name: The name of the run to delete (can include slashes).
+
+        Returns:
+            DeleteDatasetRunResponse: Confirmation of the deletion.
+
+        Raises:
+            NotFoundError: If the dataset or run is not found.
+
+        Example:
+            ```python
+            # Delete a run from a dataset in a folder
+            result = langfuse.delete_dataset_run(
+                dataset_name="evaluation/qa-dataset",
+                run_name="old-experiment"
+            )
+            print(result.message)  # "Dataset run deleted successfully"
+            ```
+        """
+        try:
+            langfuse_logger.debug(f"Deleting dataset run {dataset_name}/{run_name}")
+            return self.api.datasets.delete_run(
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(run_name),
+            )
         except Error as e:
             handle_fern_exception(e)
             raise e
