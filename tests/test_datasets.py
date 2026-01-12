@@ -9,6 +9,8 @@ from langchain_openai import OpenAI
 from langfuse import Langfuse, observe
 from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from langfuse.api.resources.commons.types.observation import Observation
+from langfuse._client.datasets import DatasetItemClient
+from langfuse.model import DatasetItem
 from langfuse.langchain import CallbackHandler
 from tests.utils import create_uuid, get_api
 
@@ -419,3 +421,131 @@ def test_observe_dataset_run():
         assert "args" in trace.input
         assert trace.input["args"][0] == expected_input
         assert trace.output == expected_input
+
+
+def test_items_to_dict_basic():
+    """Test that items_to_dict returns a list of dictionaries with correct structure."""
+    langfuse = Langfuse(debug=False)
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    input_data = {"input": "Hello World"}
+    expected_output = {"output": "Expected response"}
+    metadata = {"key": "value"}
+
+    langfuse.create_dataset_item(
+        dataset_name=dataset_name,
+        input=input_data,
+        expected_output=expected_output,
+        metadata=metadata,
+    )
+
+    dataset = langfuse.get_dataset(dataset_name)
+    items_dicts = dataset.items_to_dict()
+
+    assert len(items_dicts) == 1
+    item_dict = items_dicts[0]
+
+    assert "id" in item_dict
+    assert "status" in item_dict
+    assert item_dict["input"] == input_data
+    assert item_dict["expectedOutput"] == expected_output
+    assert item_dict["metadata"] == metadata
+    assert "datasetId" in item_dict
+    assert "datasetName" in item_dict
+    assert item_dict["datasetName"] == dataset_name
+    assert "createdAt" in item_dict
+    assert "updatedAt" in item_dict
+
+
+def test_items_to_dict_multiple_items():
+    """Test that items_to_dict handles multiple items correctly."""
+    langfuse = Langfuse(debug=False)
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    num_items = 5
+    for i in range(num_items):
+        langfuse.create_dataset_item(
+            dataset_name=dataset_name,
+            input={"index": i},
+            expected_output={"result": i * 2},
+        )
+
+    dataset = langfuse.get_dataset(dataset_name)
+    items_dicts = dataset.items_to_dict()
+
+    assert len(items_dicts) == num_items
+
+    # Check all items have unique IDs
+    ids = [item["id"] for item in items_dicts]
+    assert len(set(ids)) == num_items
+
+
+def test_items_to_dict_reconstruct_item():
+    """Test that items can be reconstructed from dict and used with DatasetItemClient."""
+
+    langfuse = Langfuse(debug=False)
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    input_data = {"input": "Test reconstruction"}
+    expected_output = {"output": "Expected"}
+    metadata = {"meta_key": "meta_value"}
+
+    langfuse.create_dataset_item(
+        dataset_name=dataset_name,
+        input=input_data,
+        expected_output=expected_output,
+        metadata=metadata,
+    )
+
+    dataset = langfuse.get_dataset(dataset_name)
+    items_dicts = dataset.items_to_dict()
+
+    item_dict = items_dicts[0]
+    reconstructed_item = DatasetItem(**item_dict)
+    item_client = DatasetItemClient(reconstructed_item, langfuse)
+
+    assert item_client.input == input_data
+    assert item_client.expected_output == expected_output
+    assert item_client.metadata == metadata
+    assert item_client.dataset_name == dataset_name
+    assert item_client.id == dataset.items[0].id
+
+
+def test_items_to_dict_with_run():
+    """Test that reconstructed items can be used with the run() context manager."""
+
+    langfuse = Langfuse(debug=False)
+    dataset_name = create_uuid()
+    langfuse.create_dataset(name=dataset_name)
+
+    input_data = {"input": "Test with run"}
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input_data)
+
+    dataset = langfuse.get_dataset(dataset_name)
+    items_dicts = dataset.items_to_dict()
+
+    run_name = create_uuid()
+    trace_id = None
+
+    # Simulate distributed processing by reconstructing item from dict
+    item_dict = items_dicts[0]
+    reconstructed_item = DatasetItem(**item_dict)
+    item_client = DatasetItemClient(reconstructed_item, langfuse)
+
+    with item_client.run(run_name=run_name) as span:
+        trace_id = span.trace_id
+        span.update_trace(name="reconstructed_item_run", output="test_output")
+
+    langfuse.flush()
+    time.sleep(1)
+
+    # Verify the trace was created
+    assert trace_id is not None
+    trace = langfuse.api.trace.get(trace_id)
+
+    assert trace is not None
+    assert trace.name == "reconstructed_item_run"
+    assert trace.output == "test_output"
