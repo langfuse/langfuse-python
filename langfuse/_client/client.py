@@ -2466,7 +2466,9 @@ class Langfuse:
             handle_fern_exception(e)
             raise e
 
-    def get_dataset_run(self, dataset_name: str, run_name: str) -> DatasetRunWithItems:
+    def get_dataset_run(
+        self, *, dataset_name: str, run_name: str
+    ) -> DatasetRunWithItems:
         """Fetch a dataset run by dataset name and run name.
 
         Args:
@@ -2488,6 +2490,7 @@ class Langfuse:
 
     def get_dataset_runs(
         self,
+        *,
         dataset_name: str,
         page: Optional[int] = None,
         limit: Optional[int] = None,
