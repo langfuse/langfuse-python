@@ -2480,8 +2480,8 @@ class Langfuse:
         """
         try:
             return self.api.datasets.get_run(
-                dataset_name=self._url_encode(dataset_name, is_url_param=True),
-                run_name=self._url_encode(run_name, is_url_param=True),
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(run_name),
                 request_options=None,
             )
         except Error as e:
@@ -2507,7 +2507,7 @@ class Langfuse:
         """
         try:
             return self.api.datasets.get_runs(
-                dataset_name=self._url_encode(dataset_name, is_url_param=True),
+                dataset_name=self._url_encode(dataset_name),
                 page=page,
                 limit=limit,
                 request_options=None,
@@ -2530,8 +2530,8 @@ class Langfuse:
         """
         try:
             return self.api.datasets.delete_run(
-                dataset_name=self._url_encode(dataset_name, is_url_param=True),
-                run_name=self._url_encode(run_name, is_url_param=True),
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(run_name),
                 request_options=None,
             )
         except Error as e:
