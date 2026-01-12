@@ -2517,7 +2517,7 @@ class Langfuse:
             raise e
 
     def delete_dataset_run(
-        self, dataset_name: str, run_name: str
+        self, *, dataset_name: str, run_name: str
     ) -> DeleteDatasetRunResponse:
         """Delete a dataset run and all its run items. This action is irreversible.
 
