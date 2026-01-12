@@ -5,7 +5,6 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .model_usage_unit import ModelUsageUnit
 
 
 class Usage(pydantic_v1.BaseModel):
@@ -13,22 +12,26 @@ class Usage(pydantic_v1.BaseModel):
     (Deprecated. Use usageDetails and costDetails instead.) Standard interface for usage and cost
     """
 
-    input: typing.Optional[int] = pydantic_v1.Field(default=None)
+    input: int = pydantic_v1.Field()
     """
     Number of input units (e.g. tokens)
     """
 
-    output: typing.Optional[int] = pydantic_v1.Field(default=None)
+    output: int = pydantic_v1.Field()
     """
     Number of output units (e.g. tokens)
     """
 
-    total: typing.Optional[int] = pydantic_v1.Field(default=None)
+    total: int = pydantic_v1.Field()
     """
     Defaults to input+output if not set
     """
 
-    unit: typing.Optional[ModelUsageUnit] = None
+    unit: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    Unit of measurement
+    """
+
     input_cost: typing.Optional[float] = pydantic_v1.Field(
         alias="inputCost", default=None
     )

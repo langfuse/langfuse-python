@@ -7,11 +7,20 @@ from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
 from .model_price import ModelPrice
 from .model_usage_unit import ModelUsageUnit
+from .pricing_tier import PricingTier
 
 
 class Model(pydantic_v1.BaseModel):
     """
     Model definition used for transforming usage into USD cost and/or tokenization.
+
+    Models can have either simple flat pricing or tiered pricing:
+    - Flat pricing: Single price per usage type (legacy, but still supported)
+    - Tiered pricing: Multiple pricing tiers with conditional matching based on usage patterns
+
+    The pricing tiers approach is recommended for models with usage-based pricing variations.
+    When using tiered pricing, the flat price fields (inputPrice, outputPrice, prices) are populated
+    from the default tier for backward compatibility.
     """
 
     id: str
@@ -65,17 +74,36 @@ class Model(pydantic_v1.BaseModel):
     Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
     """
 
-    tokenizer_config: typing.Optional[typing.Any] = pydantic_v1.Field(
-        alias="tokenizerConfig", default=None
-    )
+    tokenizer_config: typing.Any = pydantic_v1.Field(alias="tokenizerConfig")
     """
     Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
     """
 
     is_langfuse_managed: bool = pydantic_v1.Field(alias="isLangfuseManaged")
+    created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
+    """
+    Timestamp when the model was created
+    """
+
     prices: typing.Dict[str, ModelPrice] = pydantic_v1.Field()
     """
-    Price (USD) by usage type
+    Deprecated. Use 'pricingTiers' instead for models with usage-based pricing variations.
+    
+    This field shows prices by usage type from the default pricing tier. Maintained for backward compatibility.
+    If the model uses tiered pricing, this field will be populated from the default tier's prices.
+    """
+
+    pricing_tiers: typing.List[PricingTier] = pydantic_v1.Field(alias="pricingTiers")
+    """
+    Array of pricing tiers with conditional pricing based on usage thresholds.
+    
+    Pricing tiers enable accurate cost tracking for models that charge different rates based on usage patterns
+    (e.g., different rates for high-volume usage, large context windows, or cached tokens).
+    
+    Each model must have exactly one default tier (isDefault=true, priority=0) that serves as a fallback.
+    Additional conditional tiers can be defined with specific matching criteria.
+    
+    If this array is empty, the model uses legacy flat pricing from the inputPrice/outputPrice/totalPrice fields.
     """
 
     def json(self, **kwargs: typing.Any) -> str:

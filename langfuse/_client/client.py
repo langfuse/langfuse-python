@@ -84,6 +84,7 @@ from langfuse.api.resources.datasets.types import (
     DeleteDatasetRunResponse,
     PaginatedDatasetRuns,
 )
+from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
@@ -1976,6 +1977,7 @@ class Langfuse:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     @overload
@@ -1993,6 +1995,7 @@ class Langfuse:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None: ...
 
     def create_score(
@@ -2009,6 +2012,7 @@ class Langfuse:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """Create a score for a specific trace or observation.
 
@@ -2027,6 +2031,7 @@ class Langfuse:
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
+            timestamp: Optional timestamp for the score (defaults to current UTC time)
 
         Example:
             ```python
@@ -2073,7 +2078,7 @@ class Langfuse:
             event = {
                 "id": self.create_trace_id(),
                 "type": "score-create",
-                "timestamp": _get_timestamp(),
+                "timestamp": timestamp or _get_timestamp(),
                 "body": new_body,
             }
 
@@ -3327,6 +3332,8 @@ class Langfuse:
         name: str,
         description: Optional[str] = None,
         metadata: Optional[Any] = None,
+        input_schema: Optional[Any] = None,
+        expected_output_schema: Optional[Any] = None,
     ) -> Dataset:
         """Create a dataset with the given name on Langfuse.
 
@@ -3334,13 +3341,19 @@ class Langfuse:
             name: Name of the dataset to create.
             description: Description of the dataset. Defaults to None.
             metadata: Additional metadata. Defaults to None.
+            input_schema: JSON Schema for validating dataset item inputs. When set, all new items will be validated against this schema.
+            expected_output_schema: JSON Schema for validating dataset item expected outputs. When set, all new items will be validated against this schema.
 
         Returns:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
             body = CreateDatasetRequest(
-                name=name, description=description, metadata=metadata
+                name=name,
+                description=description,
+                metadata=metadata,
+                inputSchema=input_schema,
+                expectedOutputSchema=expected_output_schema,
             )
             langfuse_logger.debug(f"Creating datasets {body}")
 
@@ -3673,6 +3686,14 @@ class Langfuse:
                 self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
             return prompt
+
+        except NotFoundError as not_found_error:
+            langfuse_logger.warning(
+                f"Prompt '{cache_key}' not found during refresh, evicting from cache."
+            )
+            if self._resources is not None:
+                self._resources.prompt_cache.delete(cache_key)
+            raise not_found_error
 
         except Exception as e:
             langfuse_logger.error(

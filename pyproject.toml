@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "langfuse"
 
-version = "3.10.1"
+version = "3.11.2"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -44,8 +44,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 log_cli = true
-
-[tool.poetry_bumpversion.file."langfuse/version.py"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -103,5 +101,3 @@ module = [
 ]
 ignore_errors = true
 
-[tool.poetry.scripts]
-release = "scripts.release:main"

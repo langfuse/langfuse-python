@@ -48,6 +48,13 @@ class LlmConnection(pydantic_v1.BaseModel):
     Keys of extra headers sent with requests (values excluded for security)
     """
 
+    config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
+        default=None
+    )
+    """
+    Adapter-specific configuration. Required for Bedrock (`{"region":"us-east-1"}`), optional for VertexAI (`{"location":"us-central1"}`), not used by other adapters.
+    """
+
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
 

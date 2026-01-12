@@ -2950,6 +2950,232 @@ client.media.get_upload_url(
 </dl>
 </details>
 
+## MetricsV2
+<details><summary><code>client.metrics_v_2.<a href="src/langfuse/resources/metrics_v_2/client.py">metrics</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get metrics from the Langfuse project using a query object. V2 endpoint with optimized performance.
+
+## V2 Differences
+- Supports `observations`, `scores-numeric`, and `scores-categorical` views only (traces view not supported)
+- Direct access to tags and release fields on observations
+- Backwards-compatible: traceName, traceRelease, traceVersion dimensions are still available on observations view
+- High cardinality dimensions are not supported and will return a 400 error (see below)
+
+For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
+
+## Available Views
+
+### observations
+Query observation-level data (spans, generations, events).
+
+**Dimensions:**
+- `environment` - Deployment environment (e.g., production, staging)
+- `type` - Type of observation (SPAN, GENERATION, EVENT)
+- `name` - Name of the observation
+- `level` - Logging level of the observation
+- `version` - Version of the observation
+- `tags` - User-defined tags
+- `release` - Release version
+- `traceName` - Name of the parent trace (backwards-compatible)
+- `traceRelease` - Release version of the parent trace (backwards-compatible, maps to release)
+- `traceVersion` - Version of the parent trace (backwards-compatible, maps to version)
+- `providedModelName` - Name of the model used
+- `promptName` - Name of the prompt used
+- `promptVersion` - Version of the prompt used
+- `startTimeMonth` - Month of start_time in YYYY-MM format
+
+**Measures:**
+- `count` - Total number of observations
+- `latency` - Observation latency (milliseconds)
+- `streamingLatency` - Generation latency from completion start to end (milliseconds)
+- `inputTokens` - Sum of input tokens consumed
+- `outputTokens` - Sum of output tokens produced
+- `totalTokens` - Sum of all tokens consumed
+- `outputTokensPerSecond` - Output tokens per second
+- `tokensPerSecond` - Total tokens per second
+- `inputCost` - Input cost (USD)
+- `outputCost` - Output cost (USD)
+- `totalCost` - Total cost (USD)
+- `timeToFirstToken` - Time to first token (milliseconds)
+- `countScores` - Number of scores attached to the observation
+
+### scores-numeric
+Query numeric and boolean score data.
+
+**Dimensions:**
+- `environment` - Deployment environment
+- `name` - Name of the score (e.g., accuracy, toxicity)
+- `source` - Origin of the score (API, ANNOTATION, EVAL)
+- `dataType` - Data type (NUMERIC, BOOLEAN)
+- `configId` - Identifier of the score config
+- `timestampMonth` - Month in YYYY-MM format
+- `timestampDay` - Day in YYYY-MM-DD format
+- `value` - Numeric value of the score
+- `traceName` - Name of the parent trace
+- `tags` - Tags
+- `traceRelease` - Release version
+- `traceVersion` - Version
+- `observationName` - Name of the associated observation
+- `observationModelName` - Model name of the associated observation
+- `observationPromptName` - Prompt name of the associated observation
+- `observationPromptVersion` - Prompt version of the associated observation
+
+**Measures:**
+- `count` - Total number of scores
+- `value` - Score value (for aggregations)
+
+### scores-categorical
+Query categorical score data. Same dimensions as scores-numeric except uses `stringValue` instead of `value`.
+
+**Measures:**
+- `count` - Total number of scores
+
+## High Cardinality Dimensions
+The following dimensions cannot be used as grouping dimensions in v2 metrics API as they can cause performance issues.
+Use them in filters instead.
+
+**observations view:**
+- `id` - Use traceId filter to narrow down results
+- `traceId` - Use traceId filter instead
+- `userId` - Use userId filter instead
+- `sessionId` - Use sessionId filter instead
+- `parentObservationId` - Use parentObservationId filter instead
+
+**scores-numeric / scores-categorical views:**
+- `id` - Use specific filters to narrow down results
+- `traceId` - Use traceId filter instead
+- `userId` - Use userId filter instead
+- `sessionId` - Use sessionId filter instead
+- `observationId` - Use observationId filter instead
+
+## Aggregations
+Available aggregation functions: `sum`, `avg`, `count`, `max`, `min`, `p50`, `p75`, `p90`, `p95`, `p99`, `histogram`
+
+## Time Granularities
+Available granularities for timeDimension: `auto`, `minute`, `hour`, `day`, `week`, `month`
+- `auto` bins the data into approximately 50 buckets based on the time range
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.metrics_v_2.metrics(
+    query="query",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**query:** `str` 
+
+JSON string containing the query parameters with the following structure:
+```json
+{
+  "view": string,           // Required. One of "observations", "scores-numeric", "scores-categorical"
+  "dimensions": [           // Optional. Default: []
+    {
+      "field": string       // Field to group by (see available dimensions above)
+    }
+  ],
+  "metrics": [              // Required. At least one metric must be provided
+    {
+      "measure": string,    // What to measure (see available measures above)
+      "aggregation": string // How to aggregate: "sum", "avg", "count", "max", "min", "p50", "p75", "p90", "p95", "p99", "histogram"
+    }
+  ],
+  "filters": [              // Optional. Default: []
+    {
+      "column": string,     // Column to filter on (any dimension field)
+      "operator": string,   // Operator based on type:
+                            // - datetime: ">", "<", ">=", "<="
+                            // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                            // - stringOptions: "any of", "none of"
+                            // - arrayOptions: "any of", "none of", "all of"
+                            // - number: "=", ">", "<", ">=", "<="
+                            // - stringObject/numberObject: same as string/number with required "key"
+                            // - boolean: "=", "<>"
+                            // - null: "is null", "is not null"
+      "value": any,         // Value to compare against
+      "type": string,       // Data type: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+      "key": string         // Required only for stringObject/numberObject types (e.g., metadata filtering)
+    }
+  ],
+  "timeDimension": {        // Optional. Default: null. If provided, results will be grouped by time
+    "granularity": string   // One of "auto", "minute", "hour", "day", "week", "month"
+  },
+  "fromTimestamp": string,  // Required. ISO datetime string for start of time range
+  "toTimestamp": string,    // Required. ISO datetime string for end of time range (must be after fromTimestamp)
+  "orderBy": [              // Optional. Default: null
+    {
+      "field": string,      // Field to order by (dimension or metric alias)
+      "direction": string   // "asc" or "desc"
+    }
+  ],
+  "config": {               // Optional. Query-specific configuration
+    "bins": number,         // Optional. Number of bins for histogram aggregation (1-100), default: 10
+    "row_limit": number     // Optional. Maximum number of rows to return (1-1000), default: 100
+  }
+}
+```
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Metrics
 <details><summary><code>client.metrics.<a href="src/langfuse/resources/metrics/client.py">metrics</a>(...)</code></summary>
 <dl>
@@ -2964,6 +3190,8 @@ client.media.get_upload_url(
 <dd>
 
 Get metrics from the Langfuse project using a query object.
+
+Consider using the [v2 metrics endpoint](/api-reference#tag/metricsv2/GET/api/public/v2/metrics) for better performance.
 
 For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 </dd>
@@ -3381,6 +3609,331 @@ client.models.delete(
 </dl>
 </details>
 
+## ObservationsV2
+<details><summary><code>client.observations_v_2.<a href="src/langfuse/resources/observations_v_2/client.py">get_many</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get a list of observations with cursor-based pagination and flexible field selection.
+
+## Cursor-based Pagination
+This endpoint uses cursor-based pagination for efficient traversal of large datasets.
+The cursor is returned in the response metadata and should be passed in subsequent requests
+to retrieve the next page of results.
+
+## Field Selection
+Use the `fields` parameter to control which observation fields are returned:
+- `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
+- `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+- `time` - completionStartTime, createdAt, updatedAt
+- `io` - input, output
+- `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
+- `model` - providedModelName, internalModelId, modelParameters
+- `usage` - usageDetails, costDetails, totalCost
+- `prompt` - promptId, promptName, promptVersion
+- `metrics` - latency, timeToFirstToken
+
+If not specified, `core` and `basic` field groups are returned.
+
+## Filters
+Multiple filtering options are available via query parameters or the structured `filter` parameter.
+When using the `filter` parameter, it takes precedence over individual query parameter filters.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.observations_v_2.get_many()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**fields:** `typing.Optional[str]` 
+
+Comma-separated list of field groups to include in the response.
+Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
+If not specified, `core` and `basic` field groups are returned.
+Example: "basic,usage,model"
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**expand_metadata:** `typing.Optional[str]` 
+
+Comma-separated list of metadata keys to return non-truncated.
+By default, metadata values over 200 characters are truncated.
+Use this parameter to retrieve full values for specific keys.
+Example: "key1,key2"
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — Number of items to return per page. Maximum 1000, default 50.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**cursor:** `typing.Optional[str]` — Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**parse_io_as_json:** `typing.Optional[bool]` 
+
+Set to `true` to parse input/output fields as JSON, or `false` to return raw strings.
+Defaults to `false` if not provided.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**name:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**user_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**type:** `typing.Optional[str]` — Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**trace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**level:** `typing.Optional[ObservationLevel]` — Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**parent_observation_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**environment:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Optional filter for observations where the environment is one of the provided values.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**from_start_time:** `typing.Optional[dt.datetime]` — Retrieve only observations with a start_time on or after this datetime (ISO 8601).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**to_start_time:** `typing.Optional[dt.datetime]` — Retrieve only observations with a start_time before this datetime (ISO 8601).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**version:** `typing.Optional[str]` — Optional filter to only include observations with a certain version.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**filter:** `typing.Optional[str]` 
+
+JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+
+## Filter Structure
+Each filter condition has the following structure:
+```json
+[
+  {
+    "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+    "column": string,         // Required. Column to filter on (see available columns below)
+    "operator": string,       // Required. Operator based on type:
+                              // - datetime: ">", "<", ">=", "<="
+                              // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - stringOptions: "any of", "none of"
+                              // - categoryOptions: "any of", "none of"
+                              // - arrayOptions: "any of", "none of", "all of"
+                              // - number: "=", ">", "<", ">=", "<="
+                              // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                              // - numberObject: "=", ">", "<", ">=", "<="
+                              // - boolean: "=", "<>"
+                              // - null: "is null", "is not null"
+    "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+    "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+  }
+]
+```
+
+## Available Columns
+
+### Core Observation Fields
+- `id` (string) - Observation ID
+- `type` (string) - Observation type (SPAN, GENERATION, EVENT)
+- `name` (string) - Observation name
+- `traceId` (string) - Associated trace ID
+- `startTime` (datetime) - Observation start time
+- `endTime` (datetime) - Observation end time
+- `environment` (string) - Environment tag
+- `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
+- `statusMessage` (string) - Status message
+- `version` (string) - Version tag
+- `userId` (string) - User ID
+- `sessionId` (string) - Session ID
+
+### Trace-Related Fields
+- `traceName` (string) - Name of the parent trace
+- `traceTags` (arrayOptions) - Tags from the parent trace
+- `tags` (arrayOptions) - Alias for traceTags
+
+### Performance Metrics
+- `latency` (number) - Latency in seconds (calculated: end_time - start_time)
+- `timeToFirstToken` (number) - Time to first token in seconds
+- `tokensPerSecond` (number) - Output tokens per second
+
+### Token Usage
+- `inputTokens` (number) - Number of input tokens
+- `outputTokens` (number) - Number of output tokens
+- `totalTokens` (number) - Total tokens (alias: `tokens`)
+
+### Cost Metrics
+- `inputCost` (number) - Input cost in USD
+- `outputCost` (number) - Output cost in USD
+- `totalCost` (number) - Total cost in USD
+
+### Model Information
+- `model` (string) - Provided model name (alias: `providedModelName`)
+- `promptName` (string) - Associated prompt name
+- `promptVersion` (number) - Associated prompt version
+
+### Structured Data
+- `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+## Filter Examples
+```json
+[
+  {
+    "type": "string",
+    "column": "type",
+    "operator": "=",
+    "value": "GENERATION"
+  },
+  {
+    "type": "number",
+    "column": "latency",
+    "operator": ">=",
+    "value": 2.5
+  },
+  {
+    "type": "stringObject",
+    "column": "metadata",
+    "key": "environment",
+    "operator": "=",
+    "value": "production"
+  }
+]
+```
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Observations
 <details><summary><code>client.observations.<a href="src/langfuse/resources/observations/client.py">get</a>(...)</code></summary>
 <dl>
@@ -3469,7 +4022,9 @@ client.observations.get(
 <dl>
 <dd>
 
-Get a list of observations
+Get a list of observations.
+
+Consider using the [v2 observations endpoint](/api-reference#tag/observationsv2/GET/api/public/v2/observations) for cursor-based pagination and field selection.
 </dd>
 </dl>
 </dd>
@@ -4482,7 +5037,7 @@ client.organizations.get_organization_api_keys()
 <dl>
 <dd>
 
-Get Project associated with API key
+Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 </dd>
 </dl>
 </dd>
@@ -4667,7 +5222,6 @@ client = FernLangfuse(
 client.projects.update(
     project_id="projectId",
     name="name",
-    retention=1,
 )
 
 ```
@@ -4700,7 +5254,7 @@ client.projects.update(
 <dl>
 <dd>
 
-**retention:** `int` — Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
+**metadata:** `typing.Optional[typing.Dict[str, typing.Any]]` — Optional metadata for the project
     
 </dd>
 </dl>
@@ -4708,7 +5262,12 @@ client.projects.update(
 <dl>
 <dd>
 
-**metadata:** `typing.Optional[typing.Dict[str, typing.Any]]` — Optional metadata for the project
+**retention:** `typing.Optional[int]` 
+
+Number of days to retain data.
+Must be 0 or at least 3 days.
+Requires data-retention entitlement for non-zero values.
+Optional. Will retain existing retention setting if omitted.
     
 </dd>
 </dl>
@@ -5465,6 +6024,97 @@ client.prompts.create(
 </dl>
 </details>
 
+<details><summary><code>client.prompts.<a href="src/langfuse/resources/prompts/client.py">delete</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete prompt versions. If neither version nor label is specified, all versions of the prompt are deleted.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from langfuse.client import FernLangfuse
+
+client = FernLangfuse(
+    x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+    x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+    x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+    username="YOUR_USERNAME",
+    password="YOUR_PASSWORD",
+    base_url="https://yourhost.com/path/to/api",
+)
+client.prompts.delete(
+    prompt_name="promptName",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**prompt_name:** `str` — The name of the prompt
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**label:** `typing.Optional[str]` — Optional label to filter deletion. If specified, deletes all prompt versions that have this label.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**version:** `typing.Optional[int]` — Optional version to filter deletion. If specified, deletes only this specific version of the prompt.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Scim
 <details><summary><code>client.scim.<a href="src/langfuse/resources/scim/client.py">get_service_provider_config</a>()</code></summary>
 <dl>
@@ -6037,7 +6687,7 @@ Create a score configuration (config). Score configs are used to define the stru
 <dd>
 
 ```python
-from langfuse import CreateScoreConfigRequest, ScoreDataType
+from langfuse import CreateScoreConfigRequest, ScoreConfigDataType
 from langfuse.client import FernLangfuse
 
 client = FernLangfuse(
@@ -6051,7 +6701,7 @@ client = FernLangfuse(
 client.score_configs.create(
     request=CreateScoreConfigRequest(
         name="name",
-        data_type=ScoreDataType.NUMERIC,
+        data_type=ScoreConfigDataType.NUMERIC,
     ),
 )
 
@@ -6521,6 +7171,14 @@ client.score_v_2.get()
 <dd>
 
 **trace_tags:** `typing.Optional[typing.Union[str, typing.Sequence[str]]]` — Only scores linked to traces that include all of these tags will be returned.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**fields:** `typing.Optional[str]` — Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
     
 </dd>
 </dl>

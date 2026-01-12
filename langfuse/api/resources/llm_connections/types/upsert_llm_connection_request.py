@@ -54,6 +54,13 @@ class UpsertLlmConnectionRequest(pydantic_v1.BaseModel):
     Extra headers to send with requests
     """
 
+    config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic_v1.Field(
+        default=None
+    )
+    """
+    Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,

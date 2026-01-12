@@ -6,7 +6,6 @@
 
 ```
 poetry self add poetry-dotenv-plugin
-poetry self add poetry-bumpversion
 ```
 
 ### Install dependencies
@@ -58,34 +57,25 @@ poetry run mypy langfuse --no-error-summary
 
 ### Publish release
 
-#### Release script
+Releases are automated via GitHub Actions using PyPI Trusted Publishing (OIDC).
 
-Make sure you have your PyPi API token setup in your poetry config. If not, you can set it up by running:
+To create a release:
 
-```sh
-poetry config pypi-token.pypi $your-api-token
-```
+1. Go to [Actions > Release Python SDK](https://github.com/langfuse/langfuse-python/actions/workflows/release.yml)
+2. Click "Run workflow"
+3. Select the version bump type:
+   - `patch` - Bug fixes (1.0.0 → 1.0.1)
+   - `minor` - New features (1.0.0 → 1.1.0)
+   - `major` - Breaking changes (1.0.0 → 2.0.0)
+   - `prerelease` - Pre-release versions (1.0.0 → 1.0.0a1)
+4. For pre-releases, select the type: `alpha`, `beta`, or `rc`
+5. Click "Run workflow"
 
-Run the release script:
-
-```sh
-poetry run release
-```
-
-#### Manual steps (for prepatch versions)
-
-1. `poetry version patch`
-   - `poetry version prepatch` for pre-release versions
-2. `poetry install`
-3. `poetry build`
-4. `git commit -am "chore: release v{version}"`
-5. `git push`
-6. `git tag v{version}`
-7. `git push --tags`
-8. `poetry publish`
-   - Create PyPi API token: <https://pypi.org/manage/account/token/>
-   - Setup: `poetry config pypi-token.pypi your-api-token`
-9. Create a release on GitHub with the changelog
+The workflow will automatically:
+- Bump the version in `pyproject.toml` and `langfuse/version.py`
+- Build the package
+- Publish to PyPI
+- Create a git tag and GitHub release with auto-generated release notes
 
 ### SDK Reference
 
