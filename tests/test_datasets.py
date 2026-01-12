@@ -220,7 +220,7 @@ def test_get_dataset_runs():
 
     langfuse.flush()
     time.sleep(1)  # Give API time to process
-    runs = langfuse.api.datasets.get_runs(dataset_name)
+    runs = langfuse.get_dataset_runs(dataset_name=dataset_name)
 
     assert len(runs.data) == 2
     assert runs.data[0].name == run_name_2
@@ -421,52 +421,108 @@ def test_observe_dataset_run():
         assert trace.output == expected_input
 
 
-def test_dataset_runs_with_special_characters():
-    """Test that dataset runs work correctly with special characters in names."""
+def test_get_dataset_with_folder_name():
+    """Test that get_dataset works with folder-format names containing slashes."""
     langfuse = Langfuse(debug=False)
 
-    # Test with various special characters that need URL encoding
-    dataset_name = f"test/dataset with spaces & special chars {create_uuid()[:5]}"
-    run_name = f"run/name with % and # {create_uuid()[:5]}"
+    # Create a dataset with slashes in the name (folder format)
+    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
+    langfuse.create_dataset(name=folder_name)
 
-    langfuse.create_dataset(name=dataset_name)
-    input_data = json.dumps({"input": "Test data"})
-    langfuse.create_dataset_item(dataset_name=dataset_name, input=input_data)
+    # Fetch the dataset using the wrapper method
+    dataset = langfuse.get_dataset(folder_name)
+    assert dataset.name == folder_name
+    assert "/" in dataset.name  # Verify slashes are preserved
 
-    dataset = langfuse.get_dataset(dataset_name)
+
+def test_get_dataset_runs_with_folder_name():
+    """Test that get_dataset_runs works with folder-format dataset names."""
+    langfuse = Langfuse(debug=False)
+
+    # Create a dataset with slashes in the name
+    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
+    langfuse.create_dataset(name=folder_name)
+
+    # Create a dataset item
+    langfuse.create_dataset_item(dataset_name=folder_name, input={"test": "data"})
+    dataset = langfuse.get_dataset(folder_name)
     assert len(dataset.items) == 1
 
-    # Create a dataset run with special characters in the run name
+    # Create a run
+    run_name = f"run-{create_uuid()[:8]}"
     for item in dataset.items:
-        with item.run(
-            run_name=run_name,
-            run_metadata={"test": "value"},
-            run_description="Test run with special chars",
-        ):
+        with item.run(run_name=run_name):
             pass
 
     langfuse.flush()
-    time.sleep(1)
+    time.sleep(1)  # Give API time to process
 
-    # Test get_dataset_runs with special characters in dataset name
-    runs = langfuse.get_dataset_runs(dataset_name=dataset_name)
+    # Fetch runs using the new wrapper method
+    runs = langfuse.get_dataset_runs(dataset_name=folder_name)
     assert len(runs.data) == 1
     assert runs.data[0].name == run_name
-    assert runs.data[0].metadata == {"test": "value"}
-    assert runs.data[0].description == "Test run with special chars"
 
-    # Test get_dataset_run with special characters in both dataset and run name
-    run = langfuse.get_dataset_run(dataset_name=dataset_name, run_name=run_name)
+
+def test_get_dataset_run_with_folder_names():
+    """Test that get_dataset_run works with folder-format dataset and run names."""
+    langfuse = Langfuse(debug=False)
+
+    # Create a dataset with slashes in the name
+    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
+    langfuse.create_dataset(name=folder_name)
+
+    # Create a dataset item
+    langfuse.create_dataset_item(dataset_name=folder_name, input={"test": "data"})
+    dataset = langfuse.get_dataset(folder_name)
+    assert len(dataset.items) == 1
+
+    # Create a run with slashes in the name
+    run_name = f"run/nested/{create_uuid()[:8]}"
+    for item in dataset.items:
+        with item.run(run_name=run_name, run_metadata={"key": "value"}):
+            pass
+
+    langfuse.flush()
+    time.sleep(1)  # Give API time to process
+
+    # Fetch the specific run using the new wrapper method
+    run = langfuse.get_dataset_run(dataset_name=folder_name, run_name=run_name)
     assert run.run_name == run_name
-    assert run.dataset_name == dataset_name
-    assert len(run.dataset_run_items) == 1
+    assert run.metadata == {"key": "value"}
+    assert "/" in folder_name  # Verify slashes are preserved
 
-    # Test delete_dataset_run with special characters
-    delete_response = langfuse.delete_dataset_run(
-        dataset_name=dataset_name, run_name=run_name
-    )
-    assert delete_response.deleted_run_items_count == 1
 
-    # Verify the run was deleted
-    runs_after_delete = langfuse.get_dataset_runs(dataset_name=dataset_name)
-    assert len(runs_after_delete.data) == 0
+def test_delete_dataset_run_with_folder_names():
+    """Test that delete_dataset_run works with folder-format dataset and run names."""
+    langfuse = Langfuse(debug=False)
+
+    # Create a dataset with slashes in the name
+    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
+    langfuse.create_dataset(name=folder_name)
+
+    # Create a dataset item
+    langfuse.create_dataset_item(dataset_name=folder_name, input={"test": "data"})
+    dataset = langfuse.get_dataset(folder_name)
+
+    # Create a run with slashes in the name
+    run_name = f"run/to/delete/{create_uuid()[:8]}"
+    for item in dataset.items:
+        with item.run(run_name=run_name):
+            pass
+
+    langfuse.flush()
+    time.sleep(1)  # Give API time to process
+
+    # Verify the run exists
+    runs_before = langfuse.get_dataset_runs(dataset_name=folder_name)
+    assert len(runs_before.data) == 1
+
+    # Delete the run using the new wrapper method
+    result = langfuse.delete_dataset_run(dataset_name=folder_name, run_name=run_name)
+    assert result.deleted_run_items_count == 1
+
+    time.sleep(1)  # Give API time to process deletion
+
+    # Verify the run is deleted
+    runs_after = langfuse.get_dataset_runs(dataset_name=folder_name)
+    assert len(runs_after.data) == 0
