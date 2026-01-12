@@ -277,6 +277,7 @@ class LangfuseObservationWrapper:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -290,6 +291,7 @@ class LangfuseObservationWrapper:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score(
@@ -302,6 +304,7 @@ class LangfuseObservationWrapper:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for this specific span.
 
@@ -316,6 +319,7 @@ class LangfuseObservationWrapper:
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -342,6 +346,7 @@ class LangfuseObservationWrapper:
             comment=comment,
             config_id=config_id,
             timestamp=timestamp,
+            metadata=metadata,
         )
 
     @overload
@@ -355,6 +360,7 @@ class LangfuseObservationWrapper:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -368,6 +374,7 @@ class LangfuseObservationWrapper:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score_trace(
@@ -380,6 +387,7 @@ class LangfuseObservationWrapper:
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for the entire trace that this span belongs to.
 
@@ -395,6 +403,7 @@ class LangfuseObservationWrapper:
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -420,6 +429,7 @@ class LangfuseObservationWrapper:
             comment=comment,
             config_id=config_id,
             timestamp=timestamp,
+            metadata=metadata,
         )
 
     def _set_processed_span_attributes(
