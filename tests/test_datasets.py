@@ -418,3 +418,54 @@ def test_observe_dataset_run():
         assert "args" in trace.input
         assert trace.input["args"][0] == expected_input
         assert trace.output == expected_input
+
+
+def test_dataset_runs_with_special_characters():
+    """Test that dataset runs work correctly with special characters in names."""
+    langfuse = Langfuse(debug=False)
+
+    # Test with various special characters that need URL encoding
+    dataset_name = f"test/dataset with spaces & special chars {create_uuid()[:5]}"
+    run_name = f"run/name with % and # {create_uuid()[:5]}"
+
+    langfuse.create_dataset(name=dataset_name)
+    input_data = json.dumps({"input": "Test data"})
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input_data)
+
+    dataset = langfuse.get_dataset(dataset_name)
+    assert len(dataset.items) == 1
+
+    # Create a dataset run with special characters in the run name
+    for item in dataset.items:
+        with item.run(
+            run_name=run_name,
+            run_metadata={"test": "value"},
+            run_description="Test run with special chars",
+        ):
+            pass
+
+    langfuse.flush()
+    time.sleep(1)
+
+    # Test get_dataset_runs with special characters in dataset name
+    runs = langfuse.get_dataset_runs(dataset_name=dataset_name)
+    assert len(runs.data) == 1
+    assert runs.data[0].name == run_name
+    assert runs.data[0].metadata == {"test": "value"}
+    assert runs.data[0].description == "Test run with special chars"
+
+    # Test get_dataset_run with special characters in both dataset and run name
+    run = langfuse.get_dataset_run(dataset_name=dataset_name, run_name=run_name)
+    assert run.run_name == run_name
+    assert run.dataset_name == dataset_name
+    assert len(run.dataset_run_items) == 1
+
+    # Test delete_dataset_run with special characters
+    delete_response = langfuse.delete_dataset_run(
+        dataset_name=dataset_name, run_name=run_name
+    )
+    assert delete_response.deleted_run_items_count == 1
+
+    # Verify the run was deleted
+    runs_after_delete = langfuse.get_dataset_runs(dataset_name=dataset_name)
+    assert len(runs_after_delete.data) == 0

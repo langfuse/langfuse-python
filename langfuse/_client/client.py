@@ -2462,7 +2462,7 @@ class Langfuse:
             raise e
 
     def get_dataset_run(
-        self, dataset_name: str, *, run_name: str
+        self, *, dataset_name: str, run_name: str
     ) -> DatasetRunWithItems:
         """Fetch a dataset run by dataset name and run name.
 
@@ -2475,8 +2475,8 @@ class Langfuse:
         """
         try:
             return self.api.datasets.get_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(run_name),
+                dataset_name=self._url_encode(dataset_name, is_url_param=True),
+                run_name=self._url_encode(run_name, is_url_param=True),
                 request_options=None,
             )
         except Error as e:
@@ -2485,8 +2485,8 @@ class Langfuse:
 
     def get_dataset_runs(
         self,
-        dataset_name: str,
         *,
+        dataset_name: str,
         page: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> PaginatedDatasetRuns:
@@ -2502,7 +2502,7 @@ class Langfuse:
         """
         try:
             return self.api.datasets.get_runs(
-                dataset_name=self._url_encode(dataset_name),
+                dataset_name=self._url_encode(dataset_name, is_url_param=True),
                 page=page,
                 limit=limit,
                 request_options=None,
@@ -2512,7 +2512,7 @@ class Langfuse:
             raise e
 
     def delete_dataset_run(
-        self, dataset_name: str, *, run_name: str
+        self, *, dataset_name: str, run_name: str
     ) -> DeleteDatasetRunResponse:
         """Delete a dataset run and all its run items. This action is irreversible.
 
@@ -2525,8 +2525,8 @@ class Langfuse:
         """
         try:
             return self.api.datasets.delete_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(run_name),
+                dataset_name=self._url_encode(dataset_name, is_url_param=True),
+                run_name=self._url_encode(run_name, is_url_param=True),
                 request_options=None,
             )
         except Error as e:
