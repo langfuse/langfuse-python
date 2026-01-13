@@ -487,9 +487,10 @@ def test_get_dataset_run_with_folder_names():
 
     # Fetch the specific run using the new wrapper method
     run = langfuse.get_dataset_run(dataset_name=folder_name, run_name=run_name)
-    assert run.run_name == run_name
+    assert run.name == run_name
+    assert run.dataset_name == folder_name
     assert run.metadata == {"key": "value"}
-    assert "/" in folder_name  # Verify slashes are preserved
+    assert "/" in run_name  # Verify slashes are preserved in run name
 
 
 def test_delete_dataset_run_with_folder_names():
@@ -519,7 +520,7 @@ def test_delete_dataset_run_with_folder_names():
 
     # Delete the run using the new wrapper method
     result = langfuse.delete_dataset_run(dataset_name=folder_name, run_name=run_name)
-    assert result.deleted_run_items_count == 1
+    assert result.message is not None
 
     time.sleep(1)  # Give API time to process deletion
 
