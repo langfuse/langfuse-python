@@ -2108,6 +2108,7 @@ class Langfuse:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -2120,6 +2121,7 @@ class Langfuse:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score_current_span(
@@ -2131,6 +2133,7 @@ class Langfuse:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for the current active span.
 
@@ -2144,6 +2147,7 @@ class Langfuse:
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -2157,7 +2161,8 @@ class Langfuse:
                     name="relevance",
                     value=0.85,
                     data_type="NUMERIC",
-                    comment="Mostly relevant but contains some tangential information"
+                    comment="Mostly relevant but contains some tangential information",
+                    metadata={"model": "gpt-4", "prompt_version": "v2"}
                 )
             ```
         """
@@ -2180,6 +2185,7 @@ class Langfuse:
                 data_type=cast(Literal["CATEGORICAL"], data_type),
                 comment=comment,
                 config_id=config_id,
+                metadata=metadata,
             )
 
     @overload
@@ -2192,6 +2198,7 @@ class Langfuse:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -2204,6 +2211,7 @@ class Langfuse:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score_current_trace(
@@ -2215,6 +2223,7 @@ class Langfuse:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for the current trace.
 
@@ -2229,6 +2238,7 @@ class Langfuse:
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -2242,7 +2252,8 @@ class Langfuse:
                     name="overall_quality",
                     value=0.95,
                     data_type="NUMERIC",
-                    comment="High quality end-to-end response"
+                    comment="High quality end-to-end response",
+                    metadata={"evaluator": "gpt-4", "criteria": "comprehensive"}
                 )
             ```
         """
@@ -2263,6 +2274,7 @@ class Langfuse:
                 data_type=cast(Literal["CATEGORICAL"], data_type),
                 comment=comment,
                 config_id=config_id,
+                metadata=metadata,
             )
 
     def flush(self) -> None:
