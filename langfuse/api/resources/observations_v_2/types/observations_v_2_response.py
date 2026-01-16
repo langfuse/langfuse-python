@@ -5,36 +5,23 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .trace import Trace
+from .observations_v_2_meta import ObservationsV2Meta
 
 
-class TraceWithDetails(Trace):
-    html_path: str = pydantic_v1.Field(alias="htmlPath")
+class ObservationsV2Response(pydantic_v1.BaseModel):
     """
-    Path of trace in Langfuse UI
+    Response containing observations with field-group-based filtering and cursor-based pagination.
+
+    The `data` array contains observation objects with only the requested field groups included.
+    Use the `cursor` in `meta` to retrieve the next page of results.
     """
 
-    latency: typing.Optional[float] = pydantic_v1.Field(default=None)
+    data: typing.List[typing.Dict[str, typing.Any]] = pydantic_v1.Field()
     """
-    Latency of trace in seconds
-    """
-
-    total_cost: typing.Optional[float] = pydantic_v1.Field(
-        alias="totalCost", default=None
-    )
-    """
-    Cost of trace in USD
+    Array of observation objects. Fields included depend on the `fields` parameter in the request.
     """
 
-    observations: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of observation ids
-    """
-
-    scores: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of score ids
-    """
+    meta: ObservationsV2Meta
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
@@ -64,7 +51,5 @@ class TraceWithDetails(Trace):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

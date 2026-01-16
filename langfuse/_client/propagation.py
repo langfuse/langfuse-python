@@ -32,6 +32,7 @@ PropagatedKeys = Literal[
     "metadata",
     "version",
     "tags",
+    "trace_name",
 ]
 
 InternalPropagatedKeys = Literal[
@@ -50,6 +51,7 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
     "metadata",
     "version",
     "tags",
+    "trace_name",
     "experiment_id",
     "experiment_name",
     "experiment_metadata",
@@ -77,6 +79,7 @@ def propagate_attributes(
     metadata: Optional[Dict[str, str]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    trace_name: Optional[str] = None,
     as_baggage: bool = False,
 ) -> _AgnosticContextManager[Any]:
     """Propagate trace-level attributes to all spans created within this context.
@@ -109,6 +112,8 @@ def propagate_attributes(
             - AVOID: large payloads, sensitive data, non-string values (will be dropped with warning)
         version: Version identfier for parts of your application that are independently versioned, e.g. agents
         tags: List of tags to categorize the group of observations
+        trace_name: Name to assign to the trace. Must be US-ASCII string, ≤200 characters.
+            Use this to set a consistent trace name for all spans created within this context.
         as_baggage: If True, propagates attributes using OpenTelemetry baggage for
             cross-process/service propagation. **Security warning**: When enabled,
             attribute values are added to HTTP headers on ALL outbound requests.
@@ -195,6 +200,7 @@ def propagate_attributes(
         metadata=metadata,
         version=version,
         tags=tags,
+        trace_name=trace_name,
         as_baggage=as_baggage,
     )
 
@@ -207,6 +213,7 @@ def _propagate_attributes(
     metadata: Optional[Dict[str, str]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    trace_name: Optional[str] = None,
     as_baggage: bool = False,
     experiment: Optional[PropagatedExperimentAttributes] = None,
 ) -> Generator[Any, Any, Any]:
@@ -218,6 +225,7 @@ def _propagate_attributes(
         "session_id": session_id,
         "version": version,
         "tags": tags,
+        "trace_name": trace_name,
     }
 
     propagated_string_attributes = propagated_string_attributes | (
@@ -456,6 +464,7 @@ def _get_propagated_span_key(key: str) -> str:
         "user_id": LangfuseOtelSpanAttributes.TRACE_USER_ID,
         "version": LangfuseOtelSpanAttributes.VERSION,
         "tags": LangfuseOtelSpanAttributes.TRACE_TAGS,
+        "trace_name": LangfuseOtelSpanAttributes.TRACE_NAME,
         "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
         "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
         "experiment_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,

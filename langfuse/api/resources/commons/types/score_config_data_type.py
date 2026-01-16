@@ -6,24 +6,20 @@ import typing
 T_Result = typing.TypeVar("T_Result")
 
 
-class ScoreDataType(str, enum.Enum):
+class ScoreConfigDataType(str, enum.Enum):
     NUMERIC = "NUMERIC"
     BOOLEAN = "BOOLEAN"
     CATEGORICAL = "CATEGORICAL"
-    CORRECTION = "CORRECTION"
 
     def visit(
         self,
         numeric: typing.Callable[[], T_Result],
         boolean: typing.Callable[[], T_Result],
         categorical: typing.Callable[[], T_Result],
-        correction: typing.Callable[[], T_Result],
     ) -> T_Result:
-        if self is ScoreDataType.NUMERIC:
+        if self is ScoreConfigDataType.NUMERIC:
             return numeric()
-        if self is ScoreDataType.BOOLEAN:
+        if self is ScoreConfigDataType.BOOLEAN:
             return boolean()
-        if self is ScoreDataType.CATEGORICAL:
+        if self is ScoreConfigDataType.CATEGORICAL:
             return categorical()
-        if self is ScoreDataType.CORRECTION:
-            return correction()

@@ -33,7 +33,11 @@ class ScoreBody(pydantic_v1.BaseModel):
     dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
         alias="datasetRunId", default=None
     )
-    name: str
+    name: str = pydantic_v1.Field()
+    """
+    The name of the score. Always overrides "output" for correction scores.
+    """
+
     environment: typing.Optional[str] = None
     queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
     """

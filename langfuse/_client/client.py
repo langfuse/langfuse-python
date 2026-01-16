@@ -79,6 +79,11 @@ from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
+from langfuse.api.resources.commons.types import DatasetRunWithItems
+from langfuse.api.resources.datasets.types import (
+    DeleteDatasetRunResponse,
+    PaginatedDatasetRuns,
+)
 from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
@@ -2461,6 +2466,78 @@ class Langfuse:
             handle_fern_exception(e)
             raise e
 
+    def get_dataset_run(
+        self, *, dataset_name: str, run_name: str
+    ) -> DatasetRunWithItems:
+        """Fetch a dataset run by dataset name and run name.
+
+        Args:
+            dataset_name (str): The name of the dataset.
+            run_name (str): The name of the run.
+
+        Returns:
+            DatasetRunWithItems: The dataset run with its items.
+        """
+        try:
+            return self.api.datasets.get_run(
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(run_name),
+                request_options=None,
+            )
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def get_dataset_runs(
+        self,
+        *,
+        dataset_name: str,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> PaginatedDatasetRuns:
+        """Fetch all runs for a dataset.
+
+        Args:
+            dataset_name (str): The name of the dataset.
+            page (Optional[int]): Page number, starts at 1.
+            limit (Optional[int]): Limit of items per page.
+
+        Returns:
+            PaginatedDatasetRuns: Paginated list of dataset runs.
+        """
+        try:
+            return self.api.datasets.get_runs(
+                dataset_name=self._url_encode(dataset_name),
+                page=page,
+                limit=limit,
+                request_options=None,
+            )
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def delete_dataset_run(
+        self, *, dataset_name: str, run_name: str
+    ) -> DeleteDatasetRunResponse:
+        """Delete a dataset run and all its run items. This action is irreversible.
+
+        Args:
+            dataset_name (str): The name of the dataset.
+            run_name (str): The name of the run.
+
+        Returns:
+            DeleteDatasetRunResponse: Confirmation of deletion.
+        """
+        try:
+            return self.api.datasets.delete_run(
+                dataset_name=self._url_encode(dataset_name),
+                run_name=self._url_encode(run_name),
+                request_options=None,
+            )
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
     def run_experiment(
         self,
         *,
@@ -2866,17 +2943,17 @@ class Langfuse:
                     }
                 )
 
-                with _propagate_attributes(
-                    experiment=PropagatedExperimentAttributes(
-                        experiment_id=experiment_id,
-                        experiment_name=experiment_run_name,
-                        experiment_metadata=_serialize(experiment_metadata),
-                        experiment_dataset_id=dataset_id,
-                        experiment_item_id=experiment_item_id,
-                        experiment_item_metadata=_serialize(item_metadata),
-                        experiment_item_root_observation_id=span.id,
-                    )
-                ):
+                propagated_experiment_attributes = PropagatedExperimentAttributes(
+                    experiment_id=experiment_id,
+                    experiment_name=experiment_run_name,
+                    experiment_metadata=_serialize(experiment_metadata),
+                    experiment_dataset_id=dataset_id,
+                    experiment_item_id=experiment_item_id,
+                    experiment_item_metadata=_serialize(item_metadata),
+                    experiment_item_root_observation_id=span.id,
+                )
+
+                with _propagate_attributes(experiment=propagated_experiment_attributes):
                     output = await _run_task(task, item)
 
                 span.update(
@@ -2891,95 +2968,101 @@ class Langfuse:
                 )
                 raise e
 
-        # Run evaluators
-        evaluations = []
+            # Run evaluators
+            evaluations = []
 
-        for evaluator in evaluators:
-            try:
-                eval_metadata: Optional[Dict[str, Any]] = None
+            for evaluator in evaluators:
+                try:
+                    eval_metadata: Optional[Dict[str, Any]] = None
 
-                if isinstance(item, dict):
-                    eval_metadata = item.get("metadata")
-                elif hasattr(item, "metadata"):
-                    eval_metadata = item.metadata
+                    if isinstance(item, dict):
+                        eval_metadata = item.get("metadata")
+                    elif hasattr(item, "metadata"):
+                        eval_metadata = item.metadata
 
-                eval_results = await _run_evaluator(
-                    evaluator,
-                    input=input_data,
-                    output=output,
-                    expected_output=expected_output,
-                    metadata=eval_metadata,
-                )
-                evaluations.extend(eval_results)
+                    with _propagate_attributes(
+                        experiment=propagated_experiment_attributes
+                    ):
+                        eval_results = await _run_evaluator(
+                            evaluator,
+                            input=input_data,
+                            output=output,
+                            expected_output=expected_output,
+                            metadata=eval_metadata,
+                        )
+                        evaluations.extend(eval_results)
 
-                # Store evaluations as scores
-                for evaluation in eval_results:
-                    self.create_score(
-                        trace_id=trace_id,
-                        observation_id=span.id,
-                        name=evaluation.name,
-                        value=evaluation.value,  # type: ignore
-                        comment=evaluation.comment,
-                        metadata=evaluation.metadata,
-                        config_id=evaluation.config_id,
-                        data_type=evaluation.data_type,  # type: ignore
-                    )
+                        # Store evaluations as scores
+                        for evaluation in eval_results:
+                            self.create_score(
+                                trace_id=trace_id,
+                                observation_id=span.id,
+                                name=evaluation.name,
+                                value=evaluation.value,  # type: ignore
+                                comment=evaluation.comment,
+                                metadata=evaluation.metadata,
+                                config_id=evaluation.config_id,
+                                data_type=evaluation.data_type,  # type: ignore
+                            )
 
-            except Exception as e:
-                langfuse_logger.error(f"Evaluator failed: {e}")
+                except Exception as e:
+                    langfuse_logger.error(f"Evaluator failed: {e}")
 
-        # Run composite evaluator if provided and we have evaluations
-        if composite_evaluator and evaluations:
-            try:
-                composite_eval_metadata: Optional[Dict[str, Any]] = None
-                if isinstance(item, dict):
-                    composite_eval_metadata = item.get("metadata")
-                elif hasattr(item, "metadata"):
-                    composite_eval_metadata = item.metadata
+            # Run composite evaluator if provided and we have evaluations
+            if composite_evaluator and evaluations:
+                try:
+                    composite_eval_metadata: Optional[Dict[str, Any]] = None
+                    if isinstance(item, dict):
+                        composite_eval_metadata = item.get("metadata")
+                    elif hasattr(item, "metadata"):
+                        composite_eval_metadata = item.metadata
 
-                result = composite_evaluator(
-                    input=input_data,
-                    output=output,
-                    expected_output=expected_output,
-                    metadata=composite_eval_metadata,
-                    evaluations=evaluations,
-                )
+                    with _propagate_attributes(
+                        experiment=propagated_experiment_attributes
+                    ):
+                        result = composite_evaluator(
+                            input=input_data,
+                            output=output,
+                            expected_output=expected_output,
+                            metadata=composite_eval_metadata,
+                            evaluations=evaluations,
+                        )
 
-                # Handle async composite evaluators
-                if asyncio.iscoroutine(result):
-                    result = await result
+                        # Handle async composite evaluators
+                        if asyncio.iscoroutine(result):
+                            result = await result
 
-                # Normalize to list
-                composite_evals: List[Evaluation] = []
-                if isinstance(result, (dict, Evaluation)):
-                    composite_evals = [result]  # type: ignore
-                elif isinstance(result, list):
-                    composite_evals = result  # type: ignore
+                        # Normalize to list
+                        composite_evals: List[Evaluation] = []
+                        if isinstance(result, (dict, Evaluation)):
+                            composite_evals = [result]  # type: ignore
+                        elif isinstance(result, list):
+                            composite_evals = result  # type: ignore
 
-                # Store composite evaluations as scores and add to evaluations list
-                for composite_evaluation in composite_evals:
-                    self.create_score(
-                        trace_id=trace_id,
-                        observation_id=span.id,
-                        name=composite_evaluation.name,
-                        value=composite_evaluation.value,  # type: ignore
-                        comment=composite_evaluation.comment,
-                        metadata=composite_evaluation.metadata,
-                        config_id=composite_evaluation.config_id,
-                        data_type=composite_evaluation.data_type,  # type: ignore
-                    )
-                    evaluations.append(composite_evaluation)
+                        # Store composite evaluations as scores and add to evaluations list
+                        for composite_evaluation in composite_evals:
+                            self.create_score(
+                                trace_id=trace_id,
+                                observation_id=span.id,
+                                name=composite_evaluation.name,
+                                value=composite_evaluation.value,  # type: ignore
+                                comment=composite_evaluation.comment,
+                                metadata=composite_evaluation.metadata,
+                                config_id=composite_evaluation.config_id,
+                                data_type=composite_evaluation.data_type,  # type: ignore
+                            )
+                            evaluations.append(composite_evaluation)
 
-            except Exception as e:
-                langfuse_logger.error(f"Composite evaluator failed: {e}")
+                except Exception as e:
+                    langfuse_logger.error(f"Composite evaluator failed: {e}")
 
-        return ExperimentItemResult(
-            item=item,
-            output=output,
-            evaluations=evaluations,
-            trace_id=trace_id,
-            dataset_run_id=dataset_run_id,
-        )
+            return ExperimentItemResult(
+                item=item,
+                output=output,
+                evaluations=evaluations,
+                trace_id=trace_id,
+                dataset_run_id=dataset_run_id,
+            )
 
     def _create_experiment_run_name(
         self, *, name: Optional[str] = None, run_name: Optional[str] = None

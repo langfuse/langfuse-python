@@ -48,7 +48,7 @@ class ScoreConfigsClient:
 
         Examples
         --------
-        from langfuse import CreateScoreConfigRequest, ScoreDataType
+        from langfuse import CreateScoreConfigRequest, ScoreConfigDataType
         from langfuse.client import FernLangfuse
 
         client = FernLangfuse(
@@ -62,7 +62,7 @@ class ScoreConfigsClient:
         client.score_configs.create(
             request=CreateScoreConfigRequest(
                 name="name",
-                data_type=ScoreDataType.NUMERIC,
+                data_type=ScoreConfigDataType.NUMERIC,
             ),
         )
         """
@@ -339,7 +339,7 @@ class AsyncScoreConfigsClient:
         --------
         import asyncio
 
-        from langfuse import CreateScoreConfigRequest, ScoreDataType
+        from langfuse import CreateScoreConfigRequest, ScoreConfigDataType
         from langfuse.client import AsyncFernLangfuse
 
         client = AsyncFernLangfuse(
@@ -356,7 +356,7 @@ class AsyncScoreConfigsClient:
             await client.score_configs.create(
                 request=CreateScoreConfigRequest(
                     name="name",
-                    data_type=ScoreDataType.NUMERIC,
+                    data_type=ScoreConfigDataType.NUMERIC,
                 ),
             )
 

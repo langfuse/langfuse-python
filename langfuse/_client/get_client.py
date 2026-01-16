@@ -53,6 +53,7 @@ def _create_client_from_instance(
         blocked_instrumentation_scopes=instance.blocked_instrumentation_scopes,
         additional_headers=instance.additional_headers,
         tracer_provider=instance.tracer_provider,
+        httpx_client=instance.httpx_client,
     )
 
 

@@ -5,35 +5,17 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .trace import Trace
 
 
-class TraceWithDetails(Trace):
-    html_path: str = pydantic_v1.Field(alias="htmlPath")
+class Organization(pydantic_v1.BaseModel):
+    id: str = pydantic_v1.Field()
     """
-    Path of trace in Langfuse UI
-    """
-
-    latency: typing.Optional[float] = pydantic_v1.Field(default=None)
-    """
-    Latency of trace in seconds
+    The unique identifier of the organization
     """
 
-    total_cost: typing.Optional[float] = pydantic_v1.Field(
-        alias="totalCost", default=None
-    )
+    name: str = pydantic_v1.Field()
     """
-    Cost of trace in USD
-    """
-
-    observations: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of observation ids
-    """
-
-    scores: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of score ids
+    The name of the organization
     """
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -64,7 +46,5 @@ class TraceWithDetails(Trace):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

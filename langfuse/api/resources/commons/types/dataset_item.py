@@ -11,17 +11,35 @@ from .dataset_status import DatasetStatus
 class DatasetItem(pydantic_v1.BaseModel):
     id: str
     status: DatasetStatus
-    input: typing.Optional[typing.Any] = None
-    expected_output: typing.Optional[typing.Any] = pydantic_v1.Field(
-        alias="expectedOutput", default=None
-    )
-    metadata: typing.Optional[typing.Any] = None
+    input: typing.Any = pydantic_v1.Field()
+    """
+    Input data for the dataset item
+    """
+
+    expected_output: typing.Any = pydantic_v1.Field(alias="expectedOutput")
+    """
+    Expected output for the dataset item
+    """
+
+    metadata: typing.Any = pydantic_v1.Field()
+    """
+    Metadata associated with the dataset item
+    """
+
     source_trace_id: typing.Optional[str] = pydantic_v1.Field(
         alias="sourceTraceId", default=None
     )
+    """
+    The trace ID that sourced this dataset item
+    """
+
     source_observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="sourceObservationId", default=None
     )
+    """
+    The observation ID that sourced this dataset item
+    """
+
     dataset_id: str = pydantic_v1.Field(alias="datasetId")
     dataset_name: str = pydantic_v1.Field(alias="datasetName")
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")

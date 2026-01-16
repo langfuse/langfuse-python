@@ -60,17 +60,17 @@ class Trace(pydantic_v1.BaseModel):
     The metadata associated with the trace. Can be any JSON.
     """
 
-    tags: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
+    tags: typing.List[str] = pydantic_v1.Field()
     """
-    The tags associated with the trace. Can be an array of strings or null.
+    The tags associated with the trace.
     """
 
-    public: typing.Optional[bool] = pydantic_v1.Field(default=None)
+    public: bool = pydantic_v1.Field()
     """
     Public traces are accessible via url without login
     """
 
-    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    environment: str = pydantic_v1.Field()
     """
     The environment from which this trace originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """

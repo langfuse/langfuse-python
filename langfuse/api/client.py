@@ -28,8 +28,13 @@ from .resources.llm_connections.client import (
 )
 from .resources.media.client import AsyncMediaClient, MediaClient
 from .resources.metrics.client import AsyncMetricsClient, MetricsClient
+from .resources.metrics_v_2.client import AsyncMetricsV2Client, MetricsV2Client
 from .resources.models.client import AsyncModelsClient, ModelsClient
 from .resources.observations.client import AsyncObservationsClient, ObservationsClient
+from .resources.observations_v_2.client import (
+    AsyncObservationsV2Client,
+    ObservationsV2Client,
+)
 from .resources.opentelemetry.client import (
     AsyncOpentelemetryClient,
     OpentelemetryClient,
@@ -137,8 +142,12 @@ class FernLangfuse:
         self.ingestion = IngestionClient(client_wrapper=self._client_wrapper)
         self.llm_connections = LlmConnectionsClient(client_wrapper=self._client_wrapper)
         self.media = MediaClient(client_wrapper=self._client_wrapper)
+        self.metrics_v_2 = MetricsV2Client(client_wrapper=self._client_wrapper)
         self.metrics = MetricsClient(client_wrapper=self._client_wrapper)
         self.models = ModelsClient(client_wrapper=self._client_wrapper)
+        self.observations_v_2 = ObservationsV2Client(
+            client_wrapper=self._client_wrapper
+        )
         self.observations = ObservationsClient(client_wrapper=self._client_wrapper)
         self.opentelemetry = OpentelemetryClient(client_wrapper=self._client_wrapper)
         self.organizations = OrganizationsClient(client_wrapper=self._client_wrapper)
@@ -242,8 +251,12 @@ class AsyncFernLangfuse:
             client_wrapper=self._client_wrapper
         )
         self.media = AsyncMediaClient(client_wrapper=self._client_wrapper)
+        self.metrics_v_2 = AsyncMetricsV2Client(client_wrapper=self._client_wrapper)
         self.metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         self.models = AsyncModelsClient(client_wrapper=self._client_wrapper)
+        self.observations_v_2 = AsyncObservationsV2Client(
+            client_wrapper=self._client_wrapper
+        )
         self.observations = AsyncObservationsClient(client_wrapper=self._client_wrapper)
         self.opentelemetry = AsyncOpentelemetryClient(
             client_wrapper=self._client_wrapper

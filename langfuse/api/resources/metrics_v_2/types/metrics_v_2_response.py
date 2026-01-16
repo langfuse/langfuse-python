@@ -5,35 +5,14 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
-from .trace import Trace
 
 
-class TraceWithDetails(Trace):
-    html_path: str = pydantic_v1.Field(alias="htmlPath")
+class MetricsV2Response(pydantic_v1.BaseModel):
+    data: typing.List[typing.Dict[str, typing.Any]] = pydantic_v1.Field()
     """
-    Path of trace in Langfuse UI
-    """
-
-    latency: typing.Optional[float] = pydantic_v1.Field(default=None)
-    """
-    Latency of trace in seconds
-    """
-
-    total_cost: typing.Optional[float] = pydantic_v1.Field(
-        alias="totalCost", default=None
-    )
-    """
-    Cost of trace in USD
-    """
-
-    observations: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of observation ids
-    """
-
-    scores: typing.Optional[typing.List[str]] = pydantic_v1.Field(default=None)
-    """
-    List of score ids
+    The metrics data. Each item in the list contains the metric values and dimensions requested in the query.
+    Format varies based on the query parameters.
+    Histograms will return an array with [lower, upper, height] tuples.
     """
 
     def json(self, **kwargs: typing.Any) -> str:
@@ -64,7 +43,5 @@ class TraceWithDetails(Trace):
     class Config:
         frozen = True
         smart_union = True
-        allow_population_by_field_name = True
-        populate_by_name = True
         extra = pydantic_v1.Extra.allow
         json_encoders = {dt.datetime: serialize_datetime}

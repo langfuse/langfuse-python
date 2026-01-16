@@ -682,7 +682,7 @@ def test_prompt_end_to_end():
 @pytest.fixture
 def langfuse():
     from langfuse._client.resource_manager import LangfuseResourceManager
-    
+
     langfuse_instance = Langfuse()
     langfuse_instance.api = Mock()
 

@@ -5,11 +5,17 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .organization import Organization
 
 
 class Project(pydantic_v1.BaseModel):
     id: str
     name: str
+    organization: Organization = pydantic_v1.Field()
+    """
+    The organization this project belongs to
+    """
+
     metadata: typing.Dict[str, typing.Any] = pydantic_v1.Field()
     """
     Metadata for the project

@@ -11,7 +11,7 @@ class Session(pydantic_v1.BaseModel):
     id: str
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     project_id: str = pydantic_v1.Field(alias="projectId")
-    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    environment: str = pydantic_v1.Field()
     """
     The environment from which this session originated.
     """

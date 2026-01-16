@@ -16,12 +16,14 @@ class TraceWithFullDetails(Trace):
     Path of trace in Langfuse UI
     """
 
-    latency: float = pydantic_v1.Field()
+    latency: typing.Optional[float] = pydantic_v1.Field(default=None)
     """
     Latency of trace in seconds
     """
 
-    total_cost: float = pydantic_v1.Field(alias="totalCost")
+    total_cost: typing.Optional[float] = pydantic_v1.Field(
+        alias="totalCost", default=None
+    )
     """
     Cost of trace in USD
     """

@@ -16,14 +16,30 @@ class BaseScoreV1(pydantic_v1.BaseModel):
     observation_id: typing.Optional[str] = pydantic_v1.Field(
         alias="observationId", default=None
     )
+    """
+    The observation ID associated with the score
+    """
+
     timestamp: dt.datetime
     created_at: dt.datetime = pydantic_v1.Field(alias="createdAt")
     updated_at: dt.datetime = pydantic_v1.Field(alias="updatedAt")
     author_user_id: typing.Optional[str] = pydantic_v1.Field(
         alias="authorUserId", default=None
     )
-    comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    """
+    The user ID of the author
+    """
+
+    comment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    """
+    Comment on the score
+    """
+
+    metadata: typing.Any = pydantic_v1.Field()
+    """
+    Metadata associated with the score
+    """
+
     config_id: typing.Optional[str] = pydantic_v1.Field(alias="configId", default=None)
     """
     Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
@@ -34,7 +50,7 @@ class BaseScoreV1(pydantic_v1.BaseModel):
     The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
     """
 
-    environment: typing.Optional[str] = pydantic_v1.Field(default=None)
+    environment: str = pydantic_v1.Field()
     """
     The environment from which this score originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """
