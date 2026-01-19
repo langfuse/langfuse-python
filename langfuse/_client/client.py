@@ -2429,6 +2429,9 @@ class Langfuse:
             send_notification(f"Review needed for trace: {specific_trace_url}")
             ```
         """
+        if not self._tracing_enabled:
+            return None
+
         project_id = self._get_project_id()
         final_trace_id = trace_id or self.get_current_trace_id()
 
