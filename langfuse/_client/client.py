@@ -2429,11 +2429,11 @@ class Langfuse:
             send_notification(f"Review needed for trace: {specific_trace_url}")
             ```
         """
-        if not self._tracing_enabled:
+        final_trace_id = trace_id or self.get_current_trace_id()
+        if not final_trace_id:
             return None
 
         project_id = self._get_project_id()
-        final_trace_id = trace_id or self.get_current_trace_id()
 
         return (
             f"{self._base_url}/project/{project_id}/traces/{final_trace_id}"
