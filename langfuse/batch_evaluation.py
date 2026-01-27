@@ -20,6 +20,7 @@ from typing import (
     Protocol,
     Tuple,
     Union,
+    cast,
 )
 
 from langfuse.api.resources.commons.types import (
@@ -1220,6 +1221,9 @@ class BatchEvaluationRunner:
             self._create_score_for_scope(
                 scope=scope,
                 item_id=item_id,
+                trace_id=cast(ObservationsView, item).trace_id
+                if scope == "observations"
+                else None,
                 evaluation=evaluation,
                 additional_metadata=metadata,
             )
@@ -1242,6 +1246,9 @@ class BatchEvaluationRunner:
                     self._create_score_for_scope(
                         scope=scope,
                         item_id=item_id,
+                        trace_id=cast(ObservationsView, item).trace_id
+                        if scope == "observations"
+                        else None,
                         evaluation=composite_eval,
                         additional_metadata=metadata,
                     )
@@ -1361,8 +1368,10 @@ class BatchEvaluationRunner:
 
     def _create_score_for_scope(
         self,
+        *,
         scope: str,
         item_id: str,
+        trace_id: Optional[str] = None,
         evaluation: Evaluation,
         additional_metadata: Optional[Dict[str, Any]],
     ) -> None:
@@ -1371,6 +1380,7 @@ class BatchEvaluationRunner:
         Args:
             scope: The type of entity ("traces", "observations").
             item_id: The ID of the entity.
+            trace_id: The trace ID of the entity; required if scope=observations
             evaluation: The evaluation result to create a score from.
             additional_metadata: Additional metadata to merge with evaluation metadata.
         """
@@ -1393,6 +1403,7 @@ class BatchEvaluationRunner:
         elif scope == "observations":
             self.client.create_score(
                 observation_id=item_id,
+                trace_id=trace_id,
                 name=evaluation.name,
                 value=evaluation.value,  # type: ignore
                 comment=evaluation.comment,
