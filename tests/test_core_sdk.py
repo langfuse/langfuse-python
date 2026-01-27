@@ -1976,6 +1976,19 @@ def test_generate_trace_id():
     assert trace_url == f"http://localhost:3000/project/{project_id}/traces/{trace_id}"
 
 
+def test_generate_trace_url_client_disabled():
+    langfuse = Langfuse(tracing_enabled=False)
+
+    with langfuse.start_as_current_span(
+        name="test-span",
+    ):
+        # The trace URL should be None because the client is disabled
+        trace_url = langfuse.get_trace_url()
+        assert trace_url is None
+
+    langfuse.flush()
+
+
 def test_start_as_current_observation_types():
     """Test creating different observation types using start_as_current_observation."""
     langfuse = Langfuse()
