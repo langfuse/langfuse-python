@@ -25,7 +25,7 @@ from tests.utils import create_uuid
 # ============================================================================
 
 
-pytestmark = pytest.mark.skip(reason="Github CI runner overwhelmed by score volume")
+# pytestmark = pytest.mark.skip(reason="Github CI runner overwhelmed by score volume")
 
 
 @pytest.fixture
@@ -65,6 +65,32 @@ def simple_evaluator(*, input, output, expected_output=None, metadata=None, **kw
 # ============================================================================
 # BASIC FUNCTIONALITY TESTS
 # ============================================================================
+
+
+def test_run_batched_evaluation_on_observations_basic(langfuse_client):
+    """Test basic batch evaluation on traces."""
+    result = langfuse_client.run_batched_evaluation(
+        scope="observations",
+        mapper=simple_trace_mapper,
+        evaluators=[simple_evaluator],
+        max_items=1,
+        verbose=True,
+    )
+
+    # Validate result structure
+    assert isinstance(result, BatchEvaluationResult)
+    assert result.total_items_fetched >= 0
+    assert result.total_items_processed >= 0
+    assert result.total_scores_created >= 0
+    assert result.completed is True
+    assert isinstance(result.duration_seconds, float)
+    assert result.duration_seconds > 0
+
+    # Verify evaluator stats
+    assert len(result.evaluator_stats) == 1
+    stats = result.evaluator_stats[0]
+    assert isinstance(stats, EvaluatorStats)
+    assert stats.name == "simple_evaluator"
 
 
 def test_run_batched_evaluation_on_traces_basic(langfuse_client):
