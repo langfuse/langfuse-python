@@ -3328,3 +3328,127 @@ class TestOtelIdGeneration(TestOTelBase):
             assert result is event
 
         parent_span.end()
+
+
+class TestTracerProviderCompatibility(TestOTelBase):
+    """Tests for TracerProvider compatibility with non-SDK providers like ddtrace."""
+
+    def test_init_tracer_provider_with_non_sdk_provider(self, monkeypatch, caplog):
+        """Test that _init_tracer_provider creates a new SDK provider when a non-SDK provider exists.
+
+        This tests the core logic that handles ddtrace-like scenarios where an
+        API-only TracerProvider (without add_span_processor) is set globally.
+        """
+        import logging
+
+        from opentelemetry import trace as trace_api_module
+        from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+        from opentelemetry.trace import TracerProvider as APITracerProvider
+
+        from langfuse._client.resource_manager import _init_tracer_provider
+
+        # Create a mock non-SDK provider (like ddtrace's API-only provider)
+        class MockNonSDKTracerProvider(APITracerProvider):
+            """A mock TracerProvider without add_span_processor."""
+
+            def get_tracer(
+                self,
+                instrumenting_module_name,
+                instrumenting_library_version=None,
+                schema_url=None,
+                attributes=None,
+            ):
+                return trace_api_module.NoOpTracer()
+
+        mock_provider = MockNonSDKTracerProvider()
+
+        # Mock get_tracer_provider to return our non-SDK provider
+        monkeypatch.setattr(
+            "langfuse._client.resource_manager.otel_trace_api.get_tracer_provider",
+            lambda: mock_provider,
+        )
+
+        # Track if set_tracer_provider was called
+        set_provider_calls = []
+
+        def mock_set_provider(provider):
+            set_provider_calls.append(provider)
+            # Don't actually set it to avoid affecting other tests
+
+        monkeypatch.setattr(
+            "langfuse._client.resource_manager.otel_trace_api.set_tracer_provider",
+            mock_set_provider,
+        )
+
+        # Call _init_tracer_provider
+        with caplog.at_level(logging.INFO, logger="langfuse"):
+            provider = _init_tracer_provider()
+
+        # Verify a new SDK TracerProvider was created
+        assert isinstance(provider, SDKTracerProvider)
+        assert provider is not mock_provider
+
+        # Verify set_tracer_provider was NOT called (because non-SDK provider exists)
+        assert len(set_provider_calls) == 0
+
+        # Verify the info message was logged
+        assert "not an SDK TracerProvider" in caplog.text
+
+    def test_init_tracer_provider_with_sdk_provider(self, monkeypatch):
+        """Test that _init_tracer_provider reuses an existing SDK provider."""
+        from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+
+        from langfuse._client.resource_manager import _init_tracer_provider
+
+        # Create an existing SDK provider
+        existing_sdk_provider = SDKTracerProvider()
+
+        # Mock get_tracer_provider to return our SDK provider
+        monkeypatch.setattr(
+            "langfuse._client.resource_manager.otel_trace_api.get_tracer_provider",
+            lambda: existing_sdk_provider,
+        )
+
+        # Call _init_tracer_provider
+        provider = _init_tracer_provider()
+
+        # Verify the existing SDK provider is reused
+        assert provider is existing_sdk_provider
+
+    def test_init_tracer_provider_with_proxy_provider(self, monkeypatch):
+        """Test that _init_tracer_provider creates and sets a new SDK provider when no provider is set."""
+        from opentelemetry import trace as trace_api_module
+        from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+
+        from langfuse._client.resource_manager import _init_tracer_provider
+
+        # Create a ProxyTracerProvider (the default when nothing is set)
+        proxy_provider = trace_api_module.ProxyTracerProvider()
+
+        # Mock get_tracer_provider to return the proxy provider
+        monkeypatch.setattr(
+            "langfuse._client.resource_manager.otel_trace_api.get_tracer_provider",
+            lambda: proxy_provider,
+        )
+
+        # Track if set_tracer_provider was called
+        set_provider_calls = []
+
+        def mock_set_provider(provider):
+            set_provider_calls.append(provider)
+
+        monkeypatch.setattr(
+            "langfuse._client.resource_manager.otel_trace_api.set_tracer_provider",
+            mock_set_provider,
+        )
+
+        # Call _init_tracer_provider
+        provider = _init_tracer_provider()
+
+        # Verify a new SDK TracerProvider was created
+        assert isinstance(provider, SDKTracerProvider)
+
+        # Verify set_tracer_provider WAS called (because only a proxy provider existed)
+        assert len(set_provider_calls) == 1
+        assert set_provider_calls[0] is provider
+

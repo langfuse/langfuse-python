@@ -425,6 +425,18 @@ def _init_tracer_provider(
     release: Optional[str] = None,
     sample_rate: Optional[float] = None,
 ) -> TracerProvider:
+    """Initialize or retrieve a TracerProvider compatible with Langfuse.
+
+    This function handles three scenarios:
+    1. No provider set (ProxyTracerProvider): Creates a new SDK TracerProvider and sets it as global
+    2. SDK TracerProvider already set: Reuses the existing provider
+    3. Non-SDK TracerProvider (e.g., ddtrace's API-only provider): Creates a new SDK TracerProvider
+       for Langfuse without overriding the global provider to avoid conflicts
+
+    The third case addresses compatibility with libraries like ddtrace that use
+    opentelemetry-api but not opentelemetry-sdk. These providers don't have the
+    add_span_processor method that Langfuse requires.
+    """
     environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
     release = release or os.environ.get(LANGFUSE_RELEASE) or get_common_release_envs()
 
@@ -437,19 +449,43 @@ def _init_tracer_provider(
         {k: v for k, v in resource_attributes.items() if v is not None}
     )
 
-    provider = None
-    default_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+    default_provider = otel_trace_api.get_tracer_provider()
 
-    if isinstance(default_provider, otel_trace_api.ProxyTracerProvider):
-        provider = TracerProvider(
-            resource=resource,
-            sampler=TraceIdRatioBased(sample_rate)
-            if sample_rate is not None and sample_rate < 1
-            else None,
-        )
+    # Check if the existing provider is an SDK TracerProvider (has add_span_processor method).
+    # Some OpenTelemetry integrations (like ddtrace) use API-only TracerProviders that don't
+    # have the add_span_processor method required by Langfuse.
+    is_sdk_tracer_provider = isinstance(default_provider, TracerProvider)
+    is_proxy_tracer_provider = isinstance(
+        default_provider, otel_trace_api.ProxyTracerProvider
+    )
+
+    if is_sdk_tracer_provider:
+        # Reuse the existing SDK TracerProvider
+        return default_provider
+
+    # Create a new SDK TracerProvider for Langfuse
+    provider = TracerProvider(
+        resource=resource,
+        sampler=TraceIdRatioBased(sample_rate)
+        if sample_rate is not None and sample_rate < 1
+        else None,
+    )
+
+    if is_proxy_tracer_provider:
+        # No provider has been set yet, so we can set ours as the global provider
         otel_trace_api.set_tracer_provider(provider)
-
     else:
-        provider = default_provider
+        # Another non-SDK provider exists (e.g., ddtrace's API-only provider).
+        # Don't override the global provider to avoid "Overriding of current
+        # TracerProvider is not allowed" errors. Langfuse will use its own
+        # provider internally while other integrations keep their own.
+        langfuse_logger.info(
+            "Detected an existing OpenTelemetry TracerProvider that is not an SDK TracerProvider "
+            "(e.g., from ddtrace or another OpenTelemetry integration). Langfuse will create its "
+            "own internal TracerProvider for tracing. To share a TracerProvider with other "
+            "libraries, set a global SDK TracerProvider before initializing any OpenTelemetry "
+            "integrations, or pass a dedicated TracerProvider to Langfuse via the tracer_provider "
+            "parameter."
+        )
 
     return provider
