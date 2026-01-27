@@ -79,12 +79,12 @@ from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
+from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.commons.types import DatasetRunWithItems
 from langfuse.api.resources.datasets.types import (
     DeleteDatasetRunResponse,
     PaginatedDatasetRuns,
 )
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
@@ -3096,6 +3096,7 @@ class Langfuse:
         mapper: MapperFunction,
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
+        fetch_trace_fields: Optional[str] = None,
         max_items: Optional[int] = None,
         max_retries: int = 3,
         evaluators: List[EvaluatorFunction],
@@ -3138,6 +3139,7 @@ class Langfuse:
                 Default: None (fetches all items).
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Default: 50.
+            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'.
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).
@@ -3306,6 +3308,7 @@ class Langfuse:
                     evaluators=evaluators,
                     filter=filter,
                     fetch_batch_size=fetch_batch_size,
+                    fetch_trace_fields=fetch_trace_fields,
                     max_items=max_items,
                     max_concurrency=max_concurrency,
                     composite_evaluator=composite_evaluator,
