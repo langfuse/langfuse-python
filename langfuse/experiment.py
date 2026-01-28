@@ -124,7 +124,7 @@ class Evaluation:
 
         def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
             if not expected_output:
-                return Evaluation(name="accuracy", value=None, comment="No expected output")
+                return Evaluation(name="accuracy", value=0, comment="No expected output")
 
             is_correct = output.strip().lower() == expected_output.strip().lower()
             return Evaluation(
@@ -170,7 +170,7 @@ class Evaluation:
             except Exception as e:
                 return Evaluation(
                     name="external_score",
-                    value=None,
+                    value=0,
                     comment=f"API unavailable: {e}",
                     metadata={"error": str(e), "retry_count": 3}
                 )
