@@ -23,7 +23,11 @@ class DatasetRunItem(UniversalBaseModel):
     trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")]
     observation_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The observation ID associated with this run item
+    """
+
     created_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="createdAt")
     ]

@@ -148,7 +148,9 @@ class RawObservationsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ObservationsViews]:
         """
-        Get a list of observations
+        Get a list of observations.
+
+        Consider using the [v2 observations endpoint](/api-reference#tag/observationsv2/GET/api/public/v2/observations) for cursor-based pagination and field selection.
 
         Parameters
         ----------
@@ -515,7 +517,9 @@ class AsyncRawObservationsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ObservationsViews]:
         """
-        Get a list of observations
+        Get a list of observations.
+
+        Consider using the [v2 observations endpoint](/api-reference#tag/observationsv2/GET/api/public/v2/observations) for cursor-based pagination and field selection.
 
         Parameters
         ----------

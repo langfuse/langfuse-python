@@ -36,7 +36,11 @@ class ScoreBody(UniversalBaseModel):
     dataset_run_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="datasetRunId")
     ] = None
-    name: str
+    name: str = pydantic.Field()
+    """
+    The name of the score. Always overrides "output" for correction scores.
+    """
+
     environment: typing.Optional[str] = None
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")

@@ -37,6 +37,7 @@ if typing.TYPE_CHECKING:
     from .pricing_tier_operator import PricingTierOperator
     from .score import Score, Score_Boolean, Score_Categorical, Score_Numeric
     from .score_config import ScoreConfig
+    from .score_config_data_type import ScoreConfigDataType
     from .score_data_type import ScoreDataType
     from .score_source import ScoreSource
     from .score_v1 import ScoreV1, ScoreV1_Boolean, ScoreV1_Categorical, ScoreV1_Numeric
@@ -78,6 +79,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PricingTierOperator": ".pricing_tier_operator",
     "Score": ".score",
     "ScoreConfig": ".score_config",
+    "ScoreConfigDataType": ".score_config_data_type",
     "ScoreDataType": ".score_data_type",
     "ScoreSource": ".score_source",
     "ScoreV1": ".score_v1",
@@ -155,6 +157,7 @@ __all__ = [
     "PricingTierOperator",
     "Score",
     "ScoreConfig",
+    "ScoreConfigDataType",
     "ScoreDataType",
     "ScoreSource",
     "ScoreV1",

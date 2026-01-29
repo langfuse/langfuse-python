@@ -121,8 +121,8 @@ class ProjectsClient:
         project_id: str,
         *,
         name: str,
-        retention: int,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        retention: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Project:
         """
@@ -134,11 +134,14 @@ class ProjectsClient:
 
         name : str
 
-        retention : int
-            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
-
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Optional metadata for the project
+
+        retention : typing.Optional[int]
+            Number of days to retain data.
+            Must be 0 or at least 3 days.
+            Requires data-retention entitlement for non-zero values.
+            Optional. Will retain existing retention setting if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -162,14 +165,13 @@ class ProjectsClient:
         client.projects.update(
             project_id="projectId",
             name="name",
-            retention=1,
         )
         """
         _response = self._raw_client.update(
             project_id,
             name=name,
-            retention=retention,
             metadata=metadata,
+            retention=retention,
             request_options=request_options,
         )
         return _response.data
@@ -478,8 +480,8 @@ class AsyncProjectsClient:
         project_id: str,
         *,
         name: str,
-        retention: int,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        retention: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Project:
         """
@@ -491,11 +493,14 @@ class AsyncProjectsClient:
 
         name : str
 
-        retention : int
-            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
-
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Optional metadata for the project
+
+        retention : typing.Optional[int]
+            Number of days to retain data.
+            Must be 0 or at least 3 days.
+            Requires data-retention entitlement for non-zero values.
+            Optional. Will retain existing retention setting if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -524,7 +529,6 @@ class AsyncProjectsClient:
             await client.projects.update(
                 project_id="projectId",
                 name="name",
-                retention=1,
             )
 
 
@@ -533,8 +537,8 @@ class AsyncProjectsClient:
         _response = await self._raw_client.update(
             project_id,
             name=name,
-            retention=retention,
             metadata=metadata,
+            retention=retention,
             request_options=request_options,
         )
         return _response.data

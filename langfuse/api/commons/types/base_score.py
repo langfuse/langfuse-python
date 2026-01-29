@@ -14,16 +14,32 @@ class BaseScore(UniversalBaseModel):
     id: str
     trace_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The trace ID associated with the score
+    """
+
     session_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The session ID associated with the score
+    """
+
     observation_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The observation ID associated with the score
+    """
+
     dataset_run_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The dataset run ID associated with the score
+    """
+
     name: str
     source: ScoreSource
     timestamp: dt.datetime
@@ -35,9 +51,21 @@ class BaseScore(UniversalBaseModel):
     ]
     author_user_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
-    comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    ] = pydantic.Field(default=None)
+    """
+    The user ID of the author
+    """
+
+    comment: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Comment on the score
+    """
+
+    metadata: typing.Any = pydantic.Field()
+    """
+    Metadata associated with the score
+    """
+
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = pydantic.Field(default=None)
@@ -52,7 +80,7 @@ class BaseScore(UniversalBaseModel):
     The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
     """
 
-    environment: typing.Optional[str] = pydantic.Field(default=None)
+    environment: str = pydantic.Field()
     """
     The environment from which this score originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """

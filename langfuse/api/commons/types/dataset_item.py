@@ -13,17 +13,37 @@ from .dataset_status import DatasetStatus
 class DatasetItem(UniversalBaseModel):
     id: str
     status: DatasetStatus
-    input: typing.Optional[typing.Any] = None
+    input: typing.Any = pydantic.Field()
+    """
+    Input data for the dataset item
+    """
+
     expected_output: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="expectedOutput")
-    ] = None
-    metadata: typing.Optional[typing.Any] = None
+        typing.Any, FieldMetadata(alias="expectedOutput")
+    ] = pydantic.Field()
+    """
+    Expected output for the dataset item
+    """
+
+    metadata: typing.Any = pydantic.Field()
+    """
+    Metadata associated with the dataset item
+    """
+
     source_trace_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="sourceTraceId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The trace ID that sourced this dataset item
+    """
+
     source_observation_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="sourceObservationId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The observation ID that sourced this dataset item
+    """
+
     dataset_id: typing_extensions.Annotated[str, FieldMetadata(alias="datasetId")]
     dataset_name: typing_extensions.Annotated[str, FieldMetadata(alias="datasetName")]
     created_at: typing_extensions.Annotated[

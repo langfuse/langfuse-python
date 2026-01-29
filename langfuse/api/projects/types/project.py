@@ -6,11 +6,17 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
+from .organization import Organization
 
 
 class Project(UniversalBaseModel):
     id: str
     name: str
+    organization: Organization = pydantic.Field()
+    """
+    The organization this project belongs to
+    """
+
     metadata: typing.Dict[str, typing.Any] = pydantic.Field()
     """
     Metadata for the project

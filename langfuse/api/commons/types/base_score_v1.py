@@ -17,7 +17,11 @@ class BaseScoreV1(UniversalBaseModel):
     source: ScoreSource
     observation_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The observation ID associated with the score
+    """
+
     timestamp: dt.datetime
     created_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="createdAt")
@@ -27,9 +31,21 @@ class BaseScoreV1(UniversalBaseModel):
     ]
     author_user_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
-    comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    ] = pydantic.Field(default=None)
+    """
+    The user ID of the author
+    """
+
+    comment: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Comment on the score
+    """
+
+    metadata: typing.Any = pydantic.Field()
+    """
+    Metadata associated with the score
+    """
+
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = pydantic.Field(default=None)
@@ -44,7 +60,7 @@ class BaseScoreV1(UniversalBaseModel):
     The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
     """
 
-    environment: typing.Optional[str] = pydantic.Field(default=None)
+    environment: str = pydantic.Field()
     """
     The environment from which this score originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
     """

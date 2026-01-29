@@ -8,7 +8,7 @@ import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 from .config_category import ConfigCategory
-from .score_data_type import ScoreDataType
+from .score_config_data_type import ScoreConfigDataType
 
 
 class ScoreConfig(UniversalBaseModel):
@@ -26,7 +26,7 @@ class ScoreConfig(UniversalBaseModel):
     ]
     project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
     data_type: typing_extensions.Annotated[
-        ScoreDataType, FieldMetadata(alias="dataType")
+        ScoreConfigDataType, FieldMetadata(alias="dataType")
     ]
     is_archived: typing_extensions.Annotated[
         bool, FieldMetadata(alias="isArchived")
@@ -56,7 +56,10 @@ class ScoreConfig(UniversalBaseModel):
     Configures custom categories for categorical scores
     """
 
-    description: typing.Optional[str] = None
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Description of the score config
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

@@ -81,8 +81,8 @@ class Model(UniversalBaseModel):
     """
 
     tokenizer_config: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="tokenizerConfig")
-    ] = pydantic.Field(default=None)
+        typing.Any, FieldMetadata(alias="tokenizerConfig")
+    ] = pydantic.Field()
     """
     Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
     """

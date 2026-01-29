@@ -29,6 +29,7 @@ class ObservationsV2Client:
         self,
         *,
         fields: typing.Optional[str] = None,
+        expand_metadata: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         parse_io_as_json: typing.Optional[bool] = None,
@@ -59,7 +60,7 @@ class ObservationsV2Client:
         - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
-        - `metadata` - metadata
+        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
         - `model` - providedModelName, internalModelId, modelParameters
         - `usage` - usageDetails, costDetails, totalCost
         - `prompt` - promptId, promptName, promptVersion
@@ -78,6 +79,12 @@ class ObservationsV2Client:
             Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
             If not specified, `core` and `basic` field groups are returned.
             Example: "basic,usage,model"
+
+        expand_metadata : typing.Optional[str]
+            Comma-separated list of metadata keys to return non-truncated.
+            By default, metadata values over 200 characters are truncated.
+            Use this parameter to retrieve full values for specific keys.
+            Example: "key1,key2"
 
         limit : typing.Optional[int]
             Number of items to return per page. Maximum 1000, default 50.
@@ -234,6 +241,7 @@ class ObservationsV2Client:
         """
         _response = self._raw_client.get_many(
             fields=fields,
+            expand_metadata=expand_metadata,
             limit=limit,
             cursor=cursor,
             parse_io_as_json=parse_io_as_json,
@@ -272,6 +280,7 @@ class AsyncObservationsV2Client:
         self,
         *,
         fields: typing.Optional[str] = None,
+        expand_metadata: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         parse_io_as_json: typing.Optional[bool] = None,
@@ -302,7 +311,7 @@ class AsyncObservationsV2Client:
         - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
-        - `metadata` - metadata
+        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
         - `model` - providedModelName, internalModelId, modelParameters
         - `usage` - usageDetails, costDetails, totalCost
         - `prompt` - promptId, promptName, promptVersion
@@ -321,6 +330,12 @@ class AsyncObservationsV2Client:
             Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
             If not specified, `core` and `basic` field groups are returned.
             Example: "basic,usage,model"
+
+        expand_metadata : typing.Optional[str]
+            Comma-separated list of metadata keys to return non-truncated.
+            By default, metadata values over 200 characters are truncated.
+            Use this parameter to retrieve full values for specific keys.
+            Example: "key1,key2"
 
         limit : typing.Optional[int]
             Number of items to return per page. Maximum 1000, default 50.
@@ -485,6 +500,7 @@ class AsyncObservationsV2Client:
         """
         _response = await self._raw_client.get_many(
             fields=fields,
+            expand_metadata=expand_metadata,
             limit=limit,
             cursor=cursor,
             parse_io_as_json=parse_io_as_json,

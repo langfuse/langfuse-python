@@ -15,7 +15,7 @@ class Session(UniversalBaseModel):
         dt.datetime, FieldMetadata(alias="createdAt")
     ]
     project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
-    environment: typing.Optional[str] = pydantic.Field(default=None)
+    environment: str = pydantic.Field()
     """
     The environment from which this session originated.
     """

@@ -26,6 +26,8 @@ class RawMetricsClient:
         """
         Get metrics from the Langfuse project using a query object.
 
+        Consider using the [v2 metrics endpoint](/api-reference#tag/metricsv2/GET/api/public/v2/metrics) for better performance.
+
         For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 
         Parameters
@@ -176,6 +178,8 @@ class AsyncRawMetricsClient:
     ) -> AsyncHttpResponse[MetricsResponse]:
         """
         Get metrics from the Langfuse project using a query object.
+
+        Consider using the [v2 metrics endpoint](/api-reference#tag/metricsv2/GET/api/public/v2/metrics) for better performance.
 
         For more details, see the [Metrics API documentation](https://langfuse.com/docs/metrics/features/metrics-api).
 
