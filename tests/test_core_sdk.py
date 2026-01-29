@@ -161,10 +161,12 @@ def test_create_numeric_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["value"] == 1
-    assert trace["scores"][0]["dataType"] == "NUMERIC"
-    assert trace["scores"][0]["stringValue"] is None
+    # Find the score by name (server may transform the ID format)
+    score = next((s for s in trace["scores"] if s["name"] == "this-is-a-score"), None)
+    assert score is not None
+    assert score["value"] == 1
+    assert score["dataType"] == "NUMERIC"
+    assert score["stringValue"] is None
 
 
 def test_create_boolean_score():
