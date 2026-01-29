@@ -35,6 +35,7 @@ from opentelemetry.util._decorator import (
     _agnosticcontextmanager,
 )
 from packaging.version import Version
+from typing_extensions import deprecated
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import (
@@ -1632,6 +1633,89 @@ class Langfuse:
                 level=level,
                 status_message=status_message,
             )
+
+    @deprecated(
+        "Trace-level input/output is deprecated. "
+        "For trace attributes (user_id, session_id, tags, etc.), use propagate_attributes() instead. "
+        "This method will be removed in a future major version."
+    )
+    def set_current_trace_io(
+        self,
+        *,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+    ) -> None:
+        """Set trace-level input and output for the current span's trace.
+
+        .. deprecated::
+            This is a legacy method for backward compatibility with Langfuse platform
+            features that still rely on trace-level input/output (e.g., legacy LLM-as-a-judge
+            evaluators). It will be removed in a future major version.
+
+            For setting other trace attributes (user_id, session_id, metadata, tags, version),
+            use :meth:`propagate_attributes` instead.
+
+        Args:
+            input: Input data to associate with the trace.
+            output: Output data to associate with the trace.
+        """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: set_current_trace_io - Tracing is disabled or client is in no-op mode."
+            )
+            return
+
+        current_otel_span = self._get_current_otel_span()
+
+        if current_otel_span is not None and current_otel_span.is_recording():
+            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            )
+            # We need to preserve the class to keep the correct observation type
+            span_class = self._get_span_class(existing_observation_type)
+            span = span_class(
+                otel_span=current_otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+            )
+
+            span.set_trace_io(
+                input=input,
+                output=output,
+            )
+
+    def publish_current_trace(self) -> None:
+        """Make the current trace publicly accessible via its URL.
+
+        When a trace is published, anyone with the trace link can view the full trace
+        without needing to be logged in to Langfuse. This action cannot be undone
+        programmatically - once published, the entire trace becomes public.
+
+        This is a convenience method that publishes the trace from the currently
+        active span context. Use this when you want to make a trace public from
+        within a traced function without needing direct access to the span object.
+        """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: publish_current_trace - Tracing is disabled or client is in no-op mode."
+            )
+            return
+
+        current_otel_span = self._get_current_otel_span()
+
+        if current_otel_span is not None and current_otel_span.is_recording():
+            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            )
+            # We need to preserve the class to keep the correct observation type
+            span_class = self._get_span_class(existing_observation_type)
+            span = span_class(
+                otel_span=current_otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+            )
+
+            span.publish_trace()
 
     def create_event(
         self,

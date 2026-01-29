@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from langfuse import get_client
+from langfuse import get_client, propagate_attributes
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -126,11 +126,11 @@ def test_batch_evaluation_with_filter(langfuse_client):
     with langfuse_client.start_as_current_span(
         name=f"filtered-trace-{create_uuid()}"
     ) as span:
-        span.update_trace(
-            input="Filtered test",
-            output="Filtered output",
-            tags=[unique_tag],
-        )
+        with propagate_attributes(tags=[unique_tag]):
+            span.set_trace_io(
+                input="Filtered test",
+                output="Filtered output",
+            )
 
     langfuse_client.flush()
     time.sleep(3)
@@ -754,11 +754,11 @@ def test_pagination_with_max_items(langfuse_client):
         with langfuse_client.start_as_current_span(
             name=f"pagination-test-{create_uuid()}"
         ) as span:
-            span.update_trace(
-                input=f"Input {i}",
-                output=f"Output {i}",
-                tags=["pagination_test"],
-            )
+            with propagate_attributes(tags=["pagination_test"]):
+                span.set_trace_io(
+                    input=f"Input {i}",
+                    output=f"Output {i}",
+                )
 
     langfuse_client.flush()
     time.sleep(3)
@@ -784,11 +784,11 @@ def test_has_more_items_flag(langfuse_client):
     batch_tag = f"batch-test-{create_uuid()}"
     for i in range(15):
         with langfuse_client.start_as_current_span(name=f"more-items-test-{i}") as span:
-            span.update_trace(
-                input=f"Input {i}",
-                output=f"Output {i}",
-                tags=[batch_tag],
-            )
+            with propagate_attributes(tags=[batch_tag]):
+                span.set_trace_io(
+                    input=f"Input {i}",
+                    output=f"Output {i}",
+                )
 
     langfuse_client.flush()
     time.sleep(3)
