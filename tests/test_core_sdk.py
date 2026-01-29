@@ -672,11 +672,10 @@ def test_score_trace():
     trace = api_wrapper.get_trace(trace_id)
 
     assert trace["name"] == trace_name
-    assert len(trace["scores"]) == 1
 
-    score = trace["scores"][0]
-
-    assert score["name"] == "valuation"
+    # Find the score we created by name (server may create additional auto-scores)
+    score = next((s for s in trace["scores"] if s["name"] == "valuation"), None)
+    assert score is not None
     assert score["value"] == 0.5
     assert score["comment"] == "This is a comment"
     assert score["observationId"] is None
@@ -709,11 +708,10 @@ def test_score_trace_nested_trace():
     trace = get_api().trace.get(trace_id)
 
     assert trace.name == trace_name
-    assert len(trace.scores) == 1
 
-    score = trace.scores[0]
-
-    assert score.name == "valuation"
+    # Find the score we created by name (server may create additional auto-scores)
+    score = next((s for s in trace.scores if s.name == "valuation"), None)
+    assert score is not None
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id is None  # API returns this field name
@@ -753,11 +751,10 @@ def test_score_trace_nested_observation():
     trace = get_api().trace.get(trace_id)
 
     assert trace.name == trace_name
-    assert len(trace.scores) == 1
 
-    score = trace.scores[0]
-
-    assert score.name == "valuation"
+    # Find the score we created by name (server may create additional auto-scores)
+    score = next((s for s in trace.scores if s.name == "valuation"), None)
+    assert score is not None
     assert score.value == 0.5
     assert score.comment == "This is a comment"
     assert score.observation_id == child_span_id  # API returns this field name
@@ -799,12 +796,11 @@ def test_score_span():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert len(trace["scores"]) == 1
     assert len(trace["observations"]) == 1
 
-    score = trace["scores"][0]
-
-    assert score["name"] == "valuation"
+    # Find the score we created by name (server may create additional auto-scores)
+    score = next((s for s in trace["scores"] if s["name"] == "valuation"), None)
+    assert score is not None
     assert score["value"] == 1
     assert score["comment"] == "This is a comment"
     assert score["observationId"] == span_id

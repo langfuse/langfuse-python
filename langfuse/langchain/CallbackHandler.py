@@ -996,6 +996,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         finally:
             self._updated_completion_start_time_memo.discard(run_id)
 
+            if parent_run_id is None:
+                self._reset()
+
     def on_llm_error(
         self,
         error: BaseException,
