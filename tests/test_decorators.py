@@ -385,8 +385,7 @@ def test_decorators_langchain():
     def level_3_function(*args, **kwargs):
         langfuse.update_current_span(metadata=mock_metadata)
         langfuse.update_current_span(metadata=mock_deep_metadata)
-        with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
-            return langchain_operations(*args, **kwargs)
+        return langchain_operations(*args, **kwargs)
 
     @observe()
     def level_2_function(*args, **kwargs):
@@ -398,7 +397,8 @@ def test_decorators_langchain():
     def level_1_function(*args, **kwargs):
         return level_2_function(*args, **kwargs)
 
-    level_1_function(topic="socks", langfuse_trace_id=mock_trace_id)
+    with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
+        level_1_function(topic="socks", langfuse_trace_id=mock_trace_id)
 
     langfuse.flush()
 
