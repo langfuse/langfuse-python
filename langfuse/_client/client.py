@@ -84,10 +84,13 @@ from langfuse.api import (
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
+    DatasetRunWithItems,
     DatasetStatus,
+    DeleteDatasetRunResponse,
     Error,
     MapValue,
     NotFoundError,
+    PaginatedDatasetRuns,
     Prompt_Chat,
     Prompt_Text,
     ScoreBody,
@@ -2215,10 +2218,13 @@ class Langfuse:
             DatasetRunWithItems: The dataset run with its items.
         """
         try:
-            return self.api.datasets.get_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(run_name),
-                request_options=None,
+            return cast(
+                DatasetRunWithItems,
+                self.api.datasets.get_run(
+                    dataset_name=self._url_encode(dataset_name),
+                    run_name=self._url_encode(run_name),
+                    request_options=None,
+                ),
             )
         except Error as e:
             handle_fern_exception(e)
@@ -2242,11 +2248,14 @@ class Langfuse:
             PaginatedDatasetRuns: Paginated list of dataset runs.
         """
         try:
-            return self.api.datasets.get_runs(
-                dataset_name=self._url_encode(dataset_name),
-                page=page,
-                limit=limit,
-                request_options=None,
+            return cast(
+                PaginatedDatasetRuns,
+                self.api.datasets.get_runs(
+                    dataset_name=self._url_encode(dataset_name),
+                    page=page,
+                    limit=limit,
+                    request_options=None,
+                ),
             )
         except Error as e:
             handle_fern_exception(e)
@@ -2265,10 +2274,13 @@ class Langfuse:
             DeleteDatasetRunResponse: Confirmation of deletion.
         """
         try:
-            return self.api.datasets.delete_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(run_name),
-                request_options=None,
+            return cast(
+                DeleteDatasetRunResponse,
+                self.api.datasets.delete_run(
+                    dataset_name=self._url_encode(dataset_name),
+                    run_name=self._url_encode(run_name),
+                    request_options=None,
+                ),
             )
         except Error as e:
             handle_fern_exception(e)
