@@ -26,7 +26,7 @@ def test_callback_generated_from_trace_chat():
 
     trace_id = create_uuid()
 
-    with langfuse.start_as_current_span(name="parent") as span:
+    with langfuse.start_as_current_observation(name="parent") as span:
         trace_id = span.trace_id
         handler = CallbackHandler()
         chat = ChatOpenAI(temperature=0)
@@ -72,7 +72,7 @@ def test_callback_generated_from_trace_chat():
 def test_callback_generated_from_lcel_chain():
     langfuse = Langfuse()
 
-    with langfuse.start_as_current_span(name="parent") as span:
+    with langfuse.start_as_current_observation(name="parent") as span:
         trace_id = span.trace_id
         handler = CallbackHandler()
         prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
@@ -159,7 +159,7 @@ def test_basic_chat_openai():
 def test_callback_simple_openai():
     langfuse = Langfuse()
 
-    with langfuse.start_as_current_span(name="simple_openai_test") as span:
+    with langfuse.start_as_current_observation(name="simple_openai_test") as span:
         trace_id = span.trace_id
 
         # Create a unique name for this test
@@ -199,7 +199,9 @@ def test_callback_simple_openai():
 def test_callback_multiple_invocations_on_different_traces():
     langfuse = Langfuse()
 
-    with langfuse.start_as_current_span(name="multiple_invocations_test") as span:
+    with langfuse.start_as_current_observation(
+        name="multiple_invocations_test"
+    ) as span:
         trace_id = span.trace_id
 
         # Create unique names for each test
@@ -245,7 +247,9 @@ def test_callback_multiple_invocations_on_different_traces():
 def test_openai_instruct_usage():
     langfuse = Langfuse()
 
-    with langfuse.start_as_current_span(name="openai_instruct_usage_test") as span:
+    with langfuse.start_as_current_observation(
+        name="openai_instruct_usage_test"
+    ) as span:
         trace_id = span.trace_id
         from langchain_core.output_parsers.string import StrOutputParser
         from langchain_core.runnables import Runnable
@@ -437,7 +441,7 @@ def test_link_langfuse_prompts_invoke():
     # Run chain
     langfuse_handler = CallbackHandler()
 
-    with langfuse.start_as_current_span(name=trace_name) as span:
+    with langfuse.start_as_current_observation(name=trace_name) as span:
         trace_id = span.trace_id
         chain.invoke(
             {"animal": "dog"},
@@ -520,7 +524,7 @@ def test_link_langfuse_prompts_stream():
     # Run chain
     langfuse_handler = CallbackHandler()
 
-    with langfuse.start_as_current_span(name=trace_name) as span:
+    with langfuse.start_as_current_observation(name=trace_name) as span:
         trace_id = span.trace_id
         stream = chain.stream(
             {"animal": "dog"},
@@ -610,7 +614,7 @@ def test_link_langfuse_prompts_batch():
     # Run chain
     langfuse_handler = CallbackHandler()
 
-    with langfuse.start_as_current_span(name=trace_name) as span:
+    with langfuse.start_as_current_observation(name=trace_name) as span:
         trace_id = span.trace_id
         chain.batch(
             [{"animal": "dog"}, {"animal": "cat"}, {"animal": "elephant"}],
@@ -743,7 +747,7 @@ def test_callback_openai_functions_with_tools():
         }
     ]
 
-    with handler.client.start_as_current_span(
+    with handler.client.start_as_current_observation(
         name="test_callback_openai_functions_with_tools"
     ) as span:
         trace_id = span.trace_id
@@ -806,7 +810,7 @@ def test_langfuse_overhead():
     handler = CallbackHandler()
     langfuse = Langfuse()
 
-    with langfuse.start_as_current_span(name="test_langfuse_overhead"):
+    with langfuse.start_as_current_observation(name="test_langfuse_overhead"):
         test_chain.invoke(inputs, config={"callbacks": [handler]})
 
     duration_with_langfuse = (time.monotonic() - start) * 1000
@@ -842,7 +846,7 @@ def test_multimodal():
         ],
     )
 
-    with handler.client.start_as_current_span(name="test_multimodal") as span:
+    with handler.client.start_as_current_observation(name="test_multimodal") as span:
         trace_id = span.trace_id
         model.invoke([message], config={"callbacks": [handler]})
 
@@ -931,7 +935,7 @@ def test_langgraph():
     handler = CallbackHandler()
 
     # Use the Runnable
-    with handler.client.start_as_current_span(name="test_langgraph") as span:
+    with handler.client.start_as_current_observation(name="test_langgraph") as span:
         trace_id = span.trace_id
         final_state = app.invoke(
             {"messages": [HumanMessage(content="what is the weather in sf")]},

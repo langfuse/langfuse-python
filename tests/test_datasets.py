@@ -29,7 +29,7 @@ def test_create_dataset_item():
     name = create_uuid()
     langfuse.create_dataset(name=name)
 
-    generation = langfuse.start_generation(name="test").end()
+    generation = langfuse.start_observation(as_type="generation", name="test").end()
     langfuse.flush()
 
     input = {"input": "Hello World"}

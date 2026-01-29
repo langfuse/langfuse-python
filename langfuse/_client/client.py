@@ -8,7 +8,6 @@ import logging
 import os
 import re
 import urllib.parse
-import warnings
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
@@ -175,7 +174,7 @@ class Langfuse:
         )
 
         # Create a trace span
-        with langfuse.start_as_current_span(name="process-query") as span:
+        with langfuse.start_as_current_observation(name="process-query") as span:
             # Your application code here
 
             # Create a nested generation span for an LLM call
@@ -312,121 +311,6 @@ class Langfuse:
         )
         self.api = self._resources.api
         self.async_api = self._resources.async_api
-
-    def start_span(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ) -> LangfuseSpan:
-        """Create a new span for tracing a unit of work.
-
-        This method creates a new span but does not set it as the current span in the
-        context. To create and use a span within a context, use start_as_current_span().
-
-        The created span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation (can be any JSON-serializable object)
-            output: Output data from the operation (can be any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-
-        Returns:
-            A LangfuseSpan object that must be ended with .end() when the operation completes
-
-        Example:
-            ```python
-            span = langfuse.start_span(name="process-data")
-            try:
-                # Do work
-                span.update(output="result")
-            finally:
-                span.end()
-            ```
-        """
-        return self.start_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
-    def start_as_current_span(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[LangfuseSpan]:
-        """Create a new span and set it as the current span in a context manager.
-
-        This method creates a new span and sets it as the current span within a context
-        manager. Use this method with a 'with' statement to automatically handle span
-        lifecycle within a code block.
-
-        The created span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation (can be any JSON-serializable object)
-            output: Output data from the operation (can be any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
-
-        Returns:
-            A context manager that yields a LangfuseSpan
-
-        Example:
-            ```python
-            with langfuse.start_as_current_span(name="process-query") as span:
-                # Do work
-                result = process_data()
-                span.update(output=result)
-
-                # Create a child span automatically
-                with span.start_as_current_span(name="sub-operation") as child_span:
-                    # Do sub-operation work
-                    child_span.update(output="sub-result")
-            ```
-        """
-        return self.start_as_current_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            end_on_exit=end_on_exit,
-        )
 
     @overload
     def start_observation(
@@ -750,196 +634,6 @@ class Langfuse:
             # span._otel_span.set_attribute("langfuse.observation.type", as_type)
             # return span
 
-    def start_generation(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ) -> LangfuseGeneration:
-        """Create a new generation span for model generations.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_observation(as_type='generation') instead.
-
-        This method creates a specialized span for tracking model generations.
-        It includes additional fields specific to model generations such as model name,
-        token usage, and cost details.
-
-        The created generation span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-
-        Returns:
-            A LangfuseGeneration object that must be ended with .end() when complete
-
-        Example:
-            ```python
-            generation = langfuse.start_generation(
-                name="answer-generation",
-                model="gpt-4",
-                input={"prompt": "Explain quantum computing"},
-                model_parameters={"temperature": 0.7}
-            )
-            try:
-                # Call model API
-                response = llm.generate(...)
-
-                generation.update(
-                    output=response.text,
-                    usage_details={
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens
-                    }
-                )
-            finally:
-                generation.end()
-            ```
-        """
-        warnings.warn(
-            "start_generation is deprecated and will be removed in a future version. "
-            "Use start_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
-    def start_as_current_generation(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-        end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """Create a new generation span and set it as the current span in a context manager.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_as_current_observation(as_type='generation') instead.
-
-        This method creates a specialized span for model generations and sets it as the
-        current span within a context manager. Use this method with a 'with' statement to
-        automatically handle the generation span lifecycle within a code block.
-
-        The created generation span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
-
-        Returns:
-            A context manager that yields a LangfuseGeneration
-
-        Example:
-            ```python
-            with langfuse.start_as_current_generation(
-                name="answer-generation",
-                model="gpt-4",
-                input={"prompt": "Explain quantum computing"}
-            ) as generation:
-                # Call model API
-                response = llm.generate(...)
-
-                # Update with results
-                generation.update(
-                    output=response.text,
-                    usage_details={
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens
-                    }
-                )
-            ```
-        """
-        warnings.warn(
-            "start_as_current_generation is deprecated and will be removed in a future version. "
-            "Use start_as_current_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_as_current_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-            end_on_exit=end_on_exit,
-        )
-
     @overload
     def start_as_current_observation(
         self,
@@ -1166,7 +860,7 @@ class Langfuse:
                 span.update(output=result)
 
                 # Create a child span automatically
-                with span.start_as_current_span(name="sub-operation") as child_span:
+                with span.start_as_current_observation(name="sub-operation") as child_span:
                     # Do sub-operation work
                     child_span.update(output="sub-result")
 
@@ -1474,7 +1168,7 @@ class Langfuse:
         if current_span is otel_trace_api.INVALID_SPAN:
             langfuse_logger.warning(
                 "Context error: No active span in current context. Operations that depend on an active span will be skipped. "
-                "Ensure spans are created with start_as_current_span() or that you're operating within an active span context."
+                "Ensure spans are created with start_as_current_observation() or that you're operating within an active span context."
             )
             return None
 
@@ -1593,7 +1287,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-data") as span:
+            with langfuse.start_as_current_observation(name="process-data") as span:
                 # Initial processing
                 result = process_first_part()
 
@@ -1923,7 +1617,7 @@ class Langfuse:
             correlated_trace_id = langfuse.create_trace_id(seed=external_id)
 
             # Use the ID with trace context
-            with langfuse.start_as_current_span(
+            with langfuse.start_as_current_observation(
                 name="process-request",
                 trace_context={"trace_id": trace_id}
             ) as span:
@@ -2258,7 +1952,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-user-request") as span:
+            with langfuse.start_as_current_observation(name="process-user-request") as span:
                 # Process request
                 result = process_complete_request()
                 span.update(output=result)
@@ -2303,7 +1997,7 @@ class Langfuse:
         Example:
             ```python
             # Record some spans and scores
-            with langfuse.start_as_current_span(name="operation") as span:
+            with langfuse.start_as_current_observation(name="operation") as span:
                 # Do work...
                 pass
 
@@ -2354,7 +2048,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-request") as span:
+            with langfuse.start_as_current_observation(name="process-request") as span:
                 # Get the current trace ID for reference
                 trace_id = langfuse.get_current_trace_id()
 
@@ -2388,7 +2082,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-user-query") as span:
+            with langfuse.start_as_current_observation(name="process-user-query") as span:
                 # Get the current observation ID
                 observation_id = langfuse.get_current_observation_id()
 
@@ -2436,7 +2130,7 @@ class Langfuse:
         Example:
             ```python
             # Get URL for the current trace
-            with langfuse.start_as_current_span(name="process-request") as span:
+            with langfuse.start_as_current_observation(name="process-request") as span:
                 trace_url = langfuse.get_trace_url()
                 log.info(f"Processing trace: {trace_url}")
 
@@ -2901,7 +2595,7 @@ class Langfuse:
     ) -> ExperimentItemResult:
         span_name = "experiment-item-run"
 
-        with self.start_as_current_span(name=span_name) as span:
+        with self.start_as_current_observation(name=span_name) as span:
             try:
                 input_data = (
                     item.get("input")

@@ -655,8 +655,11 @@ def test_prompt_end_to_end():
     assert prompt_str == "Hello, world! I hope you are great."
     assert prompt.config == {"temperature": 0.5}
 
-    generation = langfuse.start_generation(
-        name="mygen", input=prompt_str, prompt=prompt
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="mygen",
+        input=prompt_str,
+        prompt=prompt,
     ).end()
 
     # to check that these do not error
@@ -1341,8 +1344,11 @@ def test_do_not_link_observation_if_fallback():
 
     prompt = langfuse.get_prompt("nonexistent_prompt", fallback=fallback_text_prompt)
 
-    generation = langfuse.start_generation(
-        name="mygen", prompt=prompt, input="this is a test input"
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="mygen",
+        prompt=prompt,
+        input="this is a test input",
     ).end()
     langfuse.flush()
 

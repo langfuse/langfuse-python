@@ -81,12 +81,12 @@ class TestPropagateAttributesBasic(TestPropagateAttributesBase):
 
     def test_user_id_propagates_to_child_spans(self, langfuse_client, memory_exporter):
         """Verify user_id propagates to all child spans within context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="test_user_123"):
-                child1 = langfuse_client.start_span(name="child-span-1")
+                child1 = langfuse_client.start_observation(name="child-span-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-span-2")
+                child2 = langfuse_client.start_observation(name="child-span-2")
                 child2.end()
 
         # Verify both children have user_id
@@ -108,12 +108,12 @@ class TestPropagateAttributesBasic(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify session_id propagates to all child spans within context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(session_id="session_abc"):
-                child1 = langfuse_client.start_span(name="child-span-1")
+                child1 = langfuse_client.start_observation(name="child-span-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-span-2")
+                child2 = langfuse_client.start_observation(name="child-span-2")
                 child2.end()
 
         # Verify both children have session_id
@@ -133,14 +133,14 @@ class TestPropagateAttributesBasic(TestPropagateAttributesBase):
 
     def test_metadata_propagates_to_child_spans(self, langfuse_client, memory_exporter):
         """Verify metadata propagates to all child spans within context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={"experiment": "variant_a", "version": "1.0"}
             ):
-                child1 = langfuse_client.start_span(name="child-span-1")
+                child1 = langfuse_client.start_observation(name="child-span-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-span-2")
+                child2 = langfuse_client.start_observation(name="child-span-2")
                 child2.end()
 
         # Verify both children have metadata
@@ -170,13 +170,13 @@ class TestPropagateAttributesBasic(TestPropagateAttributesBase):
 
     def test_all_attributes_propagate_together(self, langfuse_client, memory_exporter):
         """Verify user_id, session_id, and metadata all propagate together."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 metadata={"experiment": "test", "env": "prod"},
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has all attributes
@@ -204,15 +204,15 @@ class TestPropagateAttributesHierarchy(TestPropagateAttributesBase):
 
     def test_propagation_to_direct_children(self, langfuse_client, memory_exporter):
         """Verify attributes propagate to all direct children."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user_123"):
-                child1 = langfuse_client.start_span(name="child-1")
+                child1 = langfuse_client.start_observation(name="child-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-2")
+                child2 = langfuse_client.start_observation(name="child-2")
                 child2.end()
 
-                child3 = langfuse_client.start_span(name="child-3")
+                child3 = langfuse_client.start_observation(name="child-3")
                 child3.end()
 
         # Verify all three children have user_id
@@ -224,10 +224,12 @@ class TestPropagateAttributesHierarchy(TestPropagateAttributesBase):
 
     def test_propagation_to_grandchildren(self, langfuse_client, memory_exporter):
         """Verify attributes propagate through multiple levels of nesting."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user_123", session_id="session_abc"):
-                with langfuse_client.start_as_current_span(name="child-span"):
-                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                with langfuse_client.start_as_current_observation(name="child-span"):
+                    grandchild = langfuse_client.start_observation(
+                        name="grandchild-span"
+                    )
                     grandchild.end()
 
         # Verify all three levels have attributes
@@ -247,10 +249,10 @@ class TestPropagateAttributesHierarchy(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify attributes propagate to different observation types."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user_123"):
                 # Create span
-                span = langfuse_client.start_span(name="test-span")
+                span = langfuse_client.start_observation(name="test-span")
                 span.end()
 
                 # Create generation
@@ -278,16 +280,16 @@ class TestPropagateAttributesTiming(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify setting attributes early covers all child spans."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             # Set attributes BEFORE creating any children
             with propagate_attributes(user_id="user_123"):
-                child1 = langfuse_client.start_span(name="child-1")
+                child1 = langfuse_client.start_observation(name="child-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-2")
+                child2 = langfuse_client.start_observation(name="child-2")
                 child2.end()
 
-                child3 = langfuse_client.start_span(name="child-3")
+                child3 = langfuse_client.start_observation(name="child-3")
                 child3.end()
 
         # Verify ALL children have user_id
@@ -301,15 +303,15 @@ class TestPropagateAttributesTiming(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify late propagation only affects spans created after context entry."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             # Create child1 BEFORE propagate_attributes
-            child1 = langfuse_client.start_span(name="child-1")
+            child1 = langfuse_client.start_observation(name="child-1")
             child1.end()
 
             # NOW set attributes
             with propagate_attributes(user_id="user_123"):
                 # Create child2 AFTER propagate_attributes
-                child2 = langfuse_client.start_span(name="child-2")
+                child2 = langfuse_client.start_observation(name="child-2")
                 child2.end()
 
         # Verify: child1 does NOT have user_id, child2 DOES
@@ -325,7 +327,7 @@ class TestPropagateAttributesTiming(TestPropagateAttributesBase):
 
     def test_current_span_gets_attributes(self, langfuse_client, memory_exporter):
         """Verify the currently active span gets attributes when propagate_attributes is called."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             # Call propagate_attributes while parent-span is active
             with propagate_attributes(user_id="user_123"):
                 pass
@@ -338,18 +340,18 @@ class TestPropagateAttributesTiming(TestPropagateAttributesBase):
 
     def test_spans_outside_context_unaffected(self, langfuse_client, memory_exporter):
         """Verify spans created outside context don't get attributes."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             # Span before context
-            span1 = langfuse_client.start_span(name="span-1")
+            span1 = langfuse_client.start_observation(name="span-1")
             span1.end()
 
             # Span inside context
             with propagate_attributes(user_id="user_123"):
-                span2 = langfuse_client.start_span(name="span-2")
+                span2 = langfuse_client.start_observation(name="span-2")
                 span2.end()
 
             # Span after context
-            span3 = langfuse_client.start_span(name="span-3")
+            span3 = langfuse_client.start_observation(name="span-3")
             span3.end()
 
         # Verify: only span2 has user_id
@@ -376,9 +378,9 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         """Verify user_id over 200 characters is dropped with warning."""
         long_user_id = "x" * 201
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id=long_user_id):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have user_id
@@ -391,9 +393,9 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         """Verify session_id over 200 characters is dropped with warning."""
         long_session_id = "y" * 201
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(session_id=long_session_id):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have session_id
@@ -406,9 +408,9 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify metadata values over 200 characters are dropped with warning."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={"key": "z" * 201}):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have metadata.key
@@ -421,9 +423,9 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         """Verify exactly 200 characters is accepted (boundary test)."""
         user_id_200 = "x" * 200
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id=user_id_200):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child HAS user_id
@@ -436,9 +438,9 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         """Verify 201 characters is rejected (boundary test)."""
         user_id_201 = "x" * 201
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id=user_id_201):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have user_id
@@ -449,9 +451,9 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
     def test_non_string_user_id_dropped(self, langfuse_client, memory_exporter):
         """Verify non-string user_id is dropped with warning."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id=12345):  # type: ignore
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have user_id
@@ -462,7 +464,7 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={
                     "valid_key": "valid_value",
@@ -470,7 +472,7 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
                     "another_valid": "ok",
                 }
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify: valid keys present, invalid key absent
@@ -495,15 +497,15 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
 
     def test_nested_contexts_inner_overwrites(self, langfuse_client, memory_exporter):
         """Verify inner context overwrites outer context values."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user1"):
                 # Create span in outer context
-                span1 = langfuse_client.start_span(name="span-1")
+                span1 = langfuse_client.start_observation(name="span-1")
                 span1.end()
 
                 # Inner context with different user_id
                 with propagate_attributes(user_id="user2"):
-                    span2 = langfuse_client.start_span(name="span-2")
+                    span2 = langfuse_client.start_observation(name="span-2")
                     span2.end()
 
         # Verify: span1 has user1, span2 has user2
@@ -519,19 +521,19 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
 
     def test_after_inner_context_outer_restored(self, langfuse_client, memory_exporter):
         """Verify outer context is restored after exiting inner context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user1"):
                 # Span in outer context
-                span1 = langfuse_client.start_span(name="span-1")
+                span1 = langfuse_client.start_observation(name="span-1")
                 span1.end()
 
                 # Inner context
                 with propagate_attributes(user_id="user2"):
-                    span2 = langfuse_client.start_span(name="span-2")
+                    span2 = langfuse_client.start_observation(name="span-2")
                     span2.end()
 
                 # Back to outer context
-                span3 = langfuse_client.start_span(name="span-3")
+                span3 = langfuse_client.start_observation(name="span-3")
                 span3.end()
 
         # Verify: span1 and span3 have user1, span2 has user2
@@ -552,11 +554,11 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
 
     def test_nested_different_attributes(self, langfuse_client, memory_exporter):
         """Verify nested contexts with different attributes merge correctly."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user1"):
                 # Inner context adds session_id
                 with propagate_attributes(session_id="session1"):
-                    span = langfuse_client.start_span(name="span-1")
+                    span = langfuse_client.start_observation(name="span-1")
                     span.end()
 
         # Verify: span has BOTH user_id and session_id
@@ -570,21 +572,21 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
 
     def test_nested_metadata_merges_additively(self, langfuse_client, memory_exporter):
         """Verify nested contexts merge metadata keys additively."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={"env": "prod", "region": "us-east"}):
                 # Outer span should have outer metadata
-                outer_span = langfuse_client.start_span(name="outer-span")
+                outer_span = langfuse_client.start_observation(name="outer-span")
                 outer_span.end()
 
                 # Inner context adds more metadata
                 with propagate_attributes(
                     metadata={"experiment": "A", "version": "2.0"}
                 ):
-                    inner_span = langfuse_client.start_span(name="inner-span")
+                    inner_span = langfuse_client.start_observation(name="inner-span")
                     inner_span.end()
 
                 # Back to outer context
-                after_span = langfuse_client.start_span(name="after-span")
+                after_span = langfuse_client.start_observation(name="after-span")
                 after_span.end()
 
         # Verify: outer span has only outer metadata
@@ -646,7 +648,7 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify nested contexts: inner metadata overwrites outer for same keys."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={"env": "staging", "version": "1.0", "region": "us-west"}
             ):
@@ -654,7 +656,7 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
                 with propagate_attributes(
                     metadata={"env": "production", "experiment": "B"}
                 ):
-                    span = langfuse_client.start_span(name="span-1")
+                    span = langfuse_client.start_observation(name="span-1")
                     span.end()
 
         # Verify: inner values overwrite outer for conflicting keys
@@ -688,11 +690,11 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
 
     def test_triple_nested_metadata_accumulates(self, langfuse_client, memory_exporter):
         """Verify metadata accumulates across three levels of nesting."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={"level": "1", "a": "outer"}):
                 with propagate_attributes(metadata={"level": "2", "b": "middle"}):
                     with propagate_attributes(metadata={"level": "3", "c": "inner"}):
-                        span = langfuse_client.start_span(name="deep-span")
+                        span = langfuse_client.start_observation(name="deep-span")
                         span.end()
 
         # Verify: deepest span has all metadata with innermost level winning
@@ -724,11 +726,11 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
 
     def test_metadata_merge_with_empty_inner(self, langfuse_client, memory_exporter):
         """Verify empty inner metadata dict doesn't clear outer metadata."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={"key1": "value1", "key2": "value2"}):
                 # Inner context with empty metadata
                 with propagate_attributes(metadata={}):
-                    span = langfuse_client.start_span(name="span-1")
+                    span = langfuse_client.start_observation(name="span-1")
                     span.end()
 
         # Verify: outer metadata is preserved
@@ -748,14 +750,14 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify metadata merging doesn't affect user_id/session_id."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 user_id="user1",
                 session_id="session1",
                 metadata={"outer": "value"},
             ):
                 with propagate_attributes(metadata={"inner": "value"}):
-                    span = langfuse_client.start_span(name="span-1")
+                    span = langfuse_client.start_observation(name="span-1")
                     span.end()
 
         # Verify: user_id and session_id are preserved, metadata merged
@@ -783,9 +785,9 @@ class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
 
     def test_propagate_attributes_with_no_args(self, langfuse_client, memory_exporter):
         """Verify calling propagate_attributes() with no args doesn't error."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes():
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Should not crash, spans created normally
@@ -794,9 +796,9 @@ class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
 
     def test_none_values_ignored(self, langfuse_client, memory_exporter):
         """Verify None values are ignored without error."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id=None, session_id=None, metadata=None):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Should not crash, no attributes set
@@ -810,9 +812,9 @@ class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
 
     def test_empty_metadata_dict(self, langfuse_client, memory_exporter):
         """Verify empty metadata dict doesn't cause errors."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={}):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Should not crash, no metadata attributes set
@@ -821,14 +823,14 @@ class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
 
     def test_all_invalid_metadata_values(self, langfuse_client, memory_exporter):
         """Verify all invalid metadata values results in no metadata attributes."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={
                     "key1": "x" * 201,  # Too long
                     "key2": "y" * 201,  # Too long
                 }
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # No metadata attributes should be set
@@ -845,7 +847,7 @@ class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
         # Call propagate_attributes without creating a parent span first
         with propagate_attributes(user_id="user_123"):
             # Now create a span
-            with langfuse_client.start_as_current_span(name="span-1"):
+            with langfuse_client.start_as_current_observation(name="span-1"):
                 pass
 
         # Should not crash, span should have user_id
@@ -862,9 +864,9 @@ class TestPropagateAttributesFormat(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify user_id uses the correct OTel attribute name."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(user_id="user_123"):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -879,9 +881,9 @@ class TestPropagateAttributesFormat(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify session_id uses the correct OTel attribute name."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(session_id="session_abc"):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -894,11 +896,11 @@ class TestPropagateAttributesFormat(TestPropagateAttributesBase):
 
     def test_metadata_keys_properly_prefixed(self, langfuse_client, memory_exporter):
         """Verify metadata keys are properly prefixed with TRACE_METADATA."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={"experiment": "A", "version": "1.0", "env": "prod"}
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -916,9 +918,9 @@ class TestPropagateAttributesFormat(TestPropagateAttributesBase):
 
     def test_multiple_metadata_keys_independent(self, langfuse_client, memory_exporter):
         """Verify multiple metadata keys are stored as independent attributes."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={"k1": "v1", "k2": "v2", "k3": "v3"}):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -948,11 +950,11 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
 
         def worker_function(span_name: str):
             """Worker creates a span in thread pool."""
-            span = langfuse_client.start_span(name=span_name)
+            span = langfuse_client.start_observation(name=span_name)
             span.end()
             return span_name
 
-        with langfuse_client.start_as_current_span(name="main-span"):
+        with langfuse_client.start_as_current_observation(name="main-span"):
             with propagate_attributes(user_id="main_user", session_id="main_session"):
                 # Execute work in thread pool
                 with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
@@ -983,9 +985,9 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
 
         def create_trace_with_user(user_id: str):
             """Create a trace with specific user_id."""
-            with langfuse_client.start_as_current_span(name=f"trace-{user_id}"):
+            with langfuse_client.start_as_current_observation(name=f"trace-{user_id}"):
                 with propagate_attributes(user_id=user_id):
-                    span = langfuse_client.start_span(name=f"span-{user_id}")
+                    span = langfuse_client.start_observation(name=f"span-{user_id}")
                     span.end()
 
         # Run two traces concurrently with different user_ids
@@ -1012,13 +1014,13 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
 
         def worker_creates_child():
             """Worker thread creates a child span."""
-            child = langfuse_client.start_span(name="worker-child-span")
+            child = langfuse_client.start_observation(name="worker-child-span")
             child.end()
 
-        with langfuse_client.start_as_current_span(name="main-parent-span"):
+        with langfuse_client.start_as_current_observation(name="main-parent-span"):
             with propagate_attributes(user_id="main_user"):
                 # Create span in main thread
-                main_child = langfuse_client.start_span(name="main-child-span")
+                main_child = langfuse_client.start_observation(name="main-child-span")
                 main_child.end()
 
                 # Create span in worker thread
@@ -1045,13 +1047,13 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
         def worker_overrides_user():
             """Worker thread sets its own user_id."""
             with propagate_attributes(user_id="worker_user"):
-                span = langfuse_client.start_span(name="worker-span")
+                span = langfuse_client.start_observation(name="worker-span")
                 span.end()
 
-        with langfuse_client.start_as_current_span(name="main-span"):
+        with langfuse_client.start_as_current_observation(name="main-span"):
             with propagate_attributes(user_id="main_user"):
                 # Create span in main thread
-                main_span = langfuse_client.start_span(name="main-child-span")
+                main_span = langfuse_client.start_observation(name="main-child-span")
                 main_span.end()
 
                 # Worker overrides with its own user_id
@@ -1077,10 +1079,10 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
 
         def worker_function(worker_id: int):
             """Worker creates a span."""
-            span = langfuse_client.start_span(name=f"worker-{worker_id}")
+            span = langfuse_client.start_observation(name=f"worker-{worker_id}")
             span.end()
 
-        with langfuse_client.start_as_current_span(name="main-span"):
+        with langfuse_client.start_as_current_observation(name="main-span"):
             with propagate_attributes(session_id="shared_session"):
                 # Submit 5 workers
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -1103,9 +1105,9 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
 
         def create_trace(trace_id: int):
             """Create a trace with unique user_id."""
-            with langfuse_client.start_as_current_span(name=f"trace-{trace_id}"):
+            with langfuse_client.start_as_current_observation(name=f"trace-{trace_id}"):
                 with propagate_attributes(user_id=f"user_{trace_id}"):
-                    span = langfuse_client.start_span(name=f"span-{trace_id}")
+                    span = langfuse_client.start_observation(name=f"span-{trace_id}")
                     span.end()
 
         # Create 10 traces concurrently
@@ -1127,14 +1129,14 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
 
         def worker_raises_exception():
             """Worker creates span then raises exception."""
-            span = langfuse_client.start_span(name="worker-span")
+            span = langfuse_client.start_observation(name="worker-span")
             span.end()
             raise ValueError("Test exception")
 
-        with langfuse_client.start_as_current_span(name="main-span"):
+        with langfuse_client.start_as_current_observation(name="main-span"):
             with propagate_attributes(user_id="main_user"):
                 # Create span before worker
-                span1 = langfuse_client.start_span(name="span-before")
+                span1 = langfuse_client.start_observation(name="span-before")
                 span1.end()
 
                 # Worker raises exception (catch it)
@@ -1146,7 +1148,7 @@ class TestPropagateAttributesThreading(TestPropagateAttributesBase):
                         pass  # Expected
 
                 # Create span after exception
-                span2 = langfuse_client.start_span(name="span-after")
+                span2 = langfuse_client.start_observation(name="span-after")
                 span2.end()
 
         # Verify both main thread spans still have correct user_id
@@ -1171,14 +1173,16 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         # Get a different tracer (not the Langfuse tracer)
         other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
 
-        with langfuse_client.start_as_current_span(name="langfuse-parent"):
+        with langfuse_client.start_as_current_observation(name="langfuse-parent"):
             with propagate_attributes(user_id="user_123", session_id="session_abc"):
                 # Create span with Langfuse tracer
-                langfuse_span = langfuse_client.start_span(name="langfuse-child")
+                langfuse_span = langfuse_client.start_observation(name="langfuse-child")
                 langfuse_span.end()
 
                 # Create span with different tracer
-                with other_tracer.start_as_current_span(name="other-library-span"):
+                with other_tracer.start_as_current_observation(
+                    name="other-library-span"
+                ):
                     pass
 
         # Verify both spans have the propagated attributes
@@ -1213,14 +1217,16 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         tracer_a = tracer_provider.get_tracer("library-a", "1.0.0")
         tracer_b = tracer_provider.get_tracer("library-b", "2.0.0")
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(
                 user_id="user_123", metadata={"experiment": "cross_tracer"}
             ):
                 # Create nested spans from different tracers
-                with tracer_a.start_as_current_span(name="library-a-span"):
-                    with tracer_b.start_as_current_span(name="library-b-span"):
-                        langfuse_leaf = langfuse_client.start_span(name="langfuse-leaf")
+                with tracer_a.start_as_current_observation(name="library-a-span"):
+                    with tracer_b.start_as_current_observation(name="library-b-span"):
+                        langfuse_leaf = langfuse_client.start_observation(
+                            name="langfuse-leaf"
+                        )
                         langfuse_leaf.end()
 
         # Verify all spans have the attributes
@@ -1243,15 +1249,15 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         """Verify spans created before propagate_attributes don't get attributes."""
         other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             # Create span BEFORE propagate_attributes
-            with other_tracer.start_as_current_span(name="span-before"):
+            with other_tracer.start_as_current_observation(name="span-before"):
                 pass
 
             # NOW set attributes
             with propagate_attributes(user_id="user_123"):
                 # Create span AFTER propagate_attributes
-                with other_tracer.start_as_current_span(name="span-after"):
+                with other_tracer.start_as_current_observation(name="span-after"):
                     pass
 
         # Verify: span-before does NOT have user_id, span-after DOES
@@ -1271,7 +1277,7 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         """Verify metadata propagates correctly to spans from different tracers."""
         other_tracer = tracer_provider.get_tracer("instrumented-library", "1.0.0")
 
-        with langfuse_client.start_as_current_span(name="main"):
+        with langfuse_client.start_as_current_observation(name="main"):
             with propagate_attributes(
                 metadata={
                     "env": "production",
@@ -1280,10 +1286,14 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
                 }
             ):
                 # Create spans from both tracers
-                langfuse_span = langfuse_client.start_span(name="langfuse-operation")
+                langfuse_span = langfuse_client.start_observation(
+                    name="langfuse-operation"
+                )
                 langfuse_span.end()
 
-                with other_tracer.start_as_current_span(name="library-operation"):
+                with other_tracer.start_as_current_observation(
+                    name="library-operation"
+                ):
                     pass
 
         # Verify both spans have all metadata
@@ -1312,13 +1322,15 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
 
         # Parent span is from different tracer
-        with other_tracer.start_as_current_span(name="other-parent"):
+        with other_tracer.start_as_current_observation(name="other-parent"):
             with propagate_attributes(user_id="user_123", session_id="session_xyz"):
                 # Create children from both tracers
-                with other_tracer.start_as_current_span(name="other-child"):
+                with other_tracer.start_as_current_observation(name="other-child"):
                     pass
 
-                langfuse_child = langfuse_client.start_span(name="langfuse-child")
+                langfuse_child = langfuse_client.start_observation(
+                    name="langfuse-child"
+                )
                 langfuse_child.end()
 
         # Verify all spans have attributes (including non-Langfuse parent)
@@ -1343,17 +1355,17 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         tracer_2 = tracer_provider.get_tracer("library-2", "1.0.0")
         tracer_3 = tracer_provider.get_tracer("library-3", "1.0.0")
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(user_id="persistent_user"):
                 # Bounce between different tracers
-                with tracer_1.start_as_current_span(name="step-1"):
+                with tracer_1.start_as_current_observation(name="step-1"):
                     pass
 
-                with tracer_2.start_as_current_span(name="step-2"):
-                    with tracer_3.start_as_current_span(name="step-3"):
+                with tracer_2.start_as_current_observation(name="step-2"):
+                    with tracer_3.start_as_current_observation(name="step-3"):
                         pass
 
-                langfuse_span = langfuse_client.start_span(name="step-4")
+                langfuse_span = langfuse_client.start_observation(name="step-4")
                 langfuse_span.end()
 
         # Verify all steps have the user_id
@@ -1375,10 +1387,10 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
 
         async def async_operation():
             """Async function that creates a span."""
-            span = langfuse_client.start_span(name="async-span")
+            span = langfuse_client.start_observation(name="async-span")
             span.end()
 
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(user_id="async_user", session_id="async_session"):
                 await async_operation()
 
@@ -1396,20 +1408,20 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
         """Verify attributes propagate through nested async operations."""
 
         async def level_3():
-            span = langfuse_client.start_span(name="level-3-span")
+            span = langfuse_client.start_observation(name="level-3-span")
             span.end()
 
         async def level_2():
-            span = langfuse_client.start_span(name="level-2-span")
+            span = langfuse_client.start_observation(name="level-2-span")
             span.end()
             await level_3()
 
         async def level_1():
-            span = langfuse_client.start_span(name="level-1-span")
+            span = langfuse_client.start_observation(name="level-1-span")
             span.end()
             await level_2()
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(
                 user_id="nested_user", metadata={"level": "nested"}
             ):
@@ -1430,10 +1442,10 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
     @pytest.mark.asyncio
     async def test_async_context_manager(self, langfuse_client, memory_exporter):
         """Verify propagate_attributes works as context manager in async function."""
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             # propagate_attributes supports both sync and async contexts via regular 'with'
             with propagate_attributes(user_id="async_ctx_user"):
-                span = langfuse_client.start_span(name="inside-async-ctx")
+                span = langfuse_client.start_observation(name="inside-async-ctx")
                 span.end()
 
         span_data = self.get_span_by_name(memory_exporter, "inside-async-ctx")
@@ -1450,10 +1462,10 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
 
         async def create_trace_with_user(user_id: str):
             """Create a trace with specific user_id."""
-            with langfuse_client.start_as_current_span(name=f"trace-{user_id}"):
+            with langfuse_client.start_as_current_observation(name=f"trace-{user_id}"):
                 with propagate_attributes(user_id=user_id):
                     await asyncio.sleep(0.01)  # Simulate async work
-                    span = langfuse_client.start_span(name=f"span-{user_id}")
+                    span = langfuse_client.start_observation(name=f"span-{user_id}")
                     span.end()
 
         # Run multiple traces concurrently
@@ -1476,16 +1488,16 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
 
         def sync_operation():
             """Sync function called from async context."""
-            span = langfuse_client.start_span(name="sync-in-async")
+            span = langfuse_client.start_observation(name="sync-in-async")
             span.end()
 
         async def async_operation():
             """Async function that calls sync code."""
-            span1 = langfuse_client.start_span(name="async-span")
+            span1 = langfuse_client.start_observation(name="async-span")
             span1.end()
             sync_operation()
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(user_id="mixed_user"):
                 await async_operation()
 
@@ -1508,13 +1520,13 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
 
         async def failing_operation():
             """Async operation that raises exception."""
-            span = langfuse_client.start_span(name="span-before-error")
+            span = langfuse_client.start_observation(name="span-before-error")
             span.end()
             raise ValueError("Test error")
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(user_id="error_user"):
-                span1 = langfuse_client.start_span(name="span-before-async")
+                span1 = langfuse_client.start_observation(name="span-before-async")
                 span1.end()
 
                 try:
@@ -1522,7 +1534,7 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
                 except ValueError:
                     pass  # Expected
 
-                span2 = langfuse_client.start_span(name="span-after-error")
+                span2 = langfuse_client.start_observation(name="span-after-error")
                 span2.end()
 
         # Verify all spans have attributes
@@ -1537,10 +1549,10 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
         """Verify metadata propagates correctly in async context."""
 
         async def async_with_metadata():
-            span = langfuse_client.start_span(name="async-metadata-span")
+            span = langfuse_client.start_observation(name="async-metadata-span")
             span.end()
 
-        with langfuse_client.start_as_current_span(name="root"):
+        with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(
                 user_id="metadata_user",
                 metadata={"async": "true", "operation": "test"},
@@ -1571,7 +1583,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         from opentelemetry import baggage
         from opentelemetry import context as otel_context
 
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
@@ -1599,7 +1611,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify child spans get attributes when parent uses as_baggage=True."""
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 user_id="baggage_user",
                 session_id="baggage_session",
@@ -1607,7 +1619,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 as_baggage=True,
             ):
                 # Create child span
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child span has all attributes
@@ -1631,7 +1643,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         from opentelemetry import baggage
         from opentelemetry import context as otel_context
 
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
@@ -1645,12 +1657,12 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify metadata key containing 'user_id' substring doesn't map to TRACE_USER_ID."""
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 metadata={"user_info": "some_data", "user_id_copy": "another"},
                 as_baggage=True,
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -1676,12 +1688,12 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify metadata key containing 'session_id' substring doesn't map to TRACE_SESSION_ID."""
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 metadata={"session_data": "value1", "session_id_backup": "value2"},
                 as_baggage=True,
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -1707,7 +1719,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify metadata keys are correctly formatted in baggage and extracted back."""
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 metadata={
                     "env": "production",
@@ -1716,7 +1728,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 },
                 as_baggage=True,
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -1740,7 +1752,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
 
     def test_baggage_and_context_both_propagate(self, langfuse_client, memory_exporter):
         """Verify attributes propagate when both baggage and context mechanisms are active."""
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             # Enable baggage
             with propagate_attributes(
                 user_id="user_both",
@@ -1749,8 +1761,8 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 as_baggage=True,
             ):
                 # Create multiple levels of nesting
-                with langfuse_client.start_as_current_span(name="middle"):
-                    child = langfuse_client.start_span(name="leaf")
+                with langfuse_client.start_as_current_observation(name="middle"):
+                    child = langfuse_client.start_observation(name="leaf")
                     child.end()
 
         # Verify all spans have attributes
@@ -1773,7 +1785,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         from opentelemetry import context as otel_context
 
         # Step 1: Create context with baggage
-        with langfuse_client.start_as_current_span(name="original-process"):
+        with langfuse_client.start_as_current_observation(name="original-process"):
             with propagate_attributes(
                 user_id="cross_process_user",
                 session_id="cross_process_session",
@@ -1786,8 +1798,8 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         # This mimics what happens when receiving an HTTP request with baggage headers
         token = otel_context.attach(context_with_baggage)
         try:
-            with langfuse_client.start_as_current_span(name="remote-process"):
-                child = langfuse_client.start_span(name="remote-child")
+            with langfuse_client.start_as_current_observation(name="remote-process"):
+                child = langfuse_client.start_observation(name="remote-child")
                 child.end()
         finally:
             otel_context.detach(token)
@@ -1811,12 +1823,12 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
 
     def test_version_propagates_to_child_spans(self, langfuse_client, memory_exporter):
         """Verify version propagates to all child spans within context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version="v1.2.3"):
-                child1 = langfuse_client.start_span(name="child-span-1")
+                child1 = langfuse_client.start_observation(name="child-span-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-span-2")
+                child2 = langfuse_client.start_observation(name="child-span-2")
                 child2.end()
 
         # Verify both children have version
@@ -1836,13 +1848,13 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
 
     def test_version_with_user_and_session(self, langfuse_client, memory_exporter):
         """Verify version works together with user_id and session_id."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 version="2.0.0",
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has all attributes
@@ -1859,12 +1871,12 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
 
     def test_version_with_metadata(self, langfuse_client, memory_exporter):
         """Verify version works together with metadata."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 version="1.0.0",
                 metadata={"env": "production", "region": "us-east"},
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -1886,9 +1898,9 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         """Verify version over 200 characters is dropped with warning."""
         long_version = "v" + "1.0.0" * 50  # Create a very long version string
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version=long_version):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have version
@@ -1899,9 +1911,9 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         """Verify exactly 200 character version is accepted."""
         version_200 = "v" * 200
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version=version_200):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child HAS version
@@ -1914,19 +1926,19 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify inner context overwrites outer version."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version="1.0.0"):
                 # Create span in outer context
-                span1 = langfuse_client.start_span(name="span-1")
+                span1 = langfuse_client.start_observation(name="span-1")
                 span1.end()
 
                 # Inner context with different version
                 with propagate_attributes(version="2.0.0"):
-                    span2 = langfuse_client.start_span(name="span-2")
+                    span2 = langfuse_client.start_observation(name="span-2")
                     span2.end()
 
                 # Back to outer context
-                span3 = langfuse_client.start_span(name="span-3")
+                span3 = langfuse_client.start_observation(name="span-3")
                 span3.end()
 
         # Verify: span1 and span3 have version 1.0.0, span2 has 2.0.0
@@ -1947,13 +1959,13 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
 
     def test_version_with_baggage(self, langfuse_client, memory_exporter):
         """Verify version propagates through baggage."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 version="baggage_version",
                 user_id="user_123",
                 as_baggage=True,
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has version
@@ -1978,10 +1990,10 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
             "0.1.0",
         ]
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             for idx, version in enumerate(test_versions):
                 with propagate_attributes(version=version):
-                    span = langfuse_client.start_span(name=f"span-{idx}")
+                    span = langfuse_client.start_observation(name=f"span-{idx}")
                     span.end()
 
         # Verify all versions are correctly set
@@ -1993,9 +2005,9 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
 
     def test_version_non_string_dropped(self, langfuse_client, memory_exporter):
         """Verify non-string version is dropped with warning."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version=123):  # type: ignore
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have version
@@ -2006,10 +2018,12 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify version propagates through multiple levels of nesting."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version="nested_v1"):
-                with langfuse_client.start_as_current_span(name="child-span"):
-                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                with langfuse_client.start_as_current_observation(name="child-span"):
+                    grandchild = langfuse_client.start_observation(
+                        name="grandchild-span"
+                    )
                     grandchild.end()
 
         # Verify all three levels have version
@@ -2027,10 +2041,10 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         """Verify version propagates in async context."""
 
         async def async_operation():
-            span = langfuse_client.start_span(name="async-span")
+            span = langfuse_client.start_observation(name="async-span")
             span.end()
 
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(version="async_v1.0"):
                 await async_operation()
 
@@ -2041,9 +2055,9 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
 
     def test_version_attribute_key_format(self, langfuse_client, memory_exporter):
         """Verify version uses correct attribute key format."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(version="key_test_v1"):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2059,12 +2073,12 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_propagate_to_child_spans(self, langfuse_client, memory_exporter):
         """Verify tags propagate to all child spans within context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=["production", "api-v2", "critical"]):
-                child1 = langfuse_client.start_span(name="child-span-1")
+                child1 = langfuse_client.start_observation(name="child-span-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-span-2")
+                child2 = langfuse_client.start_observation(name="child-span-2")
                 child2.end()
 
         # Verify both children have tags
@@ -2084,9 +2098,9 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_with_single_tag(self, langfuse_client, memory_exporter):
         """Verify single tag works correctly."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=["experiment"]):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2098,9 +2112,9 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_empty_tags_list(self, langfuse_client, memory_exporter):
         """Verify empty tags list is handled correctly."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=[]):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # With empty list, tags should not be set
@@ -2109,13 +2123,13 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_with_user_and_session(self, langfuse_client, memory_exporter):
         """Verify tags work together with user_id and session_id."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 tags=["test", "debug"],
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has all attributes
@@ -2134,12 +2148,12 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_with_metadata(self, langfuse_client, memory_exporter):
         """Verify tags work together with metadata."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 tags=["experiment-a", "variant-1"],
                 metadata={"env": "staging"},
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2158,9 +2172,9 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
         """Verify tags with one invalid entry drops all tags."""
         long_tag = "x" * 201  # Over 200 chars
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=["valid_tag", long_tag]):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2170,19 +2184,19 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_nested_contexts_inner_appends(self, langfuse_client, memory_exporter):
         """Verify inner context appends to outer tags."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=["outer", "tag1"]):
                 # Create span in outer context
-                span1 = langfuse_client.start_span(name="span-1")
+                span1 = langfuse_client.start_observation(name="span-1")
                 span1.end()
 
                 # Inner context with more tags
                 with propagate_attributes(tags=["inner", "tag2"]):
-                    span2 = langfuse_client.start_span(name="span-2")
+                    span2 = langfuse_client.start_observation(name="span-2")
                     span2.end()
 
                 # Back to outer context
-                span3 = langfuse_client.start_span(name="span-3")
+                span3 = langfuse_client.start_observation(name="span-3")
                 span3.end()
 
         # Verify: span1 and span3 have outer tags, span2 has inner tags
@@ -2212,12 +2226,12 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_with_baggage(self, langfuse_client, memory_exporter):
         """Verify tags propagate through baggage."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 tags=["baggage_tag1", "baggage_tag2"],
                 as_baggage=True,
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has tags
@@ -2230,10 +2244,12 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_propagate_to_grandchildren(self, langfuse_client, memory_exporter):
         """Verify tags propagate through multiple levels of nesting."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=["level1", "level2", "level3"]):
-                with langfuse_client.start_as_current_span(name="child-span"):
-                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                with langfuse_client.start_as_current_observation(name="child-span"):
+                    grandchild = langfuse_client.start_observation(
+                        name="grandchild-span"
+                    )
                     grandchild.end()
 
         # Verify all three levels have tags
@@ -2253,10 +2269,10 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
         """Verify tags propagate in async context."""
 
         async def async_operation():
-            span = langfuse_client.start_span(name="async-span")
+            span = langfuse_client.start_observation(name="async-span")
             span.end()
 
-        with langfuse_client.start_as_current_span(name="parent"):
+        with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(tags=["async", "test"]):
                 await async_operation()
 
@@ -2267,9 +2283,9 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 
     def test_tags_attribute_key_format(self, langfuse_client, memory_exporter):
         """Verify tags use correct attribute key format."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(tags=["key_test"]):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2299,10 +2315,10 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         # Task function that creates child spans
         def task_with_child_spans(*, item, **kwargs):
             # Create child spans to verify propagation
-            child1 = langfuse_client.start_span(name="child-span-1")
+            child1 = langfuse_client.start_observation(name="child-span-1")
             child1.end()
 
-            child2 = langfuse_client.start_span(name="child-span-2")
+            child2 = langfuse_client.start_observation(name="child-span-2")
             child2.end()
 
             return f"processed: {item.get('input') if isinstance(item, dict) else item.input}"
@@ -2496,10 +2512,10 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Task with child spans
         def task_with_children(*, item, **kwargs):
-            child1 = langfuse_client.start_span(name="dataset-child-1")
+            child1 = langfuse_client.start_observation(name="dataset-child-1")
             child1.end()
 
-            child2 = langfuse_client.start_span(name="dataset-child-2")
+            child2 = langfuse_client.start_observation(name="dataset-child-2")
             child2.end()
 
             return f"Capital: {item.expected_output}"
@@ -2622,9 +2638,11 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Task with deeply nested spans
         def task_with_nested_spans(*, item, **kwargs):
-            with langfuse_client.start_as_current_span(name="child-span"):
-                with langfuse_client.start_as_current_span(name="grandchild-span"):
-                    great_grandchild = langfuse_client.start_span(
+            with langfuse_client.start_as_current_observation(name="child-span"):
+                with langfuse_client.start_as_current_observation(
+                    name="grandchild-span"
+                ):
+                    great_grandchild = langfuse_client.start_observation(
                         name="great-grandchild-span"
                     )
                     great_grandchild.end()
@@ -2723,7 +2741,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         ]
 
         def task_with_child(*, item, **kwargs):
-            child = langfuse_client.start_span(name="metadata-child")
+            child = langfuse_client.start_observation(name="metadata-child")
             child.end()
             return "result"
 
@@ -2778,12 +2796,12 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify trace_name propagates to all child spans within context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name="my-trace-name"):
-                child1 = langfuse_client.start_span(name="child-span-1")
+                child1 = langfuse_client.start_observation(name="child-span-1")
                 child1.end()
 
-                child2 = langfuse_client.start_span(name="child-span-2")
+                child2 = langfuse_client.start_observation(name="child-span-2")
                 child2.end()
 
         # Verify both children have trace_name
@@ -2805,10 +2823,12 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify trace_name propagates through multiple levels of nesting."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name="nested-trace"):
-                with langfuse_client.start_as_current_span(name="child-span"):
-                    grandchild = langfuse_client.start_span(name="grandchild-span")
+                with langfuse_client.start_as_current_observation(name="child-span"):
+                    grandchild = langfuse_client.start_observation(
+                        name="grandchild-span"
+                    )
                     grandchild.end()
 
         # Verify all three levels have trace_name
@@ -2823,13 +2843,13 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
 
     def test_trace_name_with_user_and_session(self, langfuse_client, memory_exporter):
         """Verify trace_name works together with user_id and session_id."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 trace_name="combined-trace",
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has all attributes
@@ -2846,12 +2866,12 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
 
     def test_trace_name_with_version(self, langfuse_client, memory_exporter):
         """Verify trace_name works together with version."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 trace_name="versioned-trace",
                 version="1.0.0",
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2864,12 +2884,12 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
 
     def test_trace_name_with_metadata(self, langfuse_client, memory_exporter):
         """Verify trace_name works together with metadata."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 trace_name="metadata-trace",
                 metadata={"env": "production", "region": "us-east"},
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
@@ -2893,9 +2913,9 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         """Verify trace_name over 200 characters is dropped with warning."""
         long_name = "trace-" + "a" * 200  # Create a very long trace name
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name=long_name):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have trace_name
@@ -2906,9 +2926,9 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         """Verify exactly 200 character trace_name is accepted."""
         trace_name_200 = "t" * 200
 
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name=trace_name_200):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child HAS trace_name
@@ -2921,19 +2941,19 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter
     ):
         """Verify inner context overwrites outer trace_name."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name="outer-trace"):
                 # Create span in outer context
-                span1 = langfuse_client.start_span(name="span-1")
+                span1 = langfuse_client.start_observation(name="span-1")
                 span1.end()
 
                 # Inner context with different trace_name
                 with propagate_attributes(trace_name="inner-trace"):
-                    span2 = langfuse_client.start_span(name="span-2")
+                    span2 = langfuse_client.start_observation(name="span-2")
                     span2.end()
 
                 # Back to outer context
-                span3 = langfuse_client.start_span(name="span-3")
+                span3 = langfuse_client.start_observation(name="span-3")
                 span3.end()
 
         # Verify: span1 and span3 have outer-trace, span2 has inner-trace
@@ -2954,7 +2974,7 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
 
     def test_trace_name_sets_on_current_span(self, langfuse_client, memory_exporter):
         """Verify trace_name is set on the current span when entering context."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name="current-trace"):
                 pass  # Just enter and exit context
 
@@ -2966,9 +2986,9 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
 
     def test_trace_name_non_string_dropped(self, langfuse_client, memory_exporter):
         """Verify non-string trace_name is dropped with warning."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(trace_name=123):  # type: ignore
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child does NOT have trace_name
@@ -2977,13 +2997,13 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
 
     def test_trace_name_with_baggage(self, langfuse_client, memory_exporter):
         """Verify trace_name propagates through baggage."""
-        with langfuse_client.start_as_current_span(name="parent-span"):
+        with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 trace_name="baggage-trace",
                 user_id="user_123",
                 as_baggage=True,
             ):
-                child = langfuse_client.start_span(name="child-span")
+                child = langfuse_client.start_observation(name="child-span")
                 child.end()
 
         # Verify child has trace_name
