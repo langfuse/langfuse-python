@@ -34,7 +34,6 @@ from langfuse._utils import _get_timestamp
 from langfuse.langchain.utils import _extract_model_name
 from langfuse.logger import langfuse_logger
 from langfuse.types import TraceContext
-from langfuse.types import TraceContext
 
 try:
     import langchain
@@ -843,19 +842,15 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
             )
-            registered_prompt = (
-                self._prompt_to_parent_run_map.get(parent_run_id)
-                if parent_run_id is not None
-                else None
-            )
 
-                if registered_prompt:
-                    self._deregister_langfuse_prompt(current_parent_run_id)
-                    break
-                else:
-                    current_parent_run_id = self._child_to_parent_run_id_map.get(
-                        current_parent_run_id, None
-                    )
+            registered_prompt = None
+            current_parent_run_id = parent_run_id
+
+            # Check all parents for registered prompt
+            while current_parent_run_id is not None:
+                registered_prompt = self._prompt_to_parent_run_map.get(
+                    current_parent_run_id
+                )
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
@@ -1012,7 +1007,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
 
     def _reset(self) -> None:
-        self._child_to_parent_run_id_map = {}
+        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
 
     def __join_tags_and_metadata(
         self,
