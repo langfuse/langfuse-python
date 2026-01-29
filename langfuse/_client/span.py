@@ -37,10 +37,13 @@ from langfuse.model import PromptClient
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
 
+from typing_extensions import deprecated
+
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     create_generation_attributes,
     create_span_attributes,
+    create_trace_attributes,
 )
 from langfuse._client.constants import (
     ObservationTypeGenerationLike,
@@ -204,6 +207,73 @@ class LangfuseObservationWrapper:
             end_time: Optional explicit end time in nanoseconds since epoch
         """
         self._otel_span.end(end_time=end_time)
+
+        return self
+
+    @deprecated(
+        "Trace-level input/output is deprecated. "
+        "For trace attributes (user_id, session_id, tags, etc.), use propagate_attributes() instead. "
+        "This method will be removed in a future major version."
+    )
+    def set_trace_io(
+        self,
+        *,
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+    ) -> "LangfuseObservationWrapper":
+        """Set trace-level input and output for the trace this span belongs to.
+
+        .. deprecated::
+            This is a legacy method for backward compatibility with Langfuse platform
+            features that still rely on trace-level input/output (e.g., legacy LLM-as-a-judge
+            evaluators). It will be removed in a future major version.
+
+            For setting other trace attributes (user_id, session_id, metadata, tags, version),
+            use :meth:`Langfuse.propagate_attributes` instead.
+
+        Args:
+            input: Input data to associate with the trace.
+            output: Output data to associate with the trace.
+
+        Returns:
+            The span instance for method chaining.
+        """
+        if not self._otel_span.is_recording():
+            return self
+
+        media_processed_input = self._process_media_and_apply_mask(
+            data=input, field="input", span=self._otel_span
+        )
+        media_processed_output = self._process_media_and_apply_mask(
+            data=output, field="output", span=self._otel_span
+        )
+
+        attributes = create_trace_attributes(
+            input=media_processed_input,
+            output=media_processed_output,
+        )
+
+        self._otel_span.set_attributes(attributes)
+
+        return self
+
+    def publish_trace(self) -> "LangfuseObservationWrapper":
+        """Make this trace publicly accessible via its URL.
+
+        When a trace is published, anyone with the trace link can view the full trace
+        without needing to be logged in to Langfuse. This action cannot be undone
+        programmatically - once any span in a trace is published, the entire trace
+        becomes public.
+
+        Returns:
+            The span instance for method chaining.
+        """
+        if not self._otel_span.is_recording():
+            return self
+
+        attributes = create_trace_attributes(public=True)
+
+        self._otel_span.set_attributes(attributes)
 
         return self
 

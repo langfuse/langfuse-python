@@ -12,7 +12,7 @@ The module includes:
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 from langfuse._client.constants import (
     ObservationTypeGenerationLike,
@@ -74,28 +74,14 @@ class LangfuseOtelSpanAttributes:
 
 def create_trace_attributes(
     *,
-    name: Optional[str] = None,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    version: Optional[str] = None,
-    release: Optional[str] = None,
     input: Optional[Any] = None,
     output: Optional[Any] = None,
-    metadata: Optional[Any] = None,
-    tags: Optional[List[str]] = None,
     public: Optional[bool] = None,
 ) -> dict:
     attributes = {
-        LangfuseOtelSpanAttributes.TRACE_NAME: name,
-        LangfuseOtelSpanAttributes.TRACE_USER_ID: user_id,
-        LangfuseOtelSpanAttributes.TRACE_SESSION_ID: session_id,
-        LangfuseOtelSpanAttributes.VERSION: version,
-        LangfuseOtelSpanAttributes.RELEASE: release,
         LangfuseOtelSpanAttributes.TRACE_INPUT: _serialize(input),
         LangfuseOtelSpanAttributes.TRACE_OUTPUT: _serialize(output),
-        LangfuseOtelSpanAttributes.TRACE_TAGS: tags,
         LangfuseOtelSpanAttributes.TRACE_PUBLIC: public,
-        **_flatten_and_serialize_metadata(metadata, "trace"),
     }
 
     return {k: v for k, v in attributes.items() if v is not None}

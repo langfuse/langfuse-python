@@ -14,6 +14,7 @@ from opentelemetry.sdk.trace.export import (
 )
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
+from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -451,16 +452,16 @@ class TestBasicSpans(TestOTelBase):
 
     def test_trace_update(self, langfuse_client, memory_exporter):
         """Test updating trace level attributes."""
-        # Create a span and update trace attributes
+        # Create a span and set trace attributes using propagate_attributes and set_trace_io
         with langfuse_client.start_as_current_span(name="trace-span") as span:
-            span.update_trace(
-                name="updated-trace-name",
+            with propagate_attributes(
+                trace_name="updated-trace-name",
                 user_id="test-user",
                 session_id="test-session",
                 tags=["tag1", "tag2"],
-                input={"trace-input": "value"},
                 metadata={"trace-meta": "data"},
-            )
+            ):
+                span.set_trace_io(input={"trace-input": "value"})
 
         # Get the span data
         spans = self.get_spans_by_name(memory_exporter, "trace-span")
@@ -492,32 +493,33 @@ class TestBasicSpans(TestOTelBase):
         # Create a trace with a main span
         with langfuse_client.start_as_current_span(name="main-flow") as main_span:
             # Add trace information
-            main_span.update_trace(
-                name="complex-test",
+            with propagate_attributes(
+                trace_name="complex-test",
                 user_id="complex-user",
                 session_id="complex-session",
-            )
+            ):
+                # Add a processing span
+                with main_span.start_as_current_span(name="processing") as processing:
+                    processing.update(metadata={"step": "processing"})
 
-            # Add a processing span
-            with main_span.start_as_current_span(name="processing") as processing:
-                processing.update(metadata={"step": "processing"})
+                # Add an LLM generation
+                with main_span.start_as_current_generation(
+                    name="llm-call",
+                    model="gpt-3.5-turbo",
+                    input={"prompt": "Summarize this text"},
+                    metadata={"service": "OpenAI"},
+                ) as generation:
+                    # Update the generation with results
+                    generation.update(
+                        output={"text": "This is a summary"},
+                        usage_details={"input": 20, "output": 5, "total": 25},
+                    )
 
-            # Add an LLM generation
-            with main_span.start_as_current_generation(
-                name="llm-call",
-                model="gpt-3.5-turbo",
-                input={"prompt": "Summarize this text"},
-                metadata={"service": "OpenAI"},
-            ) as generation:
-                # Update the generation with results
-                generation.update(
-                    output={"text": "This is a summary"},
-                    usage_details={"input": 20, "output": 5, "total": 25},
-                )
-
-            # Final processing step
-            with main_span.start_as_current_span(name="post-processing") as post_proc:
-                post_proc.update(metadata={"step": "post-processing"})
+                # Final processing step
+                with main_span.start_as_current_span(
+                    name="post-processing"
+                ) as post_proc:
+                    post_proc.update(metadata={"step": "post-processing"})
 
         # Get all spans
         spans = [
@@ -606,8 +608,9 @@ class TestBasicSpans(TestOTelBase):
         for obs_type in observation_types:
             with langfuse_client.start_as_current_observation(
                 name=f"test-{obs_type}", as_type=obs_type
-            ) as obs:
-                obs.update_trace(name=f"trace-{obs_type}")
+            ):
+                with propagate_attributes(trace_name=f"trace-{obs_type}"):
+                    pass
 
         spans = [
             self.get_span_data(span) for span in memory_exporter.get_finished_spans()
@@ -1440,8 +1443,9 @@ class TestAdvancedSpans(TestOTelBase):
         span.update(output={"result": "test"})
         span.end()
 
-        with client.start_as_current_span(name="disabled-context-span") as context_span:
-            context_span.update_trace(name="disabled-trace")
+        with client.start_as_current_span(name="disabled-context-span"):
+            with propagate_attributes(trace_name="disabled-trace"):
+                pass
 
         # Verify no spans were created
         spans = exporter.get_finished_spans()
