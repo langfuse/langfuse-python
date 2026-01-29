@@ -2452,16 +2452,16 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         allowed_tracer = tracer_provider.get_tracer("allowed-library")
 
         # Create spans from each tracer
-        langfuse_span = langfuse_tracer.start_observation("langfuse-span")
+        langfuse_span = langfuse_tracer.start_span("langfuse-span")
         langfuse_span.end()
 
-        openai_span = openai_tracer.start_observation("openai-span")
+        openai_span = openai_tracer.start_span("openai-span")
         openai_span.end()
 
-        anthropic_span = anthropic_tracer.start_observation("anthropic-span")
+        anthropic_span = anthropic_tracer.start_span("anthropic-span")
         anthropic_span.end()
 
-        allowed_span = allowed_tracer.start_observation("allowed-span")
+        allowed_span = allowed_tracer.start_span("allowed-span")
         allowed_span.end()
 
         # Force flush to ensure all spans are processed
@@ -2515,13 +2515,13 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         anthropic_tracer = tracer_provider.get_tracer("anthropic")
 
         # Create spans from each tracer
-        langfuse_span = langfuse_tracer.start_observation("langfuse-span")
+        langfuse_span = langfuse_tracer.start_span("langfuse-span")
         langfuse_span.end()
 
-        openai_span = openai_tracer.start_observation("openai-span")
+        openai_span = openai_tracer.start_span("openai-span")
         openai_span.end()
 
-        anthropic_span = anthropic_tracer.start_observation("anthropic-span")
+        anthropic_span = anthropic_tracer.start_span("anthropic-span")
         anthropic_span.end()
 
         # Force flush
@@ -2559,10 +2559,10 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         openai_tracer = tracer_provider.get_tracer("openai")
 
         # Create spans from each tracer
-        langfuse_span = langfuse_tracer.start_observation("langfuse-span")
+        langfuse_span = langfuse_tracer.start_span("langfuse-span")
         langfuse_span.end()
 
-        openai_span = openai_tracer.start_observation("openai-span")
+        openai_span = openai_tracer.start_span("openai-span")
         openai_span.end()
 
         # Force flush
@@ -2597,10 +2597,10 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         other_tracer = tracer_provider.get_tracer("other-library")
 
         # Create spans
-        langfuse_span = langfuse_tracer.start_observation("langfuse-span")
+        langfuse_span = langfuse_tracer.start_span("langfuse-span")
         langfuse_span.end()
 
-        other_span = other_tracer.start_observation("other-span")
+        other_span = other_tracer.start_span("other-span")
         other_span.end()
 
         # Force flush

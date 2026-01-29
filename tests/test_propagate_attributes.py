@@ -1180,9 +1180,7 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
                 langfuse_span.end()
 
                 # Create span with different tracer
-                with other_tracer.start_as_current_observation(
-                    name="other-library-span"
-                ):
+                with other_tracer.start_as_current_span(name="other-library-span"):
                     pass
 
         # Verify both spans have the propagated attributes
@@ -1222,8 +1220,8 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
                 user_id="user_123", metadata={"experiment": "cross_tracer"}
             ):
                 # Create nested spans from different tracers
-                with tracer_a.start_as_current_observation(name="library-a-span"):
-                    with tracer_b.start_as_current_observation(name="library-b-span"):
+                with tracer_a.start_as_current_span(name="library-a-span"):
+                    with tracer_b.start_as_current_span(name="library-b-span"):
                         langfuse_leaf = langfuse_client.start_observation(
                             name="langfuse-leaf"
                         )
@@ -1251,13 +1249,13 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
 
         with langfuse_client.start_as_current_observation(name="root"):
             # Create span BEFORE propagate_attributes
-            with other_tracer.start_as_current_observation(name="span-before"):
+            with other_tracer.start_as_current_span(name="span-before"):
                 pass
 
             # NOW set attributes
             with propagate_attributes(user_id="user_123"):
                 # Create span AFTER propagate_attributes
-                with other_tracer.start_as_current_observation(name="span-after"):
+                with other_tracer.start_as_current_span(name="span-after"):
                     pass
 
         # Verify: span-before does NOT have user_id, span-after DOES
@@ -1291,9 +1289,7 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
                 )
                 langfuse_span.end()
 
-                with other_tracer.start_as_current_observation(
-                    name="library-operation"
-                ):
+                with other_tracer.start_as_current_span(name="library-operation"):
                     pass
 
         # Verify both spans have all metadata
@@ -1322,10 +1318,10 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         other_tracer = tracer_provider.get_tracer("other-library", "1.0.0")
 
         # Parent span is from different tracer
-        with other_tracer.start_as_current_observation(name="other-parent"):
+        with other_tracer.start_as_current_span(name="other-parent"):
             with propagate_attributes(user_id="user_123", session_id="session_xyz"):
                 # Create children from both tracers
-                with other_tracer.start_as_current_observation(name="other-child"):
+                with other_tracer.start_as_current_span(name="other-child"):
                     pass
 
                 langfuse_child = langfuse_client.start_observation(
@@ -1358,11 +1354,11 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
         with langfuse_client.start_as_current_observation(name="root"):
             with propagate_attributes(user_id="persistent_user"):
                 # Bounce between different tracers
-                with tracer_1.start_as_current_observation(name="step-1"):
+                with tracer_1.start_as_current_span(name="step-1"):
                     pass
 
-                with tracer_2.start_as_current_observation(name="step-2"):
-                    with tracer_3.start_as_current_observation(name="step-3"):
+                with tracer_2.start_as_current_span(name="step-2"):
+                    with tracer_3.start_as_current_span(name="step-3"):
                         pass
 
                 langfuse_span = langfuse_client.start_observation(name="step-4")
