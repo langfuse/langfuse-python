@@ -12,8 +12,16 @@ from ...core.serialization import FieldMetadata
 class Dataset(UniversalBaseModel):
     id: str
     name: str
-    description: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Description of the dataset
+    """
+
+    metadata: typing.Any = pydantic.Field()
+    """
+    Metadata associated with the dataset
+    """
+
     input_schema: typing_extensions.Annotated[
         typing.Optional[typing.Any], FieldMetadata(alias="inputSchema")
     ] = pydantic.Field(default=None)

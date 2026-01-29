@@ -26,7 +26,10 @@ class Comment(UniversalBaseModel):
     content: str
     author_user_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    The user ID of the comment author
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

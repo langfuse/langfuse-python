@@ -6,7 +6,6 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
-from .model_usage_unit import ModelUsageUnit
 
 
 class Usage(UniversalBaseModel):
@@ -14,22 +13,26 @@ class Usage(UniversalBaseModel):
     (Deprecated. Use usageDetails and costDetails instead.) Standard interface for usage and cost
     """
 
-    input: typing.Optional[int] = pydantic.Field(default=None)
+    input: int = pydantic.Field()
     """
     Number of input units (e.g. tokens)
     """
 
-    output: typing.Optional[int] = pydantic.Field(default=None)
+    output: int = pydantic.Field()
     """
     Number of output units (e.g. tokens)
     """
 
-    total: typing.Optional[int] = pydantic.Field(default=None)
+    total: int = pydantic.Field()
     """
     Defaults to input+output if not set
     """
 
-    unit: typing.Optional[ModelUsageUnit] = None
+    unit: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Unit of measurement
+    """
+
     input_cost: typing_extensions.Annotated[
         typing.Optional[float], FieldMetadata(alias="inputCost")
     ] = pydantic.Field(default=None)

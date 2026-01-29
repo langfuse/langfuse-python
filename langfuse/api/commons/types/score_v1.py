@@ -35,14 +35,14 @@ class ScoreV1_Numeric(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Any
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    environment: typing.Optional[str] = None
+    environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -73,14 +73,14 @@ class ScoreV1_Categorical(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Any
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    environment: typing.Optional[str] = None
+    environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -111,14 +111,14 @@ class ScoreV1_Boolean(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Any] = None
+    metadata: typing.Any
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    environment: typing.Optional[str] = None
+    environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

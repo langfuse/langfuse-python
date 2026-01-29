@@ -25,7 +25,7 @@ class DatasetRun(UniversalBaseModel):
     Description of the run
     """
 
-    metadata: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    metadata: typing.Any = pydantic.Field()
     """
     Metadata of the dataset run
     """

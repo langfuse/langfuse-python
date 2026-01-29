@@ -16,24 +16,24 @@ class TraceWithDetails(Trace):
     Path of trace in Langfuse UI
     """
 
-    latency: float = pydantic.Field()
+    latency: typing.Optional[float] = pydantic.Field(default=None)
     """
     Latency of trace in seconds
     """
 
-    total_cost: typing_extensions.Annotated[float, FieldMetadata(alias="totalCost")] = (
-        pydantic.Field()
-    )
+    total_cost: typing_extensions.Annotated[
+        typing.Optional[float], FieldMetadata(alias="totalCost")
+    ] = pydantic.Field(default=None)
     """
     Cost of trace in USD
     """
 
-    observations: typing.List[str] = pydantic.Field()
+    observations: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
     List of observation ids
     """
 
-    scores: typing.List[str] = pydantic.Field()
+    scores: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
     List of score ids
     """

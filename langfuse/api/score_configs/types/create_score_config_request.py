@@ -5,7 +5,7 @@ import typing
 import pydantic
 import typing_extensions
 from ...commons.types.config_category import ConfigCategory
-from ...commons.types.score_data_type import ScoreDataType
+from ...commons.types.score_config_data_type import ScoreConfigDataType
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 
@@ -13,7 +13,7 @@ from ...core.serialization import FieldMetadata
 class CreateScoreConfigRequest(UniversalBaseModel):
     name: str
     data_type: typing_extensions.Annotated[
-        ScoreDataType, FieldMetadata(alias="dataType")
+        ScoreConfigDataType, FieldMetadata(alias="dataType")
     ]
     categories: typing.Optional[typing.List[ConfigCategory]] = pydantic.Field(
         default=None
