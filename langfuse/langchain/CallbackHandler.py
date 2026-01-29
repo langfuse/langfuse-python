@@ -858,11 +858,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 registered_prompt = self._prompt_to_parent_run_map.get(
                     current_parent_run_id
                 )
-                if registered_prompt is not None:
+
+                if registered_prompt:
+                    self._deregister_langfuse_prompt(current_parent_run_id)
                     break
-                current_parent_run_id = self._child_to_parent_run_id_map.get(
-                    current_parent_run_id
-                )
+                else:
+                    current_parent_run_id = self._child_to_parent_run_id_map.get(
+                        current_parent_run_id, None
+                    )
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
