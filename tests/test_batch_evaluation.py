@@ -123,7 +123,7 @@ def test_batch_evaluation_with_filter(langfuse_client):
     """Test batch evaluation with JSON filter."""
     # Create a trace with specific tag
     unique_tag = f"test-filter-{create_uuid()}"
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=f"filtered-trace-{create_uuid()}"
     ) as span:
         with propagate_attributes(tags=[unique_tag]):
@@ -751,7 +751,7 @@ def test_pagination_with_max_items(langfuse_client):
     """Test that max_items limit is respected."""
     # Create more traces to ensure we have enough data
     for i in range(10):
-        with langfuse_client.start_as_current_span(
+        with langfuse_client.start_as_current_observation(
             name=f"pagination-test-{create_uuid()}"
         ) as span:
             with propagate_attributes(tags=["pagination_test"]):
@@ -783,7 +783,9 @@ def test_has_more_items_flag(langfuse_client):
     # Create enough traces to exceed max_items
     batch_tag = f"batch-test-{create_uuid()}"
     for i in range(15):
-        with langfuse_client.start_as_current_span(name=f"more-items-test-{i}") as span:
+        with langfuse_client.start_as_current_observation(
+            name=f"more-items-test-{i}"
+        ) as span:
             with propagate_attributes(tags=[batch_tag]):
                 span.set_trace_io(
                     input=f"Input {i}",

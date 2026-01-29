@@ -22,10 +22,12 @@ async def test_concurrency():
 
     async def update_generation(i, langfuse: Langfuse):
         # Create a new trace with a generation
-        with langfuse.start_as_current_span(name=f"parent-{i}"):
+        with langfuse.start_as_current_observation(name=f"parent-{i}"):
             with propagate_attributes(trace_name=str(i)):
                 # Create generation as a child
-                generation = langfuse.start_generation(name=str(i))
+                generation = langfuse.start_observation(
+                    as_type="generation", name=str(i)
+                )
 
                 # Update generation with metadata
                 generation.update(metadata={"count": str(i)})
@@ -67,7 +69,7 @@ def test_flush():
     trace_ids = []
     for i in range(2):
         # Create spans and set the trace name using propagate_attributes
-        with langfuse.start_as_current_span(name="span-" + str(i)):
+        with langfuse.start_as_current_observation(name="span-" + str(i)):
             with propagate_attributes(trace_name=str(i)):
                 # Store the trace ID for later verification
                 trace_ids.append(langfuse.get_current_trace_id())
@@ -89,7 +91,7 @@ def test_invalid_score_data_does_not_raise_exception():
     langfuse = Langfuse()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name="this-is-so-great-new",
             user_id="test",
@@ -121,7 +123,7 @@ def test_create_numeric_score():
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name="this-is-so-great-new",
             user_id="test",
@@ -144,8 +146,11 @@ def test_create_numeric_score():
     )
 
     # Create a generation in the same trace
-    generation = langfuse.start_generation(
-        name="yet another child", metadata="test", trace_context={"trace_id": trace_id}
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="yet another child",
+        metadata="test",
+        trace_context={"trace_id": trace_id},
     )
     generation.end()
 
@@ -167,7 +172,7 @@ def test_create_boolean_score():
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name="this-is-so-great-new",
             user_id="test",
@@ -191,8 +196,11 @@ def test_create_boolean_score():
     )
 
     # Create a generation in the same trace
-    generation = langfuse.start_generation(
-        name="yet another child", metadata="test", trace_context={"trace_id": trace_id}
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="yet another child",
+        metadata="test",
+        trace_context={"trace_id": trace_id},
     )
     generation.end()
 
@@ -214,7 +222,7 @@ def test_create_categorical_score():
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name="this-is-so-great-new",
             user_id="test",
@@ -237,8 +245,11 @@ def test_create_categorical_score():
     )
 
     # Create a generation in the same trace
-    generation = langfuse.start_generation(
-        name="yet another child", metadata="test", trace_context={"trace_id": trace_id}
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="yet another child",
+        metadata="test",
+        trace_context={"trace_id": trace_id},
     )
     generation.end()
 
@@ -260,7 +271,7 @@ def test_create_score_with_custom_timestamp():
     api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name="test-custom-timestamp",
             user_id="test",
@@ -314,7 +325,7 @@ def test_create_trace():
     trace_name = create_uuid()
 
     # Create a span and set the trace properties using propagate_attributes
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name=trace_name,
             user_id="test",
@@ -347,7 +358,7 @@ def test_create_update_trace():
     trace_name = create_uuid()
 
     # Create initial span with trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name=trace_name,
             user_id="test",
@@ -385,7 +396,7 @@ def test_create_update_current_trace():
     trace_name = create_uuid()
 
     # Create initial span with trace properties using propagate_attributes and set_current_trace_io
-    with langfuse.start_as_current_span(name="test-span-current") as span:
+    with langfuse.start_as_current_observation(name="test-span-current") as span:
         with propagate_attributes(
             trace_name=trace_name,
             user_id="test",
@@ -425,7 +436,8 @@ def test_create_generation():
     langfuse = Langfuse()
 
     # Create a generation using OTEL approach
-    generation = langfuse.start_generation(
+    generation = langfuse.start_observation(
+        as_type="generation",
         name="query-generation",
         model="gpt-3.5-turbo-0125",
         model_parameters={
@@ -524,7 +536,8 @@ def test_create_generation_complex(
 ):
     langfuse = Langfuse()
 
-    generation = langfuse.start_generation(
+    generation = langfuse.start_observation(
+        as_type="generation",
         name="query-generation",
         input=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -576,7 +589,7 @@ def test_create_span():
     langfuse = Langfuse()
 
     # Create span using OTEL-based client
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name="span",
         input={"key": "value"},
         output={"key": "value"},
@@ -622,7 +635,7 @@ def test_score_trace():
     trace_name = create_uuid()
 
     # Create a span and set trace name
-    with langfuse.start_as_current_span(name="test-span"):
+    with langfuse.start_as_current_observation(name="test-span"):
         with propagate_attributes(trace_name=trace_name):
             # Get trace ID for later verification
             trace_id = langfuse.get_current_trace_id()
@@ -659,7 +672,7 @@ def test_score_trace_nested_trace():
     trace_name = create_uuid()
 
     # Create a trace with span
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(trace_name=trace_name):
             # Score using the span's method for scoring the trace
             span.score_trace(
@@ -696,10 +709,10 @@ def test_score_trace_nested_observation():
     trace_name = create_uuid()
 
     # Create a parent span and set trace name
-    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+    with langfuse.start_as_current_observation(name="parent-span") as parent_span:
         with propagate_attributes(trace_name=trace_name):
             # Create a child span
-            child_span = langfuse.start_span(name="span")
+            child_span = langfuse.start_observation(name="span")
 
             # Score the child span
             child_span.score(
@@ -739,7 +752,7 @@ def test_score_span():
     api_wrapper = LangfuseAPI()
 
     # Create a span
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name="span",
         input={"key": "value"},
         output={"key": "value"},
@@ -787,10 +800,10 @@ def test_create_trace_and_span():
     trace_name = create_uuid()
 
     # Create parent span and set trace name
-    with langfuse.start_as_current_span(name=trace_name) as parent_span:
+    with langfuse.start_as_current_observation(name=trace_name) as parent_span:
         with propagate_attributes(trace_name=trace_name):
             # Create a child span
-            child_span = parent_span.start_span(name="span")
+            child_span = parent_span.start_observation(name="span")
 
             # Get trace ID for verification
             trace_id = parent_span.trace_id
@@ -824,12 +837,14 @@ def test_create_trace_and_generation():
     trace_name = create_uuid()
 
     # Create parent span and set trace properties
-    with langfuse.start_as_current_span(name=trace_name) as parent_span:
+    with langfuse.start_as_current_observation(name=trace_name) as parent_span:
         with propagate_attributes(trace_name=trace_name, session_id="test-session-id"):
             parent_span.set_trace_io(input={"key": "value"})
 
             # Create a generation as child
-            generation = parent_span.start_generation(name="generation")
+            generation = parent_span.start_observation(
+                as_type="generation", name="generation"
+            )
 
             # Get IDs for verification
             trace_id = parent_span.trace_id
@@ -875,8 +890,10 @@ def test_create_generation_and_trace():
     trace_context = {"trace_id": langfuse.create_trace_id()}
 
     # Create a generation with this context
-    generation = langfuse.start_generation(
-        name="generation", trace_context=trace_context
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="generation",
+        trace_context=trace_context,
     )
 
     # Get trace ID for verification
@@ -888,7 +905,7 @@ def test_create_generation_and_trace():
     sleep(0.1)
 
     # Update trace properties in a separate span
-    with langfuse.start_as_current_span(
+    with langfuse.start_as_current_observation(
         name="trace-update", trace_context={"trace_id": trace_id}
     ):
         with propagate_attributes(trace_name=trace_name):
@@ -919,7 +936,7 @@ def test_create_span_and_get_observation():
     langfuse = Langfuse()
 
     # Create span
-    span = langfuse.start_span(name="span")
+    span = langfuse.start_observation(name="span")
 
     # Get ID for verification
     span_id = span.id
@@ -943,7 +960,7 @@ def test_update_generation():
     langfuse = Langfuse()
 
     # Create a generation
-    generation = langfuse.start_generation(name="generation")
+    generation = langfuse.start_observation(as_type="generation", name="generation")
 
     # Update generation with metadata
     generation.update(metadata={"dict": "value"})
@@ -979,7 +996,7 @@ def test_update_span():
     langfuse = Langfuse()
 
     # Create a span
-    span = langfuse.start_span(name="span")
+    span = langfuse.start_observation(name="span")
 
     # Update the span with metadata
     span.update(metadata={"dict": "value"})
@@ -1012,7 +1029,7 @@ def test_create_span_and_generation():
     langfuse = Langfuse()
 
     # Create initial span
-    span = langfuse.start_span(name="span")
+    span = langfuse.start_observation(name="span")
     sleep(0.1)
     # Get trace ID for later use
     trace_id = span.trace_id
@@ -1020,8 +1037,10 @@ def test_create_span_and_generation():
     span.end()
 
     # Create generation in the same trace
-    generation = langfuse.start_generation(
-        name="generation", trace_context={"trace_id": trace_id}
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="generation",
+        trace_context={"trace_id": trace_id},
     )
     # End the generation
     generation.end()
@@ -1061,12 +1080,14 @@ def test_create_trace_with_id_and_generation():
     trace_id = langfuse.create_trace_id()
 
     # Create a span in this trace using the trace context
-    with langfuse.start_as_current_span(
+    with langfuse.start_as_current_observation(
         name="parent-span", trace_context={"trace_id": trace_id}
     ):
         with propagate_attributes(trace_name=trace_name):
             # Create a generation in the same trace
-            generation = langfuse.start_generation(name="generation")
+            generation = langfuse.start_observation(
+                as_type="generation", name="generation"
+            )
 
             # End the generation
             generation.end()
@@ -1097,7 +1118,8 @@ def test_end_generation():
     api_wrapper = LangfuseAPI()
 
     # Create a generation
-    generation = langfuse.start_generation(
+    generation = langfuse.start_observation(
+        as_type="generation",
         name="query-generation",
         model="gpt-3.5-turbo",
         model_parameters={"max_tokens": "1000", "temperature": "0.9"},
@@ -1139,12 +1161,13 @@ def test_end_generation_with_data():
     langfuse = Langfuse()
 
     # Create a parent span to set trace properties
-    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+    with langfuse.start_as_current_observation(name="parent-span") as parent_span:
         # Get trace ID
         trace_id = parent_span.trace_id
 
         # Create generation
-        generation = langfuse.start_generation(
+        generation = langfuse.start_observation(
+            as_type="generation",
             name="query-generation",
         )
 
@@ -1214,7 +1237,8 @@ def test_end_generation_with_openai_token_format():
     langfuse = Langfuse()
 
     # Create a generation
-    generation = langfuse.start_generation(
+    generation = langfuse.start_observation(
+        as_type="generation",
         name="query-generation",
     )
 
@@ -1267,7 +1291,7 @@ def test_end_span():
     api_wrapper = LangfuseAPI()
 
     # Create a span
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name="span",
         input={"key": "value"},
         output={"key": "value"},
@@ -1301,7 +1325,7 @@ def test_end_span_with_data():
     langfuse = Langfuse()
 
     # Create a span
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name="span",
         input={"key": "value"},
         output={"key": "value"},
@@ -1338,7 +1362,8 @@ def test_get_generations():
     langfuse = Langfuse()
 
     # Create a first generation with random name
-    generation1 = langfuse.start_generation(
+    generation1 = langfuse.start_observation(
+        as_type="generation",
         name=create_uuid(),
     )
     generation1.end()
@@ -1346,7 +1371,8 @@ def test_get_generations():
     # Create a second generation with specific name and content
     generation_name = create_uuid()
 
-    generation2 = langfuse.start_generation(
+    generation2 = langfuse.start_observation(
+        as_type="generation",
         name=generation_name,
         input="great-prompt",
         output="great-completion",
@@ -1375,10 +1401,11 @@ def test_get_generations_by_user():
     generation_name = create_uuid()
 
     # Create a trace with user ID and a generation as its child
-    with langfuse.start_as_current_span(name="test-user"):
+    with langfuse.start_as_current_observation(name="test-user"):
         with propagate_attributes(trace_name="test-user", user_id=user_id):
             # Create a generation within the trace
-            generation = langfuse.start_generation(
+            generation = langfuse.start_observation(
+                as_type="generation",
                 name=generation_name,
                 input="great-prompt",
                 output="great-completion",
@@ -1386,7 +1413,9 @@ def test_get_generations_by_user():
             generation.end()
 
     # Create another generation that doesn't have this user ID
-    other_gen = langfuse.start_generation(name="other-generation")
+    other_gen = langfuse.start_observation(
+        as_type="generation", name="other-generation"
+    )
     other_gen.end()
 
     # Ensure data is sent
@@ -1406,7 +1435,7 @@ def test_get_generations_by_user():
 def test_kwargs():
     langfuse = Langfuse()
 
-    # Create kwargs dict with valid parameters for start_span
+    # Create kwargs dict with valid parameters for start_observation
     kwargs_dict = {
         "input": {"key": "value"},
         "output": {"key": "value"},
@@ -1414,7 +1443,7 @@ def test_kwargs():
     }
 
     # Create span with specific kwargs instead of using **kwargs_dict
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name="span",
         input=kwargs_dict["input"],
         output=kwargs_dict["output"],
@@ -1454,21 +1483,23 @@ def test_timezone_awareness():
     langfuse = Langfuse()
 
     # Create a trace with various observation types
-    with langfuse.start_as_current_span(name="test") as parent_span:
+    with langfuse.start_as_current_observation(name="test") as parent_span:
         with propagate_attributes(trace_name="test"):
             # Get trace ID for verification
             trace_id = parent_span.trace_id
 
             # Create a span
-            span = parent_span.start_span(name="span")
+            span = parent_span.start_observation(name="span")
             span.end()
 
             # Create a generation
-            generation = parent_span.start_generation(name="generation")
+            generation = parent_span.start_observation(
+                as_type="generation", name="generation"
+            )
             generation.end()
 
         # In OTEL-based client, "events" are just spans with minimal duration
-        event_span = parent_span.start_span(name="event")
+        event_span = parent_span.start_observation(name="event")
         event_span.end()
 
     # Ensure data is sent
@@ -1512,21 +1543,23 @@ def test_timezone_awareness_setting_timestamps():
     langfuse = Langfuse()
 
     # Create a trace with different observation types
-    with langfuse.start_as_current_span(name="test") as parent_span:
+    with langfuse.start_as_current_observation(name="test") as parent_span:
         with propagate_attributes(trace_name="test"):
             # Get trace ID for verification
             trace_id = parent_span.trace_id
 
             # Create span
-            span = parent_span.start_span(name="span")
+            span = parent_span.start_observation(name="span")
             span.end()
 
             # Create generation
-            generation = parent_span.start_generation(name="generation")
+            generation = parent_span.start_observation(
+                as_type="generation", name="generation"
+            )
             generation.end()
 
             # Create event-like span
-            event_span = parent_span.start_span(name="event")
+            event_span = parent_span.start_observation(name="event")
             event_span.end()
 
     # Ensure data is sent
@@ -1562,13 +1595,13 @@ def test_get_trace_by_session_id():
     session_id = create_uuid()
 
     # Create a trace with a session_id
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(trace_name=trace_name, session_id=session_id):
             # Get trace ID for verification
             trace_id = span.trace_id
 
     # Create another trace without a session_id
-    with langfuse.start_as_current_span(name=create_uuid()):
+    with langfuse.start_as_current_observation(name=create_uuid()):
         pass
 
     # Ensure data is sent
@@ -1593,7 +1626,7 @@ def test_fetch_trace():
     name = create_uuid()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(trace_name=name):
             # Get trace ID for verification
             trace_id = span.trace_id
@@ -1621,7 +1654,7 @@ def test_fetch_traces():
     trace_ids = []
 
     # First trace
-    with langfuse.start_as_current_span(name="test1") as span:
+    with langfuse.start_as_current_observation(name="test1") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
             span.set_trace_io(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
@@ -1629,7 +1662,7 @@ def test_fetch_traces():
     sleep(1)  # Ensure traces have different timestamps
 
     # Second trace
-    with langfuse.start_as_current_span(name="test2") as span:
+    with langfuse.start_as_current_observation(name="test2") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
             span.set_trace_io(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
@@ -1637,7 +1670,7 @@ def test_fetch_traces():
     sleep(1)  # Ensure traces have different timestamps
 
     # Third trace
-    with langfuse.start_as_current_span(name="test3") as span:
+    with langfuse.start_as_current_observation(name="test3") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
             span.set_trace_io(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
@@ -1676,10 +1709,10 @@ def test_get_observation():
     name = create_uuid()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="parent-span") as parent_span:
+    with langfuse.start_as_current_observation(name="parent-span") as parent_span:
         with propagate_attributes(trace_name=name):
             # Create a generation as child
-            generation = parent_span.start_generation(name=name)
+            generation = parent_span.start_observation(as_type="generation", name=name)
 
             # Get IDs for verification
             generation_id = generation.id
@@ -1707,15 +1740,15 @@ def test_get_observations():
     name = create_uuid()
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_span(name="parent-span"):
+    with langfuse.start_as_current_observation(name="parent-span"):
         with propagate_attributes(trace_name=name):
             # Create first generation
-            gen1 = langfuse.start_generation(name=name)
+            gen1 = langfuse.start_observation(as_type="generation", name=name)
             gen1_id = gen1.id
             gen1.end()
 
             # Create second generation
-            gen2 = langfuse.start_generation(name=name)
+            gen2 = langfuse.start_observation(as_type="generation", name=name)
             gen2_id = gen2.id
             gen2.end()
 
@@ -1784,17 +1817,17 @@ def test_get_sessions():
 
     # Create multiple traces with different session IDs
     # Create first trace
-    with langfuse.start_as_current_span(name=name):
+    with langfuse.start_as_current_observation(name=name):
         with propagate_attributes(trace_name=name, session_id=session1):
             pass
 
     # Create second trace
-    with langfuse.start_as_current_span(name=name):
+    with langfuse.start_as_current_observation(name=name):
         with propagate_attributes(trace_name=name, session_id=session2):
             pass
 
     # Create third trace
-    with langfuse.start_as_current_span(name=name):
+    with langfuse.start_as_current_observation(name=name):
         with propagate_attributes(trace_name=name, session_id=session3):
             pass
 
@@ -1823,7 +1856,7 @@ def test_create_trace_sampling_zero():
     trace_name = create_uuid()
 
     # Create a span with trace properties - with sample_rate=0, this will not be sent to the API
-    with langfuse.start_as_current_span(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span") as span:
         with propagate_attributes(
             trace_name=trace_name,
             user_id="test",
@@ -1836,7 +1869,7 @@ def test_create_trace_sampling_zero():
 
             # Add a score and a child generation
             langfuse.score_current_trace(name="score", value=0.5)
-            generation = span.start_generation(name="generation")
+            generation = span.start_observation(as_type="generation", name="generation")
             generation.end()
 
     # Ensure data is sent, but should be dropped due to sampling
@@ -1867,7 +1900,7 @@ def test_mask_function():
     api_wrapper = LangfuseAPI()
 
     # Create a root span with trace properties
-    with langfuse.start_as_current_span(name="test-span") as root_span:
+    with langfuse.start_as_current_observation(name="test-span") as root_span:
         with propagate_attributes(trace_name="test_trace"):
             root_span.set_trace_io(input={"sensitive": "data"})
             # Get trace ID for later use
@@ -1876,14 +1909,18 @@ def test_mask_function():
             root_span.set_trace_io(output={"more": "sensitive"})
 
             # Create a generation as child
-            gen = root_span.start_generation(
-                name="test_gen", input={"prompt": "secret"}
+            gen = root_span.start_observation(
+                as_type="generation",
+                name="test_gen",
+                input={"prompt": "secret"},
             )
             gen.update(output="new_confidential")
             gen.end()
 
             # Create a span as child
-            sub_span = root_span.start_span(name="test_span", input={"data": "private"})
+            sub_span = root_span.start_observation(
+                name="test_span", input={"data": "private"}
+            )
             sub_span.update(output="new_classified")
             sub_span.end()
 
@@ -1911,7 +1948,7 @@ def test_mask_function():
     assert fetched_span["output"] == "MASKED"
 
     # Create a root span with trace properties
-    with langfuse.start_as_current_span(name="test-span") as root_span:
+    with langfuse.start_as_current_observation(name="test-span") as root_span:
         with propagate_attributes(trace_name="test_trace"):
             root_span.set_trace_io(input={"should_raise": "data"})
             # Get trace ID for later use
@@ -1941,7 +1978,7 @@ def test_generate_trace_id():
     trace_id = langfuse.create_trace_id()
 
     # Create a trace with the specific ID using trace_context
-    with langfuse.start_as_current_span(
+    with langfuse.start_as_current_observation(
         name="test-span", trace_context={"trace_id": trace_id}
     ):
         with propagate_attributes(trace_name="test_trace"):
@@ -1984,7 +2021,7 @@ def test_start_as_current_observation_types():
         "guardrail",
     ]
 
-    with langfuse.start_as_current_span(name="parent") as parent_span:
+    with langfuse.start_as_current_observation(name="parent") as parent_span:
         with propagate_attributes(trace_name="observation-types-test"):
             trace_id = parent_span.trace_id
 
@@ -2035,7 +2072,7 @@ def test_that_generation_like_properties_are_actually_created():
     test_usage_details = {"prompt_tokens": 10, "completion_tokens": 20}
     test_cost_details = {"input": 0.01, "output": 0.02, "total": 0.03}
 
-    with langfuse.start_as_current_span(name="parent") as parent_span:
+    with langfuse.start_as_current_observation(name="parent") as parent_span:
         with propagate_attributes(trace_name="generation-properties-test"):
             trace_id = parent_span.trace_id
 
