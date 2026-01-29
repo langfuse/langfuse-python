@@ -135,6 +135,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self._updated_completion_start_time_memo: Set[UUID] = set()
         self._propagation_context_manager: Optional[_AgnosticContextManager] = None
         self._trace_context = trace_context
+        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
 
         self.last_trace_id: Optional[str] = None
 
@@ -289,7 +290,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         if tags is not None or (
             "langfuse_tags" in metadata and isinstance(metadata["langfuse_tags"], list)
         ):
-            merged_tags = list(set(metadata["langfuse_tags"]) | set(tags or []))
+            langfuse_tags = (
+                metadata["langfuse_tags"]
+                if "langfuse_tags" in metadata
+                and isinstance(metadata["langfuse_tags"], list)
+                else []
+            )
+            merged_tags = list(set(langfuse_tags) | set(tags or []))
             attributes["tags"] = [str(tag) for tag in set(merged_tags)]
 
         attributes["metadata"] = _strip_langfuse_keys_from_dict(metadata, False)
@@ -851,6 +858,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 registered_prompt = self._prompt_to_parent_run_map.get(
                     current_parent_run_id
                 )
+                if registered_prompt is not None:
+                    break
+                current_parent_run_id = self._child_to_parent_run_id_map.get(
+                    current_parent_run_id
+                )
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
@@ -1007,7 +1019,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
 
     def _reset(self) -> None:
-        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
+        self._child_to_parent_run_id_map = {}
 
     def __join_tags_and_metadata(
         self,
