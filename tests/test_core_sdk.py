@@ -211,10 +211,15 @@ def test_create_boolean_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["dataType"] == "BOOLEAN"
-    assert trace["scores"][0]["value"] == 1
-    assert trace["scores"][0]["stringValue"] == "True"
+    # Find the score we created by name
+    created_score = next(
+        (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
+    )
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["id"] == score_id
+    assert created_score["dataType"] == "BOOLEAN"
+    assert created_score["value"] == 1
+    assert created_score["stringValue"] == "True"
 
 
 def test_create_categorical_score():
@@ -260,10 +265,15 @@ def test_create_categorical_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["dataType"] == "CATEGORICAL"
-    assert trace["scores"][0]["value"] == 0
-    assert trace["scores"][0]["stringValue"] == "high score"
+    # Find the score we created by name
+    created_score = next(
+        (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
+    )
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["id"] == score_id
+    assert created_score["dataType"] == "CATEGORICAL"
+    assert created_score["value"] == 0
+    assert created_score["stringValue"] == "high score"
 
 
 def test_create_score_with_custom_timestamp():
@@ -302,14 +312,19 @@ def test_create_score_with_custom_timestamp():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["dataType"] == "NUMERIC"
-    assert trace["scores"][0]["value"] == 0.85
+    # Find the score we created by name
+    created_score = next(
+        (s for s in trace["scores"] if s["name"] == "custom-timestamp-score"), None
+    )
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["id"] == score_id
+    assert created_score["dataType"] == "NUMERIC"
+    assert created_score["value"] == 0.85
 
     # Verify timestamp is close to our custom timestamp
     # Parse the timestamp from the API response
     response_timestamp = datetime.fromisoformat(
-        trace["scores"][0]["timestamp"].replace("Z", "+00:00")
+        created_score["timestamp"].replace("Z", "+00:00")
     )
 
     # Check that the timestamps are within 1 second of each other
@@ -1995,7 +2010,7 @@ def test_generate_trace_id():
 def test_generate_trace_url_client_disabled():
     langfuse = Langfuse(tracing_enabled=False)
 
-    with langfuse.start_as_current_span(
+    with langfuse.start_as_current_observation(
         name="test-span",
     ):
         # The trace URL should be None because the client is disabled
