@@ -9,6 +9,7 @@ from .categorical_score_v_1 import CategoricalScoreV1
 from .comment import Comment
 from .comment_object_type import CommentObjectType
 from .config_category import ConfigCategory
+from .correction_score import CorrectionScore
 from .create_score_value import CreateScoreValue
 from .dataset import Dataset
 from .dataset_item import DatasetItem
@@ -29,7 +30,13 @@ from .pricing_tier import PricingTier
 from .pricing_tier_condition import PricingTierCondition
 from .pricing_tier_input import PricingTierInput
 from .pricing_tier_operator import PricingTierOperator
-from .score import Score, Score_Boolean, Score_Categorical, Score_Numeric
+from .score import (
+    Score,
+    Score_Boolean,
+    Score_Categorical,
+    Score_Correction,
+    Score_Numeric,
+)
 from .score_config import ScoreConfig
 from .score_config_data_type import ScoreConfigDataType
 from .score_data_type import ScoreDataType
@@ -52,6 +59,7 @@ __all__ = [
     "Comment",
     "CommentObjectType",
     "ConfigCategory",
+    "CorrectionScore",
     "CreateScoreValue",
     "Dataset",
     "DatasetItem",
@@ -83,6 +91,7 @@ __all__ = [
     "ScoreV1_Numeric",
     "Score_Boolean",
     "Score_Categorical",
+    "Score_Correction",
     "Score_Numeric",
     "Session",
     "SessionWithTraces",
