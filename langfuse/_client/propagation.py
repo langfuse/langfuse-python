@@ -132,14 +132,14 @@ def propagate_attributes(
         langfuse = Langfuse()
 
         # Set attributes early in the trace
-        with langfuse.start_as_current_span(name="user_workflow") as span:
+        with langfuse.start_as_current_observation(name="user_workflow") as span:
             with langfuse.propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 metadata={"experiment": "variant_a", "environment": "production"}
             ):
                 # All spans created here will have user_id, session_id, and metadata
-                with langfuse.start_span(name="llm_call") as llm_span:
+                with langfuse.start_observation(name="llm_call") as llm_span:
                     # This span inherits: user_id, session_id, experiment, environment
                     ...
 
@@ -151,15 +151,15 @@ def propagate_attributes(
         Late propagation (anti-pattern):
 
         ```python
-        with langfuse.start_as_current_span(name="workflow") as span:
+        with langfuse.start_as_current_observation(name="workflow") as span:
             # These spans WON'T have user_id
-            early_span = langfuse.start_span(name="early_work")
+            early_span = langfuse.start_observation(name="early_work")
             early_span.end()
 
             # Set attributes in the middle
             with langfuse.propagate_attributes(user_id="user_123"):
                 # Only spans created AFTER this point will have user_id
-                late_span = langfuse.start_span(name="late_work")
+                late_span = langfuse.start_observation(name="late_work")
                 late_span.end()
 
             # Result: Aggregations by user_id will miss "early_work" span
@@ -169,7 +169,7 @@ def propagate_attributes(
 
         ```python
         # Service A - originating service
-        with langfuse.start_as_current_span(name="api_request"):
+        with langfuse.start_as_current_observation(name="api_request"):
             with langfuse.propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
