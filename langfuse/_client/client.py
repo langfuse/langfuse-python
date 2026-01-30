@@ -1381,7 +1381,7 @@ class Langfuse:
                 output=output,
             )
 
-    def publish_current_trace(self) -> None:
+    def set_current_trace_as_public(self) -> None:
         """Make the current trace publicly accessible via its URL.
 
         When a trace is published, anyone with the trace link can view the full trace
@@ -1394,7 +1394,7 @@ class Langfuse:
         """
         if not self._tracing_enabled:
             langfuse_logger.debug(
-                "Operation skipped: publish_current_trace - Tracing is disabled or client is in no-op mode."
+                "Operation skipped: set_current_trace_as_public - Tracing is disabled or client is in no-op mode."
             )
             return
 
@@ -1412,7 +1412,7 @@ class Langfuse:
                 environment=self._environment,
             )
 
-            span.publish_trace()
+            span.set_trace_as_public()
 
     def create_event(
         self,

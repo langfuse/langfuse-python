@@ -349,7 +349,7 @@ def test_create_trace():
             metadata={"key": "value"},
             tags=["tag1", "tag2"],
         ):
-            span.publish_trace()
+            span.set_trace_as_public()
             # Get trace ID for later verification
             trace_id = langfuse.get_current_trace_id()
 
@@ -381,7 +381,7 @@ def test_create_update_trace():
             user_id="test",
             metadata={"key": "value"},
         ):
-            span.publish_trace()
+            span.set_trace_as_public()
             # Get trace ID for later reference
             trace_id = span.trace_id
 
@@ -390,7 +390,7 @@ def test_create_update_trace():
 
             # Update trace properties with additional metadata
             with propagate_attributes(metadata={"key2": "value2"}):
-                pass  # Metadata update only, publish_trace is one-way
+                pass  # Metadata update only, set_trace_as_public is one-way
 
     # Ensure data is sent to the API
     langfuse.flush()
@@ -420,7 +420,7 @@ def test_create_update_current_trace():
             metadata={"key": "value"},
         ):
             langfuse.set_current_trace_io(input="test_input")
-            langfuse.publish_current_trace()
+            langfuse.set_current_trace_as_public()
             # Get trace ID for later reference
             trace_id = span.trace_id
 
@@ -1876,7 +1876,7 @@ def test_create_trace_sampling_zero():
             metadata={"key": "value"},
             tags=["tag1", "tag2"],
         ):
-            span.publish_trace()
+            span.set_trace_as_public()
             # Get trace ID for verification
             trace_id = span.trace_id
 

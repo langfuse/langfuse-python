@@ -256,7 +256,7 @@ class LangfuseObservationWrapper:
 
         return self
 
-    def publish_trace(self) -> "LangfuseObservationWrapper":
+    def set_trace_as_public(self) -> "LangfuseObservationWrapper":
         """Make this trace publicly accessible via its URL.
 
         When a trace is published, anyone with the trace link can view the full trace
