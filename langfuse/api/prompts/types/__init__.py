@@ -8,6 +8,7 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .base_prompt import BasePrompt
     from .chat_message import ChatMessage
+    from .chat_message_type import ChatMessageType
     from .chat_message_with_placeholders import ChatMessageWithPlaceholders
     from .chat_prompt import ChatPrompt
     from .create_chat_prompt_request import CreateChatPromptRequest
@@ -16,6 +17,7 @@ if typing.TYPE_CHECKING:
     from .create_text_prompt_request import CreateTextPromptRequest
     from .create_text_prompt_type import CreateTextPromptType
     from .placeholder_message import PlaceholderMessage
+    from .placeholder_message_type import PlaceholderMessageType
     from .prompt import Prompt, Prompt_Chat, Prompt_Text
     from .prompt_meta import PromptMeta
     from .prompt_meta_list_response import PromptMetaListResponse
@@ -24,6 +26,7 @@ if typing.TYPE_CHECKING:
 _dynamic_imports: typing.Dict[str, str] = {
     "BasePrompt": ".base_prompt",
     "ChatMessage": ".chat_message",
+    "ChatMessageType": ".chat_message_type",
     "ChatMessageWithPlaceholders": ".chat_message_with_placeholders",
     "ChatPrompt": ".chat_prompt",
     "CreateChatPromptRequest": ".create_chat_prompt_request",
@@ -32,6 +35,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateTextPromptRequest": ".create_text_prompt_request",
     "CreateTextPromptType": ".create_text_prompt_type",
     "PlaceholderMessage": ".placeholder_message",
+    "PlaceholderMessageType": ".placeholder_message_type",
     "Prompt": ".prompt",
     "PromptMeta": ".prompt_meta",
     "PromptMetaListResponse": ".prompt_meta_list_response",
@@ -72,6 +76,7 @@ def __dir__():
 __all__ = [
     "BasePrompt",
     "ChatMessage",
+    "ChatMessageType",
     "ChatMessageWithPlaceholders",
     "ChatPrompt",
     "CreateChatPromptRequest",
@@ -80,6 +85,7 @@ __all__ = [
     "CreateTextPromptRequest",
     "CreateTextPromptType",
     "PlaceholderMessage",
+    "PlaceholderMessageType",
     "Prompt",
     "PromptMeta",
     "PromptMetaListResponse",

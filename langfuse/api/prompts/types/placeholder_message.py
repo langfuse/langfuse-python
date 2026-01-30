@@ -4,10 +4,12 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
+from .placeholder_message_type import PlaceholderMessageType
 
 
 class PlaceholderMessage(UniversalBaseModel):
     name: str
+    type: PlaceholderMessageType
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

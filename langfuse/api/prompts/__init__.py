@@ -9,6 +9,7 @@ if typing.TYPE_CHECKING:
     from .types import (
         BasePrompt,
         ChatMessage,
+        ChatMessageType,
         ChatMessageWithPlaceholders,
         ChatPrompt,
         CreateChatPromptRequest,
@@ -17,6 +18,7 @@ if typing.TYPE_CHECKING:
         CreateTextPromptRequest,
         CreateTextPromptType,
         PlaceholderMessage,
+        PlaceholderMessageType,
         Prompt,
         PromptMeta,
         PromptMetaListResponse,
@@ -28,6 +30,7 @@ if typing.TYPE_CHECKING:
 _dynamic_imports: typing.Dict[str, str] = {
     "BasePrompt": ".types",
     "ChatMessage": ".types",
+    "ChatMessageType": ".types",
     "ChatMessageWithPlaceholders": ".types",
     "ChatPrompt": ".types",
     "CreateChatPromptRequest": ".types",
@@ -36,6 +39,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateTextPromptRequest": ".types",
     "CreateTextPromptType": ".types",
     "PlaceholderMessage": ".types",
+    "PlaceholderMessageType": ".types",
     "Prompt": ".types",
     "PromptMeta": ".types",
     "PromptMetaListResponse": ".types",
@@ -76,6 +80,7 @@ def __dir__():
 __all__ = [
     "BasePrompt",
     "ChatMessage",
+    "ChatMessageType",
     "ChatMessageWithPlaceholders",
     "ChatPrompt",
     "CreateChatPromptRequest",
@@ -84,6 +89,7 @@ __all__ = [
     "CreateTextPromptRequest",
     "CreateTextPromptType",
     "PlaceholderMessage",
+    "PlaceholderMessageType",
     "Prompt",
     "PromptMeta",
     "PromptMetaListResponse",
