@@ -4,11 +4,13 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
+from .chat_message_type import ChatMessageType
 
 
 class ChatMessage(UniversalBaseModel):
     role: str
     content: str
+    type: ChatMessageType
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

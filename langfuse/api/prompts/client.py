@@ -173,6 +173,7 @@ class PromptsClient:
         from langfuse import LangfuseAPI
         from langfuse.prompts import (
             ChatMessage,
+            ChatMessageType,
             CreateChatPromptRequest,
             CreateChatPromptType,
         )
@@ -192,10 +193,12 @@ class PromptsClient:
                     ChatMessage(
                         role="role",
                         content="content",
+                        type=ChatMessageType.CHATMESSAGE,
                     ),
                     ChatMessage(
                         role="role",
                         content="content",
+                        type=ChatMessageType.CHATMESSAGE,
                     ),
                 ],
                 type=CreateChatPromptType.CHAT,
@@ -435,6 +438,7 @@ class AsyncPromptsClient:
         from langfuse import AsyncLangfuseAPI
         from langfuse.prompts import (
             ChatMessage,
+            ChatMessageType,
             CreateChatPromptRequest,
             CreateChatPromptType,
         )
@@ -457,10 +461,12 @@ class AsyncPromptsClient:
                         ChatMessage(
                             role="role",
                             content="content",
+                            type=ChatMessageType.CHATMESSAGE,
                         ),
                         ChatMessage(
                             role="role",
                             content="content",
+                            type=ChatMessageType.CHATMESSAGE,
                         ),
                     ],
                     type=CreateChatPromptType.CHAT,
