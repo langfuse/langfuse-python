@@ -10,7 +10,7 @@ from .chat_message_type import ChatMessageType
 class ChatMessage(UniversalBaseModel):
     role: str
     content: str
-    type: ChatMessageType
+    type: typing.Optional[ChatMessageType] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
