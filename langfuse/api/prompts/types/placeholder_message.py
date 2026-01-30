@@ -9,7 +9,7 @@ from .placeholder_message_type import PlaceholderMessageType
 
 class PlaceholderMessage(UniversalBaseModel):
     name: str
-    type: PlaceholderMessageType
+    type: typing.Optional[PlaceholderMessageType] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
