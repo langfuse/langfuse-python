@@ -1303,6 +1303,25 @@ def test_fallback_text_prompt():
     )
 
 
+def test_fallback_text_prompt_via_callable():
+    langfuse = Langfuse()
+    fallback_text_prompt = "this is a fallback text prompt with {{variable}}"
+
+    def fallback_provider():
+        return fallback_text_prompt
+
+    # Should throw an error if prompt not found and no fallback provided
+    with pytest.raises(Exception):
+        langfuse.get_prompt("nonexistent_prompt")
+
+    prompt = langfuse.get_prompt("nonexistent_prompt", fallback=fallback_provider)
+
+    assert prompt.prompt == fallback_text_prompt
+    assert (
+        prompt.compile(variable="value") == "this is a fallback text prompt with value"
+    )
+
+
 def test_fallback_chat_prompt():
     langfuse = Langfuse()
     fallback_chat_prompt = [
