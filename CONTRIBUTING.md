@@ -59,7 +59,7 @@ poetry run mypy langfuse --no-error-summary
 
 Releases are automated via GitHub Actions using PyPI Trusted Publishing (OIDC).
 
-To create a release:
+To create a release, please:
 
 1. Go to [Actions > Release Python SDK](https://github.com/langfuse/langfuse-python/actions/workflows/release.yml)
 2. Click "Run workflow"
