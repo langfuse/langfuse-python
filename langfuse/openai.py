@@ -463,7 +463,11 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
     elif resource.type == "embedding":
         prompt = kwargs.get("input", None)
     elif resource.type == "image":
-        prompt = kwargs.get("prompt", None)
+        # generate() and edit() accept prompt, but create_variation() does not
+        if resource.method in ["generate", "edit"]:
+            prompt = kwargs.get("prompt", None)
+        else:
+            prompt = None  # create_variation uses image input, not text prompt
 
     parsed_temperature = (
         kwargs.get("temperature", 1)
