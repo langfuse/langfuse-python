@@ -1659,3 +1659,38 @@ async def test_openai_image_generation_async(openai):
     assert generation_data.input == "A sunset over mountains"
     assert generation_data.type == "GENERATION"
     assert "dall-e-3" in generation_data.model
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+def test_openai_image_edit(openai):
+    """Test that image edit calls are tracked in Langfuse.
+
+    Note: images.edit() accepts a prompt parameter which is tracked as input.
+    Skipped by default as it requires DALL-E 2 API access and PNG image files.
+    """
+    pass
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+def test_openai_image_create_variation(openai):
+    """Test that image variation calls are tracked in Langfuse.
+
+    Note: images.create_variation() does NOT accept a prompt parameter,
+    so input will be None. This is expected behavior - the method only
+    takes an image file as input, which is not captured as text input.
+    """
+    pass
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+@pytest.mark.asyncio
+async def test_openai_image_edit_async(openai):
+    """Test that async image edit calls are tracked in Langfuse."""
+    pass
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+@pytest.mark.asyncio
+async def test_openai_image_create_variation_async(openai):
+    """Test that async image variation calls are tracked in Langfuse."""
+    pass
