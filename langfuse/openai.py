@@ -91,6 +91,48 @@ OPENAI_METHODS_V1 = [
         sync=True,
     ),
     OpenAiDefinition(
+        module="openai.resources.images",
+        object="Images",
+        method="generate",
+        type="image",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.images",
+        object="AsyncImages",
+        method="generate",
+        type="image",
+        sync=False,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.images",
+        object="Images",
+        method="edit",
+        type="image",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.images",
+        object="AsyncImages",
+        method="edit",
+        type="image",
+        sync=False,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.images",
+        object="Images",
+        method="create_variation",
+        type="image",
+        sync=True,
+    ),
+    OpenAiDefinition(
+        module="openai.resources.images",
+        object="AsyncImages",
+        method="create_variation",
+        type="image",
+        sync=False,
+    ),
+    OpenAiDefinition(
         module="openai.resources.completions",
         object="Completions",
         method="create",
@@ -354,9 +396,12 @@ def _extract_chat_response(kwargs: Any) -> Any:
 
 
 def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> Any:
-    default_name = (
-        "OpenAI-embedding" if resource.type == "embedding" else "OpenAI-generation"
-    )
+    if resource.type == "embedding":
+        default_name = "OpenAI-embedding"
+    elif resource.type == "image":
+        default_name = "OpenAI-image"
+    else:
+        default_name = "OpenAI-generation"
     name = kwargs.get("name", default_name)
 
     if name is None:
@@ -417,6 +462,8 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         prompt = _extract_chat_prompt(kwargs)
     elif resource.type == "embedding":
         prompt = kwargs.get("input", None)
+    elif resource.type == "image":
+        prompt = kwargs.get("prompt", None)
 
     parsed_temperature = (
         kwargs.get("temperature", 1)
@@ -479,6 +526,44 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
             modelParameters["dimensions"] = parsed_dimensions
         if parsed_encoding_format != "float":
             modelParameters["encoding_format"] = parsed_encoding_format
+    elif resource.type == "image":
+        # Image generation parameters
+        modelParameters = {}
+
+        parsed_size = (
+            kwargs.get("size", None)
+            if not isinstance(kwargs.get("size", None), NotGiven)
+            else None
+        )
+        if parsed_size is not None:
+            modelParameters["size"] = parsed_size
+
+        parsed_quality = (
+            kwargs.get("quality", None)
+            if not isinstance(kwargs.get("quality", None), NotGiven)
+            else None
+        )
+        if parsed_quality is not None:
+            modelParameters["quality"] = parsed_quality
+
+        parsed_style = (
+            kwargs.get("style", None)
+            if not isinstance(kwargs.get("style", None), NotGiven)
+            else None
+        )
+        if parsed_style is not None:
+            modelParameters["style"] = parsed_style
+
+        parsed_response_format = (
+            kwargs.get("response_format", None)
+            if not isinstance(kwargs.get("response_format", None), NotGiven)
+            else None
+        )
+        if parsed_response_format is not None:
+            modelParameters["response_format"] = parsed_response_format
+
+        if parsed_n is not None and isinstance(parsed_n, int) and parsed_n > 1:
+            modelParameters["n"] = parsed_n
     else:
         modelParameters = {
             "temperature": parsed_temperature,
@@ -791,6 +876,33 @@ def _get_langfuse_data_from_default_response(
                 "count": len(data),
             }
 
+    elif resource.type == "image":
+        data = response.get("data", [])
+        completion = []
+        for item in data:
+            image_data = item.__dict__ if hasattr(item, "__dict__") else item
+            image_result = {}
+
+            # Handle URL response
+            if image_data.get("url"):
+                image_result["url"] = image_data["url"]
+
+            # Handle base64 response
+            if image_data.get("b64_json"):
+                # Wrap in LangfuseMedia for proper handling
+                base64_data_uri = f"data:image/png;base64,{image_data['b64_json']}"
+                image_result["image"] = LangfuseMedia(base64_data_uri=base64_data_uri)
+
+            # Include revised_prompt if present (DALL-E 3)
+            if image_data.get("revised_prompt"):
+                image_result["revised_prompt"] = image_data["revised_prompt"]
+
+            completion.append(image_result)
+
+        # If only one image, unwrap from list
+        if len(completion) == 1:
+            completion = completion[0]
+
     usage = _parse_usage(response.get("usage", None))
 
     return (model, completion, usage)
@@ -841,6 +953,28 @@ def _wrap(
 
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
+
+        # Handle image generation (non-streaming)
+        if open_ai_resource.type == "image":
+            model, completion, usage = _get_langfuse_data_from_default_response(
+                open_ai_resource,
+                (openai_response and openai_response.__dict__)
+                if _is_openai_v1()
+                else openai_response,
+            )
+
+            # Calculate image count for usage tracking
+            image_count = 1
+            if isinstance(completion, list):
+                image_count = len(completion)
+
+            generation.update(
+                model=model,
+                output=completion,
+                usage_details={"output": image_count, "total": image_count, "unit": "IMAGES"},
+            ).end()
+
+            return openai_response
 
         if _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorSync(
@@ -912,6 +1046,28 @@ async def _wrap_async(
 
     try:
         openai_response = await wrapped(**arg_extractor.get_openai_args())
+
+        # Handle image generation (non-streaming)
+        if open_ai_resource.type == "image":
+            model, completion, usage = _get_langfuse_data_from_default_response(
+                open_ai_resource,
+                (openai_response and openai_response.__dict__)
+                if _is_openai_v1()
+                else openai_response,
+            )
+
+            # Calculate image count for usage tracking
+            image_count = 1
+            if isinstance(completion, list):
+                image_count = len(completion)
+
+            generation.update(
+                model=model,
+                output=completion,
+                usage_details={"output": image_count, "total": image_count, "unit": "IMAGES"},
+            ).end()
+
+            return openai_response
 
         if _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorAsync(
