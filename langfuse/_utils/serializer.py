@@ -173,7 +173,7 @@ class EventSerializer(JSONEncoder):
         self.seen.clear()  # Clear seen objects before each encode call
 
         try:
-            return super().encode(self.default(obj))
+            return super().encode(self.default(obj), ensure_ascii=False)
         except Exception:
             return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
 
