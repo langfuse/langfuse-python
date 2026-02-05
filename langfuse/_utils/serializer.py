@@ -37,6 +37,7 @@ logger = getLogger(__name__)
 
 class EventSerializer(JSONEncoder):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("ensure_ascii", False)
         super().__init__(*args, **kwargs)
         self.seen: set[int] = set()  # Track seen objects to detect circular references
 
@@ -173,7 +174,7 @@ class EventSerializer(JSONEncoder):
         self.seen.clear()  # Clear seen objects before each encode call
 
         try:
-            return super().encode(self.default(obj), ensure_ascii=False)
+            return super().encode(self.default(obj))
         except Exception:
             return f'"<not serializable object of type: {type(obj).__name__}>"'  # escaping the string to avoid JSON parsing errors
 
