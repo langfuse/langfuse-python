@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
@@ -531,8 +532,6 @@ def test_delete_dataset_run_with_folder_names():
 
 def test_get_dataset_with_version():
     """Test that get_dataset correctly filters items by version timestamp."""
-    from datetime import datetime, timezone
-    import time
 
     langfuse = Langfuse(debug=False)
 
@@ -543,11 +542,16 @@ def test_get_dataset_with_version():
     # Create first item
     item1 = langfuse.create_dataset_item(dataset_name=name, input={"version": "v1"})
     langfuse.flush()
-    time.sleep(3)  # Ensure persistence and clear temporal separation
+    time.sleep(3)  # Ensure persistence
 
-    # Capture timestamp AFTER first item, BEFORE second item
-    query_timestamp = datetime.now(timezone.utc)
-    time.sleep(3)  # Ensure second item is created AFTER query_timestamp
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_created_at = dataset_after_item1.items[0].created_at
+
+    # Use a timestamp 1 second after item1's actual creation time
+    query_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)  # Ensure temporal separation
 
     # Create second item
     langfuse.create_dataset_item(dataset_name=name, input={"version": "v2"})
