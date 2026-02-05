@@ -1519,7 +1519,8 @@ client.dataset_items.get(
 <dl>
 <dd>
 
-Get dataset items
+Get dataset items. Optionally specify a version to get the items as they existed at that point in time.
+Note: If version parameter is provided, datasetName must also be provided.
 </dd>
 </dl>
 </dd>
@@ -1577,6 +1578,18 @@ client.dataset_items.list()
 <dd>
 
 **source_observation_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**version:** `typing.Optional[dt.datetime]` 
+
+ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
+If provided, returns state of dataset at this timestamp.
+If not provided, returns the latest version. Requires datasetName to be specified.
     
 </dd>
 </dl>

@@ -5,39 +5,18 @@ import typing
 
 from ....core.datetime_utils import serialize_datetime
 from ....core.pydantic_utilities import deep_union_pydantic_dicts, pydantic_v1
+from .base_score import BaseScore
 
 
-class CreateDatasetRunItemRequest(pydantic_v1.BaseModel):
-    run_name: str = pydantic_v1.Field(alias="runName")
-    run_description: typing.Optional[str] = pydantic_v1.Field(
-        alias="runDescription", default=None
-    )
+class CorrectionScore(BaseScore):
+    value: float = pydantic_v1.Field()
     """
-    Description of the run. If run exists, description will be updated.
+    The numeric value of the score. Always 0 for correction scores.
     """
 
-    metadata: typing.Optional[typing.Any] = pydantic_v1.Field(default=None)
+    string_value: str = pydantic_v1.Field(alias="stringValue")
     """
-    Metadata of the dataset run, updates run if run already exists
-    """
-
-    dataset_item_id: str = pydantic_v1.Field(alias="datasetItemId")
-    observation_id: typing.Optional[str] = pydantic_v1.Field(
-        alias="observationId", default=None
-    )
-    trace_id: typing.Optional[str] = pydantic_v1.Field(alias="traceId", default=None)
-    """
-    traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.
-    """
-
-    dataset_version: typing.Optional[dt.datetime] = pydantic_v1.Field(
-        alias="datasetVersion", default=None
-    )
-    """
-    ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
-    Specifies the dataset version to use for this experiment run. 
-    If provided, the experiment will use dataset items as they existed at or before this timestamp.
-    If not provided, uses the latest version of dataset items.
+    The string representation of the correction content
     """
 
     def json(self, **kwargs: typing.Any) -> str:
