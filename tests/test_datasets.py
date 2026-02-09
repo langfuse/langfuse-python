@@ -569,3 +569,59 @@ def test_get_dataset_with_version():
     # Verify fetching without version returns both items (latest)
     dataset_latest = langfuse.get_dataset(name)
     assert len(dataset_latest.items) == 2
+
+
+def test_run_experiment_with_versioned_dataset():
+    """Test that running an experiment on a versioned dataset works correctly."""
+    from datetime import timedelta
+    import time
+
+    langfuse = Langfuse(debug=False)
+
+    # Create dataset
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    # Create first item
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 2+2?"}, expected_output="4"
+    )
+    langfuse.flush()
+    time.sleep(3)
+
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_created_at = dataset_after_item1.items[0].created_at
+
+    # Use a timestamp 1 second after item1's creation
+    version_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)
+
+    # Create second item (after version timestamp)
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 3+3?"}, expected_output="6"
+    )
+    langfuse.flush()
+    time.sleep(3)
+
+    # Get versioned dataset (should only have first item)
+    versioned_dataset = langfuse.get_dataset(name, version=version_timestamp)
+    assert len(versioned_dataset.items) == 1
+    assert versioned_dataset.version == version_timestamp
+
+    # Run a simple experiment on the versioned dataset
+    def simple_task(*, item, **kwargs):
+        # Just return a static answer
+        return "4"
+
+    result = versioned_dataset.run_experiment(
+        name="Versioned Dataset Test",
+        description="Testing experiment with versioned dataset",
+        task=simple_task,
+    )
+
+    # Verify experiment ran successfully
+    assert result.name == "Versioned Dataset Test"
+    assert len(result.item_results) == 1  # Only one item in versioned dataset
+    assert result.item_results[0].output == "4"
