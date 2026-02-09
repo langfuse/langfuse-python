@@ -592,10 +592,21 @@ def test_run_experiment_with_versioned_dataset():
     # Fetch dataset to get the actual server-assigned timestamp of item1
     dataset_after_item1 = langfuse.get_dataset(name)
     assert len(dataset_after_item1.items) == 1
+    item1_id = dataset_after_item1.items[0].id
     item1_created_at = dataset_after_item1.items[0].created_at
 
     # Use a timestamp 1 second after item1's creation
     version_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)
+
+    # Update item1 after the version timestamp (this should not affect versioned query)
+    langfuse.create_dataset_item(
+        id=item1_id,
+        dataset_name=name,
+        input={"question": "What is 4+4?"},
+        expected_output="8",
+    )
+    langfuse.flush()
     time.sleep(3)
 
     # Create second item (after version timestamp)
@@ -605,10 +616,14 @@ def test_run_experiment_with_versioned_dataset():
     langfuse.flush()
     time.sleep(3)
 
-    # Get versioned dataset (should only have first item)
+    # Get versioned dataset (should only have first item with ORIGINAL state)
     versioned_dataset = langfuse.get_dataset(name, version=version_timestamp)
     assert len(versioned_dataset.items) == 1
     assert versioned_dataset.version == version_timestamp
+    # Verify it returns the ORIGINAL version of item1 (before the update)
+    assert versioned_dataset.items[0].input == {"question": "What is 2+2?"}
+    assert versioned_dataset.items[0].expected_output == "4"
+    assert versioned_dataset.items[0].id == item1_id
 
     # Run a simple experiment on the versioned dataset
     def simple_task(*, item, **kwargs):
