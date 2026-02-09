@@ -1102,6 +1102,24 @@ def _flatten_comprehension(matrix: Any) -> Any:
     return [item for row in matrix for item in row]
 
 
+_TOKEN_DETAIL_SUBTRACT_KEYS = {
+    "audio",
+    "cache_read",
+    "cache_creation",
+    "reasoning",
+}
+
+
+def _should_subtract_token_detail(detail_key: str) -> bool:
+    normalized_key = detail_key.lower()
+    for subtract_key in _TOKEN_DETAIL_SUBTRACT_KEYS:
+        if normalized_key == subtract_key or normalized_key.endswith(
+            f"_{subtract_key}"
+        ):
+            return True
+    return False
+
+
 def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
     # maintains a list of key translations. For each key, the usage model is checked
     # and a new object will be created with the new key if the key exists in the usage model
@@ -1177,7 +1195,7 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             for key, value in input_token_details.items():
                 usage_model[f"input_{key}"] = value
 
-                if "input" in usage_model:
+                if "input" in usage_model and _should_subtract_token_detail(key):
                     usage_model["input"] = max(0, usage_model["input"] - value)
 
         if "output_token_details" in usage_model:
@@ -1186,7 +1204,7 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             for key, value in output_token_details.items():
                 usage_model[f"output_{key}"] = value
 
-                if "output" in usage_model:
+                if "output" in usage_model and _should_subtract_token_detail(key):
                     usage_model["output"] = max(0, usage_model["output"] - value)
 
         # Vertex AI
