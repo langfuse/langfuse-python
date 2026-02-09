@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
@@ -527,3 +528,115 @@ def test_delete_dataset_run_with_folder_names():
     # Verify the run is deleted
     runs_after = langfuse.get_dataset_runs(dataset_name=folder_name)
     assert len(runs_after.data) == 0
+
+
+def test_get_dataset_with_version():
+    """Test that get_dataset correctly filters items by version timestamp."""
+
+    langfuse = Langfuse(debug=False)
+
+    # Create dataset
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    # Create first item
+    item1 = langfuse.create_dataset_item(dataset_name=name, input={"version": "v1"})
+    langfuse.flush()
+    time.sleep(3)  # Ensure persistence
+
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_created_at = dataset_after_item1.items[0].created_at
+
+    # Use a timestamp 1 second after item1's actual creation time
+    query_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)  # Ensure temporal separation
+
+    # Create second item
+    langfuse.create_dataset_item(dataset_name=name, input={"version": "v2"})
+    langfuse.flush()
+    time.sleep(3)  # Ensure persistence
+
+    # Fetch at the query_timestamp (should only return first item)
+    dataset = langfuse.get_dataset(name, version=query_timestamp)
+
+    # Verify only first item is retrieved
+    assert len(dataset.items) == 1
+    assert dataset.items[0].input == {"version": "v1"}
+    assert dataset.items[0].id == item1.id
+
+    # Verify fetching without version returns both items (latest)
+    dataset_latest = langfuse.get_dataset(name)
+    assert len(dataset_latest.items) == 2
+
+
+def test_run_experiment_with_versioned_dataset():
+    """Test that running an experiment on a versioned dataset works correctly."""
+    from datetime import timedelta
+    import time
+
+    langfuse = Langfuse(debug=False)
+
+    # Create dataset
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    # Create first item
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 2+2?"}, expected_output=4
+    )
+    langfuse.flush()
+    time.sleep(3)
+
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_id = dataset_after_item1.items[0].id
+    item1_created_at = dataset_after_item1.items[0].created_at
+
+    # Use a timestamp 1 second after item1's creation
+    version_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)
+
+    # Update item1 after the version timestamp (this should not affect versioned query)
+    langfuse.create_dataset_item(
+        id=item1_id,
+        dataset_name=name,
+        input={"question": "What is 4+4?"},
+        expected_output=8,
+    )
+    langfuse.flush()
+    time.sleep(3)
+
+    # Create second item (after version timestamp)
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 3+3?"}, expected_output=6
+    )
+    langfuse.flush()
+    time.sleep(3)
+
+    # Get versioned dataset (should only have first item with ORIGINAL state)
+    versioned_dataset = langfuse.get_dataset(name, version=version_timestamp)
+    assert len(versioned_dataset.items) == 1
+    assert versioned_dataset.version == version_timestamp
+    # Verify it returns the ORIGINAL version of item1 (before the update)
+    assert versioned_dataset.items[0].input == {"question": "What is 2+2?"}
+    assert versioned_dataset.items[0].expected_output == 4
+    assert versioned_dataset.items[0].id == item1_id
+
+    # Run a simple experiment on the versioned dataset
+    def simple_task(*, item, **kwargs):
+        # Just return a static answer
+        return item.expected_output
+
+    result = versioned_dataset.run_experiment(
+        name="Versioned Dataset Test",
+        description="Testing experiment with versioned dataset",
+        task=simple_task,
+    )
+
+    # Verify experiment ran successfully
+    assert result.name == "Versioned Dataset Test"
+    assert len(result.item_results) == 1  # Only one item in versioned dataset
+    assert result.item_results[0].output == 4
