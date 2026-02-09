@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
@@ -527,3 +528,44 @@ def test_delete_dataset_run_with_folder_names():
     # Verify the run is deleted
     runs_after = langfuse.get_dataset_runs(dataset_name=folder_name)
     assert len(runs_after.data) == 0
+
+
+def test_get_dataset_with_version():
+    """Test that get_dataset correctly filters items by version timestamp."""
+
+    langfuse = Langfuse(debug=False)
+
+    # Create dataset
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    # Create first item
+    item1 = langfuse.create_dataset_item(dataset_name=name, input={"version": "v1"})
+    langfuse.flush()
+    time.sleep(3)  # Ensure persistence
+
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_created_at = dataset_after_item1.items[0].created_at
+
+    # Use a timestamp 1 second after item1's actual creation time
+    query_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)  # Ensure temporal separation
+
+    # Create second item
+    langfuse.create_dataset_item(dataset_name=name, input={"version": "v2"})
+    langfuse.flush()
+    time.sleep(3)  # Ensure persistence
+
+    # Fetch at the query_timestamp (should only return first item)
+    dataset = langfuse.get_dataset(name, version=query_timestamp)
+
+    # Verify only first item is retrieved
+    assert len(dataset.items) == 1
+    assert dataset.items[0].input == {"version": "v1"}
+    assert dataset.items[0].id == item1.id
+
+    # Verify fetching without version returns both items (latest)
+    dataset_latest = langfuse.get_dataset(name)
+    assert len(dataset_latest.items) == 2

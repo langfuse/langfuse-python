@@ -2442,13 +2442,20 @@ class Langfuse:
         )
 
     def get_dataset(
-        self, name: str, *, fetch_items_page_size: Optional[int] = 50
+        self,
+        name: str,
+        *,
+        fetch_items_page_size: Optional[int] = 50,
+        version: Optional[datetime] = None,
     ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
             name (str): The name of the dataset to fetch.
             fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            version (Optional[datetime]): Retrieve dataset items as they existed at this specific point in time (UTC).
+                If provided, returns the state of items at the specified UTC timestamp.
+                If not provided, returns the latest version. Must be a timezone-aware datetime object in UTC.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -2465,6 +2472,7 @@ class Langfuse:
                     dataset_name=self._url_encode(name, is_url_param=True),
                     page=page,
                     limit=fetch_items_page_size,
+                    version=version,
                 )
                 dataset_items.extend(new_items.data)
 
