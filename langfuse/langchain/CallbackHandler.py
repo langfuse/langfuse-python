@@ -255,12 +255,20 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_retriever_error", run_id, parent_run_id, error=error
             )
+            if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+                level = None
+            else:
+                level = "ERROR"
+
             observation = self._detach_observation(run_id)
 
             if observation is not None:
                 observation.update(
-                    level="ERROR",
-                    status_message=str(error),
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
+                    status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 ).end()
@@ -803,12 +811,20 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> Any:
         try:
             self._log_debug_event("on_tool_error", run_id, parent_run_id, error=error)
+            if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+                level = None
+            else:
+                level = "ERROR"
+
             observation = self._detach_observation(run_id)
 
             if observation is not None:
                 observation.update(
-                    status_message=str(error),
-                    level="ERROR",
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
+                    status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 ).end()
@@ -997,13 +1013,20 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> Any:
         try:
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
+            if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+                level = None
+            else:
+                level = "ERROR"
 
             generation = self._detach_observation(run_id)
 
             if generation is not None:
                 generation.update(
-                    status_message=str(error),
-                    level="ERROR",
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
+                    status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 ).end()
