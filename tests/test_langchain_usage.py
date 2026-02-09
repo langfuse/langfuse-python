@@ -33,17 +33,21 @@ def test_parse_usage_model_subtracts_known_details():
         "input_token_details": {
             "cache_read": 20,
             "audio": 5,
+            "custom_detail": 3,
         },
         "output_token_details": {
             "reasoning": 10,
+            "custom_output": 2,
         },
     }
 
     parsed = _parse_usage_model(usage)
 
-    assert parsed["input"] == 75
-    assert parsed["output"] == 40
+    assert parsed["input"] == 72
+    assert parsed["output"] == 38
     assert parsed["input_cache_read"] == 20
     assert parsed["input_audio"] == 5
+    assert parsed["input_custom_detail"] == 3
     assert parsed["output_reasoning"] == 10
+    assert parsed["output_custom_output"] == 2
     assert parsed["total"] == 150
