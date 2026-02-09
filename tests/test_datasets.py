@@ -584,7 +584,7 @@ def test_run_experiment_with_versioned_dataset():
 
     # Create first item
     langfuse.create_dataset_item(
-        dataset_name=name, input={"question": "What is 2+2?"}, expected_output="4"
+        dataset_name=name, input={"question": "What is 2+2?"}, expected_output=4
     )
     langfuse.flush()
     time.sleep(3)
@@ -604,14 +604,14 @@ def test_run_experiment_with_versioned_dataset():
         id=item1_id,
         dataset_name=name,
         input={"question": "What is 4+4?"},
-        expected_output="8",
+        expected_output=8,
     )
     langfuse.flush()
     time.sleep(3)
 
     # Create second item (after version timestamp)
     langfuse.create_dataset_item(
-        dataset_name=name, input={"question": "What is 3+3?"}, expected_output="6"
+        dataset_name=name, input={"question": "What is 3+3?"}, expected_output=6
     )
     langfuse.flush()
     time.sleep(3)
@@ -622,13 +622,13 @@ def test_run_experiment_with_versioned_dataset():
     assert versioned_dataset.version == version_timestamp
     # Verify it returns the ORIGINAL version of item1 (before the update)
     assert versioned_dataset.items[0].input == {"question": "What is 2+2?"}
-    assert versioned_dataset.items[0].expected_output == "4"
+    assert versioned_dataset.items[0].expected_output == 4
     assert versioned_dataset.items[0].id == item1_id
 
     # Run a simple experiment on the versioned dataset
     def simple_task(*, item, **kwargs):
         # Just return a static answer
-        return "4"
+        return item.expected_output
 
     result = versioned_dataset.run_experiment(
         name="Versioned Dataset Test",
@@ -639,4 +639,4 @@ def test_run_experiment_with_versioned_dataset():
     # Verify experiment ran successfully
     assert result.name == "Versioned Dataset Test"
     assert len(result.item_results) == 1  # Only one item in versioned dataset
-    assert result.item_results[0].output == "4"
+    assert result.item_results[0].output == 4
