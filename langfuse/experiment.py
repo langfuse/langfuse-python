@@ -719,7 +719,7 @@ class EvaluatorFunction(Protocol):
             ```python
             def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
                 if expected_output is None:
-                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+                    return {"name": "accuracy", "value": 0, "comment": "No expected output"}
 
                 is_correct = output.strip().lower() == expected_output.strip().lower()
                 return {
@@ -773,7 +773,7 @@ class EvaluatorFunction(Protocol):
                 except ValueError:
                     return {
                         "name": "llm_judge_quality",
-                        "value": None,
+                        "value": 0,
                         "comment": "Could not parse LLM judge score"
                     }
             ```
@@ -867,7 +867,7 @@ class RunEvaluatorFunction(Protocol):
                             accuracy_values.append(evaluation.value)
 
                 if not accuracy_values:
-                    return {"name": "avg_accuracy", "value": None, "comment": "No accuracy evaluations found"}
+                    return {"name": "avg_accuracy", "value": 0, "comment": "No accuracy evaluations found"}
 
                 avg = sum(accuracy_values) / len(accuracy_values)
                 return {
