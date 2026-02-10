@@ -7167,6 +7167,14 @@ client.score_v_2.get()
 <dl>
 <dd>
 
+**observation_id:** `typing.Optional[str]` — Comma-separated list of observation IDs to filter scores by.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **queue_id:** `typing.Optional[str]` — Retrieve only scores with a specific annotation queueId.
     
 </dd>
