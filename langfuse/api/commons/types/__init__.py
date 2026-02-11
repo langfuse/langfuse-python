@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
     from .comment import Comment
     from .comment_object_type import CommentObjectType
     from .config_category import ConfigCategory
+    from .correction_score import CorrectionScore
     from .create_score_value import CreateScoreValue
     from .dataset import Dataset
     from .dataset_item import DatasetItem
@@ -35,7 +36,13 @@ if typing.TYPE_CHECKING:
     from .pricing_tier_condition import PricingTierCondition
     from .pricing_tier_input import PricingTierInput
     from .pricing_tier_operator import PricingTierOperator
-    from .score import Score, Score_Boolean, Score_Categorical, Score_Numeric
+    from .score import (
+        Score,
+        Score_Boolean,
+        Score_Categorical,
+        Score_Correction,
+        Score_Numeric,
+    )
     from .score_config import ScoreConfig
     from .score_config_data_type import ScoreConfigDataType
     from .score_data_type import ScoreDataType
@@ -57,6 +64,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Comment": ".comment",
     "CommentObjectType": ".comment_object_type",
     "ConfigCategory": ".config_category",
+    "CorrectionScore": ".correction_score",
     "CreateScoreValue": ".create_score_value",
     "Dataset": ".dataset",
     "DatasetItem": ".dataset_item",
@@ -88,6 +96,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScoreV1_Numeric": ".score_v1",
     "Score_Boolean": ".score",
     "Score_Categorical": ".score",
+    "Score_Correction": ".score",
     "Score_Numeric": ".score",
     "Session": ".session",
     "SessionWithTraces": ".session_with_traces",
@@ -135,6 +144,7 @@ __all__ = [
     "Comment",
     "CommentObjectType",
     "ConfigCategory",
+    "CorrectionScore",
     "CreateScoreValue",
     "Dataset",
     "DatasetItem",
@@ -166,6 +176,7 @@ __all__ = [
     "ScoreV1_Numeric",
     "Score_Boolean",
     "Score_Categorical",
+    "Score_Correction",
     "Score_Numeric",
     "Session",
     "SessionWithTraces",

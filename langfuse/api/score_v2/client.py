@@ -45,6 +45,7 @@ class ScoreV2Client:
         session_id: typing.Optional[str] = None,
         dataset_run_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -101,6 +102,9 @@ class ScoreV2Client:
         trace_id : typing.Optional[str]
             Retrieve only scores with a specific traceId.
 
+        observation_id : typing.Optional[str]
+            Comma-separated list of observation IDs to filter scores by.
+
         queue_id : typing.Optional[str]
             Retrieve only scores with a specific annotation queueId.
 
@@ -150,6 +154,7 @@ class ScoreV2Client:
             session_id=session_id,
             dataset_run_id=dataset_run_id,
             trace_id=trace_id,
+            observation_id=observation_id,
             queue_id=queue_id,
             data_type=data_type,
             trace_tags=trace_tags,
@@ -231,6 +236,7 @@ class AsyncScoreV2Client:
         session_id: typing.Optional[str] = None,
         dataset_run_id: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
         queue_id: typing.Optional[str] = None,
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
@@ -286,6 +292,9 @@ class AsyncScoreV2Client:
 
         trace_id : typing.Optional[str]
             Retrieve only scores with a specific traceId.
+
+        observation_id : typing.Optional[str]
+            Comma-separated list of observation IDs to filter scores by.
 
         queue_id : typing.Optional[str]
             Retrieve only scores with a specific annotation queueId.
@@ -344,6 +353,7 @@ class AsyncScoreV2Client:
             session_id=session_id,
             dataset_run_id=dataset_run_id,
             trace_id=trace_id,
+            observation_id=observation_id,
             queue_id=queue_id,
             data_type=data_type,
             trace_tags=trace_tags,
