@@ -7207,6 +7207,14 @@ client.score_v_2.get()
 <dl>
 <dd>
 
+**filter:** `typing.Optional[str]` — A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>

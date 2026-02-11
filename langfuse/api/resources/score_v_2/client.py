@@ -48,6 +48,7 @@ class ScoreV2Client:
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         fields: typing.Optional[str] = None,
+        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScoresResponse:
         """
@@ -115,6 +116,9 @@ class ScoreV2Client:
         fields : typing.Optional[str]
             Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
 
+        filter : typing.Optional[str]
+            A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -164,6 +168,7 @@ class ScoreV2Client:
                 "dataType": data_type,
                 "traceTags": trace_tags,
                 "fields": fields,
+                "filter": filter,
             },
             request_options=request_options,
         )
@@ -286,6 +291,7 @@ class AsyncScoreV2Client:
         data_type: typing.Optional[ScoreDataType] = None,
         trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         fields: typing.Optional[str] = None,
+        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScoresResponse:
         """
@@ -353,6 +359,9 @@ class AsyncScoreV2Client:
         fields : typing.Optional[str]
             Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
 
+        filter : typing.Optional[str]
+            A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -410,6 +419,7 @@ class AsyncScoreV2Client:
                 "dataType": data_type,
                 "traceTags": trace_tags,
                 "fields": fields,
+                "filter": filter,
             },
             request_options=request_options,
         )
