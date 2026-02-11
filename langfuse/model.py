@@ -4,7 +4,11 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
 
-from langfuse.api import Prompt, Prompt_Chat, Prompt_Text
+from langfuse.api import (
+    Prompt,
+    Prompt_Chat,
+    Prompt_Text,
+)
 from langfuse.logger import langfuse_logger
 
 
