@@ -286,7 +286,7 @@ class DatasetClient:
 
             def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
                 if not expected_output:
-                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+                    return {"name": "accuracy", "value": 0, "comment": "No expected output"}
 
                 is_correct = output.strip().lower() == expected_output.strip().lower()
                 return {
