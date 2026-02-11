@@ -14,6 +14,7 @@ from opentelemetry.sdk.trace.export import (
 )
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
+from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -248,7 +249,9 @@ class TestBasicSpans(TestOTelBase):
     def test_basic_span_creation(self, langfuse_client, memory_exporter):
         """Test that a basic span can be created with attributes."""
         # Create a span and end it
-        span = langfuse_client.start_span(name="test-span", input={"test": "value"})
+        span = langfuse_client.start_observation(
+            name="test-span", input={"test": "value"}
+        )
         span.end()
 
         # Get spans with our name
@@ -273,15 +276,19 @@ class TestBasicSpans(TestOTelBase):
     def test_span_hierarchy(self, langfuse_client, memory_exporter):
         """Test creating nested spans and verify their parent-child relationships."""
         # Create parent span
-        with langfuse_client.start_as_current_span(name="parent-span") as parent_span:
+        with langfuse_client.start_as_current_observation(
+            name="parent-span"
+        ) as parent_span:
             # Create a child span
-            child_span = parent_span.start_span(name="child-span")
+            child_span = parent_span.start_observation(name="child-span")
             child_span.end()
 
             # Create another child span using context manager
-            with parent_span.start_as_current_span(name="child-span-2") as child_span_2:
+            with parent_span.start_as_current_observation(
+                name="child-span-2"
+            ) as child_span_2:
                 # Create a grandchild span
-                grandchild = child_span_2.start_span(name="grandchild-span")
+                grandchild = child_span_2.start_observation(name="grandchild-span")
                 grandchild.end()
 
         # Get all spans
@@ -312,7 +319,7 @@ class TestBasicSpans(TestOTelBase):
     def test_update_current_span_name(self, langfuse_client, memory_exporter):
         """Test updating current span name via update_current_span method."""
         # Create a span using context manager
-        with langfuse_client.start_as_current_span(name="original-current-span"):
+        with langfuse_client.start_as_current_observation(name="original-current-span"):
             # Update the current span name
             langfuse_client.update_current_span(name="updated-current-span")
 
@@ -329,7 +336,7 @@ class TestBasicSpans(TestOTelBase):
     def test_span_attributes(self, langfuse_client, memory_exporter):
         """Test that span attributes are correctly set and updated."""
         # Create a span with attributes
-        span = langfuse_client.start_span(
+        span = langfuse_client.start_observation(
             name="attribute-span",
             input={"prompt": "Test prompt"},
             output={"response": "Test response"},
@@ -380,7 +387,7 @@ class TestBasicSpans(TestOTelBase):
     def test_span_name_update(self, langfuse_client, memory_exporter):
         """Test updating span name via update method."""
         # Create a span with initial name
-        span = langfuse_client.start_span(name="original-span-name")
+        span = langfuse_client.start_observation(name="original-span-name")
 
         # Update the span name
         span.update(name="updated-span-name")
@@ -397,7 +404,8 @@ class TestBasicSpans(TestOTelBase):
     def test_generation_span(self, langfuse_client, memory_exporter):
         """Test creating a generation span with model-specific attributes."""
         # Create a generation
-        generation = langfuse_client.start_generation(
+        generation = langfuse_client.start_observation(
+            as_type="generation",
             name="test-generation",
             model="gpt-4",
             model_parameters={"temperature": 0.7, "max_tokens": 100},
@@ -431,8 +439,10 @@ class TestBasicSpans(TestOTelBase):
     def test_generation_name_update(self, langfuse_client, memory_exporter):
         """Test updating generation name via update method."""
         # Create a generation with initial name
-        generation = langfuse_client.start_generation(
-            name="original-generation-name", model="gpt-4"
+        generation = langfuse_client.start_observation(
+            as_type="generation",
+            name="original-generation-name",
+            model="gpt-4",
         )
 
         # Update the generation name
@@ -451,16 +461,16 @@ class TestBasicSpans(TestOTelBase):
 
     def test_trace_update(self, langfuse_client, memory_exporter):
         """Test updating trace level attributes."""
-        # Create a span and update trace attributes
-        with langfuse_client.start_as_current_span(name="trace-span") as span:
-            span.update_trace(
-                name="updated-trace-name",
+        # Create a span and set trace attributes using propagate_attributes and set_trace_io
+        with langfuse_client.start_as_current_observation(name="trace-span") as span:
+            with propagate_attributes(
+                trace_name="updated-trace-name",
                 user_id="test-user",
                 session_id="test-session",
                 tags=["tag1", "tag2"],
-                input={"trace-input": "value"},
                 metadata={"trace-meta": "data"},
-            )
+            ):
+                span.set_trace_io(input={"trace-input": "value"})
 
         # Get the span data
         spans = self.get_spans_by_name(memory_exporter, "trace-span")
@@ -490,34 +500,40 @@ class TestBasicSpans(TestOTelBase):
     def test_complex_scenario(self, langfuse_client, memory_exporter):
         """Test a more complex scenario with multiple operations and nesting."""
         # Create a trace with a main span
-        with langfuse_client.start_as_current_span(name="main-flow") as main_span:
+        with langfuse_client.start_as_current_observation(
+            name="main-flow"
+        ) as main_span:
             # Add trace information
-            main_span.update_trace(
-                name="complex-test",
+            with propagate_attributes(
+                trace_name="complex-test",
                 user_id="complex-user",
                 session_id="complex-session",
-            )
+            ):
+                # Add a processing span
+                with main_span.start_as_current_observation(
+                    name="processing"
+                ) as processing:
+                    processing.update(metadata={"step": "processing"})
 
-            # Add a processing span
-            with main_span.start_as_current_span(name="processing") as processing:
-                processing.update(metadata={"step": "processing"})
+                # Add an LLM generation
+                with main_span.start_as_current_observation(
+                    as_type="generation",
+                    name="llm-call",
+                    model="gpt-3.5-turbo",
+                    input={"prompt": "Summarize this text"},
+                    metadata={"service": "OpenAI"},
+                ) as generation:
+                    # Update the generation with results
+                    generation.update(
+                        output={"text": "This is a summary"},
+                        usage_details={"input": 20, "output": 5, "total": 25},
+                    )
 
-            # Add an LLM generation
-            with main_span.start_as_current_generation(
-                name="llm-call",
-                model="gpt-3.5-turbo",
-                input={"prompt": "Summarize this text"},
-                metadata={"service": "OpenAI"},
-            ) as generation:
-                # Update the generation with results
-                generation.update(
-                    output={"text": "This is a summary"},
-                    usage_details={"input": 20, "output": 5, "total": 25},
-                )
-
-            # Final processing step
-            with main_span.start_as_current_span(name="post-processing") as post_proc:
-                post_proc.update(metadata={"step": "post-processing"})
+                # Final processing step
+                with main_span.start_as_current_observation(
+                    name="post-processing"
+                ) as post_proc:
+                    post_proc.update(metadata={"step": "post-processing"})
 
         # Get all spans
         spans = [
@@ -572,8 +588,10 @@ class TestBasicSpans(TestOTelBase):
     def test_update_current_generation_name(self, langfuse_client, memory_exporter):
         """Test updating current generation name via update_current_generation method."""
         # Create a generation using context manager
-        with langfuse_client.start_as_current_generation(
-            name="original-current-generation", model="gpt-4"
+        with langfuse_client.start_as_current_observation(
+            as_type="generation",
+            name="original-current-generation",
+            model="gpt-4",
         ):
             # Update the current generation name
             langfuse_client.update_current_generation(name="updated-current-generation")
@@ -606,8 +624,9 @@ class TestBasicSpans(TestOTelBase):
         for obs_type in observation_types:
             with langfuse_client.start_as_current_observation(
                 name=f"test-{obs_type}", as_type=obs_type
-            ) as obs:
-                obs.update_trace(name=f"trace-{obs_type}")
+            ):
+                with propagate_attributes(trace_name=f"trace-{obs_type}"):
+                    pass
 
         spans = [
             self.get_span_data(span) for span in memory_exporter.get_finished_spans()
@@ -643,7 +662,7 @@ class TestBasicSpans(TestOTelBase):
         observation_types = get_observation_types_list(ObservationTypeLiteral)
 
         # Create a main span to use for child creation
-        with langfuse_client.start_as_current_span(
+        with langfuse_client.start_as_current_observation(
             name="factory-test-parent"
         ) as parent_span:
             created_observations = []
@@ -773,7 +792,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Create a span with this custom trace ID using trace_context
         trace_context = {"trace_id": custom_trace_id}
-        span = langfuse_client.start_span(
+        span = langfuse_client.start_observation(
             name="custom-trace-span",
             trace_context=trace_context,
             input={"test": "value"},
@@ -791,7 +810,7 @@ class TestBasicSpans(TestOTelBase):
         assert span_data["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
 
         # Test additional spans with the same trace context
-        child_span = langfuse_client.start_span(
+        child_span = langfuse_client.start_observation(
             name="child-span", trace_context=trace_context, input={"child": "data"}
         )
         child_span.end()
@@ -813,7 +832,7 @@ class TestBasicSpans(TestOTelBase):
         trace_context = {"trace_id": trace_id, "parent_span_id": parent_span_id}
 
         # Create a span with this context
-        span = langfuse_client.start_span(
+        span = langfuse_client.start_observation(
             name="custom-parent-span", trace_context=trace_context
         )
         span.end()
@@ -827,9 +846,12 @@ class TestBasicSpans(TestOTelBase):
     def test_multiple_generations_in_trace(self, langfuse_client, memory_exporter):
         """Test creating multiple generation spans within the same trace."""
         # Create a trace with multiple generation spans
-        with langfuse_client.start_as_current_span(name="multi-gen-flow") as main_span:
+        with langfuse_client.start_as_current_observation(
+            name="multi-gen-flow"
+        ) as main_span:
             # First generation
-            gen1 = main_span.start_generation(
+            gen1 = main_span.start_observation(
+                as_type="generation",
                 name="generation-1",
                 model="gpt-3.5-turbo",
                 input={"prompt": "First prompt"},
@@ -840,7 +862,8 @@ class TestBasicSpans(TestOTelBase):
             gen1.end()
 
             # Second generation with different model
-            gen2 = main_span.start_generation(
+            gen2 = main_span.start_observation(
+                as_type="generation",
                 name="generation-2",
                 model="gpt-4",
                 input={"prompt": "Second prompt"},
@@ -909,7 +932,7 @@ class TestBasicSpans(TestOTelBase):
     def test_error_handling(self, langfuse_client, memory_exporter):
         """Test error handling in span operations."""
         # Create a span that will have an error
-        span = langfuse_client.start_span(name="error-span")
+        span = langfuse_client.start_observation(name="error-span")
 
         # Set an error status on the span
         import traceback
@@ -947,7 +970,7 @@ class TestBasicSpans(TestOTelBase):
     def test_error_level_in_span_creation(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when creating spans with level='ERROR'."""
         # Create a span with level="ERROR" at creation time
-        span = langfuse_client.start_span(
+        span = langfuse_client.start_observation(
             name="create-error-span",
             level="ERROR",
             status_message="Initial error state",
@@ -982,7 +1005,7 @@ class TestBasicSpans(TestOTelBase):
     def test_error_level_in_span_update(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when updating spans to level='ERROR'."""
         # Create a normal span
-        span = langfuse_client.start_span(name="update-error-span", level="INFO")
+        span = langfuse_client.start_observation(name="update-error-span", level="INFO")
 
         # Update it to ERROR level
         span.update(level="ERROR", status_message="Updated to error state")
@@ -1016,7 +1039,8 @@ class TestBasicSpans(TestOTelBase):
     def test_generation_error_level_in_creation(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when creating generations with level='ERROR'."""
         # Create a generation with level="ERROR" at creation time
-        generation = langfuse_client.start_generation(
+        generation = langfuse_client.start_observation(
+            as_type="generation",
             name="create-error-generation",
             model="gpt-4",
             level="ERROR",
@@ -1052,8 +1076,11 @@ class TestBasicSpans(TestOTelBase):
     def test_generation_error_level_in_update(self, langfuse_client, memory_exporter):
         """Test that OTEL span status is set to ERROR when updating generations to level='ERROR'."""
         # Create a normal generation
-        generation = langfuse_client.start_generation(
-            name="update-error-generation", model="gpt-4", level="INFO"
+        generation = langfuse_client.start_observation(
+            as_type="generation",
+            name="update-error-generation",
+            model="gpt-4",
+            level="INFO",
         )
 
         # Update it to ERROR level
@@ -1096,7 +1123,7 @@ class TestBasicSpans(TestOTelBase):
 
         for i, level in enumerate(test_levels):
             span_name = f"non-error-span-{i}"
-            span = langfuse_client.start_span(name=span_name, level=level)
+            span = langfuse_client.start_observation(name=span_name, level=level)
 
             # Update with same level to test update path too
             if level is not None:
@@ -1122,7 +1149,7 @@ class TestBasicSpans(TestOTelBase):
     def test_multiple_error_updates(self, langfuse_client, memory_exporter):
         """Test that multiple ERROR level updates work correctly."""
         # Create a span
-        span = langfuse_client.start_span(name="multi-error-span")
+        span = langfuse_client.start_observation(name="multi-error-span")
 
         # First error update
         span.update(level="ERROR", status_message="First error")
@@ -1150,7 +1177,9 @@ class TestBasicSpans(TestOTelBase):
     def test_error_without_status_message(self, langfuse_client, memory_exporter):
         """Test that ERROR level works even without status_message."""
         # Create a span with ERROR level but no status message
-        span = langfuse_client.start_span(name="error-no-message-span", level="ERROR")
+        span = langfuse_client.start_observation(
+            name="error-no-message-span", level="ERROR"
+        )
         span.end()
 
         # Get the raw OTEL spans to check the status
@@ -1185,7 +1214,9 @@ class TestBasicSpans(TestOTelBase):
         ]
 
         # Create a parent span for child observations
-        with langfuse_client.start_as_current_span(name="error-test-parent") as parent:
+        with langfuse_client.start_as_current_observation(
+            name="error-test-parent"
+        ) as parent:
             for obs_type in observation_types:
                 # Create observation with ERROR level
                 obs = parent.start_observation(
@@ -1252,7 +1283,8 @@ class TestAdvancedSpans(TestOTelBase):
         }
 
         # Create a generation with these complex parameters
-        generation = langfuse_client.start_generation(
+        generation = langfuse_client.start_observation(
+            as_type="generation",
             name="complex-params-test",
             model="gpt-4",
             model_parameters=complex_params,
@@ -1291,7 +1323,8 @@ class TestAdvancedSpans(TestOTelBase):
     def test_updating_current_generation(self, langfuse_client, memory_exporter):
         """Test that an in-progress generation can be updated multiple times."""
         # Create a generation
-        generation = langfuse_client.start_generation(
+        generation = langfuse_client.start_observation(
+            as_type="generation",
             name="updating-generation",
             model="gpt-4",
             input={"prompt": "Write a story about a robot"},
@@ -1383,7 +1416,7 @@ class TestAdvancedSpans(TestOTelBase):
 
         # Create several spans
         for i in range(5):
-            span = client.start_span(name=f"sampled-span-{i}")
+            span = client.start_observation(name=f"sampled-span-{i}")
             span.end()
 
         # With a sample rate of 0, we should have no spans
@@ -1398,7 +1431,7 @@ class TestAdvancedSpans(TestOTelBase):
     def test_shutdown_and_flush(self, langfuse_client, memory_exporter):
         """Test shutdown and flush operations."""
         # Create a span without ending it
-        span = langfuse_client.start_span(name="flush-test-span")
+        span = langfuse_client.start_observation(name="flush-test-span")
 
         # Explicitly flush
         langfuse_client.flush()
@@ -1415,7 +1448,7 @@ class TestAdvancedSpans(TestOTelBase):
         assert len(spans) == 1, "Span should be exported after ending"
 
         # Create another span for shutdown testing
-        langfuse_client.start_span(name="shutdown-test-span")
+        langfuse_client.start_observation(name="shutdown-test-span")
 
         # Call shutdown (should flush any pending spans)
         langfuse_client.shutdown()
@@ -1436,12 +1469,13 @@ class TestAdvancedSpans(TestOTelBase):
         tracer_provider.add_span_processor(processor)
 
         # Attempt to create spans and trace operations
-        span = client.start_span(name="disabled-span", input={"key": "value"})
+        span = client.start_observation(name="disabled-span", input={"key": "value"})
         span.update(output={"result": "test"})
         span.end()
 
-        with client.start_as_current_span(name="disabled-context-span") as context_span:
-            context_span.update_trace(name="disabled-trace")
+        with client.start_as_current_observation(name="disabled-context-span"):
+            with propagate_attributes(trace_name="disabled-trace"):
+                pass
 
         # Verify no spans were created
         spans = exporter.get_finished_spans()
@@ -2031,12 +2065,12 @@ class TestMultiProjectSetup(TestOTelBase):
     def test_spans_routed_to_correct_exporters(self, multi_project_setup):
         """Test that spans are routed to the correct exporters based on public key."""
         # Create spans in both projects
-        span1 = multi_project_setup["langfuse_project1"].start_span(
+        span1 = multi_project_setup["langfuse_project1"].start_observation(
             name="trace-project1", metadata={"project": "project1"}
         )
         span1.end()
 
-        span2 = multi_project_setup["langfuse_project2"].start_span(
+        span2 = multi_project_setup["langfuse_project2"].start_observation(
             name="trace-project2", metadata={"project": "project2"}
         )
         span2.end()
@@ -2069,7 +2103,7 @@ class TestMultiProjectSetup(TestOTelBase):
         # Create simple non-nested spans in separate threads
         def create_spans_project1():
             for i in range(5):
-                span = multi_project_setup["langfuse_project1"].start_span(
+                span = multi_project_setup["langfuse_project1"].start_observation(
                     name=f"project1-span-{i}",
                     metadata={"project": "project1", "index": i},
                 )
@@ -2079,7 +2113,7 @@ class TestMultiProjectSetup(TestOTelBase):
 
         def create_spans_project2():
             for i in range(5):
-                span = multi_project_setup["langfuse_project2"].start_span(
+                span = multi_project_setup["langfuse_project2"].start_observation(
                     name=f"project2-span-{i}",
                     metadata={"project": "project2", "index": i},
                 )
@@ -2123,12 +2157,12 @@ class TestMultiProjectSetup(TestOTelBase):
     def test_span_processor_filtering(self, multi_project_setup):
         """Test that spans are correctly filtered to the right exporters."""
         # Create spans with identical attributes in both projects
-        span1 = multi_project_setup["langfuse_project1"].start_span(
+        span1 = multi_project_setup["langfuse_project1"].start_observation(
             name="test-filter-span", metadata={"project": "shared-value"}
         )
         span1.end()
 
-        span2 = multi_project_setup["langfuse_project2"].start_span(
+        span2 = multi_project_setup["langfuse_project2"].start_observation(
             name="test-filter-span", metadata={"project": "shared-value"}
         )
         span2.end()
@@ -2168,12 +2202,12 @@ class TestMultiProjectSetup(TestOTelBase):
         # Simplified version that just tests separate span routing
 
         # Start spans in both projects with the same name
-        span1 = multi_project_setup["langfuse_project1"].start_span(
+        span1 = multi_project_setup["langfuse_project1"].start_observation(
             name="identical-span-name"
         )
         span1.end()
 
-        span2 = multi_project_setup["langfuse_project2"].start_span(
+        span2 = multi_project_setup["langfuse_project2"].start_observation(
             name="identical-span-name"
         )
         span2.end()
@@ -2199,13 +2233,13 @@ class TestMultiProjectSetup(TestOTelBase):
         # Create a cross-project sequence that should not share context
 
         # Start a span in project1
-        span1 = multi_project_setup["langfuse_project1"].start_span(
+        span1 = multi_project_setup["langfuse_project1"].start_observation(
             name="cross-project-parent"
         )
 
         # Without ending span1, create a span in project2
         # This should NOT inherit context from span1 even though it's active
-        span2 = multi_project_setup["langfuse_project2"].start_span(
+        span2 = multi_project_setup["langfuse_project2"].start_observation(
             name="independent-project2-span"
         )
 
@@ -2247,12 +2281,12 @@ class TestMultiProjectSetup(TestOTelBase):
         # Each client should have different trace IDs
 
         # Create two spans with identical attributes in both projects
-        span1 = multi_project_setup["langfuse_project1"].start_span(
+        span1 = multi_project_setup["langfuse_project1"].start_observation(
             name="isolation-test-span"
         )
         span1.end()
 
-        span2 = multi_project_setup["langfuse_project2"].start_span(
+        span2 = multi_project_setup["langfuse_project2"].start_observation(
             name="isolation-test-span"
         )
         span2.end()
@@ -2591,12 +2625,12 @@ class TestConcurrencyAndAsync(TestOTelBase):
         import asyncio
 
         # Start a main span
-        main_span = langfuse_client.start_span(name="async-main-span")
+        main_span = langfuse_client.start_observation(name="async-main-span")
 
         # Define an async function that creates and updates spans
         async def async_task(parent_span, task_id):
             # Start a child span
-            child_span = parent_span.start_span(name=f"async-task-{task_id}")
+            child_span = parent_span.start_observation(name=f"async-task-{task_id}")
 
             # Simulate async work
             await asyncio.sleep(0.1)
@@ -2664,7 +2698,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
         # Create a main span in thread 1
         trace_context = {"trace_id": trace_id}
-        main_span = langfuse_client.start_span(
+        main_span = langfuse_client.start_observation(
             name="main-async-span", trace_context=trace_context
         )
 
@@ -2685,7 +2719,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
             nonlocal thread2_span_id, thread2_trace_id
 
             # Access the same trace via trace_id in a different thread
-            thread2_span = langfuse_client.start_span(
+            thread2_span = langfuse_client.start_observation(
                 name="thread2-span", trace_context={"trace_id": trace_id}
             )
 
@@ -2704,7 +2738,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
             nonlocal thread3_span_id, thread3_trace_id
 
             # Create a child of the main span by providing parent_span_id
-            thread3_span = langfuse_client.start_span(
+            thread3_span = langfuse_client.start_observation(
                 name="thread3-span",
                 trace_context={"trace_id": trace_id, "parent_span_id": main_span_id},
             )
@@ -2767,13 +2801,13 @@ class TestConcurrencyAndAsync(TestOTelBase):
     ):
         """Test that span metadata updates preserve nested values in async contexts."""
         # Skip if the client setup is causing recursion issues
-        if not hasattr(langfuse_client, "start_span"):
+        if not hasattr(langfuse_client, "start_observation"):
             pytest.skip("Client setup has issues, skipping test")
 
         import asyncio
 
         # Create a trace with a main span
-        with langfuse_client.start_as_current_span(
+        with langfuse_client.start_as_current_observation(
             name="async-metadata-test"
         ) as main_span:
             # Initial metadata with nested structure
@@ -2886,7 +2920,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
         start_time = time.time()
 
         # Create a span
-        span = langfuse_client.start_span(name="timing-test-span")
+        span = langfuse_client.start_observation(name="timing-test-span")
 
         # Add a small delay
         time.sleep(0.1)
@@ -3303,7 +3337,7 @@ class TestOtelIdGeneration(TestOTelBase):
         """Test that LangfuseEvent.update() logs a warning and does nothing."""
         import logging
 
-        parent_span = langfuse_client.start_span(name="parent-span")
+        parent_span = langfuse_client.start_observation(name="parent-span")
 
         event = parent_span.start_observation(
             name="test-event",

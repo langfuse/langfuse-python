@@ -13,14 +13,12 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
-import warnings
 from datetime import datetime
 from time import time_ns
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
-    List,
     Literal,
     Optional,
     Type,
@@ -38,6 +36,8 @@ from langfuse.model import PromptClient
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
 
+from typing_extensions import deprecated
+
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     create_generation_attributes,
@@ -51,8 +51,9 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
+from langfuse.api import MapValue, ScoreDataType
 from langfuse.logger import langfuse_logger
-from langfuse.types import MapValue, ScoreDataType, SpanLevel
+from langfuse.types import SpanLevel
 
 # Factory mapping for observation classes
 # Note: "event" is handled separately due to special instantiation logic
@@ -208,34 +209,33 @@ class LangfuseObservationWrapper:
 
         return self
 
-    def update_trace(
+    @deprecated(
+        "Trace-level input/output is deprecated. "
+        "For trace attributes (user_id, session_id, tags, etc.), use propagate_attributes() instead. "
+        "This method will be removed in a future major version."
+    )
+    def set_trace_io(
         self,
         *,
-        name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        version: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        tags: Optional[List[str]] = None,
-        public: Optional[bool] = None,
     ) -> "LangfuseObservationWrapper":
-        """Update the trace that this span belongs to.
+        """Set trace-level input and output for the trace this span belongs to.
+
+        .. deprecated::
+            This is a legacy method for backward compatibility with Langfuse platform
+            features that still rely on trace-level input/output (e.g., legacy LLM-as-a-judge
+            evaluators). It will be removed in a future major version.
+
+            For setting other trace attributes (user_id, session_id, metadata, tags, version),
+            use :meth:`Langfuse.propagate_attributes` instead.
 
         Args:
-            name: Updated name for the trace
-            user_id: ID of the user who initiated the trace
-            session_id: Session identifier for grouping related traces
-            version: Version identifier for the application or service
-            input: Input data for the overall trace
-            output: Output data from the overall trace
-            metadata: Additional metadata to associate with the trace
-            tags: List of tags to categorize the trace
-            public: Whether the trace should be publicly accessible
+            input: Input data to associate with the trace.
+            output: Output data to associate with the trace.
 
-        See Also:
-            :func:`langfuse.propagate_attributes`: Recommended replacement
+        Returns:
+            The span instance for method chaining.
         """
         if not self._otel_span.is_recording():
             return self
@@ -246,21 +246,31 @@ class LangfuseObservationWrapper:
         media_processed_output = self._process_media_and_apply_mask(
             data=output, field="output", span=self._otel_span
         )
-        media_processed_metadata = self._process_media_and_apply_mask(
-            data=metadata, field="metadata", span=self._otel_span
-        )
 
         attributes = create_trace_attributes(
-            name=name,
-            user_id=user_id,
-            session_id=session_id,
-            version=version,
             input=media_processed_input,
             output=media_processed_output,
-            metadata=media_processed_metadata,
-            tags=tags,
-            public=public,
         )
+
+        self._otel_span.set_attributes(attributes)
+
+        return self
+
+    def set_trace_as_public(self) -> "LangfuseObservationWrapper":
+        """Make this trace publicly accessible via its URL.
+
+        When a trace is published, anyone with the trace link can view the full trace
+        without needing to be logged in to Langfuse. This action cannot be undone
+        programmatically - once any span in a trace is published, the entire trace
+        becomes public.
+
+        Returns:
+            The span instance for method chaining.
+        """
+        if not self._otel_span.is_recording():
+            return self
+
+        attributes = create_trace_attributes(public=True)
 
         self._otel_span.set_attributes(attributes)
 
@@ -273,7 +283,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: float,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
+        data_type: Optional[
+            Literal[ScoreDataType.NUMERIC, ScoreDataType.BOOLEAN]
+        ] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -287,7 +299,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal[ScoreDataType.CATEGORICAL]
+        ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -323,7 +337,7 @@ class LangfuseObservationWrapper:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-query") as span:
+            with langfuse.start_as_current_observation(name="process-query") as span:
                 # Do work
                 result = process_data()
 
@@ -356,7 +370,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: float,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
+        data_type: Optional[
+            Literal[ScoreDataType.NUMERIC, ScoreDataType.BOOLEAN]
+        ] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -370,7 +386,9 @@ class LangfuseObservationWrapper:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal[ScoreDataType.CATEGORICAL]
+        ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -407,7 +425,7 @@ class LangfuseObservationWrapper:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="handle-request") as span:
+            with langfuse.start_as_current_observation(name="handle-request") as span:
                 # Process the complete request
                 result = process_request()
 
@@ -843,7 +861,7 @@ class LangfuseObservationWrapper:
         self,
         *,
         name: str,
-        as_type: ObservationTypeLiteral,
+        as_type: ObservationTypeLiteral = "span",
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -1091,7 +1109,7 @@ class LangfuseObservationWrapper:
         self,
         *,
         name: str,
-        as_type: ObservationTypeLiteralNoEvent,
+        as_type: ObservationTypeLiteralNoEvent = "span",
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -1161,375 +1179,6 @@ class LangfuseObservationWrapper:
             prompt=prompt,
         )
 
-
-class LangfuseSpan(LangfuseObservationWrapper):
-    """Standard span implementation for general operations in Langfuse.
-
-    This class represents a general-purpose span that can be used to trace
-    any operation in your application. It extends the base LangfuseObservationWrapper
-    with specific methods for creating child spans, generations, and updating
-    span-specific attributes. If possible, use a more specific type for
-    better observability and insights.
-    """
-
-    def __init__(
-        self,
-        *,
-        otel_span: otel_trace_api.Span,
-        langfuse_client: "Langfuse",
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        environment: Optional[str] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ):
-        """Initialize a new LangfuseSpan.
-
-        Args:
-            otel_span: The OpenTelemetry span to wrap
-            langfuse_client: Reference to the parent Langfuse client
-            input: Input data for the span (any JSON-serializable object)
-            output: Output data from the span (any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            environment: The tracing environment
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-        """
-        super().__init__(
-            otel_span=otel_span,
-            as_type="span",
-            langfuse_client=langfuse_client,
-            input=input,
-            output=output,
-            metadata=metadata,
-            environment=environment,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
-    def start_span(
-        self,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ) -> "LangfuseSpan":
-        """Create a new child span.
-
-        This method creates a new child span with this span as the parent.
-        Unlike start_as_current_span(), this method does not set the new span
-        as the current span in the context.
-
-        Args:
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation
-            output: Output data from the operation
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-
-        Returns:
-            A new LangfuseSpan that must be ended with .end() when complete
-
-        Example:
-            ```python
-            parent_span = langfuse.start_span(name="process-request")
-            try:
-                # Create a child span
-                child_span = parent_span.start_span(name="validate-input")
-                try:
-                    # Do validation work
-                    validation_result = validate(request_data)
-                    child_span.update(output=validation_result)
-                finally:
-                    child_span.end()
-
-                # Continue with parent span
-                result = process_validated_data(validation_result)
-                parent_span.update(output=result)
-            finally:
-                parent_span.end()
-            ```
-        """
-        return self.start_observation(
-            name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
-    def start_as_current_span(
-        self,
-        *,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ) -> _AgnosticContextManager["LangfuseSpan"]:
-        """[DEPRECATED] Create a new child span and set it as the current span in a context manager.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_as_current_observation(as_type='span') instead.
-
-        This method creates a new child span and sets it as the current span within
-        a context manager. It should be used with a 'with' statement to automatically
-        manage the span's lifecycle.
-
-        Args:
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation
-            output: Output data from the operation
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-
-        Returns:
-            A context manager that yields a new LangfuseSpan
-
-        Example:
-            ```python
-            with langfuse.start_as_current_span(name="process-request") as parent_span:
-                # Parent span is active here
-
-                # Create a child span with context management
-                with parent_span.start_as_current_span(name="validate-input") as child_span:
-                    # Child span is active here
-                    validation_result = validate(request_data)
-                    child_span.update(output=validation_result)
-
-                # Back to parent span context
-                result = process_validated_data(validation_result)
-                parent_span.update(output=result)
-            ```
-        """
-        warnings.warn(
-            "start_as_current_span is deprecated and will be removed in a future version. "
-            "Use start_as_current_observation(as_type='span') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_as_current_observation(
-            name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
-    def start_generation(
-        self,
-        *,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ) -> "LangfuseGeneration":
-        """[DEPRECATED] Create a new child generation span.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_observation(as_type='generation') instead.
-
-        This method creates a new child generation span with this span as the parent.
-        Generation spans are specialized for AI/LLM operations and include additional
-        fields for model information, usage stats, and costs.
-
-        Unlike start_as_current_generation(), this method does not set the new span
-        as the current span in the context.
-
-        Args:
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-
-        Returns:
-            A new LangfuseGeneration that must be ended with .end() when complete
-
-        Example:
-            ```python
-            span = langfuse.start_span(name="process-query")
-            try:
-                # Create a generation child span
-                generation = span.start_generation(
-                    name="generate-answer",
-                    model="gpt-4",
-                    input={"prompt": "Explain quantum computing"}
-                )
-                try:
-                    # Call model API
-                    response = llm.generate(...)
-
-                    generation.update(
-                        output=response.text,
-                        usage_details={
-                            "prompt_tokens": response.usage.prompt_tokens,
-                            "completion_tokens": response.usage.completion_tokens
-                        }
-                    )
-                finally:
-                    generation.end()
-
-                # Continue with parent span
-                span.update(output={"answer": response.text, "source": "gpt-4"})
-            finally:
-                span.end()
-            ```
-        """
-        warnings.warn(
-            "start_generation is deprecated and will be removed in a future version. "
-            "Use start_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_observation(
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
-    def start_as_current_generation(
-        self,
-        *,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ) -> _AgnosticContextManager["LangfuseGeneration"]:
-        """[DEPRECATED] Create a new child generation span and set it as the current span in a context manager.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_as_current_observation(as_type='generation') instead.
-
-        This method creates a new child generation span and sets it as the current span
-        within a context manager. Generation spans are specialized for AI/LLM operations
-        and include additional fields for model information, usage stats, and costs.
-
-        Args:
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-
-        Returns:
-            A context manager that yields a new LangfuseGeneration
-
-        Example:
-            ```python
-            with langfuse.start_as_current_span(name="process-request") as span:
-                # Prepare data
-                query = preprocess_user_query(user_input)
-
-                # Create a generation span with context management
-                with span.start_as_current_generation(
-                    name="generate-answer",
-                    model="gpt-4",
-                    input={"query": query}
-                ) as generation:
-                    # Generation span is active here
-                    response = llm.generate(query)
-
-                    # Update with results
-                    generation.update(
-                        output=response.text,
-                        usage_details={
-                            "prompt_tokens": response.usage.prompt_tokens,
-                            "completion_tokens": response.usage.completion_tokens
-                        }
-                    )
-
-                # Back to parent span context
-                span.update(output={"answer": response.text, "source": "gpt-4"})
-            ```
-        """
-        warnings.warn(
-            "start_as_current_generation is deprecated and will be removed in a future version. "
-            "Use start_as_current_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_as_current_observation(
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
     def create_event(
         self,
         *,
@@ -1580,6 +1229,56 @@ class LangfuseSpan(LangfuseObservationWrapper):
                 level=level,
                 status_message=status_message,
             ).end(end_time=timestamp),
+        )
+
+
+class LangfuseSpan(LangfuseObservationWrapper):
+    """Standard span implementation for general operations in Langfuse.
+
+    This class represents a general-purpose span that can be used to trace
+    any operation in your application. It extends the base LangfuseObservationWrapper
+    with specific methods for creating child spans, generations, and updating
+    span-specific attributes. If possible, use a more specific type for
+    better observability and insights.
+    """
+
+    def __init__(
+        self,
+        *,
+        otel_span: otel_trace_api.Span,
+        langfuse_client: "Langfuse",
+        input: Optional[Any] = None,
+        output: Optional[Any] = None,
+        metadata: Optional[Any] = None,
+        environment: Optional[str] = None,
+        version: Optional[str] = None,
+        level: Optional[SpanLevel] = None,
+        status_message: Optional[str] = None,
+    ):
+        """Initialize a new LangfuseSpan.
+
+        Args:
+            otel_span: The OpenTelemetry span to wrap
+            langfuse_client: Reference to the parent Langfuse client
+            input: Input data for the span (any JSON-serializable object)
+            output: Output data from the span (any JSON-serializable object)
+            metadata: Additional metadata to associate with the span
+            environment: The tracing environment
+            version: Version identifier for the code or component
+            level: Importance level of the span (info, warning, error)
+            status_message: Optional status message for the span
+        """
+        super().__init__(
+            otel_span=otel_span,
+            as_type="span",
+            langfuse_client=langfuse_client,
+            input=input,
+            output=output,
+            metadata=metadata,
+            environment=environment,
+            version=version,
+            level=level,
+            status_message=status_message,
         )
 
 
