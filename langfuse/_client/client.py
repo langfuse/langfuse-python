@@ -2483,7 +2483,7 @@ class Langfuse:
 
             items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
 
-            return DatasetClient(dataset, items=items)
+            return DatasetClient(dataset, items=items, version=version)
 
         except Error as e:
             handle_fern_exception(e)
@@ -2574,6 +2574,7 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
+        _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
 
@@ -2751,6 +2752,7 @@ class Langfuse:
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
                     metadata=metadata,
+                    dataset_version=_dataset_version,
                 ),
             ),
         )
@@ -2768,6 +2770,7 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
         metadata: Optional[Dict[str, Any]] = None,
+        dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         langfuse_logger.debug(
             f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
@@ -2788,6 +2791,7 @@ class Langfuse:
                     run_name,
                     description,
                     metadata,
+                    dataset_version,
                 )
 
         # Run all items concurrently
@@ -2874,6 +2878,7 @@ class Langfuse:
         experiment_run_name: str,
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
+        dataset_version: Optional[datetime] = None,
     ) -> ExperimentItemResult:
         span_name = "experiment-item-run"
 
@@ -2925,6 +2930,7 @@ class Langfuse:
                                 datasetItemId=item.id,  # type: ignore
                                 traceId=trace_id,
                                 observationId=span.id,
+                                datasetVersion=dataset_version,
                             ),
                         )
 

@@ -155,7 +155,7 @@ class DatasetClient:
         created_at (datetime): Timestamp of dataset creation.
         updated_at (datetime): Timestamp of the last update to the dataset.
         items (List[DatasetItemClient]): List of dataset items associated with the dataset.
-
+        version (Optional[datetime]): Timestamp of the dataset version.
     Example:
         Print the input of each dataset item in a dataset.
         ```python
@@ -178,8 +178,14 @@ class DatasetClient:
     created_at: dt.datetime
     updated_at: dt.datetime
     items: List[DatasetItemClient]
+    version: Optional[dt.datetime]
 
-    def __init__(self, dataset: Dataset, items: List[DatasetItemClient]):
+    def __init__(
+        self,
+        dataset: Dataset,
+        items: List[DatasetItemClient],
+        version: Optional[dt.datetime] = None,
+    ):
         """Initialize the DatasetClient."""
         self.id = dataset.id
         self.name = dataset.name
@@ -189,6 +195,7 @@ class DatasetClient:
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
         self.items = items
+        self.version = version
         self._langfuse: Optional["Langfuse"] = None
 
     def _get_langfuse_client(self) -> Optional["Langfuse"]:
@@ -279,7 +286,7 @@ class DatasetClient:
 
             def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
                 if not expected_output:
-                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+                    return {"name": "accuracy", "value": 0, "comment": "No expected output"}
 
                 is_correct = output.strip().lower() == expected_output.strip().lower()
                 return {
@@ -421,4 +428,5 @@ class DatasetClient:
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
             metadata=metadata,
+            _dataset_version=self.version,
         )
