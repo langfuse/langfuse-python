@@ -51,6 +51,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
     LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_RELEASE,
     LANGFUSE_SAMPLE_RATE,
     LANGFUSE_SECRET_KEY,
     LANGFUSE_TIMEOUT,
@@ -76,6 +77,7 @@ from langfuse._client.span import (
 )
 from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
+from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api.resources.commons.errors.error import Error
@@ -239,6 +241,11 @@ class Langfuse:
         )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
+        )
+        self._release = (
+            release
+            or os.environ.get(LANGFUSE_RELEASE, None)
+            or get_common_release_envs()
         )
         self._project_id: Optional[str] = None
         sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
@@ -723,6 +730,7 @@ class Langfuse:
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -745,6 +753,7 @@ class Langfuse:
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -1448,6 +1457,7 @@ class Langfuse:
                 "otel_span": otel_span,
                 "langfuse_client": self,
                 "environment": self._environment,
+                "release": self._release,
                 "input": input,
                 "output": output,
                 "metadata": metadata,
@@ -1626,6 +1636,7 @@ class Langfuse:
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
             )
 
             if name:
@@ -1687,6 +1698,7 @@ class Langfuse:
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
             )
 
             span.update_trace(
@@ -1760,6 +1772,7 @@ class Langfuse:
                             otel_span=otel_span,
                             langfuse_client=self,
                             environment=self._environment,
+                            release=self._release,
                             input=input,
                             output=output,
                             metadata=metadata,
@@ -1777,6 +1790,7 @@ class Langfuse:
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
                 input=input,
                 output=output,
                 metadata=metadata,

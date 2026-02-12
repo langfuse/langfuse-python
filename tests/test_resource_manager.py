@@ -23,6 +23,7 @@ def test_get_client_preserves_all_settings():
     retrieved_client = get_client()
 
     assert retrieved_client._environment == settings["environment"]
+    assert retrieved_client._release == settings["release"]
 
     assert retrieved_client._resources is not None
     rm = retrieved_client._resources
