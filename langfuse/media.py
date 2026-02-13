@@ -190,33 +190,31 @@ class LangfuseMedia:
             content_type=cast(MediaContentType, parsed_data["type"]),
         )
 
+    # Strict regex for RFC 2397 base64 data URIs: data:[<mediatype>][;params];base64,<data>
+    _BASE64_DATA_URI_RE = re.compile(
+        r"^data:"
+        r"(?P<content_type>[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*)?"
+        r"(?:;[^;,]+)*"  # optional parameters (e.g., ;charset=utf-8)
+        r";base64,"
+        r"(?P<data>[A-Za-z0-9+/\r\n]+=*)\s*$"
+    )
+
     def _parse_base64_data_uri(
         self, data: str
     ) -> Tuple[Optional[bytes], Optional[MediaContentType]]:
         # Example data URI: data:image/jpeg;base64,/9j/4AAQ...
+        if not data or not isinstance(data, str):
+            return None, None
+
+        match = self._BASE64_DATA_URI_RE.match(data)
+        if not match:
+            return None, None
+
         try:
-            if not data or not isinstance(data, str):
-                raise ValueError("Data URI is not a string")
-
-            if not data.startswith("data:"):
-                raise ValueError("Data URI does not start with 'data:'")
-
-            header, actual_data = data[5:].split(",", 1)
-            if not header or not actual_data:
-                raise ValueError("Invalid URI")
-
-            # Split header into parts and check for base64
-            header_parts = header.split(";")
-            if "base64" not in header_parts:
-                raise ValueError("Data is not base64 encoded")
-
-            # Content type is the first part
-            content_type = header_parts[0]
-            if not content_type:
-                raise ValueError("Content type is empty")
+            content_type = match.group("content_type") or "text/plain"
+            actual_data = match.group("data")
 
             return base64.b64decode(actual_data), cast(MediaContentType, content_type)
-
         except Exception as e:
             self._log.error("Error parsing base64 data URI", exc_info=e)
 
