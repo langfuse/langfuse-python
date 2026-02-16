@@ -591,7 +591,8 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
     for raw_chunk in chunks:
         chunk = raw_chunk.__dict__
         if raw_response := chunk.get("response", None):
-            usage = chunk.get("usage", None)
+            usage = chunk.get("usage", None) or getattr(raw_response, "usage", None)
+
             response = raw_response.__dict__
             model = response.get("model")
 
