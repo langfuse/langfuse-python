@@ -614,7 +614,7 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
 
 def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
     completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
-    model, usage = None, None
+    model, usage, finish_reason = None, None, None
 
     for chunk in chunks:
         if _is_openai_v1():
@@ -630,6 +630,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                 choice = choice.__dict__
             if resource.type == "chat":
                 delta = choice.get("delta", None)
+                finish_reason = choice.get("finish_reason", None)
 
                 if _is_openai_v1():
                     delta = delta.__dict__
@@ -728,7 +729,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
         model,
         get_response_for_chat() if resource.type == "chat" else completion,
         usage,
-        None,
+        {"finish_reason": finish_reason} if finish_reason is not None else None,
     )
 
 
