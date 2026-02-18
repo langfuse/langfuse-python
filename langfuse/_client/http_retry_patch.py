@@ -41,7 +41,7 @@ def patch_client_for_unknown_field_retry(client: httpx.Client) -> None:
                 unknown_keys = _extract_unknown_keys(response)
                 if unknown_keys:
                     logger.warning(
-                        "Server rejected unrecognized keys %s for %s %s. Retrying without these fields.",
+                        "Server rejected unrecognized keys %s for %s %s. If this is unexpected, please check if your server version supports these fields. Retrying without these fields.",
                         unknown_keys,
                         method,
                         url,
@@ -78,7 +78,7 @@ def patch_async_client_for_unknown_field_retry(client: httpx.AsyncClient) -> Non
                 unknown_keys = _extract_unknown_keys(response)
                 if unknown_keys:
                     logger.warning(
-                        "Server rejected unrecognized keys %s for %s %s. Retrying without these fields.",
+                        "Server rejected unrecognized keys %s for %s %s. If this is unexpected, please check if your server version supports these fields. Retrying without these fields.",
                         unknown_keys,
                         method,
                         url,
