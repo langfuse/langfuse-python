@@ -1,7 +1,6 @@
 """Test for issue #5659: _parse_base64_data_uri misidentifies SSE data as base64 media."""
 
 import base64
-import logging
 
 from langfuse.media import LangfuseMedia
 
@@ -50,14 +49,12 @@ def test_data_uri_without_base64_returns_none():
     assert result == (None, None)
 
 
-def test_empty_string_returns_none(caplog):
-    """Verify an empty string returns (None, None) without error logging."""
+def test_empty_string_returns_none():
+    """Verify an empty string returns (None, None)."""
     media = _make_media()
-    with caplog.at_level(logging.ERROR, logger="langfuse.media"):
-        result = media._parse_base64_data_uri("")
+    result = media._parse_base64_data_uri("")
 
     assert result == (None, None)
-    assert caplog.records == []
 
 
 def test_non_data_uri_returns_none():

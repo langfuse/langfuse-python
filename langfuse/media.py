@@ -204,6 +204,7 @@ class LangfuseMedia:
     ) -> Tuple[Optional[bytes], Optional[MediaContentType]]:
         # Example data URI: data:image/jpeg;base64,/9j/4AAQ...
         if not data or not isinstance(data, str):
+            self._log.error("Invalid base64 data URI: data is not a string")
             return None, None
 
         match = self._BASE64_DATA_URI_RE.match(data)
