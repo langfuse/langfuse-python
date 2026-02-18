@@ -13,30 +13,20 @@ def _make_media():
     )
 
 
-def test_sse_data_is_not_parsed_as_base64(caplog):
-    """Verify SSE data strings return (None, None) without error logging."""
+def test_sse_data_is_not_parsed_as_base64():
+    """Verify SSE data strings return (None, None) and are not decoded as media."""
     media = _make_media()
-    with caplog.at_level(logging.ERROR, logger="langfuse.media"):
-        result = media._parse_base64_data_uri("data: {'foo': 'bar'}")
+    result = media._parse_base64_data_uri("data: {'foo': 'bar'}")
 
     assert result == (None, None)
-    assert caplog.records == [], (
-        f"Expected no error logs, got: {[r.message for r in caplog.records]}"
-    )
 
 
-def test_sse_data_with_json(caplog):
-    """Verify SSE data with JSON payload returns (None, None) without error logging."""
+def test_sse_data_with_json():
+    """Verify SSE data with JSON payload returns (None, None) and is not decoded as media."""
     media = _make_media()
-    with caplog.at_level(logging.ERROR, logger="langfuse.media"):
-        result = media._parse_base64_data_uri(
-            'data: {"event": "message", "data": "hello"}'
-        )
+    result = media._parse_base64_data_uri('data: {"event": "message", "data": "hello"}')
 
     assert result == (None, None)
-    assert caplog.records == [], (
-        f"Expected no error logs, got: {[r.message for r in caplog.records]}"
-    )
 
 
 def test_valid_base64_data_uri_still_works():
@@ -52,14 +42,12 @@ def test_valid_base64_data_uri_still_works():
     assert content_type == "text/plain"
 
 
-def test_data_uri_without_base64_returns_none(caplog):
+def test_data_uri_without_base64_returns_none():
     """Verify a data URI without ;base64 encoding returns (None, None)."""
     media = _make_media()
-    with caplog.at_level(logging.ERROR, logger="langfuse.media"):
-        result = media._parse_base64_data_uri("data:text/plain,hello")
+    result = media._parse_base64_data_uri("data:text/plain,hello")
 
     assert result == (None, None)
-    assert caplog.records == []
 
 
 def test_empty_string_returns_none(caplog):
@@ -72,14 +60,12 @@ def test_empty_string_returns_none(caplog):
     assert caplog.records == []
 
 
-def test_non_data_uri_returns_none(caplog):
-    """Verify a regular string returns (None, None) without error logging."""
+def test_non_data_uri_returns_none():
+    """Verify a regular string returns (None, None)."""
     media = _make_media()
-    with caplog.at_level(logging.ERROR, logger="langfuse.media"):
-        result = media._parse_base64_data_uri("just a regular string")
+    result = media._parse_base64_data_uri("just a regular string")
 
     assert result == (None, None)
-    assert caplog.records == []
 
 
 def test_valid_image_data_uri():

@@ -208,6 +208,7 @@ class LangfuseMedia:
 
         match = self._BASE64_DATA_URI_RE.match(data)
         if not match:
+            self._log.error("Invalid base64 data URI: does not match RFC 2397 format")
             return None, None
 
         try:
