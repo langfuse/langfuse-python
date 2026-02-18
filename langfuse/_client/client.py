@@ -130,27 +130,6 @@ from langfuse.model import (
 from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
 
 
-def _is_unrecognized_field_error(e: Exception, field_name: str) -> bool:
-    """Check if error contains an unrecognized field.
-
-    Used for backward compatibility when newer SDK sends fields not supported by older servers.
-
-    Args:
-        e: Exception from API call
-        field_name: Name of field to check for in error
-
-    Returns:
-        True if error indicates field_name is unrecognized by the server
-    """
-    try:
-        return any(
-            field_name in error.get("keys", [])
-            for error in getattr(e, "body", {}).get("error", [])
-        )
-    except (AttributeError, TypeError):
-        return False
-
-
 class Langfuse:
     """Main client for Langfuse tracing and platform features.
 
@@ -2958,35 +2937,7 @@ class Langfuse:
                         dataset_run_id = dataset_run_item.dataset_run_id
 
                     except Exception as e:
-                        # Only retry if the error is specifically about datasetVersion being unrecognized
-                        # This handles backward compatibility with older server versions
-                        if _is_unrecognized_field_error(e, "datasetVersion"):
-                            langfuse_logger.warning(
-                                "Server doesn't support datasetVersion field, retrying without it"
-                            )
-                            try:
-                                dataset_run_item = await asyncio.to_thread(
-                                    self.api.dataset_run_items.create,
-                                    request=CreateDatasetRunItemRequest(
-                                        runName=experiment_run_name,
-                                        runDescription=experiment_description,
-                                        metadata=experiment_metadata,
-                                        datasetItemId=item.id,  # type: ignore
-                                        traceId=trace_id,
-                                        observationId=span.id,
-                                        # Note: datasetVersion omitted for backward compatibility
-                                    ),
-                                )
-                                dataset_run_id = dataset_run_item.dataset_run_id
-                            except Exception as retry_error:
-                                error_msg = (
-                                    f"Failed to create dataset run item: {retry_error}"
-                                )
-                                langfuse_logger.error(error_msg)
-                        else:
-                            # Different error, just log it
-                            error_msg = f"Failed to create dataset run item: {e}"
-                            langfuse_logger.error(error_msg)
+                        langfuse_logger.error(f"Failed to create dataset run item: {e}")
 
                 if (
                     not isinstance(item, dict)
