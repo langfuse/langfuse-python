@@ -2921,17 +2921,31 @@ class Langfuse:
                     try:
                         # Use sync API to avoid event loop issues when run_async_safely
                         # creates multiple event loops across different threads
+
+                        # Create request, only include datasetVersion if not None
+                        if dataset_version is not None:
+                            dataset_run_item_request = CreateDatasetRunItemRequest(
+                                run_name=experiment_run_name,
+                                run_description=experiment_description,
+                                metadata=experiment_metadata,
+                                dataset_item_id=item.id,  # type: ignore
+                                trace_id=trace_id,
+                                observation_id=span.id,
+                                dataset_version=dataset_version,
+                            )
+                        else:
+                            dataset_run_item_request = CreateDatasetRunItemRequest(
+                                run_name=experiment_run_name,
+                                run_description=experiment_description,
+                                metadata=experiment_metadata,
+                                dataset_item_id=item.id,  # type: ignore
+                                trace_id=trace_id,
+                                observation_id=span.id,
+                            )
+
                         dataset_run_item = await asyncio.to_thread(
                             self.api.dataset_run_items.create,
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_run_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
-                                observationId=span.id,
-                                datasetVersion=dataset_version,
-                            ),
+                            request=dataset_run_item_request,
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id

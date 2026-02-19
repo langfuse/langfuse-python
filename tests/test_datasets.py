@@ -640,3 +640,75 @@ def test_run_experiment_with_versioned_dataset():
     assert result.name == "Versioned Dataset Test"
     assert len(result.item_results) == 1  # Only one item in versioned dataset
     assert result.item_results[0].output == 4
+
+
+def test_run_experiment_without_dataset_version(monkeypatch):
+    langfuse = Langfuse(debug=False)
+
+    # Create dataset
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    # Create item
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 2+2?"}, expected_output=4
+    )
+    langfuse.flush()
+    time.sleep(3)
+
+    # Get dataset without version timestamp - this should have version=None
+    dataset = langfuse.get_dataset(name)
+    assert dataset.version is None, "Dataset should have no version"
+
+    # Capture HTTP requests to dataset-run-items endpoint to inspect the request body
+    captured_requests = []
+    original_request = langfuse.api._client_wrapper.httpx_client.request
+
+    def capture_request(method, url, **kwargs):
+        # Capture requests to the dataset-run-items endpoint
+        if "dataset-run-items" in str(url) and method.upper() == "POST":
+            # Capture the JSON body being sent
+            captured_requests.append(kwargs.get("json"))
+        return original_request(method, url, **kwargs)
+
+    monkeypatch.setattr(
+        langfuse.api._client_wrapper.httpx_client, "request", capture_request
+    )
+
+    # Run a simple experiment on the dataset
+    def simple_task(*, item, **kwargs):
+        # Just return a static answer
+        return item.expected_output
+
+    result = dataset.run_experiment(
+        name="Dataset without version Test",
+        description="Testing experiment with dataset without version",
+        task=simple_task,
+    )
+
+    # Verify experiment ran successfully
+    assert result.name == "Dataset without version Test"
+    assert len(result.item_results) == 1  # Only one item in dataset
+    assert result.item_results[0].output == 4
+    assert result.dataset_run_id is not None, "Should have created a dataset run"
+
+    # Verify that HTTP requests were captured
+    assert len(captured_requests) > 0, (
+        "Should have captured dataset run item creation requests"
+    )
+
+    # Verify that datasetVersion was NOT included in any request body
+    for request_body in captured_requests:
+        assert request_body is not None, "Request body should not be None"
+        # Check if request_body is a dict or has a dict method
+        if hasattr(request_body, "dict"):
+            body_dict = request_body.dict()
+        elif isinstance(request_body, dict):
+            body_dict = request_body
+        else:
+            body_dict = json.loads(json.dumps(request_body))
+
+        assert "datasetVersion" not in body_dict, (
+            f"datasetVersion should not be in request body when dataset has no version. "
+            f"Found in body: {body_dict}"
+        )
