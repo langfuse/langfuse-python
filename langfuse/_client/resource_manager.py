@@ -35,10 +35,6 @@ from langfuse._client.environment_variables import (
     LANGFUSE_RELEASE,
     LANGFUSE_TRACING_ENVIRONMENT,
 )
-from langfuse._client.http_retry_patch import (
-    patch_async_client_for_unknown_field_retry,
-    patch_client_for_unknown_field_retry,
-)
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
@@ -217,10 +213,6 @@ class LangfuseResourceManager:
             client_headers = additional_headers if additional_headers else {}
             self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
 
-        # Patch the httpx client to handle unknown field errors automatically
-        # This enables backward compatibility when newer SDK versions interact with older servers
-        patch_client_for_unknown_field_retry(self.httpx_client)
-
         self.api = FernLangfuse(
             base_url=base_url,
             username=self.public_key,
@@ -231,11 +223,6 @@ class LangfuseResourceManager:
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
-
-        # Create and patch async client for async API operations
-        async_httpx_client = httpx.AsyncClient(timeout=timeout)
-        patch_async_client_for_unknown_field_retry(async_httpx_client)
-
         self.async_api = AsyncFernLangfuse(
             base_url=base_url,
             username=self.public_key,
@@ -243,7 +230,6 @@ class LangfuseResourceManager:
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
             x_langfuse_public_key=self.public_key,
-            httpx_client=async_httpx_client,
             timeout=timeout,
         )
         score_ingestion_client = LangfuseClient(
