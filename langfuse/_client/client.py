@@ -2931,7 +2931,7 @@ class Langfuse:
                                 traceId=trace_id,
                                 observationId=span.id,
                                 datasetVersion=dataset_version,
-                            ),
+                            ).dict(exclude_none=True),
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id
