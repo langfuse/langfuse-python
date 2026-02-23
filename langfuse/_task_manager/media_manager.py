@@ -42,10 +42,11 @@ class MediaManager:
     def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(
-                f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
-            )
-            self._process_upload_media_job(data=upload_job)
+            if upload_job is not None:
+                self._log.debug(
+                    f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
+                )
+                self._process_upload_media_job(data=upload_job)
 
             self._queue.task_done()
         except Empty:
@@ -55,6 +56,12 @@ class MediaManager:
                 f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
             )
             self._queue.task_done()
+
+    def pause(self) -> None:
+        """
+        Signal the media manager's thread is pausing.
+        """
+        self._queue.put(None)
 
     def _find_and_process_media(
         self,

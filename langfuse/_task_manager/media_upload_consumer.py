@@ -42,3 +42,4 @@ class MediaUploadConsumer(threading.Thread):
             f"Thread: Pausing media upload consumer thread #{self._identifier}"
         )
         self.running = False
+        self._media_manager.pause()
