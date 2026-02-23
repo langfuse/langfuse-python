@@ -2126,11 +2126,7 @@ class Langfuse:
             }
 
             if self._resources is not None:
-                self._resources.add_trace_task(
-                    event,
-                    trace_id=trace_id,
-                    force_sample=True,
-                )
+                self._resources.add_trace_task(event)
         except Exception as e:
             langfuse_logger.exception(
                 f"Error updating trace tags: Failed to process trace update event for trace_id={trace_id}. Error: {e}"
