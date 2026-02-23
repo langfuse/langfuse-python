@@ -86,6 +86,7 @@ from langfuse.api.resources.datasets.types import (
     PaginatedDatasetRuns,
 )
 from langfuse.api.resources.ingestion.types.score_body import ScoreBody
+from langfuse.api.resources.ingestion.types.trace_body import TraceBody
 from langfuse.api.resources.prompts.types import (
     CreatePromptRequest_Chat,
     CreatePromptRequest_Text,
@@ -2098,6 +2099,39 @@ class Langfuse:
                 f"Error creating score: Failed to process score event for trace_id={trace_id}, name={name}. Error: {e}"
             )
 
+    def _create_trace_tags_via_ingestion(
+        self,
+        *,
+        trace_id: str,
+        tags: List[str],
+    ) -> None:
+        """Private helper to enqueue trace tag updates via ingestion API events."""
+        if not self._tracing_enabled:
+            return
+
+        if len(tags) == 0:
+            return
+
+        try:
+            new_body = TraceBody(
+                id=trace_id,
+                tags=tags,
+            )
+
+            event = {
+                "id": self.create_trace_id(),
+                "type": "trace-create",
+                "timestamp": _get_timestamp(),
+                "body": new_body,
+            }
+
+            if self._resources is not None:
+                self._resources.add_trace_task(event)
+        except Exception as e:
+            langfuse_logger.exception(
+                f"Error updating trace tags: Failed to process trace update event for trace_id={trace_id}. Error: {e}"
+            )
+
     @overload
     def score_current_span(
         self,
@@ -3115,8 +3149,10 @@ class Langfuse:
         max_retries: int = 3,
         evaluators: List[EvaluatorFunction],
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
-        max_concurrency: int = 50,
+        max_concurrency: int = 5,
         metadata: Optional[Dict[str, Any]] = None,
+        _add_observation_scores_to_trace: bool = False,
+        _additional_trace_tags: Optional[List[str]] = None,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
@@ -3158,7 +3194,7 @@ class Langfuse:
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).
             max_concurrency: Maximum number of items to evaluate concurrently. Controls
-                parallelism and resource usage. Default: 50.
+                parallelism and resource usage. Default: 5.
             composite_evaluator: Optional function that creates a composite score from
                 item-level evaluations. Receives the original item and its evaluations,
                 returns a single Evaluation. Useful for weighted averages or combined metrics.
@@ -3327,6 +3363,8 @@ class Langfuse:
                     max_concurrency=max_concurrency,
                     composite_evaluator=composite_evaluator,
                     metadata=metadata,
+                    _add_observation_scores_to_trace=_add_observation_scores_to_trace,
+                    _additional_trace_tags=_additional_trace_tags,
                     max_retries=max_retries,
                     verbose=verbose,
                     resume_from=resume_from,
