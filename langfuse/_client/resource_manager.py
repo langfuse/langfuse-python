@@ -306,37 +306,49 @@ class LangfuseResourceManager:
 
             cls._instances.clear()
 
+    def _enqueue_ingestion_task(
+        self,
+        *,
+        event: dict,
+        trace_id: Optional[str],
+        sampling_name: str = "ingestion",
+        force_sample: bool = False,
+    ) -> None:
+        """Enqueue ingestion event with trace sampling aligned to the OTel sampler."""
+        # Sample ingestion events with the same sampler that is used for tracing
+        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+        should_sample = (
+            force_sample
+            or isinstance(
+                tracer_provider, otel_trace_api.ProxyTracerProvider
+            )  # default to in-sample if otel sampler is not available
+            or (
+                tracer_provider.sampler.should_sample(
+                    parent_context=None,
+                    trace_id=int(trace_id, 16),
+                    name=sampling_name,
+                ).decision
+                == Decision.RECORD_AND_SAMPLE
+                if trace_id is not None
+                else True
+            )
+        )
+
+        if should_sample:
+            self._score_ingestion_queue.put(event, block=False)
+
     def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
         try:
-            # Sample scores with the same sampler that is used for tracing
-            tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-            should_sample = (
-                force_sample
-                or isinstance(
-                    tracer_provider, otel_trace_api.ProxyTracerProvider
-                )  # default to in-sample if otel sampler is not available
-                or (
-                    (
-                        tracer_provider.sampler.should_sample(
-                            parent_context=None,
-                            trace_id=int(event["body"].trace_id, 16),
-                            name="score",
-                        ).decision
-                        == Decision.RECORD_AND_SAMPLE
-                        if hasattr(event["body"], "trace_id")
-                        else True
-                    )
-                    if event["body"].trace_id
-                    is not None  # do not sample out session / dataset run scores
-                    else True
-                )
+            trace_id = event["body"].trace_id
+            langfuse_logger.debug(
+                f"Score: Enqueuing event type={event['type']} for trace_id={trace_id} name={event['body'].name} value={event['body'].value}"
             )
-
-            if should_sample:
-                langfuse_logger.debug(
-                    f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
-                )
-                self._score_ingestion_queue.put(event, block=False)
+            self._enqueue_ingestion_task(
+                event=event,
+                trace_id=trace_id,
+                sampling_name="score",
+                force_sample=force_sample,
+            )
 
         except Full:
             langfuse_logger.warning(
@@ -347,6 +359,37 @@ class LangfuseResourceManager:
         except Exception as e:
             langfuse_logger.error(
                 f"Unexpected error: Failed to process score event. The score will be dropped. Error details: {e}"
+            )
+
+            return
+
+    def add_trace_task(
+        self,
+        event: dict,
+        *,
+        trace_id: Optional[str],
+        force_sample: bool = False,
+    ) -> None:
+        try:
+            langfuse_logger.debug(
+                f"Trace: Enqueuing event type={event['type']} for trace_id={trace_id}"
+            )
+            self._enqueue_ingestion_task(
+                event=event,
+                trace_id=trace_id,
+                sampling_name="trace",
+                force_sample=force_sample,
+            )
+
+        except Full:
+            langfuse_logger.warning(
+                "System overload: Trace ingestion queue has reached capacity (100,000 items). Trace update will be dropped. Consider increasing flush frequency or decreasing event volume."
+            )
+
+            return
+        except Exception as e:
+            langfuse_logger.error(
+                f"Unexpected error: Failed to process trace event. The trace update will be dropped. Error details: {e}"
             )
 
             return
