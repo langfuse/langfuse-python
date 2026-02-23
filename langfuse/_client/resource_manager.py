@@ -351,6 +351,29 @@ class LangfuseResourceManager:
 
             return
 
+    def add_trace_task(
+        self,
+        event: dict,
+    ) -> None:
+        try:
+            langfuse_logger.debug(
+                f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
+            )
+            self._score_ingestion_queue.put(event, block=False)
+
+        except Full:
+            langfuse_logger.warning(
+                "System overload: Trace ingestion queue has reached capacity (100,000 items). Trace update will be dropped. Consider increasing flush frequency or decreasing event volume."
+            )
+
+            return
+        except Exception as e:
+            langfuse_logger.error(
+                f"Unexpected error: Failed to process trace event. The trace update will be dropped. Error details: {e}"
+            )
+
+            return
+
     @property
     def tracer(self) -> Optional[Tracer]:
         return self._otel_tracer
