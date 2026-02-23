@@ -28,6 +28,14 @@ from ._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from .span_filter import (
+    KNOWN_LLM_INSTRUMENTATION_SCOPES,
+    KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES,
+    is_default_export_span,
+    is_genai_span,
+    is_known_llm_instrumentor,
+    is_langfuse_span,
+)
 
 Langfuse = _client_module.Langfuse
 
@@ -55,6 +63,12 @@ __all__ = [
     "EvaluatorStats",
     "BatchEvaluationResumeToken",
     "BatchEvaluationResult",
+    "is_default_export_span",
+    "is_langfuse_span",
+    "is_genai_span",
+    "is_known_llm_instrumentor",
+    "KNOWN_LLM_INSTRUMENTATION_SCOPES",
+    "KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES",
     "experiment",
     "api",
 ]
