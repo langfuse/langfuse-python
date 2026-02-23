@@ -2616,13 +2616,14 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         self, instrumentation_filtering_setup
     ):
         """Test that blocked scopes are dropped even when callback allows all."""
-        Langfuse(
-            public_key=instrumentation_filtering_setup["test_key"],
-            secret_key="test-secret-key",
-            base_url="http://localhost:3000",
-            blocked_instrumentation_scopes=["my-framework.worker"],
-            should_export_span=lambda span: True,
-        )
+        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
+            Langfuse(
+                public_key=instrumentation_filtering_setup["test_key"],
+                secret_key="test-secret-key",
+                base_url="http://localhost:3000",
+                blocked_instrumentation_scopes=["my-framework.worker"],
+                should_export_span=lambda span: True,
+            )
 
         tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
         blocked_tracer = tracer_provider.get_tracer("my-framework.worker")
@@ -2714,13 +2715,14 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         """Test that blocked scope drops include scope names in debug logs."""
         caplog.set_level("DEBUG", logger="langfuse")
 
-        Langfuse(
-            public_key=instrumentation_filtering_setup["test_key"],
-            secret_key="test-secret-key",
-            base_url="http://localhost:3000",
-            blocked_instrumentation_scopes=["my.blocked.scope"],
-            should_export_span=lambda span: True,
-        )
+        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
+            Langfuse(
+                public_key=instrumentation_filtering_setup["test_key"],
+                secret_key="test-secret-key",
+                base_url="http://localhost:3000",
+                blocked_instrumentation_scopes=["my.blocked.scope"],
+                should_export_span=lambda span: True,
+            )
 
         tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
         blocked_tracer = tracer_provider.get_tracer("my.blocked.scope")
