@@ -5,7 +5,7 @@ from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
 
 import backoff
-import requests
+import httpx
 from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
@@ -256,10 +256,10 @@ class MediaManager:
 
         upload_start_time = time.time()
         upload_response = self._request_with_backoff(
-            requests.put,
+            httpx.put,
             upload_url,
             headers=headers,
-            data=data["content_bytes"],
+            content=data["content_bytes"],
         )
         upload_time_ms = int((time.time() - upload_start_time) * 1000)
 
@@ -288,7 +288,7 @@ class MediaManager:
                     and 400 <= e.status_code < 500
                     and e.status_code != 429
                 )
-            if isinstance(e, requests.exceptions.RequestException):
+            if isinstance(e, httpx.HTTPStatusError):
                 return (
                     e.response is not None
                     and e.response.status_code < 500
