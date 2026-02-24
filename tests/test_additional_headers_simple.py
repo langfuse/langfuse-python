@@ -100,6 +100,21 @@ class TestAdditionalHeadersSimple:
             == "existing-value"
         )
 
+    def test_media_manager_uses_custom_httpx_client(self):
+        """Test that media manager reuses the configured custom httpx client."""
+        custom_client = httpx.Client()
+
+        langfuse = Langfuse(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            host="https://mock-host.com",
+            httpx_client=custom_client,
+            tracing_enabled=False,
+        )
+
+        assert langfuse._resources is not None
+        assert langfuse._resources._media_manager._httpx_client is custom_client
+
     def test_none_additional_headers_works(self):
         """Test that passing None for additional_headers works without errors."""
         langfuse = Langfuse(
