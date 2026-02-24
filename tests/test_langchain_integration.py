@@ -33,7 +33,7 @@ def test_stream_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         res = model.stream(
@@ -88,7 +88,7 @@ def test_stream_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         res = model.stream(
@@ -142,7 +142,7 @@ def test_invoke_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         _ = model.invoke(
@@ -192,7 +192,7 @@ def test_invoke_in_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         test_phrase = "This is a test!"
@@ -241,7 +241,7 @@ def test_batch_in_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         input1 = "Who is the first president of America ?"
@@ -290,7 +290,7 @@ def test_batch_in_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         input1 = "Who is the first president of America ?"
@@ -342,7 +342,7 @@ async def test_astream_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         res = model.astream(
@@ -398,7 +398,7 @@ async def test_astream_completions_models(model_name):
     langfuse_client = handler.client
 
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         test_phrase = "This is a test!"
@@ -454,7 +454,7 @@ async def test_ainvoke_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         test_phrase = "This is a test!"
@@ -505,7 +505,7 @@ async def test_ainvoke_in_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         test_phrase = "This is a test!"
@@ -558,7 +558,7 @@ def test_chains_batch_in_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt = ChatPromptTemplate.from_template(
@@ -609,7 +609,7 @@ def test_chains_batch_in_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt = ChatPromptTemplate.from_template(
@@ -662,7 +662,7 @@ async def test_chains_abatch_in_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt = ChatPromptTemplate.from_template(
@@ -715,7 +715,7 @@ async def test_chains_abatch_in_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt = ChatPromptTemplate.from_template(
@@ -764,7 +764,7 @@ async def test_chains_ainvoke_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt1 = ChatPromptTemplate.from_template(
@@ -820,7 +820,7 @@ async def test_chains_ainvoke_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt1 = PromptTemplate.from_template(
@@ -876,7 +876,7 @@ async def test_chains_astream_chat_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt1 = PromptTemplate.from_template(
@@ -938,7 +938,7 @@ async def test_chains_astream_completions_models(model_name):
 
     langfuse_client = handler.client
     trace_id = Langfuse.create_trace_id()
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=name, trace_context={"trace_id": trace_id}
     ):
         prompt1 = PromptTemplate.from_template(

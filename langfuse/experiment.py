@@ -8,7 +8,6 @@ and result formatting.
 import asyncio
 import logging
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Dict,
@@ -19,10 +18,7 @@ from typing import (
     Union,
 )
 
-from langfuse.api import ScoreDataType
-
-if TYPE_CHECKING:
-    from langfuse._client.datasets import DatasetItemClient
+from langfuse.api import DatasetItem, ScoreDataType
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -76,20 +72,20 @@ class LocalExperimentItem(TypedDict, total=False):
     metadata: Optional[Dict[str, Any]]
 
 
-ExperimentItem = Union[LocalExperimentItem, "DatasetItemClient"]
+ExperimentItem = Union[LocalExperimentItem, DatasetItem]
 """Type alias for items that can be processed in experiments.
 
 Can be either:
 - LocalExperimentItem: Dict-like items with 'input', 'expected_output', 'metadata' keys
-- DatasetItemClient: Items from Langfuse datasets with .input, .expected_output, .metadata attributes
+- DatasetItem: Items from Langfuse datasets with .input, .expected_output, .metadata attributes
 """
 
-ExperimentData = Union[List[LocalExperimentItem], List["DatasetItemClient"]]
+ExperimentData = Union[List[LocalExperimentItem], List[DatasetItem]]
 """Type alias for experiment datasets.
 
 Represents the collection of items to process in an experiment. Can be either:
 - List[LocalExperimentItem]: Local data items as dictionaries
-- List[DatasetItemClient]: Items from a Langfuse dataset (typically from dataset.items)
+- List[DatasetItem]: Items from a Langfuse dataset (typically from dataset.items)
 """
 
 
@@ -124,7 +120,7 @@ class Evaluation:
 
         def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
             if not expected_output:
-                return Evaluation(name="accuracy", value=None, comment="No expected output")
+                return Evaluation(name="accuracy", value=0, comment="No expected output")
 
             is_correct = output.strip().lower() == expected_output.strip().lower()
             return Evaluation(
@@ -170,7 +166,7 @@ class Evaluation:
             except Exception as e:
                 return Evaluation(
                     name="external_score",
-                    value=None,
+                    value=0,
                     comment=f"API unavailable: {e}",
                     metadata={"error": str(e), "retry_count": 3}
                 )
@@ -222,7 +218,7 @@ class ExperimentItemResult:
     Attributes:
         item: The original experiment item that was processed. Can be either
             a dictionary with 'input', 'expected_output', and 'metadata' keys,
-            or a DatasetItemClient from Langfuse datasets.
+            or a DatasetItem from Langfuse datasets.
         output: The actual output produced by the task function for this item.
             Can be any type depending on what your task function returns.
         evaluations: List of evaluation results for this item. Each evaluation
@@ -719,7 +715,7 @@ class EvaluatorFunction(Protocol):
             ```python
             def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
                 if expected_output is None:
-                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+                    return {"name": "accuracy", "value": 0, "comment": "No expected output"}
 
                 is_correct = output.strip().lower() == expected_output.strip().lower()
                 return {
@@ -773,7 +769,7 @@ class EvaluatorFunction(Protocol):
                 except ValueError:
                     return {
                         "name": "llm_judge_quality",
-                        "value": None,
+                        "value": 0,
                         "comment": "Could not parse LLM judge score"
                     }
             ```
@@ -867,7 +863,7 @@ class RunEvaluatorFunction(Protocol):
                             accuracy_values.append(evaluation.value)
 
                 if not accuracy_values:
-                    return {"name": "avg_accuracy", "value": None, "comment": "No accuracy evaluations found"}
+                    return {"name": "avg_accuracy", "value": 0, "comment": "No accuracy evaluations found"}
 
                 avg = sum(accuracy_values) / len(accuracy_values)
                 return {

@@ -1,16 +1,9 @@
-import json
 import time
-from concurrent.futures import ThreadPoolExecutor
-from typing import Sequence
+from datetime import timedelta
 
-from langchain_core.prompts import PromptTemplate
-from langchain_openai import OpenAI
-
-from langfuse import Langfuse, observe
-from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
-from langfuse.api.resources.commons.types.observation import Observation
-from langfuse.langchain import CallbackHandler
-from tests.utils import create_uuid, get_api
+from langfuse import Langfuse
+from langfuse.api import DatasetStatus
+from tests.utils import create_uuid
 
 
 def test_create_and_get_dataset():
@@ -36,7 +29,7 @@ def test_create_dataset_item():
     name = create_uuid()
     langfuse.create_dataset(name=name)
 
-    generation = langfuse.start_generation(name="test").end()
+    generation = langfuse.start_observation(as_type="generation", name="test").end()
     langfuse.flush()
 
     input = {"input": "Hello World"}
@@ -141,389 +134,146 @@ def test_upsert_and_get_dataset_item():
     assert get_new_item.status == DatasetStatus.ARCHIVED
 
 
-def test_dataset_run_with_metadata_and_description():
+def test_run_experiment():
+    """Test running an experiment on a dataset using run_experiment()."""
     langfuse = Langfuse(debug=False)
 
     dataset_name = create_uuid()
     langfuse.create_dataset(name=dataset_name)
 
-    input = {"input": "Hello World"}
-    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
+    input_data = {"input": "Hello World"}
+    langfuse.create_dataset_item(dataset_name=dataset_name, input=input_data)
 
     dataset = langfuse.get_dataset(dataset_name)
     assert len(dataset.items) == 1
-    assert dataset.items[0].input == input
+    assert dataset.items[0].input == input_data
 
     run_name = create_uuid()
 
-    for item in dataset.items:
-        # Use run() with metadata and description
-        with item.run(
-            run_name=run_name,
-            run_metadata={"key": "value"},
-            run_description="This is a test run",
-        ) as span:
-            span.update_trace(name=run_name, metadata={"key": "value"})
+    def simple_task(*, item, **kwargs):
+        return f"Processed: {item.input}"
+
+    result = dataset.run_experiment(
+        name=run_name,
+        task=simple_task,
+        metadata={"key": "value"},
+    )
 
     langfuse.flush()
     time.sleep(1)  # Give API time to process
 
-    # Get trace using the API directly
-    api = get_api()
-    response = api.trace.list(name=run_name)
-
-    assert response.data, "No traces found for the dataset run"
-    trace = api.trace.get(response.data[0].id)
-
-    assert trace.name == run_name
-    assert trace.metadata is not None
-    assert "key" in trace.metadata
-    assert trace.metadata["key"] == "value"
-    assert trace.id is not None
+    assert result is not None
+    assert len(result.item_results) == 1
+    assert result.item_results[0].output == f"Processed: {input_data}"
 
 
-def test_get_dataset_runs():
+def test_get_dataset_with_version():
+    """Test that get_dataset correctly filters items by version timestamp."""
+
     langfuse = Langfuse(debug=False)
 
-    dataset_name = create_uuid()
-    langfuse.create_dataset(name=dataset_name)
-
-    input = {"input": "Hello World"}
-    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
-
-    dataset = langfuse.get_dataset(dataset_name)
-    assert len(dataset.items) == 1
-    assert dataset.items[0].input == input
-
-    run_name_1 = create_uuid()
-
-    for item in dataset.items:
-        with item.run(
-            run_name=run_name_1,
-            run_metadata={"key": "value"},
-            run_description="This is a test run",
-        ):
-            pass
-
-    langfuse.flush()
-    time.sleep(1)  # Give API time to process
-
-    run_name_2 = create_uuid()
-
-    for item in dataset.items:
-        with item.run(
-            run_name=run_name_2,
-            run_metadata={"key": "value"},
-            run_description="This is a test run",
-        ):
-            pass
-
-    langfuse.flush()
-    time.sleep(1)  # Give API time to process
-    runs = langfuse.get_dataset_runs(dataset_name=dataset_name)
-
-    assert len(runs.data) == 2
-    assert runs.data[0].name == run_name_2
-    assert runs.data[0].metadata == {"key": "value"}
-    assert runs.data[0].description == "This is a test run"
-    assert runs.data[1].name == run_name_1
-    assert runs.meta.total_items == 2
-    assert runs.meta.total_pages == 1
-    assert runs.meta.page == 1
-    assert runs.meta.limit == 50
-
-
-def test_langchain_dataset():
-    langfuse = Langfuse(debug=False)
-    dataset_name = create_uuid()
-    langfuse.create_dataset(name=dataset_name)
-
-    input = json.dumps({"input": "Hello World"})
-    langfuse.create_dataset_item(dataset_name=dataset_name, input=input)
-
-    dataset = langfuse.get_dataset(dataset_name)
-
-    run_name = create_uuid()
-
-    dataset_item_id = None
-    final_trace_id = None
-
-    for item in dataset.items:
-        # Run item with the Langchain model inside the context manager
-        with item.run(run_name=run_name) as span:
-            dataset_item_id = item.id
-            final_trace_id = span.trace_id
-
-            llm = OpenAI()
-            template = """You are a playwright. Given the title of play, it is your job to write a synopsis for that title.
-                Title: {title}
-                Playwright: This is a synopsis for the above play:"""
-
-            prompt_template = PromptTemplate(
-                input_variables=["title"], template=template
-            )
-            chain = prompt_template | llm
-
-            # Create an OpenAI generation as a nested
-            handler = CallbackHandler()
-            chain.invoke(
-                "Tragedy at sunset on the beach", config={"callbacks": [handler]}
-            )
-
-    langfuse.flush()
-    time.sleep(1)  # Give API time to process
-
-    # Get the trace directly
-    api = get_api()
-    assert final_trace_id is not None, "No trace ID was created"
-    trace = api.trace.get(final_trace_id)
-
-    assert trace is not None
-    assert len(trace.observations) >= 1
-
-    # Update the sorted_dependencies function to handle ObservationsView
-    def sorted_dependencies_from_trace(trace):
-        parent_to_observation = {}
-        for obs in trace.observations:
-            # Filter out the generation that might leak in due to the monkey patching OpenAI integration
-            # that might have run in the previous test suite. TODO: fix this hack
-            if obs.name == "OpenAI-generation":
-                continue
-
-            parent_to_observation[obs.parent_observation_id] = obs
-
-        # Start with the root observation (parent_observation_id is None)
-        if None not in parent_to_observation:
-            return []
-
-        current_observation = parent_to_observation[None]
-        dependencies = [current_observation]
-
-        next_parent_id = current_observation.id
-        while next_parent_id in parent_to_observation:
-            current_observation = parent_to_observation[next_parent_id]
-            dependencies.append(current_observation)
-            next_parent_id = current_observation.id
-
-        return dependencies
-
-    sorted_observations = sorted_dependencies_from_trace(trace)
-
-    if len(sorted_observations) >= 2:
-        assert sorted_observations[0].id == sorted_observations[1].parent_observation_id
-        assert sorted_observations[0].parent_observation_id is None
-
-    assert trace.name == f"Dataset run: {run_name}"
-    assert trace.metadata["dataset_item_id"] == dataset_item_id
-    assert trace.metadata["run_name"] == run_name
-    assert trace.metadata["dataset_id"] == dataset.id
-
-    if len(sorted_observations) >= 2:
-        assert sorted_observations[1].name == "RunnableSequence"
-        assert sorted_observations[1].type == "CHAIN"
-        assert sorted_observations[1].input is not None
-        assert sorted_observations[1].output is not None
-        assert sorted_observations[1].input != ""
-        assert sorted_observations[1].output != ""
-
-
-def sorted_dependencies(
-    observations: Sequence[Observation],
-):
-    # observations have an id and a parent_observation_id. Return a sorted list starting with the root observation where the parent_observation_id is None
-    parent_to_observation = {obs.parent_observation_id: obs for obs in observations}
-
-    if None not in parent_to_observation:
-        return []
-
-    # Start with the root observation (parent_observation_id is None)
-    current_observation = parent_to_observation[None]
-    dependencies = [current_observation]
-
-    next_parent_id = current_observation.id
-    while next_parent_id in parent_to_observation:
-        current_observation = parent_to_observation[next_parent_id]
-        dependencies.append(current_observation)
-        next_parent_id = current_observation.id
-
-    return dependencies
-
-
-def test_observe_dataset_run():
     # Create dataset
-    langfuse = Langfuse()
-    dataset_name = create_uuid()
-    langfuse.create_dataset(name=dataset_name)
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
 
-    items_data = []
-    num_items = 3
-
-    for i in range(num_items):
-        trace_id = langfuse.create_trace_id()
-        dataset_item_input = "Hello World " + str(i)
-        langfuse.create_dataset_item(
-            dataset_name=dataset_name, input=dataset_item_input
-        )
-
-        items_data.append((dataset_item_input, trace_id))
-
-    dataset = langfuse.get_dataset(dataset_name)
-    assert len(dataset.items) == num_items
-
-    run_name = create_uuid()
-
-    @observe()
-    def run_llm_app_on_dataset_item(input):
-        return input
-
-    def wrapperFunc(input):
-        return run_llm_app_on_dataset_item(input)
-
-    def execute_dataset_item(item, run_name):
-        with item.run(run_name=run_name) as span:
-            trace_id = span.trace_id
-            span.update_trace(
-                name="run_llm_app_on_dataset_item",
-                input={"args": [item.input]},
-                output=item.input,
-            )
-            wrapperFunc(item.input)
-            return trace_id
-
-    # Execute dataset items in parallel
-    items = dataset.items[::-1]  # Reverse order to reflect input order
-    trace_ids = []
-
-    with ThreadPoolExecutor() as executor:
-        for item in items:
-            result = executor.submit(
-                execute_dataset_item,
-                item,
-                run_name=run_name,
-            )
-            trace_ids.append(result.result())
-
+    # Create first item
+    item1 = langfuse.create_dataset_item(dataset_name=name, input={"version": "v1"})
     langfuse.flush()
-    time.sleep(1)  # Give API time to process
+    time.sleep(3)  # Ensure persistence
 
-    # Verify each trace individually
-    api = get_api()
-    for i, trace_id in enumerate(trace_ids):
-        trace = api.trace.get(trace_id)
-        assert trace is not None
-        assert trace.name == "run_llm_app_on_dataset_item"
-        assert trace.output is not None
-        # Verify the input was properly captured
-        expected_input = dataset.items[len(dataset.items) - 1 - i].input
-        assert trace.input is not None
-        assert "args" in trace.input
-        assert trace.input["args"][0] == expected_input
-        assert trace.output == expected_input
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_created_at = dataset_after_item1.items[0].created_at
 
+    # Use a timestamp 1 second after item1's actual creation time
+    query_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)  # Ensure temporal separation
 
-def test_get_dataset_with_folder_name():
-    """Test that get_dataset works with folder-format names containing slashes."""
-    langfuse = Langfuse(debug=False)
+    # Create second item
+    langfuse.create_dataset_item(dataset_name=name, input={"version": "v2"})
+    langfuse.flush()
+    time.sleep(3)  # Ensure persistence
 
-    # Create a dataset with slashes in the name (folder format)
-    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
-    langfuse.create_dataset(name=folder_name)
+    # Fetch at the query_timestamp (should only return first item)
+    dataset = langfuse.get_dataset(name, version=query_timestamp)
 
-    # Fetch the dataset using the wrapper method
-    dataset = langfuse.get_dataset(folder_name)
-    assert dataset.name == folder_name
-    assert "/" in dataset.name  # Verify slashes are preserved
-
-
-def test_get_dataset_runs_with_folder_name():
-    """Test that get_dataset_runs works with folder-format dataset names."""
-    langfuse = Langfuse(debug=False)
-
-    # Create a dataset with slashes in the name
-    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
-    langfuse.create_dataset(name=folder_name)
-
-    # Create a dataset item
-    langfuse.create_dataset_item(dataset_name=folder_name, input={"test": "data"})
-    dataset = langfuse.get_dataset(folder_name)
+    # Verify only first item is retrieved
     assert len(dataset.items) == 1
+    assert dataset.items[0].input == {"version": "v1"}
+    assert dataset.items[0].id == item1.id
 
-    # Create a run
-    run_name = f"run-{create_uuid()[:8]}"
-    for item in dataset.items:
-        with item.run(run_name=run_name):
-            pass
-
-    langfuse.flush()
-    time.sleep(1)  # Give API time to process
-
-    # Fetch runs using the new wrapper method
-    runs = langfuse.get_dataset_runs(dataset_name=folder_name)
-    assert len(runs.data) == 1
-    assert runs.data[0].name == run_name
+    # Verify fetching without version returns both items (latest)
+    dataset_latest = langfuse.get_dataset(name)
+    assert len(dataset_latest.items) == 2
 
 
-def test_get_dataset_run_with_folder_names():
-    """Test that get_dataset_run works with folder-format dataset and run names."""
+def test_run_experiment_with_versioned_dataset():
+    """Test that running an experiment on a versioned dataset works correctly."""
+    import time
+    from datetime import timedelta
+
     langfuse = Langfuse(debug=False)
 
-    # Create a dataset with slashes in the name
-    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
-    langfuse.create_dataset(name=folder_name)
+    # Create dataset
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
 
-    # Create a dataset item
-    langfuse.create_dataset_item(dataset_name=folder_name, input={"test": "data"})
-    dataset = langfuse.get_dataset(folder_name)
-    assert len(dataset.items) == 1
-
-    # Create a run with slashes in the name
-    run_name = f"run/nested/{create_uuid()[:8]}"
-    for item in dataset.items:
-        with item.run(run_name=run_name, run_metadata={"key": "value"}):
-            pass
-
+    # Create first item
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 2+2?"}, expected_output=4
+    )
     langfuse.flush()
-    time.sleep(1)  # Give API time to process
+    time.sleep(3)
 
-    # Fetch the specific run using the new wrapper method
-    run = langfuse.get_dataset_run(dataset_name=folder_name, run_name=run_name)
-    assert run.name == run_name
-    assert run.dataset_name == folder_name
-    assert run.metadata == {"key": "value"}
-    assert "/" in run_name  # Verify slashes are preserved in run name
+    # Fetch dataset to get the actual server-assigned timestamp of item1
+    dataset_after_item1 = langfuse.get_dataset(name)
+    assert len(dataset_after_item1.items) == 1
+    item1_id = dataset_after_item1.items[0].id
+    item1_created_at = dataset_after_item1.items[0].created_at
 
+    # Use a timestamp 1 second after item1's creation
+    version_timestamp = item1_created_at + timedelta(seconds=1)
+    time.sleep(3)
 
-def test_delete_dataset_run_with_folder_names():
-    """Test that delete_dataset_run works with folder-format dataset and run names."""
-    langfuse = Langfuse(debug=False)
-
-    # Create a dataset with slashes in the name
-    folder_name = f"folder/subfolder/dataset-{create_uuid()[:8]}"
-    langfuse.create_dataset(name=folder_name)
-
-    # Create a dataset item
-    langfuse.create_dataset_item(dataset_name=folder_name, input={"test": "data"})
-    dataset = langfuse.get_dataset(folder_name)
-
-    # Create a run with slashes in the name
-    run_name = f"run/to/delete/{create_uuid()[:8]}"
-    for item in dataset.items:
-        with item.run(run_name=run_name):
-            pass
-
+    # Update item1 after the version timestamp (this should not affect versioned query)
+    langfuse.create_dataset_item(
+        id=item1_id,
+        dataset_name=name,
+        input={"question": "What is 4+4?"},
+        expected_output=8,
+    )
     langfuse.flush()
-    time.sleep(1)  # Give API time to process
+    time.sleep(3)
 
-    # Verify the run exists
-    runs_before = langfuse.get_dataset_runs(dataset_name=folder_name)
-    assert len(runs_before.data) == 1
+    # Create second item (after version timestamp)
+    langfuse.create_dataset_item(
+        dataset_name=name, input={"question": "What is 3+3?"}, expected_output=6
+    )
+    langfuse.flush()
+    time.sleep(3)
 
-    # Delete the run using the new wrapper method
-    result = langfuse.delete_dataset_run(dataset_name=folder_name, run_name=run_name)
-    assert result.message is not None
+    # Get versioned dataset (should only have first item with ORIGINAL state)
+    versioned_dataset = langfuse.get_dataset(name, version=version_timestamp)
+    assert len(versioned_dataset.items) == 1
+    assert versioned_dataset.version == version_timestamp
+    # Verify it returns the ORIGINAL version of item1 (before the update)
+    assert versioned_dataset.items[0].input == {"question": "What is 2+2?"}
+    assert versioned_dataset.items[0].expected_output == 4
+    assert versioned_dataset.items[0].id == item1_id
 
-    time.sleep(1)  # Give API time to process deletion
+    # Run a simple experiment on the versioned dataset
+    def simple_task(*, item, **kwargs):
+        # Just return a static answer
+        return item.expected_output
 
-    # Verify the run is deleted
-    runs_after = langfuse.get_dataset_runs(dataset_name=folder_name)
-    assert len(runs_after.data) == 0
+    result = versioned_dataset.run_experiment(
+        name="Versioned Dataset Test",
+        description="Testing experiment with versioned dataset",
+        task=simple_task,
+    )
+
+    # Verify experiment ran successfully
+    assert result.name == "Versioned Dataset Test"
+    assert len(result.item_results) == 1  # Only one item in versioned dataset
+    assert result.item_results[0].output == 4

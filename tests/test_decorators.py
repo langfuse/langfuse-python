@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from opentelemetry import trace
 
-from langfuse import Langfuse, get_client, observe
+from langfuse import Langfuse, get_client, observe, propagate_attributes
 from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.langchain import CallbackHandler
@@ -47,11 +47,10 @@ def test_nested_observations():
             output="mock_output",
         )
         langfuse.update_current_generation(version="version-1")
-        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
-
-        langfuse.update_current_trace(
-            user_id="user_id",
-        )
+        with propagate_attributes(
+            session_id=mock_session_id, trace_name=mock_name, user_id="user_id"
+        ):
+            pass
 
         return "level_3"
 
@@ -130,11 +129,10 @@ def test_nested_observations_with_non_parentheses_decorator():
         )
         langfuse.update_current_generation(version="version-1")
 
-        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
-
-        langfuse.update_current_trace(
-            user_id="user_id",
-        )
+        with propagate_attributes(
+            session_id=mock_session_id, trace_name=mock_name, user_id="user_id"
+        ):
+            pass
 
         return "level_3"
 
@@ -211,7 +209,8 @@ def test_exception_in_wrapped_function():
             usage_details={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
+        with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
+            pass
 
         raise ValueError("Mock exception")
 
@@ -284,7 +283,8 @@ def test_concurrent_decorator_executions():
             usage_details={"input": 150, "output": 50, "total": 300},
             model="gpt-3.5-turbo",
         )
-        langfuse.update_current_trace(name=mock_name, session_id=mock_session_id)
+        with propagate_attributes(trace_name=mock_name, session_id=mock_session_id):
+            pass
 
         return "level_3"
 
@@ -385,8 +385,6 @@ def test_decorators_langchain():
     def level_3_function(*args, **kwargs):
         langfuse.update_current_span(metadata=mock_metadata)
         langfuse.update_current_span(metadata=mock_deep_metadata)
-        langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
-
         return langchain_operations(*args, **kwargs)
 
     @observe()
@@ -399,7 +397,8 @@ def test_decorators_langchain():
     def level_1_function(*args, **kwargs):
         return level_2_function(*args, **kwargs)
 
-    level_1_function(topic="socks", langfuse_trace_id=mock_trace_id)
+    with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
+        level_1_function(topic="socks", langfuse_trace_id=mock_trace_id)
 
     langfuse.flush()
 
@@ -482,8 +481,8 @@ def test_scoring_observations():
     @observe()
     def level_1_function(*args, **kwargs):
         langfuse.score_current_trace(name="test-trace-score", value=3)
-        langfuse.update_current_trace(name=mock_name)
-        return level_2_function()
+        with propagate_attributes(trace_name=mock_name):
+            return level_2_function()
 
     result = level_1_function(
         *mock_args, **mock_kwargs, langfuse_trace_id=mock_trace_id
@@ -633,7 +632,8 @@ def test_decorated_class_and_instance_methods():
                 output="mock_output",
             )
 
-            langfuse.update_current_trace(session_id=mock_session_id, name=mock_name)
+            with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
+                pass
 
             return "level_3"
 
@@ -834,17 +834,16 @@ async def test_async_nested_openai_chat_stream():
             stream=True,
         )
 
-        langfuse.update_current_trace(
+        with propagate_attributes(
             session_id=mock_session_id,
             user_id=mock_user_id,
             tags=mock_tags,
-        )
+            trace_name=mock_name,
+        ):
+            async for c in gen:
+                print(c)
 
-        async for c in gen:
-            print(c)
-
-        langfuse.update_current_span(metadata=mock_metadata)
-        langfuse.update_current_trace(name=mock_name)
+            langfuse.update_current_span(metadata=mock_metadata)
 
         return "level_2"
 
@@ -1025,7 +1024,7 @@ def test_media():
     @observe()
     def main():
         sleep(1)
-        langfuse.update_current_trace(
+        langfuse.set_current_trace_io(
             input={
                 "context": {
                     "nested": media,
@@ -1036,6 +1035,9 @@ def test_media():
                     "nested": media,
                 },
             },
+        )
+        # Note: Trace-level metadata with nested media objects is tested via observation metadata
+        langfuse.update_current_span(
             metadata={
                 "context": {
                     "nested": media,
@@ -1057,12 +1059,14 @@ def test_media():
         "@@@langfuseMedia:type=application/pdf|id="
         in trace_data.output["context"]["nested"]
     )
+    # Check media in observation metadata
+    observation = trace_data.observations[0]
     assert (
         "@@@langfuseMedia:type=application/pdf|id="
-        in trace_data.metadata["context"]["nested"]
+        in observation.metadata["context"]["nested"]
     )
     parsed_reference_string = LangfuseMedia.parse_reference_string(
-        trace_data.metadata["context"]["nested"]
+        observation.metadata["context"]["nested"]
     )
     assert parsed_reference_string["content_type"] == "application/pdf"
     assert parsed_reference_string["media_id"] is not None
@@ -1075,13 +1079,13 @@ def test_merge_metadata_and_tags():
 
     @observe
     def nested():
-        langfuse.update_current_trace(metadata={"key2": "value2"}, tags=["tag2"])
+        with propagate_attributes(metadata={"key2": "value2"}, tags=["tag2"]):
+            pass
 
     @observe
     def main():
-        langfuse.update_current_trace(metadata={"key1": "value1"}, tags=["tag1"])
-
-        nested()
+        with propagate_attributes(metadata={"key1": "value1"}, tags=["tag1"]):
+            nested()
 
     main(langfuse_trace_id=mock_trace_id)
 
@@ -1117,7 +1121,8 @@ def test_multiproject_context_propagation_basic():
         # and NOT need langfuse_public_key parameter
         langfuse_client = get_client()
         langfuse_client.update_current_generation(metadata={"level": "3"})
-        langfuse_client.update_current_trace(name=mock_name)
+        with propagate_attributes(trace_name=mock_name):
+            pass
         return "level_3"
 
     @observe()
@@ -1191,11 +1196,11 @@ def test_multiproject_context_propagation_deep_nesting():
 
     @observe()
     def level_1_function(*args, **kwargs):
-        langfuse_client = get_client()
-        langfuse_client.update_current_trace(name=mock_name)
-        result = level_2_function()
-        langfuse_client.update_current_span(metadata={"level": "1"})
-        return result
+        with propagate_attributes(trace_name=mock_name):
+            result = level_2_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "1"})
+            return result
 
     result = level_1_function(
         langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
@@ -1253,10 +1258,9 @@ def test_multiproject_context_propagation_override():
 
     @observe()
     def level_1_function(*args, **kwargs):
-        langfuse_client = get_client(public_key=primary_public_key)
-        langfuse_client.update_current_trace(name=mock_name)
-        level_2_function()
-        return "level_1"
+        with propagate_attributes(trace_name=mock_name):
+            level_2_function()
+            return "level_1"
 
     result = level_1_function(
         langfuse_trace_id=mock_trace_id, langfuse_public_key=primary_public_key
@@ -1303,11 +1307,11 @@ def test_multiproject_context_propagation_no_public_key():
 
     @observe()
     def level_1_function(*args, **kwargs):
-        langfuse_client = get_client()
-        langfuse_client.update_current_trace(name=mock_name)
-        result = level_2_function()
-        langfuse_client.update_current_span(metadata={"level": "1"})
-        return result
+        with propagate_attributes(trace_name=mock_name):
+            result = level_2_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "1"})
+            return result
 
     # No langfuse_public_key provided - should use default client
     result = level_1_function(langfuse_trace_id=mock_trace_id)
@@ -1352,7 +1356,8 @@ async def test_multiproject_async_context_propagation_basic():
         langfuse_client.update_current_generation(
             metadata={"level": "3", "async": True}
         )
-        langfuse_client.update_current_trace(name=mock_name)
+        with propagate_attributes(trace_name=mock_name):
+            pass
         return "async_level_3"
 
     @observe()
@@ -1441,11 +1446,13 @@ async def test_multiproject_mixed_sync_async_context_propagation():
     @observe()
     async def async_level_1_function(*args, **kwargs):
         # Top-level async function
-        langfuse_client = get_client()
-        langfuse_client.update_current_trace(name=mock_name)
-        result = await async_level_2_function()
-        langfuse_client.update_current_span(metadata={"level": "1", "type": "async"})
-        return result
+        with propagate_attributes(trace_name=mock_name):
+            result = await async_level_2_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(
+                metadata={"level": "1", "type": "async"}
+            )
+            return result
 
     result = await async_level_1_function(
         langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
@@ -1509,11 +1516,13 @@ async def test_multiproject_concurrent_async_context_isolation():
 
     @observe()
     async def async_level_1_function(task_id, *args, **kwargs):
-        langfuse_client = get_client()
-        langfuse_client.update_current_trace(name=f"{mock_name}_task_{task_id}")
-        result = await async_level_2_function(task_id)
-        langfuse_client.update_current_span(metadata={"task_id": task_id, "level": "1"})
-        return result
+        with propagate_attributes(trace_name=f"{mock_name}_task_{task_id}"):
+            result = await async_level_2_function(task_id)
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(
+                metadata={"task_id": task_id, "level": "1"}
+            )
+            return result
 
     # Run two concurrent async tasks with the same public key but different trace contexts
     task1 = async_level_1_function(
@@ -1587,17 +1596,16 @@ async def test_multiproject_async_generator_context_propagation():
 
     @observe()
     async def async_consumer_function():
-        langfuse_client = get_client()
-        langfuse_client.update_current_trace(name=mock_name)
+        with propagate_attributes(trace_name=mock_name):
+            result = ""
+            async for item in async_generator_function():
+                result += item
 
-        result = ""
-        async for item in async_generator_function():
-            result += item
-
-        langfuse_client.update_current_span(
-            metadata={"type": "consumer", "result": result}
-        )
-        return result
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(
+                metadata={"type": "consumer", "result": result}
+            )
+            return result
 
     result = await async_consumer_function(
         langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
@@ -1643,8 +1651,8 @@ async def test_multiproject_async_context_exception_handling():
         await asyncio.sleep(0.01)
         langfuse_client = get_client()
         langfuse_client.update_current_generation(metadata={"will_fail": True})
-        langfuse_client.update_current_trace(name=mock_name)
-        raise ValueError("Async function failed")
+        with propagate_attributes(trace_name=mock_name):
+            raise ValueError("Async function failed")
 
     @observe()
     async def async_caller_function():

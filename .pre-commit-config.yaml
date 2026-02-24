@@ -1,16 +1,15 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.4
+    rev: v0.15.2
     hooks:
       # Run the linter and fix
-      - id: ruff
+      - id: ruff-check
         types_or: [python, pyi, jupyter]
-        args: [--fix, --config=ci.ruff.toml]
+        args: [--fix]
 
       # Run the formatter.
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-        args: [--config=ci.ruff.toml]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.18.2

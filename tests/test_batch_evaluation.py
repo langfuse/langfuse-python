@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from langfuse import get_client
+from langfuse import get_client, propagate_attributes
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -25,7 +25,7 @@ from tests.utils import create_uuid
 # ============================================================================
 
 
-pytestmark = pytest.mark.skip(reason="Github CI runner overwhelmed by score volume")
+# pytestmark = pytest.mark.skip(reason="Github CI runner overwhelmed by score volume")
 
 
 @pytest.fixture
@@ -67,6 +67,32 @@ def simple_evaluator(*, input, output, expected_output=None, metadata=None, **kw
 # ============================================================================
 
 
+def test_run_batched_evaluation_on_observations_basic(langfuse_client):
+    """Test basic batch evaluation on traces."""
+    result = langfuse_client.run_batched_evaluation(
+        scope="observations",
+        mapper=simple_trace_mapper,
+        evaluators=[simple_evaluator],
+        max_items=1,
+        verbose=True,
+    )
+
+    # Validate result structure
+    assert isinstance(result, BatchEvaluationResult)
+    assert result.total_items_fetched >= 0
+    assert result.total_items_processed >= 0
+    assert result.total_scores_created >= 0
+    assert result.completed is True
+    assert isinstance(result.duration_seconds, float)
+    assert result.duration_seconds > 0
+
+    # Verify evaluator stats
+    assert len(result.evaluator_stats) == 1
+    stats = result.evaluator_stats[0]
+    assert isinstance(stats, EvaluatorStats)
+    assert stats.name == "simple_evaluator"
+
+
 def test_run_batched_evaluation_on_traces_basic(langfuse_client):
     """Test basic batch evaluation on traces."""
     result = langfuse_client.run_batched_evaluation(
@@ -97,14 +123,14 @@ def test_batch_evaluation_with_filter(langfuse_client):
     """Test batch evaluation with JSON filter."""
     # Create a trace with specific tag
     unique_tag = f"test-filter-{create_uuid()}"
-    with langfuse_client.start_as_current_span(
+    with langfuse_client.start_as_current_observation(
         name=f"filtered-trace-{create_uuid()}"
     ) as span:
-        span.update_trace(
-            input="Filtered test",
-            output="Filtered output",
-            tags=[unique_tag],
-        )
+        with propagate_attributes(tags=[unique_tag]):
+            span.set_trace_io(
+                input="Filtered test",
+                output="Filtered output",
+            )
 
     langfuse_client.flush()
     time.sleep(3)
@@ -725,14 +751,14 @@ def test_pagination_with_max_items(langfuse_client):
     """Test that max_items limit is respected."""
     # Create more traces to ensure we have enough data
     for i in range(10):
-        with langfuse_client.start_as_current_span(
+        with langfuse_client.start_as_current_observation(
             name=f"pagination-test-{create_uuid()}"
         ) as span:
-            span.update_trace(
-                input=f"Input {i}",
-                output=f"Output {i}",
-                tags=["pagination_test"],
-            )
+            with propagate_attributes(tags=["pagination_test"]):
+                span.set_trace_io(
+                    input=f"Input {i}",
+                    output=f"Output {i}",
+                )
 
     langfuse_client.flush()
     time.sleep(3)
@@ -757,12 +783,14 @@ def test_has_more_items_flag(langfuse_client):
     # Create enough traces to exceed max_items
     batch_tag = f"batch-test-{create_uuid()}"
     for i in range(15):
-        with langfuse_client.start_as_current_span(name=f"more-items-test-{i}") as span:
-            span.update_trace(
-                input=f"Input {i}",
-                output=f"Output {i}",
-                tags=[batch_tag],
-            )
+        with langfuse_client.start_as_current_observation(
+            name=f"more-items-test-{i}"
+        ) as span:
+            with propagate_attributes(tags=[batch_tag]):
+                span.set_trace_io(
+                    input=f"Input {i}",
+                    output=f"Output {i}",
+                )
 
     langfuse_client.flush()
     time.sleep(3)

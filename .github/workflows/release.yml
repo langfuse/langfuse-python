@@ -11,9 +11,11 @@ on:
           - patch
           - minor
           - major
-          - prerelease
+          - prepatch
+          - preminor
+          - premajor
       prerelease_type:
-        description: 'Pre-release type (only used if version is "prerelease")'
+        description: 'Pre-release type (used when version is prepatch/preminor/premajor)'
         type: choice
         default: ""
         options:
@@ -26,7 +28,7 @@ on:
         type: string
         default: ""
       confirm_major:
-        description: "Type RELEASE MAJOR to confirm a major release"
+        description: "Type RELEASE MAJOR to confirm a major or premajor release"
         required: false
         default: ""
 
@@ -52,10 +54,10 @@ jobs:
           fi
 
       - name: Confirm major release
-        if: ${{ inputs.version == 'major' && inputs.dry_run == false }}
+        if: ${{ inputs.version == 'major' || inputs.version == 'premajor' }}
         run: |
           if [ "${{ inputs.confirm_major }}" != "RELEASE MAJOR" ]; then
-            echo "❌ For major releases, set confirm_major to RELEASE MAJOR"
+            echo "❌ For major/premajor releases, set confirm_major to RELEASE MAJOR"
             exit 1
           fi
 
@@ -108,11 +110,49 @@ jobs:
           # Parse version components
           IFS='.' read -r major minor patch <<< "$base_version"
 
-          if [ "$version_type" = "prerelease" ]; then
+          if echo "$current_version" | grep -qE '(a|b|rc)[0-9]+$'; then
+            current_is_prerelease="true"
+          else
+            current_is_prerelease="false"
+          fi
+
+          if [ "$version_type" = "premajor" ] || [ "$version_type" = "preminor" ] || [ "$version_type" = "prepatch" ]; then
             if [ -z "$prerelease_type" ]; then
-              echo "❌ Error: prerelease_type must be specified when version is 'prerelease'"
+              echo "❌ Error: prerelease_type must be specified when version is a prerelease variant"
               exit 1
             fi
+
+            # Determine the prerelease base version target
+            case "$version_type" in
+              premajor)
+                if [ "$current_is_prerelease" = "true" ] && [ "$minor" -eq 0 ] && [ "$patch" -eq 0 ]; then
+                  target_major=$major
+                else
+                  target_major=$((major + 1))
+                fi
+                target_minor=0
+                target_patch=0
+                ;;
+              preminor)
+                target_major=$major
+                if [ "$current_is_prerelease" = "true" ] && [ "$patch" -eq 0 ] && [ "$minor" -gt 0 ]; then
+                  target_minor=$minor
+                else
+                  target_minor=$((minor + 1))
+                fi
+                target_patch=0
+                ;;
+              prepatch)
+                target_major=$major
+                target_minor=$minor
+                if [ "$current_is_prerelease" = "true" ] && [ "$patch" -gt 0 ]; then
+                  target_patch=$patch
+                else
+                  target_patch=$((patch + 1))
+                fi
+                ;;
+            esac
+            target_base_version="${target_major}.${target_minor}.${target_patch}"
 
             # Map prerelease type to Python suffix
             case "$prerelease_type" in
@@ -126,15 +166,16 @@ jobs:
               pre_num="$prerelease_increment"
             else
               # Check if current version is same type of prerelease, if so increment
-              if echo "$current_version" | grep -qE "${suffix}[0-9]+$"; then
-                current_pre_num=$(echo "$current_version" | sed -E "s/.*${suffix}([0-9]+)$/\1/")
+              escaped_target_base_version=$(echo "$target_base_version" | sed 's/\./\\./g')
+              if echo "$current_version" | grep -qE "^${escaped_target_base_version}${suffix}[0-9]+$"; then
+                current_pre_num=$(echo "$current_version" | sed -E "s/^${escaped_target_base_version}${suffix}([0-9]+)$/\1/")
                 pre_num=$((current_pre_num + 1))
               else
                 pre_num=1
               fi
             fi
 
-            new_version="${base_version}${suffix}${pre_num}"
+            new_version="${target_base_version}${suffix}${pre_num}"
             is_prerelease="true"
           else
             # Standard version bump

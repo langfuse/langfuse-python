@@ -18,11 +18,13 @@ from typing import (
     List,
     Optional,
     Protocol,
+    Set,
     Tuple,
     Union,
+    cast,
 )
 
-from langfuse.api.resources.commons.types import (
+from langfuse.api import (
     ObservationsView,
     TraceWithFullDetails,
 )
@@ -846,10 +848,13 @@ class BatchEvaluationRunner:
         evaluators: List[EvaluatorFunction],
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
+        fetch_trace_fields: Optional[str] = "io",
         max_items: Optional[int] = None,
-        max_concurrency: int = 50,
+        max_concurrency: int = 5,
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        _add_observation_scores_to_trace: bool = False,
+        _additional_trace_tags: Optional[List[str]] = None,
         max_retries: int = 3,
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
@@ -866,10 +871,15 @@ class BatchEvaluationRunner:
             evaluators: List of evaluation functions to run on each item.
             filter: JSON filter string for querying items.
             fetch_batch_size: Number of items to fetch per API call.
+            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'. Default: 'io'
             max_items: Maximum number of items to process (None = all).
             max_concurrency: Maximum number of concurrent evaluations.
             composite_evaluator: Optional function to create composite scores.
             metadata: Metadata to add to all created scores.
+            _add_observation_scores_to_trace: Private option to duplicate
+                observation-level scores onto the parent trace.
+            _additional_trace_tags: Private option to add tags on traces via
+                ingestion trace-create events.
             max_retries: Maximum retries for failed batch fetches.
             verbose: If True, log progress to console.
             resume_from: Resume token from a previous failed run.
@@ -900,6 +910,12 @@ class BatchEvaluationRunner:
 
         # Handle resume token by modifying filter
         effective_filter = self._build_timestamp_filter(filter, resume_from)
+        normalized_additional_trace_tags = (
+            self._dedupe_tags(_additional_trace_tags)
+            if _additional_trace_tags is not None
+            else []
+        )
+        updated_trace_ids: Set[str] = set()
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
@@ -912,6 +928,8 @@ class BatchEvaluationRunner:
 
         if verbose:
             self._log.info(f"Starting batch evaluation on {scope}")
+            if scope == "traces" and fetch_trace_fields:
+                self._log.info(f"Fetching trace fields: {fetch_trace_fields}")
             if resume_from:
                 self._log.info(
                     f"Resuming from {resume_from.last_processed_timestamp} "
@@ -935,6 +953,7 @@ class BatchEvaluationRunner:
                     page=page,
                     limit=fetch_batch_size,
                     max_retries=max_retries,
+                    fields=fetch_trace_fields,
                 )
             except Exception as e:
                 # Failed after max_retries - create resume token and return
@@ -1005,6 +1024,7 @@ class BatchEvaluationRunner:
                             evaluators=evaluators,
                             composite_evaluator=composite_evaluator,
                             metadata=metadata,
+                            _add_observation_scores_to_trace=_add_observation_scores_to_trace,
                             evaluator_stats_dict=evaluator_stats_dict,
                         )
                         return (item_id, result)
@@ -1036,6 +1056,20 @@ class BatchEvaluationRunner:
 
                     # Store evaluations for this item
                     item_evaluations[item_id] = evaluations
+
+                    if normalized_additional_trace_tags:
+                        trace_id = (
+                            item_id
+                            if scope == "traces"
+                            else cast(ObservationsView, item).trace_id
+                        )
+
+                        if trace_id and trace_id not in updated_trace_ids:
+                            self.client._create_trace_tags_via_ingestion(
+                                trace_id=trace_id,
+                                tags=normalized_additional_trace_tags,
+                            )
+                            updated_trace_ids.add(trace_id)
 
                     # Update last processed tracking
                     last_item_timestamp = self._get_item_timestamp(item, scope)
@@ -1114,6 +1148,7 @@ class BatchEvaluationRunner:
         page: int,
         limit: int,
         max_retries: int,
+        fields: Optional[str],
     ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
         """Fetch a batch of items with retry logic.
 
@@ -1124,6 +1159,7 @@ class BatchEvaluationRunner:
             limit: Number of items per page.
             max_retries: Maximum number of retry attempts.
             verbose: Whether to log retry attempts.
+            fields: Trace fields to fetch
 
         Returns:
             List of items from the API.
@@ -1137,6 +1173,7 @@ class BatchEvaluationRunner:
                 limit=limit,
                 filter=filter,
                 request_options={"max_retries": max_retries},
+                fields=fields,
             )  # type: ignore
             return list(response.data)  # type: ignore
         elif scope == "observations":
@@ -1159,6 +1196,7 @@ class BatchEvaluationRunner:
         evaluators: List[EvaluatorFunction],
         composite_evaluator: Optional[CompositeEvaluatorFunction],
         metadata: Optional[Dict[str, Any]],
+        _add_observation_scores_to_trace: bool,
         evaluator_stats_dict: Dict[str, EvaluatorStats],
     ) -> Tuple[int, int, int, List[Evaluation]]:
         """Process a single item: map, evaluate, create scores.
@@ -1170,6 +1208,8 @@ class BatchEvaluationRunner:
             evaluators: List of evaluator functions.
             composite_evaluator: Optional composite evaluator function.
             metadata: Additional metadata to add to scores.
+            _add_observation_scores_to_trace: Whether to duplicate
+                observation-level scores at trace level.
             evaluator_stats_dict: Dictionary tracking evaluator statistics.
 
         Returns:
@@ -1217,13 +1257,16 @@ class BatchEvaluationRunner:
         # Create scores for item-level evaluations
         item_id = self._get_item_id(item, scope)
         for evaluation in evaluations:
-            self._create_score_for_scope(
+            scores_created += self._create_score_for_scope(
                 scope=scope,
                 item_id=item_id,
+                trace_id=cast(ObservationsView, item).trace_id
+                if scope == "observations"
+                else None,
                 evaluation=evaluation,
                 additional_metadata=metadata,
+                add_observation_score_to_trace=_add_observation_scores_to_trace,
             )
-            scores_created += 1
 
         # Run composite evaluator if provided and we have evaluations
         if composite_evaluator and evaluations:
@@ -1239,13 +1282,16 @@ class BatchEvaluationRunner:
 
                 # Create scores for all composite evaluations
                 for composite_eval in composite_evals:
-                    self._create_score_for_scope(
+                    composite_scores_created += self._create_score_for_scope(
                         scope=scope,
                         item_id=item_id,
+                        trace_id=cast(ObservationsView, item).trace_id
+                        if scope == "observations"
+                        else None,
                         evaluation=composite_eval,
                         additional_metadata=metadata,
+                        add_observation_score_to_trace=_add_observation_scores_to_trace,
                     )
-                    composite_scores_created += 1
 
                 # Add composite evaluations to the list
                 evaluations.extend(composite_evals)
@@ -1361,18 +1407,27 @@ class BatchEvaluationRunner:
 
     def _create_score_for_scope(
         self,
+        *,
         scope: str,
         item_id: str,
+        trace_id: Optional[str] = None,
         evaluation: Evaluation,
         additional_metadata: Optional[Dict[str, Any]],
-    ) -> None:
+        add_observation_score_to_trace: bool = False,
+    ) -> int:
         """Create a score linked to the appropriate entity based on scope.
 
         Args:
             scope: The type of entity ("traces", "observations").
             item_id: The ID of the entity.
+            trace_id: The trace ID of the entity; required if scope=observations
             evaluation: The evaluation result to create a score from.
             additional_metadata: Additional metadata to merge with evaluation metadata.
+            add_observation_score_to_trace: Whether to duplicate observation
+                score on parent trace as well.
+
+        Returns:
+            Number of score events created.
         """
         # Merge metadata
         score_metadata = {
@@ -1390,9 +1445,11 @@ class BatchEvaluationRunner:
                 data_type=evaluation.data_type,  # type: ignore[arg-type]
                 config_id=evaluation.config_id,
             )
+            return 1
         elif scope == "observations":
             self.client.create_score(
                 observation_id=item_id,
+                trace_id=trace_id,
                 name=evaluation.name,
                 value=evaluation.value,  # type: ignore
                 comment=evaluation.comment,
@@ -1400,6 +1457,23 @@ class BatchEvaluationRunner:
                 data_type=evaluation.data_type,  # type: ignore[arg-type]
                 config_id=evaluation.config_id,
             )
+            score_count = 1
+
+            if add_observation_score_to_trace and trace_id:
+                self.client.create_score(
+                    trace_id=trace_id,
+                    name=evaluation.name,
+                    value=evaluation.value,  # type: ignore
+                    comment=evaluation.comment,
+                    metadata=score_metadata,
+                    data_type=evaluation.data_type,  # type: ignore[arg-type]
+                    config_id=evaluation.config_id,
+                )
+                score_count += 1
+
+            return score_count
+
+        return 0
 
     def _build_timestamp_filter(
         self,
@@ -1499,6 +1573,21 @@ class BatchEvaluationRunner:
         elif scope == "observations":
             return "start_time"
         return "timestamp"  # Default
+
+    @staticmethod
+    def _dedupe_tags(tags: Optional[List[str]]) -> List[str]:
+        """Deduplicate tags while preserving order."""
+        if tags is None:
+            return []
+
+        deduped: List[str] = []
+        seen = set()
+        for tag in tags:
+            if tag not in seen:
+                deduped.append(tag)
+                seen.add(tag)
+
+        return deduped
 
     def _build_result(
         self,

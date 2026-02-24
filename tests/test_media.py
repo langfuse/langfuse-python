@@ -1,5 +1,7 @@
 import base64
 import re
+from types import SimpleNamespace
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
@@ -109,6 +111,40 @@ def test_nonexistent_file():
     assert media._content_type is None
 
 
+def test_resolve_media_references_uses_configured_httpx_client():
+    reference_string = "@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@"
+    fetch_timeout_seconds = 7
+
+    media_api = Mock()
+    media_api.get.return_value = SimpleNamespace(
+        url="https://example.com/test.jpg", content_type="image/jpeg"
+    )
+
+    response = Mock()
+    response.content = b"test-bytes"
+    response.raise_for_status.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.get.return_value = response
+
+    mock_langfuse_client = SimpleNamespace(
+        api=SimpleNamespace(media=media_api),
+        _resources=SimpleNamespace(httpx_client=httpx_client),
+    )
+
+    resolved = LangfuseMedia.resolve_media_references(
+        obj={"image": reference_string},
+        langfuse_client=mock_langfuse_client,
+        resolve_with="base64_data_uri",
+        content_fetch_timeout_seconds=fetch_timeout_seconds,
+    )
+
+    assert resolved["image"] == "data:image/jpeg;base64,dGVzdC1ieXRlcw=="
+    httpx_client.get.assert_called_once_with(
+        "https://example.com/test.jpg", timeout=fetch_timeout_seconds
+    )
+
+
 def test_replace_media_reference_string_in_object():
     # Create test audio file
     audio_file = "static/joke_prompt.wav"
@@ -121,7 +157,7 @@ def test_replace_media_reference_string_in_object():
     mock_trace_name = f"test-trace-with-audio-{uuid4()}"
     base64_audio = base64.b64encode(mock_audio_bytes).decode()
 
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name=mock_trace_name,
         metadata={
             "context": {
@@ -152,7 +188,7 @@ def test_replace_media_reference_string_in_object():
     assert resolved_obs["metadata"]["context"]["nested"] == expected_base64
 
     # Create second trace reusing the media reference
-    span2 = langfuse.start_span(
+    span2 = langfuse.start_observation(
         name=f"2-{mock_trace_name}",
         metadata={"context": {"nested": resolved_obs["metadata"]["context"]["nested"]}},
     ).end()

@@ -19,12 +19,12 @@ import os
 import threading
 import time
 from queue import Full, Queue
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
@@ -43,7 +43,7 @@ from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsum
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
-from langfuse.api.client import AsyncFernLangfuse, FernLangfuse
+from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction
 
@@ -96,6 +96,7 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ) -> "LangfuseResourceManager":
@@ -130,6 +131,7 @@ class LangfuseResourceManager:
                     if tracing_enabled is not None
                     else True,
                     blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                    should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
                 )
@@ -155,6 +157,7 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ) -> None:
@@ -173,6 +176,7 @@ class LangfuseResourceManager:
         self.media_upload_thread_count = media_upload_thread_count
         self.sample_rate = sample_rate
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
+        self.should_export_span = should_export_span
         self.additional_headers = additional_headers
         self.tracer_provider: Optional[TracerProvider] = None
 
@@ -191,6 +195,7 @@ class LangfuseResourceManager:
                 flush_at=flush_at,
                 flush_interval=flush_interval,
                 blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                should_export_span=should_export_span,
                 additional_headers=additional_headers,
             )
             tracer_provider.add_span_processor(langfuse_processor)
@@ -214,7 +219,7 @@ class LangfuseResourceManager:
             client_headers = additional_headers if additional_headers else {}
             self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
 
-        self.api = FernLangfuse(
+        self.api = LangfuseAPI(
             base_url=base_url,
             username=self.public_key,
             password=secret_key,
@@ -224,7 +229,7 @@ class LangfuseResourceManager:
             httpx_client=self.httpx_client,
             timeout=timeout,
         )
-        self.async_api = AsyncFernLangfuse(
+        self.async_api = AsyncLangfuseAPI(
             base_url=base_url,
             username=self.public_key,
             password=secret_key,
@@ -250,6 +255,7 @@ class LangfuseResourceManager:
         self._media_upload_queue: Queue[Any] = Queue(100_000)
         self._media_manager = MediaManager(
             api_client=self.api,
+            httpx_client=self.httpx_client,
             media_upload_queue=self._media_upload_queue,
             max_retries=3,
         )
@@ -348,6 +354,29 @@ class LangfuseResourceManager:
         except Exception as e:
             langfuse_logger.error(
                 f"Unexpected error: Failed to process score event. The score will be dropped. Error details: {e}"
+            )
+
+            return
+
+    def add_trace_task(
+        self,
+        event: dict,
+    ) -> None:
+        try:
+            langfuse_logger.debug(
+                f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
+            )
+            self._score_ingestion_queue.put(event, block=False)
+
+        except Full:
+            langfuse_logger.warning(
+                "System overload: Trace ingestion queue has reached capacity (100,000 items). Trace update will be dropped. Consider increasing flush frequency or decreasing event volume."
+            )
+
+            return
+        except Exception as e:
+            langfuse_logger.error(
+                f"Unexpected error: Failed to process trace event. The trace update will be dropped. Error details: {e}"
             )
 
             return
