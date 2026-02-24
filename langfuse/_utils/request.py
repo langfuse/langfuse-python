@@ -1,13 +1,13 @@
 """@private"""
 
 import json
-import logging
 from base64 import b64encode
 from typing import Any, List, Union
 
 import httpx
 
 from langfuse._utils.serializer import EventSerializer
+from langfuse.logger import langfuse_logger as logger
 
 
 class LangfuseClient:
@@ -48,8 +48,7 @@ class LangfuseClient:
 
     def batch_post(self, **kwargs: Any) -> httpx.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
-        log = logging.getLogger("langfuse")
-        log.debug("uploading data: %s", kwargs)
+        logger.debug("uploading data: %s", kwargs)
 
         res = self.post(**kwargs)
         return self._process_response(
@@ -58,17 +57,16 @@ class LangfuseClient:
 
     def post(self, **kwargs: Any) -> httpx.Response:
         """Post the `kwargs` to the API"""
-        log = logging.getLogger("langfuse")
         url = self._remove_trailing_slash(self._base_url) + "/api/public/ingestion"
         data = json.dumps(kwargs, cls=EventSerializer)
-        log.debug("making request: %s to %s", data, url)
+        logger.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
         res = self._session.post(
             url, content=data, headers=headers, timeout=self._timeout
         )
 
         if res.status_code == 200:
-            log.debug("data uploaded successfully")
+            logger.debug("data uploaded successfully")
 
         return res
 
@@ -81,10 +79,9 @@ class LangfuseClient:
     def _process_response(
         self, res: httpx.Response, success_message: str, *, return_json: bool = True
     ) -> Union[httpx.Response, Any]:
-        log = logging.getLogger("langfuse")
-        log.debug("received response: %s", res.text)
+        logger.debug("received response: %s", res.text)
         if res.status_code in (200, 201):
-            log.debug(success_message)
+            logger.debug(success_message)
             if return_json:
                 try:
                     return res.json()
