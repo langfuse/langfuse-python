@@ -91,8 +91,9 @@ class RawObservationsV2Client:
             Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
 
         parse_io_as_json : typing.Optional[bool]
-            Set to `true` to parse input/output fields as JSON, or `false` to return raw strings.
-            Defaults to `false` if not provided.
+            **Deprecated.** Setting this to `true` will return a 400 error.
+            Input/output fields are always returned as raw strings.
+            Remove this parameter or set it to `false`.
 
         name : typing.Optional[str]
 
@@ -401,8 +402,9 @@ class AsyncRawObservationsV2Client:
             Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
 
         parse_io_as_json : typing.Optional[bool]
-            Set to `true` to parse input/output fields as JSON, or `false` to return raw strings.
-            Defaults to `false` if not provided.
+            **Deprecated.** Setting this to `true` will return a 400 error.
+            Input/output fields are always returned as raw strings.
+            Remove this parameter or set it to `false`.
 
         name : typing.Optional[str]
 
