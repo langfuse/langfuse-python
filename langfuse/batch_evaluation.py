@@ -8,7 +8,6 @@ with error handling, retry logic, and resume capability.
 
 import asyncio
 import json
-import logging
 import time
 from typing import (
     TYPE_CHECKING,
@@ -29,11 +28,10 @@ from langfuse.api import (
     TraceWithFullDetails,
 )
 from langfuse.experiment import Evaluation, EvaluatorFunction
+from langfuse.logger import langfuse_logger as logger
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
-
-logger = logging.getLogger("langfuse")
 
 
 class EvaluatorInputs:
@@ -828,7 +826,6 @@ class BatchEvaluationRunner:
 
     Attributes:
         client: The Langfuse client instance used for API calls and score creation.
-        _log: Logger instance for this runner.
     """
 
     def __init__(self, client: "Langfuse"):
@@ -838,7 +835,6 @@ class BatchEvaluationRunner:
             client: The Langfuse client instance.
         """
         self.client = client
-        self._log = logger
 
     async def run_async(
         self,
@@ -927,11 +923,11 @@ class BatchEvaluationRunner:
         last_item_id: Optional[str] = None
 
         if verbose:
-            self._log.info(f"Starting batch evaluation on {scope}")
+            logger.info(f"Starting batch evaluation on {scope}")
             if scope == "traces" and fetch_trace_fields:
-                self._log.info(f"Fetching trace fields: {fetch_trace_fields}")
+                logger.info(f"Fetching trace fields: {fetch_trace_fields}")
             if resume_from:
-                self._log.info(
+                logger.info(
                     f"Resuming from {resume_from.last_processed_timestamp} "
                     f"({resume_from.items_processed} items already processed)"
                 )
@@ -941,7 +937,7 @@ class BatchEvaluationRunner:
             # Check if we've reached max_items
             if max_items is not None and total_items_fetched >= max_items:
                 if verbose:
-                    self._log.info(f"Reached max_items limit ({max_items})")
+                    logger.info(f"Reached max_items limit ({max_items})")
                 has_more = True  # More items may exist
                 break
 
@@ -958,7 +954,7 @@ class BatchEvaluationRunner:
             except Exception as e:
                 # Failed after max_retries - create resume token and return
                 error_msg = f"Failed to fetch batch after {max_retries} retries"
-                self._log.error(f"{error_msg}: {e}")
+                logger.error(f"{error_msg}: {e}")
 
                 resume_token = BatchEvaluationResumeToken(
                     scope=scope,
@@ -989,13 +985,13 @@ class BatchEvaluationRunner:
             if not items:
                 has_more = False
                 if verbose:
-                    self._log.info("No more items to fetch")
+                    logger.info("No more items to fetch")
                 break
 
             total_items_fetched += len(items)
 
             if verbose:
-                self._log.info(f"Fetched batch {page} ({len(items)} items)")
+                logger.info(f"Fetched batch {page} ({len(items)} items)")
 
             # Limit items if max_items would be exceeded
             items_to_process = items
@@ -1004,7 +1000,7 @@ class BatchEvaluationRunner:
                 if len(items) > remaining_capacity:
                     items_to_process = items[:remaining_capacity]
                     if verbose:
-                        self._log.info(
+                        logger.info(
                             f"Limiting batch to {len(items_to_process)} items "
                             f"to respect max_items={max_items}"
                         )
@@ -1043,7 +1039,7 @@ class BatchEvaluationRunner:
                     failed_item_ids.append(item_id)
                     error_type = type(result).__name__
                     error_summary[error_type] = error_summary.get(error_type, 0) + 1
-                    self._log.warning(f"Item {item_id} failed: {result}")
+                    logger.warning(f"Item {item_id} failed: {result}")
                 else:
                     # Item processed successfully
                     total_items_processed += 1
@@ -1078,12 +1074,12 @@ class BatchEvaluationRunner:
             if verbose:
                 if max_items is not None and max_items > 0:
                     progress_pct = total_items_processed / max_items * 100
-                    self._log.info(
+                    logger.info(
                         f"Progress: {total_items_processed}/{max_items} items "
                         f"({progress_pct:.1f}%), {total_scores_created} scores created"
                     )
                 else:
-                    self._log.info(
+                    logger.info(
                         f"Progress: {total_items_processed} items processed, "
                         f"{total_scores_created} scores created"
                     )
@@ -1102,14 +1098,14 @@ class BatchEvaluationRunner:
 
         # Flush all scores to Langfuse
         if verbose:
-            self._log.info("Flushing scores to Langfuse...")
+            logger.info("Flushing scores to Langfuse...")
         self.client.flush()
 
         # Build final result
         duration = time.time() - start_time
 
         if verbose:
-            self._log.info(
+            logger.info(
                 f"Batch evaluation complete: {total_items_processed} items processed "
                 f"in {duration:.2f}s"
             )
@@ -1249,7 +1245,7 @@ class BatchEvaluationRunner:
                 # Evaluator failed - log warning and continue with other evaluators
                 stats.failed_runs += 1
                 evaluations_failed += 1
-                self._log.warning(
+                logger.warning(
                     f"Evaluator {evaluator_name} failed on item "
                     f"{self._get_item_id(item, scope)}: {e}"
                 )
@@ -1297,7 +1293,7 @@ class BatchEvaluationRunner:
                 evaluations.extend(composite_evals)
 
             except Exception as e:
-                self._log.warning(f"Composite evaluator failed on item {item_id}: {e}")
+                logger.warning(f"Composite evaluator failed on item {item_id}: {e}")
 
         return (
             scores_created,
@@ -1496,12 +1492,12 @@ class BatchEvaluationRunner:
         try:
             filter_list = json.loads(original_filter) if original_filter else []
             if not isinstance(filter_list, list):
-                self._log.warning(
+                logger.warning(
                     f"Filter should be a JSON array, got: {type(filter_list).__name__}"
                 )
                 filter_list = []
         except json.JSONDecodeError:
-            self._log.warning(
+            logger.warning(
                 f"Invalid JSON in original filter, ignoring: {original_filter}"
             )
             filter_list = []

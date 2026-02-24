@@ -1,4 +1,3 @@
-import logging
 import os
 import time
 from queue import Empty, Full, Queue
@@ -12,6 +11,7 @@ from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
 from langfuse.api import LangfuseAPI, MediaContentType
 from langfuse.api.core import ApiError
+from langfuse.logger import langfuse_logger as logger
 from langfuse.media import LangfuseMedia
 
 from .media_upload_queue import UploadMediaJob
@@ -21,8 +21,6 @@ P = ParamSpec("P")
 
 
 class MediaManager:
-    _log = logging.getLogger("langfuse")
-
     def __init__(
         self,
         *,
@@ -42,7 +40,7 @@ class MediaManager:
     def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(
+            logger.debug(
                 f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
             )
             self._process_upload_media_job(data=upload_job)
@@ -51,7 +49,7 @@ class MediaManager:
         except Empty:
             pass
         except Exception as e:
-            self._log.error(
+            logger.error(
                 f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
             )
             self._queue.task_done()
@@ -179,7 +177,7 @@ class MediaManager:
             return
 
         if media._media_id is None:
-            self._log.error("Media ID is None. Skipping upload.")
+            logger.error("Media ID is None. Skipping upload.")
             return
 
         try:
@@ -198,17 +196,17 @@ class MediaManager:
                 item=upload_media_job,
                 block=False,
             )
-            self._log.debug(
+            logger.debug(
                 f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
             )
 
         except Full:
-            self._log.warning(
+            logger.warning(
                 f"Queue capacity: Media queue is full. Failed to process media_id={media._media_id} for trace_id={trace_id}. Consider increasing queue capacity."
             )
 
         except Exception as e:
-            self._log.error(
+            logger.error(
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
 
@@ -230,14 +228,14 @@ class MediaManager:
         upload_url = upload_url_response.upload_url
 
         if not upload_url:
-            self._log.debug(
+            logger.debug(
                 f"Media status: Media with ID {data['media_id']} already uploaded. Skipping duplicate upload."
             )
 
             return
 
         if upload_url_response.media_id != data["media_id"]:
-            self._log.error(
+            logger.error(
                 f"Media integrity error: Media ID mismatch between SDK ({data['media_id']}) and Server ({upload_url_response.media_id}). Upload cancelled. Please check media ID generation logic."
             )
 
@@ -270,7 +268,7 @@ class MediaManager:
             upload_time_ms=upload_time_ms,
         )
 
-        self._log.debug(
+        logger.debug(
             f"Media upload: Successfully uploaded media_id={data['media_id']} for trace_id={data['trace_id']} | status_code={upload_response.status_code} | duration={upload_time_ms}ms | size={data['content_length']} bytes"
         )
 

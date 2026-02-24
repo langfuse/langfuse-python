@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import threading
 import time
@@ -12,6 +11,7 @@ from pydantic import BaseModel
 from langfuse._utils.parse_error import handle_exception
 from langfuse._utils.request import APIError, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
+from langfuse.logger import langfuse_logger as logger
 
 from ..version import __version__ as langfuse_version
 
@@ -27,8 +27,6 @@ class ScoreIngestionMetadata(BaseModel):
 
 
 class ScoreIngestionConsumer(threading.Thread):
-    _log = logging.getLogger("langfuse")
-
     def __init__(
         self,
         *,
@@ -83,7 +81,7 @@ class ScoreIngestionConsumer(threading.Thread):
                 try:
                     json.dumps(event, cls=EventSerializer)
                 except Exception as e:
-                    self._log.error(
+                    logger.error(
                         f"Data error: Failed to serialize score object for ingestion. Score will be dropped. Error: {e}"
                     )
                     self._ingestion_queue.task_done()
@@ -94,7 +92,7 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 total_size += item_size
                 if total_size >= MAX_BATCH_SIZE_BYTES:
-                    self._log.debug(
+                    logger.debug(
                         f"Batch management: Reached maximum batch size limit ({total_size} bytes). Processing {len(events)} events now."
                     )
                     break
@@ -103,7 +101,7 @@ class ScoreIngestionConsumer(threading.Thread):
                 break
 
             except Exception as e:
-                self._log.warning(
+                logger.warning(
                     f"Data processing error: Failed to process score event in consumer thread #{self._identifier}. Event will be dropped. Error: {str(e)}",
                     exc_info=True,
                 )
@@ -117,7 +115,7 @@ class ScoreIngestionConsumer(threading.Thread):
 
     def run(self) -> None:
         """Run the consumer."""
-        self._log.debug(
+        logger.debug(
             f"Startup: Score ingestion consumer thread #{self._identifier} started with batch size {self._flush_at} and interval {self._flush_interval}s"
         )
         while self.running:
@@ -143,7 +141,7 @@ class ScoreIngestionConsumer(threading.Thread):
         self.running = False
 
     def _upload_batch(self, batch: List[Any]) -> None:
-        self._log.debug(
+        logger.debug(
             f"API: Uploading batch of {len(batch)} score events to Langfuse API"
         )
 
@@ -171,6 +169,6 @@ class ScoreIngestionConsumer(threading.Thread):
                 raise e
 
         execute_task_with_backoff(batch)
-        self._log.debug(
+        logger.debug(
             f"API: Successfully sent {len(batch)} score events to Langfuse API in batch mode"
         )

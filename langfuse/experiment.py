@@ -6,7 +6,6 @@ and result formatting.
 """
 
 import asyncio
-import logging
 from typing import (
     Any,
     Awaitable,
@@ -19,6 +18,7 @@ from typing import (
 )
 
 from langfuse.api import DatasetItem, ScoreDataType
+from langfuse.logger import langfuse_logger as logger
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -994,7 +994,7 @@ async def _run_evaluator(
 
     except Exception as e:
         evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
-        logging.getLogger("langfuse").error(f"Evaluator {evaluator_name} failed: {e}")
+        logger.error(f"Evaluator {evaluator_name} failed: {e}")
         return []
 
 
