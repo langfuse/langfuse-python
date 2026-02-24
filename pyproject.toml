@@ -106,6 +106,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = [
+    "I", # Import formatting
     # These used to be enabled in the "local ruff.toml",
     # which was never enforced; hence, enabling these will
     # cause a large number of linting errors.
