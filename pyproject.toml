@@ -27,7 +27,7 @@ pytest-xdist = "^3.3.1"
 pre-commit = "^3.2.2"
 pytest-asyncio = ">=0.21.1,<1.2.0"
 pytest-httpserver = "^1.0.8"
-ruff = ">=0.1.8,<0.13.0"
+ruff = "^0.15.2"
 mypy = "^1.0.0"
 langchain-openai = ">=0.0.5,<0.4"
 langchain = ">=1"
@@ -101,3 +101,20 @@ module = [
 ]
 ignore_errors = true
 
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    "I", # Import formatting
+    # These used to be enabled in the "local ruff.toml",
+    # which was never enforced; hence, enabling these will
+    # cause a large number of linting errors.
+
+    # "D", # Docstring lints
+    # "D401", # Enforce imperative mood in docstrings
+]
+exclude = ["langfuse/api/**/*.py"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
