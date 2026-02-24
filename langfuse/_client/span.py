@@ -84,6 +84,7 @@ class LangfuseObservationWrapper:
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         environment: Optional[str] = None,
+        release: Optional[str] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -104,6 +105,7 @@ class LangfuseObservationWrapper:
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
             environment: The tracing environment
+            release: Release identifier for the application
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
@@ -128,6 +130,12 @@ class LangfuseObservationWrapper:
         if self._environment is not None:
             self._otel_span.set_attribute(
                 LangfuseOtelSpanAttributes.ENVIRONMENT, self._environment
+            )
+
+        self._release = release or self._langfuse_client._release
+        if self._release is not None:
+            self._otel_span.set_attribute(
+                LangfuseOtelSpanAttributes.RELEASE, self._release
             )
 
         # Handle media only if span is sampled
@@ -907,6 +915,7 @@ class LangfuseObservationWrapper:
                     output=output,
                     metadata=metadata,
                     environment=self._environment,
+                    release=self._release,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -927,6 +936,7 @@ class LangfuseObservationWrapper:
             "otel_span": new_otel_span,
             "langfuse_client": self._langfuse_client,
             "environment": self._environment,
+            "release": self._release,
             "input": input,
             "output": output,
             "metadata": metadata,
@@ -1181,6 +1191,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         environment: Optional[str] = None,
+        release: Optional[str] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1194,6 +1205,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
             environment: The tracing environment
+            release: Release identifier for the application
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
@@ -1206,6 +1218,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
             output=output,
             metadata=metadata,
             environment=environment,
+            release=release,
             version=version,
             level=level,
             status_message=status_message,
@@ -1576,6 +1589,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
                 output=output,
                 metadata=metadata,
                 environment=self._environment,
+                release=self._release,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -1600,6 +1614,7 @@ class LangfuseGeneration(LangfuseObservationWrapper):
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         environment: Optional[str] = None,
+        release: Optional[str] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1619,6 +1634,7 @@ class LangfuseGeneration(LangfuseObservationWrapper):
             output: Output from the generation (e.g., completions)
             metadata: Additional metadata to associate with the generation
             environment: The tracing environment
+            release: Release identifier for the application
             version: Version identifier for the model or component
             level: Importance level of the generation (info, warning, error)
             status_message: Optional status message for the generation
@@ -1637,6 +1653,7 @@ class LangfuseGeneration(LangfuseObservationWrapper):
             output=output,
             metadata=metadata,
             environment=environment,
+            release=release,
             version=version,
             level=level,
             status_message=status_message,
@@ -1661,6 +1678,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
         environment: Optional[str] = None,
+        release: Optional[str] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1674,6 +1692,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
             output: Output from the event
             metadata: Additional metadata to associate with the generation
             environment: The tracing environment
+            release: Release identifier for the application
             version: Version identifier for the model or component
             level: Importance level of the generation (info, warning, error)
             status_message: Optional status message for the generation
@@ -1686,6 +1705,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
             output=output,
             metadata=metadata,
             environment=environment,
+            release=release,
             version=version,
             level=level,
             status_message=status_message,
