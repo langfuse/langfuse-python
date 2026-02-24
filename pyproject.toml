@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "langfuse"
 
-version = "3.14.1"
+version = "3.14.5"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -15,7 +15,6 @@ backoff = ">=1.10.0"
 openai = { version = ">=0.27.8", optional = true }
 wrapt = "^1.14"
 packaging = ">=23.2,<26.0"
-requests = "^2"
 opentelemetry-api = "^1.33.1"
 opentelemetry-sdk = "^1.33.1"
 opentelemetry-exporter-otlp-proto-http = "^1.33.1"
@@ -27,7 +26,7 @@ pytest-xdist = "^3.3.1"
 pre-commit = "^3.2.2"
 pytest-asyncio = ">=0.21.1,<1.2.0"
 pytest-httpserver = "^1.0.8"
-ruff = ">=0.1.8,<0.13.0"
+ruff = "^0.15.2"
 mypy = "^1.0.0"
 langchain-openai = ">=0.0.5,<0.4"
 langchain = ">=1"
@@ -96,3 +95,21 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "langfuse.api.*"
 disable_error_code = ["redundant-cast", "no-untyped-def"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    "I", # Import formatting
+    # These used to be enabled in the "local ruff.toml",
+    # which was never enforced; hence, enabling these will
+    # cause a large number of linting errors.
+
+    # "D", # Docstring lints
+    # "D401", # Enforce imperative mood in docstrings
+]
+exclude = ["langfuse/api/**/*.py"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

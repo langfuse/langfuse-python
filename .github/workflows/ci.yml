@@ -19,9 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: chartboost/ruff-action@v1
-        with:
-          args: check --config ci.ruff.toml
+      - uses: astral-sh/ruff-action@v3
 
   type-checking:
     runs-on: ubuntu-latest

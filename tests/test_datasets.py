@@ -210,8 +210,8 @@ def test_get_dataset_with_version():
 
 def test_run_experiment_with_versioned_dataset():
     """Test that running an experiment on a versioned dataset works correctly."""
-    from datetime import timedelta
     import time
+    from datetime import timedelta
 
     langfuse = Langfuse(debug=False)
 

@@ -114,8 +114,6 @@ Environment variables (defined in `_client/environment_variables.py`):
 ## Important Files
 
 - `pyproject.toml`: Poetry configuration, dependencies, and tool settings
-- `ruff.toml`: Local development linting config (stricter)
-- `ci.ruff.toml`: CI linting config (more permissive)
 - `langfuse/version.py`: Version string (updated by CI release workflow)
 
 ## API Generation

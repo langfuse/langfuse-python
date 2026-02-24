@@ -254,6 +254,7 @@ class LangfuseResourceManager:
         self._media_upload_queue: Queue[Any] = Queue(100_000)
         self._media_manager = MediaManager(
             api_client=self.api,
+            httpx_client=self.httpx_client,
             media_upload_queue=self._media_upload_queue,
             max_retries=3,
         )
@@ -352,6 +353,29 @@ class LangfuseResourceManager:
         except Exception as e:
             langfuse_logger.error(
                 f"Unexpected error: Failed to process score event. The score will be dropped. Error details: {e}"
+            )
+
+            return
+
+    def add_trace_task(
+        self,
+        event: dict,
+    ) -> None:
+        try:
+            langfuse_logger.debug(
+                f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
+            )
+            self._score_ingestion_queue.put(event, block=False)
+
+        except Full:
+            langfuse_logger.warning(
+                "System overload: Trace ingestion queue has reached capacity (100,000 items). Trace update will be dropped. Consider increasing flush frequency or decreasing event volume."
+            )
+
+            return
+        except Exception as e:
+            langfuse_logger.error(
+                f"Unexpected error: Failed to process trace event. The trace update will be dropped. Error details: {e}"
             )
 
             return
