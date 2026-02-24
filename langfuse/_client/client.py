@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import urllib.parse
+import warnings
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
@@ -27,7 +28,7 @@ from typing import (
 import backoff
 import httpx
 from opentelemetry import trace as otel_trace_api
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
@@ -161,7 +162,20 @@ class Langfuse:
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
         mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
-        blocked_instrumentation_scopes (Optional[List[str]]): List of instrumentation scope names to block from being exported to Langfuse. Spans from these scopes will be filtered out before being sent to the API. Useful for filtering out spans from specific libraries or frameworks. For exported spans, you can see the instrumentation scope name in the span metadata in Langfuse (`metadata.scope.name`)
+        blocked_instrumentation_scopes (Optional[List[str]]): Deprecated. Use `should_export_span` instead. Equivalent behavior:
+            ```python
+            from langfuse.span_filter import is_default_export_span
+            blocked = {"sqlite", "requests"}
+
+            should_export_span = lambda span: (
+                is_default_export_span(span)
+                and (
+                    span.instrumentation_scope is None
+                    or span.instrumentation_scope.name not in blocked
+                )
+            )
+            ```
+        should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
 
@@ -224,6 +238,7 @@ class Langfuse:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
@@ -286,6 +301,18 @@ class Langfuse:
                 "OTEL_SDK_DISABLED is set. Langfuse tracing will be disabled and no traces will appear in the UI."
             )
 
+        if blocked_instrumentation_scopes is not None:
+            warnings.warn(
+                "`blocked_instrumentation_scopes` is deprecated and will be removed in a future release. "
+                "Use `should_export_span` instead. Example: "
+                "from langfuse.span_filter import is_default_export_span; "
+                'blocked={"scope"}; should_export_span=lambda span: '
+                "is_default_export_span(span) and (span.instrumentation_scope is None or "
+                "span.instrumentation_scope.name not in blocked).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         # Initialize api and tracer if requirements are met
         self._resources = LangfuseResourceManager(
             public_key=public_key,
@@ -302,6 +329,7 @@ class Langfuse:
             mask=mask,
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+            should_export_span=should_export_span,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
         )

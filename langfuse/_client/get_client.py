@@ -51,6 +51,7 @@ def _create_client_from_instance(
         sample_rate=instance.sample_rate,
         mask=instance.mask,
         blocked_instrumentation_scopes=instance.blocked_instrumentation_scopes,
+        should_export_span=instance.should_export_span,
         additional_headers=instance.additional_headers,
         tracer_provider=instance.tracer_provider,
         httpx_client=instance.httpx_client,

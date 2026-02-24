@@ -18,12 +18,12 @@ import atexit
 import os
 import threading
 from queue import Full, Queue
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
@@ -95,6 +95,7 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ) -> "LangfuseResourceManager":
@@ -129,6 +130,7 @@ class LangfuseResourceManager:
                     if tracing_enabled is not None
                     else True,
                     blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                    should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
                 )
@@ -154,6 +156,7 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ) -> None:
@@ -172,6 +175,7 @@ class LangfuseResourceManager:
         self.media_upload_thread_count = media_upload_thread_count
         self.sample_rate = sample_rate
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
+        self.should_export_span = should_export_span
         self.additional_headers = additional_headers
         self.tracer_provider: Optional[TracerProvider] = None
 
@@ -190,6 +194,7 @@ class LangfuseResourceManager:
                 flush_at=flush_at,
                 flush_interval=flush_interval,
                 blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                should_export_span=should_export_span,
                 additional_headers=additional_headers,
             )
             tracer_provider.add_span_processor(langfuse_processor)

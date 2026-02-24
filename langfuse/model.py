@@ -5,9 +5,18 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
 
 from langfuse.api import (
+    CreateDatasetItemRequest,  # noqa
+    CreateDatasetRequest,  # noqa
+    Dataset,  # noqa
+    DatasetItem,  # noqa
+    DatasetRun,  # noqa
+    DatasetStatus,  # noqa
+    MapValue,  # noqa
+    Observation,  # noqa
     Prompt,
     Prompt_Chat,
     Prompt_Text,
+    TraceWithFullDetails,  # noqa
 )
 from langfuse.logger import langfuse_logger
 

@@ -83,10 +83,15 @@ class TestOTelBase:
         def mock_init(self, **kwargs):
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+            from langfuse._client.span_filter import is_default_export_span
+
             self.public_key = kwargs.get("public_key", "test-key")
             blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
             self.blocked_instrumentation_scopes = (
                 blocked_scopes if blocked_scopes is not None else []
+            )
+            self._should_export_span = (
+                kwargs.get("should_export_span") or is_default_export_span
             )
             BatchSpanProcessor.__init__(
                 self,
@@ -1980,7 +1985,12 @@ class TestMultiProjectSetup(TestOTelBase):
         def mock_processor_init(self, **kwargs):
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+            from langfuse._client.span_filter import is_default_export_span
+
             self.public_key = kwargs.get("public_key", "test-key")
+            self._should_export_span = (
+                kwargs.get("should_export_span") or is_default_export_span
+            )
             # Use the appropriate exporter based on the project key
             if self.public_key == project1_key:
                 exporter = exporter_project1
@@ -2350,10 +2360,15 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         def mock_processor_init(self, **kwargs):
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+            from langfuse._client.span_filter import is_default_export_span
+
             self.public_key = kwargs.get("public_key", "test-key")
             blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
             self.blocked_instrumentation_scopes = (
                 blocked_scopes if blocked_scopes is not None else []
+            )
+            self._should_export_span = (
+                kwargs.get("should_export_span") or is_default_export_span
             )
 
             # For testing, use the appropriate exporter based on setup
@@ -2394,6 +2409,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
                 blocked_instrumentation_scopes=kwargs.get(
                     "blocked_instrumentation_scopes"
                 ),
+                should_export_span=kwargs.get("should_export_span"),
             )
             # Replace its exporter with our test exporter
             processor._span_exporter = blocked_exporter
@@ -2427,193 +2443,299 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         )
         blocked_exporter.shutdown()
 
-    def test_blocked_instrumentation_scopes_export_filtering(
+    def test_default_filter_exports_langfuse_spans(
         self, instrumentation_filtering_setup
     ):
-        """Test that spans from blocked instrumentation scopes are not exported."""
-        # Create Langfuse client with blocked scopes
+        """Test that the default filter exports Langfuse SDK spans."""
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
             base_url="http://localhost:3000",
-            blocked_instrumentation_scopes=["openai", "anthropic"],
         )
 
-        # Get the tracer provider and create different instrumentation scope tracers
         tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
-
-        # Create langfuse tracer with proper attributes for project validation
         langfuse_tracer = tracer_provider.get_tracer(
             "langfuse-sdk",
             attributes={"public_key": instrumentation_filtering_setup["test_key"]},
         )
-        openai_tracer = tracer_provider.get_tracer("openai")
-        anthropic_tracer = tracer_provider.get_tracer("anthropic")
-        allowed_tracer = tracer_provider.get_tracer("allowed-library")
 
-        # Create spans from each tracer
-        langfuse_span = langfuse_tracer.start_span("langfuse-span")
-        langfuse_span.end()
+        span = langfuse_tracer.start_span("langfuse-span")
+        span.end()
+        tracer_provider.force_flush()
 
-        openai_span = openai_tracer.start_span("openai-span")
-        openai_span.end()
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "langfuse-span" in exported_span_names
 
-        anthropic_span = anthropic_tracer.start_span("anthropic-span")
-        anthropic_span.end()
+    def test_default_filter_exports_genai_spans(self, instrumentation_filtering_setup):
+        """Test that the default filter exports spans with gen_ai.* attributes."""
+        Langfuse(
+            public_key=instrumentation_filtering_setup["test_key"],
+            secret_key="test-secret-key",
+            base_url="http://localhost:3000",
+        )
 
+        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        unknown_tracer = tracer_provider.get_tracer("custom-framework")
+
+        span = unknown_tracer.start_span("genai-span")
+        span.set_attribute("gen_ai.request.model", "gpt-4o")
+        span.end()
+        tracer_provider.force_flush()
+
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "genai-span" in exported_span_names
+
+    def test_default_filter_exports_known_instrumentor_spans(
+        self, instrumentation_filtering_setup
+    ):
+        """Test that the default filter exports spans from known instrumentors."""
+        Langfuse(
+            public_key=instrumentation_filtering_setup["test_key"],
+            secret_key="test-secret-key",
+            base_url="http://localhost:3000",
+        )
+
+        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        known_tracer = tracer_provider.get_tracer("openinference.instrumentation.agno")
+
+        span = known_tracer.start_span("known-instrumentor-span")
+        span.end()
+        tracer_provider.force_flush()
+
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "known-instrumentor-span" in exported_span_names
+
+    def test_default_filter_rejects_unknown_spans(
+        self, instrumentation_filtering_setup
+    ):
+        """Test that the default filter drops unknown scopes without gen_ai.* attrs."""
+        Langfuse(
+            public_key=instrumentation_filtering_setup["test_key"],
+            secret_key="test-secret-key",
+            base_url="http://localhost:3000",
+        )
+
+        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        unknown_tracer = tracer_provider.get_tracer("unknown.scope")
+
+        span = unknown_tracer.start_span("unknown-span")
+        span.end()
+        tracer_provider.force_flush()
+
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "unknown-span" not in exported_span_names
+
+    def test_custom_should_export_span(self, instrumentation_filtering_setup):
+        """Test that a custom should_export_span callback controls export."""
+        Langfuse(
+            public_key=instrumentation_filtering_setup["test_key"],
+            secret_key="test-secret-key",
+            base_url="http://localhost:3000",
+            should_export_span=lambda span: span.name.startswith("keep-"),
+        )
+
+        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        tracer = tracer_provider.get_tracer("unknown.scope")
+
+        keep_span = tracer.start_span("keep-span")
+        keep_span.end()
+        drop_span = tracer.start_span("drop-span")
+        drop_span.end()
+        tracer_provider.force_flush()
+
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "keep-span" in exported_span_names
+        assert "drop-span" not in exported_span_names
+
+    def test_custom_should_export_span_with_composition(
+        self, instrumentation_filtering_setup
+    ):
+        """Test composing the default filter with custom scope logic."""
+        from langfuse.span_filter import is_default_export_span
+
+        Langfuse(
+            public_key=instrumentation_filtering_setup["test_key"],
+            secret_key="test-secret-key",
+            base_url="http://localhost:3000",
+            should_export_span=lambda span: is_default_export_span(span)
+            or (
+                span.instrumentation_scope is not None
+                and span.instrumentation_scope.name.startswith("my-framework")
+            ),
+        )
+
+        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        custom_tracer = tracer_provider.get_tracer("my-framework.worker")
+        known_tracer = tracer_provider.get_tracer("ai")
+        unknown_tracer = tracer_provider.get_tracer("unknown.scope")
+
+        custom_span = custom_tracer.start_span("custom-span")
+        custom_span.end()
+        known_span = known_tracer.start_span("known-span")
+        known_span.end()
+        unknown_span = unknown_tracer.start_span("unknown-span")
+        unknown_span.end()
+        tracer_provider.force_flush()
+
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "custom-span" in exported_span_names
+        assert "known-span" in exported_span_names
+        assert "unknown-span" not in exported_span_names
+
+    def test_blocked_scopes_override_should_export(
+        self, instrumentation_filtering_setup
+    ):
+        """Test that blocked scopes are dropped even when callback allows all."""
+        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
+            Langfuse(
+                public_key=instrumentation_filtering_setup["test_key"],
+                secret_key="test-secret-key",
+                base_url="http://localhost:3000",
+                blocked_instrumentation_scopes=["my-framework.worker"],
+                should_export_span=lambda span: True,
+            )
+
+        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        blocked_tracer = tracer_provider.get_tracer("my-framework.worker")
+        allowed_tracer = tracer_provider.get_tracer("custom.allowed")
+
+        blocked_span = blocked_tracer.start_span("blocked-span")
+        blocked_span.end()
         allowed_span = allowed_tracer.start_span("allowed-span")
         allowed_span.end()
-
-        # Force flush to ensure all spans are processed
         tracer_provider.force_flush()
 
-        # Check which spans were actually exported
-        exported_spans = instrumentation_filtering_setup[
-            "blocked_exporter"
-        ].get_finished_spans()
-        exported_span_names = [span.name for span in exported_spans]
-        exported_scope_names = [
-            span.instrumentation_scope.name
-            for span in exported_spans
-            if span.instrumentation_scope
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
         ]
-
-        # Langfuse spans should be exported (not blocked)
-        assert "langfuse-span" in exported_span_names
-        assert "langfuse-sdk" in exported_scope_names
-
-        # Blocked scopes should NOT be exported
-        assert "openai-span" not in exported_span_names
-        assert "anthropic-span" not in exported_span_names
-        assert "openai" not in exported_scope_names
-        assert "anthropic" not in exported_scope_names
-
-        # Allowed scopes should be exported
+        assert "blocked-span" not in exported_span_names
         assert "allowed-span" in exported_span_names
-        assert "allowed-library" in exported_scope_names
 
-    def test_no_blocked_scopes_allows_all_exports(
+    def test_should_export_span_with_none_uses_default(
         self, instrumentation_filtering_setup
     ):
-        """Test that when no scopes are blocked, all spans are exported."""
-        # Create Langfuse client with NO blocked scopes
+        """Test that None should_export_span falls back to the default filter."""
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
             base_url="http://localhost:3000",
-            blocked_instrumentation_scopes=[],
+            should_export_span=None,
         )
 
-        # Get the tracer provider and create different instrumentation scope tracers
         tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        known_tracer = tracer_provider.get_tracer("ai")
+        unknown_tracer = tracer_provider.get_tracer("unknown.scope")
 
-        langfuse_tracer = tracer_provider.get_tracer(
-            "langfuse-sdk",
-            attributes={"public_key": instrumentation_filtering_setup["test_key"]},
-        )
-        openai_tracer = tracer_provider.get_tracer("openai")
-        anthropic_tracer = tracer_provider.get_tracer("anthropic")
-
-        # Create spans from each tracer
-        langfuse_span = langfuse_tracer.start_span("langfuse-span")
-        langfuse_span.end()
-
-        openai_span = openai_tracer.start_span("openai-span")
-        openai_span.end()
-
-        anthropic_span = anthropic_tracer.start_span("anthropic-span")
-        anthropic_span.end()
-
-        # Force flush
+        known_span = known_tracer.start_span("known-span")
+        known_span.end()
+        unknown_span = unknown_tracer.start_span("unknown-span")
+        unknown_span.end()
         tracer_provider.force_flush()
 
-        # Check that ALL spans were exported
-        exported_spans = instrumentation_filtering_setup[
-            "blocked_exporter"
-        ].get_finished_spans()
-        exported_span_names = [span.name for span in exported_spans]
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "known-span" in exported_span_names
+        assert "unknown-span" not in exported_span_names
 
-        assert "langfuse-span" in exported_span_names
-        assert "openai-span" in exported_span_names
-        assert "anthropic-span" in exported_span_names
-
-    def test_none_blocked_scopes_allows_all_exports(
-        self, instrumentation_filtering_setup
+    def test_should_export_span_exception_drops_span_and_logs_error(
+        self, instrumentation_filtering_setup, caplog
     ):
-        """Test that when blocked_scopes is None (default), all spans are exported."""
-        # Create Langfuse client with None blocked scopes (default behavior)
+        """Test that callback failures log an error and skip exporting that span."""
+        caplog.set_level("ERROR", logger="langfuse")
+
+        def _failing_filter(_span):
+            raise RuntimeError("boom")
+
         Langfuse(
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
             base_url="http://localhost:3000",
-            blocked_instrumentation_scopes=None,
+            should_export_span=_failing_filter,
         )
 
-        # Get the tracer provider and create different instrumentation scope tracers
         tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        tracer = tracer_provider.get_tracer("unknown.scope")
 
-        langfuse_tracer = tracer_provider.get_tracer(
-            "langfuse-sdk",
-            attributes={"public_key": instrumentation_filtering_setup["test_key"]},
-        )
-        openai_tracer = tracer_provider.get_tracer("openai")
-
-        # Create spans from each tracer
-        langfuse_span = langfuse_tracer.start_span("langfuse-span")
-        langfuse_span.end()
-
-        openai_span = openai_tracer.start_span("openai-span")
-        openai_span.end()
-
-        # Force flush
+        span = tracer.start_span("callback-error-span")
+        span.end()
         tracer_provider.force_flush()
 
-        # Check that ALL spans were exported
-        exported_spans = instrumentation_filtering_setup[
-            "blocked_exporter"
-        ].get_finished_spans()
-        exported_span_names = [span.name for span in exported_spans]
-
-        assert "langfuse-span" in exported_span_names
-        assert "openai-span" in exported_span_names
-
-    def test_blocking_langfuse_sdk_scope_export(self, instrumentation_filtering_setup):
-        """Test that even Langfuse's own spans are blocked if explicitly specified."""
-        # Create Langfuse client that blocks its own instrumentation scope
-        Langfuse(
-            public_key=instrumentation_filtering_setup["test_key"],
-            secret_key="test-secret-key",
-            base_url="http://localhost:3000",
-            blocked_instrumentation_scopes=["langfuse-sdk"],
+        exported_span_names = [
+            span.name
+            for span in instrumentation_filtering_setup[
+                "blocked_exporter"
+            ].get_finished_spans()
+        ]
+        assert "callback-error-span" not in exported_span_names
+        assert any(
+            "should_export_span callback raised an error" in record.message
+            for record in caplog.records
         )
 
-        # Get the tracer provider and create tracers
+    def test_blocked_scope_drop_logs_scope_name(
+        self, instrumentation_filtering_setup, caplog
+    ):
+        """Test that blocked scope drops include scope names in debug logs."""
+        caplog.set_level("DEBUG", logger="langfuse")
+
+        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
+            Langfuse(
+                public_key=instrumentation_filtering_setup["test_key"],
+                secret_key="test-secret-key",
+                base_url="http://localhost:3000",
+                blocked_instrumentation_scopes=["my.blocked.scope"],
+                should_export_span=lambda span: True,
+            )
+
         tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
+        blocked_tracer = tracer_provider.get_tracer("my.blocked.scope")
 
-        langfuse_tracer = tracer_provider.get_tracer(
-            "langfuse-sdk",
-            attributes={"public_key": instrumentation_filtering_setup["test_key"]},
-        )
-        other_tracer = tracer_provider.get_tracer("other-library")
-
-        # Create spans
-        langfuse_span = langfuse_tracer.start_span("langfuse-span")
-        langfuse_span.end()
-
-        other_span = other_tracer.start_span("other-span")
-        other_span.end()
-
-        # Force flush
+        span = blocked_tracer.start_span("blocked-debug-span")
+        span.end()
         tracer_provider.force_flush()
 
-        # Check exports - Langfuse spans should be blocked, others allowed
-        exported_spans = instrumentation_filtering_setup[
-            "blocked_exporter"
-        ].get_finished_spans()
-        exported_span_names = [span.name for span in exported_spans]
-
-        assert "langfuse-span" not in exported_span_names
-        assert "other-span" in exported_span_names
+        assert any(
+            "Dropping span due to blocked instrumentation scope" in record.message
+            and "my.blocked.scope" in record.message
+            for record in caplog.records
+        )
 
 
 class TestConcurrencyAndAsync(TestOTelBase):
