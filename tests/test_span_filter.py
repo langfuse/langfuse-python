@@ -4,8 +4,6 @@ from types import SimpleNamespace
 from typing import Any, Optional
 
 from langfuse.span_filter import (
-    KNOWN_LLM_INSTRUMENTATION_SCOPES,
-    KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES,
     is_default_export_span,
     is_genai_span,
     is_known_llm_instrumentor,
@@ -77,21 +75,6 @@ def test_is_known_llm_instrumentor_prefix_match():
     )
 
 
-def test_is_known_llm_instrumentor_prefix_boundary():
-    """Return false when a scope only partially matches a namespace prefix."""
-    assert (
-        is_known_llm_instrumentor(
-            _make_span(scope_name="openinference.instrumentation.agno2")
-        )
-        is False
-    )
-
-
-def test_is_known_llm_instrumentor_ai_is_exact_only():
-    """Return false for descendants of exact-only allowlist scopes."""
-    assert is_known_llm_instrumentor(_make_span(scope_name="ai.runtime")) is False
-
-
 def test_is_known_llm_instrumentor_unknown():
     """Return false for unknown instrumentation scopes."""
     assert is_known_llm_instrumentor(_make_span(scope_name="unknown.scope")) is False
@@ -127,9 +110,3 @@ def test_is_default_export_span_rejects_unknown():
         )
         is False
     )
-
-
-def test_known_scope_constants_include_vercel_ai():
-    """Contain ai in exact allowlist constants for Vercel AI SDK support."""
-    assert "ai" in KNOWN_LLM_INSTRUMENTATION_SCOPES
-    assert "ai" not in KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES

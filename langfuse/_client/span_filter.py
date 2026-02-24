@@ -8,43 +8,18 @@ from opentelemetry.sdk.trace import ReadableSpan
 
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 
-KNOWN_LLM_INSTRUMENTATION_SCOPES = frozenset(
+KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES = frozenset(
     {
         LANGFUSE_TRACER_NAME,
-        "@arizeai/openinference-instrumentation-anthropic",
         "agent_framework",
         "ai",
         "haystack",
         "langsmith",
         "litellm",
-        "openinference.instrumentation.agno",
-        "openinference.instrumentation.beeai",
-        "openinference.instrumentation.google_adk",
-        "openinference.instrumentation.google_genai",
-        "openinference.instrumentation.groq",
-        "openinference.instrumentation.llama_index",
-        "openinference.instrumentation.openai_agents",
-        "openinference.instrumentation.smolagents",
+        "openinference",
         "opentelemetry.instrumentation.anthropic",
         "strands-agents",
-        "vllm.llm_engine",
-    }
-)
-"""Known instrumentation scope names that should be export candidates."""
-
-KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES = frozenset(
-    {
-        "litellm",
-        "openinference.instrumentation.agno",
-        "openinference.instrumentation.beeai",
-        "openinference.instrumentation.google_adk",
-        "openinference.instrumentation.google_genai",
-        "openinference.instrumentation.groq",
-        "openinference.instrumentation.llama_index",
-        "openinference.instrumentation.openai_agents",
-        "openinference.instrumentation.smolagents",
-        "opentelemetry.instrumentation.anthropic",
-        "vllm.llm_engine",
+        "vllm",
     }
 )
 """Known instrumentation scope namespace prefixes.
@@ -52,6 +27,8 @@ KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES = frozenset(
 Prefix matching is boundary-aware:
 - exact match (``scope == prefix``)
 - direct descendant scopes (``scope.startswith(prefix + ".")``)
+
+Please create a Github issue in https://github.com/langfuse/langfuse if you'd like to expand this default allow list. 
 """
 
 
@@ -69,7 +46,7 @@ def is_genai_span(span: ReadableSpan) -> bool:
         return False
 
     return any(
-        isinstance(key, str) and key.startswith("gen_ai.")
+        isinstance(key, str) and key.startswith("gen_ai")
         for key in span.attributes.keys()
     )
 
@@ -85,9 +62,6 @@ def is_known_llm_instrumentor(span: ReadableSpan) -> bool:
         return False
 
     scope_name = span.instrumentation_scope.name
-
-    if scope_name in KNOWN_LLM_INSTRUMENTATION_SCOPES:
-        return True
 
     return any(
         _matches_scope_prefix(scope_name, prefix)
