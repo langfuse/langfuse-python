@@ -28,13 +28,14 @@ from typing import (
 import backoff
 import httpx
 from opentelemetry import trace as otel_trace_api
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
 )
 from packaging.version import Version
+from typing_extensions import deprecated
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import (
@@ -45,7 +46,7 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
-from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse._client.datasets import DatasetClient
 from langfuse._client.environment_variables import (
     LANGFUSE_BASE_URL,
     LANGFUSE_DEBUG,
@@ -78,20 +79,23 @@ from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api.resources.commons.errors.error import Error
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
-from langfuse.api.resources.commons.types import DatasetRunWithItems
-from langfuse.api.resources.datasets.types import (
+from langfuse.api import (
+    CreateChatPromptRequest,
+    CreateChatPromptType,
+    CreateTextPromptRequest,
+    Dataset,
+    DatasetItem,
+    DatasetRunWithItems,
+    DatasetStatus,
     DeleteDatasetRunResponse,
+    Error,
+    MapValue,
+    NotFoundError,
     PaginatedDatasetRuns,
-)
-from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.ingestion.types.trace_body import TraceBody
-from langfuse.api.resources.prompts.types import (
-    CreatePromptRequest_Chat,
-    CreatePromptRequest_Text,
     Prompt_Chat,
     Prompt_Text,
+    ScoreBody,
+    TraceBody,
 )
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
@@ -118,13 +122,6 @@ from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
-    CreateDatasetItemRequest,
-    CreateDatasetRequest,
-    CreateDatasetRunItemRequest,
-    Dataset,
-    DatasetItem,
-    DatasetStatus,
-    MapValue,
     PromptClient,
     TextPromptClient,
 )
@@ -166,7 +163,20 @@ class Langfuse:
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
         mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
-        blocked_instrumentation_scopes (Optional[List[str]]): List of instrumentation scope names to block from being exported to Langfuse. Spans from these scopes will be filtered out before being sent to the API. Useful for filtering out spans from specific libraries or frameworks. For exported spans, you can see the instrumentation scope name in the span metadata in Langfuse (`metadata.scope.name`)
+        blocked_instrumentation_scopes (Optional[List[str]]): Deprecated. Use `should_export_span` instead. Equivalent behavior:
+            ```python
+            from langfuse.span_filter import is_default_export_span
+            blocked = {"sqlite", "requests"}
+
+            should_export_span = lambda span: (
+                is_default_export_span(span)
+                and (
+                    span.instrumentation_scope is None
+                    or span.instrumentation_scope.name not in blocked
+                )
+            )
+            ```
+        should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
 
@@ -182,7 +192,7 @@ class Langfuse:
         )
 
         # Create a trace span
-        with langfuse.start_as_current_span(name="process-query") as span:
+        with langfuse.start_as_current_observation(name="process-query") as span:
             # Your application code here
 
             # Create a nested generation span for an LLM call
@@ -229,6 +239,7 @@ class Langfuse:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
     ):
@@ -291,6 +302,18 @@ class Langfuse:
                 "OTEL_SDK_DISABLED is set. Langfuse tracing will be disabled and no traces will appear in the UI."
             )
 
+        if blocked_instrumentation_scopes is not None:
+            warnings.warn(
+                "`blocked_instrumentation_scopes` is deprecated and will be removed in a future release. "
+                "Use `should_export_span` instead. Example: "
+                "from langfuse.span_filter import is_default_export_span; "
+                'blocked={"scope"}; should_export_span=lambda span: '
+                "is_default_export_span(span) and (span.instrumentation_scope is None or "
+                "span.instrumentation_scope.name not in blocked).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         # Initialize api and tracer if requirements are met
         self._resources = LangfuseResourceManager(
             public_key=public_key,
@@ -307,6 +330,7 @@ class Langfuse:
             mask=mask,
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+            should_export_span=should_export_span,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
         )
@@ -319,121 +343,6 @@ class Langfuse:
         )
         self.api = self._resources.api
         self.async_api = self._resources.async_api
-
-    def start_span(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ) -> LangfuseSpan:
-        """Create a new span for tracing a unit of work.
-
-        This method creates a new span but does not set it as the current span in the
-        context. To create and use a span within a context, use start_as_current_span().
-
-        The created span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation (can be any JSON-serializable object)
-            output: Output data from the operation (can be any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-
-        Returns:
-            A LangfuseSpan object that must be ended with .end() when the operation completes
-
-        Example:
-            ```python
-            span = langfuse.start_span(name="process-data")
-            try:
-                # Do work
-                span.update(output="result")
-            finally:
-                span.end()
-            ```
-        """
-        return self.start_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-        )
-
-    def start_as_current_span(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[LangfuseSpan]:
-        """Create a new span and set it as the current span in a context manager.
-
-        This method creates a new span and sets it as the current span within a context
-        manager. Use this method with a 'with' statement to automatically handle span
-        lifecycle within a code block.
-
-        The created span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation (can be any JSON-serializable object)
-            output: Output data from the operation (can be any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
-
-        Returns:
-            A context manager that yields a LangfuseSpan
-
-        Example:
-            ```python
-            with langfuse.start_as_current_span(name="process-query") as span:
-                # Do work
-                result = process_data()
-                span.update(output=result)
-
-                # Create a child span automatically
-                with span.start_as_current_span(name="sub-operation") as child_span:
-                    # Do sub-operation work
-                    child_span.update(output="sub-result")
-            ```
-        """
-        return self.start_as_current_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            end_on_exit=end_on_exit,
-        )
 
     @overload
     def start_observation(
@@ -757,196 +666,6 @@ class Langfuse:
             # span._otel_span.set_attribute("langfuse.observation.type", as_type)
             # return span
 
-    def start_generation(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ) -> LangfuseGeneration:
-        """Create a new generation span for model generations.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_observation(as_type='generation') instead.
-
-        This method creates a specialized span for tracking model generations.
-        It includes additional fields specific to model generations such as model name,
-        token usage, and cost details.
-
-        The created generation span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-
-        Returns:
-            A LangfuseGeneration object that must be ended with .end() when complete
-
-        Example:
-            ```python
-            generation = langfuse.start_generation(
-                name="answer-generation",
-                model="gpt-4",
-                input={"prompt": "Explain quantum computing"},
-                model_parameters={"temperature": 0.7}
-            )
-            try:
-                # Call model API
-                response = llm.generate(...)
-
-                generation.update(
-                    output=response.text,
-                    usage_details={
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens
-                    }
-                )
-            finally:
-                generation.end()
-            ```
-        """
-        warnings.warn(
-            "start_generation is deprecated and will be removed in a future version. "
-            "Use start_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
-    def start_as_current_generation(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-        end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """Create a new generation span and set it as the current span in a context manager.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_as_current_observation(as_type='generation') instead.
-
-        This method creates a specialized span for model generations and sets it as the
-        current span within a context manager. Use this method with a 'with' statement to
-        automatically handle the generation span lifecycle within a code block.
-
-        The created generation span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
-
-        Returns:
-            A context manager that yields a LangfuseGeneration
-
-        Example:
-            ```python
-            with langfuse.start_as_current_generation(
-                name="answer-generation",
-                model="gpt-4",
-                input={"prompt": "Explain quantum computing"}
-            ) as generation:
-                # Call model API
-                response = llm.generate(...)
-
-                # Update with results
-                generation.update(
-                    output=response.text,
-                    usage_details={
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens
-                    }
-                )
-            ```
-        """
-        warnings.warn(
-            "start_as_current_generation is deprecated and will be removed in a future version. "
-            "Use start_as_current_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_as_current_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-            end_on_exit=end_on_exit,
-        )
-
     @overload
     def start_as_current_observation(
         self,
@@ -1173,7 +892,7 @@ class Langfuse:
                 span.update(output=result)
 
                 # Create a child span automatically
-                with span.start_as_current_span(name="sub-operation") as child_span:
+                with span.start_as_current_observation(name="sub-operation") as child_span:
                     # Do sub-operation work
                     child_span.update(output="sub-result")
 
@@ -1481,7 +1200,7 @@ class Langfuse:
         if current_span is otel_trace_api.INVALID_SPAN:
             langfuse_logger.warning(
                 "Context error: No active span in current context. Operations that depend on an active span will be skipped. "
-                "Ensure spans are created with start_as_current_span() or that you're operating within an active span context."
+                "Ensure spans are created with start_as_current_observation() or that you're operating within an active span context."
             )
             return None
 
@@ -1600,7 +1319,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-data") as span:
+            with langfuse.start_as_current_observation(name="process-data") as span:
                 # Initial processing
                 result = process_first_part()
 
@@ -1641,38 +1360,34 @@ class Langfuse:
                 status_message=status_message,
             )
 
-    def update_current_trace(
+    @deprecated(
+        "Trace-level input/output is deprecated. "
+        "For trace attributes (user_id, session_id, tags, etc.), use propagate_attributes() instead. "
+        "This method will be removed in a future major version."
+    )
+    def set_current_trace_io(
         self,
         *,
-        name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        version: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        tags: Optional[List[str]] = None,
-        public: Optional[bool] = None,
     ) -> None:
-        """Update the current trace with additional information.
+        """Set trace-level input and output for the current span's trace.
+
+        .. deprecated::
+            This is a legacy method for backward compatibility with Langfuse platform
+            features that still rely on trace-level input/output (e.g., legacy LLM-as-a-judge
+            evaluators). It will be removed in a future major version.
+
+            For setting other trace attributes (user_id, session_id, metadata, tags, version),
+            use :meth:`propagate_attributes` instead.
 
         Args:
-            name: Updated name for the Langfuse trace
-            user_id: ID of the user who initiated the Langfuse trace
-            session_id: Session identifier for grouping related Langfuse traces
-            version: Version identifier for the application or service
-            input: Input data for the overall Langfuse trace
-            output: Output data from the overall Langfuse trace
-            metadata: Additional metadata to associate with the Langfuse trace
-            tags: List of tags to categorize the Langfuse trace
-            public: Whether the Langfuse trace should be publicly accessible
-
-        See Also:
-            :func:`langfuse.propagate_attributes`: Recommended replacement
+            input: Input data to associate with the trace.
+            output: Output data to associate with the trace.
         """
         if not self._tracing_enabled:
             langfuse_logger.debug(
-                "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
+                "Operation skipped: set_current_trace_io - Tracing is disabled or client is in no-op mode."
             )
             return
 
@@ -1690,17 +1405,43 @@ class Langfuse:
                 environment=self._environment,
             )
 
-            span.update_trace(
-                name=name,
-                user_id=user_id,
-                session_id=session_id,
-                version=version,
+            span.set_trace_io(
                 input=input,
                 output=output,
-                metadata=metadata,
-                tags=tags,
-                public=public,
             )
+
+    def set_current_trace_as_public(self) -> None:
+        """Make the current trace publicly accessible via its URL.
+
+        When a trace is published, anyone with the trace link can view the full trace
+        without needing to be logged in to Langfuse. This action cannot be undone
+        programmatically - once published, the entire trace becomes public.
+
+        This is a convenience method that publishes the trace from the currently
+        active span context. Use this when you want to make a trace public from
+        within a traced function without needing direct access to the span object.
+        """
+        if not self._tracing_enabled:
+            langfuse_logger.debug(
+                "Operation skipped: set_current_trace_as_public - Tracing is disabled or client is in no-op mode."
+            )
+            return
+
+        current_otel_span = self._get_current_otel_span()
+
+        if current_otel_span is not None and current_otel_span.is_recording():
+            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            )
+            # We need to preserve the class to keep the correct observation type
+            span_class = self._get_span_class(existing_observation_type)
+            span = span_class(
+                otel_span=current_otel_span,
+                langfuse_client=self,
+                environment=self._environment,
+            )
+
+            span.set_trace_as_public()
 
     def create_event(
         self,
@@ -1908,7 +1649,7 @@ class Langfuse:
             correlated_trace_id = langfuse.create_trace_id(seed=external_id)
 
             # Use the ID with trace context
-            with langfuse.start_as_current_span(
+            with langfuse.start_as_current_observation(
                 name="process-request",
                 trace_context={"trace_id": trace_id}
             ) as span:
@@ -2063,7 +1804,7 @@ class Langfuse:
         try:
             new_body = ScoreBody(
                 id=score_id,
-                sessionId=session_id,
+                session_id=session_id,
                 datasetRunId=dataset_run_id,
                 traceId=trace_id,
                 observationId=observation_id,
@@ -2276,7 +2017,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-user-request") as span:
+            with langfuse.start_as_current_observation(name="process-user-request") as span:
                 # Process request
                 result = process_complete_request()
                 span.update(output=result)
@@ -2321,7 +2062,7 @@ class Langfuse:
         Example:
             ```python
             # Record some spans and scores
-            with langfuse.start_as_current_span(name="operation") as span:
+            with langfuse.start_as_current_observation(name="operation") as span:
                 # Do work...
                 pass
 
@@ -2372,7 +2113,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-request") as span:
+            with langfuse.start_as_current_observation(name="process-request") as span:
                 # Get the current trace ID for reference
                 trace_id = langfuse.get_current_trace_id()
 
@@ -2406,7 +2147,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-user-query") as span:
+            with langfuse.start_as_current_observation(name="process-user-query") as span:
                 # Get the current observation ID
                 observation_id = langfuse.get_current_observation_id()
 
@@ -2454,7 +2195,7 @@ class Langfuse:
         Example:
             ```python
             # Get URL for the current trace
-            with langfuse.start_as_current_span(name="process-request") as span:
+            with langfuse.start_as_current_observation(name="process-request") as span:
                 trace_url = langfuse.get_trace_url()
                 log.info(f"Processing trace: {trace_url}")
 
@@ -2515,9 +2256,12 @@ class Langfuse:
 
                 page += 1
 
-            items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
-
-            return DatasetClient(dataset, items=items, version=version)
+            return DatasetClient(
+                dataset=dataset,
+                items=dataset_items,
+                version=version,
+                langfuse_client=self,
+            )
 
         except Error as e:
             handle_fern_exception(e)
@@ -2536,10 +2280,13 @@ class Langfuse:
             DatasetRunWithItems: The dataset run with its items.
         """
         try:
-            return self.api.datasets.get_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(run_name),
-                request_options=None,
+            return cast(
+                DatasetRunWithItems,
+                self.api.datasets.get_run(
+                    dataset_name=self._url_encode(dataset_name),
+                    run_name=self._url_encode(run_name),
+                    request_options=None,
+                ),
             )
         except Error as e:
             handle_fern_exception(e)
@@ -2563,11 +2310,14 @@ class Langfuse:
             PaginatedDatasetRuns: Paginated list of dataset runs.
         """
         try:
-            return self.api.datasets.get_runs(
-                dataset_name=self._url_encode(dataset_name),
-                page=page,
-                limit=limit,
-                request_options=None,
+            return cast(
+                PaginatedDatasetRuns,
+                self.api.datasets.get_runs(
+                    dataset_name=self._url_encode(dataset_name),
+                    page=page,
+                    limit=limit,
+                    request_options=None,
+                ),
             )
         except Error as e:
             handle_fern_exception(e)
@@ -2586,10 +2336,13 @@ class Langfuse:
             DeleteDatasetRunResponse: Confirmation of deletion.
         """
         try:
-            return self.api.datasets.delete_run(
-                dataset_name=self._url_encode(dataset_name),
-                run_name=self._url_encode(run_name),
-                request_options=None,
+            return cast(
+                DeleteDatasetRunResponse,
+                self.api.datasets.delete_run(
+                    dataset_name=self._url_encode(dataset_name),
+                    run_name=self._url_encode(run_name),
+                    request_options=None,
+                ),
             )
         except Error as e:
             handle_fern_exception(e)
@@ -2916,7 +2669,7 @@ class Langfuse:
     ) -> ExperimentItemResult:
         span_name = "experiment-item-run"
 
-        with self.start_as_current_span(name=span_name) as span:
+        with self.start_as_current_observation(name=span_name) as span:
             try:
                 input_data = (
                     item.get("input")
@@ -2957,15 +2710,13 @@ class Langfuse:
                         # creates multiple event loops across different threads
                         dataset_run_item = await asyncio.to_thread(
                             self.api.dataset_run_items.create,
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_run_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
-                                observationId=span.id,
-                                datasetVersion=dataset_version,
-                            ).dict(exclude_none=True),
+                            run_name=experiment_run_name,
+                            run_description=experiment_description,
+                            metadata=experiment_metadata,
+                            dataset_item_id=item.id,  # type: ignore
+                            trace_id=trace_id,
+                            observation_id=span.id,
+                            dataset_version=dataset_version,
                         )
 
                         dataset_run_id = dataset_run_item.dataset_run_id
@@ -3424,16 +3175,17 @@ class Langfuse:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
-            body = CreateDatasetRequest(
+            langfuse_logger.debug(f"Creating datasets {name}")
+
+            result = self.api.datasets.create(
                 name=name,
                 description=description,
                 metadata=metadata,
-                inputSchema=input_schema,
-                expectedOutputSchema=expected_output_schema,
+                input_schema=input_schema,
+                expected_output_schema=expected_output_schema,
             )
-            langfuse_logger.debug(f"Creating datasets {body}")
 
-            return self.api.datasets.create(request=body)
+            return cast(Dataset, result)
 
         except Error as e:
             handle_fern_exception(e)
@@ -3484,18 +3236,20 @@ class Langfuse:
             ```
         """
         try:
-            body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
+            langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
+
+            result = self.api.dataset_items.create(
+                dataset_name=dataset_name,
                 input=input,
-                expectedOutput=expected_output,
+                expected_output=expected_output,
                 metadata=metadata,
-                sourceTraceId=source_trace_id,
-                sourceObservationId=source_observation_id,
+                source_trace_id=source_trace_id,
+                source_observation_id=source_observation_id,
                 status=status,
                 id=id,
             )
-            langfuse_logger.debug(f"Creating dataset item {body}")
-            return self.api.dataset_items.create(request=body)
+
+            return cast(DatasetItem, result)
         except Error as e:
             handle_fern_exception(e)
             raise e
@@ -3857,15 +3611,15 @@ class Langfuse:
                     raise ValueError(
                         "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
                     )
-                request: Union[CreatePromptRequest_Chat, CreatePromptRequest_Text] = (
-                    CreatePromptRequest_Chat(
+                request: Union[CreateChatPromptRequest, CreateTextPromptRequest] = (
+                    CreateChatPromptRequest(
                         name=name,
                         prompt=cast(Any, prompt),
                         labels=labels,
                         tags=tags,
                         config=config or {},
-                        commitMessage=commit_message,
-                        type="chat",
+                        commit_message=commit_message,
+                        type=CreateChatPromptType.CHAT,
                     )
                 )
                 server_prompt = self.api.prompts.create(request=request)
@@ -3878,14 +3632,13 @@ class Langfuse:
             if not isinstance(prompt, str):
                 raise ValueError("For 'text' type, 'prompt' must be a string.")
 
-            request = CreatePromptRequest_Text(
+            request = CreateTextPromptRequest(
                 name=name,
                 prompt=prompt,
                 labels=labels,
                 tags=tags,
                 config=config or {},
-                commitMessage=commit_message,
-                type="text",
+                commit_message=commit_message,
             )
 
             server_prompt = self.api.prompts.create(request=request)

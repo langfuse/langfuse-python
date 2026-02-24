@@ -157,7 +157,7 @@ def test_replace_media_reference_string_in_object():
     mock_trace_name = f"test-trace-with-audio-{uuid4()}"
     base64_audio = base64.b64encode(mock_audio_bytes).decode()
 
-    span = langfuse.start_span(
+    span = langfuse.start_observation(
         name=mock_trace_name,
         metadata={
             "context": {
@@ -188,7 +188,7 @@ def test_replace_media_reference_string_in_object():
     assert resolved_obs["metadata"]["context"]["nested"] == expected_base64
 
     # Create second trace reusing the media reference
-    span2 = langfuse.start_span(
+    span2 = langfuse.start_observation(
         name=f"2-{mock_trace_name}",
         metadata={"context": {"nested": resolved_obs["metadata"]["context"]["nested"]}},
     ).end()
