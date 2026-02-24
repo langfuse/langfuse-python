@@ -249,6 +249,7 @@ class LangfuseResourceManager:
         self._media_upload_queue: Queue[Any] = Queue(100_000)
         self._media_manager = MediaManager(
             api_client=self.api,
+            httpx_client=self.httpx_client,
             media_upload_queue=self._media_upload_queue,
             max_retries=3,
         )
