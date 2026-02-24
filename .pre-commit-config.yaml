@@ -5,12 +5,11 @@ repos:
       # Run the linter and fix
       - id: ruff-check
         types_or: [python, pyi, jupyter]
-        args: [--fix, --config=ci.ruff.toml]
+        args: [--fix]
 
       # Run the formatter.
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-        args: [--config=ci.ruff.toml]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.18.2

@@ -101,3 +101,19 @@ module = [
 ]
 ignore_errors = true
 
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    # These used to be enabled in the "local ruff.toml",
+    # which was never enforced; hence, enabling these will
+    # cause a large number of linting errors.
+
+    # "D", # Docstring lints
+    # "D401", # Enforce imperative mood in docstrings
+]
+exclude = ["langfuse/api/**/*.py"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
