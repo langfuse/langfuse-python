@@ -2582,10 +2582,12 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             public_key=instrumentation_filtering_setup["test_key"],
             secret_key="test-secret-key",
             base_url="http://localhost:3000",
-            should_export_span=lambda span: is_default_export_span(span)
-            or (
-                span.instrumentation_scope is not None
-                and span.instrumentation_scope.name.startswith("my-framework")
+            should_export_span=lambda span: (
+                is_default_export_span(span)
+                or (
+                    span.instrumentation_scope is not None
+                    and span.instrumentation_scope.name.startswith("my-framework")
+                )
             ),
         )
 
