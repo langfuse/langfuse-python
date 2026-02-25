@@ -19,9 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: chartboost/ruff-action@v1
-        with:
-          args: check --config ci.ruff.toml
+      - uses: astral-sh/ruff-action@v3
 
   type-checking:
     runs-on: ubuntu-latest
@@ -73,6 +71,7 @@ jobs:
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
 
     name: Test on Python version ${{ matrix.python-version }}
     steps:

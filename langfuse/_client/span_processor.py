@@ -13,7 +13,7 @@ Key features:
 
 import base64
 import os
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -22,13 +22,13 @@ from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import format_span_id
 
-from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import _get_propagated_attributes_from_context
+from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
@@ -61,6 +61,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
     ):
         self.public_key = public_key
@@ -69,6 +70,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             if blocked_instrumentation_scopes is not None
             else []
         )
+        self._should_export_span = should_export_span or is_default_export_span
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
         flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
@@ -134,7 +136,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
     def on_end(self, span: ReadableSpan) -> None:
         # Only export spans that belong to the scoped project
         # This is important to not send spans to wrong project in multi-project setups
-        if self._is_langfuse_span(span) and not self._is_langfuse_project_span(span):
+        if is_langfuse_span(span) and not self._is_langfuse_project_span(span):
             langfuse_logger.debug(
                 f"Security: Span rejected - belongs to project '{span.instrumentation_scope.attributes.get('public_key') if span.instrumentation_scope and span.instrumentation_scope.attributes else None}' but processor is for '{self.public_key}'. "
                 f"This prevents cross-project data leakage in multi-project environments."
@@ -143,6 +145,30 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
         # Do not export spans from blocked instrumentation scopes
         if self._is_blocked_instrumentation_scope(span):
+            langfuse_logger.debug(
+                "Trace: Dropping span due to blocked instrumentation scope | "
+                f"span_name='{span.name}' | "
+                f"instrumentation_scope='{self._get_scope_name(span)}'"
+            )
+            return
+
+        # Apply custom or default span filter
+        try:
+            should_export = self._should_export_span(span)
+        except Exception as error:
+            langfuse_logger.error(
+                "Trace: should_export_span callback raised an error. "
+                f"Dropping span name='{span.name}' scope='{self._get_scope_name(span)}'. "
+                f"Error: {error}"
+            )
+            return
+
+        if not should_export:
+            langfuse_logger.debug(
+                "Trace: Dropping span due to should_export_span filter | "
+                f"span_name='{span.name}' | "
+                f"instrumentation_scope='{self._get_scope_name(span)}'"
+            )
             return
 
         langfuse_logger.debug(
@@ -151,13 +177,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
         super().on_end(span)
 
-    @staticmethod
-    def _is_langfuse_span(span: ReadableSpan) -> bool:
-        return (
-            span.instrumentation_scope is not None
-            and span.instrumentation_scope.name == LANGFUSE_TRACER_NAME
-        )
-
     def _is_blocked_instrumentation_scope(self, span: ReadableSpan) -> bool:
         return (
             span.instrumentation_scope is not None
@@ -165,7 +184,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         )
 
     def _is_langfuse_project_span(self, span: ReadableSpan) -> bool:
-        if not LangfuseSpanProcessor._is_langfuse_span(span):
+        if not is_langfuse_span(span):
             return False
 
         if span.instrumentation_scope is not None:
@@ -178,3 +197,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             return public_key_on_span == self.public_key
 
         return False
+
+    @staticmethod
+    def _get_scope_name(span: ReadableSpan) -> Optional[str]:
+        if span.instrumentation_scope is None:
+            return None
+
+        return span.instrumentation_scope.name

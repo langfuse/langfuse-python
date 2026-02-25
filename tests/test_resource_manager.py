@@ -10,12 +10,16 @@ def test_get_client_preserves_all_settings():
     with LangfuseResourceManager._lock:
         LangfuseResourceManager._instances.clear()
 
+    def should_export(span):
+        return span.name != "drop"
+
     settings = {
         "environment": "test-env",
         "release": "v1.2.3",
         "timeout": 30,
         "flush_at": 100,
         "sample_rate": 0.8,
+        "should_export_span": should_export,
         "additional_headers": {"X-Custom": "value"},
     }
 
@@ -29,6 +33,7 @@ def test_get_client_preserves_all_settings():
     assert rm.environment == settings["environment"]
     assert rm.timeout == settings["timeout"]
     assert rm.sample_rate == settings["sample_rate"]
+    assert rm.should_export_span is should_export
     assert rm.additional_headers == settings["additional_headers"]
 
     original_client.shutdown()
@@ -36,6 +41,13 @@ def test_get_client_preserves_all_settings():
 
 def test_get_client_multiple_clients_preserve_different_settings():
     """Test that get_client() preserves different settings for multiple clients."""
+
+    def should_export_a(span):
+        return span.name.startswith("a")
+
+    def should_export_b(span):
+        return span.name.startswith("b")
+
     # Settings for client A
     settings_a = {
         "public_key": "pk-comprehensive-a",
@@ -44,6 +56,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "release": "release-a",
         "timeout": 10,
         "sample_rate": 0.5,
+        "should_export_span": should_export_a,
     }
 
     # Settings for client B
@@ -54,6 +67,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "release": "release-b",
         "timeout": 20,
         "sample_rate": 0.9,
+        "should_export_span": should_export_b,
     }
 
     client_a = Langfuse(**settings_a)
@@ -74,6 +88,8 @@ def test_get_client_multiple_clients_preserve_different_settings():
         assert retrieved_b._resources.sample_rate == settings_b["sample_rate"]
         assert retrieved_a._resources.release == settings_a["release"]
         assert retrieved_b._resources.release == settings_b["release"]
+        assert retrieved_a._resources.should_export_span is should_export_a
+        assert retrieved_b._resources.should_export_span is should_export_b
 
     client_a.shutdown()
     client_b.shutdown()

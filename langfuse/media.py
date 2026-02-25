@@ -7,7 +7,7 @@ import os
 import re
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
-import requests
+import httpx
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
@@ -284,6 +284,11 @@ class LangfuseMedia:
 
                 result = obj
                 reference_string_to_media_content = {}
+                httpx_client = (
+                    langfuse_client._resources.httpx_client
+                    if langfuse_client._resources is not None
+                    else None
+                )
 
                 for reference_string in reference_string_matches:
                     try:
@@ -293,11 +298,17 @@ class LangfuseMedia:
                         media_data = langfuse_client.api.media.get(
                             parsed_media_reference["media_id"]
                         )
-                        media_content = requests.get(
-                            media_data.url, timeout=content_fetch_timeout_seconds
+                        media_content = (
+                            httpx_client.get(
+                                media_data.url,
+                                timeout=content_fetch_timeout_seconds,
+                            )
+                            if httpx_client is not None
+                            else httpx.get(
+                                media_data.url, timeout=content_fetch_timeout_seconds
+                            )
                         )
-                        if not media_content.ok:
-                            raise Exception("Failed to fetch media content")
+                        media_content.raise_for_status()
 
                         base64_media_content = base64.b64encode(
                             media_content.content
