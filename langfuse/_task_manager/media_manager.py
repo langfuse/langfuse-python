@@ -252,13 +252,36 @@ class MediaManager:
             headers["x-ms-blob-type"] = "BlockBlob"
             headers["x-amz-checksum-sha256"] = data["content_sha256_hash"]
 
+        def _upload_with_status_check() -> httpx.Response:
+            response = self._httpx_client.put(
+                upload_url,
+                headers=headers,
+                content=data["content_bytes"],
+            )
+            response.raise_for_status()
+
+            return response
+
         upload_start_time = time.time()
-        upload_response = self._request_with_backoff(
-            self._httpx_client.put,
-            upload_url,
-            headers=headers,
-            content=data["content_bytes"],
-        )
+
+        try:
+            upload_response = self._request_with_backoff(_upload_with_status_check)
+        except httpx.HTTPStatusError as e:
+            upload_time_ms = int((time.time() - upload_start_time) * 1000)
+            failed_response = e.response
+
+            if failed_response is not None:
+                self._request_with_backoff(
+                    self._api_client.media.patch,
+                    media_id=data["media_id"],
+                    uploaded_at=_get_timestamp(),
+                    upload_http_status=failed_response.status_code,
+                    upload_http_error=failed_response.text,
+                    upload_time_ms=upload_time_ms,
+                )
+
+            raise
+
         upload_time_ms = int((time.time() - upload_start_time) * 1000)
 
         self._request_with_backoff(
