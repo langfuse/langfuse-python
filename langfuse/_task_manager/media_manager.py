@@ -86,7 +86,12 @@ class MediaManager:
 
                 return data
 
-            if isinstance(data, str) and data.startswith("data:"):
+            if (
+                isinstance(data, str)
+                and data.startswith("data:")
+                and "," in data
+                and data.split(",", 1)[0].endswith(";base64")
+            ):
                 media = LangfuseMedia(
                     obj=data,
                     base64_data_uri=data,
