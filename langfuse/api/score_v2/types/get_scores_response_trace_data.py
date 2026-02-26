@@ -26,6 +26,13 @@ class GetScoresResponseTraceData(UniversalBaseModel):
     The environment of the trace referenced by score
     """
 
+    session_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="sessionId")
+    ] = pydantic.Field(default=None)
+    """
+    The session ID associated with the trace referenced by score
+    """
+
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
     )
