@@ -13,6 +13,7 @@ Key features:
 
 import base64
 import os
+import json
 from typing import Callable, Dict, List, Optional
 
 from opentelemetry import context as context_api
@@ -21,11 +22,13 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import format_span_id
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
+    LANGFUSE_OTEL_TRACES_EXPORT_LOCAL_FILEPATH,
 )
 from langfuse._client.propagation import _get_propagated_attributes_from_context
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
@@ -33,6 +36,18 @@ from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
 
+class FileSpanExporter(SpanExporter):
+    def __init__(self, filename):
+        self.filename = filename
+
+    def export(self, spans):
+        with open(self.filename, "w") as f:
+            for span in spans:
+                f.write(json.dumps(span.to_json()) + "\n")
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self):
+        pass
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
     """OpenTelemetry span processor that exports spans to the Langfuse API.
@@ -98,18 +113,21 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         headers = {**default_headers, **(additional_headers or {})}
 
         traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
-
+        traces_export_local_filepath = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_LOCAL_FILEPATH, None)
         endpoint = (
             f"{base_url}/{traces_export_path}"
             if traces_export_path
             else f"{base_url}/api/public/otel/v1/traces"
         )
 
-        langfuse_span_exporter = OTLPSpanExporter(
-            endpoint=endpoint,
-            headers=headers,
-            timeout=timeout,
-        )
+        if traces_export_local_filepath and not traces_export_path:
+            langfuse_span_exporter = FileSpanExporter(traces_export_local_filepath)
+        else:
+            langfuse_span_exporter = OTLPSpanExporter(
+                endpoint=endpoint,
+                headers=headers,
+                timeout=timeout,
+            )
 
         super().__init__(
             span_exporter=langfuse_span_exporter,

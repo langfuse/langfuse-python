@@ -62,6 +62,15 @@ URL path on the configured host to export traces to.
 **Default value:** ``/api/public/otel/v1/traces``
 """
 
+LANGFUSE_OTEL_TRACES_EXPORT_LOCAL_FILEPATH = "LANGFUSE_OTEL_TRACES_EXPORT_LOCAL_FILEPATH"
+"""
+.. envvar:: LANGFUSE_OTEL_TRACES_EXPORT_LOCAL_FILEPATH
+
+Local file path to export traces to.
+
+**Default value:** ````
+"""
+
 LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
 """
 .. envvar:: LANGFUSE_DEBUG
