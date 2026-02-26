@@ -115,7 +115,7 @@ class RawScoreV2Client:
             Only scores linked to traces that include all of these tags will be returned.
 
         fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
+            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment, sessionId). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
 
         filter : typing.Optional[str]
             A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
@@ -432,7 +432,7 @@ class AsyncRawScoreV2Client:
             Only scores linked to traces that include all of these tags will be returned.
 
         fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
+            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment, sessionId). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
 
         filter : typing.Optional[str]
             A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
