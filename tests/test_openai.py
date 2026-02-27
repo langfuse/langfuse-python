@@ -1594,3 +1594,103 @@ async def test_async_openai_embeddings(openai):
     assert embedding_data.metadata["async"] is True
     assert embedding_data.usage.input is not None
     assert embedding_data.usage.total is not None
+
+
+def test_openai_image_generation(openai):
+    """Test that image generation calls are tracked in Langfuse."""
+    generation_name = "test_image_generation_" + create_uuid()[:8]
+
+    response = openai.OpenAI().images.generate(
+        name=generation_name,
+        model="dall-e-3",
+        prompt="A white siamese cat",
+        size="1024x1024",
+        quality="standard",
+        n=1,
+        metadata={"test_key": "test_value"},
+    )
+
+    langfuse.flush()
+    sleep(1)
+
+    generation = get_api().observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    generation_data = generation.data[0]
+    assert generation_data.name == generation_name
+    assert generation_data.metadata["test_key"] == "test_value"
+    assert generation_data.input == "A white siamese cat"
+    assert generation_data.type == "GENERATION"
+    assert "dall-e-3" in generation_data.model
+    assert generation_data.start_time is not None
+    assert generation_data.end_time is not None
+    assert generation_data.start_time < generation_data.end_time
+    assert generation_data.output is not None
+    # Check model parameters
+    assert generation_data.model_parameters is not None
+    assert generation_data.model_parameters.get("size") == "1024x1024"
+    assert generation_data.model_parameters.get("quality") == "standard"
+
+
+@pytest.mark.asyncio
+async def test_openai_image_generation_async(openai):
+    """Test that async image generation calls are tracked in Langfuse."""
+    generation_name = "test_image_generation_async_" + create_uuid()[:8]
+
+    response = await openai.AsyncOpenAI().images.generate(
+        name=generation_name,
+        model="dall-e-3",
+        prompt="A sunset over mountains",
+        size="1024x1024",
+        quality="standard",
+        n=1,
+        metadata={"async": True},
+    )
+
+    langfuse.flush()
+    sleep(1)
+
+    generation = get_api().observations.get_many(name=generation_name, type="GENERATION")
+
+    assert len(generation.data) != 0
+    generation_data = generation.data[0]
+    assert generation_data.name == generation_name
+    assert generation_data.metadata["async"] is True
+    assert generation_data.input == "A sunset over mountains"
+    assert generation_data.type == "GENERATION"
+    assert "dall-e-3" in generation_data.model
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+def test_openai_image_edit(openai):
+    """Test that image edit calls are tracked in Langfuse.
+
+    Note: images.edit() accepts a prompt parameter which is tracked as input.
+    Skipped by default as it requires DALL-E 2 API access and PNG image files.
+    """
+    pass
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+def test_openai_image_create_variation(openai):
+    """Test that image variation calls are tracked in Langfuse.
+
+    Note: images.create_variation() does NOT accept a prompt parameter,
+    so input will be None. This is expected behavior - the method only
+    takes an image file as input, which is not captured as text input.
+    """
+    pass
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+@pytest.mark.asyncio
+async def test_openai_image_edit_async(openai):
+    """Test that async image edit calls are tracked in Langfuse."""
+    pass
+
+
+@pytest.mark.skip(reason="Requires DALL-E 2 and image file setup; core tracking tested via generate()")
+@pytest.mark.asyncio
+async def test_openai_image_create_variation_async(openai):
+    """Test that async image variation calls are tracked in Langfuse."""
+    pass
