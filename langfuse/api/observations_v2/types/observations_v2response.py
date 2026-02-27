@@ -3,6 +3,7 @@
 import typing
 
 import pydantic
+from ...commons.types.observation_v2 import ObservationV2
 from ...core.pydantic_utilities import UniversalBaseModel
 from .observations_v2meta import ObservationsV2Meta
 
@@ -15,7 +16,7 @@ class ObservationsV2Response(UniversalBaseModel):
     Use the `cursor` in `meta` to retrieve the next page of results.
     """
 
-    data: typing.List[typing.Dict[str, typing.Any]] = pydantic.Field()
+    data: typing.List[ObservationV2] = pydantic.Field()
     """
     Array of observation objects. Fields included depend on the `fields` parameter in the request.
     """

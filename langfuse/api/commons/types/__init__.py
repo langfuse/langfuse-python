@@ -31,6 +31,7 @@ if typing.TYPE_CHECKING:
     from .numeric_score_v1 import NumericScoreV1
     from .observation import Observation
     from .observation_level import ObservationLevel
+    from .observation_v2 import ObservationV2
     from .observations_view import ObservationsView
     from .pricing_tier import PricingTier
     from .pricing_tier_condition import PricingTierCondition
@@ -80,6 +81,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NumericScoreV1": ".numeric_score_v1",
     "Observation": ".observation",
     "ObservationLevel": ".observation_level",
+    "ObservationV2": ".observation_v2",
     "ObservationsView": ".observations_view",
     "PricingTier": ".pricing_tier",
     "PricingTierCondition": ".pricing_tier_condition",
@@ -160,6 +162,7 @@ __all__ = [
     "NumericScoreV1",
     "Observation",
     "ObservationLevel",
+    "ObservationV2",
     "ObservationsView",
     "PricingTier",
     "PricingTierCondition",
