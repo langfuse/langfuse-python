@@ -1,4 +1,3 @@
-import logging
 from typing import Union
 
 # our own api errors
@@ -14,6 +13,7 @@ from langfuse.api import (
     UnauthorizedError,
 )
 from langfuse.api.core import ApiError
+from langfuse.logger import langfuse_logger as logger
 
 SUPPORT_URL = "https://langfuse.com/support"
 API_DOCS_URL = "https://api.reference.langfuse.com"
@@ -67,10 +67,9 @@ def generate_error_message_fern(error: Error) -> str:
 
 
 def handle_fern_exception(exception: Error) -> None:
-    log = logging.getLogger("langfuse")
-    log.debug(exception)
+    logger.debug(exception)
     error_message = generate_error_message_fern(exception)
-    log.error(error_message)
+    logger.error(error_message)
 
 
 def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> str:
@@ -95,7 +94,6 @@ def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> 
 
 
 def handle_exception(exception: Union[APIError, APIErrors, Exception]) -> None:
-    log = logging.getLogger("langfuse")
-    log.debug(exception)
+    logger.debug(exception)
     error_message = generate_error_message(exception)
-    log.error(error_message)
+    logger.error(error_message)
