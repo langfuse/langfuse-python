@@ -6,10 +6,8 @@ import os
 from functools import wraps
 from typing import (
     Any,
-    AsyncGenerator,
     Callable,
     Dict,
-    Generator,
     Iterable,
     List,
     Optional,
@@ -19,6 +17,7 @@ from typing import (
     cast,
     overload,
 )
+from collections.abc import AsyncIterator, Iterator
 
 from opentelemetry.util._decorator import _AgnosticContextManager
 from typing_extensions import ParamSpec
@@ -278,7 +277,7 @@ class LangfuseDecorator:
                         as_type=as_type or "span",
                         trace_context=trace_context,
                         input=input,
-                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        end_on_exit=False,  # when returning a iterator, closing on exit would be to early
                     )
                     if langfuse_client
                     else None
@@ -288,25 +287,25 @@ class LangfuseDecorator:
                     return await func(*args, **kwargs)
 
                 with context_manager as langfuse_span_or_generation:
-                    is_return_type_generator = False
+                    is_return_type_iterator = False
 
                     try:
                         result = await func(*args, **kwargs)
 
                         if capture_output is True:
-                            if inspect.isgenerator(result):
-                                is_return_type_generator = True
+                            if isinstance(result, Iterator):
+                                is_return_type_iterator = True
 
-                                return self._wrap_sync_generator_result(
+                                return self._wrap_sync_iterator_result(
                                     langfuse_span_or_generation,
                                     result,
                                     transform_to_string,
                                 )
 
-                            if inspect.isasyncgen(result):
-                                is_return_type_generator = True
+                            if isinstance(result, AsyncIterator):
+                                is_return_type_iterator = True
 
-                                return self._wrap_async_generator_result(
+                                return self._wrap_async_iterator_result(
                                     langfuse_span_or_generation,
                                     result,
                                     transform_to_string,
@@ -316,14 +315,12 @@ class LangfuseDecorator:
                             if type(result).__name__ == "StreamingResponse" and hasattr(
                                 result, "body_iterator"
                             ):
-                                is_return_type_generator = True
+                                is_return_type_iterator = True
 
-                                result.body_iterator = (
-                                    self._wrap_async_generator_result(
-                                        langfuse_span_or_generation,
-                                        result.body_iterator,
-                                        transform_to_string,
-                                    )
+                                result.body_iterator = self._wrap_async_iterator_result(
+                                    langfuse_span_or_generation,
+                                    result.body_iterator,
+                                    transform_to_string,
                                 )
 
                             langfuse_span_or_generation.update(output=result)
@@ -336,7 +333,7 @@ class LangfuseDecorator:
 
                         raise e
                     finally:
-                        if not is_return_type_generator:
+                        if not is_return_type_iterator:
                             langfuse_span_or_generation.end()
 
         return cast(F, async_wrapper)
@@ -396,7 +393,7 @@ class LangfuseDecorator:
                         as_type=as_type or "span",
                         trace_context=trace_context,
                         input=input,
-                        end_on_exit=False,  # when returning a generator, closing on exit would be to early
+                        end_on_exit=False,  # when returning a iterator, closing on exit would be to early
                     )
                     if langfuse_client
                     else None
@@ -406,25 +403,25 @@ class LangfuseDecorator:
                     return func(*args, **kwargs)
 
                 with context_manager as langfuse_span_or_generation:
-                    is_return_type_generator = False
+                    is_return_type_iterator = False
 
                     try:
                         result = func(*args, **kwargs)
 
                         if capture_output is True:
-                            if inspect.isgenerator(result):
-                                is_return_type_generator = True
+                            if isinstance(result, Iterator):
+                                is_return_type_iterator = True
 
-                                return self._wrap_sync_generator_result(
+                                return self._wrap_sync_iterator_result(
                                     langfuse_span_or_generation,
                                     result,
                                     transform_to_string,
                                 )
 
-                            if inspect.isasyncgen(result):
-                                is_return_type_generator = True
+                            if isinstance(result, AsyncIterator):
+                                is_return_type_iterator = True
 
-                                return self._wrap_async_generator_result(
+                                return self._wrap_async_iterator_result(
                                     langfuse_span_or_generation,
                                     result,
                                     transform_to_string,
@@ -434,14 +431,12 @@ class LangfuseDecorator:
                             if type(result).__name__ == "StreamingResponse" and hasattr(
                                 result, "body_iterator"
                             ):
-                                is_return_type_generator = True
+                                is_return_type_iterator = True
 
-                                result.body_iterator = (
-                                    self._wrap_async_generator_result(
-                                        langfuse_span_or_generation,
-                                        result.body_iterator,
-                                        transform_to_string,
-                                    )
+                                result.body_iterator = self._wrap_async_iterator_result(
+                                    langfuse_span_or_generation,
+                                    result.body_iterator,
+                                    transform_to_string,
                                 )
 
                             langfuse_span_or_generation.update(output=result)
@@ -454,7 +449,7 @@ class LangfuseDecorator:
 
                         raise e
                     finally:
-                        if not is_return_type_generator:
+                        if not is_return_type_iterator:
                             langfuse_span_or_generation.end()
 
         return cast(F, sync_wrapper)
@@ -481,7 +476,7 @@ class LangfuseDecorator:
             "kwargs": func_kwargs,
         }
 
-    def _wrap_sync_generator_result(
+    def _wrap_sync_iterator_result(
         self,
         langfuse_span_or_generation: Union[
             LangfuseSpan,
@@ -494,19 +489,19 @@ class LangfuseDecorator:
             LangfuseEmbedding,
             LangfuseGuardrail,
         ],
-        generator: Generator,
+        iterator: Iterator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
         preserved_context = contextvars.copy_context()
 
-        return _ContextPreservedSyncGeneratorWrapper(
-            generator,
+        return _ContextPreservedSyncIteratorWrapper(
+            iterator,
             preserved_context,
             langfuse_span_or_generation,
             transform_to_string,
         )
 
-    def _wrap_async_generator_result(
+    def _wrap_async_iterator_result(
         self,
         langfuse_span_or_generation: Union[
             LangfuseSpan,
@@ -519,13 +514,13 @@ class LangfuseDecorator:
             LangfuseEmbedding,
             LangfuseGuardrail,
         ],
-        generator: AsyncGenerator,
+        iterator: AsyncIterator,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
         preserved_context = contextvars.copy_context()
 
-        return _ContextPreservedAsyncGeneratorWrapper(
-            generator,
+        return _ContextPreservedAsyncIteratorWrapper(
+            iterator,
             preserved_context,
             langfuse_span_or_generation,
             transform_to_string,
@@ -537,12 +532,12 @@ _decorator = LangfuseDecorator()
 observe = _decorator.observe
 
 
-class _ContextPreservedSyncGeneratorWrapper:
-    """Sync generator wrapper that ensures each iteration runs in preserved context."""
+class _ContextPreservedSyncIteratorWrapper:
+    """Sync iterator wrapper that ensures each iteration runs in preserved context."""
 
     def __init__(
         self,
-        generator: Generator,
+        iterator: Iterator,
         context: contextvars.Context,
         span: Union[
             LangfuseSpan,
@@ -557,25 +552,25 @@ class _ContextPreservedSyncGeneratorWrapper:
         ],
         transform_fn: Optional[Callable[[Iterable], str]],
     ) -> None:
-        self.generator = generator
+        self.iterator = iterator
         self.context = context
         self.items: List[Any] = []
         self.span = span
         self.transform_fn = transform_fn
 
-    def __iter__(self) -> "_ContextPreservedSyncGeneratorWrapper":
+    def __iter__(self) -> "_ContextPreservedSyncIteratorWrapper":
         return self
 
     def __next__(self) -> Any:
         try:
-            # Run the generator's __next__ in the preserved context
-            item = self.context.run(next, self.generator)
+            # Run the iterator's __next__ in the preserved context
+            item = self.context.run(next, self.iterator)
             self.items.append(item)
 
             return item
 
         except StopIteration:
-            # Handle output and span cleanup when generator is exhausted
+            # Handle output and span cleanup when iterator is exhausted
             output: Any = self.items
 
             if self.transform_fn is not None:
@@ -596,12 +591,12 @@ class _ContextPreservedSyncGeneratorWrapper:
             raise
 
 
-class _ContextPreservedAsyncGeneratorWrapper:
-    """Async generator wrapper that ensures each iteration runs in preserved context."""
+class _ContextPreservedAsyncIteratorWrapper:
+    """Async iterator wrapper that ensures each iteration runs in preserved context."""
 
     def __init__(
         self,
-        generator: AsyncGenerator,
+        iterator: AsyncIterator,
         context: contextvars.Context,
         span: Union[
             LangfuseSpan,
@@ -616,34 +611,34 @@ class _ContextPreservedAsyncGeneratorWrapper:
         ],
         transform_fn: Optional[Callable[[Iterable], str]],
     ) -> None:
-        self.generator = generator
+        self.iterator = iterator
         self.context = context
         self.items: List[Any] = []
         self.span = span
         self.transform_fn = transform_fn
 
-    def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
+    def __aiter__(self) -> "_ContextPreservedAsyncIteratorWrapper":
         return self
 
     async def __anext__(self) -> Any:
         try:
-            # Run the generator's __anext__ in the preserved context
+            # Run the iterator's __anext__ in the preserved context
             try:
                 # Python 3.10+ approach with context parameter
                 item = await asyncio.create_task(
-                    self.generator.__anext__(),  # type: ignore
+                    self.iterator.__anext__(),  # type: ignore
                     context=self.context,
                 )  # type: ignore
             except TypeError:
                 # Python < 3.10 fallback - context parameter not supported
-                item = await self.generator.__anext__()
+                item = await self.iterator.__anext__()
 
             self.items.append(item)
 
             return item
 
         except StopAsyncIteration:
-            # Handle output and span cleanup when generator is exhausted
+            # Handle output and span cleanup when iterator is exhausted
             output: Any = self.items
 
             if self.transform_fn is not None:
