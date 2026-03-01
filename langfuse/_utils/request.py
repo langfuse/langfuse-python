@@ -60,7 +60,7 @@ class LangfuseClient:
         """Post the `kwargs` to the API"""
         log = logging.getLogger("langfuse")
         url = self._remove_trailing_slash(self._base_url) + "/api/public/ingestion"
-        data = json.dumps(kwargs, cls=EventSerializer)
+        data = json.dumps(kwargs, cls=EventSerializer, ensure_ascii=False)
         log.debug("making request: %s to %s", data, url)
         headers = self.generate_headers()
         res = self._session.post(

@@ -174,3 +174,27 @@ def test_slots():
     obj = SlotClass()
     serializer = EventSerializer()
     assert json.loads(serializer.encode(obj)) == {"field": "value"}
+
+
+def test_non_ascii_characters_not_escaped():
+    """Test that non-ASCII characters are serialized directly without \\uXXXX escaping."""
+    data = {
+        "chinese": "你好世界",
+        "japanese": "こんにちは",
+        "korean": "안녕하세요",
+        "emoji": "🎉",
+    }
+
+    result = json.dumps(data, cls=EventSerializer, ensure_ascii=False)
+
+    # Verify non-ASCII characters appear directly in output
+    assert "你好世界" in result
+    assert "こんにちは" in result
+    assert "안녕하세요" in result
+    assert "🎉" in result
+
+    # Verify no unicode escape sequences
+    assert "\\u" not in result
+
+    # Verify JSON is still valid
+    assert json.loads(result) == data
