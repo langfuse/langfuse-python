@@ -3681,6 +3681,35 @@ class Langfuse:
 
         return updated_prompt
 
+    def delete_prompt(
+        self,
+        name: str,
+        *,
+        label: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> None:
+        """Delete a prompt with all its versions or selected versions from Langfuse.
+
+        The Langfuse SDK prompt cache is invalidated for all cached versions with the specified name.
+
+        Args:
+            name: The name of the prompt to delete prompt versions for. If neither `label` nor `version` are specified, all prompt versions will be deleted.
+            label: Label of the prompt versions to delete. All prompt versions with the given label will be deleted.
+            version: Optional version of the prompt to delete.
+
+        Raises:
+            NotFoundError: If the prompt does not exist.
+            Error: If the API request fails.
+        """
+        self.api.prompts.delete(
+            prompt_name=self._url_encode(name),
+            label=label,
+            version=version,
+        )
+
+        if self._resources is not None:
+            self._resources.prompt_cache.invalidate(name)
+
     def _url_encode(self, url: str, *, is_url_param: Optional[bool] = False) -> str:
         # httpx ≥ 0.28 does its own WHATWG-compliant quoting (eg. encodes bare
         # “%”, “?”, “#”, “|”, … in query/path parts).  Re-quoting here would
