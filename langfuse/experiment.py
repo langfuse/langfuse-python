@@ -458,7 +458,7 @@ class ExperimentResult:
 
             # Or create summary report
             summary = result.format()  # Aggregate view only
-            print(f"Experiment Summary:\\n{summary}")
+            print(f"Experiment Summary:\n{summary}")
             ```
 
             Integration with logging systems:
@@ -467,11 +467,11 @@ class ExperimentResult:
             logger = logging.getLogger("experiments")
 
             # Log summary after experiment
-            logger.info(f"Experiment completed:\\n{result.format()}")
+            logger.info(f"Experiment completed:\n{result.format()}")
 
             # Log detailed results for failed experiments
             if any(eval['value'] < threshold for eval in result.run_evaluations):
-                logger.warning(f"Poor performance detected:\\n{result.format(include_item_results=True)}")
+                logger.warning(f"Poor performance detected:\n{result.format(include_item_results=True)}")
             ```
         """
         if not self.item_results:
@@ -482,7 +482,7 @@ class ExperimentResult:
         # Individual results section
         if include_item_results:
             for i, result in enumerate(self.item_results):
-                output += f"\\n{i + 1}. Item {i + 1}:\\n"
+                output += f"\n{i + 1}. Item {i + 1}:\n"
 
                 # Extract and display input
                 item_input = None
@@ -492,7 +492,7 @@ class ExperimentResult:
                     item_input = result.item.input
 
                 if item_input is not None:
-                    output += f"   Input:    {_format_value(item_input)}\\n"
+                    output += f"   Input:    {_format_value(item_input)}\n"
 
                 # Extract and display expected output
                 expected_output = None
@@ -502,36 +502,36 @@ class ExperimentResult:
                     expected_output = result.item.expected_output
 
                 if expected_output is not None:
-                    output += f"   Expected: {_format_value(expected_output)}\\n"
-                output += f"   Actual:   {_format_value(result.output)}\\n"
+                    output += f"   Expected: {_format_value(expected_output)}\n"
+                output += f"   Actual:   {_format_value(result.output)}\n"
 
                 # Display evaluation scores
                 if result.evaluations:
-                    output += "   Scores:\\n"
+                    output += "   Scores:\n"
                     for evaluation in result.evaluations:
                         score = evaluation.value
                         if isinstance(score, (int, float)):
                             score = f"{score:.3f}"
                         output += f"     • {evaluation.name}: {score}"
                         if evaluation.comment:
-                            output += f"\\n       💭 {evaluation.comment}"
-                        output += "\\n"
+                            output += f"\n       💭 {evaluation.comment}"
+                        output += "\n"
 
                 # Display trace link if available
                 if result.trace_id:
-                    output += f"\\n   Trace ID: {result.trace_id}\\n"
+                    output += f"\n   Trace ID: {result.trace_id}\n"
         else:
-            output += f"Individual Results: Hidden ({len(self.item_results)} items)\\n"
-            output += "💡 Set include_item_results=True to view them\\n"
+            output += f"Individual Results: Hidden ({len(self.item_results)} items)\n"
+            output += "💡 Set include_item_results=True to view them\n"
 
         # Experiment overview section
-        output += f"\\n{'─' * 50}\\n"
+        output += f"\n{'─' * 50}\n"
         output += f"🧪 Experiment: {self.name}"
         output += f"\n📋 Run name: {self.run_name}"
         if self.description:
             output += f" - {self.description}"
 
-        output += f"\\n{len(self.item_results)} items"
+        output += f"\n{len(self.item_results)} items"
 
         # Collect unique evaluation names across all items
         evaluation_names = set()
@@ -540,14 +540,14 @@ class ExperimentResult:
                 evaluation_names.add(evaluation.name)
 
         if evaluation_names:
-            output += "\\nEvaluations:"
+            output += "\nEvaluations:"
             for eval_name in evaluation_names:
-                output += f"\\n  • {eval_name}"
-            output += "\\n"
+                output += f"\n  • {eval_name}"
+            output += "\n"
 
         # Calculate and display average scores
         if evaluation_names:
-            output += "\\nAverage Scores:"
+            output += "\nAverage Scores:"
             for eval_name in evaluation_names:
                 scores = []
                 for result in self.item_results:
@@ -559,24 +559,24 @@ class ExperimentResult:
 
                 if scores:
                     avg = sum(scores) / len(scores)
-                    output += f"\\n  • {eval_name}: {avg:.3f}"
-            output += "\\n"
+                    output += f"\n  • {eval_name}: {avg:.3f}"
+            output += "\n"
 
         # Display run-level evaluations
         if self.run_evaluations:
-            output += "\\nRun Evaluations:"
+            output += "\nRun Evaluations:"
             for run_eval in self.run_evaluations:
                 score = run_eval.value
                 if isinstance(score, (int, float)):
                     score = f"{score:.3f}"
-                output += f"\\n  • {run_eval.name}: {score}"
+                output += f"\n  • {run_eval.name}: {score}"
                 if run_eval.comment:
-                    output += f"\\n    💭 {run_eval.comment}"
-            output += "\\n"
+                    output += f"\n    💭 {run_eval.comment}"
+            output += "\n"
 
         # Add dataset run URL if available
         if self.dataset_run_url:
-            output += f"\\n🔗 Dataset Run:\\n   {self.dataset_run_url}"
+            output += f"\n🔗 Dataset Run:\n   {self.dataset_run_url}"
 
         return output
 
