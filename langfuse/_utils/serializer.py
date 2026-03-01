@@ -3,6 +3,7 @@
 import datetime as dt
 import enum
 import math
+import os
 from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
@@ -38,6 +39,9 @@ logger = getLogger(__name__)
 class EventSerializer(JSONEncoder):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.ensure_ascii = os.environ.get(
+            "LANGFUSE_ENSURE_ASCII", "false"
+        ).lower() in ("true", "1", "yes")
         self.seen: set[int] = set()  # Track seen objects to detect circular references
 
     def default(self, obj: Any) -> Any:

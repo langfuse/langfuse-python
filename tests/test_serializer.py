@@ -174,3 +174,19 @@ def test_slots():
     obj = SlotClass()
     serializer = EventSerializer()
     assert json.loads(serializer.encode(obj)) == {"field": "value"}
+
+
+def test_unicode_not_escaped_by_default():
+    """Non-ASCII characters should be preserved by default (ensure_ascii=False)."""
+    serializer = EventSerializer()
+    result = serializer.encode({"message": "你好世界"})
+    assert "你好世界" in result
+    assert "\\u" not in result
+
+
+def test_unicode_escaped_with_env_var(monkeypatch):
+    """When LANGFUSE_ENSURE_ASCII=true, non-ASCII characters should be escaped."""
+    monkeypatch.setenv("LANGFUSE_ENSURE_ASCII", "true")
+    serializer = EventSerializer()
+    result = serializer.encode({"message": "你好世界"})
+    assert "\\u" in result
