@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from langfuse._task_manager.media_manager import MediaManager
+from langfuse.media import LangfuseMedia
 
 
 def _upload_response(status_code: int, text: str = "") -> httpx.Response:
@@ -78,3 +79,118 @@ def test_media_upload_gives_up_on_non_retryable_http_status():
     assert httpx_client.put.call_count == 1
     media_api.patch.assert_called_once()
     assert media_api.patch.call_args.kwargs["upload_http_status"] == 403
+
+
+def test_find_and_process_media_sse_done_passes_through():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = "data: [DONE]"
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="output"
+    )
+
+    assert result == data
+    assert queue.empty()
+
+
+def test_find_and_process_media_sse_json_payload_passes_through():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    plain_sse = 'data: {"choices": [{"delta": {"content": "hello"}}]}'
+    result = manager._find_and_process_media(
+        data=plain_sse, trace_id="trace-id", observation_id=None, field="output"
+    )
+    assert result == plain_sse
+
+    tricky_sse = 'data: {"text": "what is ;base64 encoding?", "count": 1}'
+    result = manager._find_and_process_media(
+        data=tricky_sse, trace_id="trace-id", observation_id=None, field="output"
+    )
+    assert result == tricky_sse
+    assert queue.empty()
+
+
+def test_find_and_process_media_valid_base64_uri_is_processed():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    valid_base64_data_uri = (
+        "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4QBARXhpZgAA"
+    )
+    result = manager._find_and_process_media(
+        data=valid_base64_data_uri,
+        trace_id="trace-id",
+        observation_id=None,
+        field="input",
+    )
+
+    assert isinstance(result, LangfuseMedia)
+    assert not queue.empty()
+
+
+def test_find_and_process_media_data_uri_without_comma_passes_through():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = "data:image/png;base64"
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert result == data
+    assert queue.empty()
+
+
+def test_find_and_process_media_non_base64_data_uri_passes_through():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = "data:text/plain,hello world"
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert result == data
+    assert queue.empty()
+
+
+def test_find_and_process_media_sse_in_nested_structure_passes_through():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = [
+        {"role": "assistant", "content": "data: [DONE]"},
+        {"role": "user", "content": "data: hello"},
+    ]
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="output"
+    )
+
+    assert result == data
+    assert queue.empty()
