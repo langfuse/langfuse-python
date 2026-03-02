@@ -37,18 +37,11 @@ from langfuse.media import LangfuseMedia
 
 try:
     import openai
+    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
 except ImportError:
     raise ModuleNotFoundError(
         "Please install OpenAI to use this feature: 'pip install openai'"
     )
-
-try:
-    from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI  # noqa: F401
-except ImportError:
-    AsyncAzureOpenAI = None  # type: ignore
-    AsyncOpenAI = None  # type: ignore
-    AzureOpenAI = None  # type: ignore
-    OpenAI = None  # type: ignore
 
 log = logging.getLogger("langfuse")
 
