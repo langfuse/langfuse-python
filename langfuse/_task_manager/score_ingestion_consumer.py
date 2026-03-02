@@ -81,7 +81,7 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 # check for serialization errors
                 try:
-                    json.dumps(event, cls=EventSerializer)
+                    json.dumps(event, cls=EventSerializer, ensure_ascii=False)
                 except Exception as e:
                     self._log.error(
                         f"Data error: Failed to serialize score object for ingestion. Score will be dropped. Error: {e}"
@@ -113,7 +113,7 @@ class ScoreIngestionConsumer(threading.Thread):
 
     def _get_item_size(self, item: Any) -> int:
         """Return the size of the item in bytes."""
-        return len(json.dumps(item, cls=EventSerializer).encode())
+        return len(json.dumps(item, cls=EventSerializer, ensure_ascii=False).encode())
 
     def run(self) -> None:
         """Run the consumer."""
