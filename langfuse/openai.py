@@ -17,7 +17,6 @@ The integration is fully interoperable with the `observe()` decorator and the lo
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
-import logging
 import types
 from collections import defaultdict
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from wrapt import wrap_function_wrapper
 from langfuse._client.get_client import get_client
 from langfuse._client.span import LangfuseGeneration
 from langfuse._utils import _get_timestamp
+from langfuse.logger import langfuse_logger as logger
 from langfuse.media import LangfuseMedia
 
 try:
@@ -42,8 +42,6 @@ except ImportError:
     raise ModuleNotFoundError(
         "Please install OpenAI to use this feature: 'pip install openai'"
     )
-
-log = logging.getLogger("langfuse")
 
 
 @dataclass
@@ -863,7 +861,7 @@ def _wrap(
 
         return openai_response
     except Exception as ex:
-        log.warning(ex)
+        logger.warning(ex)
         model = kwargs.get("model", None) or None
         generation.update(
             status_message=str(ex),
@@ -934,7 +932,7 @@ async def _wrap_async(
 
         return openai_response
     except Exception as ex:
-        log.warning(ex)
+        logger.warning(ex)
         model = kwargs.get("model", None) or None
         generation.update(
             status_message=str(ex),

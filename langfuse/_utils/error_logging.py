@@ -1,8 +1,7 @@
 import functools
-import logging
 from typing import Any, Callable, List, Optional
 
-logger = logging.getLogger("langfuse")
+from langfuse.logger import langfuse_logger as logger
 
 
 def catch_and_log_errors(func: Callable[..., Any]) -> Callable[..., Any]:

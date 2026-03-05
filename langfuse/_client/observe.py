@@ -1,7 +1,6 @@
 import asyncio
 import contextvars
 import inspect
-import logging
 import os
 from functools import wraps
 from typing import (
@@ -42,6 +41,7 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from langfuse.logger import langfuse_logger as logger
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -68,8 +68,6 @@ class LangfuseDecorator:
     - Support for explicit trace and parent span ID specification
     - Thread-safe client resolution when multiple Langfuse projects are used
     """
-
-    _log = logging.getLogger("langfuse")
 
     @overload
     def observe(self, func: F) -> F: ...
@@ -166,7 +164,7 @@ class LangfuseDecorator:
         """
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
-            self._log.warning(
+            logger.warning(
                 f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."
             )
             as_type = "span"
