@@ -6,10 +6,31 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import CreateScoreRequest, CreateScoreResponse
+    from .types import (
+        GetScoresResponse,
+        GetScoresResponseData,
+        GetScoresResponseDataBoolean,
+        GetScoresResponseDataCategorical,
+        GetScoresResponseDataCorrection,
+        GetScoresResponseDataNumeric,
+        GetScoresResponseData_Boolean,
+        GetScoresResponseData_Categorical,
+        GetScoresResponseData_Correction,
+        GetScoresResponseData_Numeric,
+        GetScoresResponseTraceData,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
-    "CreateScoreRequest": ".types",
-    "CreateScoreResponse": ".types",
+    "GetScoresResponse": ".types",
+    "GetScoresResponseData": ".types",
+    "GetScoresResponseDataBoolean": ".types",
+    "GetScoresResponseDataCategorical": ".types",
+    "GetScoresResponseDataCorrection": ".types",
+    "GetScoresResponseDataNumeric": ".types",
+    "GetScoresResponseData_Boolean": ".types",
+    "GetScoresResponseData_Categorical": ".types",
+    "GetScoresResponseData_Correction": ".types",
+    "GetScoresResponseData_Numeric": ".types",
+    "GetScoresResponseTraceData": ".types",
 }
 
 
@@ -40,4 +61,16 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateScoreRequest", "CreateScoreResponse"]
+__all__ = [
+    "GetScoresResponse",
+    "GetScoresResponseData",
+    "GetScoresResponseDataBoolean",
+    "GetScoresResponseDataCategorical",
+    "GetScoresResponseDataCorrection",
+    "GetScoresResponseDataNumeric",
+    "GetScoresResponseData_Boolean",
+    "GetScoresResponseData_Categorical",
+    "GetScoresResponseData_Correction",
+    "GetScoresResponseData_Numeric",
+    "GetScoresResponseTraceData",
+]

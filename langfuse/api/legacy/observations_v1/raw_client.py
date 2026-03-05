@@ -4,33 +4,136 @@ import datetime as dt
 import typing
 from json.decoder import JSONDecodeError
 
-from ..commons.errors.access_denied_error import AccessDeniedError
-from ..commons.errors.error import Error
-from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ..commons.errors.not_found_error import NotFoundError
-from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.observation_level import ObservationLevel
-from ..core.api_error import ApiError
-from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.datetime_utils import serialize_datetime
-from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.pydantic_utilities import parse_obj_as
-from ..core.request_options import RequestOptions
-from .types.observations_v2response import ObservationsV2Response
+from ...commons.errors.access_denied_error import AccessDeniedError
+from ...commons.errors.error import Error
+from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
+from ...commons.errors.not_found_error import NotFoundError
+from ...commons.errors.unauthorized_error import UnauthorizedError
+from ...commons.types.observation_level import ObservationLevel
+from ...commons.types.observations_view import ObservationsView
+from ...core.api_error import ApiError
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.datetime_utils import serialize_datetime
+from ...core.http_response import AsyncHttpResponse, HttpResponse
+from ...core.jsonable_encoder import jsonable_encoder
+from ...core.pydantic_utilities import parse_obj_as
+from ...core.request_options import RequestOptions
+from .types.observations_v1views import ObservationsV1Views
 
 
-class RawObservationsV2Client:
+class RawObservationsV1Client:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def get(
+        self,
+        observation_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ObservationsView]:
+        """
+        Get an observation (Observations V1, deprecated)
+
+        Parameters
+        ----------
+        observation_id : str
+            The unique langfuse identifier of an observation, can be an event, span or generation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ObservationsView]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/observations/{jsonable_encoder(observation_id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ObservationsView,
+                    parse_obj_as(
+                        type_=ObservationsView,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
 
     def get_many(
         self,
         *,
-        fields: typing.Optional[str] = None,
-        expand_metadata: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        cursor: typing.Optional[str] = None,
-        parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
@@ -43,64 +146,25 @@ class RawObservationsV2Client:
         version: typing.Optional[str] = None,
         filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ObservationsV2Response]:
+    ) -> HttpResponse[ObservationsV1Views]:
         """
-        Get a list of observations with cursor-based pagination and flexible field selection.
+        Get a list of observations (Observations V1, deprecated).
 
-        ## Cursor-based Pagination
-        This endpoint uses cursor-based pagination for efficient traversal of large datasets.
-        The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
-
-        ## Field Selection
-        Use the `fields` parameter to control which observation fields are returned:
-        - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
-        - `time` - completionStartTime, createdAt, updatedAt
-        - `io` - input, output
-        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
-        - `model` - providedModelName, internalModelId, modelParameters
-        - `usage` - usageDetails, costDetails, totalCost
-        - `prompt` - promptId, promptName, promptVersion
-        - `metrics` - latency, timeToFirstToken
-
-        If not specified, `core` and `basic` field groups are returned.
-
-        ## Filters
-        Multiple filtering options are available via query parameters or the structured `filter` parameter.
-        When using the `filter` parameter, it takes precedence over individual query parameter filters.
+        Use /api/public/v2/observations for cursor-based pagination and field selection.
 
         Parameters
         ----------
-        fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response.
-            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
-            If not specified, `core` and `basic` field groups are returned.
-            Example: "basic,usage,model"
-
-        expand_metadata : typing.Optional[str]
-            Comma-separated list of metadata keys to return non-truncated.
-            By default, metadata values over 200 characters are truncated.
-            Use this parameter to retrieve full values for specific keys.
-            Example: "key1,key2"
+        page : typing.Optional[int]
+            Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
-
-        cursor : typing.Optional[str]
-            Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
-
-        parse_io_as_json : typing.Optional[bool]
-            **Deprecated.** Setting this to `true` will return a 400 error.
-            Input/output fields are always returned as raw strings.
-            Remove this parameter or set it to `false`.
+            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
 
         type : typing.Optional[str]
-            Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
         trace_id : typing.Optional[str]
 
@@ -161,13 +225,6 @@ class RawObservationsV2Client:
             - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
             - `statusMessage` (string) - Status message
             - `version` (string) - Version tag
-            - `userId` (string) - User ID
-            - `sessionId` (string) - Session ID
-
-            ### Trace-Related Fields
-            - `traceName` (string) - Name of the parent trace
-            - `traceTags` (arrayOptions) - Tags from the parent trace
-            - `tags` (arrayOptions) - Alias for traceTags
 
             ### Performance Metrics
             - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
@@ -185,12 +242,18 @@ class RawObservationsV2Client:
             - `totalCost` (number) - Total cost in USD
 
             ### Model Information
-            - `model` (string) - Provided model name (alias: `providedModelName`)
+            - `model` (string) - Provided model name
             - `promptName` (string) - Associated prompt name
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            ### Associated Trace Fields (requires join with traces table)
+            - `userId` (string) - User ID from associated trace
+            - `traceName` (string) - Name from associated trace
+            - `traceEnvironment` (string) - Environment from associated trace
+            - `traceTags` (arrayOptions) - Tags from associated trace
 
             ## Filter Examples
             ```json
@@ -222,17 +285,14 @@ class RawObservationsV2Client:
 
         Returns
         -------
-        HttpResponse[ObservationsV2Response]
+        HttpResponse[ObservationsV1Views]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/v2/observations",
+            "api/public/observations",
             method="GET",
             params={
-                "fields": fields,
-                "expandMetadata": expand_metadata,
+                "page": page,
                 "limit": limit,
-                "cursor": cursor,
-                "parseIoAsJson": parse_io_as_json,
                 "name": name,
                 "userId": user_id,
                 "type": type,
@@ -254,9 +314,9 @@ class RawObservationsV2Client:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ObservationsV2Response,
+                    ObservationsV1Views,
                     parse_obj_as(
-                        type_=ObservationsV2Response,  # type: ignore
+                        type_=ObservationsV1Views,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -330,18 +390,119 @@ class RawObservationsV2Client:
         )
 
 
-class AsyncRawObservationsV2Client:
+class AsyncRawObservationsV1Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    async def get(
+        self,
+        observation_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ObservationsView]:
+        """
+        Get an observation (Observations V1, deprecated)
+
+        Parameters
+        ----------
+        observation_id : str
+            The unique langfuse identifier of an observation, can be an event, span or generation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ObservationsView]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/observations/{jsonable_encoder(observation_id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ObservationsView,
+                    parse_obj_as(
+                        type_=ObservationsView,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
 
     async def get_many(
         self,
         *,
-        fields: typing.Optional[str] = None,
-        expand_metadata: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        cursor: typing.Optional[str] = None,
-        parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
@@ -354,64 +515,25 @@ class AsyncRawObservationsV2Client:
         version: typing.Optional[str] = None,
         filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ObservationsV2Response]:
+    ) -> AsyncHttpResponse[ObservationsV1Views]:
         """
-        Get a list of observations with cursor-based pagination and flexible field selection.
+        Get a list of observations (Observations V1, deprecated).
 
-        ## Cursor-based Pagination
-        This endpoint uses cursor-based pagination for efficient traversal of large datasets.
-        The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
-
-        ## Field Selection
-        Use the `fields` parameter to control which observation fields are returned:
-        - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
-        - `time` - completionStartTime, createdAt, updatedAt
-        - `io` - input, output
-        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
-        - `model` - providedModelName, internalModelId, modelParameters
-        - `usage` - usageDetails, costDetails, totalCost
-        - `prompt` - promptId, promptName, promptVersion
-        - `metrics` - latency, timeToFirstToken
-
-        If not specified, `core` and `basic` field groups are returned.
-
-        ## Filters
-        Multiple filtering options are available via query parameters or the structured `filter` parameter.
-        When using the `filter` parameter, it takes precedence over individual query parameter filters.
+        Use /api/public/v2/observations for cursor-based pagination and field selection.
 
         Parameters
         ----------
-        fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response.
-            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
-            If not specified, `core` and `basic` field groups are returned.
-            Example: "basic,usage,model"
-
-        expand_metadata : typing.Optional[str]
-            Comma-separated list of metadata keys to return non-truncated.
-            By default, metadata values over 200 characters are truncated.
-            Use this parameter to retrieve full values for specific keys.
-            Example: "key1,key2"
+        page : typing.Optional[int]
+            Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
-
-        cursor : typing.Optional[str]
-            Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
-
-        parse_io_as_json : typing.Optional[bool]
-            **Deprecated.** Setting this to `true` will return a 400 error.
-            Input/output fields are always returned as raw strings.
-            Remove this parameter or set it to `false`.
+            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
 
         type : typing.Optional[str]
-            Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
         trace_id : typing.Optional[str]
 
@@ -472,13 +594,6 @@ class AsyncRawObservationsV2Client:
             - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
             - `statusMessage` (string) - Status message
             - `version` (string) - Version tag
-            - `userId` (string) - User ID
-            - `sessionId` (string) - Session ID
-
-            ### Trace-Related Fields
-            - `traceName` (string) - Name of the parent trace
-            - `traceTags` (arrayOptions) - Tags from the parent trace
-            - `tags` (arrayOptions) - Alias for traceTags
 
             ### Performance Metrics
             - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
@@ -496,12 +611,18 @@ class AsyncRawObservationsV2Client:
             - `totalCost` (number) - Total cost in USD
 
             ### Model Information
-            - `model` (string) - Provided model name (alias: `providedModelName`)
+            - `model` (string) - Provided model name
             - `promptName` (string) - Associated prompt name
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            ### Associated Trace Fields (requires join with traces table)
+            - `userId` (string) - User ID from associated trace
+            - `traceName` (string) - Name from associated trace
+            - `traceEnvironment` (string) - Environment from associated trace
+            - `traceTags` (arrayOptions) - Tags from associated trace
 
             ## Filter Examples
             ```json
@@ -533,17 +654,14 @@ class AsyncRawObservationsV2Client:
 
         Returns
         -------
-        AsyncHttpResponse[ObservationsV2Response]
+        AsyncHttpResponse[ObservationsV1Views]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/v2/observations",
+            "api/public/observations",
             method="GET",
             params={
-                "fields": fields,
-                "expandMetadata": expand_metadata,
+                "page": page,
                 "limit": limit,
-                "cursor": cursor,
-                "parseIoAsJson": parse_io_as_json,
                 "name": name,
                 "userId": user_id,
                 "type": type,
@@ -565,9 +683,9 @@ class AsyncRawObservationsV2Client:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ObservationsV2Response,
+                    ObservationsV1Views,
                     parse_obj_as(
-                        type_=ObservationsV2Response,  # type: ignore
+                        type_=ObservationsV1Views,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

@@ -3,10 +3,10 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
+from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class MetricsV2Response(UniversalBaseModel):
+class MetricsV1Response(UniversalBaseModel):
     data: typing.List[typing.Dict[str, typing.Any]] = pydantic.Field()
     """
     The metrics data. Each item in the list contains the metric values and dimensions requested in the query.

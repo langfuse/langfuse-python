@@ -3,10 +3,10 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
+from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class CreateScoreResponse(UniversalBaseModel):
+class CreateScoreV1Response(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     The id of the created object in Langfuse
