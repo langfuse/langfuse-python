@@ -44,7 +44,7 @@ from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
-from langfuse.types import MaskFunction
+from langfuse.types import BatchMaskFunction, MaskFunction
 
 from ..version import __version__ as langfuse_version
 
@@ -93,6 +93,9 @@ class LangfuseResourceManager:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        batch_mask: Optional[BatchMaskFunction] = None,
+        mask_batch_size: Optional[int] = None,
+        use_async_masking: bool = False,
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
@@ -126,6 +129,9 @@ class LangfuseResourceManager:
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
                     mask=mask,
+                    batch_mask=batch_mask,
+                    mask_batch_size=mask_batch_size,
+                    use_async_masking=use_async_masking,
                     tracing_enabled=tracing_enabled
                     if tracing_enabled is not None
                     else True,
@@ -154,6 +160,9 @@ class LangfuseResourceManager:
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        batch_mask: Optional[BatchMaskFunction] = None,
+        mask_batch_size: Optional[int] = None,
+        use_async_masking: bool = False,
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
@@ -165,6 +174,9 @@ class LangfuseResourceManager:
         self.tracing_enabled = tracing_enabled
         self.base_url = base_url
         self.mask = mask
+        self.batch_mask = batch_mask
+        self.mask_batch_size = mask_batch_size
+        self.use_async_masking = use_async_masking
         self.environment = environment
 
         # Store additional client settings for get_client() to use

@@ -3339,6 +3339,52 @@ class TestMediaHandling(TestOTelBase):
             span._process_media_in_attribute = original_process
 
 
+class TestMaskedAttributeSpanWrapper:
+    """Tests for MaskedAttributeSpanWrapper (batch masking overlay)."""
+
+    def test_wrapper_overlays_masked_attributes(self):
+        """Wrapper returns merged attributes with masked values taking precedence."""
+        from unittest.mock import MagicMock
+
+        from langfuse._client.span_processor import MaskedAttributeSpanWrapper
+
+        mock_span = MagicMock(spec=ReadableSpan)
+        mock_span.attributes = {
+            LangfuseOtelSpanAttributes.OBSERVATION_INPUT: '{"secret": "data"}',
+            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: '{"result": "ok"}',
+            "other.attribute": "unchanged",
+        }
+
+        masked = {
+            LangfuseOtelSpanAttributes.OBSERVATION_INPUT: '{"secret": "***MASKED***"}',
+            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: '{"result": "***MASKED***"}',
+        }
+
+        wrapped = MaskedAttributeSpanWrapper(mock_span, masked)
+
+        assert wrapped.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == (
+            '{"secret": "***MASKED***"}'
+        )
+        assert wrapped.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
+            '{"result": "***MASKED***"}'
+        )
+        assert wrapped.attributes["other.attribute"] == "unchanged"
+        assert wrapped._attributes == wrapped.attributes
+
+    def test_wrapper_delegates_other_attributes(self):
+        """Wrapper delegates name, context, etc. to the underlying span."""
+        from unittest.mock import MagicMock
+
+        from langfuse._client.span_processor import MaskedAttributeSpanWrapper
+
+        mock_span = MagicMock(spec=ReadableSpan)
+        mock_span.attributes = {}
+        mock_span.name = "my-span"
+
+        wrapped = MaskedAttributeSpanWrapper(mock_span, {})
+        assert wrapped.name == "my-span"
+
+
 class TestOtelIdGeneration(TestOTelBase):
     """Tests for trace_id and observation_id generation with and without seeds."""
 

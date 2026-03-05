@@ -20,6 +20,7 @@ Example:
 from typing import (
     Any,
     Dict,
+    List,
     Literal,
     Protocol,
     TypedDict,
@@ -51,6 +52,25 @@ class MaskFunction(Protocol):
     def __call__(self, *, data: Any, **kwargs: Dict[str, Any]) -> Any: ...
 
 
+class BatchMaskFunction(Protocol):
+    """A function that masks a batch of data items in one call.
+
+    Used for batch/async masking: the SDK may call this with multiple items
+    (e.g. span attribute values) so that IO-bound masking backends can
+    limit network calls. The returned list must have the same length and
+    order as the input list.
+
+    Args:
+        items: List of data items to mask (e.g. input/output/metadata values).
+
+    Returns:
+        List of masked items, same length and order as items. Each element
+        must be serializable to JSON.
+    """
+
+    def __call__(self, items: List[Any], **kwargs: Dict[str, Any]) -> List[Any]: ...
+
+
 class ParsedMediaReference(TypedDict):
     """A parsed media reference.
 
@@ -71,9 +91,10 @@ class TraceContext(TypedDict):
 
 
 __all__ = [
-    "SpanLevel",
-    "ScoreDataType",
+    "BatchMaskFunction",
     "MaskFunction",
     "ParsedMediaReference",
+    "ScoreDataType",
+    "SpanLevel",
     "TraceContext",
 ]

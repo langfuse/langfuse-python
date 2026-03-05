@@ -13,7 +13,7 @@ Key features:
 
 import base64
 import os
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -32,6 +32,41 @@ from langfuse._client.span_filter import is_default_export_span, is_langfuse_spa
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
 from langfuse.version import __version__ as langfuse_version
+
+
+class MaskedAttributeSpanWrapper:
+    """Wraps a ReadableSpan and overlays masked attribute values.
+
+    When using batch masking, the exporter will wrap each ReadableSpan in this
+    class so that attribute reads (e.g. by the OTLP exporter) see masked
+    input/output/metadata instead of the original values.
+
+    Delegates all span properties and methods to the underlying span except
+    for attributes: both .attributes and ._attributes return a merge of the
+    original span attributes and the provided masked_attributes (masked
+    values take precedence). This allows the OTLP exporter to serialize
+    spans with masked PII without mutating the original span.
+    """
+
+    def __init__(self, span: ReadableSpan, masked_attributes: Dict[str, Any]) -> None:
+        self._span = span
+        self._masked_attributes = masked_attributes
+        base = dict(span.attributes) if span.attributes else {}
+        self._merged_attributes = {**base, **masked_attributes}
+
+    @property
+    def attributes(self) -> Dict[str, Any]:
+        """Return span attributes with masked values overlaid."""
+        return self._merged_attributes
+
+    @property
+    def _attributes(self) -> Dict[str, Any]:
+        """Return span attributes with masked values overlaid (private API)."""
+        return self._merged_attributes
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate all other attribute access to the underlying span."""
+        return getattr(self._span, name)
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
