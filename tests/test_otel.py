@@ -3455,6 +3455,48 @@ class TestMaskingSpanExporter:
         mock_exporter.export.assert_called_once_with([])
         batch_mask.assert_not_called()
 
+    def test_export_async_masking_uses_worker_and_force_flush_waits(self):
+        """With use_async_masking=True, export returns immediately; force_flush waits for worker."""
+        from unittest.mock import MagicMock
+
+        from langfuse._client.masking_exporter import (
+            MaskedAttributeSpanWrapper,
+            MaskingSpanExporter,
+        )
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = SpanExportResult.SUCCESS
+        mock_exporter.force_flush.return_value = True
+
+        def batch_mask(items):
+            return [f"{str(x)}_masked" for x in items]
+
+        exporter = MaskingSpanExporter(
+            span_exporter=mock_exporter,
+            batch_mask=batch_mask,
+            use_async_masking=True,
+        )
+        span = MagicMock(spec=ReadableSpan)
+        span.attributes = {
+            LangfuseOtelSpanAttributes.OBSERVATION_INPUT: "secret",
+        }
+
+        result = exporter.export([span])
+        assert result == SpanExportResult.SUCCESS
+        mock_exporter.export.assert_not_called()
+
+        flushed = exporter.force_flush(timeout_millis=5000)
+        assert flushed is True
+        mock_exporter.export.assert_called_once()
+        (exported,) = mock_exporter.export.call_args[0]
+        assert len(exported) == 1
+        assert isinstance(exported[0], MaskedAttributeSpanWrapper)
+        assert exported[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == (
+            "secret_masked"
+        )
+
+        exporter.shutdown()
+
 
 class TestOtelIdGeneration(TestOTelBase):
     """Tests for trace_id and observation_id generation with and without seeds."""

@@ -70,6 +70,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         additional_headers: Optional[Dict[str, str]] = None,
         batch_mask: Optional[BatchMaskFunction] = None,
         mask_batch_size: Optional[int] = None,
+        use_async_masking: bool = False,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -123,6 +124,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 span_exporter=langfuse_span_exporter,
                 batch_mask=batch_mask,
                 mask_batch_size=mask_batch_size,
+                use_async_masking=use_async_masking,
             )
 
         super().__init__(

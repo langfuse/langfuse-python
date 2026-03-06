@@ -210,6 +210,7 @@ class LangfuseResourceManager:
                 additional_headers=additional_headers,
                 batch_mask=self.batch_mask,
                 mask_batch_size=self.mask_batch_size,
+                use_async_masking=self.use_async_masking,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 

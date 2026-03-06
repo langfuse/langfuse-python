@@ -4,8 +4,13 @@ When batch_mask is configured, this exporter wraps the real OTLPSpanExporter.
 It collects maskable span attributes (input/output/metadata), calls the
 batch mask function, then wraps each span with MaskedAttributeSpanWrapper
 so the OTLP exporter serializes masked data.
+
+When use_async_masking is True, batch masking and export run in a background
+thread so the main thread is not blocked.
 """
 
+import threading
+from queue import Empty, Full, Queue
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -14,6 +19,9 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.logger import langfuse_logger
 from langfuse.types import BatchMaskFunction
+
+_SHUTDOWN_SENTINEL: Any = object()
+_FLUSH_SENTINEL: Any = object()
 
 
 class MaskedAttributeSpanWrapper:
@@ -137,8 +145,37 @@ def _build_masked_attributes_per_span(
     return result
 
 
+def _export_batch_sync(
+    span_exporter: SpanExporter,
+    batch_mask: BatchMaskFunction,
+    mask_batch_size: Optional[int],
+    spans: Sequence[ReadableSpan],
+) -> SpanExportResult:
+    """Run batch mask and export on the given spans; used by sync and worker."""
+    if not spans:
+        return span_exporter.export(spans)
+
+    items, backref = _collect_maskable_items(spans)
+    if not items:
+        return span_exporter.export(spans)
+
+    masked_triples = _apply_batch_mask(
+        batch_mask, items, backref, mask_batch_size
+    )
+    masked_per_span = _build_masked_attributes_per_span(len(spans), masked_triples)
+
+    wrapped = [
+        MaskedAttributeSpanWrapper(span, masked_per_span[i])
+        for i, span in enumerate(spans)
+    ]
+    return span_exporter.export(wrapped)
+
+
 class MaskingSpanExporter(SpanExporter):
     """SpanExporter that runs batch masking before delegating to the real exporter."""
+
+    _QUEUE_MAX_SIZE = 1000
+    _QUEUE_PUT_TIMEOUT_SEC = 5.0
 
     def __init__(
         self,
@@ -146,35 +183,130 @@ class MaskingSpanExporter(SpanExporter):
         span_exporter: SpanExporter,
         batch_mask: BatchMaskFunction,
         mask_batch_size: Optional[int] = None,
+        use_async_masking: bool = False,
     ) -> None:
         self._span_exporter = span_exporter
         self._batch_mask = batch_mask
         self._mask_batch_size = mask_batch_size
+        self._use_async_masking = use_async_masking
+        self._queue: Optional[Queue] = None
+        self._worker: Optional[threading.Thread] = None
+        self._flush_event: Optional[threading.Event] = None
+        self._closed = False
+
+        if use_async_masking:
+            self._queue = Queue(maxsize=self._QUEUE_MAX_SIZE)
+            self._flush_event = threading.Event()
+            self._worker = threading.Thread(
+                target=self._worker_loop,
+                name="langfuse-masking-exporter",
+                daemon=True,
+            )
+            self._worker.start()
+
+    def _worker_loop(self) -> None:
+        if self._queue is None or self._flush_event is None:
+            return
+        while True:
+            try:
+                item = self._queue.get(timeout=0.5)
+            except Empty:
+                continue
+            if item is _SHUTDOWN_SENTINEL:
+                break
+            if item is _FLUSH_SENTINEL:
+                while True:
+                    try:
+                        extra = self._queue.get_nowait()
+                    except Empty:
+                        break
+                    if extra is _SHUTDOWN_SENTINEL:
+                        self._queue.put(extra)
+                        self._flush_event.set()
+                        break
+                    if extra is not _FLUSH_SENTINEL:
+                        try:
+                            _export_batch_sync(
+                                self._span_exporter,
+                                self._batch_mask,
+                                self._mask_batch_size,
+                                extra,
+                            )
+                        except Exception as e:
+                            langfuse_logger.error(
+                                "Async batch masking/export failed: %s",
+                                e,
+                            )
+                self._flush_event.set()
+                continue
+            try:
+                _export_batch_sync(
+                    self._span_exporter,
+                    self._batch_mask,
+                    self._mask_batch_size,
+                    item,
+                )
+            except Exception as e:
+                langfuse_logger.error(
+                    "Async batch masking/export failed: %s",
+                    e,
+                )
+        self._flush_event.set()
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         if not spans:
             return self._span_exporter.export(spans)
 
-        items, backref = _collect_maskable_items(spans)
-        if not items:
-            return self._span_exporter.export(spans)
+        if not self._use_async_masking:
+            return _export_batch_sync(
+                self._span_exporter,
+                self._batch_mask,
+                self._mask_batch_size,
+                spans,
+            )
 
-        masked_triples = _apply_batch_mask(
-            self._batch_mask, items, backref, self._mask_batch_size
-        )
-        masked_per_span = _build_masked_attributes_per_span(len(spans), masked_triples)
+        if self._queue is None or self._closed:
+            return SpanExportResult.FAILURE
 
-        wrapped = [
-            MaskedAttributeSpanWrapper(span, masked_per_span[i])
-            for i, span in enumerate(spans)
-        ]
-        return self._span_exporter.export(wrapped)
+        try:
+            self._queue.put(list(spans), timeout=self._QUEUE_PUT_TIMEOUT_SEC)
+        except Full:
+            langfuse_logger.error(
+                "Masking exporter queue full; dropping batch of %s spans",
+                len(spans),
+            )
+            return SpanExportResult.FAILURE
+        return SpanExportResult.SUCCESS
 
     def shutdown(self) -> None:
+        self._closed = True
+        if self._worker is not None and self._worker.is_alive() and self._queue is not None:
+            self._queue.put(_SHUTDOWN_SENTINEL)
+            self._worker.join(timeout=10.0)
+            if self._worker.is_alive():
+                langfuse_logger.warning(
+                    "Masking exporter worker did not stop within timeout"
+                )
         if hasattr(self._span_exporter, "shutdown"):
             self._span_exporter.shutdown()
 
     def force_flush(self, timeout_millis: Optional[int] = None) -> bool:
+        if not self._use_async_masking:
+            if hasattr(self._span_exporter, "force_flush"):
+                return self._span_exporter.force_flush(timeout_millis)
+            return True
+
+        if self._queue is None or self._flush_event is None or self._closed:
+            return True
+
+        self._flush_event.clear()
+        try:
+            self._queue.put(_FLUSH_SENTINEL, timeout=self._QUEUE_PUT_TIMEOUT_SEC)
+        except Full:
+            return False
+        timeout_sec = (timeout_millis / 1000.0) if timeout_millis is not None else 10.0
+        if not self._flush_event.wait(timeout=timeout_sec):
+            return False
         if hasattr(self._span_exporter, "force_flush"):
             return self._span_exporter.force_flush(timeout_millis)
         return True
