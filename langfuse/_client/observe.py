@@ -193,7 +193,7 @@ class LangfuseDecorator:
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
-                if asyncio.iscoroutinefunction(func)
+                if inspect.iscoroutinefunction(func)
                 else self._sync_observe(
                     func,
                     name=name,
