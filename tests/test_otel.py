@@ -3385,6 +3385,77 @@ class TestMaskedAttributeSpanWrapper:
         assert wrapped.name == "my-span"
 
 
+class TestMaskingSpanExporter:
+    """Tests for MaskingSpanExporter (batch masking before export)."""
+
+    def test_export_calls_batch_mask_and_wraps_spans(self):
+        """MaskingSpanExporter collects maskable attrs, calls batch_mask, exports wrapped spans."""
+        from unittest.mock import MagicMock
+
+        from langfuse._client.masking_exporter import (
+            MaskedAttributeSpanWrapper,
+            MaskingSpanExporter,
+        )
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = SpanExportResult.SUCCESS
+
+        def batch_mask(items):
+            return [f"{str(item)}_masked" for item in items]
+
+        masking_exporter = MaskingSpanExporter(
+            span_exporter=mock_exporter,
+            batch_mask=batch_mask,
+        )
+
+        span1 = MagicMock(spec=ReadableSpan)
+        span1.attributes = {
+            LangfuseOtelSpanAttributes.OBSERVATION_INPUT: '{"raw": "input1"}',
+            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: "output1",
+        }
+        span2 = MagicMock(spec=ReadableSpan)
+        span2.attributes = {
+            LangfuseOtelSpanAttributes.TRACE_INPUT: "trace_input",
+        }
+
+        result = masking_exporter.export([span1, span2])
+
+        assert result == SpanExportResult.SUCCESS
+        mock_exporter.export.assert_called_once()
+        (exported,) = mock_exporter.export.call_args[0]
+        assert len(exported) == 2
+        assert all(isinstance(s, MaskedAttributeSpanWrapper) for s in exported)
+        assert exported[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == (
+            '{"raw": "input1"}_masked'
+        )
+        assert exported[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
+            "output1_masked"
+        )
+        assert exported[1].attributes[LangfuseOtelSpanAttributes.TRACE_INPUT] == (
+            "trace_input_masked"
+        )
+
+    def test_export_empty_spans_passthrough(self):
+        """Export with no spans delegates without calling batch_mask."""
+        from unittest.mock import MagicMock
+
+        from langfuse._client.masking_exporter import MaskingSpanExporter
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = SpanExportResult.SUCCESS
+        batch_mask = MagicMock()
+
+        masking_exporter = MaskingSpanExporter(
+            span_exporter=mock_exporter,
+            batch_mask=batch_mask,
+        )
+        result = masking_exporter.export([])
+
+        assert result == SpanExportResult.SUCCESS
+        mock_exporter.export.assert_called_once_with([])
+        batch_mask.assert_not_called()
+
+
 class TestOtelIdGeneration(TestOTelBase):
     """Tests for trace_id and observation_id generation with and without seeds."""
 

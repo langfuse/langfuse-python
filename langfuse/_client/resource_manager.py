@@ -208,6 +208,8 @@ class LangfuseResourceManager:
                 blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                 should_export_span=should_export_span,
                 additional_headers=additional_headers,
+                batch_mask=self.batch_mask,
+                mask_batch_size=self.mask_batch_size,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 
