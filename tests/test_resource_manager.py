@@ -1,5 +1,9 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+import asyncio
+
+import httpx
+
 from langfuse import Langfuse
 from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -94,3 +98,30 @@ def test_get_client_multiple_clients_preserve_different_settings():
 
     client_a.shutdown()
     client_b.shutdown()
+
+
+def test_get_client_preserves_custom_async_httpx_client():
+    """Test that get_client() preserves the custom async httpx client."""
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    custom_async_client = httpx.AsyncClient()
+
+    try:
+        Langfuse(
+            public_key="pk-async-client",
+            secret_key="sk-async-client",
+            async_httpx_client=custom_async_client,
+            tracing_enabled=False,
+        )
+        retrieved_client = get_client()
+
+        assert retrieved_client._resources is not None
+        assert retrieved_client._resources.async_httpx_client is custom_async_client
+        assert (
+            retrieved_client.async_api._client_wrapper.httpx_client.httpx_client
+            is custom_async_client
+        )
+    finally:
+        LangfuseResourceManager.reset()
+        asyncio.run(custom_async_client.aclose())
