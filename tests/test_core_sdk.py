@@ -50,7 +50,7 @@ async def test_concurrency():
     api = get_api()
     for i in range(100):
         # Find the observations with the expected name
-        observations = api.observations.get_many(name=str(i)).data
+        observations = api.legacy.observations_v1.get_many(name=str(i)).data
 
         # Find generation observations (there should be at least one)
         generation_obs = [obs for obs in observations if obs.type == "GENERATION"]

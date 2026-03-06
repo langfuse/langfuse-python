@@ -676,7 +676,7 @@ def test_prompt_end_to_end():
     generation = trace.observations[0]
     assert generation.prompt_id is not None
 
-    observation = api.observations.get(generation.id)
+    observation = api.legacy.observations_v1.get(generation.id)
 
     assert observation.prompt_id is not None
 
