@@ -539,7 +539,8 @@ class LangfuseObservationWrapper:
         """Apply the configured mask function to data.
 
         Internal method that applies the client's configured masking function to
-        the provided data, with error handling and fallback.
+        the provided data, with error handling and fallback. When batch_mask is
+        set, masking is deferred to export time; this method returns data unchanged.
 
         Args:
             data: The data to mask
@@ -548,6 +549,9 @@ class LangfuseObservationWrapper:
             The masked data, or the original data if no mask is configured
         """
         if not self._langfuse_client._mask:
+            return data
+
+        if self._langfuse_client._batch_mask is not None:
             return data
 
         try:
