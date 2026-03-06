@@ -2,29 +2,29 @@
 
 import typing
 
-from ..commons.types.create_score_value import CreateScoreValue
-from ..commons.types.score_data_type import ScoreDataType
-from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.request_options import RequestOptions
-from .raw_client import AsyncRawScoreClient, RawScoreClient
+from ...commons.types.create_score_value import CreateScoreValue
+from ...commons.types.score_data_type import ScoreDataType
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.request_options import RequestOptions
+from .raw_client import AsyncRawScoreV1Client, RawScoreV1Client
 from .types.create_score_response import CreateScoreResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class ScoreClient:
+class ScoreV1Client:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._raw_client = RawScoreClient(client_wrapper=client_wrapper)
+        self._raw_client = RawScoreV1Client(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> RawScoreClient:
+    def with_raw_response(self) -> RawScoreV1Client:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        RawScoreClient
+        RawScoreV1Client
         """
         return self._raw_client
 
@@ -101,7 +101,7 @@ class ScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score.create(
+        client.legacy.score_v1.create(
             name="name",
             value=1.1,
         )
@@ -154,7 +154,7 @@ class ScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score.delete(
+        client.legacy.score_v1.delete(
             score_id="scoreId",
         )
         """
@@ -162,18 +162,18 @@ class ScoreClient:
         return _response.data
 
 
-class AsyncScoreClient:
+class AsyncScoreV1Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawScoreClient(client_wrapper=client_wrapper)
+        self._raw_client = AsyncRawScoreV1Client(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> AsyncRawScoreClient:
+    def with_raw_response(self) -> AsyncRawScoreV1Client:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        AsyncRawScoreClient
+        AsyncRawScoreV1Client
         """
         return self._raw_client
 
@@ -255,7 +255,7 @@ class AsyncScoreClient:
 
 
         async def main() -> None:
-            await client.score.create(
+            await client.legacy.score_v1.create(
                 name="name",
                 value=1.1,
             )
@@ -316,7 +316,7 @@ class AsyncScoreClient:
 
 
         async def main() -> None:
-            await client.score.delete(
+            await client.legacy.score_v1.delete(
                 score_id="scoreId",
             )
 
