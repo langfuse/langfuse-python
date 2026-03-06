@@ -460,6 +460,11 @@ class LangfuseResourceManager:
         atexit.unregister(self.shutdown)
 
         self.flush()
+        if self.tracer_provider is not None and not isinstance(
+            self.tracer_provider, otel_trace_api.ProxyTracerProvider
+        ):
+            self.tracer_provider.shutdown()
+            langfuse_logger.debug("Successfully shut down OTEL tracer provider")
         self._stop_and_join_consumer_threads()
 
 
