@@ -8,26 +8,26 @@ from ..commons.types.score_data_type import ScoreDataType
 from ..commons.types.score_source import ScoreSource
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
-from .raw_client import AsyncRawScoreV2Client, RawScoreV2Client
+from .raw_client import AsyncRawScoresClient, RawScoresClient
 from .types.get_scores_response import GetScoresResponse
 
 
-class ScoreV2Client:
+class ScoresClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._raw_client = RawScoreV2Client(client_wrapper=client_wrapper)
+        self._raw_client = RawScoresClient(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> RawScoreV2Client:
+    def with_raw_response(self) -> RawScoresClient:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        RawScoreV2Client
+        RawScoresClient
         """
         return self._raw_client
 
-    def get(
+    def get_many(
         self,
         *,
         page: typing.Optional[int] = None,
@@ -140,9 +140,9 @@ class ScoreV2Client:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score_v2.get()
+        client.scores.get_many()
         """
-        _response = self._raw_client.get(
+        _response = self._raw_client.get_many(
             page=page,
             limit=limit,
             user_id=user_id,
@@ -198,7 +198,7 @@ class ScoreV2Client:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score_v2.get_by_id(
+        client.scores.get_by_id(
             score_id="scoreId",
         )
         """
@@ -208,22 +208,22 @@ class ScoreV2Client:
         return _response.data
 
 
-class AsyncScoreV2Client:
+class AsyncScoresClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawScoreV2Client(client_wrapper=client_wrapper)
+        self._raw_client = AsyncRawScoresClient(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> AsyncRawScoreV2Client:
+    def with_raw_response(self) -> AsyncRawScoresClient:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        AsyncRawScoreV2Client
+        AsyncRawScoresClient
         """
         return self._raw_client
 
-    async def get(
+    async def get_many(
         self,
         *,
         page: typing.Optional[int] = None,
@@ -341,12 +341,12 @@ class AsyncScoreV2Client:
 
 
         async def main() -> None:
-            await client.score_v2.get()
+            await client.scores.get_many()
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get(
+        _response = await self._raw_client.get_many(
             page=page,
             limit=limit,
             user_id=user_id,
@@ -407,7 +407,7 @@ class AsyncScoreV2Client:
 
 
         async def main() -> None:
-            await client.score_v2.get_by_id(
+            await client.scores.get_by_id(
                 score_id="scoreId",
             )
 
