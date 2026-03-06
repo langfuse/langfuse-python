@@ -25,22 +25,20 @@ if typing.TYPE_CHECKING:
     from .datasets.client import AsyncDatasetsClient, DatasetsClient
     from .health.client import AsyncHealthClient, HealthClient
     from .ingestion.client import AsyncIngestionClient, IngestionClient
+    from .legacy.client import AsyncLegacyClient, LegacyClient
     from .llm_connections.client import AsyncLlmConnectionsClient, LlmConnectionsClient
     from .media.client import AsyncMediaClient, MediaClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
-    from .metrics_v2.client import AsyncMetricsV2Client, MetricsV2Client
     from .models.client import AsyncModelsClient, ModelsClient
     from .observations.client import AsyncObservationsClient, ObservationsClient
-    from .observations_v2.client import AsyncObservationsV2Client, ObservationsV2Client
     from .opentelemetry.client import AsyncOpentelemetryClient, OpentelemetryClient
     from .organizations.client import AsyncOrganizationsClient, OrganizationsClient
     from .projects.client import AsyncProjectsClient, ProjectsClient
     from .prompt_version.client import AsyncPromptVersionClient, PromptVersionClient
     from .prompts.client import AsyncPromptsClient, PromptsClient
     from .scim.client import AsyncScimClient, ScimClient
-    from .score.client import AsyncScoreClient, ScoreClient
     from .score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
-    from .score_v2.client import AsyncScoreV2Client, ScoreV2Client
+    from .scores.client import AsyncScoresClient, ScoresClient
     from .sessions.client import AsyncSessionsClient, SessionsClient
     from .trace.client import AsyncTraceClient, TraceClient
 
@@ -133,12 +131,11 @@ class LangfuseAPI:
         self._datasets: typing.Optional[DatasetsClient] = None
         self._health: typing.Optional[HealthClient] = None
         self._ingestion: typing.Optional[IngestionClient] = None
+        self._legacy: typing.Optional[LegacyClient] = None
         self._llm_connections: typing.Optional[LlmConnectionsClient] = None
         self._media: typing.Optional[MediaClient] = None
-        self._metrics_v2: typing.Optional[MetricsV2Client] = None
         self._metrics: typing.Optional[MetricsClient] = None
         self._models: typing.Optional[ModelsClient] = None
-        self._observations_v2: typing.Optional[ObservationsV2Client] = None
         self._observations: typing.Optional[ObservationsClient] = None
         self._opentelemetry: typing.Optional[OpentelemetryClient] = None
         self._organizations: typing.Optional[OrganizationsClient] = None
@@ -147,8 +144,7 @@ class LangfuseAPI:
         self._prompts: typing.Optional[PromptsClient] = None
         self._scim: typing.Optional[ScimClient] = None
         self._score_configs: typing.Optional[ScoreConfigsClient] = None
-        self._score_v2: typing.Optional[ScoreV2Client] = None
-        self._score: typing.Optional[ScoreClient] = None
+        self._scores: typing.Optional[ScoresClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._trace: typing.Optional[TraceClient] = None
 
@@ -225,6 +221,14 @@ class LangfuseAPI:
         return self._ingestion
 
     @property
+    def legacy(self):
+        if self._legacy is None:
+            from .legacy.client import LegacyClient  # noqa: E402
+
+            self._legacy = LegacyClient(client_wrapper=self._client_wrapper)
+        return self._legacy
+
+    @property
     def llm_connections(self):
         if self._llm_connections is None:
             from .llm_connections.client import LlmConnectionsClient  # noqa: E402
@@ -243,14 +247,6 @@ class LangfuseAPI:
         return self._media
 
     @property
-    def metrics_v2(self):
-        if self._metrics_v2 is None:
-            from .metrics_v2.client import MetricsV2Client  # noqa: E402
-
-            self._metrics_v2 = MetricsV2Client(client_wrapper=self._client_wrapper)
-        return self._metrics_v2
-
-    @property
     def metrics(self):
         if self._metrics is None:
             from .metrics.client import MetricsClient  # noqa: E402
@@ -265,16 +261,6 @@ class LangfuseAPI:
 
             self._models = ModelsClient(client_wrapper=self._client_wrapper)
         return self._models
-
-    @property
-    def observations_v2(self):
-        if self._observations_v2 is None:
-            from .observations_v2.client import ObservationsV2Client  # noqa: E402
-
-            self._observations_v2 = ObservationsV2Client(
-                client_wrapper=self._client_wrapper
-            )
-        return self._observations_v2
 
     @property
     def observations(self):
@@ -349,20 +335,12 @@ class LangfuseAPI:
         return self._score_configs
 
     @property
-    def score_v2(self):
-        if self._score_v2 is None:
-            from .score_v2.client import ScoreV2Client  # noqa: E402
+    def scores(self):
+        if self._scores is None:
+            from .scores.client import ScoresClient  # noqa: E402
 
-            self._score_v2 = ScoreV2Client(client_wrapper=self._client_wrapper)
-        return self._score_v2
-
-    @property
-    def score(self):
-        if self._score is None:
-            from .score.client import ScoreClient  # noqa: E402
-
-            self._score = ScoreClient(client_wrapper=self._client_wrapper)
-        return self._score
+            self._scores = ScoresClient(client_wrapper=self._client_wrapper)
+        return self._scores
 
     @property
     def sessions(self):
@@ -469,12 +447,11 @@ class AsyncLangfuseAPI:
         self._datasets: typing.Optional[AsyncDatasetsClient] = None
         self._health: typing.Optional[AsyncHealthClient] = None
         self._ingestion: typing.Optional[AsyncIngestionClient] = None
+        self._legacy: typing.Optional[AsyncLegacyClient] = None
         self._llm_connections: typing.Optional[AsyncLlmConnectionsClient] = None
         self._media: typing.Optional[AsyncMediaClient] = None
-        self._metrics_v2: typing.Optional[AsyncMetricsV2Client] = None
         self._metrics: typing.Optional[AsyncMetricsClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
-        self._observations_v2: typing.Optional[AsyncObservationsV2Client] = None
         self._observations: typing.Optional[AsyncObservationsClient] = None
         self._opentelemetry: typing.Optional[AsyncOpentelemetryClient] = None
         self._organizations: typing.Optional[AsyncOrganizationsClient] = None
@@ -483,8 +460,7 @@ class AsyncLangfuseAPI:
         self._prompts: typing.Optional[AsyncPromptsClient] = None
         self._scim: typing.Optional[AsyncScimClient] = None
         self._score_configs: typing.Optional[AsyncScoreConfigsClient] = None
-        self._score_v2: typing.Optional[AsyncScoreV2Client] = None
-        self._score: typing.Optional[AsyncScoreClient] = None
+        self._scores: typing.Optional[AsyncScoresClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._trace: typing.Optional[AsyncTraceClient] = None
 
@@ -563,6 +539,14 @@ class AsyncLangfuseAPI:
         return self._ingestion
 
     @property
+    def legacy(self):
+        if self._legacy is None:
+            from .legacy.client import AsyncLegacyClient  # noqa: E402
+
+            self._legacy = AsyncLegacyClient(client_wrapper=self._client_wrapper)
+        return self._legacy
+
+    @property
     def llm_connections(self):
         if self._llm_connections is None:
             from .llm_connections.client import AsyncLlmConnectionsClient  # noqa: E402
@@ -581,14 +565,6 @@ class AsyncLangfuseAPI:
         return self._media
 
     @property
-    def metrics_v2(self):
-        if self._metrics_v2 is None:
-            from .metrics_v2.client import AsyncMetricsV2Client  # noqa: E402
-
-            self._metrics_v2 = AsyncMetricsV2Client(client_wrapper=self._client_wrapper)
-        return self._metrics_v2
-
-    @property
     def metrics(self):
         if self._metrics is None:
             from .metrics.client import AsyncMetricsClient  # noqa: E402
@@ -603,16 +579,6 @@ class AsyncLangfuseAPI:
 
             self._models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         return self._models
-
-    @property
-    def observations_v2(self):
-        if self._observations_v2 is None:
-            from .observations_v2.client import AsyncObservationsV2Client  # noqa: E402
-
-            self._observations_v2 = AsyncObservationsV2Client(
-                client_wrapper=self._client_wrapper
-            )
-        return self._observations_v2
 
     @property
     def observations(self):
@@ -689,20 +655,12 @@ class AsyncLangfuseAPI:
         return self._score_configs
 
     @property
-    def score_v2(self):
-        if self._score_v2 is None:
-            from .score_v2.client import AsyncScoreV2Client  # noqa: E402
+    def scores(self):
+        if self._scores is None:
+            from .scores.client import AsyncScoresClient  # noqa: E402
 
-            self._score_v2 = AsyncScoreV2Client(client_wrapper=self._client_wrapper)
-        return self._score_v2
-
-    @property
-    def score(self):
-        if self._score is None:
-            from .score.client import AsyncScoreClient  # noqa: E402
-
-            self._score = AsyncScoreClient(client_wrapper=self._client_wrapper)
-        return self._score
+            self._scores = AsyncScoresClient(client_wrapper=self._client_wrapper)
+        return self._scores
 
     @property
     def sessions(self):

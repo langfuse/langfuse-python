@@ -3,36 +3,80 @@
 import datetime as dt
 import typing
 
-from ..commons.types.observation_level import ObservationLevel
-from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.request_options import RequestOptions
-from .raw_client import AsyncRawObservationsV2Client, RawObservationsV2Client
-from .types.observations_v2response import ObservationsV2Response
+from ...commons.types.observation_level import ObservationLevel
+from ...commons.types.observations_view import ObservationsView
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.request_options import RequestOptions
+from .raw_client import AsyncRawObservationsV1Client, RawObservationsV1Client
+from .types.observations_v1views import ObservationsV1Views
 
 
-class ObservationsV2Client:
+class ObservationsV1Client:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._raw_client = RawObservationsV2Client(client_wrapper=client_wrapper)
+        self._raw_client = RawObservationsV1Client(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> RawObservationsV2Client:
+    def with_raw_response(self) -> RawObservationsV1Client:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        RawObservationsV2Client
+        RawObservationsV1Client
         """
         return self._raw_client
+
+    def get(
+        self,
+        observation_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ObservationsView:
+        """
+        Get an observation (Observations V1, deprecated).
+
+        **Deprecated:** This endpoint queries the legacy observations table. Use `/api/public/v2/observations` for better performance.
+
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.observationsV1`. The default `client.observations` namespace always points to the latest supported observations API.
+
+        Parameters
+        ----------
+        observation_id : str
+            The unique langfuse identifier of an observation, can be an event, span or generation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ObservationsView
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.legacy.observations_v1.get(
+            observation_id="observationId",
+        )
+        """
+        _response = self._raw_client.get(
+            observation_id, request_options=request_options
+        )
+        return _response.data
 
     def get_many(
         self,
         *,
-        fields: typing.Optional[str] = None,
-        expand_metadata: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        cursor: typing.Optional[str] = None,
-        parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
@@ -45,64 +89,27 @@ class ObservationsV2Client:
         version: typing.Optional[str] = None,
         filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsV2Response:
+    ) -> ObservationsV1Views:
         """
-        Get a list of observations with cursor-based pagination and flexible field selection.
+        Get a list of observations (Observations V1, deprecated).
 
-        ## Cursor-based Pagination
-        This endpoint uses cursor-based pagination for efficient traversal of large datasets.
-        The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
+        **Deprecated:** This endpoint queries the legacy observations table. Use `/api/public/v2/observations` for cursor-based pagination, field selection, and better performance.
 
-        ## Field Selection
-        Use the `fields` parameter to control which observation fields are returned:
-        - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
-        - `time` - completionStartTime, createdAt, updatedAt
-        - `io` - input, output
-        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
-        - `model` - providedModelName, internalModelId, modelParameters
-        - `usage` - usageDetails, costDetails, totalCost
-        - `prompt` - promptId, promptName, promptVersion
-        - `metrics` - latency, timeToFirstToken
-
-        If not specified, `core` and `basic` field groups are returned.
-
-        ## Filters
-        Multiple filtering options are available via query parameters or the structured `filter` parameter.
-        When using the `filter` parameter, it takes precedence over individual query parameter filters.
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.observationsV1`. The default `client.observations` namespace always points to the latest supported observations API.
 
         Parameters
         ----------
-        fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response.
-            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
-            If not specified, `core` and `basic` field groups are returned.
-            Example: "basic,usage,model"
-
-        expand_metadata : typing.Optional[str]
-            Comma-separated list of metadata keys to return non-truncated.
-            By default, metadata values over 200 characters are truncated.
-            Use this parameter to retrieve full values for specific keys.
-            Example: "key1,key2"
+        page : typing.Optional[int]
+            Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
-
-        cursor : typing.Optional[str]
-            Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
-
-        parse_io_as_json : typing.Optional[bool]
-            **Deprecated.** Setting this to `true` will return a 400 error.
-            Input/output fields are always returned as raw strings.
-            Remove this parameter or set it to `false`.
+            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
 
         type : typing.Optional[str]
-            Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
         trace_id : typing.Optional[str]
 
@@ -163,13 +170,6 @@ class ObservationsV2Client:
             - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
             - `statusMessage` (string) - Status message
             - `version` (string) - Version tag
-            - `userId` (string) - User ID
-            - `sessionId` (string) - Session ID
-
-            ### Trace-Related Fields
-            - `traceName` (string) - Name of the parent trace
-            - `traceTags` (arrayOptions) - Tags from the parent trace
-            - `tags` (arrayOptions) - Alias for traceTags
 
             ### Performance Metrics
             - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
@@ -187,12 +187,18 @@ class ObservationsV2Client:
             - `totalCost` (number) - Total cost in USD
 
             ### Model Information
-            - `model` (string) - Provided model name (alias: `providedModelName`)
+            - `model` (string) - Provided model name
             - `promptName` (string) - Associated prompt name
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            ### Associated Trace Fields (requires join with traces table)
+            - `userId` (string) - User ID from associated trace
+            - `traceName` (string) - Name from associated trace
+            - `traceEnvironment` (string) - Environment from associated trace
+            - `traceTags` (arrayOptions) - Tags from associated trace
 
             ## Filter Examples
             ```json
@@ -224,7 +230,7 @@ class ObservationsV2Client:
 
         Returns
         -------
-        ObservationsV2Response
+        ObservationsV1Views
 
         Examples
         --------
@@ -238,14 +244,11 @@ class ObservationsV2Client:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.observations_v2.get_many()
+        client.legacy.observations_v1.get_many()
         """
         _response = self._raw_client.get_many(
-            fields=fields,
-            expand_metadata=expand_metadata,
+            page=page,
             limit=limit,
-            cursor=cursor,
-            parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
             type=type,
@@ -262,221 +265,45 @@ class ObservationsV2Client:
         return _response.data
 
 
-class AsyncObservationsV2Client:
+class AsyncObservationsV1Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawObservationsV2Client(client_wrapper=client_wrapper)
+        self._raw_client = AsyncRawObservationsV1Client(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> AsyncRawObservationsV2Client:
+    def with_raw_response(self) -> AsyncRawObservationsV1Client:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        AsyncRawObservationsV2Client
+        AsyncRawObservationsV1Client
         """
         return self._raw_client
 
-    async def get_many(
+    async def get(
         self,
+        observation_id: str,
         *,
-        fields: typing.Optional[str] = None,
-        expand_metadata: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[str] = None,
-        parse_io_as_json: typing.Optional[bool] = None,
-        name: typing.Optional[str] = None,
-        user_id: typing.Optional[str] = None,
-        type: typing.Optional[str] = None,
-        trace_id: typing.Optional[str] = None,
-        level: typing.Optional[ObservationLevel] = None,
-        parent_observation_id: typing.Optional[str] = None,
-        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        from_start_time: typing.Optional[dt.datetime] = None,
-        to_start_time: typing.Optional[dt.datetime] = None,
-        version: typing.Optional[str] = None,
-        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsV2Response:
+    ) -> ObservationsView:
         """
-        Get a list of observations with cursor-based pagination and flexible field selection.
+        Get an observation (Observations V1, deprecated).
 
-        ## Cursor-based Pagination
-        This endpoint uses cursor-based pagination for efficient traversal of large datasets.
-        The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
+        **Deprecated:** This endpoint queries the legacy observations table. Use `/api/public/v2/observations` for better performance.
 
-        ## Field Selection
-        Use the `fields` parameter to control which observation fields are returned:
-        - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
-        - `time` - completionStartTime, createdAt, updatedAt
-        - `io` - input, output
-        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
-        - `model` - providedModelName, internalModelId, modelParameters
-        - `usage` - usageDetails, costDetails, totalCost
-        - `prompt` - promptId, promptName, promptVersion
-        - `metrics` - latency, timeToFirstToken
-
-        If not specified, `core` and `basic` field groups are returned.
-
-        ## Filters
-        Multiple filtering options are available via query parameters or the structured `filter` parameter.
-        When using the `filter` parameter, it takes precedence over individual query parameter filters.
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.observationsV1`. The default `client.observations` namespace always points to the latest supported observations API.
 
         Parameters
         ----------
-        fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response.
-            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
-            If not specified, `core` and `basic` field groups are returned.
-            Example: "basic,usage,model"
-
-        expand_metadata : typing.Optional[str]
-            Comma-separated list of metadata keys to return non-truncated.
-            By default, metadata values over 200 characters are truncated.
-            Use this parameter to retrieve full values for specific keys.
-            Example: "key1,key2"
-
-        limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
-
-        cursor : typing.Optional[str]
-            Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
-
-        parse_io_as_json : typing.Optional[bool]
-            **Deprecated.** Setting this to `true` will return a 400 error.
-            Input/output fields are always returned as raw strings.
-            Remove this parameter or set it to `false`.
-
-        name : typing.Optional[str]
-
-        user_id : typing.Optional[str]
-
-        type : typing.Optional[str]
-            Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
-
-        trace_id : typing.Optional[str]
-
-        level : typing.Optional[ObservationLevel]
-            Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
-
-        parent_observation_id : typing.Optional[str]
-
-        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Optional filter for observations where the environment is one of the provided values.
-
-        from_start_time : typing.Optional[dt.datetime]
-            Retrieve only observations with a start_time on or after this datetime (ISO 8601).
-
-        to_start_time : typing.Optional[dt.datetime]
-            Retrieve only observations with a start_time before this datetime (ISO 8601).
-
-        version : typing.Optional[str]
-            Optional filter to only include observations with a certain version.
-
-        filter : typing.Optional[str]
-            JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
-
-            ## Filter Structure
-            Each filter condition has the following structure:
-            ```json
-            [
-              {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
-                "column": string,         // Required. Column to filter on (see available columns below)
-                "operator": string,       // Required. Operator based on type:
-                                          // - datetime: ">", "<", ">=", "<="
-                                          // - string: "=", "contains", "does not contain", "starts with", "ends with"
-                                          // - stringOptions: "any of", "none of"
-                                          // - categoryOptions: "any of", "none of"
-                                          // - arrayOptions: "any of", "none of", "all of"
-                                          // - number: "=", ">", "<", ">=", "<="
-                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
-                                          // - numberObject: "=", ">", "<", ">=", "<="
-                                          // - boolean: "=", "<>"
-                                          // - null: "is null", "is not null"
-                "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
-                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
-              }
-            ]
-            ```
-
-            ## Available Columns
-
-            ### Core Observation Fields
-            - `id` (string) - Observation ID
-            - `type` (string) - Observation type (SPAN, GENERATION, EVENT)
-            - `name` (string) - Observation name
-            - `traceId` (string) - Associated trace ID
-            - `startTime` (datetime) - Observation start time
-            - `endTime` (datetime) - Observation end time
-            - `environment` (string) - Environment tag
-            - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
-            - `statusMessage` (string) - Status message
-            - `version` (string) - Version tag
-            - `userId` (string) - User ID
-            - `sessionId` (string) - Session ID
-
-            ### Trace-Related Fields
-            - `traceName` (string) - Name of the parent trace
-            - `traceTags` (arrayOptions) - Tags from the parent trace
-            - `tags` (arrayOptions) - Alias for traceTags
-
-            ### Performance Metrics
-            - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
-            - `timeToFirstToken` (number) - Time to first token in seconds
-            - `tokensPerSecond` (number) - Output tokens per second
-
-            ### Token Usage
-            - `inputTokens` (number) - Number of input tokens
-            - `outputTokens` (number) - Number of output tokens
-            - `totalTokens` (number) - Total tokens (alias: `tokens`)
-
-            ### Cost Metrics
-            - `inputCost` (number) - Input cost in USD
-            - `outputCost` (number) - Output cost in USD
-            - `totalCost` (number) - Total cost in USD
-
-            ### Model Information
-            - `model` (string) - Provided model name (alias: `providedModelName`)
-            - `promptName` (string) - Associated prompt name
-            - `promptVersion` (number) - Associated prompt version
-
-            ### Structured Data
-            - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
-
-            ## Filter Examples
-            ```json
-            [
-              {
-                "type": "string",
-                "column": "type",
-                "operator": "=",
-                "value": "GENERATION"
-              },
-              {
-                "type": "number",
-                "column": "latency",
-                "operator": ">=",
-                "value": 2.5
-              },
-              {
-                "type": "stringObject",
-                "column": "metadata",
-                "key": "environment",
-                "operator": "=",
-                "value": "production"
-              }
-            ]
-            ```
+        observation_id : str
+            The unique langfuse identifier of an observation, can be an event, span or generation
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ObservationsV2Response
+        ObservationsView
 
         Examples
         --------
@@ -495,17 +322,203 @@ class AsyncObservationsV2Client:
 
 
         async def main() -> None:
-            await client.observations_v2.get_many()
+            await client.legacy.observations_v1.get(
+                observation_id="observationId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get(
+            observation_id, request_options=request_options
+        )
+        return _response.data
+
+    async def get_many(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        name: typing.Optional[str] = None,
+        user_id: typing.Optional[str] = None,
+        type: typing.Optional[str] = None,
+        trace_id: typing.Optional[str] = None,
+        level: typing.Optional[ObservationLevel] = None,
+        parent_observation_id: typing.Optional[str] = None,
+        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        from_start_time: typing.Optional[dt.datetime] = None,
+        to_start_time: typing.Optional[dt.datetime] = None,
+        version: typing.Optional[str] = None,
+        filter: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ObservationsV1Views:
+        """
+        Get a list of observations (Observations V1, deprecated).
+
+        **Deprecated:** This endpoint queries the legacy observations table. Use `/api/public/v2/observations` for cursor-based pagination, field selection, and better performance.
+
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.observationsV1`. The default `client.observations` namespace always points to the latest supported observations API.
+
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            Page number, starts at 1.
+
+        limit : typing.Optional[int]
+            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+
+        name : typing.Optional[str]
+
+        user_id : typing.Optional[str]
+
+        type : typing.Optional[str]
+
+        trace_id : typing.Optional[str]
+
+        level : typing.Optional[ObservationLevel]
+            Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
+
+        parent_observation_id : typing.Optional[str]
+
+        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Optional filter for observations where the environment is one of the provided values.
+
+        from_start_time : typing.Optional[dt.datetime]
+            Retrieve only observations with a start_time on or after this datetime (ISO 8601).
+
+        to_start_time : typing.Optional[dt.datetime]
+            Retrieve only observations with a start_time before this datetime (ISO 8601).
+
+        version : typing.Optional[str]
+            Optional filter to only include observations with a certain version.
+
+        filter : typing.Optional[str]
+            JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+
+            ## Filter Structure
+            Each filter condition has the following structure:
+            ```json
+            [
+              {
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "column": string,         // Required. Column to filter on (see available columns below)
+                "operator": string,       // Required. Operator based on type:
+                                          // - datetime: ">", "<", ">=", "<="
+                                          // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - stringOptions: "any of", "none of"
+                                          // - categoryOptions: "any of", "none of"
+                                          // - arrayOptions: "any of", "none of", "all of"
+                                          // - number: "=", ">", "<", ">=", "<="
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - boolean: "=", "<>"
+                                          // - null: "is null", "is not null"
+                "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
+                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+              }
+            ]
+            ```
+
+            ## Available Columns
+
+            ### Core Observation Fields
+            - `id` (string) - Observation ID
+            - `type` (string) - Observation type (SPAN, GENERATION, EVENT)
+            - `name` (string) - Observation name
+            - `traceId` (string) - Associated trace ID
+            - `startTime` (datetime) - Observation start time
+            - `endTime` (datetime) - Observation end time
+            - `environment` (string) - Environment tag
+            - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
+            - `statusMessage` (string) - Status message
+            - `version` (string) - Version tag
+
+            ### Performance Metrics
+            - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
+            - `timeToFirstToken` (number) - Time to first token in seconds
+            - `tokensPerSecond` (number) - Output tokens per second
+
+            ### Token Usage
+            - `inputTokens` (number) - Number of input tokens
+            - `outputTokens` (number) - Number of output tokens
+            - `totalTokens` (number) - Total tokens (alias: `tokens`)
+
+            ### Cost Metrics
+            - `inputCost` (number) - Input cost in USD
+            - `outputCost` (number) - Output cost in USD
+            - `totalCost` (number) - Total cost in USD
+
+            ### Model Information
+            - `model` (string) - Provided model name
+            - `promptName` (string) - Associated prompt name
+            - `promptVersion` (number) - Associated prompt version
+
+            ### Structured Data
+            - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            ### Associated Trace Fields (requires join with traces table)
+            - `userId` (string) - User ID from associated trace
+            - `traceName` (string) - Name from associated trace
+            - `traceEnvironment` (string) - Environment from associated trace
+            - `traceTags` (arrayOptions) - Tags from associated trace
+
+            ## Filter Examples
+            ```json
+            [
+              {
+                "type": "string",
+                "column": "type",
+                "operator": "=",
+                "value": "GENERATION"
+              },
+              {
+                "type": "number",
+                "column": "latency",
+                "operator": ">=",
+                "value": 2.5
+              },
+              {
+                "type": "stringObject",
+                "column": "metadata",
+                "key": "environment",
+                "operator": "=",
+                "value": "production"
+              }
+            ]
+            ```
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ObservationsV1Views
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.legacy.observations_v1.get_many()
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.get_many(
-            fields=fields,
-            expand_metadata=expand_metadata,
+            page=page,
             limit=limit,
-            cursor=cursor,
-            parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
             type=type,

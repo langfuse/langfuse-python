@@ -2,29 +2,29 @@
 
 import typing
 
-from ..commons.types.create_score_value import CreateScoreValue
-from ..commons.types.score_data_type import ScoreDataType
-from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.request_options import RequestOptions
-from .raw_client import AsyncRawScoreClient, RawScoreClient
-from .types.create_score_response import CreateScoreResponse
+from ...commons.types.create_score_value import CreateScoreValue
+from ...commons.types.score_data_type import ScoreDataType
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.request_options import RequestOptions
+from .raw_client import AsyncRawScoreV1Client, RawScoreV1Client
+from .types.create_score_v1response import CreateScoreV1Response
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class ScoreClient:
+class ScoreV1Client:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
-        self._raw_client = RawScoreClient(client_wrapper=client_wrapper)
+        self._raw_client = RawScoreV1Client(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> RawScoreClient:
+    def with_raw_response(self) -> RawScoreV1Client:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        RawScoreClient
+        RawScoreV1Client
         """
         return self._raw_client
 
@@ -45,9 +45,13 @@ class ScoreClient:
         data_type: typing.Optional[ScoreDataType] = OMIT,
         config_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
+    ) -> CreateScoreV1Response:
         """
-        Create a score (supports both trace and session scores)
+        Create a score (Score V1, deprecated; supports both trace and session scores).
+
+        **Deprecated:** Use `/api/public/v2/scores`.
+
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.scoreV1`. The default `client.scores` namespace always points to the latest supported scores API.
 
         Parameters
         ----------
@@ -87,7 +91,7 @@ class ScoreClient:
 
         Returns
         -------
-        CreateScoreResponse
+        CreateScoreV1Response
 
         Examples
         --------
@@ -101,7 +105,7 @@ class ScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score.create(
+        client.legacy.score_v1.create(
             name="name",
             value=1.1,
         )
@@ -128,7 +132,11 @@ class ScoreClient:
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
         """
-        Delete a score (supports both trace and session scores)
+        Delete a score (Score V1, deprecated; supports both trace and session scores).
+
+        **Deprecated:** Use `/api/public/v2/scores`.
+
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.scoreV1`. The default `client.scores` namespace always points to the latest supported scores API.
 
         Parameters
         ----------
@@ -154,7 +162,7 @@ class ScoreClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.score.delete(
+        client.legacy.score_v1.delete(
             score_id="scoreId",
         )
         """
@@ -162,18 +170,18 @@ class ScoreClient:
         return _response.data
 
 
-class AsyncScoreClient:
+class AsyncScoreV1Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawScoreClient(client_wrapper=client_wrapper)
+        self._raw_client = AsyncRawScoreV1Client(client_wrapper=client_wrapper)
 
     @property
-    def with_raw_response(self) -> AsyncRawScoreClient:
+    def with_raw_response(self) -> AsyncRawScoreV1Client:
         """
         Retrieves a raw implementation of this client that returns raw responses.
 
         Returns
         -------
-        AsyncRawScoreClient
+        AsyncRawScoreV1Client
         """
         return self._raw_client
 
@@ -194,9 +202,13 @@ class AsyncScoreClient:
         data_type: typing.Optional[ScoreDataType] = OMIT,
         config_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
+    ) -> CreateScoreV1Response:
         """
-        Create a score (supports both trace and session scores)
+        Create a score (Score V1, deprecated; supports both trace and session scores).
+
+        **Deprecated:** Use `/api/public/v2/scores`.
+
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.scoreV1`. The default `client.scores` namespace always points to the latest supported scores API.
 
         Parameters
         ----------
@@ -236,7 +248,7 @@ class AsyncScoreClient:
 
         Returns
         -------
-        CreateScoreResponse
+        CreateScoreV1Response
 
         Examples
         --------
@@ -255,7 +267,7 @@ class AsyncScoreClient:
 
 
         async def main() -> None:
-            await client.score.create(
+            await client.legacy.score_v1.create(
                 name="name",
                 value=1.1,
             )
@@ -285,7 +297,11 @@ class AsyncScoreClient:
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
         """
-        Delete a score (supports both trace and session scores)
+        Delete a score (Score V1, deprecated; supports both trace and session scores).
+
+        **Deprecated:** Use `/api/public/v2/scores`.
+
+        **SDK namespace mapping:** In SDKs, this endpoint is available under `client.legacy.scoreV1`. The default `client.scores` namespace always points to the latest supported scores API.
 
         Parameters
         ----------
@@ -316,7 +332,7 @@ class AsyncScoreClient:
 
 
         async def main() -> None:
-            await client.score.delete(
+            await client.legacy.score_v1.delete(
                 score_id="scoreId",
             )
 

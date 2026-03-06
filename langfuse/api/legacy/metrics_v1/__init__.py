@@ -6,11 +6,8 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import CreateScoreRequest, CreateScoreResponse
-_dynamic_imports: typing.Dict[str, str] = {
-    "CreateScoreRequest": ".types",
-    "CreateScoreResponse": ".types",
-}
+    from .types import MetricsV1Response
+_dynamic_imports: typing.Dict[str, str] = {"MetricsV1Response": ".types"}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -40,4 +37,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateScoreRequest", "CreateScoreResponse"]
+__all__ = ["MetricsV1Response"]

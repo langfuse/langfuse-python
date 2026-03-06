@@ -4,19 +4,19 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...commons.types.create_score_value import CreateScoreValue
-from ...commons.types.score_data_type import ScoreDataType
-from ...core.pydantic_utilities import UniversalBaseModel
-from ...core.serialization import FieldMetadata
+from ....commons.types.create_score_value import CreateScoreValue
+from ....commons.types.score_data_type import ScoreDataType
+from ....core.pydantic_utilities import UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
-class CreateScoreRequest(UniversalBaseModel):
+class CreateScoreV1Request(UniversalBaseModel):
     """
     Examples
     --------
-    from langfuse.score import CreateScoreRequest
+    from langfuse.legacy.score_v1 import CreateScoreV1Request
 
-    CreateScoreRequest(
+    CreateScoreV1Request(
         name="novelty",
         value=0.9,
         trace_id="cdef-1234-5678-90ab",

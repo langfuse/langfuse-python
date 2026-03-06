@@ -6,11 +6,19 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .create_score_request import CreateScoreRequest
-    from .create_score_response import CreateScoreResponse
+    from . import metrics_v1, observations_v1, score_v1
+    from .metrics_v1 import MetricsV1Response
+    from .observations_v1 import ObservationsV1, ObservationsV1Views
+    from .score_v1 import CreateScoreV1Request, CreateScoreV1Response
 _dynamic_imports: typing.Dict[str, str] = {
-    "CreateScoreRequest": ".create_score_request",
-    "CreateScoreResponse": ".create_score_response",
+    "CreateScoreV1Request": ".score_v1",
+    "CreateScoreV1Response": ".score_v1",
+    "MetricsV1Response": ".metrics_v1",
+    "ObservationsV1": ".observations_v1",
+    "ObservationsV1Views": ".observations_v1",
+    "metrics_v1": ".metrics_v1",
+    "observations_v1": ".observations_v1",
+    "score_v1": ".score_v1",
 }
 
 
@@ -41,4 +49,13 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateScoreRequest", "CreateScoreResponse"]
+__all__ = [
+    "CreateScoreV1Request",
+    "CreateScoreV1Response",
+    "MetricsV1Response",
+    "ObservationsV1",
+    "ObservationsV1Views",
+    "metrics_v1",
+    "observations_v1",
+    "score_v1",
+]
