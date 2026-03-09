@@ -3,9 +3,9 @@
 import typing
 
 import pydantic
-from ...commons.types.observation import Observation
-from ...core.pydantic_utilities import UniversalBaseModel
-from ...utils.pagination.types.meta_response import MetaResponse
+from ....commons.types.observation import Observation
+from ....core.pydantic_utilities import UniversalBaseModel
+from ....utils.pagination.types.meta_response import MetaResponse
 
 
 class Observations(UniversalBaseModel):
