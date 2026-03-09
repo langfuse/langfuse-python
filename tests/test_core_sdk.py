@@ -962,7 +962,7 @@ def test_create_span_and_get_observation():
     sleep(2)
 
     # Use API to fetch the observation by ID
-    observation = get_api().observations.get(span_id)
+    observation = get_api().legacy.observations_v1.get(span_id)
 
     # Verify observation properties
     assert observation.name == "span"
@@ -1476,7 +1476,7 @@ def test_kwargs():
     sleep(2)
 
     # Retrieve and verify
-    observation = get_api().observations.get(span_id)
+    observation = get_api().legacy.observations_v1.get(span_id)
 
     # Verify kwargs were properly set as attributes
     assert observation.start_time is not None
@@ -1740,7 +1740,7 @@ def test_get_observation():
     sleep(2)
 
     # Fetch the observation using the API
-    observation = get_api().observations.get(generation_id)
+    observation = get_api().legacy.observations_v1.get(generation_id)
 
     # Verify observation properties
     assert observation.id == generation_id
@@ -1804,7 +1804,7 @@ def test_get_trace_not_found():
 def test_get_observation_not_found():
     # Attempt to fetch a non-existent observation using the API
     with pytest.raises(Exception):
-        get_api().observations.get(create_uuid())
+        get_api().legacy.observations_v1.get(create_uuid())
 
 
 def test_get_traces_empty():
