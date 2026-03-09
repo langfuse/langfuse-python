@@ -4,11 +4,10 @@ import datetime as dt
 import typing
 
 from ..commons.types.observation_level import ObservationLevel
-from ..commons.types.observations_view import ObservationsView
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawObservationsClient, RawObservationsClient
-from .types.observations_views import ObservationsViews
+from .types.observations_v2response import ObservationsV2Response
 
 
 class ObservationsClient:
@@ -26,53 +25,14 @@ class ObservationsClient:
         """
         return self._raw_client
 
-    def get(
-        self,
-        observation_id: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsView:
-        """
-        Get a observation
-
-        Parameters
-        ----------
-        observation_id : str
-            The unique langfuse identifier of an observation, can be an event, span or generation
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ObservationsView
-
-        Examples
-        --------
-        from langfuse import LangfuseAPI
-
-        client = LangfuseAPI(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.observations.get(
-            observation_id="observationId",
-        )
-        """
-        _response = self._raw_client.get(
-            observation_id, request_options=request_options
-        )
-        return _response.data
-
     def get_many(
         self,
         *,
-        page: typing.Optional[int] = None,
+        fields: typing.Optional[str] = None,
+        expand_metadata: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
@@ -85,25 +45,64 @@ class ObservationsClient:
         version: typing.Optional[str] = None,
         filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsViews:
+    ) -> ObservationsV2Response:
         """
-        Get a list of observations.
+        Get a list of observations with cursor-based pagination and flexible field selection.
 
-        Consider using the [v2 observations endpoint](/api-reference#tag/observationsv2/GET/api/public/v2/observations) for cursor-based pagination and field selection.
+        ## Cursor-based Pagination
+        This endpoint uses cursor-based pagination for efficient traversal of large datasets.
+        The cursor is returned in the response metadata and should be passed in subsequent requests
+        to retrieve the next page of results.
+
+        ## Field Selection
+        Use the `fields` parameter to control which observation fields are returned:
+        - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
+        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+        - `time` - completionStartTime, createdAt, updatedAt
+        - `io` - input, output
+        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
+        - `model` - providedModelName, internalModelId, modelParameters
+        - `usage` - usageDetails, costDetails, totalCost
+        - `prompt` - promptId, promptName, promptVersion
+        - `metrics` - latency, timeToFirstToken
+
+        If not specified, `core` and `basic` field groups are returned.
+
+        ## Filters
+        Multiple filtering options are available via query parameters or the structured `filter` parameter.
+        When using the `filter` parameter, it takes precedence over individual query parameter filters.
 
         Parameters
         ----------
-        page : typing.Optional[int]
-            Page number, starts at 1.
+        fields : typing.Optional[str]
+            Comma-separated list of field groups to include in the response.
+            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
+            If not specified, `core` and `basic` field groups are returned.
+            Example: "basic,usage,model"
+
+        expand_metadata : typing.Optional[str]
+            Comma-separated list of metadata keys to return non-truncated.
+            By default, metadata values over 200 characters are truncated.
+            Use this parameter to retrieve full values for specific keys.
+            Example: "key1,key2"
 
         limit : typing.Optional[int]
-            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Number of items to return per page. Maximum 1000, default 50.
+
+        cursor : typing.Optional[str]
+            Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
+
+        parse_io_as_json : typing.Optional[bool]
+            **Deprecated.** Setting this to `true` will return a 400 error.
+            Input/output fields are always returned as raw strings.
+            Remove this parameter or set it to `false`.
 
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
 
         type : typing.Optional[str]
+            Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
         trace_id : typing.Optional[str]
 
@@ -164,6 +163,13 @@ class ObservationsClient:
             - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
             - `statusMessage` (string) - Status message
             - `version` (string) - Version tag
+            - `userId` (string) - User ID
+            - `sessionId` (string) - Session ID
+
+            ### Trace-Related Fields
+            - `traceName` (string) - Name of the parent trace
+            - `traceTags` (arrayOptions) - Tags from the parent trace
+            - `tags` (arrayOptions) - Alias for traceTags
 
             ### Performance Metrics
             - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
@@ -181,18 +187,12 @@ class ObservationsClient:
             - `totalCost` (number) - Total cost in USD
 
             ### Model Information
-            - `model` (string) - Provided model name
+            - `model` (string) - Provided model name (alias: `providedModelName`)
             - `promptName` (string) - Associated prompt name
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
-
-            ### Associated Trace Fields (requires join with traces table)
-            - `userId` (string) - User ID from associated trace
-            - `traceName` (string) - Name from associated trace
-            - `traceEnvironment` (string) - Environment from associated trace
-            - `traceTags` (arrayOptions) - Tags from associated trace
 
             ## Filter Examples
             ```json
@@ -224,7 +224,7 @@ class ObservationsClient:
 
         Returns
         -------
-        ObservationsViews
+        ObservationsV2Response
 
         Examples
         --------
@@ -241,8 +241,11 @@ class ObservationsClient:
         client.observations.get_many()
         """
         _response = self._raw_client.get_many(
-            page=page,
+            fields=fields,
+            expand_metadata=expand_metadata,
             limit=limit,
+            cursor=cursor,
+            parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
             type=type,
@@ -274,61 +277,14 @@ class AsyncObservationsClient:
         """
         return self._raw_client
 
-    async def get(
-        self,
-        observation_id: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsView:
-        """
-        Get a observation
-
-        Parameters
-        ----------
-        observation_id : str
-            The unique langfuse identifier of an observation, can be an event, span or generation
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ObservationsView
-
-        Examples
-        --------
-        import asyncio
-
-        from langfuse import AsyncLangfuseAPI
-
-        client = AsyncLangfuseAPI(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.observations.get(
-                observation_id="observationId",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get(
-            observation_id, request_options=request_options
-        )
-        return _response.data
-
     async def get_many(
         self,
         *,
-        page: typing.Optional[int] = None,
+        fields: typing.Optional[str] = None,
+        expand_metadata: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
@@ -341,25 +297,64 @@ class AsyncObservationsClient:
         version: typing.Optional[str] = None,
         filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsViews:
+    ) -> ObservationsV2Response:
         """
-        Get a list of observations.
+        Get a list of observations with cursor-based pagination and flexible field selection.
 
-        Consider using the [v2 observations endpoint](/api-reference#tag/observationsv2/GET/api/public/v2/observations) for cursor-based pagination and field selection.
+        ## Cursor-based Pagination
+        This endpoint uses cursor-based pagination for efficient traversal of large datasets.
+        The cursor is returned in the response metadata and should be passed in subsequent requests
+        to retrieve the next page of results.
+
+        ## Field Selection
+        Use the `fields` parameter to control which observation fields are returned:
+        - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
+        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+        - `time` - completionStartTime, createdAt, updatedAt
+        - `io` - input, output
+        - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
+        - `model` - providedModelName, internalModelId, modelParameters
+        - `usage` - usageDetails, costDetails, totalCost
+        - `prompt` - promptId, promptName, promptVersion
+        - `metrics` - latency, timeToFirstToken
+
+        If not specified, `core` and `basic` field groups are returned.
+
+        ## Filters
+        Multiple filtering options are available via query parameters or the structured `filter` parameter.
+        When using the `filter` parameter, it takes precedence over individual query parameter filters.
 
         Parameters
         ----------
-        page : typing.Optional[int]
-            Page number, starts at 1.
+        fields : typing.Optional[str]
+            Comma-separated list of field groups to include in the response.
+            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
+            If not specified, `core` and `basic` field groups are returned.
+            Example: "basic,usage,model"
+
+        expand_metadata : typing.Optional[str]
+            Comma-separated list of metadata keys to return non-truncated.
+            By default, metadata values over 200 characters are truncated.
+            Use this parameter to retrieve full values for specific keys.
+            Example: "key1,key2"
 
         limit : typing.Optional[int]
-            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Number of items to return per page. Maximum 1000, default 50.
+
+        cursor : typing.Optional[str]
+            Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
+
+        parse_io_as_json : typing.Optional[bool]
+            **Deprecated.** Setting this to `true` will return a 400 error.
+            Input/output fields are always returned as raw strings.
+            Remove this parameter or set it to `false`.
 
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
 
         type : typing.Optional[str]
+            Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
         trace_id : typing.Optional[str]
 
@@ -420,6 +415,13 @@ class AsyncObservationsClient:
             - `level` (string) - Log level (DEBUG, DEFAULT, WARNING, ERROR)
             - `statusMessage` (string) - Status message
             - `version` (string) - Version tag
+            - `userId` (string) - User ID
+            - `sessionId` (string) - Session ID
+
+            ### Trace-Related Fields
+            - `traceName` (string) - Name of the parent trace
+            - `traceTags` (arrayOptions) - Tags from the parent trace
+            - `tags` (arrayOptions) - Alias for traceTags
 
             ### Performance Metrics
             - `latency` (number) - Latency in seconds (calculated: end_time - start_time)
@@ -437,18 +439,12 @@ class AsyncObservationsClient:
             - `totalCost` (number) - Total cost in USD
 
             ### Model Information
-            - `model` (string) - Provided model name
+            - `model` (string) - Provided model name (alias: `providedModelName`)
             - `promptName` (string) - Associated prompt name
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
-
-            ### Associated Trace Fields (requires join with traces table)
-            - `userId` (string) - User ID from associated trace
-            - `traceName` (string) - Name from associated trace
-            - `traceEnvironment` (string) - Environment from associated trace
-            - `traceTags` (arrayOptions) - Tags from associated trace
 
             ## Filter Examples
             ```json
@@ -480,7 +476,7 @@ class AsyncObservationsClient:
 
         Returns
         -------
-        ObservationsViews
+        ObservationsV2Response
 
         Examples
         --------
@@ -505,8 +501,11 @@ class AsyncObservationsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_many(
-            page=page,
+            fields=fields,
+            expand_metadata=expand_metadata,
             limit=limit,
+            cursor=cursor,
+            parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
             type=type,

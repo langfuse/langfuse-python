@@ -1173,7 +1173,7 @@ class BatchEvaluationRunner:
             )  # type: ignore
             return list(response.data)  # type: ignore
         elif scope == "observations":
-            response = self.client.api.observations.get_many(
+            response = self.client.api.legacy.observations_v1.get_many(
                 page=page,
                 limit=limit,
                 filter=filter,
