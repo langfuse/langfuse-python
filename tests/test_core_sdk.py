@@ -1397,7 +1397,7 @@ def test_get_generations():
     sleep(3)
 
     # Fetch generations using API
-    generations = get_api().observations.get_many(name=generation_name)
+    generations = get_api().legacy.observations_v1.get_many(name=generation_name)
 
     # Verify fetched generation matches what we created
     assert len(generations.data) == 1
@@ -1436,7 +1436,9 @@ def test_get_generations_by_user():
     sleep(3)
 
     # Fetch generations by user ID using the API
-    generations = get_api().observations.get_many(user_id=user_id, type="GENERATION")
+    generations = get_api().legacy.observations_v1.get_many(
+        user_id=user_id, type="GENERATION"
+    )
 
     # Verify fetched generation matches what we created
     assert len(generations.data) == 1
@@ -1770,7 +1772,7 @@ def test_get_observations():
     sleep(2)
 
     # Fetch observations using the API
-    observations = get_api().observations.get_many(name=name, limit=10)
+    observations = get_api().legacy.observations_v1.get_many(name=name, limit=10)
 
     # Verify fetched observations
     assert len(observations.data) == 2
@@ -1785,7 +1787,9 @@ def test_get_observations():
     assert gen2_id in gen_ids
 
     # Test pagination
-    paginated_response = get_api().observations.get_many(name=name, limit=1, page=2)
+    paginated_response = get_api().legacy.observations_v1.get_many(
+        name=name, limit=1, page=2
+    )
     assert len(paginated_response.data) == 1
     assert paginated_response.meta.total_items == 2  # Parent span + 2 generations
     assert paginated_response.meta.total_pages == 2
@@ -1813,7 +1817,7 @@ def test_get_traces_empty():
 
 def test_get_observations_empty():
     # Fetch observations with a filter that should return no results
-    response = get_api().observations.get_many(name=create_uuid())
+    response = get_api().legacy.observations_v1.get_many(name=create_uuid())
 
     assert len(response.data) == 0
     assert response.meta.total_items == 0
