@@ -3,27 +3,27 @@
 import typing
 from json.decoder import JSONDecodeError
 
-from ..commons.errors.access_denied_error import AccessDeniedError
-from ..commons.errors.error import Error
-from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ..commons.errors.not_found_error import NotFoundError
-from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.create_score_value import CreateScoreValue
-from ..commons.types.score_data_type import ScoreDataType
-from ..core.api_error import ApiError
-from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import jsonable_encoder
-from ..core.pydantic_utilities import parse_obj_as
-from ..core.request_options import RequestOptions
-from ..core.serialization import convert_and_respect_annotation_metadata
+from ...commons.errors.access_denied_error import AccessDeniedError
+from ...commons.errors.error import Error
+from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
+from ...commons.errors.not_found_error import NotFoundError
+from ...commons.errors.unauthorized_error import UnauthorizedError
+from ...commons.types.create_score_value import CreateScoreValue
+from ...commons.types.score_data_type import ScoreDataType
+from ...core.api_error import ApiError
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.http_response import AsyncHttpResponse, HttpResponse
+from ...core.jsonable_encoder import jsonable_encoder
+from ...core.pydantic_utilities import parse_obj_as
+from ...core.request_options import RequestOptions
+from ...core.serialization import convert_and_respect_annotation_metadata
 from .types.create_score_response import CreateScoreResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class RawScoreClient:
+class RawScoreV1Client:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
@@ -284,7 +284,7 @@ class RawScoreClient:
         )
 
 
-class AsyncRawScoreClient:
+class AsyncRawScoreV1Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 

@@ -22,11 +22,11 @@ from ..core.request_options import RequestOptions
 from .types.get_scores_response import GetScoresResponse
 
 
-class RawScoreV2Client:
+class RawScoresClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(
+    def get_many(
         self,
         *,
         page: typing.Optional[int] = None,
@@ -339,11 +339,11 @@ class RawScoreV2Client:
         )
 
 
-class AsyncRawScoreV2Client:
+class AsyncRawScoresClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(
+    async def get_many(
         self,
         *,
         page: typing.Optional[int] = None,
