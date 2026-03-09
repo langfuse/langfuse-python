@@ -39,7 +39,7 @@ def test_openai_chat_completion(openai):
 
     sleep(1)
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -96,7 +96,7 @@ def test_openai_chat_completion_stream(openai):
     langfuse.flush()
     sleep(3)
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -156,7 +156,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -205,7 +205,7 @@ def test_openai_chat_completion_stream_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -255,7 +255,7 @@ def test_openai_chat_completion_with_langfuse_prompt(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -278,7 +278,7 @@ def test_openai_chat_completion_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -338,7 +338,7 @@ def test_openai_chat_completion_two_calls(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -348,7 +348,7 @@ def test_openai_chat_completion_two_calls(openai):
 
     assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
 
-    generation_2 = get_api().observations.get_many(
+    generation_2 = get_api().legacy.observations_v1.get_many(
         name=generation_name_2, type="GENERATION"
     )
 
@@ -372,7 +372,7 @@ def test_openai_chat_completion_with_seed(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -399,7 +399,7 @@ def test_openai_completion(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -447,7 +447,7 @@ def test_openai_completion_stream(openai):
 
     assert len(content) > 0
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -496,7 +496,7 @@ def test_openai_completion_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -539,7 +539,7 @@ def test_openai_completion_stream_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -588,7 +588,7 @@ def test_openai_completion_with_langfuse_prompt(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -630,7 +630,7 @@ async def test_async_chat(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -676,7 +676,7 @@ async def test_async_chat_stream(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -734,7 +734,7 @@ async def test_async_chat_stream_with_anext(openai):
 
     print(result)
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -796,7 +796,7 @@ def test_openai_function_call(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -840,7 +840,7 @@ def test_openai_function_call_streamed(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -884,7 +884,7 @@ def test_openai_tool_call(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -940,7 +940,7 @@ def test_openai_tool_call_streamed(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1018,7 +1018,7 @@ def test_structured_output_response_format_kwarg(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1087,7 +1087,7 @@ def test_structured_output_beta_completions_parse(openai):
 
     if Version(openai.__version__) >= Version("1.50.0"):
         # Check the trace and observation properties
-        generation = get_api().observations.get_many(
+        generation = get_api().legacy.observations_v1.get_many(
             name=generation_name, type="GENERATION"
         )
 
@@ -1133,7 +1133,7 @@ async def test_close_async_stream(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1194,7 +1194,7 @@ def test_base_64_image_input(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1245,7 +1245,7 @@ def test_audio_input_and_output(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1285,7 +1285,7 @@ def test_response_api_text_input(openai):
     )
 
     langfuse.flush()
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1331,7 +1331,7 @@ def test_response_api_image_input(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1363,7 +1363,7 @@ def test_response_api_web_search(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1400,7 +1400,7 @@ def test_response_api_streaming(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1454,7 +1454,7 @@ def test_response_api_functions(openai):
 
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1486,7 +1486,7 @@ def test_response_api_reasoning(openai):
     )
     langfuse.flush()
 
-    generation = get_api().observations.get_many(
+    generation = get_api().legacy.observations_v1.get_many(
         name=generation_name, type="GENERATION"
     )
 
@@ -1518,7 +1518,9 @@ def test_openai_embeddings(openai):
     langfuse.flush()
     sleep(1)
 
-    embedding = get_api().observations.get_many(name=embedding_name, type="EMBEDDING")
+    embedding = get_api().legacy.observations_v1.get_many(
+        name=embedding_name, type="EMBEDDING"
+    )
 
     assert len(embedding.data) != 0
     embedding_data = embedding.data[0]
@@ -1552,7 +1554,9 @@ def test_openai_embeddings_multiple_inputs(openai):
     langfuse.flush()
     sleep(1)
 
-    embedding = get_api().observations.get_many(name=embedding_name, type="EMBEDDING")
+    embedding = get_api().legacy.observations_v1.get_many(
+        name=embedding_name, type="EMBEDDING"
+    )
 
     assert len(embedding.data) != 0
     embedding_data = embedding.data[0]
@@ -1583,7 +1587,9 @@ async def test_async_openai_embeddings(openai):
     langfuse.flush()
     sleep(1)
 
-    embedding = get_api().observations.get_many(name=embedding_name, type="EMBEDDING")
+    embedding = get_api().legacy.observations_v1.get_many(
+        name=embedding_name, type="EMBEDDING"
+    )
 
     assert len(embedding.data) != 0
     embedding_data = embedding.data[0]
