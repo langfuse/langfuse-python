@@ -35,6 +35,7 @@ class RawPromptsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        resolve: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Prompt]:
         """
@@ -52,6 +53,9 @@ class RawPromptsClient:
         label : typing.Optional[str]
             Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
 
+        resolve : typing.Optional[bool]
+            Resolve prompt dependencies before returning the prompt. Defaults to `true`. Set to `false` to return the raw stored prompt with dependency tags intact. This bypasses prompt caching and is intended for debugging or one-off jobs, not production runtime fetches.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -65,6 +69,7 @@ class RawPromptsClient:
             params={
                 "version": version,
                 "label": label,
+                "resolve": resolve,
             },
             request_options=request_options,
         )
@@ -511,6 +516,7 @@ class AsyncRawPromptsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        resolve: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Prompt]:
         """
@@ -528,6 +534,9 @@ class AsyncRawPromptsClient:
         label : typing.Optional[str]
             Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
 
+        resolve : typing.Optional[bool]
+            Resolve prompt dependencies before returning the prompt. Defaults to `true`. Set to `false` to return the raw stored prompt with dependency tags intact. This bypasses prompt caching and is intended for debugging or one-off jobs, not production runtime fetches.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -541,6 +550,7 @@ class AsyncRawPromptsClient:
             params={
                 "version": version,
                 "label": label,
+                "resolve": resolve,
             },
             request_options=request_options,
         )

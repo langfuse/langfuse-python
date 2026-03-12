@@ -12,8 +12,10 @@ if typing.TYPE_CHECKING:
         BlobStorageIntegrationDeletionResponse,
         BlobStorageIntegrationFileType,
         BlobStorageIntegrationResponse,
+        BlobStorageIntegrationStatusResponse,
         BlobStorageIntegrationType,
         BlobStorageIntegrationsResponse,
+        BlobStorageSyncStatus,
         CreateBlobStorageIntegrationRequest,
     )
 _dynamic_imports: typing.Dict[str, str] = {
@@ -22,8 +24,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BlobStorageIntegrationDeletionResponse": ".types",
     "BlobStorageIntegrationFileType": ".types",
     "BlobStorageIntegrationResponse": ".types",
+    "BlobStorageIntegrationStatusResponse": ".types",
     "BlobStorageIntegrationType": ".types",
     "BlobStorageIntegrationsResponse": ".types",
+    "BlobStorageSyncStatus": ".types",
     "CreateBlobStorageIntegrationRequest": ".types",
 }
 
@@ -61,7 +65,9 @@ __all__ = [
     "BlobStorageIntegrationDeletionResponse",
     "BlobStorageIntegrationFileType",
     "BlobStorageIntegrationResponse",
+    "BlobStorageIntegrationStatusResponse",
     "BlobStorageIntegrationType",
     "BlobStorageIntegrationsResponse",
+    "BlobStorageSyncStatus",
     "CreateBlobStorageIntegrationRequest",
 ]
