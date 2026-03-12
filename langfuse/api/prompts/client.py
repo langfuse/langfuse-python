@@ -35,6 +35,7 @@ class PromptsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        resolve: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
         """
@@ -51,6 +52,9 @@ class PromptsClient:
 
         label : typing.Optional[str]
             Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
+
+        resolve : typing.Optional[bool]
+            Resolve prompt dependencies before returning the prompt. Defaults to `true`. Set to `false` to return the raw stored prompt with dependency tags intact. This bypasses prompt caching and is intended for debugging or one-off jobs, not production runtime fetches.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -76,7 +80,11 @@ class PromptsClient:
         )
         """
         _response = self._raw_client.get(
-            prompt_name, version=version, label=label, request_options=request_options
+            prompt_name,
+            version=version,
+            label=label,
+            resolve=resolve,
+            request_options=request_options,
         )
         return _response.data
 
@@ -279,6 +287,7 @@ class AsyncPromptsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        resolve: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
         """
@@ -295,6 +304,9 @@ class AsyncPromptsClient:
 
         label : typing.Optional[str]
             Label of the prompt to be retrieved. Defaults to "production" if no label or version is set.
+
+        resolve : typing.Optional[bool]
+            Resolve prompt dependencies before returning the prompt. Defaults to `true`. Set to `false` to return the raw stored prompt with dependency tags intact. This bypasses prompt caching and is intended for debugging or one-off jobs, not production runtime fetches.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -328,7 +340,11 @@ class AsyncPromptsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(
-            prompt_name, version=version, label=label, request_options=request_options
+            prompt_name,
+            version=version,
+            label=label,
+            resolve=resolve,
+            request_options=request_options,
         )
         return _response.data
 

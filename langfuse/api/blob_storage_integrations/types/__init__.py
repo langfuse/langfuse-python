@@ -13,8 +13,12 @@ if typing.TYPE_CHECKING:
     )
     from .blob_storage_integration_file_type import BlobStorageIntegrationFileType
     from .blob_storage_integration_response import BlobStorageIntegrationResponse
+    from .blob_storage_integration_status_response import (
+        BlobStorageIntegrationStatusResponse,
+    )
     from .blob_storage_integration_type import BlobStorageIntegrationType
     from .blob_storage_integrations_response import BlobStorageIntegrationsResponse
+    from .blob_storage_sync_status import BlobStorageSyncStatus
     from .create_blob_storage_integration_request import (
         CreateBlobStorageIntegrationRequest,
     )
@@ -24,8 +28,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BlobStorageIntegrationDeletionResponse": ".blob_storage_integration_deletion_response",
     "BlobStorageIntegrationFileType": ".blob_storage_integration_file_type",
     "BlobStorageIntegrationResponse": ".blob_storage_integration_response",
+    "BlobStorageIntegrationStatusResponse": ".blob_storage_integration_status_response",
     "BlobStorageIntegrationType": ".blob_storage_integration_type",
     "BlobStorageIntegrationsResponse": ".blob_storage_integrations_response",
+    "BlobStorageSyncStatus": ".blob_storage_sync_status",
     "CreateBlobStorageIntegrationRequest": ".create_blob_storage_integration_request",
 }
 
@@ -63,7 +69,9 @@ __all__ = [
     "BlobStorageIntegrationDeletionResponse",
     "BlobStorageIntegrationFileType",
     "BlobStorageIntegrationResponse",
+    "BlobStorageIntegrationStatusResponse",
     "BlobStorageIntegrationType",
     "BlobStorageIntegrationsResponse",
+    "BlobStorageSyncStatus",
     "CreateBlobStorageIntegrationRequest",
 ]
