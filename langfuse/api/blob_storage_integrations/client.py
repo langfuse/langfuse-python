@@ -16,6 +16,9 @@ from .types.blob_storage_integration_deletion_response import (
 )
 from .types.blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .types.blob_storage_integration_response import BlobStorageIntegrationResponse
+from .types.blob_storage_integration_status_response import (
+    BlobStorageIntegrationStatusResponse,
+)
 from .types.blob_storage_integration_type import BlobStorageIntegrationType
 from .types.blob_storage_integrations_response import BlobStorageIntegrationsResponse
 
@@ -189,6 +192,44 @@ class BlobStorageIntegrationsClient:
             prefix=prefix,
             export_start_date=export_start_date,
             request_options=request_options,
+        )
+        return _response.data
+
+    def get_blob_storage_integration_status(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> BlobStorageIntegrationStatusResponse:
+        """
+        Get the sync status of a blob storage integration by integration ID (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        BlobStorageIntegrationStatusResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.blob_storage_integrations.get_blob_storage_integration_status(
+            id="id",
+        )
+        """
+        _response = self._raw_client.get_blob_storage_integration_status(
+            id, request_options=request_options
         )
         return _response.data
 
@@ -413,6 +454,52 @@ class AsyncBlobStorageIntegrationsClient:
             prefix=prefix,
             export_start_date=export_start_date,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def get_blob_storage_integration_status(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> BlobStorageIntegrationStatusResponse:
+        """
+        Get the sync status of a blob storage integration by integration ID (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        BlobStorageIntegrationStatusResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.blob_storage_integrations.get_blob_storage_integration_status(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_blob_storage_integration_status(
+            id, request_options=request_options
         )
         return _response.data
 

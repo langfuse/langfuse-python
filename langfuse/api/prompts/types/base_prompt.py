@@ -34,7 +34,7 @@ class BasePrompt(UniversalBaseModel):
         FieldMetadata(alias="resolutionGraph"),
     ] = pydantic.Field(default=None)
     """
-    The dependency resolution graph for the current prompt. Null if prompt has no dependencies.
+    The dependency resolution graph for the current prompt. Null if the prompt has no dependencies or if `resolve=false` was used.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
