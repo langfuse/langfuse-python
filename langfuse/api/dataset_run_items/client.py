@@ -38,6 +38,7 @@ class DatasetRunItemsClient:
         observation_id: typing.Optional[str] = OMIT,
         trace_id: typing.Optional[str] = OMIT,
         dataset_version: typing.Optional[dt.datetime] = OMIT,
+        created_at: typing.Optional[dt.datetime] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
         """
@@ -65,6 +66,9 @@ class DatasetRunItemsClient:
             Specifies the dataset version to use for this experiment run.
             If provided, the experiment will use dataset items as they existed at or before this timestamp.
             If not provided, uses the latest version of dataset items.
+
+        created_at : typing.Optional[dt.datetime]
+            Optional timestamp to set the createdAt field of the dataset run item. If not provided or null, defaults to current timestamp.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -98,6 +102,7 @@ class DatasetRunItemsClient:
             observation_id=observation_id,
             trace_id=trace_id,
             dataset_version=dataset_version,
+            created_at=created_at,
             request_options=request_options,
         )
         return _response.data
@@ -185,6 +190,7 @@ class AsyncDatasetRunItemsClient:
         observation_id: typing.Optional[str] = OMIT,
         trace_id: typing.Optional[str] = OMIT,
         dataset_version: typing.Optional[dt.datetime] = OMIT,
+        created_at: typing.Optional[dt.datetime] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DatasetRunItem:
         """
@@ -212,6 +218,9 @@ class AsyncDatasetRunItemsClient:
             Specifies the dataset version to use for this experiment run.
             If provided, the experiment will use dataset items as they existed at or before this timestamp.
             If not provided, uses the latest version of dataset items.
+
+        created_at : typing.Optional[dt.datetime]
+            Optional timestamp to set the createdAt field of the dataset run item. If not provided or null, defaults to current timestamp.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -253,6 +262,7 @@ class AsyncDatasetRunItemsClient:
             observation_id=observation_id,
             trace_id=trace_id,
             dataset_version=dataset_version,
+            created_at=created_at,
             request_options=request_options,
         )
         return _response.data
