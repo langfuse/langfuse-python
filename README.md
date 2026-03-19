@@ -12,7 +12,7 @@
 ## Installation
 
 > [!IMPORTANT]
-> The SDK was rewritten in v3 and released in June 2025. Refer to the [v3 migration guide](https://langfuse.com/docs/sdk/python/sdk-v3#upgrade-from-v2) for instructions on updating your code.
+> The SDK was rewritten in v4 and released in March 2026. Refer to the [v4 migration guide](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4) for instructions on updating your code.
 
 ```
 pip install langfuse
