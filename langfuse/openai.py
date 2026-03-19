@@ -246,6 +246,34 @@ def _langfuse_wrapper(func: Any) -> Any:
     return _with_langfuse
 
 
+def _extract_responses_prompt(kwargs: Any) -> Any:
+    input_value = kwargs.get("input", None)
+    instructions = kwargs.get("instructions", None)
+
+    if isinstance(input_value, NotGiven):
+        input_value = None
+
+    if isinstance(instructions, NotGiven):
+        instructions = None
+
+    if instructions is None:
+        return input_value
+
+    if input_value is None:
+        return {"instructions": instructions}
+
+    if isinstance(input_value, str):
+        return [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": input_value},
+        ]
+
+    if isinstance(input_value, list):
+        return [{"role": "system", "content": instructions}, *input_value]
+
+    return {"instructions": instructions, "input": input_value}
+
+
 def _extract_chat_prompt(kwargs: Any) -> Any:
     """Extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
     prompt = {}
@@ -403,7 +431,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
     if resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.object == "Responses" or resource.object == "AsyncResponses":
-        prompt = kwargs.get("input", None)
+        prompt = _extract_responses_prompt(kwargs)
     elif resource.type == "chat":
         prompt = _extract_chat_prompt(kwargs)
     elif resource.type == "embedding":
@@ -539,8 +567,8 @@ def _parse_usage(usage: Optional[Any] = None) -> Any:
     for tokens_details in [
         "prompt_tokens_details",
         "completion_tokens_details",
-        "input_token_details",
-        "output_token_details",
+        "input_tokens_details",
+        "output_tokens_details",
     ]:
         if tokens_details in usage_dict and usage_dict[tokens_details] is not None:
             tokens_details_dict = (

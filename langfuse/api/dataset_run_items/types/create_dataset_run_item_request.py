@@ -46,6 +46,13 @@ class CreateDatasetRunItemRequest(UniversalBaseModel):
     If not provided, uses the latest version of dataset items.
     """
 
+    created_at: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="createdAt")
+    ] = pydantic.Field(default=None)
+    """
+    Optional timestamp to set the createdAt field of the dataset run item. If not provided or null, defaults to current timestamp.
+    """
+
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
     )
