@@ -567,8 +567,8 @@ def _parse_usage(usage: Optional[Any] = None) -> Any:
     for tokens_details in [
         "prompt_tokens_details",
         "completion_tokens_details",
-        "input_token_details",
-        "output_token_details",
+        "input_tokens_details",
+        "output_tokens_details",
     ]:
         if tokens_details in usage_dict and usage_dict[tokens_details] is not None:
             tokens_details_dict = (
