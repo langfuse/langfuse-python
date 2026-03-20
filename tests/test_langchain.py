@@ -18,7 +18,222 @@ from pydantic import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
+from langfuse.langchain.CallbackHandler import (
+    _convert_tool_call,
+    _normalize_anthropic_content_blocks,
+    _to_langfuse_tool,
+)
 from tests.utils import create_uuid, encode_file_to_base64, get_api
+
+
+# --- Unit tests for _to_langfuse_tool ---
+
+
+def test_to_langfuse_tool_openai_format():
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the weather",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+    # OpenAI format is already canonical — returned as single-item list
+    assert _to_langfuse_tool(tool) == [tool]
+
+
+def test_to_langfuse_tool_anthropic_format():
+    tool = {
+        "name": "get_weather",
+        "description": "Get the weather",
+        "input_schema": {"type": "object", "properties": {}},
+    }
+    assert _to_langfuse_tool(tool) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+
+def test_to_langfuse_tool_google_format_single():
+    # Google / Vertex AI bundles tools in a function_declarations object
+    tool = {
+        "function_declarations": [
+            {
+                "name": "get_weather",
+                "description": "Get the weather",
+                "parameters": {"type": "object", "properties": {"city": {"type": "string"}}},
+            }
+        ]
+    }
+    assert _to_langfuse_tool(tool) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather",
+                "parameters": {"type": "object", "properties": {"city": {"type": "string"}}},
+            },
+        }
+    ]
+
+
+def test_to_langfuse_tool_google_format_multiple():
+    # Multiple tools in one function_declarations object expand to multiple items
+    tool = {
+        "function_declarations": [
+            {"name": "get_weather", "description": "Get weather", "parameters": {}},
+            {"name": "get_time", "description": "Get time", "parameters": {}},
+        ]
+    }
+    result = _to_langfuse_tool(tool)
+    assert len(result) == 2
+    assert result[0]["function"]["name"] == "get_weather"
+    assert result[1]["function"]["name"] == "get_time"
+
+
+def test_to_langfuse_tool_base_tool_object():
+    # BaseTool / StructuredTool objects passed without dict conversion (langfuse#11850)
+    class MockSchema:
+        def model_json_schema(self):
+            return {
+                "title": "GetWeather",
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            }
+
+    class MockTool:
+        name = "get_weather"
+        description = "Get the weather for a city"
+        args_schema = MockSchema()
+
+    assert _to_langfuse_tool(MockTool()) == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        }
+    ]
+
+
+def test_to_langfuse_tool_passthrough_unknown_dict():
+    tool = {"name": "my_tool", "custom_field": "value"}
+    assert _to_langfuse_tool(tool) == [tool]
+
+
+def test_to_langfuse_tool_passthrough_non_dict():
+    assert _to_langfuse_tool("not a dict") == ["not a dict"]
+
+
+# --- Unit tests for _convert_tool_call ---
+
+
+def test_convert_tool_call_langchain_format():
+    tc = {"name": "get_weather", "args": {"city": "Berlin"}, "id": "call_1"}
+    result = _convert_tool_call(tc)
+    assert result == {
+        "id": "call_1",
+        "type": "function",
+        "name": "get_weather",
+        "arguments": '{"city": "Berlin"}',
+    }
+
+
+def test_convert_tool_call_anthropic_streaming_format():
+    # Anthropic streaming uses "input" instead of "args"
+    tc = {"type": "tool_use", "name": "get_weather", "input": {"city": "Berlin"}, "id": "toolu_1"}
+    result = _convert_tool_call(tc)
+    assert result == {
+        "id": "toolu_1",
+        "type": "function",
+        "name": "get_weather",
+        "arguments": '{"city": "Berlin"}',
+    }
+
+
+def test_convert_tool_call_include_error():
+    tc = {"name": "bad_tool", "args": {}, "id": "call_2", "error": "invalid input"}
+    result = _convert_tool_call(tc, include_error=True)
+    assert result == {
+        "id": "call_2",
+        "type": "function",
+        "name": "bad_tool",
+        "arguments": "{}",
+        "error": "invalid input",
+    }
+
+
+def test_convert_tool_call_non_dict_returns_none():
+    assert _convert_tool_call("not a dict") is None
+
+
+# --- Unit tests for _normalize_anthropic_content_blocks ---
+
+
+def test_normalize_anthropic_content_blocks_fills_empty_input():
+    """Streaming leaves input:{} and partial_json artifacts — should be filled from tool_calls."""
+    content = [
+        {
+            "type": "tool_use",
+            "id": "toolu_abc",
+            "name": "get_weather",
+            "input": {},
+            "index": 0,
+            "partial_json": ['{"city": "Berlin"}'],
+        }
+    ]
+    tool_calls = [{"id": "toolu_abc", "name": "get_weather", "args": {"city": "Berlin"}}]
+    result = _normalize_anthropic_content_blocks(content, tool_calls)
+    assert result == [
+        {"type": "tool_use", "id": "toolu_abc", "name": "get_weather", "input": {"city": "Berlin"}}
+    ]
+
+
+def test_normalize_anthropic_content_blocks_preserves_non_empty_input():
+    """If input is already populated, keep it and still strip streaming keys."""
+    content = [
+        {
+            "type": "tool_use",
+            "id": "toolu_abc",
+            "name": "get_weather",
+            "input": {"city": "Berlin"},
+            "index": 0,
+        }
+    ]
+    tool_calls = [{"id": "toolu_abc", "name": "get_weather", "args": {"city": "Paris"}}]
+    result = _normalize_anthropic_content_blocks(content, tool_calls)
+    assert result == [
+        {"type": "tool_use", "id": "toolu_abc", "name": "get_weather", "input": {"city": "Berlin"}}
+    ]
+
+
+def test_normalize_anthropic_content_blocks_ignores_non_tool_use():
+    """Text content blocks should pass through unchanged."""
+    content = [{"type": "text", "text": "hello", "index": 0}]
+    result = _normalize_anthropic_content_blocks(content, [])
+    assert result == content
+
+
+def test_normalize_anthropic_content_blocks_no_tool_calls_passthrough():
+    """Without tool_calls to match against, return content unchanged."""
+    content = [{"type": "tool_use", "id": "x", "name": "f", "input": {}}]
+    assert _normalize_anthropic_content_blocks(content, []) is content
+
+
+# --- End unit tests ---
 
 
 def test_callback_generated_from_trace_chat():
@@ -762,15 +977,19 @@ def test_callback_openai_functions_with_tools():
 
     for generation in generations:
         assert generation.input is not None
-        tool_messages = [msg for msg in generation.input if msg["role"] == "tool"]
-        assert len(tool_messages) == 2
-        assert any(
-            "standardize_address" == msg["content"]["function"]["name"]
-            for msg in tool_messages
-        )
-        assert any(
-            "get_weather" == msg["content"]["function"]["name"] for msg in tool_messages
-        )
+        # Input is structured as {messages, tools} for extractToolsFromObservation
+        assert "messages" in generation.input
+        assert "tools" in generation.input
+        # Each tool must conform to OpenAI format (what extractTools parses)
+        for t in generation.input["tools"]:
+            assert t.get("type") == "function"
+            assert "function" in t
+            assert "name" in t["function"]
+            assert "description" in t["function"]
+            assert "parameters" in t["function"]
+        tool_names = [t["function"]["name"] for t in generation.input["tools"]]
+        assert "standardize_address" in tool_names
+        assert "get_weather" in tool_names
 
         assert generation.output is not None
 
