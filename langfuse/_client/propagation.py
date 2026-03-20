@@ -76,7 +76,7 @@ def propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -106,10 +106,11 @@ def propagate_attributes(
             Must be US-ASCII string, ≤200 characters. Use this to group related traces
             within a user session (e.g., a conversation thread, multi-turn interaction).
         metadata: Additional key-value metadata to propagate to all spans.
-            - Keys and values must be US-ASCII strings
-            - All values must be ≤200 characters
+            - Keys must be US-ASCII strings
+            - Non-string values are automatically coerced to strings via str()
+            - All values (after coercion) must be ≤200 characters; oversized values are dropped with a warning
             - Use for dimensions like internal correlating identifiers
-            - AVOID: large payloads, sensitive data, non-string values (will be dropped with warning)
+            - AVOID: large payloads, sensitive data
         version: Version identfier for parts of your application that are independently versioned, e.g. agents
         tags: List of tags to categorize the group of observations
         trace_name: Name to assign to the trace. Must be US-ASCII string, ≤200 characters.
@@ -185,14 +186,15 @@ def propagate_attributes(
         ```
 
     Note:
-        - **Validation**: All attribute values (user_id, session_id, metadata values)
-          must be strings ≤200 characters. Invalid values will be dropped with a
-          warning logged. Ensure values meet constraints before calling.
+        - **Validation**: user_id, session_id, and trace_name must be strings
+          ≤200 characters. Metadata values may be any type and are coerced to
+          strings via str(); values exceeding 200 characters after coercion
+          are dropped with a warning.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
 
     Raises:
-        No exceptions are raised. Invalid values are logged as warnings and dropped.
+        No exceptions are raised. Oversized values are logged as warnings and dropped.
     """
     return _propagate_attributes(
         user_id=user_id,
@@ -210,7 +212,7 @@ def _propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -253,6 +255,10 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata.items():
+            # Coerce non-string values to strings (e.g., LangGraph injects
+            # langgraph_step=int, langgraph_triggers=list, langgraph_path=tuple)
+            if not isinstance(value, str):
+                value = str(value)
             if _validate_string_value(value=value, key=f"metadata.{key}"):
                 validated_metadata[key] = value
 
