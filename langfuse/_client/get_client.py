@@ -55,6 +55,7 @@ def _create_client_from_instance(
         additional_headers=instance.additional_headers,
         tracer_provider=instance.tracer_provider,
         httpx_client=instance.httpx_client,
+        async_httpx_client=instance.async_httpx_client,
     )
 
 

@@ -3,6 +3,8 @@
 This module tests that additional headers are properly configured in the HTTP clients.
 """
 
+import asyncio
+
 import httpx
 
 from langfuse._client.client import Langfuse
@@ -114,6 +116,28 @@ class TestAdditionalHeadersSimple:
 
         assert langfuse._resources is not None
         assert langfuse._resources._media_manager._httpx_client is custom_client
+
+    def test_async_api_uses_custom_async_httpx_client(self):
+        """Test that async_api reuses the configured custom async httpx client."""
+        custom_async_client = httpx.AsyncClient()
+
+        try:
+            langfuse = Langfuse(
+                public_key="test-public-key",
+                secret_key="test-secret-key",
+                host="https://mock-host.com",
+                async_httpx_client=custom_async_client,
+                tracing_enabled=False,
+            )
+
+            assert langfuse._resources is not None
+            assert langfuse._resources.async_httpx_client is custom_async_client
+            assert (
+                langfuse.async_api._client_wrapper.httpx_client.httpx_client
+                is custom_async_client
+            )
+        finally:
+            asyncio.run(custom_async_client.aclose())
 
     def test_none_additional_headers_works(self):
         """Test that passing None for additional_headers works without errors."""

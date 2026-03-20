@@ -90,6 +90,7 @@ class LangfuseResourceManager:
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
         httpx_client: Optional[httpx.Client] = None,
+        async_httpx_client: Optional[httpx.AsyncClient] = None,
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
@@ -123,6 +124,7 @@ class LangfuseResourceManager:
                     flush_at=flush_at,
                     flush_interval=flush_interval,
                     httpx_client=httpx_client,
+                    async_httpx_client=async_httpx_client,
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
                     mask=mask,
@@ -152,6 +154,7 @@ class LangfuseResourceManager:
         flush_interval: Optional[float] = None,
         media_upload_thread_count: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
+        async_httpx_client: Optional[httpx.AsyncClient] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         tracing_enabled: bool = True,
@@ -218,6 +221,15 @@ class LangfuseResourceManager:
             client_headers = additional_headers if additional_headers else {}
             self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
 
+        if async_httpx_client is not None:
+            self.async_httpx_client = async_httpx_client
+        else:
+            async_client_headers = additional_headers if additional_headers else {}
+            self.async_httpx_client = httpx.AsyncClient(
+                timeout=timeout,
+                headers=async_client_headers,
+            )
+
         self.api = LangfuseAPI(
             base_url=base_url,
             username=self.public_key,
@@ -235,6 +247,7 @@ class LangfuseResourceManager:
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
             x_langfuse_public_key=self.public_key,
+            httpx_client=self.async_httpx_client,
             timeout=timeout,
         )
         score_ingestion_client = LangfuseClient(
