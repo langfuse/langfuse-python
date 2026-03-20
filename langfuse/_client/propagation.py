@@ -253,6 +253,10 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata.items():
+            # Coerce non-string values to strings (e.g., LangGraph injects
+            # langgraph_step=int, langgraph_triggers=list, langgraph_path=tuple)
+            if not isinstance(value, str):
+                value = str(value)
             if _validate_string_value(value=value, key=f"metadata.{key}"):
                 validated_metadata[key] = value
 
