@@ -13,7 +13,7 @@ Key features:
 
 import base64
 import os
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -27,10 +27,15 @@ from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_INTERVAL,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
+from langfuse._client.masking_exporter import (
+    MaskedAttributeSpanWrapper,
+    MaskingSpanExporter,
+)
 from langfuse._client.propagation import _get_propagated_attributes_from_context
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
 from langfuse._client.utils import span_formatter
 from langfuse.logger import langfuse_logger
+from langfuse.types import BatchMaskFunction
 from langfuse.version import __version__ as langfuse_version
 
 
@@ -63,6 +68,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
+        batch_mask: Optional[BatchMaskFunction] = None,
+        mask_batch_size: Optional[int] = None,
+        use_async_masking: bool = False,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -110,6 +118,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             headers=headers,
             timeout=timeout,
         )
+
+        if batch_mask is not None:
+            langfuse_span_exporter = MaskingSpanExporter(
+                span_exporter=langfuse_span_exporter,
+                batch_mask=batch_mask,
+                mask_batch_size=mask_batch_size,
+                use_async_masking=use_async_masking,
+            )
 
         super().__init__(
             span_exporter=langfuse_span_exporter,
