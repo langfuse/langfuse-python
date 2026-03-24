@@ -86,6 +86,11 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
     """
 
+    compressed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
+    """
+
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
     )
