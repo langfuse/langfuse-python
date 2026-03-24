@@ -327,7 +327,7 @@ class LangfuseDecorator:
                             langfuse_span_or_generation.update(output=result)
 
                         return result
-                    except Exception as e:
+                    except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
                             level="ERROR", status_message=str(e) or type(e).__name__
                         )
@@ -445,7 +445,7 @@ class LangfuseDecorator:
                             langfuse_span_or_generation.update(output=result)
 
                         return result
-                    except Exception as e:
+                    except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
                             level="ERROR", status_message=str(e) or type(e).__name__
                         )
@@ -586,7 +586,7 @@ class _ContextPreservedSyncGeneratorWrapper:
 
             raise  # Re-raise StopIteration
 
-        except Exception as e:
+        except (Exception, asyncio.CancelledError) as e:
             self.span.update(
                 level="ERROR", status_message=str(e) or type(e).__name__
             ).end()
@@ -653,7 +653,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
             self.span.update(output=output).end()
 
             raise  # Re-raise StopAsyncIteration
-        except Exception as e:
+        except (Exception, asyncio.CancelledError) as e:
             self.span.update(
                 level="ERROR", status_message=str(e) or type(e).__name__
             ).end()

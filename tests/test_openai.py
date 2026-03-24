@@ -1407,7 +1407,10 @@ def test_response_api_streaming(openai):
     assert len(generation.data) != 0
     generationData = generation.data[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == "Hello!"
+    assert generation.data[0].input == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+    ]
     assert generationData.type == "GENERATION"
     assert "gpt-4o" in generationData.model
     assert generationData.start_time is not None

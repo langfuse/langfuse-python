@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "langfuse"
 
-version = "4.0.0"
+version = "4.0.1"
 description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
@@ -14,7 +14,7 @@ pydantic = "^2"
 backoff = ">=1.10.0"
 openai = { version = ">=0.27.8", optional = true }
 wrapt = "^1.14"
-packaging = ">=23.2,<26.0"
+packaging = ">=23.2,<27.0"
 opentelemetry-api = "^1.33.1"
 opentelemetry-sdk = "^1.33.1"
 opentelemetry-exporter-otlp-proto-http = "^1.33.1"
