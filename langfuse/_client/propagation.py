@@ -17,6 +17,7 @@ from opentelemetry import (
 from opentelemetry import (
     trace as otel_trace_api,
 )
+from opentelemetry.context import _RUNTIME_CONTEXT
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
@@ -272,7 +273,13 @@ def _propagate_attributes(
         yield
 
     finally:
-        otel_context_api.detach(token)
+        try:
+            # Bypass the public detach() which logs an ERROR when the token was
+            # created in a different async task/thread (common in async frameworks).
+            # The span data is already captured; the failed detach is harmless.
+            _RUNTIME_CONTEXT.detach(token)
+        except Exception:
+            pass
 
 
 def _get_propagated_attributes_from_context(
