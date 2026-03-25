@@ -151,6 +151,7 @@ class RawBlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BlobStorageIntegrationResponse]:
         """
@@ -196,6 +197,9 @@ class RawBlobStorageIntegrationsClient:
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
 
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -221,6 +225,7 @@ class RawBlobStorageIntegrationsClient:
                 "fileType": file_type,
                 "exportMode": export_mode,
                 "exportStartDate": export_start_date,
+                "compressed": compressed,
             },
             request_options=request_options,
             omit=OMIT,
@@ -623,6 +628,7 @@ class AsyncRawBlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BlobStorageIntegrationResponse]:
         """
@@ -668,6 +674,9 @@ class AsyncRawBlobStorageIntegrationsClient:
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
 
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -693,6 +702,7 @@ class AsyncRawBlobStorageIntegrationsClient:
                 "fileType": file_type,
                 "exportMode": export_mode,
                 "exportStartDate": export_start_date,
+                "compressed": compressed,
             },
             request_options=request_options,
             omit=OMIT,

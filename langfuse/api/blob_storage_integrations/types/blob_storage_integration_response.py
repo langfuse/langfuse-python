@@ -40,6 +40,7 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
     export_start_date: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
     ] = None
+    compressed: bool
     next_sync_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="nextSyncAt")
     ] = None
