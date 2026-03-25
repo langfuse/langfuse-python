@@ -1,8 +1,10 @@
 import asyncio
+import contextvars
 import os
 import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import aclosing
 from time import sleep
 from typing import Optional
 
@@ -13,6 +15,10 @@ from opentelemetry import trace
 
 from langfuse import Langfuse, get_client, observe, propagate_attributes
 from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
+from langfuse._client.observe import (
+    _ContextPreservedAsyncGeneratorWrapper,
+    _ContextPreservedSyncGeneratorWrapper,
+)
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.langchain import CallbackHandler
 from langfuse.media import LangfuseMedia
@@ -23,6 +29,25 @@ mock_deep_metadata = {"key": "mock_deep_metadata"}
 mock_session_id = "session-id-1"
 mock_args = (1, 2, 3)
 mock_kwargs = {"a": 1, "b": 2, "c": 3}
+
+
+class _FakeObservation:
+    def __init__(self) -> None:
+        self.output = None
+        self.level = None
+        self.status_message = None
+        self.end_calls = 0
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        return self
+
+    def end(self):
+        self.end_calls += 1
+
+        return self
 
 
 def removeMockResourceManagerInstances():
@@ -1759,6 +1784,35 @@ def test_sync_generator_context_preservation():
     assert generator_obs.output == "item_0item_1item_2"
 
 
+def test_sync_generator_wrapper_finalizes_on_early_break():
+    closed = []
+
+    def generator():
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            closed.append("closed")
+
+    span = _FakeObservation()
+    wrapper = _ContextPreservedSyncGeneratorWrapper(
+        generator(),
+        contextvars.copy_context(),
+        span,
+        None,
+    )
+
+    items = []
+    for item in wrapper:
+        items.append(item)
+        break
+
+    assert items == ["item_0"]
+    assert closed == ["closed"]
+    assert span.output == "item_0"
+    assert span.end_calls == 1
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation():
@@ -1936,6 +1990,77 @@ async def test_async_generator_exception_handling_with_context():
     )
     assert failing_obs.level == "ERROR"
     assert "Generator failure test" in failing_obs.status_message
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_aclose_finalizes_partial_output():
+    closed = []
+
+    async def generator():
+        try:
+            yield "async_item_0"
+            yield "async_item_1"
+        finally:
+            closed.append("closed")
+
+    span = _FakeObservation()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        contextvars.copy_context(),
+        span,
+        None,
+    )
+
+    items = []
+    async with aclosing(wrapper) as stream:
+        async for item in stream:
+            items.append(item)
+            break
+
+    assert items == ["async_item_0"]
+    assert closed == ["closed"]
+    assert span.output == "async_item_0"
+    assert span.end_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_preserves_context_without_task_context_kwarg(
+    monkeypatch,
+):
+    marker = contextvars.ContextVar("marker", default=None)
+    preserved_context = contextvars.copy_context()
+    span = _FakeObservation()
+    original_create_task = asyncio.create_task
+
+    token = marker.set("preserved")
+    try:
+        preserved_context = contextvars.copy_context()
+    finally:
+        marker.reset(token)
+
+    async def generator():
+        assert marker.get() == "preserved"
+        yield "ok"
+
+    def patched_create_task(awaitable, *args, **kwargs):
+        if "context" in kwargs:
+            raise TypeError("create_task() got an unexpected keyword argument 'context'")
+
+        return original_create_task(awaitable, *args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "create_task", patched_create_task)
+
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        preserved_context,
+        span,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "ok"
+    await wrapper.aclose()
+    assert span.output == "ok"
+    assert span.end_calls == 1
 
 
 def test_sync_generator_empty_context_preservation():

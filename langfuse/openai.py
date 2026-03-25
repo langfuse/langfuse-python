@@ -1010,6 +1010,7 @@ class LangfuseResponseGeneratorSync:
         self.response = response
         self.generation = generation
         self.completion_start_time: Optional[datetime] = None
+        self._finalized = False
 
     def __iter__(self) -> Any:
         try:
@@ -1039,12 +1040,31 @@ class LangfuseResponseGeneratorSync:
             raise
 
     def __enter__(self) -> Any:
-        return self.__iter__()
+        return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        pass
+        self.close()
+
+    def close(self) -> None:
+        if self._finalized:
+            return
+
+        close_method = getattr(self.response, "close", None)
+        if callable(close_method):
+            try:
+                close_method()
+            finally:
+                self._finalize()
+            return
+
+        self._finalize()
 
     def _finalize(self) -> None:
+        if self._finalized:
+            return
+
+        self._finalized = True
+
         try:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
@@ -1081,6 +1101,7 @@ class LangfuseResponseGeneratorAsync:
         self.response = response
         self.generation = generation
         self.completion_start_time: Optional[datetime] = None
+        self._finalized = False
 
     async def __aiter__(self) -> Any:
         try:
@@ -1110,12 +1131,17 @@ class LangfuseResponseGeneratorAsync:
             raise
 
     async def __aenter__(self) -> Any:
-        return self.__aiter__()
+        return self
 
     async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        pass
+        await self.aclose()
 
     async def _finalize(self) -> None:
+        if self._finalized:
+            return
+
+        self._finalized = True
+
         try:
             model, completion, usage, metadata = (
                 _extract_streamed_response_api_response(self.items)
@@ -1142,11 +1168,40 @@ class LangfuseResponseGeneratorAsync:
 
         Automatically called if the response body is read to completion.
         """
-        await self.response.close()
+        if self._finalized:
+            return
+
+        close_method = getattr(self.response, "close", None)
+        if callable(close_method):
+            try:
+                await close_method()
+            finally:
+                await self._finalize()
+            return
+
+        await self._finalize()
 
     async def aclose(self) -> None:
         """Close the response and release the connection.
 
         Automatically called if the response body is read to completion.
         """
-        await self.response.aclose()
+        if self._finalized:
+            return
+
+        close_method = getattr(self.response, "aclose", None)
+        if callable(close_method):
+            try:
+                await close_method()
+            finally:
+                await self._finalize()
+        else:
+            close_method = getattr(self.response, "close", None)
+            if callable(close_method):
+                try:
+                    await close_method()
+                finally:
+                    await self._finalize()
+                return
+
+            await self._finalize()

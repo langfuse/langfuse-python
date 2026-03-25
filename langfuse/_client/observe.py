@@ -535,6 +535,20 @@ _decorator = LangfuseDecorator()
 observe = _decorator.observe
 
 
+def _get_generator_output(
+    items: List[Any],
+    transform_fn: Optional[Callable[[Iterable], str]],
+) -> Any:
+    output: Any = items
+
+    if transform_fn is not None:
+        output = transform_fn(items)
+    elif all(isinstance(item, str) for item in items):
+        output = "".join(items)
+
+    return output
+
+
 class _ContextPreservedSyncGeneratorWrapper:
     """Sync generator wrapper that ensures each iteration runs in preserved context."""
 
@@ -560,9 +574,17 @@ class _ContextPreservedSyncGeneratorWrapper:
         self.items: List[Any] = []
         self.span = span
         self.transform_fn = transform_fn
+        self._finalized = False
 
-    def __iter__(self) -> "_ContextPreservedSyncGeneratorWrapper":
-        return self
+    def __iter__(self) -> Generator[Any, None, None]:
+        try:
+            while True:
+                yield self.__next__()
+        except StopIteration:
+            return
+        finally:
+            if not self._finalized:
+                self.close()
 
     def __next__(self) -> Any:
         try:
@@ -573,25 +595,65 @@ class _ContextPreservedSyncGeneratorWrapper:
             return item
 
         except StopIteration:
-            # Handle output and span cleanup when generator is exhausted
-            output: Any = self.items
-
-            if self.transform_fn is not None:
-                output = self.transform_fn(self.items)
-
-            elif all(isinstance(item, str) for item in self.items):
-                output = "".join(self.items)
-
-            self.span.update(output=output).end()
-
+            self._finalize()
             raise  # Re-raise StopIteration
 
         except (Exception, asyncio.CancelledError) as e:
-            self.span.update(
-                level="ERROR", status_message=str(e) or type(e).__name__
-            ).end()
-
+            self._finalize(error=e)
             raise
+
+    def close(self) -> None:
+        if self._finalized:
+            return
+
+        try:
+            close_method = getattr(self.generator, "close", None)
+            if callable(close_method):
+                self.context.run(close_method)
+        except (Exception, asyncio.CancelledError) as e:
+            self._finalize(error=e)
+            raise
+
+        self._finalize()
+
+    def throw(self, typ: Any, val: Any = None, tb: Any = None) -> Any:
+        throw_method = getattr(self.generator, "throw", None)
+        if not callable(throw_method):
+            raise AttributeError("Wrapped generator does not support throw()")
+
+        try:
+            if tb is not None:
+                item = self.context.run(throw_method, typ, val, tb)
+            elif val is not None:
+                item = self.context.run(throw_method, typ, val)
+            else:
+                item = self.context.run(throw_method, typ)
+
+            self.items.append(item)
+
+            return item
+        except StopIteration:
+            self._finalize()
+            raise
+        except (Exception, asyncio.CancelledError) as e:
+            self._finalize(error=e)
+            raise
+
+    def _finalize(self, error: Optional[BaseException] = None) -> None:
+        if self._finalized:
+            return
+
+        self._finalized = True
+
+        if error is not None:
+            self.span.update(
+                level="ERROR", status_message=str(error) or type(error).__name__
+            ).end()
+            return
+
+        self.span.update(
+            output=_get_generator_output(self.items, self.transform_fn)
+        ).end()
 
 
 class _ContextPreservedAsyncGeneratorWrapper:
@@ -619,6 +681,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
         self.items: List[Any] = []
         self.span = span
         self.transform_fn = transform_fn
+        self._finalized = False
 
     def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
         return self
@@ -626,36 +689,85 @@ class _ContextPreservedAsyncGeneratorWrapper:
     async def __anext__(self) -> Any:
         try:
             # Run the generator's __anext__ in the preserved context
-            try:
-                # Python 3.10+ approach with context parameter
-                item = await asyncio.create_task(
-                    self.generator.__anext__(),  # type: ignore
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                # Python < 3.10 fallback - context parameter not supported
-                item = await self.generator.__anext__()
+            item = await self._run_in_preserved_context(self.generator.__anext__)
 
             self.items.append(item)
 
             return item
 
         except StopAsyncIteration:
-            # Handle output and span cleanup when generator is exhausted
-            output: Any = self.items
-
-            if self.transform_fn is not None:
-                output = self.transform_fn(self.items)
-
-            elif all(isinstance(item, str) for item in self.items):
-                output = "".join(self.items)
-
-            self.span.update(output=output).end()
-
+            self._finalize()
             raise  # Re-raise StopAsyncIteration
         except (Exception, asyncio.CancelledError) as e:
-            self.span.update(
-                level="ERROR", status_message=str(e) or type(e).__name__
-            ).end()
-
+            self._finalize(error=e)
             raise
+
+    async def close(self) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        if self._finalized:
+            return
+
+        try:
+            close_method = getattr(self.generator, "aclose", None)
+            if callable(close_method):
+                await self._run_in_preserved_context(close_method)
+        except (Exception, asyncio.CancelledError) as e:
+            self._finalize(error=e)
+            raise
+
+        self._finalize()
+
+    async def athrow(self, typ: Any, val: Any = None, tb: Any = None) -> Any:
+        throw_method = getattr(self.generator, "athrow", None)
+        if not callable(throw_method):
+            raise AttributeError("Wrapped async generator does not support athrow()")
+
+        try:
+            if tb is not None:
+                item = await self._run_in_preserved_context(
+                    lambda: throw_method(typ, val, tb)
+                )
+            elif val is not None:
+                item = await self._run_in_preserved_context(
+                    lambda: throw_method(typ, val)
+                )
+            else:
+                item = await self._run_in_preserved_context(lambda: throw_method(typ))
+
+            self.items.append(item)
+
+            return item
+        except StopAsyncIteration:
+            self._finalize()
+            raise
+        except (Exception, asyncio.CancelledError) as e:
+            self._finalize(error=e)
+            raise
+
+    async def _run_in_preserved_context(self, factory: Callable[[], Any]) -> Any:
+        awaitable = self.context.run(factory)
+
+        try:
+            task = asyncio.create_task(awaitable, context=self.context)  # type: ignore[call-arg]
+        except TypeError:
+            task = self.context.run(asyncio.create_task, awaitable)
+
+        return await task
+
+    def _finalize(self, error: Optional[BaseException] = None) -> None:
+        if self._finalized:
+            return
+
+        self._finalized = True
+
+        if error is not None:
+            self.span.update(
+                level="ERROR", status_message=str(error) or type(error).__name__
+            ).end()
+            return
+
+        self.span.update(
+            output=_get_generator_output(self.items, self.transform_fn)
+        ).end()

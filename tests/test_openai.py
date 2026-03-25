@@ -1,14 +1,85 @@
 import importlib
 import os
+from types import SimpleNamespace
 from time import sleep
 
 import pytest
 from pydantic import BaseModel
 
 from langfuse._client.client import Langfuse
+from langfuse.openai import LangfuseResponseGeneratorAsync, LangfuseResponseGeneratorSync
 from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 langfuse = Langfuse()
+
+
+class _FakeGeneration:
+    def __init__(self) -> None:
+        self.output = None
+        self.model = None
+        self.metadata = None
+        self.completion_start_time = None
+        self.end_calls = 0
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        return self
+
+    def end(self):
+        self.end_calls += 1
+
+        return self
+
+
+class _FakeSyncStreamResponse:
+    def __init__(self, chunks):
+        self._iterator = iter(chunks)
+        self.close_calls = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self._iterator)
+
+    def close(self):
+        self.close_calls += 1
+
+
+class _FakeAsyncStreamResponse:
+    def __init__(self, chunks):
+        self._chunks = list(chunks)
+        self.close_calls = []
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._chunks:
+            raise StopAsyncIteration
+
+        return self._chunks.pop(0)
+
+    async def close(self):
+        self.close_calls.append("close")
+
+    async def aclose(self):
+        self.close_calls.append("aclose")
+
+
+def _stream_chunk(content: str, *, role: str = "assistant", model: str = "gpt-test"):
+    return SimpleNamespace(
+        model=model,
+        usage=None,
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(role=role, content=content),
+                finish_reason=None,
+            )
+        ],
+    )
 
 
 @pytest.fixture(scope="module")
@@ -71,6 +142,27 @@ def test_openai_chat_completion(openai):
     assert generation.data[0].usage.total is not None
     assert "2" in generation.data[0].output["content"]
     assert generation.data[0].output["role"] == "assistant"
+
+
+def test_sync_stream_close_finalizes_partial_output():
+    generation = _FakeGeneration()
+    response = _FakeSyncStreamResponse([_stream_chunk("Hel"), _stream_chunk("lo")])
+    stream = LangfuseResponseGeneratorSync(
+        resource=SimpleNamespace(type="chat", object="ChatCompletions"),
+        response=response,
+        generation=generation,
+    )
+
+    first_chunk = next(stream)
+    assert first_chunk.choices[0].delta.content == "Hel"
+
+    stream.close()
+    stream.close()
+
+    assert response.close_calls == 1
+    assert generation.output == "Hel"
+    assert generation.model == "gpt-test"
+    assert generation.end_calls == 1
 
 
 def test_openai_chat_completion_stream(openai):
@@ -1161,6 +1253,28 @@ async def test_close_async_stream(openai):
     assert generation.data[0].completion_start_time is not None
     assert generation.data[0].completion_start_time >= generation.data[0].start_time
     assert generation.data[0].completion_start_time <= generation.data[0].end_time
+
+
+@pytest.mark.asyncio
+async def test_async_stream_aclose_finalizes_partial_output():
+    generation = _FakeGeneration()
+    response = _FakeAsyncStreamResponse([_stream_chunk("Hel"), _stream_chunk("lo")])
+    stream = LangfuseResponseGeneratorAsync(
+        resource=SimpleNamespace(type="chat", object="ChatCompletions"),
+        response=response,
+        generation=generation,
+    )
+
+    first_chunk = await stream.__anext__()
+    assert first_chunk.choices[0].delta.content == "Hel"
+
+    await stream.aclose()
+    await stream.aclose()
+
+    assert response.close_calls == ["aclose"]
+    assert generation.output == "Hel"
+    assert generation.model == "gpt-test"
+    assert generation.end_calls == 1
 
 
 def test_base_64_image_input(openai):
