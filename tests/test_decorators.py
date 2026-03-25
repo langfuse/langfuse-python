@@ -2044,7 +2044,9 @@ async def test_async_generator_wrapper_preserves_context_without_task_context_kw
 
     def patched_create_task(awaitable, *args, **kwargs):
         if "context" in kwargs:
-            raise TypeError("create_task() got an unexpected keyword argument 'context'")
+            raise TypeError(
+                "create_task() got an unexpected keyword argument 'context'"
+            )
 
         return original_create_task(awaitable, *args, **kwargs)
 

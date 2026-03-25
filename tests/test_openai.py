@@ -7,7 +7,10 @@ import pytest
 from pydantic import BaseModel
 
 from langfuse._client.client import Langfuse
-from langfuse.openai import LangfuseResponseGeneratorAsync, LangfuseResponseGeneratorSync
+from langfuse.openai import (
+    LangfuseResponseGeneratorAsync,
+    LangfuseResponseGeneratorSync,
+)
 from tests.utils import create_uuid, encode_file_to_base64, get_api
 
 langfuse = Langfuse()
