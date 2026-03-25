@@ -253,8 +253,12 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata.items():
-            if _validate_string_value(value=value, key=f"metadata.{key}"):
-                validated_metadata[key] = value
+            # Coerce non-string values to strings per v3→v4 migration guide
+            # (LangGraph injects int/list/tuple metadata like langgraph_step)
+            str_value = str(value) if not isinstance(value, str) else value
+
+            if _validate_string_value(value=str_value, key=f"metadata.{key}"):
+                validated_metadata[key] = str_value
 
         if validated_metadata:
             context = _set_propagated_attribute(

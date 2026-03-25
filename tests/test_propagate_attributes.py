@@ -842,6 +842,52 @@ class TestPropagateAttributesEdgeCases(TestPropagateAttributesBase):
             child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.key2"
         )
 
+    def test_non_string_metadata_values_coerced(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify non-string metadata values are coerced to strings, not dropped.
+
+        LangGraph injects int/list/tuple metadata (langgraph_step, langgraph_triggers,
+        langgraph_path) which should be coerced per the v3->v4 migration guide.
+        See: https://github.com/langfuse/langfuse-python/issues/1571
+        """
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(
+                metadata={
+                    "langgraph_step": 3,
+                    "langgraph_triggers": ["start:__start__"],
+                    "langgraph_path": ("__pregel_pull", "agent"),
+                    "string_key": "normal_value",
+                }
+            ):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        # Non-string values should be coerced to strings
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.langgraph_step",
+            "3",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.langgraph_triggers",
+            "['start:__start__']",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.langgraph_path",
+            "('__pregel_pull', 'agent')",
+        )
+        # String values should pass through unchanged
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.string_key",
+            "normal_value",
+        )
+
     def test_propagate_with_no_active_span(self, langfuse_client, memory_exporter):
         """Verify propagate_attributes works even with no active span."""
         # Call propagate_attributes without creating a parent span first
