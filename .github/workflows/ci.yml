@@ -29,6 +29,10 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+      - name: Verify agent shim generation
+        run: |
+          python3 scripts/agents/sync-agent-shims.py
+          python3 scripts/agents/sync-agent-shims.py --check
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
       - name: Setup a local virtual environment

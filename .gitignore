@@ -33,3 +33,13 @@ docs
 tests/mocks/llama-index-storage
 
 *.local.*
+
+# Agent shims generated from .agents/config.json
+.mcp.json
+.claude/settings.json
+.claude/skills/
+.cursor/mcp.json
+.cursor/environment.json
+.vscode/mcp.json
+.codex/config.toml
+.codex/environments/environment.toml

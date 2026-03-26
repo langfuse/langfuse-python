@@ -14,6 +14,47 @@ poetry self add poetry-dotenv-plugin
 poetry install --all-extras
 ```
 
+### Shared Agent Setup
+
+This repository keeps the shared agent setup in source control so contributors
+using Claude, Cursor, Codex, or VS Code can work against the same instructions
+and MCP/bootstrap configuration.
+
+- Canonical shared docs:
+  - `.agents/AGENTS.md`
+- Root discovery symlinks:
+  - `AGENTS.md`
+  - `CLAUDE.md`
+- Shared agent setup overview:
+  - `.agents/README.md`
+- Shared skills:
+  - `.agents/skills/`
+- Shared tool/bootstrap/MCP config:
+  - `.agents/config.json`
+- Tool-specific MCP configs generated locally from that catalog and not
+  committed:
+  - `.mcp.json`
+  - `.cursor/mcp.json`
+  - `.vscode/mcp.json`
+  - `.codex/config.toml`
+- Tool-specific runtime shims generated locally from the shared config and not
+  committed:
+  - `.claude/settings.json`
+  - `.cursor/environment.json`
+  - `.codex/environments/environment.toml`
+- Tool-specific skill projections generated locally and not committed:
+  - `.claude/skills/*`
+- Shared bootstrap for agent environments:
+  - `bash scripts/codex/setup.sh`
+
+When you change the shared agent setup:
+
+1. Edit `.agents/config.json` or `.agents/skills/**`
+2. Run `python3 scripts/agents/sync-agent-shims.py`
+3. Run `python3 scripts/agents/sync-agent-shims.py --check`
+4. Run `poetry run pytest tests/test_sync_agent_shims.py`
+5. Do not commit the generated MCP config files or runtime shims
+
 ### Add Pre-commit
 
 ```

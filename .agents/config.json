@@ -1,0 +1,44 @@
+{
+  "shared": {
+    "setupScript": "bash scripts/codex/setup.sh",
+    "devCommand": "poetry run bash",
+    "devTerminalDescription": "Interactive development shell inside the Poetry environment"
+  },
+  "mcpServers": {
+    "langfuse-docs": {
+      "transport": "http",
+      "url": "https://langfuse.com/api/mcp"
+    }
+  },
+  "claude": {
+    "settings": {
+      "permissions": {
+        "allow": [
+          "Bash(find:*)",
+          "Bash(rg:*)",
+          "Bash(grep:*)",
+          "Bash(ls:*)",
+          "Bash(cat:*)",
+          "Bash(head:*)",
+          "Bash(tail:*)"
+        ],
+        "deny": [
+          "Read(./.env)",
+          "Read(./.env.*)"
+        ]
+      },
+      "enableAllProjectMcpServers": true
+    }
+  },
+  "codex": {
+    "environment": {
+      "version": 1,
+      "name": "langfuse-python"
+    }
+  },
+  "cursor": {
+    "environment": {
+      "agentCanUpdateSnapshot": false
+    }
+  }
+}
