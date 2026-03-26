@@ -13,15 +13,7 @@
   "claude": {
     "settings": {
       "permissions": {
-        "allow": [
-          "Bash(find:*)",
-          "Bash(rg:*)",
-          "Bash(grep:*)",
-          "Bash(ls:*)",
-          "Bash(cat:*)",
-          "Bash(head:*)",
-          "Bash(tail:*)"
-        ],
+        "allow": [],
         "deny": [
           "Read(./.env)",
           "Read(./.env.*)"

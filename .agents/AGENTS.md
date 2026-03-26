@@ -156,7 +156,8 @@ Security/config notes:
 - Keep credentials and machine-specific secrets in environment variables or
   local untracked files, never in committed agent config.
 - The shared Claude settings intentionally deny reading `./.env` and
-  `./.env.*`. If a task genuinely requires inspecting local env overrides, get
+  `./.env.*`, and they do not auto-approve Bash commands by default. If a task
+  genuinely requires inspecting local env overrides or shell access, get
   explicit user approval first instead of weakening the default policy.
 - For authenticated MCP servers or provider-specific config additions, prefer
   secret injection via environment variables rather than committed inline

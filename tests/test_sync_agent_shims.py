@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -101,11 +102,9 @@ def test_sync_agent_shims_generates_expected_outputs(tmp_path: Path) -> None:
         ],
     }
     assert (repo_root / "AGENTS.md").is_symlink()
-    assert (repo_root / "AGENTS.md").resolve() == (
-        repo_root / ".agents" / "AGENTS.md"
-    ).resolve()
+    assert Path(os.readlink(repo_root / "AGENTS.md")) == Path(".agents/AGENTS.md")
     assert (repo_root / "CLAUDE.md").is_symlink()
-    assert (repo_root / "CLAUDE.md").resolve() == (repo_root / "AGENTS.md").resolve()
+    assert Path(os.readlink(repo_root / "CLAUDE.md")) == Path("AGENTS.md")
     assert (repo_root / ".claude" / "skills" / "example").is_symlink()
     assert not (repo_root / ".claude" / "skills" / "stale").exists()
     assert (repo_root / ".codex" / "config.toml").exists()
@@ -121,3 +120,54 @@ def test_sync_agent_shims_check_mode_detects_drift(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "Out of sync" in result.stderr
+
+
+def test_sync_agent_shims_check_mode_detects_symlink_target_drift(tmp_path: Path) -> None:
+    repo_root = make_fixture_repo(tmp_path)
+    run_script(repo_root)
+    (repo_root / "CLAUDE.md").unlink()
+    (repo_root / "CLAUDE.md").symlink_to(".agents/AGENTS.md")
+
+    result = run_script(repo_root, "--check")
+
+    assert result.returncode == 1
+    assert "Out of sync symlink" in result.stderr
+
+
+def test_sync_agent_shims_handles_missing_skills_directory(tmp_path: Path) -> None:
+    repo_root = make_fixture_repo(tmp_path)
+    readme_path = repo_root / ".agents" / "skills" / "README.md"
+    example_path = repo_root / ".agents" / "skills" / "example"
+    (example_path / "SKILL.md").unlink()
+    readme_path.unlink()
+    example_path.rmdir()
+    (repo_root / ".agents" / "skills").rmdir()
+
+    result = run_script(repo_root)
+
+    assert result.returncode == 0
+    managed_dir = repo_root / ".claude" / "skills"
+    assert managed_dir.exists()
+    assert list(managed_dir.iterdir()) == []
+
+
+def test_sync_agent_shims_rejects_symlinked_managed_directories(tmp_path: Path) -> None:
+    repo_root = make_fixture_repo(tmp_path)
+    run_script(repo_root)
+    external_dir = tmp_path / "external-claude-skills"
+    external_dir.mkdir()
+    (external_dir / "foreign").mkdir()
+    managed_dir = repo_root / ".claude" / "skills"
+    for child in managed_dir.iterdir():
+        child.unlink()
+    managed_dir.rmdir()
+    managed_dir.symlink_to(external_dir, target_is_directory=True)
+
+    check_result = run_script(repo_root, "--check")
+    sync_result = run_script(repo_root)
+
+    assert check_result.returncode == 1
+    assert "must not be a symlink" in check_result.stderr
+    assert sync_result.returncode == 1
+    assert "must not be a symlink" in sync_result.stderr
+    assert (external_dir / "foreign").exists()

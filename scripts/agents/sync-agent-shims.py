@@ -158,10 +158,22 @@ def remove_path(path: Path) -> None:
         path.unlink()
 
 
+def expected_symlink_target(path: Path, target: Path) -> Path:
+    return Path(os.path.relpath(target, start=path.parent))
+
+
 def is_matching_symlink(path: Path, target: Path) -> bool:
     if not path.is_symlink():
         return False
-    return path.resolve() == target.resolve()
+    return Path(os.readlink(path)) == expected_symlink_target(path, target)
+
+
+def is_within_repo(path: Path, repo_root: Path) -> bool:
+    try:
+        path.resolve().relative_to(repo_root.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def find_unexpected_children(path: Path, expected_children: set[str]) -> list[Path]:
@@ -238,21 +250,41 @@ def sync_symlink_outputs(
             continue
 
         remove_path(path)
-        relative_target = Path(os.path.relpath(target, start=path.parent))
-        path.symlink_to(relative_target, target_is_directory=target.is_dir())
+        path.symlink_to(
+            expected_symlink_target(path, target), target_is_directory=target.is_dir()
+        )
         print(f"Linked {path}")
 
     return has_mismatch
 
 
 def sync_managed_directories(
-    managed_directories: list[dict[str, Any]], check_mode: bool
+    managed_directories: list[dict[str, Any]], repo_root: Path, check_mode: bool
 ) -> bool:
     has_mismatch = False
 
     for directory in managed_directories:
         path: Path = directory["path"]
         expected_children: set[str] = directory["expected_children"]
+
+        if path.is_symlink():
+            message = f"Managed generated shim directory must not be a symlink: {path}"
+            if check_mode:
+                has_mismatch = True
+                print_error(message)
+                continue
+            raise RuntimeError(message)
+
+        if path.exists() and not is_within_repo(path, repo_root):
+            message = (
+                f"Managed generated shim directory resolves outside the repository: {path}"
+            )
+            if check_mode:
+                has_mismatch = True
+                print_error(message)
+                continue
+            raise RuntimeError(message)
+
         unexpected_children = find_unexpected_children(path, expected_children)
 
         if not unexpected_children:
@@ -319,7 +351,7 @@ def main() -> int:
     skills_root = repo_root / ".agents" / "skills"
     shared_skill_names = sorted(
         entry.name
-        for entry in skills_root.iterdir()
+        for entry in (skills_root.iterdir() if skills_root.exists() else [])
         if entry.is_dir() and (entry / "SKILL.md").exists()
     )
 
@@ -354,7 +386,8 @@ def main() -> int:
 
     has_mismatch = sync_symlink_outputs(symlink_outputs, check_mode) or has_mismatch
     has_mismatch = (
-        sync_managed_directories(managed_directories, check_mode) or has_mismatch
+        sync_managed_directories(managed_directories, repo_root, check_mode)
+        or has_mismatch
     )
 
     return 1 if check_mode and has_mismatch else 0
