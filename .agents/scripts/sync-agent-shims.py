@@ -186,6 +186,11 @@ def print_error(message: str) -> None:
     print(message, file=sys.stderr)
 
 
+def is_writable(path: Path) -> bool:
+    target = path if path.exists() else path.parent
+    return os.access(target, os.W_OK)
+
+
 def sync_file_outputs(
     file_outputs: list[dict[str, Any]], check_mode: bool
 ) -> tuple[bool, list[str]]:
@@ -198,6 +203,9 @@ def sync_file_outputs(
         optional: bool = output.get("optional", False)
 
         if check_mode:
+            if optional and not is_writable(path):
+                warnings.append(f"Skipping optional config check: {path}")
+                continue
             try:
                 current = path.read_text(encoding="utf-8")
             except FileNotFoundError:
@@ -206,7 +214,7 @@ def sync_file_outputs(
                     continue
                 has_mismatch = True
                 print_error(
-                    f'Missing generated config: {path}. Run "python3 scripts/agents/sync-agent-shims.py".'
+                    f'Missing generated config: {path}. Run "python3 .agents/scripts/sync-agent-shims.py".'
                 )
                 continue
 
@@ -240,7 +248,7 @@ def sync_symlink_outputs(
             if not is_matching_symlink(path, target):
                 has_mismatch = True
                 print_error(
-                    f'Out of sync symlink: {path}. Run "python3 scripts/agents/sync-agent-shims.py".'
+                    f'Out of sync symlink: {path}. Run "python3 .agents/scripts/sync-agent-shims.py".'
                 )
             continue
 

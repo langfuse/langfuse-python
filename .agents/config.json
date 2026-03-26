@@ -1,6 +1,6 @@
 {
   "shared": {
-    "setupScript": "bash scripts/codex/setup.sh",
+    "setupScript": "bash .agents/scripts/codex/setup.sh",
     "devCommand": "poetry run bash",
     "devTerminalDescription": "Interactive development shell inside the Poetry environment"
   },

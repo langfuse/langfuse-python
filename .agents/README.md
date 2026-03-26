@@ -12,6 +12,7 @@ or `.vscode/`.
 - `AGENTS.md`: canonical shared root instructions
 - `config.json`: shared bootstrap and MCP configuration used to generate
   tool-specific shims
+- `scripts/`: shared bootstrap and sync helpers for agent tooling
 - `skills/`: shared, tool-neutral implementation guidance for recurring
   workflows
 
@@ -30,7 +31,7 @@ Current shape:
 ```json
 {
   "shared": {
-    "setupScript": "bash scripts/codex/setup.sh",
+    "setupScript": "bash .agents/scripts/codex/setup.sh",
     "devCommand": "poetry run bash",
     "devTerminalDescription": "Interactive development shell inside the Poetry environment"
   },
@@ -59,7 +60,7 @@ Current shape:
 
 ## How Shims Are Generated
 
-`scripts/agents/sync-agent-shims.py` reads `.agents/config.json` and writes the
+`.agents/scripts/sync-agent-shims.py` reads `.agents/config.json` and writes the
 tool discovery files that those products require.
 
 Generated local artifacts:
@@ -99,15 +100,16 @@ Do not edit generated shim files by hand. Edit the canonical files in
 After editing `.agents/config.json` or `.agents/skills/**`:
 
 1. Run `python3 scripts/agents/sync-agent-shims.py`
-2. Run `python3 scripts/agents/sync-agent-shims.py --check`
-3. Run `poetry run pytest tests/test_sync_agent_shims.py`
-4. Verify you did not stage generated files under `.claude/skills/` or any of
+2. Run `python3 .agents/scripts/sync-agent-shims.py --check`
+3. Verify you did not stage generated files under `.claude/skills/` or any of
    the generated MCP/runtime config paths
-5. Update `.agents/AGENTS.md` or `CONTRIBUTING.md` if the shared workflow
+4. Update `.agents/AGENTS.md` or `CONTRIBUTING.md` if the shared workflow
    materially changed
 
-`bash scripts/postinstall.sh` runs the sync/check flow as a convenience helper,
-and `bash scripts/codex/setup.sh` uses it during agent environment bootstrap.
+`bash .agents/scripts/install.sh --all-extras` is the canonical repo install
+flow and wires `poetry install` to `bash .agents/scripts/postinstall.sh`.
+`bash .agents/scripts/codex/setup.sh` uses the same path during agent
+environment bootstrap.
 
 ## Adding Shared Skills
 
@@ -121,7 +123,7 @@ Use them for durable, reusable guidance such as:
 
 Do not use skills for one-off notes or tool runtime configuration.
 
-`python3 scripts/agents/sync-agent-shims.py` projects shared skills into
+`python3 .agents/scripts/sync-agent-shims.py` projects shared skills into
 `.claude/skills/` so Claude can discover the same repo-owned skills.
 
 For the skill authoring workflow, see [skills/README.md](skills/README.md).

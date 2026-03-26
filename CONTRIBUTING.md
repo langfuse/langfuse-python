@@ -11,7 +11,7 @@ poetry self add poetry-dotenv-plugin
 ### Install dependencies
 
 ```
-poetry install --all-extras
+bash .agents/scripts/install.sh --all-extras
 ```
 
 ### Shared Agent Setup
@@ -45,15 +45,14 @@ and MCP/bootstrap configuration.
 - Tool-specific skill projections generated locally and not committed:
   - `.claude/skills/*`
 - Shared bootstrap for agent environments:
-  - `bash scripts/codex/setup.sh`
+  - `bash .agents/scripts/codex/setup.sh`
 
 When you change the shared agent setup:
 
 1. Edit `.agents/config.json` or `.agents/skills/**`
-2. Run `python3 scripts/agents/sync-agent-shims.py`
-3. Run `python3 scripts/agents/sync-agent-shims.py --check`
-4. Run `poetry run pytest tests/test_sync_agent_shims.py`
-5. Do not commit the generated MCP config files or runtime shims
+2. Run `python3 .agents/scripts/sync-agent-shims.py`
+3. Run `python3 .agents/scripts/sync-agent-shims.py --check`
+4. Do not commit the generated MCP config files or runtime shims
 
 ### Add Pre-commit
 
@@ -125,7 +124,7 @@ Note: The generated SDK reference is currently work in progress.
 The SDK reference is generated via pdoc. You need to have all extra dependencies installed to generate the reference.
 
 ```sh
-poetry install --all-extras
+bash .agents/scripts/install.sh --all-extras
 ```
 
 To update the reference, run the following command:

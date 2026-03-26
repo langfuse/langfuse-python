@@ -36,7 +36,6 @@ langfuse-python/
 ├─ langfuse/langchain/       # LangChain integration
 ├─ tests/                    # Test suite
 ├─ static/                   # Test fixtures and sample content
-├─ scripts/                  # Repo scripts
 └─ .agents/                  # Canonical shared agent instructions and config
 ```
 
@@ -65,10 +64,10 @@ High-signal entry points:
 
 ## Build, Test, and Development Commands
 
-- Agent environment bootstrap: `bash scripts/codex/setup.sh`
-- Install dependencies: `poetry install --all-extras`
-- Sync generated agent shims: `python3 scripts/agents/sync-agent-shims.py`
-- Verify generated agent shims: `python3 scripts/agents/sync-agent-shims.py --check`
+- Agent environment bootstrap: `bash .agents/scripts/codex/setup.sh`
+- Install dependencies: `bash .agents/scripts/install.sh --all-extras`
+- Sync generated agent shims: `python3 .agents/scripts/sync-agent-shims.py`
+- Verify generated agent shims: `python3 .agents/scripts/sync-agent-shims.py --check`
 - Install pre-commit hooks: `poetry run pre-commit install`
 - Run all tests: `poetry run pytest -s -v --log-cli-level=INFO`
 - Run tests in parallel: `poetry run pytest -s -v --log-cli-level=INFO -n auto`
@@ -88,7 +87,7 @@ Minimum verification matrix:
 | `langfuse/api/**` | verify source update path from main repo + `poetry run ruff format .` + targeted API tests |
 | Integration modules (`langfuse/openai.py`, `langfuse/langchain/**`) | targeted tests for the touched integration + lint + latest official provider docs review if behavior or API usage changed |
 | Test-only changes | targeted pytest coverage for the updated tests |
-| Agent setup files (`.agents/**`, `scripts/agents/**`, `scripts/codex/**`) | `python3 scripts/agents/sync-agent-shims.py` + `python3 scripts/agents/sync-agent-shims.py --check` + `poetry run pytest tests/test_sync_agent_shims.py` |
+| Agent setup files (`.agents/**`) | `python3 .agents/scripts/sync-agent-shims.py` + `python3 .agents/scripts/sync-agent-shims.py --check` |
 
 CI notes:
 
@@ -202,7 +201,9 @@ Update flow:
 - Shared agent/tool config lives in `.agents/config.json`.
 - Shared agent setup documentation lives in `.agents/README.md`.
 - Shared skills live under `.agents/skills/`.
-- `python3 scripts/agents/sync-agent-shims.py` regenerates tool-specific config
+- `.agents/scripts/` is the home for repo-owned agent bootstrap and sync
+  tooling.
+- `python3 .agents/scripts/sync-agent-shims.py` regenerates tool-specific config
   shims for Claude, Cursor, VS Code, Codex, and shared MCP discovery files.
 - Tool-specific directories such as `.claude/`, `.cursor/`, `.codex/`, and
   `.vscode/` remain because those tools discover project settings from fixed
