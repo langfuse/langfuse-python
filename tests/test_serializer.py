@@ -264,6 +264,6 @@ def test_deeply_nested_slots_object_is_truncated():
         else:
             break
 
-    assert depth <= EventSerializer._MAX_DEPTH + 5, (
+    assert depth <= EventSerializer._MAX_DEPTH // 2 + 3, (
         f"Nesting depth {depth} exceeded limit — serializer should have truncated"
     )
