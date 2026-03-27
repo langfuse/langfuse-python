@@ -1818,7 +1818,7 @@ class Langfuse:
         try:
             new_body = ScoreBody(
                 id=score_id,
-                session_id=session_id,
+                sessionId=session_id,
                 datasetRunId=dataset_run_id,
                 traceId=trace_id,
                 observationId=observation_id,
