@@ -120,20 +120,18 @@ def test_invalid_score_data_does_not_raise_exception():
 
 def test_create_session_score():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
-    session_id = 'my-session'
+    session_id = "my-session"
 
     # Create a span and set trace properties
-    with langfuse.start_as_current_observation(name="test-span") as span:
+    with langfuse.start_as_current_observation(name="test-span"):
         with propagate_attributes(
             trace_name="this-is-so-great-new",
             user_id="test",
             metadata={"test": "test"},
-            session_id=session_id
+            session_id=session_id,
         ):
-            # Get trace ID for later use
-            trace_id = span.trace_id
+            pass
 
     # Ensure data is sent
     langfuse.flush()
@@ -141,14 +139,13 @@ def test_create_session_score():
 
     # Create a numeric score
     score_id = create_uuid()
-    print('score ID', score_id)
+
     langfuse.create_score(
         score_id=score_id,
         session_id=session_id,
         name="this-is-a-score",
         value=1,
     )
-
 
     # Ensure data is sent
     langfuse.flush()
@@ -162,6 +159,7 @@ def test_create_session_score():
     assert score.value == 1
     assert score.data_type == "NUMERIC"
     assert score.session_id == session_id
+
 
 def test_create_numeric_score():
     langfuse = Langfuse()
