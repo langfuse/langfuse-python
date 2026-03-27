@@ -15,6 +15,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from langfuse.api.core.pydantic_utilities import UniversalBaseModel
 from langfuse.media import LangfuseMedia
 
 # Attempt to import Serializable
@@ -103,6 +104,9 @@ class EventSerializer(JSONEncoder):
                 # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
                 if isinstance(raw := getattr(obj, "raw", None), BaseModel):
                     raw.model_rebuild()
+
+                if isinstance(obj, UniversalBaseModel):
+                    return obj.dict()
 
                 return obj.model_dump()
 

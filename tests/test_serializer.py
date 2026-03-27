@@ -4,13 +4,15 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
+from queue import Queue
+from unittest.mock import Mock
 from uuid import UUID
 
 from pydantic import BaseModel
 
-from langfuse._utils.serializer import (
-    EventSerializer,
-)
+from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse._utils.serializer import EventSerializer
+from langfuse.api import ScoreBody
 
 
 class TestEnum(Enum):
@@ -67,6 +69,68 @@ def test_pydantic_model():
     model = TestBaseModel(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(model)) == {"field": "test"}
+
+
+def test_langfuse_model_uses_aliases():
+    model = ScoreBody(
+        id="score-1",
+        trace_id="trace-1",
+        session_id="session-1",
+        observation_id="observation-1",
+        dataset_run_id="dataset-run-1",
+        name="rating",
+        value=2,
+        data_type="NUMERIC",
+        config_id="config-1",
+    )
+    serializer = EventSerializer()
+
+    assert json.loads(serializer.encode(model)) == {
+        "id": "score-1",
+        "traceId": "trace-1",
+        "sessionId": "session-1",
+        "observationId": "observation-1",
+        "datasetRunId": "dataset-run-1",
+        "name": "rating",
+        "value": 2,
+        "dataType": "NUMERIC",
+        "configId": "config-1",
+    }
+
+
+def test_score_ingestion_consumer_uses_aliases_for_langfuse_models():
+    ingestion_queue = Queue()
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=ingestion_queue,
+        identifier=0,
+        client=Mock(),
+        public_key="pk-test",
+    )
+
+    ingestion_queue.put(
+        {
+            "id": "event-1",
+            "type": "score-create",
+            "timestamp": "2026-03-25T16:10:45.793Z",
+            "body": ScoreBody(
+                id="score-1",
+                session_id="session-1",
+                name="rating",
+                value=2,
+                data_type="NUMERIC",
+            ),
+        }
+    )
+
+    batch = consumer._next()
+
+    assert batch[0]["body"] == {
+        "id": "score-1",
+        "sessionId": "session-1",
+        "name": "rating",
+        "value": 2,
+        "dataType": "NUMERIC",
+    }
 
 
 def test_path():

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from langfuse._utils.parse_error import handle_exception
 from langfuse._utils.request import APIError, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
+from langfuse.api.core.pydantic_utilities import UniversalBaseModel
 from langfuse.logger import langfuse_logger as logger
 
 from ..version import __version__ as langfuse_version
@@ -73,7 +74,10 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 # convert pydantic models to dicts
                 if "body" in event and isinstance(event["body"], BaseModel):
-                    event["body"] = event["body"].model_dump(exclude_none=True)
+                    if isinstance(event["body"], UniversalBaseModel):
+                        event["body"] = event["body"].dict(exclude_none=True)
+                    else:
+                        event["body"] = event["body"].model_dump(exclude_none=True)
 
                 item_size = self._get_item_size(event)
 
