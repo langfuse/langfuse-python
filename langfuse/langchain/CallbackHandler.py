@@ -1057,10 +1057,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 and len(message.tool_calls) > 0
             ):
                 message_dict["tool_calls"] = message.tool_calls
-            
+
             if (
-                hasattr(message, "invalid_tool_calls") 
-                and message.invalid_tool_calls is not None 
+                hasattr(message, "invalid_tool_calls")
+                and message.invalid_tool_calls is not None
                 and len(message.invalid_tool_calls) > 0
             ):
                 message_dict["invalid_tool_calls"] = message.invalid_tool_calls
