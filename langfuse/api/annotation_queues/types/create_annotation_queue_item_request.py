@@ -11,9 +11,13 @@ from .annotation_queue_status import AnnotationQueueStatus
 
 
 class CreateAnnotationQueueItemRequest(UniversalBaseModel):
-    object_id: typing_extensions.Annotated[str, FieldMetadata(alias="objectId")]
+    object_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="objectId"), pydantic.Field(alias="objectId")
+    ]
     object_type: typing_extensions.Annotated[
-        AnnotationQueueObjectType, FieldMetadata(alias="objectType")
+        AnnotationQueueObjectType,
+        FieldMetadata(alias="objectType"),
+        pydantic.Field(alias="objectType"),
     ]
     status: typing.Optional[AnnotationQueueStatus] = pydantic.Field(default=None)
     """

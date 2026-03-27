@@ -26,50 +26,54 @@ class LlmConnection(UniversalBaseModel):
     """
 
     display_secret_key: typing_extensions.Annotated[
-        str, FieldMetadata(alias="displaySecretKey")
-    ] = pydantic.Field()
-    """
-    Masked version of the secret key for display purposes
-    """
-
+        str,
+        FieldMetadata(alias="displaySecretKey"),
+        pydantic.Field(
+            alias="displaySecretKey",
+            description="Masked version of the secret key for display purposes",
+        ),
+    ]
     base_url: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="baseURL")
-    ] = pydantic.Field(default=None)
-    """
-    Custom base URL for the LLM API
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="baseURL"),
+        pydantic.Field(
+            alias="baseURL", default=None, description="Custom base URL for the LLM API"
+        ),
+    ]
     custom_models: typing_extensions.Annotated[
-        typing.List[str], FieldMetadata(alias="customModels")
-    ] = pydantic.Field()
-    """
-    List of custom model names available for this connection
-    """
-
+        typing.List[str],
+        FieldMetadata(alias="customModels"),
+        pydantic.Field(
+            alias="customModels",
+            description="List of custom model names available for this connection",
+        ),
+    ]
     with_default_models: typing_extensions.Annotated[
-        bool, FieldMetadata(alias="withDefaultModels")
-    ] = pydantic.Field()
-    """
-    Whether to include default models for this adapter
-    """
-
+        bool,
+        FieldMetadata(alias="withDefaultModels"),
+        pydantic.Field(
+            alias="withDefaultModels",
+            description="Whether to include default models for this adapter",
+        ),
+    ]
     extra_header_keys: typing_extensions.Annotated[
-        typing.List[str], FieldMetadata(alias="extraHeaderKeys")
-    ] = pydantic.Field()
-    """
-    Keys of extra headers sent with requests (values excluded for security)
-    """
-
+        typing.List[str],
+        FieldMetadata(alias="extraHeaderKeys"),
+        pydantic.Field(
+            alias="extraHeaderKeys",
+            description="Keys of extra headers sent with requests (values excluded for security)",
+        ),
+    ]
     config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Adapter-specific configuration. Required for Bedrock (`{"region":"us-east-1"}`), optional for VertexAI (`{"location":"us-central1"}`), not used by other adapters.
     """
 
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

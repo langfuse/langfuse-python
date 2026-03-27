@@ -26,77 +26,92 @@ class Model(UniversalBaseModel):
     """
 
     id: str
-    model_name: typing_extensions.Annotated[str, FieldMetadata(alias="modelName")] = (
-        pydantic.Field()
-    )
-    """
-    Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
-    """
-
+    model_name: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="modelName"),
+        pydantic.Field(
+            alias="modelName",
+            description="Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime",
+        ),
+    ]
     match_pattern: typing_extensions.Annotated[
-        str, FieldMetadata(alias="matchPattern")
-    ] = pydantic.Field()
-    """
-    Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
-    """
-
+        str,
+        FieldMetadata(alias="matchPattern"),
+        pydantic.Field(
+            alias="matchPattern",
+            description="Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`",
+        ),
+    ]
     start_date: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="startDate")
-    ] = pydantic.Field(default=None)
-    """
-    Apply only to generations which are newer than this ISO date.
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="startDate"),
+        pydantic.Field(
+            alias="startDate",
+            default=None,
+            description="Apply only to generations which are newer than this ISO date.",
+        ),
+    ]
     unit: typing.Optional[ModelUsageUnit] = pydantic.Field(default=None)
     """
     Unit used by this model.
     """
 
     input_price: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="inputPrice")
-    ] = pydantic.Field(default=None)
-    """
-    Deprecated. See 'prices' instead. Price (USD) per input unit
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="inputPrice"),
+        pydantic.Field(
+            alias="inputPrice",
+            default=None,
+            description="Deprecated. See 'prices' instead. Price (USD) per input unit",
+        ),
+    ]
     output_price: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="outputPrice")
-    ] = pydantic.Field(default=None)
-    """
-    Deprecated. See 'prices' instead. Price (USD) per output unit
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="outputPrice"),
+        pydantic.Field(
+            alias="outputPrice",
+            default=None,
+            description="Deprecated. See 'prices' instead. Price (USD) per output unit",
+        ),
+    ]
     total_price: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="totalPrice")
-    ] = pydantic.Field(default=None)
-    """
-    Deprecated. See 'prices' instead. Price (USD) per total unit. Cannot be set if input or output price is set.
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="totalPrice"),
+        pydantic.Field(
+            alias="totalPrice",
+            default=None,
+            description="Deprecated. See 'prices' instead. Price (USD) per total unit. Cannot be set if input or output price is set.",
+        ),
+    ]
     tokenizer_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="tokenizerId")
-    ] = pydantic.Field(default=None)
-    """
-    Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="tokenizerId"),
+        pydantic.Field(
+            alias="tokenizerId",
+            default=None,
+            description="Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.",
+        ),
+    ]
     tokenizer_config: typing_extensions.Annotated[
-        typing.Any, FieldMetadata(alias="tokenizerConfig")
-    ] = pydantic.Field()
-    """
-    Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
-    """
-
+        typing.Any,
+        FieldMetadata(alias="tokenizerConfig"),
+        pydantic.Field(
+            alias="tokenizerConfig",
+            description="Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.",
+        ),
+    ]
     is_langfuse_managed: typing_extensions.Annotated[
-        bool, FieldMetadata(alias="isLangfuseManaged")
+        bool,
+        FieldMetadata(alias="isLangfuseManaged"),
+        pydantic.Field(alias="isLangfuseManaged"),
     ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
-    ] = pydantic.Field()
-    """
-    Timestamp when the model was created
-    """
-
+        dt.datetime,
+        FieldMetadata(alias="createdAt"),
+        pydantic.Field(
+            alias="createdAt", description="Timestamp when the model was created"
+        ),
+    ]
     prices: typing.Dict[str, ModelPrice] = pydantic.Field()
     """
     Deprecated. Use 'pricingTiers' instead for models with usage-based pricing variations.
@@ -106,19 +121,13 @@ class Model(UniversalBaseModel):
     """
 
     pricing_tiers: typing_extensions.Annotated[
-        typing.List[PricingTier], FieldMetadata(alias="pricingTiers")
-    ] = pydantic.Field()
-    """
-    Array of pricing tiers with conditional pricing based on usage thresholds.
-    
-    Pricing tiers enable accurate cost tracking for models that charge different rates based on usage patterns
-    (e.g., different rates for high-volume usage, large context windows, or cached tokens).
-    
-    Each model must have exactly one default tier (isDefault=true, priority=0) that serves as a fallback.
-    Additional conditional tiers can be defined with specific matching criteria.
-    
-    If this array is empty, the model uses legacy flat pricing from the inputPrice/outputPrice/totalPrice fields.
-    """
+        typing.List[PricingTier],
+        FieldMetadata(alias="pricingTiers"),
+        pydantic.Field(
+            alias="pricingTiers",
+            description="Array of pricing tiers with conditional pricing based on usage thresholds.\n\nPricing tiers enable accurate cost tracking for models that charge different rates based on usage patterns\n(e.g., different rates for high-volume usage, large context windows, or cached tokens).\n\nEach model must have exactly one default tier (isDefault=true, priority=0) that serves as a fallback.\nAdditional conditional tiers can be defined with specific matching criteria.\n\nIf this array is empty, the model uses legacy flat pricing from the inputPrice/outputPrice/totalPrice fields.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

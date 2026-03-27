@@ -21,11 +21,12 @@ class OtelResourceSpan(UniversalBaseModel):
     """
 
     scope_spans: typing_extensions.Annotated[
-        typing.Optional[typing.List[OtelScopeSpan]], FieldMetadata(alias="scopeSpans")
-    ] = pydantic.Field(default=None)
-    """
-    Array of scope spans
-    """
+        typing.Optional[typing.List[OtelScopeSpan]],
+        FieldMetadata(alias="scopeSpans"),
+        pydantic.Field(
+            alias="scopeSpans", default=None, description="Array of scope spans"
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

@@ -17,9 +17,11 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.datetime_utils import serialize_datetime
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
+from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from .types.get_scores_response import GetScoresResponse
+from pydantic import ValidationError
 
 
 class RawScoresClient:
@@ -231,6 +233,13 @@ class RawScoresClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -331,6 +340,13 @@ class RawScoresClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -548,6 +564,13 @@ class AsyncRawScoresClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -648,6 +671,13 @@ class AsyncRawScoresClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,

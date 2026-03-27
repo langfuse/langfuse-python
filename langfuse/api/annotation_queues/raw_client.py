@@ -12,6 +12,7 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
+from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from .types.annotation_queue import AnnotationQueue
@@ -29,6 +30,7 @@ from .types.delete_annotation_queue_item_response import (
 )
 from .types.paginated_annotation_queue_items import PaginatedAnnotationQueueItems
 from .types.paginated_annotation_queues import PaginatedAnnotationQueues
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -143,6 +145,13 @@ class RawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -259,6 +268,13 @@ class RawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -359,6 +375,13 @@ class RawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -481,6 +504,13 @@ class RawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -588,6 +618,13 @@ class RawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -709,6 +746,13 @@ class RawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -824,6 +868,13 @@ class RawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -931,6 +982,13 @@ class RawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -1043,6 +1101,13 @@ class RawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1153,6 +1218,13 @@ class RawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -1271,6 +1343,13 @@ class AsyncRawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1386,6 +1465,13 @@ class AsyncRawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1486,6 +1572,13 @@ class AsyncRawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -1608,6 +1701,13 @@ class AsyncRawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1715,6 +1815,13 @@ class AsyncRawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -1836,6 +1943,13 @@ class AsyncRawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1951,6 +2065,13 @@ class AsyncRawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -2058,6 +2179,13 @@ class AsyncRawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -2170,6 +2298,13 @@ class AsyncRawAnnotationQueuesClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -2280,6 +2415,13 @@ class AsyncRawAnnotationQueuesClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,

@@ -16,9 +16,13 @@ class ResourceType(UniversalBaseModel):
     name: str
     endpoint: str
     description: str
-    schema_: typing_extensions.Annotated[str, FieldMetadata(alias="schema")]
+    schema_: typing_extensions.Annotated[
+        str, FieldMetadata(alias="schema"), pydantic.Field(alias="schema")
+    ]
     schema_extensions: typing_extensions.Annotated[
-        typing.List[SchemaExtension], FieldMetadata(alias="schemaExtensions")
+        typing.List[SchemaExtension],
+        FieldMetadata(alias="schemaExtensions"),
+        pydantic.Field(alias="schemaExtensions"),
     ]
     meta: ResourceMeta
 

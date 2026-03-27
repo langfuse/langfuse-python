@@ -19,19 +19,22 @@ class MetaResponse(UniversalBaseModel):
     number of items per page
     """
 
-    total_items: typing_extensions.Annotated[int, FieldMetadata(alias="totalItems")] = (
-        pydantic.Field()
-    )
-    """
-    number of total items given the current filters/selection (if any)
-    """
-
-    total_pages: typing_extensions.Annotated[int, FieldMetadata(alias="totalPages")] = (
-        pydantic.Field()
-    )
-    """
-    number of total pages given the current limit
-    """
+    total_items: typing_extensions.Annotated[
+        int,
+        FieldMetadata(alias="totalItems"),
+        pydantic.Field(
+            alias="totalItems",
+            description="number of total items given the current filters/selection (if any)",
+        ),
+    ]
+    total_pages: typing_extensions.Annotated[
+        int,
+        FieldMetadata(alias="totalPages"),
+        pydantic.Field(
+            alias="totalPages",
+            description="number of total pages given the current limit",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

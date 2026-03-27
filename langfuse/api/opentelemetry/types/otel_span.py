@@ -15,26 +15,32 @@ class OtelSpan(UniversalBaseModel):
     """
 
     trace_id: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="traceId")
-    ] = pydantic.Field(default=None)
-    """
-    Trace ID (16 bytes, hex-encoded string in JSON or Buffer in binary)
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(
+            alias="traceId",
+            default=None,
+            description="Trace ID (16 bytes, hex-encoded string in JSON or Buffer in binary)",
+        ),
+    ]
     span_id: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="spanId")
-    ] = pydantic.Field(default=None)
-    """
-    Span ID (8 bytes, hex-encoded string in JSON or Buffer in binary)
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="spanId"),
+        pydantic.Field(
+            alias="spanId",
+            default=None,
+            description="Span ID (8 bytes, hex-encoded string in JSON or Buffer in binary)",
+        ),
+    ]
     parent_span_id: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="parentSpanId")
-    ] = pydantic.Field(default=None)
-    """
-    Parent span ID if this is a child span
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="parentSpanId"),
+        pydantic.Field(
+            alias="parentSpanId",
+            default=None,
+            description="Parent span ID if this is a child span",
+        ),
+    ]
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
     Span name describing the operation
@@ -46,19 +52,23 @@ class OtelSpan(UniversalBaseModel):
     """
 
     start_time_unix_nano: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="startTimeUnixNano")
-    ] = pydantic.Field(default=None)
-    """
-    Start time in nanoseconds since Unix epoch
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="startTimeUnixNano"),
+        pydantic.Field(
+            alias="startTimeUnixNano",
+            default=None,
+            description="Start time in nanoseconds since Unix epoch",
+        ),
+    ]
     end_time_unix_nano: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="endTimeUnixNano")
-    ] = pydantic.Field(default=None)
-    """
-    End time in nanoseconds since Unix epoch
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="endTimeUnixNano"),
+        pydantic.Field(
+            alias="endTimeUnixNano",
+            default=None,
+            description="End time in nanoseconds since Unix epoch",
+        ),
+    ]
     attributes: typing.Optional[typing.List[OtelAttribute]] = pydantic.Field(
         default=None
     )

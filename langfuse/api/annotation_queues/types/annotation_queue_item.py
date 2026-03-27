@@ -13,20 +13,28 @@ from .annotation_queue_status import AnnotationQueueStatus
 
 class AnnotationQueueItem(UniversalBaseModel):
     id: str
-    queue_id: typing_extensions.Annotated[str, FieldMetadata(alias="queueId")]
-    object_id: typing_extensions.Annotated[str, FieldMetadata(alias="objectId")]
+    queue_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="queueId"), pydantic.Field(alias="queueId")
+    ]
+    object_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="objectId"), pydantic.Field(alias="objectId")
+    ]
     object_type: typing_extensions.Annotated[
-        AnnotationQueueObjectType, FieldMetadata(alias="objectType")
+        AnnotationQueueObjectType,
+        FieldMetadata(alias="objectType"),
+        pydantic.Field(alias="objectType"),
     ]
     status: AnnotationQueueStatus
     completed_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="completedAt")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="completedAt"),
+        pydantic.Field(alias="completedAt", default=None),
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

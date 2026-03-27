@@ -14,13 +14,15 @@ class AnnotationQueue(UniversalBaseModel):
     name: str
     description: typing.Optional[str] = None
     score_config_ids: typing_extensions.Annotated[
-        typing.List[str], FieldMetadata(alias="scoreConfigIds")
+        typing.List[str],
+        FieldMetadata(alias="scoreConfigIds"),
+        pydantic.Field(alias="scoreConfigIds"),
     ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

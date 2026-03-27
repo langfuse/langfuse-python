@@ -9,7 +9,9 @@ from ...core.serialization import FieldMetadata
 
 
 class ResourceMeta(UniversalBaseModel):
-    resource_type: typing_extensions.Annotated[str, FieldMetadata(alias="resourceType")]
+    resource_type: typing_extensions.Annotated[
+        str, FieldMetadata(alias="resourceType"), pydantic.Field(alias="resourceType")
+    ]
     location: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

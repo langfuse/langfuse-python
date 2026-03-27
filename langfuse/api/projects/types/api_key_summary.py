@@ -16,18 +16,26 @@ class ApiKeySummary(UniversalBaseModel):
 
     id: str
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     expires_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="expiresAt")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="expiresAt"),
+        pydantic.Field(alias="expiresAt", default=None),
+    ]
     last_used_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="lastUsedAt")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUsedAt"),
+        pydantic.Field(alias="lastUsedAt", default=None),
+    ]
     note: typing.Optional[str] = None
-    public_key: typing_extensions.Annotated[str, FieldMetadata(alias="publicKey")]
+    public_key: typing_extensions.Annotated[
+        str, FieldMetadata(alias="publicKey"), pydantic.Field(alias="publicKey")
+    ]
     display_secret_key: typing_extensions.Annotated[
-        str, FieldMetadata(alias="displaySecretKey")
+        str,
+        FieldMetadata(alias="displaySecretKey"),
+        pydantic.Field(alias="displaySecretKey"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

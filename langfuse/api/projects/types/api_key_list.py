@@ -15,7 +15,9 @@ class ApiKeyList(UniversalBaseModel):
     """
 
     api_keys: typing_extensions.Annotated[
-        typing.List[ApiKeySummary], FieldMetadata(alias="apiKeys")
+        typing.List[ApiKeySummary],
+        FieldMetadata(alias="apiKeys"),
+        pydantic.Field(alias="apiKeys"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

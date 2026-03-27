@@ -14,21 +14,20 @@ from .blob_storage_integration_type import BlobStorageIntegrationType
 
 
 class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")] = (
-        pydantic.Field()
-    )
-    """
-    ID of the project in which to configure the blob storage integration
-    """
-
+    project_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="projectId"),
+        pydantic.Field(
+            alias="projectId",
+            description="ID of the project in which to configure the blob storage integration",
+        ),
+    ]
     type: BlobStorageIntegrationType
-    bucket_name: typing_extensions.Annotated[str, FieldMetadata(alias="bucketName")] = (
-        pydantic.Field()
-    )
-    """
-    Name of the storage bucket
-    """
-
+    bucket_name: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="bucketName"),
+        pydantic.Field(alias="bucketName", description="Name of the storage bucket"),
+    ]
     endpoint: typing.Optional[str] = pydantic.Field(default=None)
     """
     Custom endpoint URL (required for S3_COMPATIBLE type)
@@ -40,26 +39,32 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     """
 
     access_key_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="accessKeyId")
-    ] = pydantic.Field(default=None)
-    """
-    Access key ID for authentication
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="accessKeyId"),
+        pydantic.Field(
+            alias="accessKeyId",
+            default=None,
+            description="Access key ID for authentication",
+        ),
+    ]
     secret_access_key: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="secretAccessKey")
-    ] = pydantic.Field(default=None)
-    """
-    Secret access key for authentication (will be encrypted when stored)
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="secretAccessKey"),
+        pydantic.Field(
+            alias="secretAccessKey",
+            default=None,
+            description="Secret access key for authentication (will be encrypted when stored)",
+        ),
+    ]
     prefix: typing.Optional[str] = pydantic.Field(default=None)
     """
     Path prefix for exported files (must end with forward slash if provided)
     """
 
     export_frequency: typing_extensions.Annotated[
-        BlobStorageExportFrequency, FieldMetadata(alias="exportFrequency")
+        BlobStorageExportFrequency,
+        FieldMetadata(alias="exportFrequency"),
+        pydantic.Field(alias="exportFrequency"),
     ]
     enabled: bool = pydantic.Field()
     """
@@ -67,25 +72,31 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     """
 
     force_path_style: typing_extensions.Annotated[
-        bool, FieldMetadata(alias="forcePathStyle")
-    ] = pydantic.Field()
-    """
-    Use path-style URLs for S3 requests
-    """
-
+        bool,
+        FieldMetadata(alias="forcePathStyle"),
+        pydantic.Field(
+            alias="forcePathStyle", description="Use path-style URLs for S3 requests"
+        ),
+    ]
     file_type: typing_extensions.Annotated[
-        BlobStorageIntegrationFileType, FieldMetadata(alias="fileType")
+        BlobStorageIntegrationFileType,
+        FieldMetadata(alias="fileType"),
+        pydantic.Field(alias="fileType"),
     ]
     export_mode: typing_extensions.Annotated[
-        BlobStorageExportMode, FieldMetadata(alias="exportMode")
+        BlobStorageExportMode,
+        FieldMetadata(alias="exportMode"),
+        pydantic.Field(alias="exportMode"),
     ]
     export_start_date: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
-    ] = pydantic.Field(default=None)
-    """
-    Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="exportStartDate"),
+        pydantic.Field(
+            alias="exportStartDate",
+            default=None,
+            description="Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)",
+        ),
+    ]
     compressed: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.

@@ -14,10 +14,10 @@ class OrganizationProject(UniversalBaseModel):
     name: str
     metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

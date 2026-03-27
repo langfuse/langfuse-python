@@ -11,9 +11,13 @@ from .resource_type import ResourceType
 
 class ResourceTypesResponse(UniversalBaseModel):
     schemas: typing.List[str]
-    total_results: typing_extensions.Annotated[int, FieldMetadata(alias="totalResults")]
+    total_results: typing_extensions.Annotated[
+        int, FieldMetadata(alias="totalResults"), pydantic.Field(alias="totalResults")
+    ]
     resources: typing_extensions.Annotated[
-        typing.List[ResourceType], FieldMetadata(alias="Resources")
+        typing.List[ResourceType],
+        FieldMetadata(alias="Resources"),
+        pydantic.Field(alias="Resources"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

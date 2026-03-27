@@ -19,38 +19,46 @@ class DatasetItem(UniversalBaseModel):
     """
 
     expected_output: typing_extensions.Annotated[
-        typing.Any, FieldMetadata(alias="expectedOutput")
-    ] = pydantic.Field()
-    """
-    Expected output for the dataset item
-    """
-
+        typing.Any,
+        FieldMetadata(alias="expectedOutput"),
+        pydantic.Field(
+            alias="expectedOutput", description="Expected output for the dataset item"
+        ),
+    ]
     metadata: typing.Any = pydantic.Field()
     """
     Metadata associated with the dataset item
     """
 
     source_trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sourceTraceId")
-    ] = pydantic.Field(default=None)
-    """
-    The trace ID that sourced this dataset item
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="sourceTraceId"),
+        pydantic.Field(
+            alias="sourceTraceId",
+            default=None,
+            description="The trace ID that sourced this dataset item",
+        ),
+    ]
     source_observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sourceObservationId")
-    ] = pydantic.Field(default=None)
-    """
-    The observation ID that sourced this dataset item
-    """
-
-    dataset_id: typing_extensions.Annotated[str, FieldMetadata(alias="datasetId")]
-    dataset_name: typing_extensions.Annotated[str, FieldMetadata(alias="datasetName")]
+        typing.Optional[str],
+        FieldMetadata(alias="sourceObservationId"),
+        pydantic.Field(
+            alias="sourceObservationId",
+            default=None,
+            description="The observation ID that sourced this dataset item",
+        ),
+    ]
+    dataset_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="datasetId"), pydantic.Field(alias="datasetId")
+    ]
+    dataset_name: typing_extensions.Annotated[
+        str, FieldMetadata(alias="datasetName"), pydantic.Field(alias="datasetName")
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

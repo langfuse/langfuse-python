@@ -9,7 +9,9 @@ from ...core.serialization import FieldMetadata
 
 
 class SchemaExtension(UniversalBaseModel):
-    schema_: typing_extensions.Annotated[str, FieldMetadata(alias="schema")]
+    schema_: typing_extensions.Annotated[
+        str, FieldMetadata(alias="schema"), pydantic.Field(alias="schema")
+    ]
     required: bool
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

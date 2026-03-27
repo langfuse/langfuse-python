@@ -16,18 +16,24 @@ from .scim_feature_support import ScimFeatureSupport
 class ServiceProviderConfig(UniversalBaseModel):
     schemas: typing.List[str]
     documentation_uri: typing_extensions.Annotated[
-        str, FieldMetadata(alias="documentationUri")
+        str,
+        FieldMetadata(alias="documentationUri"),
+        pydantic.Field(alias="documentationUri"),
     ]
     patch: ScimFeatureSupport
     bulk: BulkConfig
     filter: FilterConfig
     change_password: typing_extensions.Annotated[
-        ScimFeatureSupport, FieldMetadata(alias="changePassword")
+        ScimFeatureSupport,
+        FieldMetadata(alias="changePassword"),
+        pydantic.Field(alias="changePassword"),
     ]
     sort: ScimFeatureSupport
     etag: ScimFeatureSupport
     authentication_schemes: typing_extensions.Annotated[
-        typing.List[AuthenticationScheme], FieldMetadata(alias="authenticationSchemes")
+        typing.List[AuthenticationScheme],
+        FieldMetadata(alias="authenticationSchemes"),
+        pydantic.Field(alias="authenticationSchemes"),
     ]
     meta: ResourceMeta
 

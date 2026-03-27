@@ -11,13 +11,19 @@ from .scim_user import ScimUser
 
 class ScimUsersListResponse(UniversalBaseModel):
     schemas: typing.List[str]
-    total_results: typing_extensions.Annotated[int, FieldMetadata(alias="totalResults")]
-    start_index: typing_extensions.Annotated[int, FieldMetadata(alias="startIndex")]
+    total_results: typing_extensions.Annotated[
+        int, FieldMetadata(alias="totalResults"), pydantic.Field(alias="totalResults")
+    ]
+    start_index: typing_extensions.Annotated[
+        int, FieldMetadata(alias="startIndex"), pydantic.Field(alias="startIndex")
+    ]
     items_per_page: typing_extensions.Annotated[
-        int, FieldMetadata(alias="itemsPerPage")
+        int, FieldMetadata(alias="itemsPerPage"), pydantic.Field(alias="itemsPerPage")
     ]
     resources: typing_extensions.Annotated[
-        typing.List[ScimUser], FieldMetadata(alias="Resources")
+        typing.List[ScimUser],
+        FieldMetadata(alias="Resources"),
+        pydantic.Field(alias="Resources"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

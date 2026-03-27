@@ -26,19 +26,13 @@ class PricingTierCondition(UniversalBaseModel):
     """
 
     usage_detail_pattern: typing_extensions.Annotated[
-        str, FieldMetadata(alias="usageDetailPattern")
-    ] = pydantic.Field()
-    """
-    Regex pattern to match against usage detail keys. All matching keys' values are summed for threshold comparison.
-    
-    Examples:
-    - "^input" matches "input", "input_tokens", "input_cached", etc.
-    - "^(input|prompt)" matches both "input_tokens" and "prompt_tokens"
-    - "_cache$" matches "input_cache", "output_cache", etc.
-    
-    The pattern is case-insensitive by default. If no keys match, the sum is treated as zero.
-    """
-
+        str,
+        FieldMetadata(alias="usageDetailPattern"),
+        pydantic.Field(
+            alias="usageDetailPattern",
+            description='Regex pattern to match against usage detail keys. All matching keys\' values are summed for threshold comparison.\n\nExamples:\n- "^input" matches "input", "input_tokens", "input_cached", etc.\n- "^(input|prompt)" matches both "input_tokens" and "prompt_tokens"\n- "_cache$" matches "input_cache", "output_cache", etc.\n\nThe pattern is case-insensitive by default. If no keys match, the sum is treated as zero.',
+        ),
+    ]
     operator: PricingTierOperator = pydantic.Field()
     """
     Comparison operator to apply between the summed value and the threshold.
@@ -57,11 +51,13 @@ class PricingTierCondition(UniversalBaseModel):
     """
 
     case_sensitive: typing_extensions.Annotated[
-        bool, FieldMetadata(alias="caseSensitive")
-    ] = pydantic.Field()
-    """
-    Whether the regex pattern matching is case-sensitive. Default is false (case-insensitive matching).
-    """
+        bool,
+        FieldMetadata(alias="caseSensitive"),
+        pydantic.Field(
+            alias="caseSensitive",
+            description="Whether the regex pattern matching is case-sensitive. Default is false (case-insensitive matching).",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

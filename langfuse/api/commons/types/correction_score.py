@@ -15,11 +15,13 @@ class CorrectionScore(BaseScore):
     """
 
     string_value: typing_extensions.Annotated[
-        str, FieldMetadata(alias="stringValue")
-    ] = pydantic.Field()
-    """
-    The string representation of the correction content
-    """
+        str,
+        FieldMetadata(alias="stringValue"),
+        pydantic.Field(
+            alias="stringValue",
+            description="The string representation of the correction content",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

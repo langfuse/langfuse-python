@@ -11,7 +11,9 @@ from ...core.serialization import FieldMetadata
 class AuthenticationScheme(UniversalBaseModel):
     name: str
     description: str
-    spec_uri: typing_extensions.Annotated[str, FieldMetadata(alias="specUri")]
+    spec_uri: typing_extensions.Annotated[
+        str, FieldMetadata(alias="specUri"), pydantic.Field(alias="specUri")
+    ]
     type: str
     primary: bool
 

@@ -11,8 +11,10 @@ from .create_event_body import CreateEventBody
 
 class CreateSpanBody(CreateEventBody):
     end_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="endTime")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="endTime"),
+        pydantic.Field(alias="endTime", default=None),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

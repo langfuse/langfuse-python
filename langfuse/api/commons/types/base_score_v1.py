@@ -12,30 +12,34 @@ from .score_source import ScoreSource
 
 class BaseScoreV1(UniversalBaseModel):
     id: str
-    trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")]
+    trace_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="traceId"), pydantic.Field(alias="traceId")
+    ]
     name: str
     source: ScoreSource
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = pydantic.Field(default=None)
-    """
-    The observation ID associated with the score
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(
+            alias="observationId",
+            default=None,
+            description="The observation ID associated with the score",
+        ),
+    ]
     timestamp: dt.datetime
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = pydantic.Field(default=None)
-    """
-    The user ID of the author
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(
+            alias="authorUserId", default=None, description="The user ID of the author"
+        ),
+    ]
     comment: typing.Optional[str] = pydantic.Field(default=None)
     """
     Comment on the score
@@ -47,19 +51,23 @@ class BaseScoreV1(UniversalBaseModel):
     """
 
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = pydantic.Field(default=None)
-    """
-    Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(
+            alias="configId",
+            default=None,
+            description="Reference a score config on a score. When set, config and score name must be equal and value must comply to optionally defined numerical range",
+        ),
+    ]
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = pydantic.Field(default=None)
-    """
-    The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(
+            alias="queueId",
+            default=None,
+            description="The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.",
+        ),
+    ]
     environment: str = pydantic.Field()
     """
     The environment from which this score originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.

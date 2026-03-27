@@ -14,14 +14,20 @@ class OpenAiUsage(UniversalBaseModel):
     """
 
     prompt_tokens: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="promptTokens")
-    ] = None
+        typing.Optional[int],
+        FieldMetadata(alias="promptTokens"),
+        pydantic.Field(alias="promptTokens", default=None),
+    ]
     completion_tokens: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="completionTokens")
-    ] = None
+        typing.Optional[int],
+        FieldMetadata(alias="completionTokens"),
+        pydantic.Field(alias="completionTokens", default=None),
+    ]
     total_tokens: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="totalTokens")
-    ] = None
+        typing.Optional[int],
+        FieldMetadata(alias="totalTokens"),
+        pydantic.Field(alias="totalTokens", default=None),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

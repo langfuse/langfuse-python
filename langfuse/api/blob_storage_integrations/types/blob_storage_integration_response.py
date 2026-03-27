@@ -15,49 +15,73 @@ from .blob_storage_integration_type import BlobStorageIntegrationType
 
 class BlobStorageIntegrationResponse(UniversalBaseModel):
     id: str
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
+    project_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="projectId"), pydantic.Field(alias="projectId")
+    ]
     type: BlobStorageIntegrationType
-    bucket_name: typing_extensions.Annotated[str, FieldMetadata(alias="bucketName")]
+    bucket_name: typing_extensions.Annotated[
+        str, FieldMetadata(alias="bucketName"), pydantic.Field(alias="bucketName")
+    ]
     endpoint: typing.Optional[str] = None
     region: str
     access_key_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="accessKeyId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="accessKeyId"),
+        pydantic.Field(alias="accessKeyId", default=None),
+    ]
     prefix: str
     export_frequency: typing_extensions.Annotated[
-        BlobStorageExportFrequency, FieldMetadata(alias="exportFrequency")
+        BlobStorageExportFrequency,
+        FieldMetadata(alias="exportFrequency"),
+        pydantic.Field(alias="exportFrequency"),
     ]
     enabled: bool
     force_path_style: typing_extensions.Annotated[
-        bool, FieldMetadata(alias="forcePathStyle")
+        bool,
+        FieldMetadata(alias="forcePathStyle"),
+        pydantic.Field(alias="forcePathStyle"),
     ]
     file_type: typing_extensions.Annotated[
-        BlobStorageIntegrationFileType, FieldMetadata(alias="fileType")
+        BlobStorageIntegrationFileType,
+        FieldMetadata(alias="fileType"),
+        pydantic.Field(alias="fileType"),
     ]
     export_mode: typing_extensions.Annotated[
-        BlobStorageExportMode, FieldMetadata(alias="exportMode")
+        BlobStorageExportMode,
+        FieldMetadata(alias="exportMode"),
+        pydantic.Field(alias="exportMode"),
     ]
     export_start_date: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="exportStartDate"),
+        pydantic.Field(alias="exportStartDate", default=None),
+    ]
     compressed: bool
     next_sync_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="nextSyncAt")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="nextSyncAt"),
+        pydantic.Field(alias="nextSyncAt", default=None),
+    ]
     last_sync_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="lastSyncAt")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastSyncAt"),
+        pydantic.Field(alias="lastSyncAt", default=None),
+    ]
     last_error: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="lastError")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="lastError"),
+        pydantic.Field(alias="lastError", default=None),
+    ]
     last_error_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="lastErrorAt")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastErrorAt"),
+        pydantic.Field(alias="lastErrorAt", default=None),
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

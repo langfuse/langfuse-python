@@ -14,7 +14,9 @@ from .user_meta import UserMeta
 class ScimUser(UniversalBaseModel):
     schemas: typing.List[str]
     id: str
-    user_name: typing_extensions.Annotated[str, FieldMetadata(alias="userName")]
+    user_name: typing_extensions.Annotated[
+        str, FieldMetadata(alias="userName"), pydantic.Field(alias="userName")
+    ]
     name: ScimName
     emails: typing.List[ScimEmail]
     meta: UserMeta

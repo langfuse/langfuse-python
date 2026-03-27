@@ -13,7 +13,9 @@ from ...core.serialization import FieldMetadata
 class CreateScoreConfigRequest(UniversalBaseModel):
     name: str
     data_type: typing_extensions.Annotated[
-        ScoreConfigDataType, FieldMetadata(alias="dataType")
+        ScoreConfigDataType,
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(alias="dataType"),
     ]
     categories: typing.Optional[typing.List[ConfigCategory]] = pydantic.Field(
         default=None
@@ -23,19 +25,23 @@ class CreateScoreConfigRequest(UniversalBaseModel):
     """
 
     min_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="minValue")
-    ] = pydantic.Field(default=None)
-    """
-    Configure a minimum value for numerical scores. If not set, the minimum value defaults to -∞
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="minValue"),
+        pydantic.Field(
+            alias="minValue",
+            default=None,
+            description="Configure a minimum value for numerical scores. If not set, the minimum value defaults to -∞",
+        ),
+    ]
     max_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="maxValue")
-    ] = pydantic.Field(default=None)
-    """
-    Configure a maximum value for numerical scores. If not set, the maximum value defaults to +∞
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="maxValue"),
+        pydantic.Field(
+            alias="maxValue",
+            default=None,
+            description="Configure a maximum value for numerical scores. If not set, the maximum value defaults to +∞",
+        ),
+    ]
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Description is shown across the Langfuse UI and can be used to e.g. explain the config categories in detail, why a numeric range was set, or provide additional context on config name or usage

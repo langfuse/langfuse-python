@@ -10,37 +10,41 @@ from .media_content_type import MediaContentType
 
 
 class GetMediaUploadUrlRequest(UniversalBaseModel):
-    trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")] = (
-        pydantic.Field()
-    )
-    """
-    The trace ID associated with the media record
-    """
-
+    trace_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(
+            alias="traceId", description="The trace ID associated with the media record"
+        ),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = pydantic.Field(default=None)
-    """
-    The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(
+            alias="observationId",
+            default=None,
+            description="The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.",
+        ),
+    ]
     content_type: typing_extensions.Annotated[
-        MediaContentType, FieldMetadata(alias="contentType")
+        MediaContentType,
+        FieldMetadata(alias="contentType"),
+        pydantic.Field(alias="contentType"),
     ]
     content_length: typing_extensions.Annotated[
-        int, FieldMetadata(alias="contentLength")
-    ] = pydantic.Field()
-    """
-    The size of the media record in bytes
-    """
-
-    sha256hash: typing_extensions.Annotated[str, FieldMetadata(alias="sha256Hash")] = (
-        pydantic.Field()
-    )
-    """
-    The SHA-256 hash of the media record
-    """
-
+        int,
+        FieldMetadata(alias="contentLength"),
+        pydantic.Field(
+            alias="contentLength", description="The size of the media record in bytes"
+        ),
+    ]
+    sha256hash: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="sha256Hash"),
+        pydantic.Field(
+            alias="sha256Hash", description="The SHA-256 hash of the media record"
+        ),
+    ]
     field: str = pydantic.Field()
     """
     The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`

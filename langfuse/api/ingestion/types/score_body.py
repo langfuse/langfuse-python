@@ -25,17 +25,25 @@ class ScoreBody(UniversalBaseModel):
 
     id: typing.Optional[str] = None
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     dataset_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="datasetRunId"),
+        pydantic.Field(alias="datasetRunId", default=None),
+    ]
     name: str = pydantic.Field()
     """
     The name of the score. Always overrides "output" for correction scores.
@@ -43,12 +51,14 @@ class ScoreBody(UniversalBaseModel):
 
     environment: typing.Optional[str] = None
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = pydantic.Field(default=None)
-    """
-    The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(
+            alias="queueId",
+            default=None,
+            description="The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.",
+        ),
+    ]
     value: CreateScoreValue = pydantic.Field()
     """
     The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)
@@ -57,18 +67,23 @@ class ScoreBody(UniversalBaseModel):
     comment: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
     data_type: typing_extensions.Annotated[
-        typing.Optional[ScoreDataType], FieldMetadata(alias="dataType")
-    ] = pydantic.Field(default=None)
-    """
-    When set, must match the score value's type. If not set, will be inferred from the score value or config
-    """
-
+        typing.Optional[ScoreDataType],
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(
+            alias="dataType",
+            default=None,
+            description="When set, must match the score value's type. If not set, will be inferred from the score value or config",
+        ),
+    ]
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = pydantic.Field(default=None)
-    """
-    Reference a score config on a score. When set, the score name must equal the config name and scores must comply with the config's range and data type. For categorical scores, the value must map to a config category. Numeric scores might be constrained by the score config's max and min values
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(
+            alias="configId",
+            default=None,
+            description="Reference a score config on a score. When set, the score name must equal the config name and scores must comply with the config's range and data type. For categorical scores, the value must map to a config category. Numeric scores might be constrained by the score config's max and min values",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

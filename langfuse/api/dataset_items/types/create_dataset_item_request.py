@@ -10,18 +10,26 @@ from ...core.serialization import FieldMetadata
 
 
 class CreateDatasetItemRequest(UniversalBaseModel):
-    dataset_name: typing_extensions.Annotated[str, FieldMetadata(alias="datasetName")]
+    dataset_name: typing_extensions.Annotated[
+        str, FieldMetadata(alias="datasetName"), pydantic.Field(alias="datasetName")
+    ]
     input: typing.Optional[typing.Any] = None
     expected_output: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="expectedOutput")
-    ] = None
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="expectedOutput"),
+        pydantic.Field(alias="expectedOutput", default=None),
+    ]
     metadata: typing.Optional[typing.Any] = None
     source_trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sourceTraceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sourceTraceId"),
+        pydantic.Field(alias="sourceTraceId", default=None),
+    ]
     source_observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sourceObservationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sourceObservationId"),
+        pydantic.Field(alias="sourceObservationId", default=None),
+    ]
     id: typing.Optional[str] = pydantic.Field(default=None)
     """
     Dataset items are upserted on their id. Id needs to be unique (project-level) and cannot be reused across datasets.

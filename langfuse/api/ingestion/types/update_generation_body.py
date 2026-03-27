@@ -14,26 +14,37 @@ from .usage_details import UsageDetails
 
 class UpdateGenerationBody(UpdateSpanBody):
     completion_start_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="completionStartTime")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="completionStartTime"),
+        pydantic.Field(alias="completionStartTime", default=None),
+    ]
     model: typing.Optional[str] = None
     model_parameters: typing_extensions.Annotated[
         typing.Optional[typing.Dict[str, MapValue]],
         FieldMetadata(alias="modelParameters"),
-    ] = None
+        pydantic.Field(alias="modelParameters", default=None),
+    ]
     usage: typing.Optional[IngestionUsage] = None
     prompt_name: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="promptName")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="promptName"),
+        pydantic.Field(alias="promptName", default=None),
+    ]
     usage_details: typing_extensions.Annotated[
-        typing.Optional[UsageDetails], FieldMetadata(alias="usageDetails")
-    ] = None
+        typing.Optional[UsageDetails],
+        FieldMetadata(alias="usageDetails"),
+        pydantic.Field(alias="usageDetails", default=None),
+    ]
     cost_details: typing_extensions.Annotated[
-        typing.Optional[typing.Dict[str, float]], FieldMetadata(alias="costDetails")
-    ] = None
+        typing.Optional[typing.Dict[str, float]],
+        FieldMetadata(alias="costDetails"),
+        pydantic.Field(alias="costDetails", default=None),
+    ]
     prompt_version: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="promptVersion")
-    ] = None
+        typing.Optional[int],
+        FieldMetadata(alias="promptVersion"),
+        pydantic.Field(alias="promptVersion", default=None),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

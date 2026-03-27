@@ -12,9 +12,11 @@ from ...core.serialization import FieldMetadata
 class Session(UniversalBaseModel):
     id: str
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
+    project_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="projectId"), pydantic.Field(alias="projectId")
+    ]
     environment: str = pydantic.Field()
     """
     The environment from which this session originated.

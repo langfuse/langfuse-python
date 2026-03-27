@@ -10,18 +10,22 @@ from ...core.serialization import FieldMetadata
 
 class GetMediaUploadUrlResponse(UniversalBaseModel):
     upload_url: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="uploadUrl")
-    ] = pydantic.Field(default=None)
-    """
-    The presigned upload URL. If the asset is already uploaded, this will be null
-    """
-
-    media_id: typing_extensions.Annotated[str, FieldMetadata(alias="mediaId")] = (
-        pydantic.Field()
-    )
-    """
-    The unique langfuse identifier of a media record
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="uploadUrl"),
+        pydantic.Field(
+            alias="uploadUrl",
+            default=None,
+            description="The presigned upload URL. If the asset is already uploaded, this will be null",
+        ),
+    ]
+    media_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="mediaId"),
+        pydantic.Field(
+            alias="mediaId",
+            description="The unique langfuse identifier of a media record",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

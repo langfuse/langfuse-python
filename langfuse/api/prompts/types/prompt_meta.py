@@ -21,14 +21,18 @@ class PromptMeta(UniversalBaseModel):
     labels: typing.List[str]
     tags: typing.List[str]
     last_updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="lastUpdatedAt")
+        dt.datetime,
+        FieldMetadata(alias="lastUpdatedAt"),
+        pydantic.Field(alias="lastUpdatedAt"),
     ]
     last_config: typing_extensions.Annotated[
-        typing.Any, FieldMetadata(alias="lastConfig")
-    ] = pydantic.Field()
-    """
-    Config object of the most recent prompt version that matches the filters (if any are provided)
-    """
+        typing.Any,
+        FieldMetadata(alias="lastConfig"),
+        pydantic.Field(
+            alias="lastConfig",
+            description="Config object of the most recent prompt version that matches the filters (if any are provided)",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

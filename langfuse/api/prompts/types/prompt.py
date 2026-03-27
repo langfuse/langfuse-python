@@ -20,12 +20,15 @@ class Prompt_Chat(UniversalBaseModel):
     labels: typing.List[str]
     tags: typing.List[str]
     commit_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="commitMessage")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="commitMessage"),
+        pydantic.Field(alias="commitMessage", default=None),
+    ]
     resolution_graph: typing_extensions.Annotated[
         typing.Optional[typing.Dict[str, typing.Any]],
         FieldMetadata(alias="resolutionGraph"),
-    ] = None
+        pydantic.Field(alias="resolutionGraph", default=None),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -41,12 +44,15 @@ class Prompt_Text(UniversalBaseModel):
     labels: typing.List[str]
     tags: typing.List[str]
     commit_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="commitMessage")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="commitMessage"),
+        pydantic.Field(alias="commitMessage", default=None),
+    ]
     resolution_graph: typing_extensions.Annotated[
         typing.Optional[typing.Dict[str, typing.Any]],
         FieldMetadata(alias="resolutionGraph"),
-    ] = None
+        pydantic.Field(alias="resolutionGraph", default=None),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

@@ -15,43 +15,59 @@ from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 class GetScoresResponseData_Numeric(UniversalBaseModel):
     data_type: typing_extensions.Annotated[
-        typing.Literal["NUMERIC"], FieldMetadata(alias="dataType")
-    ] = "NUMERIC"
+        typing.Literal["NUMERIC"],
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(alias="dataType", default="NUMERIC"),
+    ]
     trace: typing.Optional[GetScoresResponseTraceData] = None
     value: float
     id: str
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     dataset_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="datasetRunId"),
+        pydantic.Field(alias="datasetRunId", default=None),
+    ]
     name: str
     source: ScoreSource
     timestamp: dt.datetime
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(alias="authorUserId", default=None),
+    ]
     comment: typing.Optional[str] = None
     metadata: typing.Any
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(alias="configId", default=None),
+    ]
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(alias="queueId", default=None),
+    ]
     environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -61,44 +77,62 @@ class GetScoresResponseData_Numeric(UniversalBaseModel):
 
 class GetScoresResponseData_Categorical(UniversalBaseModel):
     data_type: typing_extensions.Annotated[
-        typing.Literal["CATEGORICAL"], FieldMetadata(alias="dataType")
-    ] = "CATEGORICAL"
+        typing.Literal["CATEGORICAL"],
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(alias="dataType", default="CATEGORICAL"),
+    ]
     trace: typing.Optional[GetScoresResponseTraceData] = None
     value: float
-    string_value: typing_extensions.Annotated[str, FieldMetadata(alias="stringValue")]
+    string_value: typing_extensions.Annotated[
+        str, FieldMetadata(alias="stringValue"), pydantic.Field(alias="stringValue")
+    ]
     id: str
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     dataset_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="datasetRunId"),
+        pydantic.Field(alias="datasetRunId", default=None),
+    ]
     name: str
     source: ScoreSource
     timestamp: dt.datetime
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(alias="authorUserId", default=None),
+    ]
     comment: typing.Optional[str] = None
     metadata: typing.Any
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(alias="configId", default=None),
+    ]
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(alias="queueId", default=None),
+    ]
     environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -108,44 +142,62 @@ class GetScoresResponseData_Categorical(UniversalBaseModel):
 
 class GetScoresResponseData_Boolean(UniversalBaseModel):
     data_type: typing_extensions.Annotated[
-        typing.Literal["BOOLEAN"], FieldMetadata(alias="dataType")
-    ] = "BOOLEAN"
+        typing.Literal["BOOLEAN"],
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(alias="dataType", default="BOOLEAN"),
+    ]
     trace: typing.Optional[GetScoresResponseTraceData] = None
     value: float
-    string_value: typing_extensions.Annotated[str, FieldMetadata(alias="stringValue")]
+    string_value: typing_extensions.Annotated[
+        str, FieldMetadata(alias="stringValue"), pydantic.Field(alias="stringValue")
+    ]
     id: str
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     dataset_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="datasetRunId"),
+        pydantic.Field(alias="datasetRunId", default=None),
+    ]
     name: str
     source: ScoreSource
     timestamp: dt.datetime
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(alias="authorUserId", default=None),
+    ]
     comment: typing.Optional[str] = None
     metadata: typing.Any
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(alias="configId", default=None),
+    ]
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(alias="queueId", default=None),
+    ]
     environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -155,44 +207,62 @@ class GetScoresResponseData_Boolean(UniversalBaseModel):
 
 class GetScoresResponseData_Correction(UniversalBaseModel):
     data_type: typing_extensions.Annotated[
-        typing.Literal["CORRECTION"], FieldMetadata(alias="dataType")
-    ] = "CORRECTION"
+        typing.Literal["CORRECTION"],
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(alias="dataType", default="CORRECTION"),
+    ]
     trace: typing.Optional[GetScoresResponseTraceData] = None
     value: float
-    string_value: typing_extensions.Annotated[str, FieldMetadata(alias="stringValue")]
+    string_value: typing_extensions.Annotated[
+        str, FieldMetadata(alias="stringValue"), pydantic.Field(alias="stringValue")
+    ]
     id: str
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     dataset_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="datasetRunId"),
+        pydantic.Field(alias="datasetRunId", default=None),
+    ]
     name: str
     source: ScoreSource
     timestamp: dt.datetime
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(alias="authorUserId", default=None),
+    ]
     comment: typing.Optional[str] = None
     metadata: typing.Any
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(alias="configId", default=None),
+    ]
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(alias="queueId", default=None),
+    ]
     environment: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

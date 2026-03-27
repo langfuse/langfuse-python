@@ -9,9 +9,15 @@ from ...core.serialization import FieldMetadata
 
 
 class CreateAnnotationQueueAssignmentResponse(UniversalBaseModel):
-    user_id: typing_extensions.Annotated[str, FieldMetadata(alias="userId")]
-    queue_id: typing_extensions.Annotated[str, FieldMetadata(alias="queueId")]
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
+    user_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="userId"), pydantic.Field(alias="userId")
+    ]
+    queue_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="queueId"), pydantic.Field(alias="queueId")
+    ]
+    project_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="projectId"), pydantic.Field(alias="projectId")
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

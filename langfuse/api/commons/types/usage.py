@@ -34,25 +34,24 @@ class Usage(UniversalBaseModel):
     """
 
     input_cost: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="inputCost")
-    ] = pydantic.Field(default=None)
-    """
-    USD input cost
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="inputCost"),
+        pydantic.Field(alias="inputCost", default=None, description="USD input cost"),
+    ]
     output_cost: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="outputCost")
-    ] = pydantic.Field(default=None)
-    """
-    USD output cost
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="outputCost"),
+        pydantic.Field(alias="outputCost", default=None, description="USD output cost"),
+    ]
     total_cost: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="totalCost")
-    ] = pydantic.Field(default=None)
-    """
-    USD total cost, defaults to input+output
-    """
+        typing.Optional[float],
+        FieldMetadata(alias="totalCost"),
+        pydantic.Field(
+            alias="totalCost",
+            default=None,
+            description="USD total cost, defaults to input+output",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

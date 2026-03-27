@@ -23,19 +23,23 @@ class BasePrompt(UniversalBaseModel):
     """
 
     commit_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="commitMessage")
-    ] = pydantic.Field(default=None)
-    """
-    Commit message for this prompt version.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="commitMessage"),
+        pydantic.Field(
+            alias="commitMessage",
+            default=None,
+            description="Commit message for this prompt version.",
+        ),
+    ]
     resolution_graph: typing_extensions.Annotated[
         typing.Optional[typing.Dict[str, typing.Any]],
         FieldMetadata(alias="resolutionGraph"),
-    ] = pydantic.Field(default=None)
-    """
-    The dependency resolution graph for the current prompt. Null if the prompt has no dependencies or if `resolve=false` was used.
-    """
+        pydantic.Field(
+            alias="resolutionGraph",
+            default=None,
+            description="The dependency resolution graph for the current prompt. Null if the prompt has no dependencies or if `resolve=false` was used.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

@@ -12,27 +12,33 @@ from ...core.serialization import FieldMetadata
 class DatasetRunItem(UniversalBaseModel):
     id: str
     dataset_run_id: typing_extensions.Annotated[
-        str, FieldMetadata(alias="datasetRunId")
+        str, FieldMetadata(alias="datasetRunId"), pydantic.Field(alias="datasetRunId")
     ]
     dataset_run_name: typing_extensions.Annotated[
-        str, FieldMetadata(alias="datasetRunName")
+        str,
+        FieldMetadata(alias="datasetRunName"),
+        pydantic.Field(alias="datasetRunName"),
     ]
     dataset_item_id: typing_extensions.Annotated[
-        str, FieldMetadata(alias="datasetItemId")
+        str, FieldMetadata(alias="datasetItemId"), pydantic.Field(alias="datasetItemId")
     ]
-    trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")]
+    trace_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="traceId"), pydantic.Field(alias="traceId")
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = pydantic.Field(default=None)
-    """
-    The observation ID associated with this run item
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(
+            alias="observationId",
+            default=None,
+            description="The observation ID associated with this run item",
+        ),
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

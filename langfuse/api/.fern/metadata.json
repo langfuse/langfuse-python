@@ -1,7 +1,7 @@
 {
-  "cliVersion": "3.30.3",
+  "cliVersion": "3.88.0",
   "generatorName": "fernapi/fern-python-sdk",
-  "generatorVersion": "4.46.2",
+  "generatorVersion": "4.64.1",
   "generatorConfig": {
     "pydantic_config": {
       "enum_type": "python_enums",

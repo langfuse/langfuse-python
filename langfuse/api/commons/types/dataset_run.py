@@ -30,33 +30,34 @@ class DatasetRun(UniversalBaseModel):
     Metadata of the dataset run
     """
 
-    dataset_id: typing_extensions.Annotated[str, FieldMetadata(alias="datasetId")] = (
-        pydantic.Field()
-    )
-    """
-    Id of the associated dataset
-    """
-
+    dataset_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="datasetId"),
+        pydantic.Field(alias="datasetId", description="Id of the associated dataset"),
+    ]
     dataset_name: typing_extensions.Annotated[
-        str, FieldMetadata(alias="datasetName")
-    ] = pydantic.Field()
-    """
-    Name of the associated dataset
-    """
-
+        str,
+        FieldMetadata(alias="datasetName"),
+        pydantic.Field(
+            alias="datasetName", description="Name of the associated dataset"
+        ),
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
-    ] = pydantic.Field()
-    """
-    The date and time when the dataset run was created
-    """
-
+        dt.datetime,
+        FieldMetadata(alias="createdAt"),
+        pydantic.Field(
+            alias="createdAt",
+            description="The date and time when the dataset run was created",
+        ),
+    ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
-    ] = pydantic.Field()
-    """
-    The date and time when the dataset run was last updated
-    """
+        dt.datetime,
+        FieldMetadata(alias="updatedAt"),
+        pydantic.Field(
+            alias="updatedAt",
+            description="The date and time when the dataset run was last updated",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

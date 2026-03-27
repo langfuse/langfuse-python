@@ -42,16 +42,14 @@ class PricingTier(UniversalBaseModel):
     Examples: "Standard", "High Volume Tier", "Large Context", "Extended Context Tier"
     """
 
-    is_default: typing_extensions.Annotated[bool, FieldMetadata(alias="isDefault")] = (
-        pydantic.Field()
-    )
-    """
-    Whether this is the default tier. Every model must have exactly one default tier with priority 0 and no conditions.
-    
-    The default tier serves as a fallback when no conditional tiers match, ensuring cost calculation always succeeds.
-    It typically represents the base pricing for standard usage patterns.
-    """
-
+    is_default: typing_extensions.Annotated[
+        bool,
+        FieldMetadata(alias="isDefault"),
+        pydantic.Field(
+            alias="isDefault",
+            description="Whether this is the default tier. Every model must have exactly one default tier with priority 0 and no conditions.\n\nThe default tier serves as a fallback when no conditional tiers match, ensuring cost calculation always succeeds.\nIt typically represents the base pricing for standard usage patterns.",
+        ),
+    ]
     priority: int = pydantic.Field()
     """
     Priority for tier matching evaluation. Lower numbers = higher priority (evaluated first).

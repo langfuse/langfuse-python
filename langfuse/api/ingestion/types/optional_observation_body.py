@@ -12,22 +12,30 @@ from ...core.serialization import FieldMetadata
 
 class OptionalObservationBody(UniversalBaseModel):
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     name: typing.Optional[str] = None
     start_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="startTime")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="startTime"),
+        pydantic.Field(alias="startTime", default=None),
+    ]
     metadata: typing.Optional[typing.Any] = None
     input: typing.Optional[typing.Any] = None
     output: typing.Optional[typing.Any] = None
     level: typing.Optional[ObservationLevel] = None
     status_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="statusMessage")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="statusMessage"),
+        pydantic.Field(alias="statusMessage", default=None),
+    ]
     parent_observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="parentObservationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="parentObservationId"),
+        pydantic.Field(alias="parentObservationId", default=None),
+    ]
     version: typing.Optional[str] = None
     environment: typing.Optional[str] = None
 

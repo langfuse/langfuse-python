@@ -26,11 +26,14 @@ class CreateChatPromptRequest(UniversalBaseModel):
     """
 
     commit_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="commitMessage")
-    ] = pydantic.Field(default=None)
-    """
-    Commit message for this prompt version.
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="commitMessage"),
+        pydantic.Field(
+            alias="commitMessage",
+            default=None,
+            description="Commit message for this prompt version.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

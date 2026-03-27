@@ -12,6 +12,7 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
+from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from .types.membership_deletion_response import MembershipDeletionResponse
@@ -20,6 +21,7 @@ from .types.membership_role import MembershipRole
 from .types.memberships_response import MembershipsResponse
 from .types.organization_api_keys_response import OrganizationApiKeysResponse
 from .types.organization_projects_response import OrganizationProjectsResponse
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -120,6 +122,13 @@ class RawOrganizationsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -232,6 +241,13 @@ class RawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -336,6 +352,13 @@ class RawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -438,6 +461,13 @@ class RawOrganizationsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -553,6 +583,13 @@ class RawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -663,6 +700,13 @@ class RawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -761,6 +805,13 @@ class RawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -858,6 +909,13 @@ class RawOrganizationsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -961,6 +1019,13 @@ class AsyncRawOrganizationsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -1073,6 +1138,13 @@ class AsyncRawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1177,6 +1249,13 @@ class AsyncRawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1279,6 +1358,13 @@ class AsyncRawOrganizationsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -1394,6 +1480,13 @@ class AsyncRawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1504,6 +1597,13 @@ class AsyncRawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1602,6 +1702,13 @@ class AsyncRawOrganizationsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -1699,6 +1806,13 @@ class AsyncRawOrganizationsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,

@@ -12,24 +12,33 @@ from .comment_object_type import CommentObjectType
 
 class Comment(UniversalBaseModel):
     id: str
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
+    project_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="projectId"), pydantic.Field(alias="projectId")
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
     object_type: typing_extensions.Annotated[
-        CommentObjectType, FieldMetadata(alias="objectType")
+        CommentObjectType,
+        FieldMetadata(alias="objectType"),
+        pydantic.Field(alias="objectType"),
     ]
-    object_id: typing_extensions.Annotated[str, FieldMetadata(alias="objectId")]
+    object_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="objectId"), pydantic.Field(alias="objectId")
+    ]
     content: str
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = pydantic.Field(default=None)
-    """
-    The user ID of the comment author
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(
+            alias="authorUserId",
+            default=None,
+            description="The user ID of the comment author",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

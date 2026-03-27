@@ -10,48 +10,58 @@ from ...core.serialization import FieldMetadata
 
 
 class CreateDatasetRunItemRequest(UniversalBaseModel):
-    run_name: typing_extensions.Annotated[str, FieldMetadata(alias="runName")]
+    run_name: typing_extensions.Annotated[
+        str, FieldMetadata(alias="runName"), pydantic.Field(alias="runName")
+    ]
     run_description: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="runDescription")
-    ] = pydantic.Field(default=None)
-    """
-    Description of the run. If run exists, description will be updated.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="runDescription"),
+        pydantic.Field(
+            alias="runDescription",
+            default=None,
+            description="Description of the run. If run exists, description will be updated.",
+        ),
+    ]
     metadata: typing.Optional[typing.Any] = pydantic.Field(default=None)
     """
     Metadata of the dataset run, updates run if run already exists
     """
 
     dataset_item_id: typing_extensions.Annotated[
-        str, FieldMetadata(alias="datasetItemId")
+        str, FieldMetadata(alias="datasetItemId"), pydantic.Field(alias="datasetItemId")
     ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = pydantic.Field(default=None)
-    """
-    traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(
+            alias="traceId",
+            default=None,
+            description="traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.",
+        ),
+    ]
     dataset_version: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="datasetVersion")
-    ] = pydantic.Field(default=None)
-    """
-    ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
-    Specifies the dataset version to use for this experiment run. 
-    If provided, the experiment will use dataset items as they existed at or before this timestamp.
-    If not provided, uses the latest version of dataset items.
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="datasetVersion"),
+        pydantic.Field(
+            alias="datasetVersion",
+            default=None,
+            description='ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").\nSpecifies the dataset version to use for this experiment run. \nIf provided, the experiment will use dataset items as they existed at or before this timestamp.\nIf not provided, uses the latest version of dataset items.',
+        ),
+    ]
     created_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="createdAt")
-    ] = pydantic.Field(default=None)
-    """
-    Optional timestamp to set the createdAt field of the dataset run item. If not provided or null, defaults to current timestamp.
-    """
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdAt"),
+        pydantic.Field(
+            alias="createdAt",
+            default=None,
+            description="Optional timestamp to set the createdAt field of the dataset run item. If not provided or null, defaults to current timestamp.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

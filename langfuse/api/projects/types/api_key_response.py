@@ -16,12 +16,18 @@ class ApiKeyResponse(UniversalBaseModel):
 
     id: str
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
-    public_key: typing_extensions.Annotated[str, FieldMetadata(alias="publicKey")]
-    secret_key: typing_extensions.Annotated[str, FieldMetadata(alias="secretKey")]
+    public_key: typing_extensions.Annotated[
+        str, FieldMetadata(alias="publicKey"), pydantic.Field(alias="publicKey")
+    ]
+    secret_key: typing_extensions.Annotated[
+        str, FieldMetadata(alias="secretKey"), pydantic.Field(alias="secretKey")
+    ]
     display_secret_key: typing_extensions.Annotated[
-        str, FieldMetadata(alias="displaySecretKey")
+        str,
+        FieldMetadata(alias="displaySecretKey"),
+        pydantic.Field(alias="displaySecretKey"),
     ]
     note: typing.Optional[str] = None
 

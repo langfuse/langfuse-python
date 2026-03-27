@@ -12,7 +12,9 @@ class CreateAnnotationQueueRequest(UniversalBaseModel):
     name: str
     description: typing.Optional[str] = None
     score_config_ids: typing_extensions.Annotated[
-        typing.List[str], FieldMetadata(alias="scoreConfigIds")
+        typing.List[str],
+        FieldMetadata(alias="scoreConfigIds"),
+        pydantic.Field(alias="scoreConfigIds"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

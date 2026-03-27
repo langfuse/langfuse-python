@@ -25,17 +25,25 @@ class CreateScoreRequest(UniversalBaseModel):
 
     id: typing.Optional[str] = None
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="observationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="observationId"),
+        pydantic.Field(alias="observationId", default=None),
+    ]
     dataset_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="datasetRunId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="datasetRunId"),
+        pydantic.Field(alias="datasetRunId", default=None),
+    ]
     name: str
     value: CreateScoreValue = pydantic.Field()
     """
@@ -50,25 +58,32 @@ class CreateScoreRequest(UniversalBaseModel):
     """
 
     queue_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="queueId")
-    ] = pydantic.Field(default=None)
-    """
-    The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="queueId"),
+        pydantic.Field(
+            alias="queueId",
+            default=None,
+            description="The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.",
+        ),
+    ]
     data_type: typing_extensions.Annotated[
-        typing.Optional[ScoreDataType], FieldMetadata(alias="dataType")
-    ] = pydantic.Field(default=None)
-    """
-    The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-    """
-
+        typing.Optional[ScoreDataType],
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(
+            alias="dataType",
+            default=None,
+            description="The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.",
+        ),
+    ]
     config_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="configId")
-    ] = pydantic.Field(default=None)
-    """
-    Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="configId"),
+        pydantic.Field(
+            alias="configId",
+            default=None,
+            description="Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

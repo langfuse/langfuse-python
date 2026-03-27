@@ -23,25 +23,31 @@ class Dataset(UniversalBaseModel):
     """
 
     input_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="inputSchema")
-    ] = pydantic.Field(default=None)
-    """
-    JSON Schema for validating dataset item inputs
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="inputSchema"),
+        pydantic.Field(
+            alias="inputSchema",
+            default=None,
+            description="JSON Schema for validating dataset item inputs",
+        ),
+    ]
     expected_output_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="expectedOutputSchema")
-    ] = pydantic.Field(default=None)
-    """
-    JSON Schema for validating dataset item expected outputs
-    """
-
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="expectedOutputSchema"),
+        pydantic.Field(
+            alias="expectedOutputSchema",
+            default=None,
+            description="JSON Schema for validating dataset item expected outputs",
+        ),
+    ]
+    project_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="projectId"), pydantic.Field(alias="projectId")
+    ]
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

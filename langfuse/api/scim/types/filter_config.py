@@ -10,7 +10,9 @@ from ...core.serialization import FieldMetadata
 
 class FilterConfig(UniversalBaseModel):
     supported: bool
-    max_results: typing_extensions.Annotated[int, FieldMetadata(alias="maxResults")]
+    max_results: typing_extensions.Annotated[
+        int, FieldMetadata(alias="maxResults"), pydantic.Field(alias="maxResults")
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

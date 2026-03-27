@@ -15,11 +15,13 @@ class BooleanScoreV1(BaseScoreV1):
     """
 
     string_value: typing_extensions.Annotated[
-        str, FieldMetadata(alias="stringValue")
-    ] = pydantic.Field()
-    """
-    The string representation of the score value. Is inferred from the numeric value and equals "True" or "False"
-    """
+        str,
+        FieldMetadata(alias="stringValue"),
+        pydantic.Field(
+            alias="stringValue",
+            description='The string representation of the score value. Is inferred from the numeric value and equals "True" or "False"',
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

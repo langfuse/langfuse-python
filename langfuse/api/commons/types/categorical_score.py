@@ -15,11 +15,13 @@ class CategoricalScore(BaseScore):
     """
 
     string_value: typing_extensions.Annotated[
-        str, FieldMetadata(alias="stringValue")
-    ] = pydantic.Field()
-    """
-    The string representation of the score value. If no config is linked, can be any string. Otherwise, must map to a config category
-    """
+        str,
+        FieldMetadata(alias="stringValue"),
+        pydantic.Field(
+            alias="stringValue",
+            description="The string representation of the score value. If no config is linked, can be any string. Otherwise, must map to a config category",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

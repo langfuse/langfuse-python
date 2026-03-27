@@ -14,12 +14,14 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.datetime_utils import serialize_datetime
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
+from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from .types.create_prompt_request import CreatePromptRequest
 from .types.prompt import Prompt
 from .types.prompt_meta_list_response import PromptMetaListResponse
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -144,6 +146,13 @@ class RawPromptsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -283,6 +292,13 @@ class RawPromptsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -389,6 +405,13 @@ class RawPromptsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -498,6 +521,13 @@ class RawPromptsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -625,6 +655,13 @@ class AsyncRawPromptsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -764,6 +801,13 @@ class AsyncRawPromptsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -870,6 +914,13 @@ class AsyncRawPromptsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -979,6 +1030,13 @@ class AsyncRawPromptsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,

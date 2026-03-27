@@ -11,11 +11,13 @@ from ..commons.errors.unauthorized_error import UnauthorizedError
 from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
+from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from .types.llm_adapter import LlmAdapter
 from .types.llm_connection import LlmConnection
 from .types.paginated_llm_connections import PaginatedLlmConnections
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -130,6 +132,13 @@ class RawLlmConnectionsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -274,6 +283,13 @@ class RawLlmConnectionsClient:
                 headers=dict(_response.headers),
                 body=_response.text,
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
+            )
         raise ApiError(
             status_code=_response.status_code,
             headers=dict(_response.headers),
@@ -390,6 +406,13 @@ class AsyncRawLlmConnectionsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,
@@ -533,6 +556,13 @@ class AsyncRawLlmConnectionsClient:
                 status_code=_response.status_code,
                 headers=dict(_response.headers),
                 body=_response.text,
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.json(),
+                cause=e,
             )
         raise ApiError(
             status_code=_response.status_code,

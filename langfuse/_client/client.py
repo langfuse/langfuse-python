@@ -1868,10 +1868,7 @@ class Langfuse:
             return
 
         try:
-            new_body = TraceBody(
-                id=trace_id,
-                tags=tags,
-            )
+            new_body = TraceBody(id=trace_id, tags=tags, user_id=None, session_id=None)
 
             event = {
                 "id": self.create_trace_id(),

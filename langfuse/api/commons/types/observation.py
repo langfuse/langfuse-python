@@ -18,12 +18,14 @@ class Observation(UniversalBaseModel):
     """
 
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = pydantic.Field(default=None)
-    """
-    The trace ID associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(
+            alias="traceId",
+            default=None,
+            description="The trace ID associated with the observation",
+        ),
+    ]
     type: str = pydantic.Field()
     """
     The type of the observation
@@ -35,38 +37,43 @@ class Observation(UniversalBaseModel):
     """
 
     start_time: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="startTime")
-    ] = pydantic.Field()
-    """
-    The start time of the observation
-    """
-
+        dt.datetime,
+        FieldMetadata(alias="startTime"),
+        pydantic.Field(
+            alias="startTime", description="The start time of the observation"
+        ),
+    ]
     end_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="endTime")
-    ] = pydantic.Field(default=None)
-    """
-    The end time of the observation.
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="endTime"),
+        pydantic.Field(
+            alias="endTime",
+            default=None,
+            description="The end time of the observation.",
+        ),
+    ]
     completion_start_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="completionStartTime")
-    ] = pydantic.Field(default=None)
-    """
-    The completion start time of the observation
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="completionStartTime"),
+        pydantic.Field(
+            alias="completionStartTime",
+            default=None,
+            description="The completion start time of the observation",
+        ),
+    ]
     model: typing.Optional[str] = pydantic.Field(default=None)
     """
     The model used for the observation
     """
 
     model_parameters: typing_extensions.Annotated[
-        typing.Any, FieldMetadata(alias="modelParameters")
-    ] = pydantic.Field()
-    """
-    The parameters of the model used for the observation
-    """
-
+        typing.Any,
+        FieldMetadata(alias="modelParameters"),
+        pydantic.Field(
+            alias="modelParameters",
+            description="The parameters of the model used for the observation",
+        ),
+    ]
     input: typing.Any = pydantic.Field()
     """
     The input data of the observation
@@ -98,40 +105,48 @@ class Observation(UniversalBaseModel):
     """
 
     status_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="statusMessage")
-    ] = pydantic.Field(default=None)
-    """
-    The status message of the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="statusMessage"),
+        pydantic.Field(
+            alias="statusMessage",
+            default=None,
+            description="The status message of the observation",
+        ),
+    ]
     parent_observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="parentObservationId")
-    ] = pydantic.Field(default=None)
-    """
-    The parent observation ID
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="parentObservationId"),
+        pydantic.Field(
+            alias="parentObservationId",
+            default=None,
+            description="The parent observation ID",
+        ),
+    ]
     prompt_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="promptId")
-    ] = pydantic.Field(default=None)
-    """
-    The prompt ID associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="promptId"),
+        pydantic.Field(
+            alias="promptId",
+            default=None,
+            description="The prompt ID associated with the observation",
+        ),
+    ]
     usage_details: typing_extensions.Annotated[
-        typing.Dict[str, int], FieldMetadata(alias="usageDetails")
-    ] = pydantic.Field()
-    """
-    The usage details of the observation. Key is the name of the usage metric, value is the number of units consumed. The total key is the sum of all (non-total) usage metrics or the total value ingested.
-    """
-
+        typing.Dict[str, int],
+        FieldMetadata(alias="usageDetails"),
+        pydantic.Field(
+            alias="usageDetails",
+            description="The usage details of the observation. Key is the name of the usage metric, value is the number of units consumed. The total key is the sum of all (non-total) usage metrics or the total value ingested.",
+        ),
+    ]
     cost_details: typing_extensions.Annotated[
-        typing.Dict[str, float], FieldMetadata(alias="costDetails")
-    ] = pydantic.Field()
-    """
-    The cost details of the observation. Key is the name of the cost metric, value is the cost in USD. The total key is the sum of all (non-total) cost metrics or the total value ingested.
-    """
-
+        typing.Dict[str, float],
+        FieldMetadata(alias="costDetails"),
+        pydantic.Field(
+            alias="costDetails",
+            description="The cost details of the observation. Key is the name of the cost metric, value is the cost in USD. The total key is the sum of all (non-total) cost metrics or the total value ingested.",
+        ),
+    ]
     environment: str = pydantic.Field()
     """
     The environment from which this observation originated. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.

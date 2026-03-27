@@ -14,13 +14,17 @@ class TraceBody(UniversalBaseModel):
     timestamp: typing.Optional[dt.datetime] = None
     name: typing.Optional[str] = None
     user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="userId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="userId"),
+        pydantic.Field(alias="userId", default=None),
+    ]
     input: typing.Optional[typing.Any] = None
     output: typing.Optional[typing.Any] = None
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(alias="sessionId", default=None),
+    ]
     release: typing.Optional[str] = None
     version: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None

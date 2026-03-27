@@ -9,38 +9,44 @@ from ...core.serialization import FieldMetadata
 
 
 class CreateCommentRequest(UniversalBaseModel):
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")] = (
-        pydantic.Field()
-    )
-    """
-    The id of the project to attach the comment to.
-    """
-
-    object_type: typing_extensions.Annotated[str, FieldMetadata(alias="objectType")] = (
-        pydantic.Field()
-    )
-    """
-    The type of the object to attach the comment to (trace, observation, session, prompt).
-    """
-
-    object_id: typing_extensions.Annotated[str, FieldMetadata(alias="objectId")] = (
-        pydantic.Field()
-    )
-    """
-    The id of the object to attach the comment to. If this does not reference a valid existing object, an error will be thrown.
-    """
-
+    project_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="projectId"),
+        pydantic.Field(
+            alias="projectId",
+            description="The id of the project to attach the comment to.",
+        ),
+    ]
+    object_type: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="objectType"),
+        pydantic.Field(
+            alias="objectType",
+            description="The type of the object to attach the comment to (trace, observation, session, prompt).",
+        ),
+    ]
+    object_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="objectId"),
+        pydantic.Field(
+            alias="objectId",
+            description="The id of the object to attach the comment to. If this does not reference a valid existing object, an error will be thrown.",
+        ),
+    ]
     content: str = pydantic.Field()
     """
     The content of the comment. May include markdown. Currently limited to 5000 characters.
     """
 
     author_user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="authorUserId")
-    ] = pydantic.Field(default=None)
-    """
-    The id of the user who created the comment.
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="authorUserId"),
+        pydantic.Field(
+            alias="authorUserId",
+            default=None,
+            description="The id of the user who created the comment.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

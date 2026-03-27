@@ -9,11 +9,15 @@ from ...core.serialization import FieldMetadata
 
 
 class UserMeta(UniversalBaseModel):
-    resource_type: typing_extensions.Annotated[str, FieldMetadata(alias="resourceType")]
+    resource_type: typing_extensions.Annotated[
+        str, FieldMetadata(alias="resourceType"), pydantic.Field(alias="resourceType")
+    ]
     created: typing.Optional[str] = None
     last_modified: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="lastModified")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="lastModified"),
+        pydantic.Field(alias="lastModified", default=None),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

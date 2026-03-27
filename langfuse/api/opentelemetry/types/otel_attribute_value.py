@@ -14,32 +14,25 @@ class OtelAttributeValue(UniversalBaseModel):
     """
 
     string_value: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="stringValue")
-    ] = pydantic.Field(default=None)
-    """
-    String value
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="stringValue"),
+        pydantic.Field(alias="stringValue", default=None, description="String value"),
+    ]
     int_value: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="intValue")
-    ] = pydantic.Field(default=None)
-    """
-    Integer value
-    """
-
+        typing.Optional[int],
+        FieldMetadata(alias="intValue"),
+        pydantic.Field(alias="intValue", default=None, description="Integer value"),
+    ]
     double_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="doubleValue")
-    ] = pydantic.Field(default=None)
-    """
-    Double value
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="doubleValue"),
+        pydantic.Field(alias="doubleValue", default=None, description="Double value"),
+    ]
     bool_value: typing_extensions.Annotated[
-        typing.Optional[bool], FieldMetadata(alias="boolValue")
-    ] = pydantic.Field(default=None)
-    """
-    Boolean value
-    """
+        typing.Optional[bool],
+        FieldMetadata(alias="boolValue"),
+        pydantic.Field(alias="boolValue", default=None, description="Boolean value"),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

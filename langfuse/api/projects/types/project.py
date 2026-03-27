@@ -23,11 +23,14 @@ class Project(UniversalBaseModel):
     """
 
     retention_days: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="retentionDays")
-    ] = pydantic.Field(default=None)
-    """
-    Number of days to retain data. Null or 0 means no retention. Omitted if no retention is configured.
-    """
+        typing.Optional[int],
+        FieldMetadata(alias="retentionDays"),
+        pydantic.Field(
+            alias="retentionDays",
+            default=None,
+            description="Number of days to retain data. Null or 0 means no retention. Omitted if no retention is configured.",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

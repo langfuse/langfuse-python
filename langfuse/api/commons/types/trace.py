@@ -36,12 +36,14 @@ class Trace(UniversalBaseModel):
     """
 
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = pydantic.Field(default=None)
-    """
-    The session identifier associated with the trace
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(
+            alias="sessionId",
+            default=None,
+            description="The session identifier associated with the trace",
+        ),
+    ]
     release: typing.Optional[str] = pydantic.Field(default=None)
     """
     The release version of the application when the trace was created
@@ -53,12 +55,14 @@ class Trace(UniversalBaseModel):
     """
 
     user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="userId")
-    ] = pydantic.Field(default=None)
-    """
-    The user identifier associated with the trace
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="userId"),
+        pydantic.Field(
+            alias="userId",
+            default=None,
+            description="The user identifier associated with the trace",
+        ),
+    ]
     metadata: typing.Optional[typing.Any] = pydantic.Field(default=None)
     """
     The metadata associated with the trace. Can be any JSON.

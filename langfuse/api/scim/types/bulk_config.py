@@ -11,10 +11,12 @@ from ...core.serialization import FieldMetadata
 class BulkConfig(UniversalBaseModel):
     supported: bool
     max_operations: typing_extensions.Annotated[
-        int, FieldMetadata(alias="maxOperations")
+        int, FieldMetadata(alias="maxOperations"), pydantic.Field(alias="maxOperations")
     ]
     max_payload_size: typing_extensions.Annotated[
-        int, FieldMetadata(alias="maxPayloadSize")
+        int,
+        FieldMetadata(alias="maxPayloadSize"),
+        pydantic.Field(alias="maxPayloadSize"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

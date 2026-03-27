@@ -11,7 +11,9 @@ from .organization_api_key import OrganizationApiKey
 
 class OrganizationApiKeysResponse(UniversalBaseModel):
     api_keys: typing_extensions.Annotated[
-        typing.List[OrganizationApiKey], FieldMetadata(alias="apiKeys")
+        typing.List[OrganizationApiKey],
+        FieldMetadata(alias="apiKeys"),
+        pydantic.Field(alias="apiKeys"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

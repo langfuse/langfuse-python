@@ -11,7 +11,9 @@ from .dataset_run_item import DatasetRunItem
 
 class DatasetRunWithItems(DatasetRun):
     dataset_run_items: typing_extensions.Annotated[
-        typing.List[DatasetRunItem], FieldMetadata(alias="datasetRunItems")
+        typing.List[DatasetRunItem],
+        FieldMetadata(alias="datasetRunItems"),
+        pydantic.Field(alias="datasetRunItems"),
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

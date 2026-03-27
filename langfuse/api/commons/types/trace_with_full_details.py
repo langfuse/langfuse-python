@@ -11,25 +11,23 @@ from .trace import Trace
 
 
 class TraceWithFullDetails(Trace):
-    html_path: typing_extensions.Annotated[str, FieldMetadata(alias="htmlPath")] = (
-        pydantic.Field()
-    )
-    """
-    Path of trace in Langfuse UI
-    """
-
+    html_path: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="htmlPath"),
+        pydantic.Field(alias="htmlPath", description="Path of trace in Langfuse UI"),
+    ]
     latency: typing.Optional[float] = pydantic.Field(default=None)
     """
     Latency of trace in seconds
     """
 
     total_cost: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="totalCost")
-    ] = pydantic.Field(default=None)
-    """
-    Cost of trace in USD
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="totalCost"),
+        pydantic.Field(
+            alias="totalCost", default=None, description="Cost of trace in USD"
+        ),
+    ]
     observations: typing.List[ObservationsView] = pydantic.Field()
     """
     List of observations

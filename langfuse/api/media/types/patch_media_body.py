@@ -11,32 +11,38 @@ from ...core.serialization import FieldMetadata
 
 class PatchMediaBody(UniversalBaseModel):
     uploaded_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="uploadedAt")
-    ] = pydantic.Field()
-    """
-    The date and time when the media record was uploaded
-    """
-
+        dt.datetime,
+        FieldMetadata(alias="uploadedAt"),
+        pydantic.Field(
+            alias="uploadedAt",
+            description="The date and time when the media record was uploaded",
+        ),
+    ]
     upload_http_status: typing_extensions.Annotated[
-        int, FieldMetadata(alias="uploadHttpStatus")
-    ] = pydantic.Field()
-    """
-    The HTTP status code of the upload
-    """
-
+        int,
+        FieldMetadata(alias="uploadHttpStatus"),
+        pydantic.Field(
+            alias="uploadHttpStatus", description="The HTTP status code of the upload"
+        ),
+    ]
     upload_http_error: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="uploadHttpError")
-    ] = pydantic.Field(default=None)
-    """
-    The HTTP error message of the upload
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="uploadHttpError"),
+        pydantic.Field(
+            alias="uploadHttpError",
+            default=None,
+            description="The HTTP error message of the upload",
+        ),
+    ]
     upload_time_ms: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="uploadTimeMs")
-    ] = pydantic.Field(default=None)
-    """
-    The time in milliseconds it took to upload the media record
-    """
+        typing.Optional[int],
+        FieldMetadata(alias="uploadTimeMs"),
+        pydantic.Field(
+            alias="uploadTimeMs",
+            default=None,
+            description="The time in milliseconds it took to upload the media record",
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

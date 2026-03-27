@@ -29,20 +29,14 @@ class PricingTierInput(UniversalBaseModel):
     Must be unique within the model. Common patterns: "Standard", "High Volume Tier", "Extended Context"
     """
 
-    is_default: typing_extensions.Annotated[bool, FieldMetadata(alias="isDefault")] = (
-        pydantic.Field()
-    )
-    """
-    Whether this is the default tier. Exactly one tier per model must be marked as default.
-    
-    Requirements for default tier:
-    - Must have isDefault=true
-    - Must have priority=0
-    - Must have empty conditions array (conditions=[])
-    
-    The default tier acts as a fallback when no conditional tiers match.
-    """
-
+    is_default: typing_extensions.Annotated[
+        bool,
+        FieldMetadata(alias="isDefault"),
+        pydantic.Field(
+            alias="isDefault",
+            description="Whether this is the default tier. Exactly one tier per model must be marked as default.\n\nRequirements for default tier:\n- Must have isDefault=true\n- Must have priority=0\n- Must have empty conditions array (conditions=[])\n\nThe default tier acts as a fallback when no conditional tiers match.",
+        ),
+    ]
     priority: int = pydantic.Field()
     """
     Priority for tier matching evaluation. Lower numbers = higher priority (evaluated first).

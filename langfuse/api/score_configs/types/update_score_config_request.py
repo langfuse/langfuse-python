@@ -11,12 +11,14 @@ from ...core.serialization import FieldMetadata
 
 class UpdateScoreConfigRequest(UniversalBaseModel):
     is_archived: typing_extensions.Annotated[
-        typing.Optional[bool], FieldMetadata(alias="isArchived")
-    ] = pydantic.Field(default=None)
-    """
-    The status of the score config showing if it is archived or not
-    """
-
+        typing.Optional[bool],
+        FieldMetadata(alias="isArchived"),
+        pydantic.Field(
+            alias="isArchived",
+            default=None,
+            description="The status of the score config showing if it is archived or not",
+        ),
+    ]
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
     The name of the score config
@@ -30,19 +32,23 @@ class UpdateScoreConfigRequest(UniversalBaseModel):
     """
 
     min_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="minValue")
-    ] = pydantic.Field(default=None)
-    """
-    Configure a minimum value for numerical scores. If not set, the minimum value defaults to -∞
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="minValue"),
+        pydantic.Field(
+            alias="minValue",
+            default=None,
+            description="Configure a minimum value for numerical scores. If not set, the minimum value defaults to -∞",
+        ),
+    ]
     max_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="maxValue")
-    ] = pydantic.Field(default=None)
-    """
-    Configure a maximum value for numerical scores. If not set, the maximum value defaults to +∞
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="maxValue"),
+        pydantic.Field(
+            alias="maxValue",
+            default=None,
+            description="Configure a maximum value for numerical scores. If not set, the maximum value defaults to +∞",
+        ),
+    ]
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Description is shown across the Langfuse UI and can be used to e.g. explain the config categories in detail, why a numeric range was set, or provide additional context on config name or usage

@@ -22,40 +22,44 @@ class ObservationV2(UniversalBaseModel):
     """
 
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = pydantic.Field(default=None)
-    """
-    The trace ID associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(
+            alias="traceId",
+            default=None,
+            description="The trace ID associated with the observation",
+        ),
+    ]
     start_time: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="startTime")
-    ] = pydantic.Field()
-    """
-    The start time of the observation
-    """
-
+        dt.datetime,
+        FieldMetadata(alias="startTime"),
+        pydantic.Field(
+            alias="startTime", description="The start time of the observation"
+        ),
+    ]
     end_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="endTime")
-    ] = pydantic.Field(default=None)
-    """
-    The end time of the observation
-    """
-
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")] = (
-        pydantic.Field()
-    )
-    """
-    The project ID this observation belongs to
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="endTime"),
+        pydantic.Field(
+            alias="endTime", default=None, description="The end time of the observation"
+        ),
+    ]
+    project_id: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="projectId"),
+        pydantic.Field(
+            alias="projectId", description="The project ID this observation belongs to"
+        ),
+    ]
     parent_observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="parentObservationId")
-    ] = pydantic.Field(default=None)
-    """
-    The parent observation ID
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="parentObservationId"),
+        pydantic.Field(
+            alias="parentObservationId",
+            default=None,
+            description="The parent observation ID",
+        ),
+    ]
     type: str = pydantic.Field()
     """
     The type of the observation (e.g. GENERATION, SPAN, EVENT)
@@ -72,12 +76,14 @@ class ObservationV2(UniversalBaseModel):
     """
 
     status_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="statusMessage")
-    ] = pydantic.Field(default=None)
-    """
-    The status message of the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="statusMessage"),
+        pydantic.Field(
+            alias="statusMessage",
+            default=None,
+            description="The status message of the observation",
+        ),
+    ]
     version: typing.Optional[str] = pydantic.Field(default=None)
     """
     The version of the observation
@@ -99,40 +105,50 @@ class ObservationV2(UniversalBaseModel):
     """
 
     user_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="userId")
-    ] = pydantic.Field(default=None)
-    """
-    The user ID associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="userId"),
+        pydantic.Field(
+            alias="userId",
+            default=None,
+            description="The user ID associated with the observation",
+        ),
+    ]
     session_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="sessionId")
-    ] = pydantic.Field(default=None)
-    """
-    The session ID associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="sessionId"),
+        pydantic.Field(
+            alias="sessionId",
+            default=None,
+            description="The session ID associated with the observation",
+        ),
+    ]
     completion_start_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="completionStartTime")
-    ] = pydantic.Field(default=None)
-    """
-    The completion start time of the observation
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="completionStartTime"),
+        pydantic.Field(
+            alias="completionStartTime",
+            default=None,
+            description="The completion start time of the observation",
+        ),
+    ]
     created_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="createdAt")
-    ] = pydantic.Field(default=None)
-    """
-    The creation timestamp of the observation
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdAt"),
+        pydantic.Field(
+            alias="createdAt",
+            default=None,
+            description="The creation timestamp of the observation",
+        ),
+    ]
     updated_at: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="updatedAt")
-    ] = pydantic.Field(default=None)
-    """
-    The last update timestamp of the observation
-    """
-
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="updatedAt"),
+        pydantic.Field(
+            alias="updatedAt",
+            default=None,
+            description="The last update timestamp of the observation",
+        ),
+    ]
     input: typing.Optional[typing.Any] = pydantic.Field(default=None)
     """
     The input data of the observation
@@ -149,86 +165,107 @@ class ObservationV2(UniversalBaseModel):
     """
 
     provided_model_name: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="providedModelName")
-    ] = pydantic.Field(default=None)
-    """
-    The model name as provided by the user
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="providedModelName"),
+        pydantic.Field(
+            alias="providedModelName",
+            default=None,
+            description="The model name as provided by the user",
+        ),
+    ]
     internal_model_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="internalModelId")
-    ] = pydantic.Field(default=None)
-    """
-    The internal model ID matched by Langfuse
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="internalModelId"),
+        pydantic.Field(
+            alias="internalModelId",
+            default=None,
+            description="The internal model ID matched by Langfuse",
+        ),
+    ]
     model_parameters: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="modelParameters")
-    ] = pydantic.Field(default=None)
-    """
-    The parameters of the model used for the observation
-    """
-
+        typing.Optional[typing.Any],
+        FieldMetadata(alias="modelParameters"),
+        pydantic.Field(
+            alias="modelParameters",
+            default=None,
+            description="The parameters of the model used for the observation",
+        ),
+    ]
     usage_details: typing_extensions.Annotated[
-        typing.Optional[typing.Dict[str, int]], FieldMetadata(alias="usageDetails")
-    ] = pydantic.Field(default=None)
-    """
-    The usage details of the observation. Key is the usage metric name, value is the number of units consumed.
-    """
-
+        typing.Optional[typing.Dict[str, int]],
+        FieldMetadata(alias="usageDetails"),
+        pydantic.Field(
+            alias="usageDetails",
+            default=None,
+            description="The usage details of the observation. Key is the usage metric name, value is the number of units consumed.",
+        ),
+    ]
     cost_details: typing_extensions.Annotated[
-        typing.Optional[typing.Dict[str, float]], FieldMetadata(alias="costDetails")
-    ] = pydantic.Field(default=None)
-    """
-    The cost details of the observation. Key is the cost metric name, value is the cost in USD.
-    """
-
+        typing.Optional[typing.Dict[str, float]],
+        FieldMetadata(alias="costDetails"),
+        pydantic.Field(
+            alias="costDetails",
+            default=None,
+            description="The cost details of the observation. Key is the cost metric name, value is the cost in USD.",
+        ),
+    ]
     total_cost: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="totalCost")
-    ] = pydantic.Field(default=None)
-    """
-    The total cost of the observation in USD
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="totalCost"),
+        pydantic.Field(
+            alias="totalCost",
+            default=None,
+            description="The total cost of the observation in USD",
+        ),
+    ]
     prompt_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="promptId")
-    ] = pydantic.Field(default=None)
-    """
-    The prompt ID associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="promptId"),
+        pydantic.Field(
+            alias="promptId",
+            default=None,
+            description="The prompt ID associated with the observation",
+        ),
+    ]
     prompt_name: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="promptName")
-    ] = pydantic.Field(default=None)
-    """
-    The prompt name associated with the observation
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="promptName"),
+        pydantic.Field(
+            alias="promptName",
+            default=None,
+            description="The prompt name associated with the observation",
+        ),
+    ]
     prompt_version: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="promptVersion")
-    ] = pydantic.Field(default=None)
-    """
-    The prompt version associated with the observation
-    """
-
+        typing.Optional[int],
+        FieldMetadata(alias="promptVersion"),
+        pydantic.Field(
+            alias="promptVersion",
+            default=None,
+            description="The prompt version associated with the observation",
+        ),
+    ]
     latency: typing.Optional[float] = pydantic.Field(default=None)
     """
     The latency in seconds
     """
 
     time_to_first_token: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="timeToFirstToken")
-    ] = pydantic.Field(default=None)
-    """
-    The time to first token in seconds
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="timeToFirstToken"),
+        pydantic.Field(
+            alias="timeToFirstToken",
+            default=None,
+            description="The time to first token in seconds",
+        ),
+    ]
     model_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="modelId")
-    ] = pydantic.Field(default=None)
-    """
-    The matched model ID
-    """
+        typing.Optional[str],
+        FieldMetadata(alias="modelId"),
+        pydantic.Field(
+            alias="modelId", default=None, description="The matched model ID"
+        ),
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

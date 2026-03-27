@@ -16,24 +16,33 @@ from .observation_type import ObservationType
 class ObservationBody(UniversalBaseModel):
     id: typing.Optional[str] = None
     trace_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="traceId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="traceId"),
+        pydantic.Field(alias="traceId", default=None),
+    ]
     type: ObservationType
     name: typing.Optional[str] = None
     start_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="startTime")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="startTime"),
+        pydantic.Field(alias="startTime", default=None),
+    ]
     end_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="endTime")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="endTime"),
+        pydantic.Field(alias="endTime", default=None),
+    ]
     completion_start_time: typing_extensions.Annotated[
-        typing.Optional[dt.datetime], FieldMetadata(alias="completionStartTime")
-    ] = None
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="completionStartTime"),
+        pydantic.Field(alias="completionStartTime", default=None),
+    ]
     model: typing.Optional[str] = None
     model_parameters: typing_extensions.Annotated[
         typing.Optional[typing.Dict[str, MapValue]],
         FieldMetadata(alias="modelParameters"),
-    ] = None
+        pydantic.Field(alias="modelParameters", default=None),
+    ]
     input: typing.Optional[typing.Any] = None
     version: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
@@ -41,11 +50,15 @@ class ObservationBody(UniversalBaseModel):
     usage: typing.Optional[Usage] = None
     level: typing.Optional[ObservationLevel] = None
     status_message: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="statusMessage")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="statusMessage"),
+        pydantic.Field(alias="statusMessage", default=None),
+    ]
     parent_observation_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="parentObservationId")
-    ] = None
+        typing.Optional[str],
+        FieldMetadata(alias="parentObservationId"),
+        pydantic.Field(alias="parentObservationId", default=None),
+    ]
     environment: typing.Optional[str] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

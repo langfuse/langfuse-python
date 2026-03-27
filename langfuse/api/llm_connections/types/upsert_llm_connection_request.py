@@ -24,41 +24,43 @@ class UpsertLlmConnectionRequest(UniversalBaseModel):
     The adapter used to interface with the LLM
     """
 
-    secret_key: typing_extensions.Annotated[str, FieldMetadata(alias="secretKey")] = (
-        pydantic.Field()
-    )
-    """
-    Secret key for the LLM API.
-    """
-
+    secret_key: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="secretKey"),
+        pydantic.Field(alias="secretKey", description="Secret key for the LLM API."),
+    ]
     base_url: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="baseURL")
-    ] = pydantic.Field(default=None)
-    """
-    Custom base URL for the LLM API
-    """
-
+        typing.Optional[str],
+        FieldMetadata(alias="baseURL"),
+        pydantic.Field(
+            alias="baseURL", default=None, description="Custom base URL for the LLM API"
+        ),
+    ]
     custom_models: typing_extensions.Annotated[
-        typing.Optional[typing.List[str]], FieldMetadata(alias="customModels")
-    ] = pydantic.Field(default=None)
-    """
-    List of custom model names
-    """
-
+        typing.Optional[typing.List[str]],
+        FieldMetadata(alias="customModels"),
+        pydantic.Field(
+            alias="customModels", default=None, description="List of custom model names"
+        ),
+    ]
     with_default_models: typing_extensions.Annotated[
-        typing.Optional[bool], FieldMetadata(alias="withDefaultModels")
-    ] = pydantic.Field(default=None)
-    """
-    Whether to include default models. Default is true.
-    """
-
+        typing.Optional[bool],
+        FieldMetadata(alias="withDefaultModels"),
+        pydantic.Field(
+            alias="withDefaultModels",
+            default=None,
+            description="Whether to include default models. Default is true.",
+        ),
+    ]
     extra_headers: typing_extensions.Annotated[
-        typing.Optional[typing.Dict[str, str]], FieldMetadata(alias="extraHeaders")
-    ] = pydantic.Field(default=None)
-    """
-    Extra headers to send with requests
-    """
-
+        typing.Optional[typing.Dict[str, str]],
+        FieldMetadata(alias="extraHeaders"),
+        pydantic.Field(
+            alias="extraHeaders",
+            default=None,
+            description="Extra headers to send with requests",
+        ),
+    ]
     config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.

@@ -19,36 +19,45 @@ class ScoreConfig(UniversalBaseModel):
     id: str
     name: str
     created_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="createdAt")
+        dt.datetime, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")
     ]
     updated_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="updatedAt")
+        dt.datetime, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")
     ]
-    project_id: typing_extensions.Annotated[str, FieldMetadata(alias="projectId")]
+    project_id: typing_extensions.Annotated[
+        str, FieldMetadata(alias="projectId"), pydantic.Field(alias="projectId")
+    ]
     data_type: typing_extensions.Annotated[
-        ScoreConfigDataType, FieldMetadata(alias="dataType")
+        ScoreConfigDataType,
+        FieldMetadata(alias="dataType"),
+        pydantic.Field(alias="dataType"),
     ]
     is_archived: typing_extensions.Annotated[
-        bool, FieldMetadata(alias="isArchived")
-    ] = pydantic.Field()
-    """
-    Whether the score config is archived. Defaults to false
-    """
-
+        bool,
+        FieldMetadata(alias="isArchived"),
+        pydantic.Field(
+            alias="isArchived",
+            description="Whether the score config is archived. Defaults to false",
+        ),
+    ]
     min_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="minValue")
-    ] = pydantic.Field(default=None)
-    """
-    Sets minimum value for numerical scores. If not set, the minimum value defaults to -∞
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="minValue"),
+        pydantic.Field(
+            alias="minValue",
+            default=None,
+            description="Sets minimum value for numerical scores. If not set, the minimum value defaults to -∞",
+        ),
+    ]
     max_value: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="maxValue")
-    ] = pydantic.Field(default=None)
-    """
-    Sets maximum value for numerical scores. If not set, the maximum value defaults to +∞
-    """
-
+        typing.Optional[float],
+        FieldMetadata(alias="maxValue"),
+        pydantic.Field(
+            alias="maxValue",
+            default=None,
+            description="Sets maximum value for numerical scores. If not set, the maximum value defaults to +∞",
+        ),
+    ]
     categories: typing.Optional[typing.List[ConfigCategory]] = pydantic.Field(
         default=None
     )
