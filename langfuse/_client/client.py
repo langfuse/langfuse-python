@@ -127,7 +127,7 @@ from langfuse.model import (
     PromptClient,
     TextPromptClient,
 )
-from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
+from langfuse.types import BatchMaskFunction, MaskFunction, ScoreDataType, SpanLevel, TraceContext
 
 
 class Langfuse:
@@ -165,6 +165,9 @@ class Langfuse:
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
         mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
+        batch_mask (Optional[BatchMaskFunction]): Optional batch mask function for batch/async masking. When set, the SDK can mask spans in batches prior to export (e.g. to limit network calls to a masking backend). Use with use_async_masking to run masking off the main thread.
+        mask_batch_size (Optional[int]): Max number of items to pass per batch to batch_mask. Ignored if batch_mask is not set.
+        use_async_masking (bool): If True and batch_mask is set, run batch masking in a background thread so the main thread is not blocked. Default False.
         blocked_instrumentation_scopes (Optional[List[str]]): Deprecated. Use `should_export_span` instead. Equivalent behavior:
             ```python
             from langfuse.span_filter import is_default_export_span
@@ -220,6 +223,9 @@ class Langfuse:
 
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
+    _batch_mask: Optional[BatchMaskFunction] = None
+    _mask_batch_size: Optional[int] = None
+    _use_async_masking: bool = False
     _otel_tracer: otel_trace_api.Tracer
 
     def __init__(
@@ -240,6 +246,9 @@ class Langfuse:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        batch_mask: Optional[BatchMaskFunction] = None,
+        mask_batch_size: Optional[int] = None,
+        use_async_masking: bool = False,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
@@ -335,6 +344,9 @@ class Langfuse:
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,
             mask=mask,
+            batch_mask=batch_mask,
+            mask_batch_size=mask_batch_size,
+            use_async_masking=use_async_masking,
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             should_export_span=should_export_span,
@@ -342,6 +354,9 @@ class Langfuse:
             tracer_provider=tracer_provider,
         )
         self._mask = self._resources.mask
+        self._batch_mask = self._resources.batch_mask
+        self._mask_batch_size = self._resources.mask_batch_size
+        self._use_async_masking = self._resources.use_async_masking
 
         self._otel_tracer = (
             self._resources.tracer
