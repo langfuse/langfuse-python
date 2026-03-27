@@ -9,6 +9,7 @@ This is the Langfuse Python SDK, a client library for accessing the Langfuse obs
 ## Development Commands
 
 ### Setup
+
 ```bash
 # Install Poetry plugins (one-time setup)
 poetry self add poetry-dotenv-plugin
@@ -21,6 +22,7 @@ poetry run pre-commit install
 ```
 
 ### Testing
+
 ```bash
 # Run all tests with verbose output
 poetry run pytest -s -v --log-cli-level=INFO
@@ -33,6 +35,7 @@ poetry run pytest -s -v --log-cli-level=INFO -n auto
 ```
 
 ### Code Quality
+
 ```bash
 # Format code with Ruff
 poetry run ruff format .
@@ -48,6 +51,7 @@ poetry run pre-commit run --all-files
 ```
 
 ### Building and Releasing
+
 ```bash
 # Build the package locally (for testing)
 poetry build
@@ -57,6 +61,7 @@ poetry run pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfus
 ```
 
 Releases are automated via GitHub Actions. To release:
+
 1. Go to Actions > "Release Python SDK" workflow
 2. Click "Run workflow"
 3. Select version bump type (patch/minor/major/prerelease)
@@ -89,6 +94,7 @@ The workflow handles versioning, building, PyPI publishing (via OIDC), and GitHu
 ### Key Design Patterns
 
 The SDK is built on OpenTelemetry for observability, using:
+
 - Spans for tracing LLM operations
 - Attributes for metadata (see `LangfuseOtelSpanAttributes`)
 - Resource management for efficient batching and flushing
@@ -98,6 +104,7 @@ The client follows an async-first design with automatic batching of events and b
 ## Configuration
 
 Environment variables (defined in `_client/environment_variables.py`):
+
 - `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`: API credentials
 - `LANGFUSE_HOST`: API endpoint (defaults to https://cloud.langfuse.com)
 - `LANGFUSE_DEBUG`: Enable debug logging
@@ -127,9 +134,11 @@ The `langfuse/api/` directory is auto-generated from the Langfuse OpenAPI specif
 ## Testing Guidelines
 
 ### Approach to Test Changes
+
 - Don't remove functionality from existing unit tests just to make tests pass. Only change the test, if underlying code changes warrant a test change.
 
 ## Python Code Rules
 
 ### Exception Handling
+
 - Exception must not use an f-string literal, assign to variable first
