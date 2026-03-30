@@ -67,17 +67,12 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_ACCESS_TOKEN }}
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@v7
         with:
+          version: "0.11.2"
           python-version: "3.12"
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: "1.8.4"
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+          enable-cache: true
 
       - name: Configure Git
         env:
@@ -92,7 +87,7 @@ jobs:
       - name: Get current version
         id: current-version
         run: |
-          current_version=$(poetry version -s)
+          current_version=$(uv version --short)
           echo "version=$current_version" >> $GITHUB_OUTPUT
           echo "Current version: $current_version"
 
@@ -211,27 +206,13 @@ jobs:
 
       - name: Update version in pyproject.toml
         run: |
-          poetry version ${{ steps.new-version.outputs.version }}
-
-      - name: Update version in langfuse/version.py
-        run: |
-          new_version="${{ steps.new-version.outputs.version }}"
-          sed -i "s/__version__ = \".*\"/__version__ = \"$new_version\"/" langfuse/version.py
-          echo "Updated langfuse/version.py:"
-          cat langfuse/version.py
+          uv version ${{ steps.new-version.outputs.version }} --frozen
 
       - name: Verify version consistency
         run: |
-          pyproject_version=$(poetry version -s)
-          file_version=$(grep -oP '__version__ = "\K[^"]+' langfuse/version.py)
+          pyproject_version=$(uv version --short)
 
           echo "pyproject.toml version: $pyproject_version"
-          echo "langfuse/version.py version: $file_version"
-
-          if [ "$pyproject_version" != "$file_version" ]; then
-            echo "❌ Error: Version mismatch between pyproject.toml and langfuse/version.py"
-            exit 1
-          fi
 
           if [ "$pyproject_version" != "${{ steps.new-version.outputs.version }}" ]; then
             echo "❌ Error: Version in files doesn't match expected version"
@@ -241,7 +222,7 @@ jobs:
           echo "✅ Versions are consistent: $pyproject_version"
 
       - name: Build package
-        run: poetry build
+        run: uv build --no-sources
 
       - name: Verify build artifacts
         run: |
@@ -278,9 +259,17 @@ jobs:
           fi
           echo "✅ Artifact version verified"
 
+      - name: Smoke test wheel
+        run: |
+          uv run --isolated --no-project --with dist/*.whl python -c "from importlib.metadata import version; import langfuse; assert langfuse.__version__ == version('langfuse')"
+
+      - name: Smoke test source distribution
+        run: |
+          uv run --isolated --no-project --with dist/*.tar.gz python -c "from importlib.metadata import version; import langfuse; assert langfuse.__version__ == version('langfuse')"
+
       - name: Commit version changes
         run: |
-          git add pyproject.toml langfuse/version.py
+          git add pyproject.toml
           git commit -m "chore: release v${{ steps.new-version.outputs.version }}"
 
       - name: Create and push tag
@@ -292,9 +281,7 @@ jobs:
 
       - name: Publish to PyPI
         id: publish-pypi
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          print-hash: true
+        run: uv publish --trusted-publishing always
 
       - name: Create GitHub Release
         id: create-release

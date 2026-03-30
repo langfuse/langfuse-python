@@ -11,60 +11,57 @@ This is the Langfuse Python SDK, a client library for accessing the Langfuse obs
 ### Setup
 
 ```bash
-# Install Poetry plugins (one-time setup)
-poetry self add poetry-dotenv-plugin
-
-# Install all dependencies including optional extras
-poetry install --all-extras
+# Install the project and development dependencies
+uv sync
 
 # Setup pre-commit hooks
-poetry run pre-commit install
+uv run pre-commit install
 ```
 
 ### Testing
 
 ```bash
 # Run all tests with verbose output
-poetry run pytest -s -v --log-cli-level=INFO
+uv run --env-file .env pytest -s -v --log-cli-level=INFO
 
 # Run a specific test
-poetry run pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py::test_flush
+uv run --env-file .env pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py::test_flush
 
 # Run tests in parallel (faster)
-poetry run pytest -s -v --log-cli-level=INFO -n auto
+uv run --env-file .env pytest -s -v --log-cli-level=INFO -n auto
 ```
 
 ### Code Quality
 
 ```bash
 # Format code with Ruff
-poetry run ruff format .
+uv run ruff format .
 
 # Run linting (development config)
-poetry run ruff check .
+uv run ruff check .
 
 # Run type checking
-poetry run mypy .
+uv run mypy .
 
 # Run pre-commit hooks manually
-poetry run pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ### Building and Releasing
 
 ```bash
 # Build the package locally (for testing)
-poetry build
+uv build --no-sources
 
 # Generate documentation
-poetry run pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+uv run --group docs pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
 ```
 
 Releases are automated via GitHub Actions. To release:
 
 1. Go to Actions > "Release Python SDK" workflow
 2. Click "Run workflow"
-3. Select version bump type (patch/minor/major/prerelease)
+3. Select version bump type (patch/minor/major/prepatch/preminor/premajor)
 4. For prereleases, select the type (alpha/beta/rc)
 
 The workflow handles versioning, building, PyPI publishing (via OIDC), and GitHub release creation.
@@ -120,8 +117,8 @@ Environment variables (defined in `_client/environment_variables.py`):
 
 ## Important Files
 
-- `pyproject.toml`: Poetry configuration, dependencies, and tool settings
-- `langfuse/version.py`: Version string (updated by CI release workflow)
+- `pyproject.toml`: uv project metadata, dependencies, and tool settings
+- `uv.lock`: Locked dependency graph for local development and CI
 
 ## API Generation
 
@@ -129,7 +126,7 @@ The `langfuse/api/` directory is auto-generated from the Langfuse OpenAPI specif
 
 1. Generate new SDK in main Langfuse repo
 2. Copy generated files from `generated/python` to `langfuse/api/`
-3. Run `poetry run ruff format .` to format the generated code
+3. Run `uv run ruff format .` to format the generated code
 
 ## Testing Guidelines
 

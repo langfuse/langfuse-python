@@ -30,8 +30,8 @@ from langfuse._client.environment_variables import (
 from langfuse._client.propagation import _get_propagated_attributes_from_context
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
 from langfuse._client.utils import span_formatter
+from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
-from langfuse.version import __version__ as langfuse_version
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):

@@ -1,35 +1,30 @@
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.2
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.2
+    hooks:
+      - id: uv-lock
+
+  - repo: local
     hooks:
       # Run the linter and fix
-      - id: ruff-check
+      - id: uv-ruff-check
+        name: ruff-check
+        entry: uv run --frozen ruff check --fix
+        language: system
         types_or: [python, pyi, jupyter]
-        args: [--fix]
+        exclude: ^langfuse/api/
 
       # Run the formatter.
-      - id: ruff-format
+      - id: uv-ruff-format
+        name: ruff-format
+        entry: uv run --frozen ruff format
+        language: system
         types_or: [python, pyi, jupyter]
+        exclude: ^langfuse/api/
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-requests
-          - types-setuptools
-          - httpx
-          - pydantic>=1.10.7
-          - backoff>=1.10.0
-          - openai>=0.27.8
-          - wrapt
-          - packaging>=23.2
-          - opentelemetry-api
-          - opentelemetry-sdk
-          - opentelemetry-exporter-otlp
-          - numpy
-          - langchain>=0.0.309
-          - langchain-core
-          - langgraph
-        args: [--no-error-summary]
+      - id: uv-mypy
+        name: mypy
+        entry: uv run --frozen mypy langfuse --no-error-summary
+        language: system
         files: ^langfuse/
+        pass_filenames: false
