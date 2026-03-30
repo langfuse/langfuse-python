@@ -206,7 +206,7 @@ jobs:
 
       - name: Update version in pyproject.toml
         run: |
-          uv version ${{ steps.new-version.outputs.version }} --frozen
+          uv version ${{ steps.new-version.outputs.version }}
 
       - name: Verify version consistency
         run: |
@@ -269,7 +269,7 @@ jobs:
 
       - name: Commit version changes
         run: |
-          git add pyproject.toml
+          git add pyproject.toml uv.lock
           git commit -m "chore: release v${{ steps.new-version.outputs.version }}"
 
       - name: Create and push tag
