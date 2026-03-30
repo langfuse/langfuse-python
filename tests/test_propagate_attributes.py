@@ -2295,6 +2295,36 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
     """Tests for experiment attribute propagation."""
 
+    @pytest.mark.asyncio
+    async def test_experiment_propagates_user_id_in_async_context(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify run_experiment keeps propagated attributes when called from async code."""
+        import asyncio
+
+        local_data = [{"input": "test input", "expected_output": "expected output"}]
+
+        async def async_task(*, item, **kwargs):
+            await asyncio.sleep(0.01)
+            return f"processed: {item['input']}"
+
+        with propagate_attributes(user_id="async-experiment-user"):
+            langfuse_client.run_experiment(
+                name="Async Experiment",
+                data=local_data,
+                task=async_task,
+            )
+
+        langfuse_client.flush()
+        time.sleep(0.1)
+
+        root_span = self.get_span_by_name(memory_exporter, "experiment-item-run")
+        self.verify_span_attribute(
+            root_span,
+            LangfuseOtelSpanAttributes.TRACE_USER_ID,
+            "async-experiment-user",
+        )
+
     def test_experiment_attributes_propagate_without_dataset(
         self, langfuse_client, memory_exporter
     ):
