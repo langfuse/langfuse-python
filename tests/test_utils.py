@@ -1,6 +1,7 @@
 """Test suite for utility functions in langfuse._client.utils module."""
 
 import asyncio
+import contextvars
 import threading
 from unittest import mock
 
@@ -80,6 +81,22 @@ class TestRunAsyncSafely:
 
         result = run_async_safely(check_thread_isolation())
         assert result == "isolated"
+
+    @pytest.mark.asyncio
+    async def test_run_async_context_preserves_contextvars(self):
+        """Test that threaded execution preserves the caller's contextvars."""
+        request_id = contextvars.ContextVar("request_id")
+        token = request_id.set("req-123")
+
+        async def read_contextvar():
+            await asyncio.sleep(0.001)
+            return request_id.get()
+
+        try:
+            result = run_async_safely(read_contextvar())
+            assert result == "req-123"
+        finally:
+            request_id.reset(token)
 
     def test_multiple_calls_sync_context(self):
         """Test multiple sequential calls in sync context."""
