@@ -19,27 +19,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: astral-sh/ruff-action@v3
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.2"
+          python-version: "3.13"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Run Ruff
+        run: uv run --frozen ruff check .
 
   type-checking:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@v7
         with:
+          version: "0.11.2"
           python-version: "3.13"
-      - name: Install poetry
-        uses: abatilo/actions-poetry@v2
-      - name: Setup a local virtual environment
-        run: |
-          poetry config virtualenvs.create true --local
-          poetry config virtualenvs.in-project true --local
-      - uses: actions/cache@v3
-        name: Define a cache for the virtual environment based on the dependencies lock file
-        with:
-          path: ./.venv
-          key: venv-type-check-${{ hashFiles('poetry.lock') }}
+          enable-cache: true
       - uses: actions/cache@v3
         name: Cache mypy cache
         with:
@@ -48,9 +48,9 @@ jobs:
           restore-keys: |
             mypy-
       - name: Install dependencies
-        run: poetry install --only=main,dev
+        run: uv sync --locked
       - name: Run mypy type checking
-        run: poetry run mypy langfuse --no-error-summary
+        run: uv run --frozen mypy langfuse --no-error-summary
 
   ci:
     runs-on: ubuntu-latest
@@ -154,43 +154,23 @@ jobs:
           done
           echo "Langfuse server is up and running!"
 
-      - name: Install Python
-        uses: actions/setup-python@v4
-        # see details (matrix, python-version, python-version-file, etc.)
-        # https://github.com/actions/setup-python
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@v7
         with:
+          version: "0.11.2"
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
-      - name: Check python version
+      - name: Check Python version
         run: python --version
 
-      - name: Install poetry
-        uses: abatilo/actions-poetry@v2
-
-      - name: Set poetry python version
-        run: |
-          poetry env use ${{ matrix.python-version }}
-          poetry env info
-
-      - name: Setup a local virtual environment (if no poetry.toml file)
-        run: |
-          poetry config virtualenvs.create true --local
-          poetry config virtualenvs.in-project true --local
-
-      - uses: actions/cache@v3
-        name: Define a cache for the virtual environment based on the dependencies lock file
-        with:
-          path: ./.venv
-          key: |
-            venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}-${{ github.sha }}
-
       - name: Install the project dependencies
-        run: poetry install --all-extras
+        run: uv sync --locked
 
       - name: Run the automated tests
         run: |
           python --version
-          poetry run pytest -n auto --dist loadfile -s -v --log-cli-level=INFO
+          uv run --frozen pytest -n auto --dist loadfile -s -v --log-cli-level=INFO
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
