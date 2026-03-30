@@ -15,13 +15,13 @@ from uuid import UUID
 
 import pydantic
 from opentelemetry import context, trace
-from opentelemetry.context import _RUNTIME_CONTEXT
 from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse._client.get_client import get_client
+from langfuse._client.propagation import _detach_context_token_safely
 from langfuse._client.span import (
     LangfuseAgent,
     LangfuseChain,
@@ -458,18 +458,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         token = self._context_tokens.pop(run_id, None)
 
         if token:
-            try:
-                # Directly detach from runtime context to avoid error logging
-                _RUNTIME_CONTEXT.detach(token)
-            except Exception:
-                # Context detach can fail in async scenarios - this is expected and safe to ignore
-                # The span itself was properly ended and tracing data is correctly captured
-                #
-                # Examples:
-                # 1. Token created in one async task/thread, detached in another
-                # 2. Context already detached by framework or other handlers
-                # 3. Runtime context state mismatch in concurrent execution
-                pass
+            _detach_context_token_safely(token)
 
         return cast(
             Union[
@@ -564,11 +553,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     input=kwargs.get("inputs"),
                 )
 
-                if (
-                    parent_run_id is None
-                    and self._propagation_context_manager is not None
-                ):
-                    self._propagation_context_manager.__exit__(None, None, None)
+                if parent_run_id is None:
+                    self._exit_propagation_context()
 
                 span.end()
 
@@ -579,6 +565,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         finally:
             if parent_run_id is None:
+                self._exit_propagation_context()
                 self._reset()
 
     def on_chain_error(
@@ -608,10 +595,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
-                ).end()
+                )
+
+                if parent_run_id is None:
+                    self._exit_propagation_context()
+
+                observation.end()
 
         except Exception as e:
             langfuse_logger.exception(e)
+        finally:
+            if parent_run_id is None:
+                self._exit_propagation_context()
+                self._reset()
 
     def on_chat_model_start(
         self,
@@ -1025,6 +1021,15 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
     def _reset(self) -> None:
         self._child_to_parent_run_id_map = {}
+
+    def _exit_propagation_context(self) -> None:
+        manager = self._propagation_context_manager
+
+        if manager is None:
+            return
+
+        self._propagation_context_manager = None
+        manager.__exit__(None, None, None)
 
     def __join_tags_and_metadata(
         self,

@@ -46,7 +46,7 @@ from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction
 
-from ..version import __version__ as langfuse_version
+from .._version import __version__ as langfuse_version
 
 
 class LangfuseResourceManager:

@@ -13,7 +13,7 @@ from langfuse._utils.request import APIError, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger as logger
 
-from ..version import __version__ as langfuse_version
+from .._version import __version__ as langfuse_version
 
 MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000_000))
 MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))
