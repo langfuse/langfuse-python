@@ -5,6 +5,7 @@ including formatting and serialization of span data, and async execution helpers
 """
 
 import asyncio
+import contextvars
 import json
 import threading
 from hashlib import sha256
@@ -69,13 +70,14 @@ class _RunAsyncThread(threading.Thread):
 
     def __init__(self, coro: Coroutine[Any, Any, Any]) -> None:
         self.coro = coro
+        self.context = contextvars.copy_context()
         self.result: Any = None
         self.exception: Exception | None = None
         super().__init__()
 
     def run(self) -> None:
         try:
-            self.result = asyncio.run(self.coro)
+            self.result = self.context.run(asyncio.run, self.coro)
         except Exception as e:
             self.exception = e
 
