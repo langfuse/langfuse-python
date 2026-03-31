@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Rebase open Dependabot PR"
-        uses: orange-buffalo/dependabot-auto-rebase@v1
+        uses: orange-buffalo/dependabot-auto-rebase@fa9e05d7a8152381af0a92ffca942a0d46712544 # v1
         with:
           api-token: ${{ secrets.DEP_REBASE_PAT }}
           repository: ${{ github.repository }}
