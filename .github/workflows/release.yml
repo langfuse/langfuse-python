@@ -62,7 +62,7 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_ACCESS_TOKEN }}
@@ -299,7 +299,7 @@ jobs:
 
       - name: Notify Slack on success
         if: success()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@v3.0.1
         with:
           payload: |
             {
@@ -384,7 +384,7 @@ jobs:
 
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@v3.0.1
         with:
           payload: |
             {
