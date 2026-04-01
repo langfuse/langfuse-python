@@ -2384,6 +2384,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         experiment_id = first_root["attributes"][
             LangfuseOtelSpanAttributes.EXPERIMENT_ID
         ]
+        assert result.experiment_id == experiment_id
         experiment_item_id = first_root["attributes"][
             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID
         ]
@@ -2478,25 +2479,55 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
             )
 
+    def test_experiment_id_is_stable_across_local_items(
+        self, langfuse_client, memory_exporter
+    ):
+        """Test local experiments reuse one experiment ID across all items."""
+        local_data = [
+            {"input": "test input 1", "expected_output": "expected result 1"},
+            {"input": "test input 2", "expected_output": "expected result 2"},
+        ]
+
+        result = langfuse_client.run_experiment(
+            name="Stable Local Experiment",
+            data=local_data,
+            task=lambda *, item, **kwargs: f"processed: {item['input']}",
+        )
+
+        langfuse_client.flush()
+        time.sleep(0.1)
+
+        root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
+        experiment_ids = {
+            span["attributes"][LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+            for span in root_spans
+        }
+
+        assert len(experiment_ids) == 1
+        assert result.experiment_id == next(iter(experiment_ids))
+
     def test_experiment_attributes_propagate_with_dataset(
         self, langfuse_client, memory_exporter, monkeypatch
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
 
-        # Mock the async API to create dataset run items
-        async def mock_create_dataset_run_item(*args, **kwargs):
+        # Mock the sync API used by run_experiment to create dataset run items
+        def mock_create_dataset_run_item(*args, **kwargs):
             from langfuse.api import DatasetRunItem
 
-            request = kwargs.get("request")
             return DatasetRunItem(
                 id="mock-run-item-id",
                 dataset_run_id="mock-dataset-run-id-123",
-                dataset_item_id=request.datasetItemId if request else "mock-item-id",
+                dataset_run_name=kwargs.get("run_name", "Dataset Test"),
+                dataset_item_id=kwargs.get("dataset_item_id", "mock-item-id"),
                 trace_id="mock-trace-id",
+                observation_id=kwargs.get("observation_id"),
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
             )
 
         monkeypatch.setattr(
-            langfuse_client.async_api.dataset_run_items,
+            langfuse_client.api.dataset_run_items,
             "create",
             mock_create_dataset_run_item,
         )
@@ -2548,7 +2579,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Run experiment
         experiment_metadata = {"dataset_version": "v2", "test_run": "true"}
-        dataset.run_experiment(
+        result = dataset.run_experiment(
             name="Dataset Test",
             description="Dataset experiment description",
             task=task_with_children,
@@ -2562,6 +2593,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         assert len(root_spans) >= 1, "Should have at least 1 root span"
         first_root = root_spans[0]
+        assert result.experiment_id == "mock-dataset-run-id-123"
 
         # Root-only attributes should be on root
         self.verify_span_attribute(
@@ -2587,6 +2619,11 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             first_root,
             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
             dataset_item_id,
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ID,
+            result.experiment_id,
         )
 
         # Should have experiment metadata

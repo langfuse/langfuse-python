@@ -2427,6 +2427,7 @@ class Langfuse:
             - run_name: The experiment run name. This is equal to the dataset run name if experiment was on Langfuse dataset.
             - item_results: List of results for each processed item with outputs and evaluations
             - run_evaluations: List of aggregate evaluation results for the entire run
+            - experiment_id: Stable identifier for the experiment run across all items
             - dataset_run_id: ID of the dataset run (if using Langfuse datasets)
             - dataset_run_url: Direct URL to view results in Langfuse UI (if applicable)
 
@@ -2577,6 +2578,8 @@ class Langfuse:
             f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
         )
 
+        shared_fallback_experiment_id = self._create_observation_id()
+
         # Set up concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -2588,6 +2591,7 @@ class Langfuse:
                     task,
                     evaluators,
                     composite_evaluator,
+                    shared_fallback_experiment_id,
                     name,
                     run_name,
                     description,
@@ -2619,7 +2623,14 @@ class Langfuse:
                 langfuse_logger.error(f"Run evaluator failed: {e}")
 
         # Generate dataset run URL if applicable
-        dataset_run_id = valid_results[0].dataset_run_id if valid_results else None
+        dataset_run_id = next(
+            (
+                result.dataset_run_id
+                for result in valid_results
+                if result.dataset_run_id
+            ),
+            None,
+        )
         dataset_run_url = None
         if dataset_run_id and data:
             try:
@@ -2665,6 +2676,7 @@ class Langfuse:
             description=description,
             item_results=valid_results,
             run_evaluations=run_evaluations,
+            experiment_id=dataset_run_id or shared_fallback_experiment_id,
             dataset_run_id=dataset_run_id,
             dataset_run_url=dataset_run_url,
         )
@@ -2675,6 +2687,7 @@ class Langfuse:
         task: Callable,
         evaluators: List[Callable],
         composite_evaluator: Optional[CompositeEvaluatorFunction],
+        fallback_experiment_id: str,
         experiment_name: str,
         experiment_run_name: str,
         experiment_description: Optional[str],
@@ -2753,7 +2766,7 @@ class Langfuse:
                 if isinstance(item_metadata, dict):
                     final_observation_metadata.update(item_metadata)
 
-                experiment_id = dataset_run_id or self._create_observation_id()
+                experiment_id = dataset_run_id or fallback_experiment_id
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
                 )
