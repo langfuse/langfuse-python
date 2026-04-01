@@ -1747,7 +1747,7 @@ class Langfuse:
         trace_id: Optional[str] = None,
         score_id: Optional[str] = None,
         observation_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -1777,13 +1777,13 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
             session_id: ID of the Langfuse session to associate the score with
             dataset_run_id: ID of the Langfuse dataset run to associate the score with
             trace_id: ID of the Langfuse trace to associate the score with
             observation_id: Optional ID of the specific observation to score. Trace ID must be provided too.
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -1907,7 +1907,7 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -1931,9 +1931,9 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -1997,7 +1997,7 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -2022,9 +2022,9 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
