@@ -7,23 +7,33 @@ from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
+from functools import lru_cache
 from json import JSONEncoder
 from logging import getLogger
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Type
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from langfuse.media import LangfuseMedia
 
-# Attempt to import Serializable
-try:
-    from langchain_core.load.serializable import Serializable
-except ImportError:
-    # If Serializable is not available, set it to a placeholder type
-    class Serializable:  # type: ignore
-        pass
+
+@lru_cache(maxsize=1)
+def _get_langchain_serializable_type() -> Optional[Type[Any]]:
+    """Best-effort lookup of LangChain's Serializable base class.
+
+    Import lazily to avoid import-time side effects from optional langchain
+    dependencies, including Python 3.14 warning-as-error failures triggered by
+    transitive `pydantic.v1` imports.
+    """
+
+    try:
+        from langchain_core.load.serializable import Serializable
+
+        return Serializable
+    except Exception:
+        return None
 
 
 # Attempt to import numpy
@@ -109,8 +119,8 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, Path):
                 return str(obj)
 
-            # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
+            serializable_type = _get_langchain_serializable_type()
+            if serializable_type is not None and isinstance(obj, serializable_type):
                 return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.
