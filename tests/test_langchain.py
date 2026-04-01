@@ -1,8 +1,10 @@
+import importlib
 import random
 import string
 import time
 from time import sleep
 from typing import Any, Dict, Literal
+from uuid import uuid4
 
 import pytest
 from langchain.messages import HumanMessage, SystemMessage
@@ -14,11 +16,114 @@ from langchain_openai import ChatOpenAI, OpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
+from opentelemetry import trace as otel_trace
 from pydantic import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
 from tests.utils import create_uuid, encode_file_to_base64, get_api
+
+
+class _FakeLangchainObservation:
+    def __init__(self, recorder, **kwargs):
+        self._recorder = recorder
+        self._otel_span = otel_trace.NonRecordingSpan(otel_trace.INVALID_SPAN_CONTEXT)
+        self.trace_id = "test-trace-id"
+        self.metadata = kwargs.get("metadata")
+        self.name = kwargs.get("name")
+        self.input = kwargs.get("input")
+        self.as_type = kwargs.get("as_type")
+        self.updates = []
+        self.ended = False
+
+    def start_observation(self, **kwargs):
+        return self._recorder.start_observation(**kwargs)
+
+    def update(self, **kwargs):
+        self.updates.append(kwargs)
+        return self
+
+    def end(self):
+        self.ended = True
+        return self
+
+
+class _FakeLangchainClient:
+    def __init__(self):
+        self.started_observations = []
+
+    def start_observation(self, **kwargs):
+        observation = _FakeLangchainObservation(self, **kwargs)
+        self.started_observations.append(observation)
+        return observation
+
+
+def _patch_langchain_client(monkeypatch, fake_client):
+    callback_handler_module = importlib.import_module(
+        "langfuse.langchain.CallbackHandler"
+    )
+    monkeypatch.setattr(
+        callback_handler_module,
+        "get_client",
+        lambda public_key=None: fake_client,
+    )
+
+
+def test_root_langchain_chain_sets_is_langchain_root_metadata(monkeypatch):
+    fake_client = _FakeLangchainClient()
+    _patch_langchain_client(monkeypatch, fake_client)
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    child_run_id = uuid4()
+
+    handler.on_chain_start(
+        serialized={"name": "RootChain"},
+        inputs={"question": "hello"},
+        run_id=root_run_id,
+        tags=["root-tag"],
+        metadata={"foo": "bar"},
+    )
+    handler.on_chain_start(
+        serialized={"name": "ChildChain"},
+        inputs={"question": "child"},
+        run_id=child_run_id,
+        parent_run_id=root_run_id,
+        metadata={"child": "metadata"},
+    )
+    handler.on_chain_end(
+        {"answer": "child"},
+        run_id=child_run_id,
+        parent_run_id=root_run_id,
+    )
+    handler.on_chain_end({"answer": "root"}, run_id=root_run_id)
+
+    root_observation, child_observation = fake_client.started_observations
+
+    assert root_observation.metadata == {
+        "foo": "bar",
+        "tags": ["root-tag"],
+        "is_langchain_root": True,
+    }
+    assert child_observation.metadata == {"child": "metadata"}
+
+
+def test_root_langchain_llm_sets_is_langchain_root_metadata(monkeypatch):
+    fake_client = _FakeLangchainClient()
+    _patch_langchain_client(monkeypatch, fake_client)
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+
+    handler.on_llm_start(
+        serialized={"name": "ChatOpenAI", "id": ["langchain", "ChatOpenAI"]},
+        prompts=["hello"],
+        run_id=root_run_id,
+        invocation_params={"model_name": "gpt-4o-mini"},
+    )
+    handler._detach_observation(root_run_id)
+
+    assert fake_client.started_observations[0].metadata == {"is_langchain_root": True}
 
 
 def test_callback_generated_from_trace_chat():
