@@ -45,9 +45,7 @@ uv run mypy langfuse --no-error-summary
 
 ### Update openapi spec
 
-1. Generate Fern Python SDK in [langfuse](https://github.com/langfuse/langfuse) and copy the files generated in `generated/python` into the `langfuse/api` folder in this repo.
-2. Execute the linter by running `uv run ruff format .`
-3. Rebuild and deploy the package to PyPi.
+A PR with the changes is automatically created upon changing the Spec in the langfuse repo.
 
 ### Publish release
 
