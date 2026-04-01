@@ -17,6 +17,7 @@ Key features:
 import atexit
 import os
 import threading
+import time
 from queue import Full, Queue
 from typing import Any, Callable, Dict, List, Optional, cast
 
@@ -437,7 +438,65 @@ class LangfuseResourceManager:
         self._score_ingestion_queue.join()
         langfuse_logger.debug("Successfully flushed score ingestion queue")
 
-        self._media_upload_queue.join()
+        # Configurable health check timeout for media consumer threads (seconds)
+        MEDIA_CONSUMER_HEALTH_TIMEOUT_SECONDS = 5.0
+        # Configurable maximum time to wait for the queue to drain (seconds)
+        MEDIA_FLUSH_DRAIN_TIMEOUT_SECONDS = 30.0
+
+        # Check if threads are alive AND healthy (recently active)
+        healthy_threads = [
+            c for c in self._media_upload_consumers
+            if c.is_alive() and c.is_healthy(timeout_seconds=MEDIA_CONSUMER_HEALTH_TIMEOUT_SECONDS)
+        ]
+
+        if healthy_threads:
+            # Wait for queue to be processed, but with a timeout
+            langfuse_logger.debug(
+                f"{len(healthy_threads)} healthy consumer threads active, waiting for queue to drain"
+            )
+            start_time = time.time()
+            timeout = MEDIA_FLUSH_DRAIN_TIMEOUT_SECONDS
+
+            while not self._media_upload_queue.empty() and (time.time() - start_time) < timeout:
+                time.sleep(0.1)
+
+            if self._media_upload_queue.empty():
+                langfuse_logger.debug("Successfully flushed media upload queue via consumer threads")
+                return
+            else:
+                langfuse_logger.warning(
+                    f"Media upload queue not empty after {timeout}s, "
+                    f"{self._media_upload_queue.qsize()} items remaining. "
+                    f"Processing synchronously."
+                )
+        else:
+            alive_count = len([c for c in self._media_upload_consumers if c.is_alive()])
+            total_count = len(self._media_upload_consumers)
+
+            if alive_count == 0:
+                langfuse_logger.warning(
+                    f"All {total_count} queue consumer threads are dead."
+                    f"Processing {self._media_upload_queue.qsize()} queued items synchronously."
+                )
+            else:
+                langfuse_logger.warning(
+                    f"Queue consumer threads are alive but unhealthy ({alive_count}/{total_count} alive but stalled). "
+                    f"Processing {self._media_upload_queue.qsize()} queued items synchronously."
+                )
+        # Synchronous fallback processing
+        items_processed = 0
+        while not self._media_upload_queue.empty():
+            try:
+                self._media_manager.process_next_media_upload()
+                items_processed += 1
+            except Exception as e:
+                langfuse_logger.error(f"Error processing media upload synchronously: {e}")
+
+        if items_processed > 0:
+            langfuse_logger.info(
+                f"Processed {items_processed} media uploads synchronously in flush()"
+            )
+
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self) -> None:
