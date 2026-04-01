@@ -45,8 +45,8 @@ jobs:
     steps:
       - name: Verify branch
         run: |
-          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
-            echo "❌ Error: Releases can only be triggered from main branch"
+          if [ "${{ github.ref_name }}" != "main" ] && [ "${{ github.ref_name }}" != "v3-stable" ]; then
+            echo "❌ Error: Releases can only be triggered from main or v3-stable"
             echo "Current ref: ${{ github.ref }}"
             exit 1
           fi
@@ -246,7 +246,7 @@ jobs:
         id: push-tag
         run: |
           git tag "v${{ steps.new-version.outputs.version }}"
-          git push origin main
+          git push origin HEAD:${{ github.ref_name }}
           git push origin "v${{ steps.new-version.outputs.version }}"
 
       - name: Publish to PyPI
