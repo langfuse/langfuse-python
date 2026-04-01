@@ -185,6 +185,15 @@ OPENAI_METHODS_V1 = [
 ]
 
 
+def _resolve_format_metadata(key: str, kwargs: Any) -> dict:
+    if key not in kwargs:
+        return {}
+    value = kwargs[key]
+    if isclass(value) and issubclass(value, BaseModel):
+        return {key: value.model_json_schema()}
+    return {key: value}
+
+
 class OpenAiArgsExtractor:
     def __init__(
         self,
@@ -201,13 +210,11 @@ class OpenAiArgsExtractor:
         self.args = {}
         self.args["metadata"] = (
             metadata
-            if "response_format" not in kwargs
+            if "response_format" not in kwargs and "text_format" not in kwargs
             else {
                 **(metadata or {}),
-                "response_format": kwargs["response_format"].model_json_schema()
-                if isclass(kwargs["response_format"])
-                and issubclass(kwargs["response_format"], BaseModel)
-                else kwargs["response_format"],
+                **_resolve_format_metadata("response_format", kwargs),
+                **_resolve_format_metadata("text_format", kwargs),
             }
         )
         self.args["name"] = name
@@ -232,6 +239,7 @@ class OpenAiArgsExtractor:
             # OpenAI does not support non-string type values in metadata when using
             # model distillation feature
             self.kwargs["metadata"].pop("response_format", None)
+            self.kwargs["metadata"].pop("text_format", None)
 
         return self.kwargs
 
