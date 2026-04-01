@@ -17,8 +17,9 @@ from typing import (
     Union,
 )
 
-from langfuse.api import DatasetItem, ScoreDataType
+from langfuse.api import DatasetItem
 from langfuse.logger import langfuse_logger as logger
+from langfuse.types import ExperimentScoreType
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -184,7 +185,7 @@ class Evaluation:
         value: Union[int, float, str, bool],
         comment: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        data_type: Optional[ScoreDataType] = None,
+        data_type: Optional[ExperimentScoreType] = None,
         config_id: Optional[str] = None,
     ):
         """Initialize an Evaluation with the provided data.
