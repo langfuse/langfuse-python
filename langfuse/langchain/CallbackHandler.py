@@ -292,6 +292,28 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         return attributes
 
+    def _get_langchain_observation_metadata(
+        self,
+        *,
+        parent_run_id: Optional[UUID],
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        keep_langfuse_trace_attributes: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        observation_metadata = self.__join_tags_and_metadata(
+            tags=tags,
+            metadata=metadata,
+            keep_langfuse_trace_attributes=keep_langfuse_trace_attributes,
+        )
+
+        if parent_run_id is not None:
+            return observation_metadata
+
+        root_metadata = observation_metadata.copy() if observation_metadata else {}
+        root_metadata["is_langchain_root"] = True
+
+        return root_metadata
+
     def on_chain_start(
         self,
         serialized: Optional[Dict[str, Any]],
@@ -314,7 +336,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             )
 
             span_name = self.get_langchain_run_name(serialized, **kwargs)
-            span_metadata = self.__join_tags_and_metadata(tags, metadata)
+            span_metadata = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+            )
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
             observation_type = self._get_observation_type_from_serialized(
@@ -356,7 +382,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                             {
                                 "input": inputs,
                                 "name": span_name,
-                                "metadata": span_metadata,
+                                "metadata": self.__join_tags_and_metadata(
+                                    tags, metadata
+                                ),
                             },
                         )
                         if self.update_trace
@@ -682,7 +710,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
-            meta = self.__join_tags_and_metadata(tags, metadata)
+            meta = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+            )
 
             if not meta:
                 meta = {}
@@ -726,7 +758,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_retriever_start", run_id, parent_run_id, query=query
             )
             span_name = self.get_langchain_run_name(serialized, **kwargs)
-            span_metadata = self.__join_tags_and_metadata(tags, metadata)
+            span_metadata = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+            )
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
             observation_type = self._get_observation_type_from_serialized(
@@ -857,9 +893,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
-                "metadata": self.__join_tags_and_metadata(
-                    tags,
-                    metadata,
+                "metadata": self._get_langchain_observation_metadata(
+                    parent_run_id=parent_run_id,
+                    tags=tags,
+                    metadata=metadata,
                     # If llm is run isolated and outside chain, keep trace attributes
                     keep_langfuse_trace_attributes=True
                     if parent_run_id is None
