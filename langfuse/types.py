@@ -76,6 +76,7 @@ class TraceContext(TypedDict):
 __all__ = [
     "SpanLevel",
     "ScoreDataType",
+    "ExperimentScoreType",
     "MaskFunction",
     "ParsedMediaReference",
     "TraceContext",
