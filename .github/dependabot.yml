@@ -21,3 +21,17 @@ updates:
       llama-index:
         patterns:
           - "llama-index*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
