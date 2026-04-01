@@ -35,7 +35,10 @@ from langfuse.api import MediaContentType
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
-ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
+ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN", "TEXT"]
+
+# Text scores are not supported for evals and experiments
+ExperimentScoreType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
 
 
 class MaskFunction(Protocol):

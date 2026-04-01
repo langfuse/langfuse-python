@@ -308,7 +308,7 @@ class LangfuseObservationWrapper:
         value: str,
         score_id: Optional[str] = None,
         data_type: Optional[
-            Literal[ScoreDataType.CATEGORICAL]
+            Literal[ScoreDataType.CATEGORICAL, ScoreDataType.TEXT]
         ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
@@ -335,9 +335,9 @@ class LangfuseObservationWrapper:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL)
+            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
@@ -395,7 +395,7 @@ class LangfuseObservationWrapper:
         value: str,
         score_id: Optional[str] = None,
         data_type: Optional[
-            Literal[ScoreDataType.CATEGORICAL]
+            Literal[ScoreDataType.CATEGORICAL, ScoreDataType.TEXT]
         ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
@@ -423,9 +423,9 @@ class LangfuseObservationWrapper:
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL)
+            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)

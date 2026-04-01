@@ -321,6 +321,64 @@ def test_create_categorical_score():
     assert created_score["stringValue"] == "high score"
 
 
+def test_create_text_score():
+    langfuse = Langfuse()
+    api_wrapper = LangfuseAPI()
+
+    # Create a span and set trace properties
+    with langfuse.start_as_current_observation(name="test-span") as span:
+        with propagate_attributes(
+            trace_name="this-is-so-great-new",
+            user_id="test",
+            metadata={"test": "test"},
+        ):
+            # Get trace ID for later use
+            trace_id = span.trace_id
+
+    # Ensure data is sent
+    langfuse.flush()
+    sleep(2)
+
+    # Create a text score
+    score_id = create_uuid()
+    langfuse.create_score(
+        score_id=score_id,
+        trace_id=trace_id,
+        name="this-is-a-score",
+        value="This is a detailed text evaluation of the output quality.",
+        data_type="TEXT",
+    )
+
+    # Create a generation in the same trace
+    generation = langfuse.start_observation(
+        as_type="generation",
+        name="yet another child",
+        metadata="test",
+        trace_context={"trace_id": trace_id},
+    )
+    generation.end()
+
+    # Ensure data is sent
+    langfuse.flush()
+    sleep(2)
+
+    # Retrieve and verify
+    trace = api_wrapper.get_trace(trace_id)
+
+    # Find the score we created by name
+    created_score = next(
+        (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
+    )
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["id"] == score_id
+    assert created_score["dataType"] == "TEXT"
+    assert created_score["value"] is None
+    assert (
+        created_score["stringValue"]
+        == "This is a detailed text evaluation of the output quality."
+    )
+
+
 def test_create_score_with_custom_timestamp():
     langfuse = Langfuse()
     api_wrapper = LangfuseAPI()
