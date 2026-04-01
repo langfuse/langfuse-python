@@ -155,7 +155,8 @@ class Langfuse:
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
-        httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
+        httpx_client (Optional[httpx.Client]): Custom synchronous httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
+        async_httpx_client (Optional[httpx.AsyncClient]): Custom asynchronous httpx client for `client.async_api`. If not provided, a default async client will be created.
         debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
         tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
         flush_at (Optional[int]): Number of spans to batch before sending to the API. Defaults to 512. Can also be set via LANGFUSE_FLUSH_AT environment variable.
@@ -179,7 +180,7 @@ class Langfuse:
             )
             ```
         should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
-        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
+        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If `httpx_client` or `async_httpx_client` is provided, `additional_headers` must be set directly on your custom client as well.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
 
     Example:
@@ -231,6 +232,7 @@ class Langfuse:
         host: Optional[str] = None,
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
+        async_httpx_client: Optional[httpx.AsyncClient] = None,
         debug: bool = False,
         tracing_enabled: Optional[bool] = True,
         flush_at: Optional[int] = None,
@@ -332,6 +334,7 @@ class Langfuse:
             flush_at=flush_at,
             flush_interval=flush_interval,
             httpx_client=httpx_client,
+            async_httpx_client=async_httpx_client,
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,
             mask=mask,
