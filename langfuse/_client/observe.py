@@ -605,8 +605,16 @@ class _ContextPreservedSyncGeneratorWrapper:
             raise
 
     def close(self) -> None:
-        self._end_span()
-        self.generator.close()
+        tokens = []
+        try:
+            if self.context:
+                for var, value in self.context.items():
+                    tokens.append((var, var.set(value)))
+            self._end_span()
+            self.generator.close()
+        finally:
+            for var, token in tokens:
+                var.reset(token)
 
 
 class _ContextPreservedAsyncGeneratorWrapper:
@@ -687,5 +695,13 @@ class _ContextPreservedAsyncGeneratorWrapper:
             raise
 
     async def aclose(self) -> None:
-        self._end_span()
-        await self.generator.aclose()
+        tokens = []
+        try:
+            if self.context:
+                for var, value in self.context.items():
+                    tokens.append((var, var.set(value)))
+            self._end_span()
+            await self.generator.aclose()
+        finally:
+            for var, token in tokens:
+                var.reset(token)
