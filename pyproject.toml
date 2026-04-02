@@ -36,7 +36,7 @@ dev = [
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
 ]
 docs = [
-    "pdoc>=15.0.4,<16",
+    "pdoc>=15.0.4,<17",
 ]
 
 [build-system]
