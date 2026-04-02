@@ -560,6 +560,26 @@ class _ContextPreservedSyncGeneratorWrapper:
         self.items: List[Any] = []
         self.span = span
         self.transform_fn = transform_fn
+        self._ended = False
+
+    def _end_span(
+        self, *, level: Optional[str] = None, status_message: Optional[str] = None
+    ) -> None:
+        if self._ended:
+            return
+        self._ended = True
+
+        output: Any = self.items
+
+        if self.transform_fn is not None:
+            output = self.transform_fn(self.items)
+        elif all(isinstance(item, str) for item in self.items):
+            output = "".join(self.items)
+
+        if level is not None:
+            self.span.update(output=output, level=level, status_message=status_message).end()
+        else:
+            self.span.update(output=output).end()
 
     def __iter__(self) -> "_ContextPreservedSyncGeneratorWrapper":
         return self
@@ -573,35 +593,19 @@ class _ContextPreservedSyncGeneratorWrapper:
             return item
 
         except StopIteration:
-            # Handle output and span cleanup when generator is exhausted
-            output: Any = self.items
-
-            if self.transform_fn is not None:
-                output = self.transform_fn(self.items)
-
-            elif all(isinstance(item, str) for item in self.items):
-                output = "".join(self.items)
-
-            self.span.update(output=output).end()
+            self._end_span()
 
             raise  # Re-raise StopIteration
 
         except (Exception, asyncio.CancelledError) as e:
-            self.span.update(
+            self._end_span(
                 level="ERROR", status_message=str(e) or type(e).__name__
-            ).end()
+            )
 
             raise
 
     def close(self) -> None:
-        output: Any = self.items
-
-        if self.transform_fn is not None:
-            output = self.transform_fn(self.items)
-        elif all(isinstance(item, str) for item in self.items):
-            output = "".join(self.items)
-
-        self.span.update(output=output).end()
+        self._end_span()
         self.generator.close()
 
 
@@ -630,6 +634,26 @@ class _ContextPreservedAsyncGeneratorWrapper:
         self.items: List[Any] = []
         self.span = span
         self.transform_fn = transform_fn
+        self._ended = False
+
+    def _end_span(
+        self, *, level: Optional[str] = None, status_message: Optional[str] = None
+    ) -> None:
+        if self._ended:
+            return
+        self._ended = True
+
+        output: Any = self.items
+
+        if self.transform_fn is not None:
+            output = self.transform_fn(self.items)
+        elif all(isinstance(item, str) for item in self.items):
+            output = "".join(self.items)
+
+        if level is not None:
+            self.span.update(output=output, level=level, status_message=status_message).end()
+        else:
+            self.span.update(output=output).end()
 
     def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
         return self
@@ -652,32 +676,16 @@ class _ContextPreservedAsyncGeneratorWrapper:
             return item
 
         except StopAsyncIteration:
-            # Handle output and span cleanup when generator is exhausted
-            output: Any = self.items
-
-            if self.transform_fn is not None:
-                output = self.transform_fn(self.items)
-
-            elif all(isinstance(item, str) for item in self.items):
-                output = "".join(self.items)
-
-            self.span.update(output=output).end()
+            self._end_span()
 
             raise  # Re-raise StopAsyncIteration
         except (Exception, asyncio.CancelledError) as e:
-            self.span.update(
+            self._end_span(
                 level="ERROR", status_message=str(e) or type(e).__name__
-            ).end()
+            )
 
             raise
 
     async def aclose(self) -> None:
-        output: Any = self.items
-
-        if self.transform_fn is not None:
-            output = self.transform_fn(self.items)
-        elif all(isinstance(item, str) for item in self.items):
-            output = "".join(self.items)
-
-        self.span.update(output=output).end()
+        self._end_span()
         await self.generator.aclose()
