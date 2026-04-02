@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-03-25T20:04:08.521428164Z"
+exclude-newer = "2026-03-26T07:18:34.539209772Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -40,7 +40,7 @@ wheels = [
 
 [[package]]
 name = "autoevals"
-version = "0.0.130"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "chevron" },
@@ -48,9 +48,9 @@ dependencies = [
     { name = "polyleven" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/de/92/d80c8a7a34a2b64927ba0844fc6b71cf0c7224c4244d87f618cd3043da06/autoevals-0.0.130.tar.gz", hash = "sha256:92f87ab95a575b56d9d7377e6f1399932d09180d2f3a8266b4f693f46f49b86d", size = 51839, upload-time = "2025-09-08T05:30:01.52Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/77/666c447a095eedc175f3ba986dcb4e925a0218c5cbe08ff07b7c95672770/autoevals-0.1.0.tar.gz", hash = "sha256:ae884fe6107dbd6e05d840f51c2dba7eccfa01449e5ee5e83b6b4589508b2aca", size = 56223, upload-time = "2026-02-13T23:16:05.368Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/a0/f59dd73e8582c59672cf1f4e5f3ec60d1ee312f8f2a56ae54af5293173c7/autoevals-0.0.130-py3-none-any.whl", hash = "sha256:ffb7b3a21070d2a4e593bb118180c04e43531e608bffd854624377bd857ceec0", size = 56034, upload-time = "2025-09-08T05:29:59.908Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/84/9d64763498cf820f021ec19708c0a066f1ef5f28d36601bedb2e1cbbd1b3/autoevals-0.1.0-py3-none-any.whl", hash = "sha256:573ab490966fd5f2265dc4842d0bfd7b729ee121c86bd72db4440badb7264587", size = 61308, upload-time = "2026-02-13T23:16:03.734Z" },
 ]
 
 [[package]]
@@ -602,7 +602,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "autoevals", specifier = ">=0.0.130,<0.1" },
+    { name = "autoevals", specifier = ">=0.0.130,<0.2" },
     { name = "langchain", specifier = ">=1,<2" },
     { name = "langchain-openai", specifier = ">=0.0.5,<0.4" },
     { name = "langgraph", specifier = ">=1,<2" },
