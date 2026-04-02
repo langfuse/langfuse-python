@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.0.5"
+version = "4.0.6"
 description = "A client library for accessing langfuse"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
