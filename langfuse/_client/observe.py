@@ -593,6 +593,17 @@ class _ContextPreservedSyncGeneratorWrapper:
 
             raise
 
+    def close(self) -> None:
+        output: Any = self.items
+
+        if self.transform_fn is not None:
+            output = self.transform_fn(self.items)
+        elif all(isinstance(item, str) for item in self.items):
+            output = "".join(self.items)
+
+        self.span.update(output=output).end()
+        self.generator.close()
+
 
 class _ContextPreservedAsyncGeneratorWrapper:
     """Async generator wrapper that ensures each iteration runs in preserved context."""
@@ -659,3 +670,14 @@ class _ContextPreservedAsyncGeneratorWrapper:
             ).end()
 
             raise
+
+    async def aclose(self) -> None:
+        output: Any = self.items
+
+        if self.transform_fn is not None:
+            output = self.transform_fn(self.items)
+        elif all(isinstance(item, str) for item in self.items):
+            output = "".join(self.items)
+
+        self.span.update(output=output).end()
+        await self.generator.aclose()
