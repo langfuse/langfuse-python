@@ -369,6 +369,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     session_id=parsed_trace_attributes.get("session_id", None),
                     tags=parsed_trace_attributes.get("tags", None),
                     metadata=parsed_trace_attributes.get("metadata", None),
+                    trace_name=span_name,
                 )
 
                 self._propagation_context_manager.__enter__()
