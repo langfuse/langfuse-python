@@ -10,6 +10,17 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
 
+SERIAL_E2E_NODEIDS = {
+    "tests/e2e/test_core_sdk.py::test_create_boolean_score",
+    "tests/e2e/test_core_sdk.py::test_create_categorical_score",
+    "tests/e2e/test_core_sdk.py::test_create_score_with_custom_timestamp",
+    "tests/e2e/test_decorators.py::test_return_dict_for_output",
+    "tests/e2e/test_decorators.py::test_media",
+    "tests/e2e/test_decorators.py::test_merge_metadata_and_tags",
+    "tests/e2e/test_experiments.py::test_boolean_score_types",
+    "tests/e2e/test_media.py::test_replace_media_reference_string_in_object",
+}
+
 
 class InMemorySpanExporter(SpanExporter):
     """Simple in-memory exporter to collect spans for deterministic tests."""
@@ -45,6 +56,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
         if test_group == "e2e":
             item.add_marker(pytest.mark.e2e)
+            if item.nodeid in SERIAL_E2E_NODEIDS:
+                item.add_marker(pytest.mark.serial_e2e)
             continue
 
         if test_group == "live_provider":
