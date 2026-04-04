@@ -2492,7 +2492,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         experiment_ids = {
