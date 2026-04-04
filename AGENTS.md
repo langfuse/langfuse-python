@@ -1,0 +1,128 @@
+# AGENTS.md
+
+Shared instructions for coding agents working in this repository.
+
+Keep this file concise, concrete, and repo-specific. If guidance grows large, split it into referenced docs instead of turning this file into a handbook.
+
+## Project Summary
+
+This repository contains the Langfuse Python SDK.
+
+- `langfuse/_client/`: core SDK, OpenTelemetry integration, resource management, decorators, datasets
+- `langfuse/openai.py`: OpenAI instrumentation
+- `langfuse/langchain/`: LangChain integration
+- `langfuse/_task_manager/`: background consumers for media and score ingestion
+- `langfuse/api/`: generated Fern API client, do not hand-edit
+- `tests/unit/`: deterministic local tests, no Langfuse server
+- `tests/e2e/`: real Langfuse-server tests
+- `tests/live_provider/`: live OpenAI / LangChain provider tests
+- `tests/support/`: shared helpers for e2e tests
+- `scripts/select_e2e_shard.py`: CI shard selector for `tests/e2e`
+
+## Working Style
+
+- Prefer small, targeted changes that preserve existing behavior.
+- Do not weaken assertions just to make tests faster or greener.
+- If a test is slow, first optimize setup, teardown, polling, or fixtures.
+- Keep repo-shared instructions here. Keep personal or machine-specific notes out of version control.
+
+## Setup And Quality Commands
+
+```bash
+uv sync --locked
+uv run pre-commit install
+uv run --frozen ruff check .
+uv run --frozen ruff format .
+uv run --frozen mypy langfuse --no-error-summary
+```
+
+## Test Commands
+
+Use the directory-based test split.
+
+```bash
+# Unit tests
+uv run --frozen pytest -n auto --dist worksteal tests/unit
+
+# All e2e tests that can run concurrently
+uv run --frozen pytest -n 4 --dist worksteal tests/e2e -m "not serial_e2e"
+
+# E2E tests that must run serially
+uv run --frozen pytest tests/e2e -m "serial_e2e"
+
+# Live provider tests
+uv run --frozen pytest -n 4 --dist worksteal tests/live_provider -m "live_provider"
+
+# Single test
+uv run --frozen pytest tests/unit/test_resource_manager.py::test_pause_signals_score_consumer_shutdown
+```
+
+## Test Topology
+
+### `tests/unit`
+
+- Must not require a running Langfuse server.
+- Prefer in-memory exporters and local fakes over real network calls.
+- If tracing behavior is under test, use the shared in-memory fixtures in `tests/conftest.py`.
+
+### `tests/e2e`
+
+- Use for persisted backend behavior that genuinely needs a real Langfuse server.
+- Prefer bounded polling helpers in `tests/support/` over raw `sleep()` calls.
+- Use `serial_e2e` only for tests that are unsafe under shared-server concurrency.
+- New e2e files should be named `tests/e2e/test_*.py`.
+- Do not add `e2e_core` / `e2e_data` markers. CI shards `tests/e2e` mechanically with `scripts/select_e2e_shard.py`.
+
+### `tests/live_provider`
+
+- This suite uses real provider calls and always runs as one dedicated CI suite.
+- Do not split or shard `tests/live_provider` into separate smoke and extended jobs unless the team explicitly changes that policy.
+- Keep assertions focused on stable provider-facing behavior rather than brittle observation counts.
+
+## CI Contract
+
+The main CI workflow currently runs:
+
+- linting on Python 3.13
+- mypy on Python 3.13
+- `tests/unit` on a Python 3.10-3.14 matrix
+- `tests/e2e` in 2 mechanical shards plus a serial subset inside each shard
+- `tests/live_provider` as one always-on suite
+
+If you change the e2e split:
+
+- update `scripts/select_e2e_shard.py`, not marker routing in `tests/conftest.py`
+- make sure new `tests/e2e/test_*.py` files are automatically covered
+- keep `serial_e2e` as the only scheduling-specific pytest marker
+
+If you change CI bootstrap:
+
+- preserve the `LANGFUSE_INIT_*` startup path for the Langfuse server unless there is a strong reason to change it
+- preserve `cancel-in-progress: true`
+
+## Codebase Rules
+
+- Prefer `LANGFUSE_BASE_URL`; `LANGFUSE_HOST` is deprecated and is only kept for compatibility tests.
+- If you touch `langfuse/api/`, regenerate it from the upstream Fern/OpenAPI source instead of hand-editing files.
+- If you touch shutdown, flushing, or worker-thread behavior, run the relevant resource-manager and OTEL-heavy tests.
+- If you change OpenAI or LangChain instrumentation, keep as much coverage as possible in `tests/unit` using exporter-local assertions, and leave only the minimal necessary coverage in `tests/e2e` / `tests/live_provider`.
+
+## Python-Specific Notes
+
+- Exception messages should not inline f-string literals in the `raise` statement. Build the message in a variable first.
+- Prefer ASCII-only edits unless the file already uses Unicode or Unicode is clearly required.
+
+## Release And Docs
+
+```bash
+uv build --no-sources
+uv run --group docs pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+```
+
+Releases are handled by GitHub Actions. Do not build an ad hoc local release flow into repository instructions.
+
+## External Docs
+
+- Prefer official documentation first when answering product or API questions.
+- For OpenAI API, ChatGPT Apps SDK, or Codex questions, use the official OpenAI developer docs or Docs MCP server if available.
+- If this repository keeps agent-specific files for multiple tools, treat `AGENTS.md` as the shared source of truth and import it from tool-specific files instead of duplicating instructions.
