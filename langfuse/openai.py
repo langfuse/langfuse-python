@@ -722,27 +722,30 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                 completion += choice.get("text", "")
 
     def get_response_for_chat() -> Any:
-        return (
-            completion["content"]
-            or (
-                completion["function_call"]
-                and {
-                    "role": "assistant",
-                    "function_call": completion["function_call"],
-                }
-            )
-            or (
-                completion["tool_calls"]
-                and {
-                    "role": "assistant",
-                    # "tool_calls": [{"function": completion["tool_calls"]}],
-                    "tool_calls": [
-                        {"function": data} for data in completion["tool_calls"]
-                    ],
-                }
-            )
-            or None
-        )
+        # tool_calls must be checked before content: models like Qwen/DeepSeek emit
+        # whitespace content chunks (e.g. "\n\n") before streaming tool call deltas,
+        # which would otherwise cause the content branch to short-circuit and silently
+        # drop the collected tool_calls.
+        if completion["tool_calls"]:
+            result: Any = {
+                "role": "assistant",
+                "tool_calls": [
+                    {"function": data} for data in completion["tool_calls"]
+                ],
+            }
+            # Preserve non-whitespace content that co-exists with tool calls
+            # (some reasoning models emit a brief text preamble before calling tools).
+            if completion["content"] and completion["content"].strip():
+                result["content"] = completion["content"]
+            return result
+
+        if completion["function_call"]:
+            return {
+                "role": "assistant",
+                "function_call": completion["function_call"],
+            }
+
+        return completion["content"] or None
 
     return (
         model,
