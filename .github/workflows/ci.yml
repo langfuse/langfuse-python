@@ -103,17 +103,14 @@ jobs:
             shard_name: shard-1
             shard_index: 0
             shard_count: 2
-            cache_writer: true
           - suite: e2e
             job_name: E2E shard 2 tests on Python 3.13
             shard_name: shard-2
             shard_index: 1
             shard_count: 2
-            cache_writer: false
           - suite: live_provider
             job_name: E2E live-provider tests on Python 3.13
             shard_name: live-provider
-            cache_writer: false
     env:
       LANGFUSE_BASE_URL: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
@@ -154,37 +151,6 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/langfuse/langfuse/${LANGFUSE_SERVER_SHA}/docker-compose.yml" \
             -o ./langfuse-server/docker-compose.yml
           echo "${LANGFUSE_SERVER_SHA}"
-      - name: Resolve langfuse server image digests
-        run: |
-          docker compose -f ./langfuse-server/docker-compose.yml config --images \
-            | tee ./langfuse-server/docker-images.txt
-
-          while read -r image; do
-            docker manifest inspect "$image" \
-              | jq -r --arg image "$image" '
-                  if .manifests then
-                    .manifests[]
-                    | select(.platform.os == "linux" and .platform.architecture == "amd64")
-                    | "\($image)@\(.digest)"
-                  else
-                    "\($image)@\(.config.digest // .Descriptor.digest // .digest)"
-                  end
-                '
-          done < ./langfuse-server/docker-images.txt \
-            | tee ./langfuse-server/docker-image-digests.txt
-      - name: Restore langfuse server image cache
-        id: docker-image-cache
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ./langfuse-server/docker-image-cache
-          key: langfuse-docker-${{ runner.os }}-${{ hashFiles('langfuse-server/docker-compose.yml', 'langfuse-server/docker-image-digests.txt') }}
-      - name: Load cached langfuse server images
-        if: ${{ steps.docker-image-cache.outputs.cache-hit == 'true' }}
-        run: |
-          shopt -s nullglob
-          for image_tar in ./langfuse-server/docker-image-cache/*.tar; do
-            docker load -i "$image_tar"
-          done
 
       - name: Run langfuse server
         run: |
@@ -202,14 +168,6 @@ jobs:
           LANGFUSE_ENABLE_EVENTS_TABLE_OBSERVATIONS=true \
           docker compose up -d
           echo "::endgroup::"
-      - name: Save langfuse server images to cache
-        if: ${{ steps.docker-image-cache.outputs.cache-hit != 'true' && matrix.cache_writer }}
-        run: |
-          mkdir -p ./langfuse-server/docker-image-cache
-          while read -r image; do
-            safe_name=$(echo "$image" | tr '/:.' '_')
-            docker save -o "./langfuse-server/docker-image-cache/${safe_name}.tar" "$image"
-          done < ./langfuse-server/docker-images.txt
 
       - name: Health check for langfuse server
         run: |
