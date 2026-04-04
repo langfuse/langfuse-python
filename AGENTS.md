@@ -91,8 +91,6 @@ uv run --frozen pytest tests/unit/test_resource_manager.py::test_pause_signals_s
 ## CI Contract
 
 The main CI workflow currently runs:
-
-- on Blacksmith Ubuntu 24.04 runners
 - linting on Python 3.13
 - mypy on Python 3.13
 - `tests/unit` on a Python 3.10-3.14 matrix
