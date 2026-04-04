@@ -98,18 +98,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard-name: core
-            test-root: tests/e2e
-            parallel-marker: "e2e_core and not serial_e2e"
-            serial-marker: "e2e_core and serial_e2e"
-          - shard-name: data
-            test-root: tests/e2e
-            parallel-marker: "e2e_data and not serial_e2e"
-            serial-marker: "e2e_data and serial_e2e"
-          - shard-name: live-provider
-            test-root: tests/live_provider
-            parallel-marker: "live_provider"
-            serial-marker: ""
+          - suite: e2e
+            job_name: E2E shard 1 tests on Python 3.13
+            shard_name: shard-1
+            shard_index: 0
+            shard_count: 2
+            cache_writer: true
+          - suite: e2e
+            job_name: E2E shard 2 tests on Python 3.13
+            shard_name: shard-2
+            shard_index: 1
+            shard_count: 2
+            cache_writer: false
+          - suite: live_provider
+            job_name: E2E live-provider tests on Python 3.13
+            shard_name: live-provider
+            cache_writer: false
     env:
       LANGFUSE_BASE_URL: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
@@ -130,7 +134,7 @@ jobs:
       HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-    name: E2E ${{ matrix.shard-name }} tests on Python 3.13
+    name: ${{ matrix.job_name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Install uv and set Python version
@@ -199,7 +203,7 @@ jobs:
           docker compose up -d
           echo "::endgroup::"
       - name: Save langfuse server images to cache
-        if: ${{ steps.docker-image-cache.outputs.cache-hit != 'true' && matrix.shard-name == 'core' }}
+        if: ${{ steps.docker-image-cache.outputs.cache-hit != 'true' && matrix.cache_writer }}
         run: |
           mkdir -p ./langfuse-server/docker-image-cache
           while read -r image; do
@@ -228,15 +232,53 @@ jobs:
           done
           echo "Langfuse server is up and running!"
 
-      - name: Run the end-to-end tests
+      - name: Select e2e shard files
+        if: ${{ matrix.suite == 'e2e' }}
+        run: |
+          uv run --frozen python scripts/select_e2e_shard.py \
+            --shard-index ${{ matrix.shard_index }} \
+            --shard-count ${{ matrix.shard_count }} \
+            --json
+          uv run --frozen python scripts/select_e2e_shard.py \
+            --shard-index ${{ matrix.shard_index }} \
+            --shard-count ${{ matrix.shard_count }} \
+            > "$RUNNER_TEMP/e2e-shard-files.txt"
+          cat "$RUNNER_TEMP/e2e-shard-files.txt"
+
+      - name: Run the parallel end-to-end tests
+        if: ${{ matrix.suite == 'e2e' }}
         run: |
           uv run --frozen python --version
-          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO ${{ matrix.test-root }} -m "${{ matrix.parallel-marker }}"
+          mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
+          set +e
+          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "not serial_e2e"
+          status=$?
+          set -e
+          if [ "$status" -eq 5 ]; then
+            echo "No parallel e2e tests selected for this shard."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
 
       - name: Run serial end-to-end tests
-        if: ${{ matrix.serial-marker != '' }}
+        if: ${{ matrix.suite == 'e2e' }}
         run: |
-          uv run --frozen pytest -s -v --log-cli-level=INFO ${{ matrix.test-root }} -m "${{ matrix.serial-marker }}"
+          mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
+          set +e
+          uv run --frozen pytest -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "serial_e2e"
+          status=$?
+          set -e
+          if [ "$status" -eq 5 ]; then
+            echo "No serial e2e tests selected for this shard."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+
+      - name: Run live-provider tests
+        if: ${{ matrix.suite == 'live_provider' }}
+        run: |
+          uv run --frozen python --version
+          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO tests/live_provider -m "live_provider"
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
