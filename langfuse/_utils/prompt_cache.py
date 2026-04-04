@@ -3,7 +3,7 @@
 import atexit
 import os
 from datetime import datetime
-from queue import Empty, Queue
+from queue import Queue
 from threading import Thread
 from typing import Callable, Dict, List, Optional, Set
 
@@ -18,6 +18,7 @@ DEFAULT_PROMPT_CACHE_TTL_SECONDS = int(
 )
 
 DEFAULT_PROMPT_CACHE_REFRESH_WORKERS = 1
+_SHUTDOWN_SENTINEL = object()
 
 
 class PromptCacheItem:
@@ -46,26 +47,29 @@ class PromptCacheRefreshConsumer(Thread):
 
     def run(self) -> None:
         while self.running:
-            try:
-                task = self._queue.get(timeout=1)
-                logger.debug(
-                    f"PromptCacheRefreshConsumer processing task, {self._identifier}"
-                )
-                try:
-                    task()
-                # Task failed, but we still consider it processed
-                except Exception as e:
-                    logger.warning(
-                        f"PromptCacheRefreshConsumer encountered an error, cache was not refreshed: {self._identifier}, {e}"
-                    )
+            task = self._queue.get()
 
+            if task is _SHUTDOWN_SENTINEL:
                 self._queue.task_done()
-            except Empty:
-                pass
+                continue
+
+            logger.debug(
+                f"PromptCacheRefreshConsumer processing task, {self._identifier}"
+            )
+            try:
+                task()
+            # Task failed, but we still consider it processed
+            except Exception as e:
+                logger.warning(
+                    f"PromptCacheRefreshConsumer encountered an error, cache was not refreshed: {self._identifier}, {e}"
+                )
+
+            self._queue.task_done()
 
     def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
+        self._queue.put(_SHUTDOWN_SENTINEL)
 
 
 class PromptCacheTaskManager(object):
@@ -98,6 +102,9 @@ class PromptCacheTaskManager(object):
 
     def active_tasks(self) -> int:
         return len(self._processing_keys)
+
+    def wait_for_idle(self) -> None:
+        self._queue.join()
 
     def _wrap_task(self, key: str, task: Callable[[], None]) -> Callable[[], None]:
         def wrapped() -> None:

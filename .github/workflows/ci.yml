@@ -89,7 +89,7 @@ jobs:
       - name: Run the automated tests
         run: |
           python --version
-          uv run --frozen pytest -n auto --dist loadfile -s -v --log-cli-level=INFO tests/unit
+          uv run --frozen pytest -n auto --dist worksteal -s -v --log-cli-level=INFO tests/unit
 
   e2e-tests:
     runs-on: ubuntu-latest

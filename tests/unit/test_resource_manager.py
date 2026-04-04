@@ -25,6 +25,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
         "sample_rate": 0.8,
         "should_export_span": should_export,
         "additional_headers": {"X-Custom": "value"},
+        "tracing_enabled": False,
     }
 
     original_client = Langfuse(**settings)
@@ -62,6 +63,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 10,
         "sample_rate": 0.5,
         "should_export_span": should_export_a,
+        "tracing_enabled": False,
     }
 
     # Settings for client B
@@ -73,6 +75,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 20,
         "sample_rate": 0.9,
         "should_export_span": should_export_b,
+        "tracing_enabled": False,
     }
 
     client_a = Langfuse(**settings_a)

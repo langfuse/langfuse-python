@@ -1,4 +1,3 @@
-from time import sleep
 from unittest.mock import Mock, patch
 
 import pytest
@@ -137,6 +136,10 @@ def langfuse():
         langfuse_instance._resources.prompt_cache = PromptCache()
 
     return langfuse_instance
+
+
+def wait_for_prompt_refresh(langfuse: Langfuse) -> None:
+    langfuse._resources.prompt_cache._task_manager.wait_for_idle()
 
 
 def test_get_fresh_prompt(langfuse):
@@ -376,10 +379,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
 
     result_call_3 = langfuse.get_prompt(prompt_name)
 
-    while True:
-        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
-            break
-        sleep(0.1)
+    wait_for_prompt_refresh(langfuse)
 
     assert mock_server_call.call_count == 2
     assert result_call_3 == prompt_client
@@ -483,10 +483,7 @@ def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     langfuse.get_prompt(prompt_name)
     langfuse.get_prompt(prompt_name)
 
-    while True:
-        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
-            break
-        sleep(0.1)
+    wait_for_prompt_refresh(langfuse)
 
     assert mock_server_call.call_count == 2
 
@@ -527,10 +524,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
 
     result_call_3 = langfuse.get_prompt(prompt_name)
-    while True:
-        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
-            break
-        sleep(0.1)
+    wait_for_prompt_refresh(langfuse)
 
     assert mock_server_call.call_count == 2
     assert result_call_3 == prompt_client
@@ -563,10 +557,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
     mock_server_call.side_effect = Exception("Server error")
 
     result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
-    while True:
-        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
-            break
-        sleep(0.1)
+    wait_for_prompt_refresh(langfuse)
 
     assert mock_server_call.call_count == 3
     assert result_call_2 == prompt_client
@@ -619,10 +610,7 @@ def test_evict_prompt_cache_entry_when_refresh_returns_not_found(
     )
     assert stale_result == prompt_client
 
-    while True:
-        if langfuse._resources.prompt_cache._task_manager.active_tasks() == 0:
-            break
-        sleep(0.1)
+    wait_for_prompt_refresh(langfuse)
 
     assert langfuse._resources.prompt_cache.get(cache_key) is None
 
