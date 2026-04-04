@@ -124,45 +124,36 @@ jobs:
 
       - name: Clone langfuse server
         run: |
-          git clone https://github.com/langfuse/langfuse.git ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
+          git clone --depth 1 --filter=blob:none --single-branch https://github.com/langfuse/langfuse.git ./langfuse-server
+          echo "$(cd ./langfuse-server && git rev-parse HEAD)"
 
       - name: Setup node (for langfuse server)
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: 24
-
-      - name: Cache langfuse server dependencies
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ./langfuse-server/node_modules
-          key: |
-            langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
-            langfuse-server-
+          cache: pnpm
+          cache-dependency-path: ./langfuse-server/pnpm-lock.yaml
 
       - name: Run langfuse server
         run: |
           cd ./langfuse-server
 
-          echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker compose up -d postgres
-          echo "::endgroup::"
-
-          echo "::group::Logs from langfuse server"
-          TELEMETRY_ENABLED=false docker compose logs
+          echo "::group::Start backing services"
+          TELEMETRY_ENABLED=false docker compose up -d postgres redis clickhouse minio
           echo "::endgroup::"
 
           echo "::group::Install dependencies (necessary to run seeder)"
-          pnpm i
+          pnpm install --frozen-lockfile --prefer-offline
           echo "::endgroup::"
 
           echo "::group::Seed db"
           cp .env.dev.example .env
           pnpm run db:migrate
           pnpm run db:seed
+          rm -f .env
           echo "::endgroup::"
-          rm -rf .env
 
-          echo "::group::Run server"
+          echo "::group::Start langfuse web and worker"
 
           TELEMETRY_ENABLED=false \
           LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://localhost:9090 \
@@ -172,7 +163,7 @@ jobs:
           QUEUE_CONSUMER_EVENT_PROPAGATION_QUEUE_IS_ENABLED=true \
           LANGFUSE_ENABLE_EVENTS_TABLE_V2_APIS=true \
           LANGFUSE_ENABLE_EVENTS_TABLE_OBSERVATIONS=true \
-          docker compose up -d
+          docker compose up -d langfuse-web langfuse-worker
 
           echo "::endgroup::"
 
