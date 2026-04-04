@@ -11,6 +11,7 @@ from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
 
 SERIAL_E2E_NODEIDS = {
+    "tests/e2e/test_core_sdk.py::test_create_trace",
     "tests/e2e/test_core_sdk.py::test_create_boolean_score",
     "tests/e2e/test_core_sdk.py::test_create_categorical_score",
     "tests/e2e/test_core_sdk.py::test_create_score_with_custom_timestamp",
