@@ -10,6 +10,12 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
 
+CORE_E2E_FILENAMES = {
+    "test_core_sdk.py",
+    "test_decorators.py",
+    "test_media.py",
+}
+
 SERIAL_E2E_NODEIDS = {
     "tests/e2e/test_core_sdk.py::test_create_trace",
     "tests/e2e/test_core_sdk.py::test_create_boolean_score",
@@ -49,7 +55,8 @@ class InMemorySpanExporter(SpanExporter):
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
-        test_group = Path(str(item.fspath)).parent.name
+        file_path = Path(str(item.fspath))
+        test_group = file_path.parent.name
 
         if test_group == "unit":
             item.add_marker(pytest.mark.unit)
@@ -57,6 +64,12 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
         if test_group == "e2e":
             item.add_marker(pytest.mark.e2e)
+            # Keep the data shard as the default so new tests under tests/e2e
+            # are picked up automatically unless we explicitly promote them.
+            if file_path.name in CORE_E2E_FILENAMES:
+                item.add_marker(pytest.mark.e2e_core)
+            else:
+                item.add_marker(pytest.mark.e2e_data)
             if item.nodeid in SERIAL_E2E_NODEIDS:
                 item.add_marker(pytest.mark.serial_e2e)
             continue

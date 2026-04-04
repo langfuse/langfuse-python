@@ -99,16 +99,17 @@ jobs:
       matrix:
         include:
           - shard-name: core
-            test-paths: >-
-              tests/e2e/test_core_sdk.py
-              tests/e2e/test_decorators.py
-              tests/e2e/test_media.py
+            test-root: tests/e2e
+            parallel-marker: "e2e_core and not serial_e2e"
+            serial-marker: "e2e_core and serial_e2e"
           - shard-name: data
-            test-paths: >-
-              tests/e2e/test_batch_evaluation.py
-              tests/e2e/test_datasets.py
-              tests/e2e/test_experiments.py
-              tests/e2e/test_prompt.py
+            test-root: tests/e2e
+            parallel-marker: "e2e_data and not serial_e2e"
+            serial-marker: "e2e_data and serial_e2e"
+          - shard-name: live-provider
+            test-root: tests/live_provider
+            parallel-marker: "live_provider"
+            serial-marker: ""
     env:
       LANGFUSE_BASE_URL: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
@@ -191,11 +192,12 @@ jobs:
       - name: Run the end-to-end tests
         run: |
           uv run --frozen python --version
-          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO ${{ matrix.test-paths }} -m "not serial_e2e"
+          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO ${{ matrix.test-root }} -m "${{ matrix.parallel-marker }}"
 
       - name: Run serial end-to-end tests
+        if: ${{ matrix.serial-marker != '' }}
         run: |
-          uv run --frozen pytest -s -v --log-cli-level=INFO ${{ matrix.test-paths }} -m serial_e2e
+          uv run --frozen pytest -s -v --log-cli-level=INFO ${{ matrix.test-root }} -m "${{ matrix.serial-marker }}"
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
