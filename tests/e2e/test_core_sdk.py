@@ -152,7 +152,7 @@ def test_create_session_score():
     sleep(2)
 
     # Retrieve and verify
-    score = langfuse.api.scores.get_by_id(score_id)
+    score = get_api().scores.get_by_id(score_id)
 
     # find the score by name (server may transform the id format)
     assert score is not None
@@ -1841,18 +1841,18 @@ def test_get_observations():
 def test_get_trace_not_found():
     # Attempt to fetch a non-existent trace using the API
     with pytest.raises(Exception):
-        get_api().trace.get(create_uuid())
+        get_api(retry=False).trace.get(create_uuid())
 
 
 def test_get_observation_not_found():
     # Attempt to fetch a non-existent observation using the API
     with pytest.raises(Exception):
-        get_api().legacy.observations_v1.get(create_uuid())
+        get_api(retry=False).legacy.observations_v1.get(create_uuid())
 
 
 def test_get_traces_empty():
     # Fetch traces with a filter that should return no results
-    response = get_api().trace.list(name=create_uuid())
+    response = get_api(retry=False).trace.list(name=create_uuid())
 
     assert len(response.data) == 0
     assert response.meta.total_items == 0
@@ -1860,7 +1860,7 @@ def test_get_traces_empty():
 
 def test_get_observations_empty():
     # Fetch observations with a filter that should return no results
-    response = get_api().legacy.observations_v1.get_many(name=create_uuid())
+    response = get_api(retry=False).legacy.observations_v1.get_many(name=create_uuid())
 
     assert len(response.data) == 0
     assert response.meta.total_items == 0
