@@ -20,14 +20,14 @@ langfuse_logger.addHandler(handler)
 print("Adding prompt cache", PromptCache)
 prompt_cache = PromptCache(max_prompt_refresh_workers=10)
 
-# example task that stays in flight briefly while the process exits
-def wait_briefly():
-    time.sleep(0.1)
+# example task that takes 2 seconds but we will force it to exit earlier
+def wait_2_sec():
+    time.sleep(2)
 
 # 8 times
 for i in range(8):
     prompt_cache.add_refresh_prompt_task(
-        f"key_wait_briefly_i_{i}", lambda: wait_briefly()
+        f"key_wait_2_sec_i_{i}", lambda: wait_2_sec()
     )
 """
 
@@ -76,13 +76,13 @@ async def main():
     print("Adding prompt cache", PromptCache)
     prompt_cache = PromptCache(max_prompt_refresh_workers=10)
 
-    # example task that stays in flight briefly while the process exits
-    def wait_briefly():
-        time.sleep(0.1)
+    # example task that takes 2 seconds but we will force it to exit earlier
+    def wait_2_sec():
+        time.sleep(2)
 
     async def add_new_prompt_refresh(i: int):
         prompt_cache.add_refresh_prompt_task(
-            f"key_wait_briefly_i_{i}", lambda: wait_briefly()
+            f"key_wait_2_sec_i_{i}", lambda: wait_2_sec()
         )
     
     # 8 times

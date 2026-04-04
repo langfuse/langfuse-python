@@ -3054,7 +3054,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
         span = langfuse_client.start_observation(name="timing-test-span")
 
         # Add a small delay
-        time.sleep(0.01)
+        time.sleep(0.1)
 
         # End the span
         span.end()
@@ -3096,10 +3096,10 @@ class TestConcurrencyAndAsync(TestOTelBase):
         ) / 1_000_000_000
         assert span_duration_seconds > 0, "Span duration should be positive"
 
-        # Since we slept for 0.01 seconds, the span duration should be at least 0.005 seconds
+        # Since we slept for 0.1 seconds, the span duration should be at least 0.05 seconds
         # but we'll be generous with the upper bound due to potential system delays
-        assert span_duration_seconds >= 0.005, (
-            f"Span duration ({span_duration_seconds}s) should be at least 0.005s"
+        assert span_duration_seconds >= 0.05, (
+            f"Span duration ({span_duration_seconds}s) should be at least 0.05s"
         )
 
 

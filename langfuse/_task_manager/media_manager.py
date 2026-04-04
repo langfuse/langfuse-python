@@ -18,6 +18,7 @@ from .media_upload_queue import UploadMediaJob
 
 T = TypeVar("T")
 P = ParamSpec("P")
+_SHUTDOWN_SENTINEL = object()
 
 
 class MediaManager:
@@ -40,6 +41,11 @@ class MediaManager:
     def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
+
+            if upload_job is _SHUTDOWN_SENTINEL:
+                self._queue.task_done()
+                return
+
             logger.debug(
                 f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
             )
@@ -53,6 +59,14 @@ class MediaManager:
                 f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
             )
             self._queue.task_done()
+
+    def signal_shutdown(self) -> None:
+        try:
+            self._queue.put(_SHUTDOWN_SENTINEL, block=False)
+        except Full:
+            # If the queue is full, the consumer will keep draining work and
+            # observe the paused flag on the next loop iteration.
+            pass
 
     def _find_and_process_media(
         self,
