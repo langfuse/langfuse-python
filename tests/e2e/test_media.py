@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from langfuse._client.client import Langfuse
 from langfuse.media import LangfuseMedia
-from tests.support.utils import get_api
+from tests.support.utils import wait_for_trace
 
 
 def test_replace_media_reference_string_in_object():
@@ -30,7 +30,17 @@ def test_replace_media_reference_string_in_object():
 
     langfuse.flush()
 
-    fetched_trace = get_api().trace.get(span.trace_id)
+    fetched_trace = wait_for_trace(
+        span.trace_id,
+        is_result_ready=lambda trace: (
+            bool(trace.observations)
+            and re.match(
+                r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
+                trace.observations[0].metadata.get("context", {}).get("nested", ""),
+            )
+            is not None
+        ),
+    )
     media_ref = fetched_trace.observations[0].metadata["context"]["nested"]
     assert re.match(
         r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
@@ -51,7 +61,14 @@ def test_replace_media_reference_string_in_object():
 
     langfuse.flush()
 
-    fetched_trace2 = get_api().trace.get(span2.trace_id)
+    fetched_trace2 = wait_for_trace(
+        span2.trace_id,
+        is_result_ready=lambda trace: (
+            bool(trace.observations)
+            and trace.observations[0].metadata.get("context", {}).get("nested")
+            == fetched_trace.observations[0].metadata["context"]["nested"]
+        ),
+    )
     assert (
         fetched_trace2.observations[0].metadata["context"]["nested"]
         == fetched_trace.observations[0].metadata["context"]["nested"]

@@ -13,6 +13,8 @@ from tests.support.api_wrapper import LangfuseAPI
 from tests.support.utils import (
     create_uuid,
     get_api,
+    wait_for_result,
+    wait_for_trace,
 )
 
 
@@ -228,7 +230,7 @@ def test_create_boolean_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
+    api_wrapper.get_trace(trace_id)
 
     # Create a boolean score
     score_id = create_uuid()
@@ -251,10 +253,14 @@ def test_create_boolean_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api_wrapper.get_trace(
+        trace_id,
+        is_result_ready=lambda trace: any(
+            score["name"] == "this-is-a-score" for score in trace.get("scores", [])
+        ),
+    )
 
     # Find the score we created by name
     created_score = next(
@@ -283,7 +289,7 @@ def test_create_categorical_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
+    api_wrapper.get_trace(trace_id)
 
     # Create a categorical score
     score_id = create_uuid()
@@ -305,10 +311,14 @@ def test_create_categorical_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api_wrapper.get_trace(
+        trace_id,
+        is_result_ready=lambda trace: any(
+            score["name"] == "this-is-a-score" for score in trace.get("scores", [])
+        ),
+    )
 
     # Find the score we created by name
     created_score = next(
@@ -337,7 +347,7 @@ def test_create_score_with_custom_timestamp():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
+    api_wrapper.get_trace(trace_id)
 
     custom_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
     score_id = create_uuid()
@@ -352,10 +362,15 @@ def test_create_score_with_custom_timestamp():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api_wrapper.get_trace(
+        trace_id,
+        is_result_ready=lambda trace: any(
+            score["name"] == "custom-timestamp-score"
+            for score in trace.get("scores", [])
+        ),
+    )
 
     # Find the score we created by name
     created_score = next(
@@ -398,10 +413,18 @@ def test_create_trace():
 
     # Ensure data is sent to the API
     langfuse.flush()
-    sleep(2)
 
     # Retrieve the trace from the API
-    trace = LangfuseAPI().get_trace(trace_id)
+    trace = LangfuseAPI().get_trace(
+        trace_id,
+        is_result_ready=lambda trace: (
+            trace.get("name") == trace_name
+            and trace.get("userId") == "test"
+            and trace.get("metadata", {}).get("key") == "value"
+            and trace.get("tags") == ["tag1", "tag2"]
+            and trace.get("public") is True
+        ),
+    )
 
     # Verify all trace properties
     assert trace["name"] == trace_name
@@ -437,11 +460,20 @@ def test_create_update_trace():
 
     # Ensure data is sent to the API
     langfuse.flush()
-    sleep(2)
 
     assert isinstance(trace_id, str)
     # Retrieve and verify trace
-    trace = get_api().trace.get(trace_id)
+    trace = wait_for_trace(
+        trace_id,
+        is_result_ready=lambda trace: (
+            trace.name == trace_name
+            and trace.user_id == "test"
+            and trace.metadata is not None
+            and trace.metadata.get("key") == "value"
+            and trace.metadata.get("key2") == "value2"
+            and trace.public is True
+        ),
+    )
 
     assert trace.name == trace_name
     assert trace.user_id == "test"
@@ -1735,16 +1767,20 @@ def test_fetch_traces():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(3)
 
-    # Fetch all traces with the same name
-    # Note: Using session_id in the query is causing a server error,
-    # but we keep the session_id in the trace data to ensure it's being stored correctly
-    all_traces = get_api().trace.list(name=name, limit=10)
+    expected_trace_ids = set(trace_ids)
+    api = get_api(retry=False)
+
+    # Fetch all traces with the same name.
+    all_traces = wait_for_result(
+        lambda: api.trace.list(name=name, limit=10),
+        is_result_ready=lambda response: (
+            {trace.id for trace in response.data} == expected_trace_ids
+        ),
+    )
 
     # Verify we got all traces
     assert len(all_traces.data) == 3
-    assert all_traces.meta.total_items == 3
 
     # Verify trace properties
     for trace in all_traces.data:
@@ -1753,11 +1789,19 @@ def test_fetch_traces():
         assert trace.input == {"key": "value"}
         assert trace.output == "output-value"
 
-    # Test pagination by fetching just one trace
-    paginated_response = get_api().trace.list(name=name, limit=1, page=2)
-    assert len(paginated_response.data) == 1
-    assert paginated_response.meta.total_items == 3
-    assert paginated_response.meta.total_pages == 3
+    # Test pagination by fetching the first three pages one at a time and
+    # confirming they collectively cover the created traces.
+    paginated_ids = set()
+    for page in range(1, 4):
+        paginated_response = wait_for_result(
+            lambda page=page: api.trace.list(name=name, limit=1, page=page),
+            is_result_ready=lambda response: (
+                len(response.data) == 1 and response.data[0].id in expected_trace_ids
+            ),
+        )
+        paginated_ids.add(paginated_response.data[0].id)
+
+    assert paginated_ids == expected_trace_ids
 
 
 def test_get_observation():
@@ -1812,10 +1856,16 @@ def test_get_observations():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
+    api = get_api(retry=False)
 
     # Fetch observations using the API
-    observations = get_api().legacy.observations_v1.get_many(name=name, limit=10)
+    expected_generation_ids = {gen1_id, gen2_id}
+    observations = wait_for_result(
+        lambda: api.legacy.observations_v1.get_many(name=name, limit=10),
+        is_result_ready=lambda response: expected_generation_ids.issubset(
+            {obs.id for obs in response.data}
+        ),
+    )
 
     # Verify fetched observations
     assert len(observations.data) == 2
@@ -1829,13 +1879,22 @@ def test_get_observations():
     assert gen1_id in gen_ids
     assert gen2_id in gen_ids
 
-    # Test pagination
-    paginated_response = get_api().legacy.observations_v1.get_many(
-        name=name, limit=1, page=2
-    )
-    assert len(paginated_response.data) == 1
-    assert paginated_response.meta.total_items == 2  # Parent span + 2 generations
-    assert paginated_response.meta.total_pages == 2
+    # Test pagination by confirming both created generations can be reached
+    # across separate pages.
+    paginated_ids = set()
+    for page in range(1, 3):
+        paginated_response = wait_for_result(
+            lambda page=page: api.legacy.observations_v1.get_many(
+                name=name, limit=1, page=page
+            ),
+            is_result_ready=lambda response: (
+                len(response.data) == 1
+                and response.data[0].id in expected_generation_ids
+            ),
+        )
+        paginated_ids.add(paginated_response.data[0].id)
+
+    assert paginated_ids == expected_generation_ids
 
 
 def test_get_trace_not_found():

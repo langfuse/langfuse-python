@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from langfuse.api.commons.errors.not_found_error import NotFoundError
 from tests.support.api_wrapper import LangfuseAPI as SupportLangfuseAPI
-from tests.support.utils import get_api
+from tests.support.utils import get_api, wait_for_trace
 
 
 def test_get_api_retries_not_found(monkeypatch):
@@ -113,4 +113,28 @@ def test_raw_api_wrapper_retries_not_found_payload(monkeypatch):
     trace = api.get_trace("trace-123")
 
     assert trace["id"] == "trace-123"
+    assert attempts["count"] == 3
+
+
+def test_wait_for_trace_retries_until_predicate_matches(monkeypatch):
+    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
+
+    attempts = {"count": 0}
+
+    class FakeTraceService:
+        def get(self, trace_id):
+            attempts["count"] += 1
+            return {"id": trace_id, "observations": [1] * attempts["count"]}
+
+    class FakeClient:
+        trace = FakeTraceService()
+
+    monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
+
+    trace = wait_for_trace(
+        "trace-123", is_result_ready=lambda trace: len(trace["observations"]) == 3
+    )
+
+    assert trace["id"] == "trace-123"
+    assert len(trace["observations"]) == 3
     assert attempts["count"] == 3

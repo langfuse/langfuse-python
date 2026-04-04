@@ -98,6 +98,8 @@ jobs:
       LANGFUSE_BASE_URL: "http://localhost:3000"
       LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
       LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
+      LANGFUSE_E2E_READ_TIMEOUT_SECONDS: "30"
+      LANGFUSE_E2E_READ_INTERVAL_SECONDS: "0.5"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
       HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
@@ -106,6 +108,16 @@ jobs:
     name: E2E tests on Python 3.13
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
+        with:
+          version: "0.11.2"
+          python-version: "3.13"
+          enable-cache: true
+      - name: Install the project dependencies
+        run: uv sync --locked
+      - name: Check uv Python version
+        run: uv run --frozen python --version
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
         with:
           version: 10.33.0
@@ -183,23 +195,10 @@ jobs:
           done
           echo "Langfuse server is up and running!"
 
-      - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
-        with:
-          version: "0.11.2"
-          python-version: "3.13"
-          enable-cache: true
-
-      - name: Check Python version
-        run: python --version
-
-      - name: Install the project dependencies
-        run: uv sync --locked
-
       - name: Run the end-to-end tests
         run: |
-          python --version
-          uv run --frozen pytest -n auto --dist loadfile -s -v --log-cli-level=INFO tests/e2e
+          uv run --frozen python --version
+          uv run --frozen pytest -n 4 --dist loadfile -s -v --log-cli-level=INFO tests/e2e
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
