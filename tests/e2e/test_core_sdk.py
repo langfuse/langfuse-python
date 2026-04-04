@@ -1230,10 +1230,14 @@ def test_end_generation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    trace = api_wrapper.get_trace(
+        trace_id,
+        is_result_ready=lambda trace: any(
+            obs["name"] == "query-generation" for obs in trace.get("observations", [])
+        ),
+    )
 
     # Find generation by name
     generations = [
