@@ -12,7 +12,7 @@ from langfuse.experiment import (
     ExperimentItem,
     ExperimentItemResult,
 )
-from tests.utils import create_uuid, get_api
+from tests.support.utils import create_uuid, get_api, wait_for_trace
 
 
 @pytest.fixture
@@ -786,13 +786,15 @@ def test_boolean_score_types():
     time.sleep(3)
 
     # Verify scores are persisted via API with correct data types
-    api = get_api()
     for i, item_result in enumerate(result.item_results):
         trace_id = item_result.trace_id
         assert trace_id is not None, f"Item {i} should have a trace_id"
 
         # Fetch trace from API to verify score persistence
-        trace = api.trace.get(trace_id)
+        trace = wait_for_trace(
+            trace_id,
+            is_result_ready=lambda trace: len(trace.scores) > 0,
+        )
         assert trace is not None, f"Trace {trace_id} should exist"
 
         for score in trace.scores:

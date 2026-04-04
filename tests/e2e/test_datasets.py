@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from langfuse import Langfuse
 from langfuse.api import DatasetStatus
-from tests.utils import create_uuid
+from tests.support.utils import create_uuid
 
 
 def test_create_and_get_dataset():

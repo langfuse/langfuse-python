@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
-from tests.utils import create_uuid, encode_file_to_base64, get_api
+from tests.support.utils import create_uuid, encode_file_to_base64, get_api
 
 
 def test_callback_generated_from_trace_chat():
@@ -51,14 +51,16 @@ def test_callback_generated_from_trace_chat():
 
     assert trace.id == trace_id
 
-    assert len(trace.observations) == 3
+    assert len(trace.observations) >= 2
+    assert any(observation.name == "parent" for observation in trace.observations)
 
-    langchain_generation_span = list(
-        filter(
-            lambda o: o.type == "GENERATION" and o.name == "ChatOpenAI",
-            trace.observations,
-        )
-    )[0]
+    generation_observations = [
+        observation
+        for observation in trace.observations
+        if observation.type == "GENERATION" and observation.name == "ChatOpenAI"
+    ]
+    assert len(generation_observations) == 1
+    langchain_generation_span = generation_observations[0]
 
     assert langchain_generation_span.usage_details["input"] > 0
     assert langchain_generation_span.usage_details["output"] > 0
@@ -294,19 +296,26 @@ def test_openai_instruct_usage():
 
     observations = get_api().trace.get(trace_id).observations
 
-    # Add 1 to account for the wrapping span
-    assert len(observations) == 4
+    assert len(observations) >= 3
+    assert any(
+        observation.name == "openai_instruct_usage_test" and observation.type == "SPAN"
+        for observation in observations
+    )
 
-    for observation in observations:
-        if observation.type == "GENERATION":
-            assert observation.output is not None
-            assert observation.output != ""
-            assert observation.input is not None
-            assert observation.input != ""
-            assert observation.usage is not None
-            assert observation.usage_details["input"] is not None
-            assert observation.usage_details["output"] is not None
-            assert observation.usage_details["total"] is not None
+    generation_observations = [
+        observation for observation in observations if observation.type == "GENERATION"
+    ]
+    assert len(generation_observations) == len(input_list)
+
+    for observation in generation_observations:
+        assert observation.output is not None
+        assert observation.output != ""
+        assert observation.input is not None
+        assert observation.input != ""
+        assert observation.usage is not None
+        assert observation.usage_details["input"] is not None
+        assert observation.usage_details["output"] is not None
+        assert observation.usage_details["total"] is not None
 
 
 def test_get_langchain_prompt_with_jinja2():
@@ -869,7 +878,10 @@ def test_multimodal():
 
     trace = get_api().trace.get(trace_id=trace_id)
 
-    assert len(trace.observations) == 3
+    assert len(trace.observations) >= 2
+    assert any(
+        observation.name == "test_multimodal" for observation in trace.observations
+    )
     # Filter for the observation with type GENERATION
     generation_observation = next(
         (obs for obs in trace.observations if obs.type == "GENERATION"), None

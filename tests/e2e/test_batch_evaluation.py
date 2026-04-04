@@ -18,7 +18,7 @@ from langfuse.batch_evaluation import (
     EvaluatorStats,
 )
 from langfuse.experiment import Evaluation
-from tests.utils import create_uuid
+from tests.support.utils import create_uuid, get_api, wait_for_result
 
 # ============================================================================
 # FIXTURES & SETUP
@@ -38,6 +38,40 @@ def langfuse_client():
 def sample_trace_name():
     """Generate a unique trace name for filtering."""
     return f"batch-eval-test-{create_uuid()}"
+
+
+def _seed_trace_corpus(
+    *, trace_count: int = 6, tag: str | None = None
+) -> tuple[str, list[str]]:
+    langfuse_client = get_client()
+    corpus_tag = tag or f"batch-eval-seed-{create_uuid()}"
+    trace_names: list[str] = []
+
+    for index in range(trace_count):
+        trace_name = f"{corpus_tag}-trace-{index}"
+        trace_names.append(trace_name)
+        with langfuse_client.start_as_current_observation(name=trace_name) as span:
+            with propagate_attributes(tags=[corpus_tag]):
+                span.set_trace_io(
+                    input=f"Seed input {index}",
+                    output=f"Seed output {index}",
+                )
+
+    langfuse_client.flush()
+
+    filter_json = f'[{{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["{corpus_tag}"]}}]'
+    api = get_api(retry=False)
+    wait_for_result(
+        lambda: api.trace.list(filter=filter_json, limit=trace_count),
+        is_result_ready=lambda response: len(response.data) >= trace_count,
+    )
+
+    return corpus_tag, trace_names
+
+
+@pytest.fixture(scope="module", autouse=True)
+def seeded_batch_evaluation_traces():
+    _seed_trace_corpus()
 
 
 def simple_trace_mapper(*, item):

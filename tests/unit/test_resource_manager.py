@@ -1,14 +1,24 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+from queue import Queue
+from unittest.mock import Mock
+
 from langfuse import Langfuse
 from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
+from langfuse._task_manager.media_manager import MediaManager
+from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
+from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
 
 
-def test_get_client_preserves_all_settings():
+def test_get_client_preserves_all_settings(monkeypatch):
     """Test that get_client() preserves environment and all client settings."""
     with LangfuseResourceManager._lock:
         LangfuseResourceManager._instances.clear()
+
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-comprehensive-default")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-comprehensive-default")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:3000")
 
     def should_export(span):
         return span.name != "drop"
@@ -21,6 +31,7 @@ def test_get_client_preserves_all_settings():
         "sample_rate": 0.8,
         "should_export_span": should_export,
         "additional_headers": {"X-Custom": "value"},
+        "tracing_enabled": False,
     }
 
     original_client = Langfuse(**settings)
@@ -58,6 +69,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 10,
         "sample_rate": 0.5,
         "should_export_span": should_export_a,
+        "tracing_enabled": False,
     }
 
     # Settings for client B
@@ -69,6 +81,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 20,
         "sample_rate": 0.9,
         "should_export_span": should_export_b,
+        "tracing_enabled": False,
     }
 
     client_a = Langfuse(**settings_a)
@@ -94,3 +107,34 @@ def test_get_client_multiple_clients_preserve_different_settings():
 
     client_a.shutdown()
     client_b.shutdown()
+
+
+def test_score_ingestion_consumer_pause_wakes_blocked_thread():
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=Queue(),
+        identifier=0,
+        client=Mock(),
+        public_key="pk-test",
+        flush_interval=30,
+    )
+
+    consumer.start()
+    consumer.pause()
+    consumer.join(timeout=0.5)
+
+    assert not consumer.is_alive()
+
+
+def test_media_upload_consumer_pause_wakes_blocked_thread():
+    media_manager = MediaManager(
+        api_client=Mock(),
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+    )
+    consumer = MediaUploadConsumer(identifier=0, media_manager=media_manager)
+
+    consumer.start()
+    consumer.pause()
+    consumer.join(timeout=0.5)
+
+    assert not consumer.is_alive()
