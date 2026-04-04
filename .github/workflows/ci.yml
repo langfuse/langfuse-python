@@ -18,9 +18,9 @@ jobs:
   linting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
         with:
           version: "0.11.2"
           python-version: "3.13"
@@ -33,14 +33,14 @@ jobs:
   type-checking:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
         with:
           version: "0.11.2"
           python-version: "3.13"
           enable-cache: true
-      - uses: actions/cache@v3
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Cache mypy cache
         with:
           path: ./.mypy_cache
@@ -105,8 +105,8 @@ jobs:
 
     name: E2E tests on Python 3.13
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
         with:
           version: 10.33.0
 
@@ -115,12 +115,12 @@ jobs:
           git clone https://github.com/langfuse/langfuse.git ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
 
       - name: Setup node (for langfuse server)
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: 24
 
       - name: Cache langfuse server dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ./langfuse-server/node_modules
           key: |
@@ -184,7 +184,7 @@ jobs:
           echo "Langfuse server is up and running!"
 
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
         with:
           version: "0.11.2"
           python-version: "3.13"

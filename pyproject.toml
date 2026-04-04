@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.0.3"
+version = "4.0.6"
 description = "A client library for accessing langfuse"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
@@ -42,6 +42,10 @@ docs = [
 [build-system]
 requires = ["uv_build>=0.11.2,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+# Basic protection against supply chain attacks
+exclude-newer = "7 days"
 
 [tool.uv.build-backend]
 module-root = ""

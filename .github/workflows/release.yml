@@ -62,13 +62,13 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_ACCESS_TOKEN }}
 
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
         with:
           version: "0.11.2"
           python-version: "3.12"
@@ -285,7 +285,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create-release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           tag_name: v${{ steps.new-version.outputs.version }}
           name: v${{ steps.new-version.outputs.version }}
@@ -299,8 +299,10 @@ jobs:
 
       - name: Notify Slack on success
         if: success()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3
         with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "✅ Langfuse Python SDK v${{ steps.new-version.outputs.version }} published to PyPI",
@@ -378,14 +380,13 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3
         with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "❌ Langfuse Python SDK release workflow failed",
@@ -471,6 +472,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
