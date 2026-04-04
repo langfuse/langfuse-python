@@ -493,6 +493,58 @@ def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
 
 
 @patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_skip_redundant_refresh_when_cache_already_updated(
+    mock_time, langfuse: Langfuse
+) -> None:
+    prompt_name = "test_skip_redundant_refresh_when_cache_already_updated"
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+
+    mock_time.return_value = 0
+
+    initial_prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    updated_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    stale_result = TextPromptClient(initial_prompt)
+    fresh_result = TextPromptClient(updated_prompt)
+
+    langfuse._resources.prompt_cache.set(cache_key, stale_result, None)
+    stale_item = langfuse._resources.prompt_cache.get(cache_key)
+    assert stale_item is not None
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+    assert stale_item.is_expired()
+
+    langfuse._resources.prompt_cache.set(cache_key, fresh_result, None)
+
+    add_task_mock = Mock()
+    langfuse._resources.prompt_cache._task_manager.add_task = add_task_mock
+
+    langfuse._resources.prompt_cache.add_refresh_prompt_task_if_current(
+        cache_key,
+        stale_item,
+        Mock(),
+    )
+
+    add_task_mock.assert_not_called()
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
 def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
     mock_time.return_value = 0
 

@@ -3482,8 +3482,9 @@ class Langfuse:
                         fetch_timeout_seconds=fetch_timeout_seconds,
                     )
 
-                self._resources.prompt_cache.add_refresh_prompt_task(
+                self._resources.prompt_cache.add_refresh_prompt_task_if_current(
                     cache_key,
+                    cached_prompt,
                     refresh_task,
                 )
                 langfuse_logger.debug(
