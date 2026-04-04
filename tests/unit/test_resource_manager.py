@@ -5,10 +5,14 @@ from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
 
 
-def test_get_client_preserves_all_settings():
+def test_get_client_preserves_all_settings(monkeypatch):
     """Test that get_client() preserves environment and all client settings."""
     with LangfuseResourceManager._lock:
         LangfuseResourceManager._instances.clear()
+
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-comprehensive-default")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-comprehensive-default")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:3000")
 
     def should_export(span):
         return span.name != "drop"

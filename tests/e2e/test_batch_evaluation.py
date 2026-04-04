@@ -18,7 +18,7 @@ from langfuse.batch_evaluation import (
     EvaluatorStats,
 )
 from langfuse.experiment import Evaluation
-from tests.utils import create_uuid
+from tests.support.utils import create_uuid
 
 # ============================================================================
 # FIXTURES & SETUP

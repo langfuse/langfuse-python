@@ -17,7 +17,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse._client.datasets import DatasetClient
 from langfuse.api import Dataset, DatasetItem, DatasetStatus
-from tests.test_otel import TestOTelBase
+from tests.unit.test_otel import TestOTelBase
 
 
 class TestPropagateAttributesBase(TestOTelBase):

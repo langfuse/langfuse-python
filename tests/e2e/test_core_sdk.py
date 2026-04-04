@@ -9,8 +9,8 @@ import pytest
 from langfuse import Langfuse, propagate_attributes
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._utils import _get_timestamp
-from tests.api_wrapper import LangfuseAPI
-from tests.utils import (
+from tests.support.api_wrapper import LangfuseAPI
+from tests.support.utils import (
     create_uuid,
     get_api,
 )

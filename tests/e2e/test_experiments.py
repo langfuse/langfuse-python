@@ -12,7 +12,7 @@ from langfuse.experiment import (
     ExperimentItem,
     ExperimentItemResult,
 )
-from tests.utils import create_uuid, get_api
+from tests.support.utils import create_uuid, get_api
 
 
 @pytest.fixture

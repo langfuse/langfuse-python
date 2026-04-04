@@ -16,7 +16,7 @@ from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.langchain import CallbackHandler
 from langfuse.media import LangfuseMedia
-from tests.utils import get_api
+from tests.support.utils import get_api
 
 mock_metadata = {"key": "metadata"}
 mock_deep_metadata = {"key": "mock_deep_metadata"}

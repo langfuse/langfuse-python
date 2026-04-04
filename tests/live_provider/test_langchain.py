@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
-from tests.utils import create_uuid, encode_file_to_base64, get_api
+from tests.support.utils import create_uuid, encode_file_to_base64, get_api
 
 
 def test_callback_generated_from_trace_chat():
