@@ -67,6 +67,7 @@ def test_callback_generated_from_trace_chat():
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
     assert langchain_generation_span.output != ""
+    assert langchain_generation_span.metadata["is_langchain_root"] is True
 
 
 def test_callback_generated_from_lcel_chain():
@@ -103,6 +104,11 @@ def test_callback_generated_from_lcel_chain():
             trace.observations,
         )
     )[0]
+    langchain_root_spans = [
+        observation
+        for observation in trace.observations
+        if observation.metadata and observation.metadata.get("is_langchain_root")
+    ]
 
     assert langchain_generation_span.usage_details["input"] > 1
     assert langchain_generation_span.usage_details["output"] > 0
@@ -111,6 +117,9 @@ def test_callback_generated_from_lcel_chain():
     assert langchain_generation_span.input != ""
     assert langchain_generation_span.output is not None
     assert langchain_generation_span.output != ""
+    assert len(langchain_root_spans) == 1
+    assert langchain_root_spans[0].type == "CHAIN"
+    assert langchain_root_spans[0].metadata["is_langchain_root"] is True
 
 
 @pytest.mark.skip(reason="Flaky")
