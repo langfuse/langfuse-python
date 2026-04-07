@@ -1,8 +1,10 @@
 import time
 from datetime import timedelta
 
+import pytest
+
 from langfuse import Langfuse
-from langfuse.api import DatasetStatus
+from langfuse.api import DatasetStatus, NotFoundError
 from tests.support.utils import create_uuid, wait_for_result
 
 
@@ -112,7 +114,6 @@ def test_upsert_and_get_dataset_item():
         input=new_input,
         id=item.id,
         expected_output=new_input,
-        status=DatasetStatus.ARCHIVED,
     )
 
     get_new_item = wait_for_result(
@@ -121,14 +122,34 @@ def test_upsert_and_get_dataset_item():
             dataset_item.id == item.id
             and dataset_item.input == new_input
             and dataset_item.expected_output == new_input
-            and dataset_item.status == DatasetStatus.ARCHIVED
+            and dataset_item.status == DatasetStatus.ACTIVE
         ),
     )
 
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
     assert get_new_item.expected_output == new_input
-    assert get_new_item.status == DatasetStatus.ARCHIVED
+    assert get_new_item.status == DatasetStatus.ACTIVE
+
+    langfuse.create_dataset_item(
+        dataset_name=name,
+        input=new_input,
+        id=item.id,
+        expected_output=new_input,
+        status=DatasetStatus.ARCHIVED,
+    )
+
+    latest_dataset = wait_for_result(
+        lambda: langfuse.get_dataset(name),
+        is_result_ready=lambda dataset: all(
+            dataset_item.id != item.id for dataset_item in dataset.items
+        ),
+    )
+
+    assert all(dataset_item.id != item.id for dataset_item in latest_dataset.items)
+
+    with pytest.raises(NotFoundError):
+        langfuse.api.dataset_items.get(item.id)
 
 
 def test_run_experiment():
