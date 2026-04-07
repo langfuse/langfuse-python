@@ -100,12 +100,13 @@ def test_callback_generated_from_lcel_chain():
 
     assert len(trace.observations) > 0
 
-    langchain_generation_span = list(
-        filter(
-            lambda o: o.type == "GENERATION" and o.name == "ChatOpenAI",
-            trace.observations,
-        )
-    )[0]
+    generation_observations = [
+        observation
+        for observation in trace.observations
+        if observation.type == "GENERATION"
+    ]
+    assert len(generation_observations) > 0
+    langchain_generation_span = generation_observations[0]
     langchain_root_spans = [
         observation
         for observation in trace.observations

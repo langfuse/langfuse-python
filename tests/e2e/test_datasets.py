@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from langfuse import Langfuse
 from langfuse.api import DatasetStatus
-from tests.support.utils import create_uuid
+from tests.support.utils import create_uuid, wait_for_result
 
 
 def test_create_and_get_dataset():
@@ -98,7 +98,10 @@ def test_upsert_and_get_dataset_item():
     )
 
     # Instead, get all dataset items and find the one with matching ID
-    dataset = langfuse.get_dataset(name)
+    dataset = wait_for_result(
+        lambda: langfuse.get_dataset(name),
+        is_result_ready=lambda dataset: any(i.id == item.id for i in dataset.items),
+    )
     get_item = None
     for i in dataset.items:
         if i.id == item.id:
@@ -120,7 +123,16 @@ def test_upsert_and_get_dataset_item():
     )
 
     # Refresh dataset and find updated item
-    dataset = langfuse.get_dataset(name)
+    dataset = wait_for_result(
+        lambda: langfuse.get_dataset(name),
+        is_result_ready=lambda dataset: any(
+            i.id == item.id
+            and i.input == new_input
+            and i.expected_output == new_input
+            and i.status == DatasetStatus.ARCHIVED
+            for i in dataset.items
+        ),
+    )
     get_new_item = None
     for i in dataset.items:
         if i.id == item.id:
