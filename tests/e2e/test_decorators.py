@@ -1851,7 +1851,19 @@ def test_sync_generator_context_preservation():
     )
 
     # Verify trace structure
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: (
+            len(trace.observations) >= 2
+            and {"parent_root", "child_stream"}.issubset(
+                {
+                    observation.name
+                    for observation in trace.observations
+                    if observation.name
+                }
+            )
+        ),
+    )
     assert len(trace_data.observations) == 2
 
     # Verify both observations are present
