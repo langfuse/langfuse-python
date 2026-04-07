@@ -97,18 +97,11 @@ def test_upsert_and_get_dataset_item():
         dataset_name=name, input=input, expected_output=input
     )
 
-    # Instead, get all dataset items and find the one with matching ID
-    dataset = wait_for_result(
-        lambda: langfuse.get_dataset(name),
-        is_result_ready=lambda dataset: any(i.id == item.id for i in dataset.items),
+    get_item = wait_for_result(
+        lambda: langfuse.api.dataset_items.get(item.id),
+        is_result_ready=lambda dataset_item: dataset_item.id == item.id,
     )
-    get_item = None
-    for i in dataset.items:
-        if i.id == item.id:
-            get_item = i
-            break
 
-    assert get_item is not None
     assert get_item.input == input
     assert get_item.id == item.id
     assert get_item.expected_output == input
@@ -122,24 +115,16 @@ def test_upsert_and_get_dataset_item():
         status=DatasetStatus.ARCHIVED,
     )
 
-    # Refresh dataset and find updated item
-    dataset = wait_for_result(
-        lambda: langfuse.get_dataset(name),
-        is_result_ready=lambda dataset: any(
-            i.id == item.id
-            and i.input == new_input
-            and i.expected_output == new_input
-            and i.status == DatasetStatus.ARCHIVED
-            for i in dataset.items
+    get_new_item = wait_for_result(
+        lambda: langfuse.api.dataset_items.get(item.id),
+        is_result_ready=lambda dataset_item: (
+            dataset_item.id == item.id
+            and dataset_item.input == new_input
+            and dataset_item.expected_output == new_input
+            and dataset_item.status == DatasetStatus.ARCHIVED
         ),
     )
-    get_new_item = None
-    for i in dataset.items:
-        if i.id == item.id:
-            get_new_item = i
-            break
 
-    assert get_new_item is not None
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
     assert get_new_item.expected_output == new_input
