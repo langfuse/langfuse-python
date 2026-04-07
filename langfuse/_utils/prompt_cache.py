@@ -51,7 +51,7 @@ class PromptCacheRefreshConsumer(Thread):
 
             if task is _SHUTDOWN_SENTINEL:
                 self._queue.task_done()
-                continue
+                break
 
             logger.debug(
                 f"PromptCacheRefreshConsumer processing task, {self._identifier}"
@@ -69,7 +69,6 @@ class PromptCacheRefreshConsumer(Thread):
     def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
-        self._queue.put(_SHUTDOWN_SENTINEL)
 
 
 class PromptCacheTaskManager(object):
@@ -133,6 +132,9 @@ class PromptCacheTaskManager(object):
 
         for consumer in self._consumers:
             consumer.pause()
+
+        for _ in self._consumers:
+            self._queue.put(_SHUTDOWN_SENTINEL)
 
         for consumer in self._consumers:
             try:

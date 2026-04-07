@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from langfuse.api.commons.errors.not_found_error import NotFoundError
 from tests.support.api_wrapper import LangfuseAPI as SupportLangfuseAPI
+from tests.support.retry import retry_until_ready
 from tests.support.utils import get_api, wait_for_trace
 
 
@@ -138,3 +139,35 @@ def test_wait_for_trace_retries_until_predicate_matches(monkeypatch):
     assert trace["id"] == "trace-123"
     assert len(trace["observations"]) == 3
     assert attempts["count"] == 3
+
+
+def test_retry_until_ready_clears_stale_error_after_success(monkeypatch):
+    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
+
+    monotonic_values = iter([0.0, 0.0, 0.05, 0.06, 0.11, 0.11])
+    monkeypatch.setattr("tests.support.retry.monotonic", lambda: next(monotonic_values))
+
+    attempts = {"count": 0}
+
+    def operation():
+        attempts["count"] += 1
+
+        if attempts["count"] == 1:
+            raise NotFoundError(
+                body={
+                    "error": "LangfuseNotFoundError",
+                    "message": "Trace trace-123 not found within authorized project",
+                }
+            )
+
+        return {"id": "trace-123", "attempt": attempts["count"], "observations": []}
+
+    trace = retry_until_ready(
+        operation,
+        is_result_ready=lambda _: False,
+        timeout_seconds=0.1,
+        interval_seconds=0,
+    )
+
+    assert trace["id"] == "trace-123"
+    assert trace["attempt"] == 3

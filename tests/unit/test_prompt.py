@@ -7,6 +7,7 @@ from langfuse._utils.prompt_cache import (
     DEFAULT_PROMPT_CACHE_TTL_SECONDS,
     PromptCache,
     PromptCacheItem,
+    PromptCacheTaskManager,
 )
 from langfuse.api import NotFoundError, Prompt_Chat, Prompt_Text
 from langfuse.model import ChatPromptClient, TextPromptClient
@@ -140,6 +141,42 @@ def langfuse():
 
 def wait_for_prompt_refresh(langfuse: Langfuse) -> None:
     langfuse._resources.prompt_cache._task_manager.wait_for_idle()
+
+
+def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdown():
+    manager = PromptCacheTaskManager(threads=0)
+    events = []
+
+    class FakeConsumer:
+        def __init__(self, identifier):
+            self._identifier = identifier
+
+        def pause(self):
+            events.append(("pause", self._identifier))
+
+        def join(self):
+            events.append(("join", self._identifier))
+
+    class FakeQueue:
+        def put(self, item):
+            events.append(("put", item))
+
+    manager._consumers = [FakeConsumer(0), FakeConsumer(1), FakeConsumer(2)]
+    manager._queue = FakeQueue()
+
+    manager.shutdown()
+
+    assert [event[0] for event in events] == [
+        "pause",
+        "pause",
+        "pause",
+        "put",
+        "put",
+        "put",
+        "join",
+        "join",
+        "join",
+    ]
 
 
 def test_get_fresh_prompt(langfuse):

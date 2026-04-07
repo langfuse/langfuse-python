@@ -60,13 +60,14 @@ class MediaManager:
             )
             self._queue.task_done()
 
-    def signal_shutdown(self) -> None:
-        try:
-            self._queue.put(_SHUTDOWN_SENTINEL, block=False)
-        except Full:
-            # If the queue is full, the consumer will keep draining work and
-            # observe the paused flag on the next loop iteration.
-            pass
+    def signal_shutdown(self, *, count: int = 1) -> None:
+        for _ in range(count):
+            try:
+                self._queue.put(_SHUTDOWN_SENTINEL, block=False)
+            except Full:
+                # If the queue is full, the consumer will keep draining work and
+                # observe the paused flag on the next loop iteration.
+                break
 
     def _find_and_process_media(
         self,

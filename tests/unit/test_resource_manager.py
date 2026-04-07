@@ -1,6 +1,7 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
 from queue import Queue
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from langfuse import Langfuse
@@ -125,7 +126,7 @@ def test_score_ingestion_consumer_pause_wakes_blocked_thread():
     assert not consumer.is_alive()
 
 
-def test_media_upload_consumer_pause_wakes_blocked_thread():
+def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
     media_manager = MediaManager(
         api_client=Mock(),
         httpx_client=Mock(),
@@ -135,6 +136,41 @@ def test_media_upload_consumer_pause_wakes_blocked_thread():
 
     consumer.start()
     consumer.pause()
+    media_manager.signal_shutdown()
     consumer.join(timeout=0.5)
 
     assert not consumer.is_alive()
+
+
+def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_all():
+    events = []
+
+    class FakeConsumer:
+        def __init__(self, identifier):
+            self._identifier = identifier
+
+        def pause(self):
+            events.append(("pause", self._identifier))
+
+        def join(self):
+            events.append(("join", self._identifier))
+
+    class FakeMediaManager:
+        def signal_shutdown(self, *, count):
+            events.append(("signal_shutdown", count))
+
+    fake_resource_manager = SimpleNamespace(
+        _media_upload_consumers=[FakeConsumer(0), FakeConsumer(1)],
+        _ingestion_consumers=[],
+        _media_manager=FakeMediaManager(),
+    )
+
+    LangfuseResourceManager._stop_and_join_consumer_threads(fake_resource_manager)
+
+    assert events == [
+        ("pause", 0),
+        ("pause", 1),
+        ("signal_shutdown", 2),
+        ("join", 0),
+        ("join", 1),
+    ]

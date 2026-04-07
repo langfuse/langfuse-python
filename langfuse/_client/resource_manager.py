@@ -399,6 +399,8 @@ class LangfuseResourceManager:
         for media_upload_consumer in self._media_upload_consumers:
             media_upload_consumer.pause()
 
+        self._media_manager.signal_shutdown(count=len(self._media_upload_consumers))
+
         for media_upload_consumer in self._media_upload_consumers:
             try:
                 media_upload_consumer.join()

@@ -52,6 +52,7 @@ def retry_until_ready(
 
             last_error = error
         else:
+            last_error = None
             if is_result_ready is None or is_result_ready(result):
                 return result
 
