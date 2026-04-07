@@ -34,6 +34,7 @@ dev = [
     "langgraph>=1,<2",
     "autoevals>=0.0.130,<0.1",
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
+    "tenacity>=9.1.4",
 ]
 docs = [
     "pdoc>=15.0.4,<16",

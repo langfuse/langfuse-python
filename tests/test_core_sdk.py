@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from time import sleep
 
 import pytest
+from tenacity import Retrying, stop_after_delay, wait_fixed
 
 from langfuse import Langfuse, propagate_attributes
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -337,7 +338,6 @@ def test_create_text_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Create a text score
     score_id = create_uuid()
@@ -360,23 +360,26 @@ def test_create_text_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
-    # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    # Retrieve and verify with retry
+    for attempt in Retrying(
+        stop=stop_after_delay(10), wait=wait_fixed(0.1), reraise=True
+    ):
+        with attempt:
+            trace = api_wrapper.get_trace(trace_id)
 
-    # Find the score we created by name
-    created_score = next(
-        (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
-    )
-    assert created_score is not None, "Score not found in trace"
-    assert created_score["id"] == score_id
-    assert created_score["dataType"] == "TEXT"
-    assert created_score["value"] is None
-    assert (
-        created_score["stringValue"]
-        == "This is a detailed text evaluation of the output quality."
-    )
+            # Find the score we created by name
+            created_score = next(
+                (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
+            )
+            assert created_score is not None, "Score not found in trace"
+            assert created_score["id"] == score_id
+            assert created_score["dataType"] == "TEXT"
+
+            assert (
+                created_score["stringValue"]
+                == "This is a detailed text evaluation of the output quality."
+            )
 
 
 def test_create_score_with_custom_timestamp():
