@@ -81,26 +81,21 @@ jobs:
           version: 10.33.0
 
       - name: Clone langfuse server
-        id: clone-server
         run: |
-          git clone https://github.com/langfuse/langfuse.git ./langfuse-server
-          echo "sha=$(cd ./langfuse-server && git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git clone https://github.com/langfuse/langfuse.git ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
 
       - name: Setup node (for langfuse server)
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: 24
 
-      # Cache the pnpm store (download cache) instead of node_modules directly.
-      # Caching node_modules skips postinstall hooks (e.g. prisma generate),
-      # which leads to stale generated artifacts that don't match the current schema.
-      - name: Cache pnpm store
+      - name: Cache langfuse server dependencies
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
-          path: ~/.local/share/pnpm/store/v3
-          key: pnpm-store-${{ steps.clone-server.outputs.sha }}
+          path: ./langfuse-server/node_modules
+          key: langfuse-serve-${{ hashFiles('langfuse-server/pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-
+            langfuse-serve-
 
       - name: Run langfuse server
         run: |
