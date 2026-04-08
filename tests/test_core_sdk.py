@@ -338,6 +338,7 @@ def test_create_text_score():
 
     # Ensure data is sent
     langfuse.flush()
+    sleep(2)
 
     # Create a text score
     score_id = create_uuid()

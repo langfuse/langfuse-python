@@ -120,18 +120,17 @@ def test_upsert_and_get_dataset_item():
     )
 
     # Refresh dataset and find updated item
-    dataset = langfuse.get_dataset(name)
-    get_new_item = None
-    for i in dataset.items:
-        if i.id == item.id:
-            get_new_item = i
-            break
+    archived_item = langfuse.api.dataset_items.get(id=item.id)
 
-    assert get_new_item is not None
-    assert get_new_item.input == new_input
-    assert get_new_item.id == item.id
-    assert get_new_item.expected_output == new_input
-    assert get_new_item.status == DatasetStatus.ARCHIVED
+    assert archived_item is not None
+    assert archived_item.input == new_input
+    assert archived_item.id == item.id
+    assert archived_item.expected_output == new_input
+    assert archived_item.status == DatasetStatus.ARCHIVED
+
+    # List endpoint does not contain archived items
+    dataset = langfuse.get_dataset(name)
+    assert all(i.id != item.id for i in dataset.items)
 
 
 def test_run_experiment():
