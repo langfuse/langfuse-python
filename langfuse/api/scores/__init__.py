@@ -13,10 +13,12 @@ if typing.TYPE_CHECKING:
         GetScoresResponseDataCategorical,
         GetScoresResponseDataCorrection,
         GetScoresResponseDataNumeric,
+        GetScoresResponseDataText,
         GetScoresResponseData_Boolean,
         GetScoresResponseData_Categorical,
         GetScoresResponseData_Correction,
         GetScoresResponseData_Numeric,
+        GetScoresResponseData_Text,
         GetScoresResponseTraceData,
     )
 _dynamic_imports: typing.Dict[str, str] = {
@@ -26,10 +28,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetScoresResponseDataCategorical": ".types",
     "GetScoresResponseDataCorrection": ".types",
     "GetScoresResponseDataNumeric": ".types",
+    "GetScoresResponseDataText": ".types",
     "GetScoresResponseData_Boolean": ".types",
     "GetScoresResponseData_Categorical": ".types",
     "GetScoresResponseData_Correction": ".types",
     "GetScoresResponseData_Numeric": ".types",
+    "GetScoresResponseData_Text": ".types",
     "GetScoresResponseTraceData": ".types",
 }
 
@@ -68,9 +72,11 @@ __all__ = [
     "GetScoresResponseDataCategorical",
     "GetScoresResponseDataCorrection",
     "GetScoresResponseDataNumeric",
+    "GetScoresResponseDataText",
     "GetScoresResponseData_Boolean",
     "GetScoresResponseData_Categorical",
     "GetScoresResponseData_Correction",
     "GetScoresResponseData_Numeric",
+    "GetScoresResponseData_Text",
     "GetScoresResponseTraceData",
 ]

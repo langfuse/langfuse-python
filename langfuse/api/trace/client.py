@@ -30,7 +30,11 @@ class TraceClient:
         return self._raw_client
 
     def get(
-        self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        trace_id: str,
+        *,
+        fields: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> TraceWithFullDetails:
         """
         Get a specific trace
@@ -39,6 +43,9 @@ class TraceClient:
         ----------
         trace_id : str
             The unique langfuse identifier of a trace
+
+        fields : typing.Optional[str]
+            Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -63,7 +70,9 @@ class TraceClient:
             trace_id="traceId",
         )
         """
-        _response = self._raw_client.get(trace_id, request_options=request_options)
+        _response = self._raw_client.get(
+            trace_id, fields=fields, request_options=request_options
+        )
         return _response.data
 
     def delete(
@@ -369,7 +378,11 @@ class AsyncTraceClient:
         return self._raw_client
 
     async def get(
-        self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        trace_id: str,
+        *,
+        fields: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> TraceWithFullDetails:
         """
         Get a specific trace
@@ -378,6 +391,9 @@ class AsyncTraceClient:
         ----------
         trace_id : str
             The unique langfuse identifier of a trace
+
+        fields : typing.Optional[str]
+            Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -411,7 +427,7 @@ class AsyncTraceClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(
-            trace_id, request_options=request_options
+            trace_id, fields=fields, request_options=request_options
         )
         return _response.data
 
