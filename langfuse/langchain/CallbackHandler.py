@@ -1256,8 +1256,25 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                 if "output" in usage_model:
                     usage_model["output"] = max(0, usage_model["output"] - value)
 
-        # Vertex AI
+        # OpenAI / LiteLLM — prompt_tokens_details as dict
+        # e.g. {"cached_tokens": 12000}
         if "prompt_tokens_details" in usage_model and isinstance(
+            usage_model["prompt_tokens_details"], dict
+        ):
+            prompt_tokens_details = usage_model.pop("prompt_tokens_details")
+
+            for key, value in prompt_tokens_details.items():
+                if not isinstance(value, int):
+                    continue
+
+                usage_model[f"input_{key}"] = value
+
+                if "input" in usage_model:
+                    usage_model["input"] = max(0, usage_model["input"] - value)
+
+        # Vertex AI — prompt_tokens_details as list
+        # e.g. [{"modality": "text", "token_count": N}]
+        elif "prompt_tokens_details" in usage_model and isinstance(
             usage_model["prompt_tokens_details"], list
         ):
             prompt_tokens_details = usage_model.pop("prompt_tokens_details")
