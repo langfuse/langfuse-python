@@ -93,9 +93,9 @@ jobs:
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ./langfuse-server/node_modules
-          key: |
-            langfuse-server-${{ hashFiles('./langfuse-server/package-lock.json') }}
-            langfuse-server-
+          key: langfuse-serve-${{ hashFiles('langfuse-server/pnpm-lock.yaml') }}
+          restore-keys: |
+            langfuse-serve-
 
       - name: Run langfuse server
         run: |
