@@ -36,11 +36,24 @@ logger = getLogger(__name__)
 
 
 class EventSerializer(JSONEncoder):
+    _MAX_DEPTH = 20
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.seen: set[int] = set()  # Track seen objects to detect circular references
+        self._depth = 0
 
     def default(self, obj: Any) -> Any:
+        if self._depth >= self._MAX_DEPTH:
+            return f"<{type(obj).__name__}>"
+
+        self._depth += 1
+        try:
+            return self._default_inner(obj)
+        finally:
+            self._depth -= 1
+
+    def _default_inner(self, obj: Any) -> Any:
         try:
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
@@ -167,6 +180,7 @@ class EventSerializer(JSONEncoder):
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call
+        self._depth = 0
 
         try:
             return super().encode(self.default(obj))
