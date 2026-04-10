@@ -2,17 +2,8 @@ import time
 from datetime import timedelta
 
 from langfuse import Langfuse
-from langfuse.api import DatasetStatus, NotFoundError
+from langfuse.api import DatasetStatus
 from tests.support.utils import create_uuid, wait_for_result
-
-
-def _is_dataset_item_hidden(langfuse: Langfuse, item_id: str) -> bool:
-    try:
-        langfuse.api.dataset_items.get(item_id)
-    except NotFoundError:
-        return True
-
-    return False
 
 
 def test_create_and_get_dataset():
@@ -155,11 +146,19 @@ def test_upsert_and_get_dataset_item():
 
     assert all(dataset_item.id != item.id for dataset_item in latest_dataset.items)
 
-    archived_item_hidden = wait_for_result(
-        lambda: _is_dataset_item_hidden(langfuse, item.id),
-        is_result_ready=lambda is_hidden: is_hidden,
+    archived_item = wait_for_result(
+        lambda: langfuse.api.dataset_items.get(item.id),
+        is_result_ready=lambda dataset_item: (
+            dataset_item.id == item.id
+            and dataset_item.input == new_input
+            and dataset_item.expected_output == new_input
+            and dataset_item.status == DatasetStatus.ARCHIVED
+        ),
     )
-    assert archived_item_hidden is True
+    assert archived_item.input == new_input
+    assert archived_item.id == item.id
+    assert archived_item.expected_output == new_input
+    assert archived_item.status == DatasetStatus.ARCHIVED
 
 
 def test_run_experiment():
