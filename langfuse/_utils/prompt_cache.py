@@ -3,8 +3,8 @@
 import atexit
 import os
 from datetime import datetime
-from queue import Empty, Queue
-from threading import Thread
+from queue import Queue
+from threading import RLock, Thread
 from typing import Callable, Dict, List, Optional, Set
 
 from langfuse._client.environment_variables import (
@@ -18,6 +18,7 @@ DEFAULT_PROMPT_CACHE_TTL_SECONDS = int(
 )
 
 DEFAULT_PROMPT_CACHE_REFRESH_WORKERS = 1
+_SHUTDOWN_SENTINEL = object()
 
 
 class PromptCacheItem:
@@ -46,22 +47,24 @@ class PromptCacheRefreshConsumer(Thread):
 
     def run(self) -> None:
         while self.running:
-            try:
-                task = self._queue.get(timeout=1)
-                logger.debug(
-                    f"PromptCacheRefreshConsumer processing task, {self._identifier}"
-                )
-                try:
-                    task()
-                # Task failed, but we still consider it processed
-                except Exception as e:
-                    logger.warning(
-                        f"PromptCacheRefreshConsumer encountered an error, cache was not refreshed: {self._identifier}, {e}"
-                    )
+            task = self._queue.get()
 
+            if task is _SHUTDOWN_SENTINEL:
                 self._queue.task_done()
-            except Empty:
-                pass
+                break
+
+            logger.debug(
+                f"PromptCacheRefreshConsumer processing task, {self._identifier}"
+            )
+            try:
+                task()
+            # Task failed, but we still consider it processed
+            except Exception as e:
+                logger.warning(
+                    f"PromptCacheRefreshConsumer encountered an error, cache was not refreshed: {self._identifier}, {e}"
+                )
+
+            self._queue.task_done()
 
     def pause(self) -> None:
         """Pause the consumer."""
@@ -73,12 +76,14 @@ class PromptCacheTaskManager(object):
     _threads: int
     _queue: Queue
     _processing_keys: Set[str]
+    _lock: RLock
 
     def __init__(self, threads: int = 1):
         self._queue = Queue()
         self._consumers = []
         self._threads = threads
         self._processing_keys = set()
+        self._lock = RLock()
 
         for i in range(self._threads):
             consumer = PromptCacheRefreshConsumer(self._queue, i)
@@ -88,16 +93,23 @@ class PromptCacheTaskManager(object):
         atexit.register(self.shutdown)
 
     def add_task(self, key: str, task: Callable[[], None]) -> None:
-        if key not in self._processing_keys:
-            logger.debug(f"Adding prompt cache refresh task for key: {key}")
-            self._processing_keys.add(key)
-            wrapped_task = self._wrap_task(key, task)
-            self._queue.put((wrapped_task))
-        else:
-            logger.debug(f"Prompt cache refresh task already submitted for key: {key}")
+        with self._lock:
+            if key not in self._processing_keys:
+                logger.debug(f"Adding prompt cache refresh task for key: {key}")
+                self._processing_keys.add(key)
+                wrapped_task = self._wrap_task(key, task)
+                self._queue.put((wrapped_task))
+            else:
+                logger.debug(
+                    f"Prompt cache refresh task already submitted for key: {key}"
+                )
 
     def active_tasks(self) -> int:
-        return len(self._processing_keys)
+        with self._lock:
+            return len(self._processing_keys)
+
+    def wait_for_idle(self) -> None:
+        self._queue.join()
 
     def _wrap_task(self, key: str, task: Callable[[], None]) -> Callable[[], None]:
         def wrapped() -> None:
@@ -105,7 +117,8 @@ class PromptCacheTaskManager(object):
             try:
                 task()
             finally:
-                self._processing_keys.remove(key)
+                with self._lock:
+                    self._processing_keys.remove(key)
                 logger.debug(f"Refreshed prompt cache for key: {key}")
 
         return wrapped
@@ -120,6 +133,9 @@ class PromptCacheTaskManager(object):
         for consumer in self._consumers:
             consumer.pause()
 
+        for _ in self._consumers:
+            self._queue.put(_SHUTDOWN_SENTINEL)
+
         for consumer in self._consumers:
             try:
                 consumer.join()
@@ -132,6 +148,7 @@ class PromptCacheTaskManager(object):
 
 class PromptCache:
     _cache: Dict[str, PromptCacheItem]
+    _lock: RLock
 
     _task_manager: PromptCacheTaskManager
     """Task manager for refreshing cache"""
@@ -140,34 +157,60 @@ class PromptCache:
         self, max_prompt_refresh_workers: int = DEFAULT_PROMPT_CACHE_REFRESH_WORKERS
     ):
         self._cache = {}
+        self._lock = RLock()
         self._task_manager = PromptCacheTaskManager(threads=max_prompt_refresh_workers)
         logger.debug("Prompt cache initialized.")
 
     def get(self, key: str) -> Optional[PromptCacheItem]:
-        return self._cache.get(key, None)
+        with self._lock:
+            return self._cache.get(key, None)
 
     def set(self, key: str, value: PromptClient, ttl_seconds: Optional[int]) -> None:
         if ttl_seconds is None:
             ttl_seconds = DEFAULT_PROMPT_CACHE_TTL_SECONDS
 
-        self._cache[key] = PromptCacheItem(value, ttl_seconds)
+        with self._lock:
+            self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
     def delete(self, key: str) -> None:
-        self._cache.pop(key, None)
+        with self._lock:
+            self._cache.pop(key, None)
 
     def invalidate(self, prompt_name: str) -> None:
         """Invalidate all cached prompts with the given prompt name."""
-        for key in list(self._cache):
-            if key.startswith(prompt_name):
-                del self._cache[key]
+        with self._lock:
+            for key in list(self._cache):
+                if key.startswith(prompt_name):
+                    del self._cache[key]
 
     def add_refresh_prompt_task(self, key: str, fetch_func: Callable[[], None]) -> None:
         logger.debug(f"Submitting refresh task for key: {key}")
         self._task_manager.add_task(key, fetch_func)
 
+    def add_refresh_prompt_task_if_current(
+        self,
+        key: str,
+        expected_item: PromptCacheItem,
+        fetch_func: Callable[[], None],
+    ) -> None:
+        with self._lock:
+            current_item = self._cache.get(key)
+            if (
+                current_item is not None
+                and current_item is not expected_item
+                and not current_item.is_expired()
+            ):
+                logger.debug(
+                    f"Skipping refresh task for key: {key} because cache is already fresh."
+                )
+                return
+
+        self.add_refresh_prompt_task(key, fetch_func)
+
     def clear(self) -> None:
         """Clear the entire prompt cache, removing all cached prompts."""
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
     @staticmethod
     def generate_cache_key(

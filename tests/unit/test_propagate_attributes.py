@@ -6,7 +6,6 @@ to all child spans within the context.
 """
 
 import concurrent.futures
-import time
 from datetime import datetime
 
 import pytest
@@ -17,7 +16,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse._client.datasets import DatasetClient
 from langfuse.api import Dataset, DatasetItem, DatasetStatus
-from tests.test_otel import TestOTelBase
+from tests.unit.test_otel import TestOTelBase
 
 
 class TestPropagateAttributesBase(TestOTelBase):
@@ -1460,7 +1459,7 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
             """Create a trace with specific user_id."""
             with langfuse_client.start_as_current_observation(name=f"trace-{user_id}"):
                 with propagate_attributes(user_id=user_id):
-                    await asyncio.sleep(0.01)  # Simulate async work
+                    await asyncio.sleep(0.001)  # Simulate async work
                     span = langfuse_client.start_observation(name=f"span-{user_id}")
                     span.end()
 
@@ -2305,7 +2304,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         local_data = [{"input": "test input", "expected_output": "expected output"}]
 
         async def async_task(*, item, **kwargs):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.001)
             return f"processed: {item['input']}"
 
         with propagate_attributes(user_id="async-experiment-user"):
@@ -2316,7 +2315,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         root_span = self.get_span_by_name(memory_exporter, "experiment-item-run")
         self.verify_span_attribute(
@@ -2361,7 +2359,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Flush to ensure spans are exported
         langfuse_client.flush()
-        time.sleep(0.1)
 
         # Get the root span
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
@@ -2495,7 +2492,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         experiment_ids = {
@@ -2587,7 +2583,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         # Verify root has dataset-specific attributes
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
@@ -2721,7 +2716,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         first_root = root_spans[0]
@@ -2779,8 +2773,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
     def test_experiment_metadata_merging(self, langfuse_client, memory_exporter):
         """Test that experiment metadata and item metadata are both propagated correctly."""
-        import time
-
         from langfuse._client.attributes import _serialize
 
         # Rich metadata
@@ -2817,7 +2809,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         # Verify root span has environment set
         root_span = self.get_span_by_name(memory_exporter, "experiment-item-run")

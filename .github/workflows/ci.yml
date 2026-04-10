@@ -12,7 +12,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   linting:
@@ -52,17 +52,14 @@ jobs:
       - name: Run mypy type checking
         run: uv run --frozen mypy langfuse --no-error-summary
 
-  ci:
+  unit-tests:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     env:
       LANGFUSE_BASE_URL: "http://localhost:3000"
-      LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
-      LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
-      HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: "pk-lf-test"
+      LANGFUSE_SECRET_KEY: "sk-lf-test"
+      OPENAI_API_KEY: "test-openai-key"
     strategy:
       fail-fast: false
       matrix:
@@ -73,87 +70,9 @@ jobs:
           - "3.13"
           - "3.14"
 
-    name: Test on Python version ${{ matrix.python-version }}
+    name: Unit tests on Python ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
-        with:
-          version: 10.33.0
-
-      - name: Clone langfuse server
-        run: |
-          git clone https://github.com/langfuse/langfuse.git ./langfuse-server && echo $(cd ./langfuse-server && git rev-parse HEAD)
-
-      - name: Setup node (for langfuse server)
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          node-version: 24
-
-      - name: Cache langfuse server dependencies
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ./langfuse-server/node_modules
-          key: langfuse-serve-${{ hashFiles('langfuse-server/pnpm-lock.yaml') }}
-          restore-keys: |
-            langfuse-serve-
-
-      - name: Run langfuse server
-        run: |
-          cd ./langfuse-server
-
-          echo "::group::Run langfuse server"
-          TELEMETRY_ENABLED=false docker compose up -d postgres
-          echo "::endgroup::"
-
-          echo "::group::Logs from langfuse server"
-          TELEMETRY_ENABLED=false docker compose logs
-          echo "::endgroup::"
-
-          echo "::group::Install dependencies (necessary to run seeder)"
-          pnpm i
-          echo "::endgroup::"
-
-          echo "::group::Seed db"
-          cp .env.dev.example .env
-          pnpm run db:migrate
-          pnpm run db:seed
-          echo "::endgroup::"
-          rm -rf .env
-
-          echo "::group::Run server"
-
-          TELEMETRY_ENABLED=false \
-          LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://localhost:9090 \
-          LANGFUSE_INGESTION_QUEUE_DELAY_MS=10 \
-          LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS=10 \
-          LANGFUSE_EXPERIMENT_INSERT_INTO_EVENTS_TABLE=true \
-          QUEUE_CONSUMER_EVENT_PROPAGATION_QUEUE_IS_ENABLED=true \
-          LANGFUSE_ENABLE_EVENTS_TABLE_V2_APIS=true \
-          LANGFUSE_ENABLE_EVENTS_TABLE_OBSERVATIONS=true \
-          docker compose up -d
-
-          echo "::endgroup::"
-
-      # Add this step to check the health of the container
-      - name: Health check for langfuse server
-        run: |
-          echo "Checking if the langfuse server is up..."
-          retry_count=0
-          max_retries=10
-          until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health
-          do
-            retry_count=`expr $retry_count + 1`
-            echo "Attempt $retry_count of $max_retries..."
-            if [ $retry_count -ge $max_retries ]; then
-              echo "Langfuse server did not respond in time. Printing logs..."
-              docker logs langfuse-server-langfuse-web-1
-              echo "Failing the step..."
-              exit 1
-            fi
-            sleep 5
-          done
-          echo "Langfuse server is up and running!"
-
       - name: Install uv and set Python version
         uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
         with:
@@ -170,12 +89,159 @@ jobs:
       - name: Run the automated tests
         run: |
           python --version
-          uv run --frozen pytest -n auto --dist loadfile -s -v --log-cli-level=INFO
+          uv run --frozen pytest -n auto --dist worksteal -s -v --log-cli-level=INFO tests/unit
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: e2e
+            job_name: E2E shard 1 tests on Python 3.13
+            shard_name: shard-1
+            shard_index: 0
+            shard_count: 2
+          - suite: e2e
+            job_name: E2E shard 2 tests on Python 3.13
+            shard_name: shard-2
+            shard_index: 1
+            shard_count: 2
+          - suite: live_provider
+            job_name: E2E live-provider tests on Python 3.13
+            shard_name: live-provider
+    env:
+      LANGFUSE_BASE_URL: "http://localhost:3000"
+      LANGFUSE_PUBLIC_KEY: "pk-lf-1234567890"
+      LANGFUSE_SECRET_KEY: "sk-lf-1234567890"
+      LANGFUSE_INIT_ORG_ID: "0c6c96f4-0ca0-4f16-92a8-6dd7d7c6a501"
+      LANGFUSE_INIT_ORG_NAME: "SDK Test Org"
+      LANGFUSE_INIT_PROJECT_ID: "7a88fb47-b4e2-43b8-a06c-a5ce950dc53a"
+      LANGFUSE_INIT_PROJECT_NAME: "SDK Test Project"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-1234567890"
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-1234567890"
+      LANGFUSE_INIT_USER_EMAIL: "sdk-tests@langfuse.local"
+      LANGFUSE_INIT_USER_NAME: "SDK Tests"
+      LANGFUSE_INIT_USER_PASSWORD: "langfuse-ci-password"
+      LANGFUSE_E2E_READ_TIMEOUT_SECONDS: "60"
+      LANGFUSE_E2E_READ_INTERVAL_SECONDS: "0.5"
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    name: ${{ matrix.job_name }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
+        with:
+          version: "0.11.2"
+          python-version: "3.13"
+          enable-cache: true
+      - name: Install the project dependencies
+        run: uv sync --locked
+      - name: Check uv Python version
+        run: uv run --frozen python --version
+      - name: Prepare langfuse server compose
+        run: |
+          mkdir -p ./langfuse-server
+          LANGFUSE_SERVER_SHA="$(git ls-remote https://github.com/langfuse/langfuse.git HEAD | cut -f1)"
+          curl -fsSL "https://raw.githubusercontent.com/langfuse/langfuse/${LANGFUSE_SERVER_SHA}/docker-compose.yml" \
+            -o ./langfuse-server/docker-compose.yml
+          echo "${LANGFUSE_SERVER_SHA}"
+
+      - name: Run langfuse server
+        run: |
+          cd ./langfuse-server
+
+          echo "::group::Start langfuse server"
+          TELEMETRY_ENABLED=false \
+          NEXT_PUBLIC_LANGFUSE_RUN_NEXT_INIT=true \
+          LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://localhost:9090 \
+          LANGFUSE_INGESTION_QUEUE_DELAY_MS=10 \
+          LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS=10 \
+          LANGFUSE_EXPERIMENT_INSERT_INTO_EVENTS_TABLE=true \
+          QUEUE_CONSUMER_EVENT_PROPAGATION_QUEUE_IS_ENABLED=true \
+          LANGFUSE_ENABLE_EVENTS_TABLE_V2_APIS=true \
+          LANGFUSE_ENABLE_EVENTS_TABLE_OBSERVATIONS=true \
+          docker compose up -d
+          echo "::endgroup::"
+
+      - name: Health check for langfuse server
+        run: |
+          echo "Checking if the langfuse server is up..."
+          retry_count=0
+          max_retries=20
+          until curl --output /dev/null --silent --head --fail http://localhost:3000/api/public/health && \
+            uv run --frozen python -c "from langfuse import Langfuse; client = Langfuse(); project_id = client._get_project_id(); assert project_id == '7a88fb47-b4e2-43b8-a06c-a5ce950dc53a', project_id; print(project_id)"
+          do
+            retry_count=`expr $retry_count + 1`
+            echo "Attempt $retry_count of $max_retries..."
+            if [ $retry_count -ge $max_retries ]; then
+              echo "Langfuse server did not respond in time. Printing logs..."
+              (cd ./langfuse-server && docker compose ps)
+              (cd ./langfuse-server && docker compose logs langfuse-web langfuse-worker)
+              echo "Failing the step..."
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "Langfuse server is up and running!"
+
+      - name: Select e2e shard files
+        if: ${{ matrix.suite == 'e2e' }}
+        run: |
+          uv run --frozen python scripts/select_e2e_shard.py \
+            --shard-index ${{ matrix.shard_index }} \
+            --shard-count ${{ matrix.shard_count }} \
+            --json
+          uv run --frozen python scripts/select_e2e_shard.py \
+            --shard-index ${{ matrix.shard_index }} \
+            --shard-count ${{ matrix.shard_count }} \
+            > "$RUNNER_TEMP/e2e-shard-files.txt"
+          cat "$RUNNER_TEMP/e2e-shard-files.txt"
+
+      - name: Run the parallel end-to-end tests
+        if: ${{ matrix.suite == 'e2e' }}
+        run: |
+          uv run --frozen python --version
+          mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
+          set +e
+          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "not serial_e2e"
+          status=$?
+          set -e
+          if [ "$status" -eq 5 ]; then
+            echo "No parallel e2e tests selected for this shard."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+
+      - name: Run serial end-to-end tests
+        if: ${{ matrix.suite == 'e2e' }}
+        run: |
+          mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
+          set +e
+          uv run --frozen pytest -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "serial_e2e"
+          status=$?
+          set -e
+          if [ "$status" -eq 5 ]; then
+            echo "No serial e2e tests selected for this shard."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+
+      - name: Run live-provider tests
+        if: ${{ matrix.suite == 'live_provider' }}
+        run: |
+          uv run --frozen python --version
+          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO tests/live_provider -m "live_provider"
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    needs: [ci, linting, type-checking]
+    needs: [unit-tests, e2e-tests, linting, type-checking]
     if: always()
     steps:
       - name: Successful deploy
