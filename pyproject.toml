@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.0.6"
+version = "4.2.0"
 description = "A client library for accessing langfuse"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
@@ -34,6 +34,7 @@ dev = [
     "langgraph>=1,<2",
     "autoevals>=0.0.130,<0.1",
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
+    "tenacity>=9.1.4",
 ]
 docs = [
     "pdoc>=15.0.4,<16",

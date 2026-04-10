@@ -200,12 +200,59 @@ class GetScoresResponseData_Correction(UniversalBaseModel):
     )
 
 
+class GetScoresResponseData_Text(UniversalBaseModel):
+    data_type: typing_extensions.Annotated[
+        typing.Literal["TEXT"], FieldMetadata(alias="dataType")
+    ] = "TEXT"
+    trace: typing.Optional[GetScoresResponseTraceData] = None
+    string_value: typing_extensions.Annotated[str, FieldMetadata(alias="stringValue")]
+    id: str
+    trace_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="traceId")
+    ] = None
+    session_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="sessionId")
+    ] = None
+    observation_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="observationId")
+    ] = None
+    dataset_run_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="datasetRunId")
+    ] = None
+    name: str
+    source: ScoreSource
+    timestamp: dt.datetime
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
+    ]
+    updated_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="updatedAt")
+    ]
+    author_user_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="authorUserId")
+    ] = None
+    comment: typing.Optional[str] = None
+    metadata: typing.Any
+    config_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="configId")
+    ] = None
+    queue_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="queueId")
+    ] = None
+    environment: str
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
+
+
 GetScoresResponseData = typing_extensions.Annotated[
     typing.Union[
         GetScoresResponseData_Numeric,
         GetScoresResponseData_Categorical,
         GetScoresResponseData_Boolean,
         GetScoresResponseData_Correction,
+        GetScoresResponseData_Text,
     ],
     pydantic.Field(discriminator="data_type"),
 ]

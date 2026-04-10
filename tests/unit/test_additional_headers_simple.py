@@ -3,9 +3,23 @@
 This module tests that additional headers are properly configured in the HTTP clients.
 """
 
+from typing import Sequence
+
 import httpx
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from langfuse._client.client import Langfuse
+
+
+class NoOpSpanExporter(SpanExporter):
+    """Minimal exporter used to verify custom exporter injection."""
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
+        pass
 
 
 class TestAdditionalHeadersSimple:
@@ -196,3 +210,19 @@ class TestAdditionalHeadersSimple:
         assert "Authorization" in exporter._headers
         assert "x-langfuse-sdk-name" in exporter._headers
         assert "x-langfuse-public-key" in exporter._headers
+
+    def test_span_processor_uses_custom_span_exporter_when_provided(self):
+        """Test that a custom exporter bypasses the default OTLP exporter construction."""
+        from langfuse._client.span_processor import LangfuseSpanProcessor
+
+        custom_exporter = NoOpSpanExporter()
+
+        processor = LangfuseSpanProcessor(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            base_url="https://mock-host.com",
+            additional_headers={"X-Custom-Trace-Header": "trace-value"},
+            span_exporter=custom_exporter,
+        )
+
+        assert processor.span_exporter is custom_exporter
