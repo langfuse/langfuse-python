@@ -26,7 +26,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         pydantic.Field()
     )
     """
-    Name of the storage bucket
+    Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
     """
 
     endpoint: typing.Optional[str] = pydantic.Field(default=None)
